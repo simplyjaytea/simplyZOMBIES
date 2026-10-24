@@ -287,6 +287,10 @@ var _white: Dictionary = {}
 var _layers: RefCounted = WorldLayersRes.new()
 # The night, per pixel, and the glow over it (presentation/light_map.gd).
 var _light_map: RefCounted = LightMapRes.new()
+# The night's texels and the key they were built for (world, tick, eyes, view). They are a fact
+# about the sim, which changes only in step(), so the frames between two ticks reuse them.
+var _texels: Dictionary = {}
+var _texels_key: Array = []
 var _pen: Object = null
 # Which of a tile's looks a _draw_district pass bakes; the values are world_layers.gd's Layer ids.
 enum BakePass { LIVE = 0, A2 = 1, REMEMBERED = 2 }
@@ -898,6 +902,15 @@ func _open_context_menu(pos: Vector2, _hit: Dictionary, rows: Array[Dictionary])
 # than the sim's, and `attack.context` is a marker for the two commands a swing actually needs
 # (`aim`, then whichever of `fire`/`swing` is in hand) rather than a command `world.gd` itself
 # would recognise.
+func _draft_selected() -> void:
+	if world == null or _selected < 0 or _selected == int(world.player):
+		return
+	var command: Dictionary = SimOrders.draft_command(world, _selected)
+	if not command.is_empty():
+		world.commands.push(command)
+	queue_redraw()
+
+
 func _context_pick(row: Dictionary) -> void:
 	if world == null:
 		return
@@ -3715,7 +3728,12 @@ func _draw_night_wash() -> void:
 	var min_y: int = maxi(0, floori(float(bounds["minY"])))
 	var max_y: int = mini(map_h - 1, ceili(float(bounds["maxY"])))
 	var view := Rect2i(min_x, min_y, maxi(0, max_x - min_x + 1), maxi(0, max_y - min_y + 1))
-	var texels: Dictionary = LightLook.light_texels(world, eyes, view)
+	var texels_key: Array = [world.get_instance_id(), int(world.tick), eyes, view]
+	var texels_cached: bool = texels_key == _texels_key
+	if not texels_cached:
+		_texels = LightLook.light_texels(world, eyes, view)
+		_texels_key = texels_key
+	var texels: Dictionary = _texels
 	# A carried light rides the body, and the body is drawn between ticks (presentation/interp.gd);
 	# its pool slides with the picture so it never trails it by a tick.
 	var lights: Array = []
@@ -3737,7 +3755,7 @@ func _draw_night_wash() -> void:
 	var ctx: Dictionary = {
 		"viewport": get_viewport_rect().size, "zoom": float(camera["zoom"]),
 		"origin": Vector2(float(origin["sx"]), float(origin["sy"])), "view": view,
-		"texels": texels, "lights": lights, "ambient": ambient,
+		"texels": texels, "texels_cached": texels_cached, "lights": lights, "ambient": ambient,
 		"range_m": range_m if range_m > 0.0 else 1.0, "night": night,
 		"night_wash": NIGHT_WASH,
 		"edge_dark_day": SIGHT_EDGE_DARK_DAY, "edge_dark_night": SIGHT_EDGE_DARK_NIGHT,

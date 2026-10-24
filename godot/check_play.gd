@@ -89,6 +89,7 @@ const InputMapRes = preload("res://presentation/input_map.gd")
 const Session = preload("res://presentation/session.gd")
 const Onboarding = preload("res://presentation/onboarding.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
+const SimOrders = preload("res://sim/modules/orders.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
@@ -133,6 +134,7 @@ const PRESSED_KEYS: Array = [
 	["Ctrl+C", "Ctrl+C crouches"],
 	["Ctrl+S", "Ctrl+S stands"],
 	["F", "F swings, and does not while the sheet is open"],
+	["X", "X drafts the colonist you picked, and again sets them free"],
 ]
 
 # The two actions `input_map.gd` binds that the legend deliberately does not name, each excused
@@ -209,6 +211,7 @@ func _run() -> void:
 	var hint_ok: bool = await _a_first_day_hint_shows_clears_and_saves(main)
 	ok = hint_ok and ok
 	ok = _c_is_the_camp_key_and_ctrl_c_is_the_stance(main) and ok
+	ok = _x_drafts_the_colonist_picked(main) and ok
 	var focus_ok: bool = await _the_open_sheet_swallows_the_street(main)
 	ok = focus_ok and ok
 	var nav_ok: bool = await _one_bar_reaches_all_three_screens(main)
@@ -959,6 +962,46 @@ func _c_is_the_camp_key_and_ctrl_c_is_the_stance(main: Node) -> bool:
 		push_error("CAMP-KEY: Ctrl+S entered the held-movement set, so standing up steps backwards")
 		return false
 	print("CAMP-KEY OK C camps, Shift+C strikes, Ctrl+C crouches, Ctrl+S stands without stepping back")
+	return true
+
+
+# --- DRAFT ------------------------------------------------------------------------------------
+
+# X drafts the colonist picked on the street: the first press holds them where they stand, the
+# second sets them free. With nobody picked the press pushes nothing at all, and the pushed
+# command is the one the sim's `SimOrders.draft_command` decides, judged here by its shape.
+func _x_drafts_the_colonist_picked(main: Node) -> bool:
+	var world: Variant = main.get("world")
+	var mara: int = -1
+	for e in world.components.query(["identity"]):
+		var ident: Variant = world.components.get_component(int(e), "identity")
+		if ident is Dictionary and String((ident as Dictionary).get("id", "")) == "survivor.unique.mara":
+			mara = int(e)
+	if mara < 0:
+		return _skip("DRAFT", "the boot colony has no Mara to draft")
+	main.set("_selected", -1)
+	_drain(main)
+	_tap(KEY_X)
+	if not _pending(main).is_empty():
+		push_error("DRAFT: X with nobody picked pushed %d command(s)" % _pending(main).size())
+		return false
+	main.set("_selected", mara)
+	_drain(main)
+	_tap(KEY_X)
+	var held: Array = _pending(main)
+	var held_ok: bool = held.size() == 1 and String((held[0] as Dictionary).get("kind", "")) == "hold" and int((held[0] as Dictionary).get("entity", -1)) == mara
+	# Left pending on purpose: the frames below are what the sim takes it with.
+	_frames(main, 2)
+	var on_record: bool = SimOrders.holds(world, mara)
+	_tap(KEY_X)
+	var freed: Array = _pending(main)
+	var freed_ok: bool = freed.size() == 1 and String((freed[0] as Dictionary).get("kind", "")) == "clear" and int((freed[0] as Dictionary).get("entity", -1)) == mara
+	_drain(main)
+	main.set("_selected", -1)
+	if not held_ok or not on_record or not freed_ok:
+		push_error("DRAFT: the first press pushed a hold %s and held Mara %s; the second press pushed a clear %s" % [held_ok, on_record, freed_ok])
+		return false
+	print("DRAFT OK X holds the colonist you picked where they stand, X again sets them free, and nothing is pushed with nobody picked")
 	return true
 
 
@@ -1951,7 +1994,9 @@ func _every_key_pressed_is_a_key_the_legend_names() -> bool:
 			return false
 	# And the ladder the owner moved onto Ctrl is on Ctrl, not still on the bare letters where it
 	# collided with the camp key.
-	for stale in ["Z / X / C / V", "Z", "X", "V"]:
+	# X is the draft key now (2026-10-24), so it is no longer a stale stance key; the old ladder row
+	# "Z / X / C / V" still is, and it is the one that would name X as a stance.
+	for stale in ["Z / X / C / V", "Z", "V"]:
 		if named.has(stale):
 			push_error("KEYS: the legend still offers '%s' as a stance key; the ladder is on Ctrl now" % stale)
 			return false

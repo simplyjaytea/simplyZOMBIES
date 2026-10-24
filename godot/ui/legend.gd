@@ -49,6 +49,7 @@ const GROUPS: Array = [
 		["Mouse", "aim — you turn to the cursor while standing; moving, you face where you go"],
 		["Click", "attack: fires if a gun or bow is in hand, swings if not"],
 		["Right-click", "what you can do with what is under the cursor — walk there, pick up, open, attack, first aid"],
+		["X", "draft the colonist you picked: they stand where they are and take no work; again sets them free"],
 		["F", "swing, or struggle out of a grab"],
 		["H", "pull someone out of a grab"],
 		["G", "fire"],
