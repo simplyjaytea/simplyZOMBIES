@@ -120,7 +120,7 @@ still required Milestone 2 proof, deferred rather than cancelled.
 
 ## Night eyes on restore, 2026-10-24
 
-A save from before the survivors' night-eyes floor (`visibility.gd` `NIGHT_EYES_FLOOR_M`) has no
+A save from before the survivors' night-eyes floor (`SimLight.NIGHT_EYES_FLOOR_M`, `sim/vision/light.gd`) has no
 `night_eyes` on a person's observer. `SimWorld.restore` sets it on every observer that is neither a
 zombie (`shambler`) nor a raider, as `SimSurvivors.give_eyes` would have, so an old save's survivors
 see the floor and no save version was bumped. Gated by `godot:m2:sight` FLOOR (LOAD lane).
