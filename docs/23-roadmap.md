@@ -12421,6 +12421,15 @@ not a to-do list:
   check was added. With every A3 switch off, the 3,000-tick hash matches `main`; with them on, it
   repeats. [docs/22](22-performance.md#bringing-the-tick-to-budget).
 
+- **Kernel & tooling — the tick to budget, P0: the colony sample and Haul's walk, 2026-10-24
+  (partial).** `colony-tick` joins `shipped-tick` in the runtime bench and the budget judge, a
+  booted world with 200 more loose items. Haul's search walks the zombies once for its nearest
+  clear item, not once per loose item: 21.5 to 3.7 ms for one idle Haul call with 272 items on the
+  ground, the same answer (`ORDER` lane in `godot:m2:tick`; 3,000-tick serialize hash equal to
+  `main` on a colony-loaded world). jobs.ai's mean fell from about 4.45 to 3.85 ms over three
+  interleaved colony runs; the whole tick did not separate from noise and is still over 8 ms
+  mean. Still open: the Dress scan, the stockpile scan read by Cook, Repair and Water, Repair and
+  Cook themselves (docs/22 names the figures).
 - **Kernel & tooling — water draw check follows its branches, 2026-10-03.** The A2 wall
   additions moved the water fill to character 4,473 after the drawing match, beyond
   `check_water.gd`'s 4,000-character window. Reproduced on the merged art pass:
