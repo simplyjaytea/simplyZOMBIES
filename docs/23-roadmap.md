@@ -3503,7 +3503,8 @@ not a to-do list:
   default). Sabotage: an unexplored-tile check turned to `true` turns MARK red. Not proven yet: a ford
   (no explored ford on the seed's map, skipped out loud); a full Haul walk onto a marked outdoor pile
   (the drop point and the haul test are checked, not a walk); and the raider looter, which still asks
-  `SimHome.rect` (the annex), so an outdoor pile is not looted. Sim tick, `godot:bench:runtime`, three
+  `SimHome.rect` (the annex), so an outdoor pile is not looted yet. Both move to S3: its raider lane
+  switches the looter to the stockpile module, and its gate walks a Haul onto a marked outdoor pile. Sim tick, `godot:bench:runtime`, three
   interleaved pairs on this box: head mean 13.42, 13.25, 13.26 ms; base 14.06, 12.88, 12.96 ms (medians
   13.26 against 12.96, inside the box's roughly 1 ms spread). Both sit above the 8 ms target here, as
   main does on this box.
