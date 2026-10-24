@@ -1542,6 +1542,24 @@ func _a_part_dropped_on_a_weapon_fits_it_or_lands_in_the_grid() -> bool:
 			push_error("FIT-DROP: the magazine dropped on the worn rifle is not in the rifle")
 			ok = false
 
+		# A part that does not fit the worn rifle goes to its box as before, and the box equips it.
+		# The negative: a fit is not made just because the box is the one under the pointer.
+		var box_part: int = _give(w, "item.attach.underbarrel.bipod")
+		if box_part < 0:
+			push_error("FIT-DROP: the part could not be carried for the worn-box negative")
+			ok = false
+		else:
+			panel.set("_drag_item", box_part)
+			w.commands.take(int(w.tick))
+			panel.call("_release_at", box_at)
+			if _pending_has(w, "item.attach", box_part):
+				push_error("FIT-DROP: a part that is not hand-swappable was fitted by a drop on a worn rifle's box")
+				ok = false
+			if not _pending_has(w, "item.equip", box_part):
+				push_error("FIT-DROP: a part dropped on a worn rifle's box did not reach the box's equip")
+				ok = false
+			w.step()
+
 	viewport.queue_free()
 	await process_frame
 	return ok
