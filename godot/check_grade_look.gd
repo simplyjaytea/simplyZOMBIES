@@ -15,17 +15,24 @@ extends SceneTree
 #   NIGHT     weight 0 hands every palette colour back bit for bit, so the night frame is the
 #             light map's picture; the grade sits under the night's multiply and its glow (draw
 #             index), so a pool's hue and a flame are laid on after it and never graded
-#   CONTRAST  the speech bubble -- the one piece of chrome drawn in the world rather than on the
-#             HUD's layer -- keeps its 4.5:1 for speech under the grade; a zombie's dim
-#             sound-word is measured and reported (it sits under 4.5:1 before the grade too)
+#   CONTRAST  a speech bubble's ink -- speech, and a zombie's lifted sound-word -- clears 4.5:1 on
+#             its plate composited over every ground the street has, graded and not; the kit's
+#             own dim text, which the sound-word used to be, is the case refused
+#   WORDS     the words main writes into the world -- speech bubbles and the pawn tag -- are
+#             never graded: `_draw_bubbles` and the tag branch only record them, every
+#             `draw_string(` in main.gd is inside `_paint_world_text`, and its item draws at
+#             TEXT_INDEX, over the grade and under the night; a fabricated main that still draws
+#             a bubble itself is refused. Their contrast is the ungraded one, reported
 #   SHADER    day_grade.gdshader reads the screen and runs DayGrade.grade's steps in its order,
 #             on the uniforms day_grade.gd hands it; a needle the shader does not carry is refused
 #   READS     the dead socket: main.tscn's `_draw` calls `_draw_day_grade()` before
 #             `_draw_night_wash()`; at noon the frame grades at weight 1, at midnight it draws
-#             nothing, and with the grade switched off it draws nothing; the HUD's panels all sit
-#             on a CanvasLayer above main's canvas item, so none of them is in the graded picture
+#             nothing, and with the grade switched off it draws nothing; a line the survivor says
+#             is recorded as a bubble and painted; the HUD's panels all sit on a CanvasLayer above
+#             main's canvas item, so none of them is in the graded picture
 #   PIXELS    with a display, the day street captured with and without the grade: the street's
-#             pixels move and cool, the HUD's saturated chrome is the same pixels in both; skips
+#             pixels move and cool, the HUD's saturated chrome and a speech bubble's ink are the
+#             same pixels in both; skips
 #             without a display (`npm run godot:check:grade` runs it headed when DISPLAY is set)
 #
 # A lane with no data to judge says so and skips, never passes quietly.
@@ -36,6 +43,7 @@ const LightMap = preload("res://presentation/light_map.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Chrome = preload("res://ui/chrome.gd")
 const Clock = preload("res://sim/time/clock.gd")
+const MainScript = preload("res://presentation/main.gd")
 
 const MAIN_GD: String = "res://presentation/main.gd"
 const SHADER: String = "res://presentation/day_grade.gdshader"
@@ -65,6 +73,8 @@ const DAY_TABLE: Dictionary = {
 const VOID_CHROMA: int = 6
 const VOID_VALUE: Vector2 = Vector2(0.08, 0.16)
 const CONTRAST_MIN: float = 4.5
+# The grounds a bubble can stand over: every surface, the pavement, the board floor and the wall.
+const BACKDROPS: Array[String] = ["floor", "dirt", "grass", "undergrowth", "rubble", "water", "sidewalk", "indoorFloor", "wall", "kerb"]
 
 var _failed: bool = false
 var _notes: Array[String] = []
@@ -79,6 +89,7 @@ func _run() -> void:
 	_day()
 	_night()
 	_contrast()
+	_words()
 	_shader()
 	await _reads()
 	await _pixels()
@@ -205,19 +216,60 @@ func _ratio(a: Color, b: Color) -> float:
 
 
 # CONTRAST.
+func _worst_ratio(ink: Color) -> Array:
+	var worst: float = INF
+	var at: String = ""
+	for key in BACKDROPS:
+		var ground: Color = Palette.COLOURS[key] as Color
+		for g in [ground, DayGrade.grade(ground, 1.0)]:
+			var plate: Color = (g as Color).lerp(Chrome.PANEL, MainScript.BUBBLE_PLATE_ALPHA)
+			var r: float = _ratio(ink, plate)
+			if r < worst:
+				worst = r
+				at = key
+	return [worst, at]
+
+
 func _contrast() -> void:
-	var plate: Color = Chrome.PANEL
-	var before: float = _ratio(Chrome.TEXT, plate)
-	var after: float = _ratio(DayGrade.grade(Chrome.TEXT, 1.0), DayGrade.grade(plate, 1.0))
-	if after < CONTRAST_MIN:
-		_fail("CONTRAST: a bubble's speech is %.2f:1 on its plate under the grade, under %.1f:1" % [after, CONTRAST_MIN])
-	# The negative: the bound can fail -- the dim text on the same plate does not clear it even
-	# ungraded, so a lane that passed it would be judging nothing.
-	var dim_before: float = _ratio(Chrome.TEXT_DIM, plate)
-	var dim_after: float = _ratio(DayGrade.grade(Chrome.TEXT_DIM, 1.0), DayGrade.grade(plate, 1.0))
-	if dim_before >= CONTRAST_MIN:
-		_fail("CONTRAST: the dim text clears %.1f:1 ungraded, so the bound was never shown to fail" % CONTRAST_MIN)
-	_notes.append("CONTRAST OK a bubble's speech %.2f:1 -> %.2f:1 under the grade; a zombie's dim sound-word %.2f:1 -> %.2f:1 (under %.1f:1 before the grade too, named in docs/23)" % [before, after, dim_before, dim_after, CONTRAST_MIN])
+	var speech: Array = _worst_ratio(MainScript.bubble_ink(false))
+	var sound: Array = _worst_ratio(MainScript.bubble_ink(true))
+	var kit_dim: Array = _worst_ratio(Chrome.TEXT_DIM)
+	if float(speech[0]) < CONTRAST_MIN:
+		_fail("CONTRAST: a bubble's speech reads %.2f:1 on its plate over %s, under %.1f:1" % [speech[0], speech[1], CONTRAST_MIN])
+	if float(sound[0]) < CONTRAST_MIN:
+		_fail("CONTRAST: a zombie's sound-word reads %.2f:1 on its plate over %s, under %.1f:1" % [sound[0], sound[1], CONTRAST_MIN])
+	if float(kit_dim[0]) >= CONTRAST_MIN:
+		_fail("CONTRAST: the kit's dim text clears %.1f:1 too, so the bound was never shown to fail" % CONTRAST_MIN)
+	if not (MainScript.bubble_ink(true).get_luminance() < MainScript.bubble_ink(false).get_luminance()):
+		_fail("CONTRAST: a zombie's sound-word is no longer quieter than speech")
+	_notes.append("CONTRAST OK on the plate over the worst of %d grounds, graded or not: speech %.2f:1 (%s), a zombie's sound-word %.2f:1 (%s), still quieter than speech; the kit's dim text it used to be reads %.2f:1 and is refused" % [BACKDROPS.size(), speech[0], speech[1], sound[0], sound[1], kit_dim[0]])
+
+
+# WORDS.
+func _words() -> void:
+	var src: String = FileAccess.get_file_as_string(MAIN_GD)
+	var painter: String = _function_body(MAIN_GD, "_paint_world_text")
+	if painter.is_empty():
+		_fail("WORDS: main.gd has no _paint_world_text")
+		return
+	var draws_total: int = src.count("draw_string(")
+	var draws_painter: int = painter.count("draw_string(")
+	if draws_painter == 0:
+		_fail("WORDS: _paint_world_text draws no string -- nothing paints the world's words")
+	if draws_total != draws_painter:
+		_fail("WORDS: main.gd draws %d strings outside _paint_world_text, under the day grade" % (draws_total - draws_painter))
+	if not painter.contains("Chrome.frame(c,"):
+		_fail("WORDS: _paint_world_text does not draw the bubble's plate")
+	var bubbles: String = _function_body(MAIN_GD, "_draw_bubbles")
+	if bubbles.contains("Chrome.frame(") or bubbles.contains("draw_rect(") or bubbles.contains("draw_string(") or bubbles.contains("draw_colored_polygon(") or not bubbles.contains("_world_text_ops.append("):
+		_fail("WORDS: _draw_bubbles draws on main rather than recording for _paint_world_text")
+	# The negative: the same count over a main that still draws its bubble line itself.
+	var fab: String = src.replace("_world_text_ops.append({\n\t\t\t\"kind\": \"bubble\"", "draw_string(font, Vector2.ZERO, \"x\")\n\t\t_world_text_ops.append({\n\t\t\t\"kind\": \"bubble\"")
+	if fab == src or fab.count("draw_string(") == draws_painter:
+		_fail("WORDS: a fabricated main drawing its own bubble line was not told apart")
+	if not (DayGrade.GRADE_INDEX < DayGrade.TEXT_INDEX and DayGrade.TEXT_INDEX < LightMap.DARK_INDEX):
+		_fail("WORDS: the world's words (draw index %d) are not between the grade (%d) and the night (%d)" % [DayGrade.TEXT_INDEX, DayGrade.GRADE_INDEX, LightMap.DARK_INDEX])
+	_notes.append("WORDS OK all %d strings main.gd draws are in _paint_world_text, at draw index %d between the grade %d and the night %d; a main drawing its own bubble line is refused" % [draws_painter, DayGrade.TEXT_INDEX, DayGrade.GRADE_INDEX, LightMap.DARK_INDEX])
 
 
 # SHADER.
@@ -297,9 +349,15 @@ func _reads() -> void:
 		await _discard(main)
 		return
 	world.tick = Clock.tick_on_day(1, 0.5)
+	world.components.set_component(int(world.player), "saying", {"text": "keep moving", "until": int(world.tick) + 2000})
 	await _redraw(main)
 	var noon_drew: bool = bool(grade.get("drew"))
 	var noon_w: float = float(grade.get("last_weight"))
+	var spoken: int = 0
+	for op in main.get("_world_text_ops") as Array:
+		if String((op as Dictionary)["kind"]) == "bubble":
+			spoken += 1
+	var painted: int = int(main.get("_world_text_frame"))
 	world.tick = Clock.tick_on_day(1, 0.9)
 	await _redraw(main)
 	var night_drew: bool = bool(grade.get("drew"))
@@ -313,6 +371,10 @@ func _reads() -> void:
 		_fail("READS: the noon frame did not grade at weight 1 (drew %s, weight %f)" % [noon_drew, noon_w])
 	if night_drew:
 		_fail("READS: the midnight frame drew the grade")
+	if spoken == 0:
+		_fail("READS: the survivor's line was not recorded as a bubble for _paint_world_text")
+	if painted < 0:
+		_fail("READS: _paint_world_text never ran")
 	if off_drew:
 		_fail("READS: the frame graded with the grade switched off -- `drew` reads nothing")
 	# The HUD: every Control main owns is under a CanvasLayer above main's canvas (layer >= 1), so
@@ -333,7 +395,7 @@ func _reads() -> void:
 	if controls == 0:
 		_fail("READS: main owns no HUD control to judge")
 	await _discard(main)
-	_notes.append("READS OK _draw calls _draw_day_grade() before _draw_night_wash(); noon grades at weight 1, midnight and the switched-off grade draw nothing; all %d HUD controls sit on a CanvasLayer over the graded world" % controls)
+	_notes.append("READS OK _draw calls _draw_day_grade() before _draw_night_wash(); noon grades at weight 1, midnight and the switched-off grade draw nothing; the survivor's line is recorded as a bubble and painted; all %d HUD controls sit on a CanvasLayer over the graded world" % controls)
 
 
 func _redraw(main: Node) -> void:
@@ -366,7 +428,15 @@ func _pixels() -> void:
 		_fail("PIXELS: the day street: %s" % err)
 		await _discard(main)
 		return
+	var world: Variant = main.get("world")
+	world.components.set_component(int(world.player), "saying", {"text": "keep moving", "until": int(world.tick) + 2000})
+	main.call("queue_redraw")
 	await process_frame
+	await process_frame
+	var plates: Array[Rect2] = []
+	for op in main.get("_world_text_ops") as Array:
+		if String((op as Dictionary)["kind"]) == "bubble":
+			plates.append((op as Dictionary)["plate"] as Rect2)
 	var graded: Image = root.get_texture().get_image()
 	var kept: bool = DayGrade.enabled
 	DayGrade.enabled = false
@@ -420,8 +490,23 @@ func _pixels() -> void:
 		_fail("PIXELS: no saturated HUD chrome in the day street to judge")
 	elif chrome_same != chrome:
 		_fail("PIXELS: %d of %d saturated HUD pixels changed under the grade -- the HUD is graded" % [chrome - chrome_same, chrome])
+	# A bubble's ink: the pixels inside its plate drawn in the plate's text colour, ungraded.
+	var ink: int = 0
+	var ink_same: int = 0
+	for r in plates:
+		for y in range(maxi(0, int(r.position.y)), mini(size.y, int(r.end.y))):
+			for x in range(maxi(0, int(r.position.x)), mini(size.x, int(r.end.x))):
+				var a: Color = plain.get_pixel(x, y)
+				if _within(a, Chrome.TEXT, 2):
+					ink += 1
+					if a == graded.get_pixel(x, y):
+						ink_same += 1
+	if ink == 0:
+		_fail("PIXELS: no speech bubble ink on screen to judge")
+	elif ink_same != ink:
+		_fail("PIXELS: %d of %d speech bubble ink pixels changed under the grade -- the bubble is graded" % [ink - ink_same, ink])
 	if world_px == 0 or float(world_same) > 0.05 * float(world_px):
 		_fail("PIXELS: %d of %d street pixels are unchanged by the grade" % [world_same, world_px])
 	if not (warm_graded < warm_plain):
 		_fail("PIXELS: the street did not cool under the grade (mean r - b %.4f -> %.4f)" % [warm_plain / maxf(1.0, float(world_px)), warm_graded / maxf(1.0, float(world_px))])
-	_notes.append("PIXELS OK the day street at 1280x720: %d saturated HUD pixels identical with and without the grade; %d of %d street pixels moved, mean r - b %.4f -> %.4f" % [chrome, world_px - world_same, world_px, warm_plain / maxf(1.0, float(world_px)), warm_graded / maxf(1.0, float(world_px))])
+	_notes.append("PIXELS OK the day street at 1280x720: %d saturated HUD pixels and %d speech bubble ink pixels identical with and without the grade; %d of %d street pixels moved, mean r - b %.4f -> %.4f" % [chrome, ink, world_px - world_same, world_px, warm_plain / maxf(1.0, float(world_px)), warm_graded / maxf(1.0, float(world_px))])

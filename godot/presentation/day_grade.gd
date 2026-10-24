@@ -15,7 +15,9 @@ extends RefCounted
 # the glow over it, and under the HUD's CanvasLayer. So the grade sees the district and the bodies,
 # the night darkens and tints the graded picture (a pool's hue is laid on after the grade, never
 # washed out by it), a flash or a flame in the glow is light and is never graded, and no panel,
-# label or chip of the HUD is in the picture the shader reads.
+# label or chip of the HUD is in the picture the shader reads. The words main writes into the world
+# -- speech bubbles, the pawn tag -- are painted on main's `_world_text` child at TEXT_INDEX, over
+# the grade and under the night, so no readable word is ever greyed by it.
 #
 # `grade` below is the shader's arithmetic on a Color, step for step. check_grade_look.gd judges
 # the palette through it, and holds the shader's text to the same steps.
@@ -23,7 +25,10 @@ extends RefCounted
 const Clock = preload("res://sim/time/clock.gd")
 const GradeShader = preload("res://presentation/day_grade.gdshader")
 
-const GRADE_INDEX: int = 999
+const GRADE_INDEX: int = 998
+# The world's words -- main.gd's speech bubbles and pawn tag, painted on its `_world_text` child --
+# draw here, over the grade and under the night, so the grade never touches their contrast.
+const TEXT_INDEX: int = 999
 
 # The share of a colour's distance from its own grey that a full day keeps: SATURATION in the lit
 # middle and top, SHADOW_SATURATION in the darks, eased between over luma 0 to SHADOW_LUMA. Under a

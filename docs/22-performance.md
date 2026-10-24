@@ -693,7 +693,11 @@ rect and one uniform. Three runs each, interleaved with the grade switched off
 The `_draw` stage the budget judges did not move past this bench's noise, and the night did not
 move at all (the grade draws nothing there). The cost is on the renderer, by day: about 6.3 ms of
 llvmpipe wall time for the screen copy and the pass, which is software rasterising what a GPU does
-in a fraction of a millisecond. The GPU cost remains unmeasured, as above. The crowded sample is over target before and after,
+in a fraction of a millisecond. The GPU cost remains unmeasured, as above. There is no cheaper path that
+keeps the look: the night's pass is a `blend_mul` multiply and reads no screen, and a multiply can
+darken and tint but cannot pull a colour toward its grey or lift a dark, which the overcast grade
+needs; the renderer time was over 10 ms by day before this slice too (16.26 ms here), and the
+`_draw` delta is within noise. The crowded sample is over target before and after,
 as it was.
 
 ### Flat dressing, baked

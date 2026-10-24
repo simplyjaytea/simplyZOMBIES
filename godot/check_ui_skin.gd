@@ -2057,8 +2057,9 @@ func _keycaps_gutter(menu: GDScript) -> bool:
 # The two screens the kit's panel/cell/item_plate/header trio doesn't reach, S6 "Bubbles and the
 # dashboard in kit frames": a speech bubble's plate (main.gd) and a vehicle's dashboard housing
 # (dashboard.gd, all three layouts) each frame themselves through `Chrome.frame(` rather than
-# drawing their own rect and rim. True positives: `_draw_bubbles` reaches `Chrome.frame(` naming
-# `"panel_tooltip"`; `_draw_cluster`, `_draw_handlebar` and `_draw_board` each reach
+# drawing their own rect and rim. True positives: the bubble's painter reaches `Chrome.frame(`
+# naming `"panel_tooltip"` -- `_paint_world_text` since the day grade (B5), which paints the plates
+# `_draw_bubbles` records, over the grade; `_draw_cluster`, `_draw_handlebar` and `_draw_board` each reach
 # `Chrome.frame(`; and a representative one-line bubble, sized the same way `_draw_bubbles` sizes
 # one (through main.gd's own `_bubble_plate`, exposed so this lane never boots a scene), is at
 # least as large as the tooltip style's own margins -- proof the frame really draws instead of
@@ -2074,12 +2075,12 @@ func _outliers_lane() -> bool:
 	var main_bodies: Dictionary = _bodies(_text_of(MAIN_GD))
 	var dash_bodies: Dictionary = _bodies(_text_of(DASHBOARD_GD))
 
-	var bubble: String = String(main_bodies.get("_draw_bubbles", ""))
+	var bubble: String = String(main_bodies.get("_paint_world_text", ""))
 	if bubble.is_empty():
-		push_error("OUTLIERS: %s has no `func _draw_bubbles(`" % MAIN_GD)
+		push_error("OUTLIERS: %s has no `func _paint_world_text(`" % MAIN_GD)
 		ok = false
 	elif not (bubble.contains("Chrome.frame(") and bubble.contains("panel_tooltip")):
-		push_error("OUTLIERS: _draw_bubbles does not reach Chrome.frame( naming \"panel_tooltip\"")
+		push_error("OUTLIERS: _paint_world_text does not reach Chrome.frame( naming \"panel_tooltip\"")
 		ok = false
 
 	for fn in ["_draw_cluster", "_draw_handlebar", "_draw_board"]:
@@ -2113,10 +2114,10 @@ func _outliers_lane() -> bool:
 			ok = false
 
 	# True negatives: a call present only in a comment, and a body that only draws rectangles.
-	var commented: Dictionary = _bodies("func _draw_bubbles() -> void:\n\t# Chrome.frame(self, plate, \"panel_tooltip\", a)\n\tdraw_rect(plate, fill)\n")
-	var commented_body: String = String(commented.get("_draw_bubbles", ""))
+	var commented: Dictionary = _bodies("func _paint_world_text() -> void:\n\t# Chrome.frame(c, plate, \"panel_tooltip\", a)\n\tc.draw_rect(plate, fill)\n")
+	var commented_body: String = String(commented.get("_paint_world_text", ""))
 	if commented_body.contains("Chrome.frame(") and commented_body.contains("panel_tooltip"):
-		push_error("OUTLIERS: a fabricated _draw_bubbles that reaches the kit only in a comment passed")
+		push_error("OUTLIERS: a fabricated _paint_world_text that reaches the kit only in a comment passed")
 		ok = false
 	var rects_only: Dictionary = _bodies("func _draw_cluster() -> void:\n\tdraw_rect(panel, PANEL)\n\tdraw_rect(panel, RIM, false, 2.0)\n")
 	if String(rects_only.get("_draw_cluster", "")).contains("Chrome.frame("):
@@ -2129,7 +2130,7 @@ func _outliers_lane() -> bool:
 		ok = false
 
 	if ok:
-		print("OUTLIERS OK _draw_bubbles and all three dashboard layouts reach Chrome.frame(; a representative one-line bubble clears panel_tooltip's margins; a commented call, a rect-only body and a shrunk plate each refused")
+		print("OUTLIERS OK the bubble painter _paint_world_text and all three dashboard layouts reach Chrome.frame(; a representative one-line bubble clears panel_tooltip's margins; a commented call, a rect-only body and a shrunk plate each refused")
 	return ok
 
 
