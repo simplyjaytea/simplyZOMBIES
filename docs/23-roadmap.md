@@ -3697,6 +3697,34 @@ not a to-do list:
   `colony_stockpile_picked` (the pile shown for Mara), both windows, with before and after of
   `colony`, `colony_picked` and `colony_crowd`. Not in this slice: taking from the Colony screen,
   and anything carried or lying outside the stockpile. No sim system changed, so no bench.
+- **Taking from the stockpile: the loot window, slice S4 of the 2026-10-24 plan.** Standing in the
+  stockpile, E opens the loot window on it, titled "the stockpile", beside the pockets. It lists every
+  loose item on the patch the player stands in that the player sees from there, nearest first
+  (`SimStockpile.in_sight`, `stores_view` in `godot/sim/modules/stockpile.gd`). The same drag,
+  ctrl-click and "take all that fits" the cupboard window has send `stockpile.take` and
+  `stockpile.put`, and the sim decides each one: a take is the ordinary pick-up without the 1.5 m
+  reach, a put goes down by S3's drop rule on a tile of the patch in view. With the sheet open the
+  stockpile is the sheet's first column, as a cupboard is. E's rung, the menu's row and the bar's
+  words are in `godot/sim/modules/fortify.gd` and `godot/sim/context.gd`; the window is
+  `godot/ui/inventory_panel.gd` (`_send`, `loot_capacity`) fed by `godot/presentation/main.gd`
+  (`_stores_for_window`). Gates: `godot:m2:stockpile` TAKE (a tin in view taken and put back in view;
+  a tin behind a wall on the same patch, a tin off the zone and a take with the window shut refused;
+  off the zone the window shuts and a put is refused; E opens it on the pile and picks up off it),
+  `godot:check:inventory` STOCKPILE (the window is the stockpile and lists the tins in view and not the
+  walled or off-zone one; a ctrl-click takes, a drag puts back; a cupboard takes the window; a tile
+  off the zone shuts it), `godot:check:context` BAR (a tin on the pile: E's words are the menu's first
+  row), and the `stockpile_window` review scene in `godot:check:shots`. Sabotage: dropping the sight
+  test lists the walled tin (TAKE red); removing the E rung picks the tin up (TAKE red); a put that
+  pushes nothing leaves the tin in the pockets (STOCKPILE red). Frame cost, measured with a throwaway
+  driver on the shipped district with 120 tins in sight: `stores_view` 3.8 ms, once per sim tick
+  while the window is open (main.gd and the panel share one layout); the zone's patches are cached on
+  the world, so finding the patch went from 7.1 ms to 0.01 ms. Nothing runs on the tick path but a
+  close check over bodies with the window open, so no tick bench. Not built: a pile holding more than
+  the window's cells shows the nearest and says "and more besides" rather than scrolling. At 1280x720
+  the grid is eight by three so the window clears the action bar, and a pack (four cells tall) is
+  reached from the sheet's column (Tab) or by "take all that fits". Shots, before and after at both
+  sizes:
+  `planning/stockpile/s4/` in the project files.
 - **Attack order: a picked colonist goes after one zombie or raider they can see — 2026-10-24 orders slice A2.**
   With a colonist picked on the street, the menu's "have Mara attack it" row offers an `attack` order on a
   zombie or raider the colonist or the player can see right now (`SimOrders.accepts`, the scarce-information

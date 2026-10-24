@@ -6246,3 +6246,44 @@ a word per group and up to three names, never a count. Calls taken without the o
 **How to apply:** a change to what the Colony screen says about the stores changes
 `StockpileRead.summary`, never the panel. Gated by `godot:check:play` STOCKPILE and
 `godot:m2:stockpile` SUMMARY.
+
+## Taking from the stockpile, 2026-10-24
+
+Slice S4 of the stockpile plan: the loot window fed the stockpile, with take and put away. The
+owner's cards were built at their defaults (the window lists the patch you can see; words, not
+counts). The calls below are engineering calls taken in the slice.
+
+- **E opens the stockpile where it used to pick up a stockpiled item.** Standing in the zone, when
+  the loose item E would pick up lies on the zone and no cupboard is in reach, E opens the window
+  (`SimStockpile.e_opens`, the rung before the pick-up in `SimFortify._use_context`). An item off
+  the zone is still picked up, and a door, a bed or a fire beside an empty pile keeps E, so the rest
+  of the ladder is unchanged. An empty patch opens on E as the last rung, so there is a window to
+  put things away into. The words are "go through the stockpile" on the bar and first in the menu
+  (`SimContext.reach_words`, `verbs_at`), the way a cupboard is "open the cupboard".
+- **The window lists what the player sees from where they stand, not what they face.** The test is
+  walls and range (`SimVisibility.line_of_sight`), or a lit spot past the dark's reach
+  (`detail`). It is not the facing arc: the body faces the pointer, and the pointer is on the
+  window, so an arc would change the list as the mouse crossed it. An item behind a wall or out of
+  the night's reach on the same patch is not listed and cannot be taken.
+- **Nearest first, and the window says when the pile holds more.** The sim lays the nearest items
+  into the cells the screen gives it (`stores_view`), biggest first so a pack is not shut out by
+  tins, and the grid's header reads "and more besides" when something seen did not fit. Walking
+  across the pile shows the rest; "take all that fits" takes from the whole list.
+- **A put lands in view.** `stockpile.put` uses S3's rule (`drop_tile`: the emptiest tile, then the
+  nearest) over the tiles of the player's patch the player can see. On the emptiest tile of a big
+  pile, out of sight, the thing put away would drop off the list the moment it was put.
+- **The window is a sim state.** `stockpileOpen` on the player, set by E, the menu or
+  `stockpile.open`, taken off by `stockpile.close` (Escape), by stepping off the zone, or by opening
+  a cupboard. A cupboard opened in the stockpile takes the window. A save from before the slice has
+  no such component and loads with the window shut; there is no version bump.
+- **The window never drops over the action bar.** `set_loot` puts a box too tall to clear the bar
+  over it, which at 1280x720 cut the bar's sentence in half under the window. The stockpile's grid is
+  sized to clear it instead: eight by three at 1280x720, ten by six at 1920x1080. A pack, four cells
+  tall, does not fit the 720 grid; the header says "and more besides" and the sheet's column (Tab,
+  seven by six) holds it.
+- **A take drops the item's claim.** A cook's claim on a raw (`reserved`) goes with the item when
+  the player takes it, so the cook's job cannot finish on a tin in the player's pocket.
+
+**How to apply:** what the window may take or put is the sim's answer (`SimStockpile.take`,
+`put`, `in_sight`), never the panel's. Gated by `godot:m2:stockpile` TAKE, `godot:check:inventory`
+STOCKPILE, `godot:check:context` BAR and `godot:check:shots` (`stockpile_window`).
