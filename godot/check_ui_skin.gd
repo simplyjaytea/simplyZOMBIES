@@ -175,7 +175,7 @@ func _run() -> void:
 		ok = false
 	if ok:
 		print(
-			"UI_SKIN_OK %d kit styles agree with the manifest and their .tres, %d left unused with a reason; %d textures and %d glyphs at both sizes resolve headless; panel, cell and header reach the kit; %d chrome helpers called, %d pending their slice; %.1f s of a %.0f s budget"
+			"UI_SKIN_OK %d kit styles agree with the manifest and their .tres, %d left unused with a reason; %d textures and %d glyphs at both sizes resolve headless; panel and header reach the kit; %d chrome helpers called, %d pending their slice; %.1f s of a %.0f s budget"
 			% [
 				int(_stash.get("styles", 0)), UNUSED_STYLES.size(), int(_stash.get("textures", 0)),
 				int(_stash.get("glyphs", 0)), int(_stash.get("called", 0)), PENDING.size(), seconds,
@@ -549,9 +549,10 @@ func _surfaces() -> Array:
 	var bag: Dictionary = (load("res://ui/bag_grid.gd") as GDScript).get_script_constant_map()
 	var strip: Dictionary = (load("res://ui/quick_strip.gd") as GDScript).get_script_constant_map()
 	var inv: Dictionary = (load(INVENTORY_GD) as GDScript).get_script_constant_map()
-	var bench: Dictionary = (load("res://ui/bench_panel.gd") as GDScript).get_script_constant_map()
 	# The HUD's cards and action bar left this list with the UI overhaul's first slice: they wear the
-	# Salvage Locker's steel now (`ui/locker.gd`), which has no nine-slice margins to fall under.
+	# Salvage Locker's steel now (`ui/locker.gd`), which has no nine-slice margins to fall under. The
+	# bench's rows left it with the third: the assembly screen is Locker steel too, and the PANEL
+	# lane's BENCH-LOCKER check holds it there.
 	var cap: float = float((load(CHROME_GD) as GDScript).get_script_constant_map()["KEYCAP_MIN"])
 	var cell: float = float(bag["CELL"])
 	return [
@@ -560,7 +561,6 @@ func _surfaces() -> Array:
 		["a one-cell item plate and its selection ring", ["panel_inset", "slot_selected"], Vector2(cell - 8.0, cell - 8.0)],
 		["a quick-strip slot", ["slot_empty", "slot_selected"], Vector2(float(strip["SLOT_W"]), float(strip["SLOT_H"]))],
 		["an equipment slot", ["slot_empty", "slot_selected"], Vector2(float(inv["SLOT_W"]), float(inv["SLOT_H"]))],
-		["a bench row", ["slot_empty"], Vector2(200.0, float(bench["ROW_H"]) - 4.0)],
 		["the pause and title dialog, and the run-over one, with nothing in them", ["panel_dialog", "panel_danger"], Vector2(float(shell["PANEL_W"]), 40.0 + float(shell["PAD"]) * 2.0 + 30.0)],
 		["the smallest keycap", ["keycap"], Vector2(cap, cap)],
 	]
@@ -919,7 +919,9 @@ func _panel_lane() -> bool:
 	var bodies: Dictionary = _bodies(_text_of(CHROME_GD))
 	# `item_plate` left this list with the Salvage Locker (docs/23, "The inventory, redone"): a bag
 	# plate is `ui/locker.gd`'s class-tinted plate now, and the helper went with its last caller.
-	for fn in ["panel", "cell", "header"]:
+	# `cell` followed it with the UI overhaul's third slice: its last caller was the bench's rows,
+	# and the assembly screen draws its plates as Locker wells (BENCH-LOCKER below holds it there).
+	for fn in ["panel", "header"]:
 		if not bodies.has(fn):
 			push_error("PANEL: chrome.gd has no `func %s(`" % fn)
 			ok = false
@@ -944,9 +946,34 @@ func _panel_lane() -> bool:
 	if not _reaches_kit(live_link, "panel"):
 		push_error("PANEL: a fabricated panel that does reach the kit through frame() was refused -- the scanner cannot pass")
 		ok = false
+	# BENCH-LOCKER, the rule that replaced the bench row in `_surfaces`: the assembly screen wears
+	# the Salvage Locker's steel, so its frame, plates and cards are Locker surfaces and no kit
+	# frame helper is called from it -- comments stripped, so a needle in a comment is not a call.
+	# The negative is the shape the panel had before slice 3, which drew its rows as kit cells.
+	var bench_src: String = _code_of(_text_of("res://ui/bench_panel.gd"))
+	var bench_faults: Array[String] = _bench_locker_faults(bench_src)
+	for f in bench_faults:
+		push_error("PANEL: BENCH-LOCKER: " + f)
+		ok = false
+	if _bench_locker_faults("func _draw():\n\tChrome.panel(self, rect, 1.0)\n\tChrome.cell(self, r, 1.0)\n").is_empty():
+		push_error("PANEL: BENCH-LOCKER: a fabricated bench drawn in kit frames and cells passed")
+		ok = false
 	if ok:
-		print("PANEL OK a textured frame and centre at the asked opacity and doubled margins, cached, border-only apart on the same frame, none under its margins; panel, cell and header reach Kit.style and draw it; a rect-only body, a dead link and a commented needle each refused")
+		print("PANEL OK a textured frame and centre at the asked opacity and doubled margins, cached, border-only apart on the same frame, none under its margins; panel and header reach Kit.style and draw it; a rect-only body, a dead link and a commented needle each refused; the bench wears the Locker and a kit-framed one is refused")
 	return ok
+
+
+# What keeps the assembly screen off the kit's frames: it must call Locker.panel and Locker.well,
+# and must call no Chrome frame helper (panel, header, frame, cell).
+func _bench_locker_faults(src: String) -> Array[String]:
+	var out: Array[String] = []
+	for need in ["Locker.panel(", "Locker.well("]:
+		if not src.contains(need):
+			out.append("ui/bench_panel.gd never calls %s" % need)
+	for banned in ["Chrome.panel(", "Chrome.header(", "Chrome.frame(", "Chrome.cell("]:
+		if src.contains(banned):
+			out.append("ui/bench_panel.gd calls %s, a kit frame on the Locker's screen" % banned)
+	return out
 
 
 # --- 4. HELPERS --------------------------------------------------------------------------------
@@ -1061,8 +1088,9 @@ const FONT_FALLBACK_PROBE: String = "Ж"
 # carry them either (docs/23's record, "UI -- one typeface"). Named here so a new one cannot arrive
 # unconsidered; one no source uses any more is reported, not failed, so the slice that retires it
 # can take it off this list.
+# Empty since the UI overhaul's third slice: "→" was the old bench's offer line, and the assembly
+# screen that replaced it names the slot on tape instead of pointing at it.
 const FONT_NO_FACE: Dictionary = {
-	"→": "the bench's offer line (bench_panel.gd); neither face has it -- the OS fallback draws it on desktop",
 }
 
 

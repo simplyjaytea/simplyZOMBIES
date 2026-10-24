@@ -57,6 +57,12 @@ extends SceneTree
 #   KEYS       every legend row is bound and every binding has a row, both directions
 #   SOCKET     the keys live in the router, the run's lifecycle lives in the session, and
 #              main.gd's frame loop reaches both
+#   BENCH      the assembly screen (UI overhaul, slice 3) at 1280x720 and 1920x1080: E at a bench
+#              with a rifle opens it; its frame is inside the window, where the fixed rect it
+#              replaced is not at 720; a click on a plate then a candidate fits it, "take off"
+#              detaches, the arrows and Enter do the same from the keys; a click on the wash
+#              swings at nothing; every word drawn is digit-free but an item's name; Escape closes
+#              it and clears `benchFocus`
 #   BUDGET     the whole gate under a minute
 #
 # A lane with no data says so and skips; it never passes quietly.
@@ -92,6 +98,13 @@ const SimSave = preload("res://sim/save.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
 const WorkRead = preload("res://sim/work_read.gd")
 const UiText = preload("res://ui/text.gd")
+const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
+const SimItems = preload("res://sim/modules/items.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimAttachments = preload("res://sim/modules/attachments.gd")
+const SimFortify = preload("res://sim/modules/fortify.gd")
+const ReviewScenes = preload("res://review/scenes.gd")
+const CheckInventory = preload("res://check_inventory.gd")
 
 # The frame loop's own delta. main.gd's TICK_SECONDS, named again here rather than read off the
 # scene, so a gate that claims "one frame, one tick" is not quoting the thing it is judging.
@@ -219,6 +232,9 @@ func _run() -> void:
 
 	var draw_ok: bool = await _the_screen_draws_by_day_and_by_night()
 	ok = draw_ok and ok
+	# Its own scene: it puts a rifle and a pack on the survivor and a bench in the house.
+	var bench_ok: bool = await _the_bench_opens_fits_and_closes()
+	ok = bench_ok and ok
 
 	_restore_user_files()
 	var elapsed: int = Time.get_ticks_msec() - _started_ms
@@ -2761,3 +2777,225 @@ func _mouse(at: Vector2, button: MouseButton) -> void:
 		press.pressed = down
 		press.position = at
 		root.push_input(press)
+
+
+# --- BENCH ----------------------------------------------------------------------------------------
+
+# The assembly screen in the real scene, at both windows, through real keys and clicks. The world
+# is set up through the sim's own calls (a bench where the survivor stands, a hunting rifle in hand,
+# a pack of parts that fit it) and everything after that is a press.
+const BENCH_RIFLE: String = "item.rifle.hunting"
+const BENCH_OPTIC: String = "item.attach.optic.red_dot"
+const BENCH_MAG: String = "item.attach.magazine.extended"
+# The rect the panel had before slice 3: its bottom forty pixels were off a 720-pixel window.
+const OLD_BENCH_RECT: Rect2 = Rect2(Vector2(320, 140), Vector2(960, 620))
+
+
+func _the_bench_opens_fits_and_closes() -> bool:
+	var lane: String = "BENCH"
+	var main: Node = await _boot()
+	if main == null:
+		push_error("%s: the scene did not boot" % lane)
+		return false
+	var world: Variant = main.get("world")
+	var panel: Control = main.get("_bench_panel") as Control
+	if world == null or panel == null:
+		push_error("%s: no world or no bench panel in the scene" % lane)
+		return await _bench_done(main, Vector2i.ZERO, false)
+	var me: int = int(world.player)
+	var old_size: Vector2i = root.size
+	var ok: bool = true
+	# The negative for the frame: the old fixed rect does not fit the smaller window.
+	if Rect2(Vector2.ZERO, Vector2(1280, 720)).encloses(OLD_BENCH_RECT):
+		push_error("%s: the old fixed rect fits 1280x720, so the frame check below proves nothing" % lane)
+		ok = false
+	# Somewhere the top rung of E is the bench: where the survivor stands, or else an open street.
+	var home: Dictionary = world.components.get_component(me, "position") as Dictionary
+	var bench: int = SimGunsmith.make_bench(world, float(home["x"]), float(home["y"]))
+	var rifle: int = SimItems.spawn_item(world, BENCH_RIFLE, {"tier": "scavenged"})
+	var pack: int = SimItems.spawn_item(world, "item.pack.hiking", {"tier": "scavenged"})
+	if not SimInventory.equip(world, me, rifle) or not SimInventory.equip(world, me, pack):
+		push_error("%s: the survivor could not take up the rifle and the pack" % lane)
+		return await _bench_done(main, old_size, false)
+	var optic: int = SimItems.spawn_item(world, BENCH_OPTIC, {"tier": "scavenged"})
+	var mag: int = SimItems.spawn_item(world, BENCH_MAG, {"tier": "scavenged"})
+	if not SimInventory.stow(world, me, optic) or not SimInventory.stow(world, me, mag):
+		push_error("%s: the pack would not take the parts" % lane)
+		return await _bench_done(main, old_size, false)
+	if String(SimFortify.rung_of(world, me).get("verb", "")) != "open_bench":
+		var street: Vector2 = ReviewScenes._street_spot(world)
+		if street.x >= 0.0:
+			world.components.set_component(me, "position", {"x": street.x, "y": street.y})
+			world.components.set_component(bench, "position", {"x": street.x, "y": street.y})
+	if String(SimFortify.rung_of(world, me).get("verb", "")) != "open_bench":
+		push_error("%s: no spot was found where E's top rung is the bench (it is %s)" % [lane, str(SimFortify.rung_of(world, me))])
+		return await _bench_done(main, old_size, false)
+
+	for dims in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
+		root.size = dims
+		await process_frame
+		_drain(main)
+		# E opens it, through the ladder: the press pushes use.context, the tick takes it.
+		_tap(KEY_E)
+		_frames(main, 2)
+		await process_frame
+		if SimGunsmith.focus_of(world, me) != rifle or not panel.visible:
+			push_error("%s: E at a bench with a rifle did not open the assembly at %s" % [lane, str(dims)])
+			ok = false
+			continue
+		var frame: Rect2 = panel.call("frame_rect") as Rect2
+		var view_rect: Rect2 = Rect2(Vector2.ZERO, Vector2(dims))
+		if not view_rect.encloses(Rect2(frame.position + panel.global_position, frame.size)) or not view_rect.encloses(panel.get_global_rect()):
+			push_error("%s: the frame %s is not inside the %s window" % [lane, str(frame), str(dims)])
+			ok = false
+		if dims.x == 1920 and absf(frame.get_center().x - 960.0) > 2.0:
+			push_error("%s: the frame is not centred at 1920x1080 (%s)" % [lane, str(frame)])
+			ok = false
+
+		# A click on the wash outside the frame is the screen's, and swings at nothing.
+		_drain(main)
+		_mouse(Vector2(frame.position.x / 2.0, float(dims.y) / 2.0), MOUSE_BUTTON_LEFT)
+		for c in _pending(main):
+			if ["swing", "fire", "aim"].has(String((c as Dictionary).get("type", ""))):
+				push_error("%s: a click on the wash reached the street (%s)" % [lane, str(c)])
+				ok = false
+		_drain(main)
+
+		# A plate, then a candidate: the sight, then the red dot.
+		var lay: Dictionary = panel.call("layout") as Dictionary
+		var plates: Dictionary = lay["plates"] as Dictionary
+		if not plates.has("optic"):
+			push_error("%s: the rifle's sight has no plate" % lane)
+			ok = false
+			continue
+		_mouse((plates["optic"] as Rect2).get_center(), MOUSE_BUTTON_LEFT)
+		if String(panel.call("picked_slot")) != "optic":
+			push_error("%s: a click on the sight's plate did not pick it" % lane)
+			ok = false
+		lay = panel.call("layout") as Dictionary
+		var cards: Array = lay["offers"] as Array
+		if cards.is_empty():
+			push_error("%s: the sight is picked and nothing is offered for it" % lane)
+			ok = false
+			continue
+		_mouse(((cards[0] as Dictionary)["rect"] as Rect2).get_center(), MOUSE_BUTTON_LEFT)
+		var attach: Array = _pending(main).filter(func(c: Variant) -> bool: return String((c as Dictionary).get("type", "")) == "item.attach")
+		if attach.size() != 1 or int((attach[0] as Dictionary).get("item", -1)) != optic or String((attach[0] as Dictionary).get("slot", "")) != "optic":
+			push_error("%s: a click on the red dot pushed %s, not one item.attach of it to the sight" % [lane, str(attach)])
+			ok = false
+		_frames(main, 1)
+		await process_frame
+		if SimAttachments.in_slot(world, rifle, "optic") != optic:
+			push_error("%s: the fit did not reach the rifle" % lane)
+			ok = false
+		var row: Dictionary = {}
+		for r_v in (panel.get("_view") as Dictionary).get("slots", []) as Array:
+			if String((r_v as Dictionary).get("slot", "")) == "optic":
+				row = r_v as Dictionary
+		if int(row.get("part", -1)) != optic:
+			push_error("%s: the view did not follow the fit (the sight's row is %s)" % [lane, str(row)])
+			ok = false
+
+		# "take off", from the footer, on the picked sight.
+		_drain(main)
+		lay = panel.call("layout") as Dictionary
+		var take_off: Rect2 = Rect2()
+		var fit_button: bool = false
+		for b_v in lay["buttons"] as Array:
+			if String((b_v as Dictionary)["kind"]) == "take off":
+				take_off = (b_v as Dictionary)["rect"] as Rect2
+			if String((b_v as Dictionary)["kind"]) == "fit":
+				fit_button = true
+		if not take_off.has_area():
+			push_error("%s: a fitted sight has no take off button" % lane)
+			ok = false
+		else:
+			_mouse(take_off.get_center(), MOUSE_BUTTON_LEFT)
+			var detach: Array = _pending(main).filter(func(c: Variant) -> bool: return String((c as Dictionary).get("type", "")) == "item.detach")
+			if detach.size() != 1 or int((detach[0] as Dictionary).get("item", -1)) != optic:
+				push_error("%s: take off pushed %s, not one item.detach of the sight" % [lane, str(detach)])
+				ok = false
+			_frames(main, 1)
+			await process_frame
+			if SimAttachments.in_slot(world, rifle, "optic") >= 0:
+				push_error("%s: take off did not reach the rifle" % lane)
+				ok = false
+		# The negative: with the sight empty there is nothing to take off, and the button is gone.
+		lay = panel.call("layout") as Dictionary
+		for b_v in lay["buttons"] as Array:
+			if String((b_v as Dictionary)["kind"]) == "take off":
+				push_error("%s: an empty sight still offers take off" % lane)
+				ok = false
+		if fit_button:
+			push_error("%s: the fit button was up while the keys were on the plates" % lane)
+			ok = false
+
+		# The same from the keys: Enter on the empty sight crosses to what fits, Enter fits it.
+		_drain(main)
+		_tap(KEY_ENTER)
+		if String(panel.call("side")) != "offers":
+			push_error("%s: Enter on an empty slot did not cross to its candidates" % lane)
+			ok = false
+		_tap(KEY_ENTER)
+		var keyed: Array = _pending(main).filter(func(c: Variant) -> bool: return String((c as Dictionary).get("type", "")) == "item.attach")
+		if keyed.size() != 1 or String((keyed[0] as Dictionary).get("slot", "")) != "optic":
+			push_error("%s: Enter on a candidate pushed %s, not one fit to the sight" % [lane, str(keyed)])
+			ok = false
+		_frames(main, 1)
+		await process_frame
+		# Left back to the plates, Down to the picture's row: the stock, the muzzle or the magazine,
+		# never the sight again.
+		_tap(KEY_LEFT)
+		_tap(KEY_DOWN)
+		if String(panel.call("side")) != "slots" or String(panel.call("picked_slot")) == "optic":
+			push_error("%s: Left then Down left the keys on %s %s" % [lane, String(panel.call("side")), String(panel.call("picked_slot"))])
+			ok = false
+		# An arrow under the bench is the screen's, never a step.
+		for c in _pending(main):
+			if String((c as Dictionary).get("type", "")) == "move" and (absf(float((c as Dictionary).get("dx", 0.0))) > 0.0 or absf(float((c as Dictionary).get("dy", 0.0))) > 0.0):
+				push_error("%s: an arrow under the bench walked the body (%s)" % [lane, str(c)])
+				ok = false
+
+		# Every word drawn: a digit only in an item's name, and a name only where the name rule
+		# allows it. The scanner is proved on a fabricated pair first.
+		await process_frame
+		var said: Array = panel.call("said") as Array
+		if said.is_empty():
+			push_error("%s: the panel drew no words to judge" % lane)
+			ok = false
+		if _digits_in("steadiness better").length() != 0 or _digits_in("x 3 rounds").is_empty():
+			push_error("%s: the digit scanner is not telling a digit from a word" % lane)
+			ok = false
+		for t_v in said:
+			var t: Dictionary = t_v as Dictionary
+			var text: String = String(t.get("text", ""))
+			if String(t.get("kind", "")) == "name":
+				if not _digits_in(text).is_empty() and not CheckInventory._name_is_allowed(text):
+					push_error("%s: an item name drawn on the bench is nothing but a number: '%s'" % [lane, text])
+					ok = false
+			elif not _digits_in(text).is_empty():
+				push_error("%s: a word drawn on the bench carries a digit: '%s'" % [lane, text])
+				ok = false
+
+		# Escape closes it and clears the focus.
+		_tap(KEY_ESCAPE)
+		_frames(main, 1)
+		await process_frame
+		if SimGunsmith.focus_of(world, me) >= 0 or panel.visible:
+			push_error("%s: Escape left the bench open at %s" % [lane, str(dims)])
+			ok = false
+		# The fitted sight comes off for the next window, so both windows judge the same rifle.
+		var fitted: int = SimAttachments.in_slot(world, rifle, "optic")
+		if fitted >= 0:
+			SimAttachments.detach(world, fitted)
+	return await _bench_done(main, old_size, ok)
+
+
+func _bench_done(main: Node, old_size: Vector2i, ok: bool) -> bool:
+	if old_size != Vector2i.ZERO:
+		root.size = old_size
+	main.queue_free()
+	await process_frame
+	if ok:
+		print("BENCH OK E at a bench opens the assembly inside 1280x720 and centred at 1920x1080 where the old rect does not fit; plate then candidate fits, take off detaches and then is gone, Enter crosses and fits, arrows stay on the screen, the wash eats a click, every word is digit-free but a name, Escape closes it")
+	return ok
