@@ -96,6 +96,20 @@ static func issue(world: Variant, command: Dictionary) -> bool:
 	return true
 
 
+## The command the draft key pushes for `ent`, decided here so the screen decides nothing: a colonist
+## under an order is stood down (`clear`), and a free one is held on the tile they stand on. {} when
+## they take no orders, or when the hold would not be accepted.
+static func draft_command(world: Variant, ent: int) -> Dictionary:
+	if not takes_orders(world, ent):
+		return {}
+	if holds(world, ent):
+		return {"type": COMMAND, "entity": ent, "kind": "clear"}
+	var tile: Vector2i = _tile_of(world, ent)
+	if not accepts(world, ent, {"entity": ent, "kind": "hold", "tx": tile.x, "ty": tile.y}):
+		return {}
+	return {"type": COMMAND, "entity": ent, "kind": "hold", "tx": tile.x, "ty": tile.y}
+
+
 static func register_module(world: Variant) -> void:
 	# Sorted after `jobs.intake` (14), which handles the job rows a player edits. An order issued
 	# on a tick is in force from the `jobs.ai` pass of that same tick.

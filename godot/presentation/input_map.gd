@@ -99,6 +99,7 @@ const BINDINGS: Dictionary = {
 	"reload": {"keys": [KEY_R], "ctrl": false, "legend": ["R"]},
 	"treat": {"keys": [KEY_T], "ctrl": false, "legend": ["T"]},
 	"camp": {"keys": [KEY_C], "ctrl": false, "legend": ["C"]},
+	"draft": {"keys": [KEY_X], "ctrl": false, "legend": ["X"]},
 	"slower": {"keys": [KEY_MINUS, KEY_KP_SUBTRACT], "ctrl": false, "legend": ["-"]},
 	"faster": {"keys": [KEY_EQUAL, KEY_KP_ADD], "ctrl": false, "legend": ["="]},
 	"strip": {"keys": [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6], "ctrl": false, "legend": ["1 … 6"]},
@@ -324,6 +325,11 @@ func _input(event: InputEvent) -> void:
 					main._inventory_panel.call("rotate")
 				elif main.world != null:
 					main.world.commands.push({"type": "reload"})
+			KEY_X:
+				# The draft: the colonist picked on the street stands where they are, or goes free.
+				# Street only, because `ALLOWED` names no other focus that takes it. The command is
+				# SimOrders.draft_command's; this arm pushes it and decides nothing.
+				main._draft_selected()
 			KEY_T:
 				# One key, two meanings, both decided in the sim: start first aid on the
 				# wound that matters, or stop the one already in progress. Presentation
