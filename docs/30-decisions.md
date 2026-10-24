@@ -5916,3 +5916,13 @@ you stand. Calls taken without the owner:
   as `SimContainers` closes a box, for a gun with nothing to change.
 - **`modify` in the item menu pushes `bench.open`.** It was offered at a bench and pushed nothing,
   which the dead-socket rule forbids. Gated by `godot:m2:bench` FIELD and `godot:check:inventory`.
+
+## The draft key on X, 2026-10-24
+
+**JT picked the draft toggle for a colonist: X.** With a colonist picked on the street, X holds them
+where they stand and takes them off work; X again sets them free. The menu keeps "hold here" and
+"go here" as they were, so a right-click move still says whether it keeps the draft. The sim decides
+the command (`SimOrders.draft_command`); the key pushes it.
+
+**How to apply:** the draft is the `hold` order on the colonist's own tile. A new draft-like verb
+goes through `orders.gd`, not a second flag.
