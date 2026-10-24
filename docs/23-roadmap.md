@@ -2885,7 +2885,10 @@ not a to-do list:
   (docs/30, "The torch on screen"): a beam lights every tile it falls on, within `BEAM_EDGE_M`
   (1 m) of its edge, so the drawn beam keeps straight edges inside the lit tiles instead of the
   tile-centre staircase the first cut drew; and a carrier with no facing throws round, as the B2
-  plan said and the light index did not. New review scene `night_torch`: midnight on an open
+  plan said and the light index did not. Where a beam crosses a round pool the brighter sets the
+  level and the colour is the two tints weighed by brightness, so a torch over a campfire's ground
+  stays warm; a pixel only one light reaches keeps its tint exactly (the torch shots are
+  pixel-identical to before). New review scene `night_torch`: midnight on an open
   street, a hand torch down the longest east-west run, a shambler 5 m into the beam and one 5 m
   behind in the dark.
 
@@ -2900,8 +2903,8 @@ not a to-do list:
   tile the beam's edge crosses (27° off at 4.5 m, lit) and the no-facing carrier (round); READS
   no longer skips: the light map lights 6 m ahead and not 6 m behind. Each was run red by
   sabotage: texels asking the round cast (BEAM, READS), no edge margin (CONE), a beam kept with no
-  facing (CONE, BEAM), the hand origin zeroed (BEAM), the spill not handed to the shader (DEAD
-  SOCKET). `npm run godot:check:shots` → `SHOTS_OK` with sixteen scenes; NEGATIVE refuses a day
+  facing (CONE, BEAM), the hand origin zeroed (BEAM), the spill not handed to the shader and a
+  beam's tint replacing a pool's (DEAD SOCKET). `npm run godot:check:shots` → `SHOTS_OK` with sixteen scenes; NEGATIVE refuses a day
   street and the torchless night as the torch shot. Before and after shots of `night_lights` and
   `night_torch` at both windows, and the first cut's staircase, are in the project's
   `planning/night-torch/`. Art QA on the beam's origin and the disc. Frame cost, the committed

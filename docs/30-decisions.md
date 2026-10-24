@@ -6005,6 +6005,15 @@ without the owner:
 - **The disc at the hand is the sim's spill** (`SimLight.SPILL_M`, handed to the shader as
   `spill_m`), and the beam's edge now softens inward from its half-angle instead of outward past
   it, so the drawn beam ends where the sim's half-angle does.
+- **Seen from behind, the beam starts on the ground under the body** (art review). Facing north the
+  hand is in front of the body and the beam runs up the screen through it, so a beam from the
+  hand's height showed first above the head and read as a headlamp. It starts at the hand's side
+  at the body's ground point instead.
+- **A beam over a pool keeps the pool's colour** (art review). Brightness stays the brighter of the
+  two, max and never sum, as the sim keeps it; the colour is the two tints weighed by how bright
+  each is there, so a torch across a campfire's ground stays warm under the white. Two round pools
+  still show the brighter's own hue (the A10 review's rule), and a pixel only one light reaches
+  keeps its tint exactly.
 
 **How to apply:** a change to how a beam is drawn changes `lights_tile` or the shader's wedge, never
 a second presentation answer. Gated by `godot:check:light` BEAM and `godot:m2:torch` CONE and READS.

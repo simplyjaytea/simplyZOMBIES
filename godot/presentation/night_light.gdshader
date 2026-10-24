@@ -183,9 +183,12 @@ void fragment() {
 	// the known side does all the fading: its last half tile walks down to the void's own dark.
 	float known = inside(int(to.r > 63), int(th.r > 63), int(tv.r > 63), int(td.r > 63), dist);
 
-	// The brightest light here -- max, never sum, as the sim keeps it.
+	// The brightest light here -- max, never sum, as the sim keeps it. Round pools and beams are kept
+	// apart so a beam crossing a pool can lay its light over the pool's colour instead of replacing it.
 	float best = 0.0;
 	vec3 hue = vec3(1.0);
+	float best_beam = 0.0;
+	vec3 hue_beam = vec3(1.0);
 	if (light_count > 0 && own_r > 191) {
 		ivec3 bo = to.gba;
 		ivec3 bh = th.gba;
@@ -223,11 +226,23 @@ void fragment() {
 				fall = max(thrown, hand * 0.7);
 			}
 			float b = tint.w * rings(fall * mask, threshold);
-			if (b > best) {
+			if (beam.z > 0.0) {
+				if (b > best_beam) {
+					best_beam = b;
+					hue_beam = tint.rgb;
+				}
+			} else if (b > best) {
 				best = b;
 				hue = tint.rgb;
 			}
 		}
+	}
+	// Where a beam crosses a pool the brighter of the two sets the level, and the colour is the two
+	// tints weighed by how bright each is here: a torch over a campfire's ground stays warm under the
+	// white. A pixel only one of them reaches keeps that one's tint exactly.
+	if (best_beam > 0.0) {
+		hue = best > 0.0 ? mix(hue, hue_beam, best_beam / (best + best_beam)) : hue_beam;
+		best = max(best, best_beam);
 	}
 
 	// The sky is shown as it is -- dusk is half dark -- out to half a tile inside the survivor's
