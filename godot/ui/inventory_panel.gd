@@ -907,6 +907,10 @@ func _open_here() -> Dictionary:
 	var box: Dictionary = SimContainers.open_view(_world, _actor)
 	if not box.is_empty():
 		return box
+	# With the sheet shut, the window's own feed is this exact view (main.gd lays it out at
+	# `loot_capacity`), so it is read rather than laid out a second time.
+	if not _open and _is_stores(_loot):
+		return _loot
 	var cap: Vector2i = _sheet_capacity() if _open else loot_capacity()
 	var key: Array = [int(_world.tick), _actor, cap, _open]
 	if key != _stores_key:

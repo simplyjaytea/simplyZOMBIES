@@ -12,7 +12,9 @@ extends RefCounted
 # not a second one the menu invented. The exception is "walk here": the stick and the click both
 # write a velocity, but only the click is a standing intent the sim has to keep from tick to tick
 # while a body crosses the district, and `move`'s shape (a direction, spent the instant it moves
-# you) has nowhere to keep a destination. That is `walk.to`, in world.gd.
+# you) has nowhere to keep a destination. That is `walk.to`, in world.gd. The stockpile's row sends
+# `stockpile.open`, the call E's own rung makes (`SimStockpile.open`), named outright because a
+# right-click on the far side of a pile is not where E's ladder is asked from.
 #
 # `sim/` never reads presentation state and never will just because this file sits beside a menu:
 # every read here is a module's own predicate (`SimContainers.nearest`, `SimFortify.rung_of`,
@@ -172,17 +174,18 @@ static func verbs_at(world: Variant, actor: int, hit: Dictionary, selected: int 
 	var tile: Vector2i = hit.get("tile", Vector2i(-1, -1)) as Vector2i
 
 	# --- in reach ---------------------------------------------------------------------------
-	if kind == "item" and entity >= 0 and _within(world, actor, entity, SimInventoryRes.PICKUP_REACH):
-		var name: String = SimItemsRes.item_name(world, entity).to_lower()
-		rows.append({"text": "pick up the %s" % name, "command": {"type": "item.pickup", "item": entity}, "target": entity})
-
-	# The stockpile, from inside it: an item of the patch you stand in, or your own tile. The window
+	# The stockpile, from inside it: an item of the patch you stand in, or its bare floor. The window
 	# lists what you see of the patch, so the row says nothing about which item; it opens the lot.
-	if (kind == "item" or tile.x >= 0) and SimStockpileRes.standing_on(world, actor):
+	# First, because on the pile it is what E does (`reach_words`): the bar's E words are this row.
+	if (kind == "item" or (kind == "ground" and tile.x >= 0)) and SimStockpileRes.standing_on(world, actor):
 		var patch: Dictionary = SimStockpileRes.patch_under(world, actor)
 		var at: Vector2i = SimStockpileRes.tile_of(world, entity) if kind == "item" and entity >= 0 else tile
 		if patch.has("%d,%d" % [at.x, at.y]):
 			rows.append({"text": SimStockpileRes.OPEN_WORDS, "command": {"type": SimStockpileRes.OPEN_COMMAND}, "target": -1})
+
+	if kind == "item" and entity >= 0 and _within(world, actor, entity, SimInventoryRes.PICKUP_REACH):
+		var name: String = SimItemsRes.item_name(world, entity).to_lower()
+		rows.append({"text": "pick up the %s" % name, "command": {"type": "item.pickup", "item": entity}, "target": entity})
 
 	if kind == "container" and entity >= 0:
 		if int(SimContainersRes.nearest(world, actor, false, SimContainersRes.Want.Openable)) == entity:
