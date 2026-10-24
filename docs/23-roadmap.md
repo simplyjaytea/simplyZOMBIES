@@ -225,9 +225,11 @@ first:
 - **Field HUD and every vehicle instrument layout.** Finish compact prose, six quick slots,
   colony access, interaction hints, speech and event/feedback treatment. Reserve space for
   car, handlebar and board instruments; retain their existing information semantics.
-  **Files:** HUD, dashboard, quick strip, motion/cursors and coordinator-owned world UI
-  composition. **Proof:** HUD, vehicles, speech, play and skin gates; long prose and all
-  three mounting/driving/exit layouts without covering active controls.
+  One known nit, seen in C4's review shots: at 1280×720 a quick slot cuts a longer name short
+  ("Empty Bo…" for the empty bottle in slot 1); it predates C4. **Files:** HUD, dashboard,
+  quick strip, motion/cursors and coordinator-owned world UI composition. **Proof:** HUD,
+  vehicles, speech, play and skin gates; long prose and all three mounting/driving/exit layouts
+  without covering active controls.
 - **Title, pause, settings, help and end of run.** Carry the visual identity through every
   shell state and save/load feedback; retain opacity, volume and reduced motion and a
   scannable key reference. Keep developer tools distinct. **Files:** shell, settings,
@@ -2556,7 +2558,9 @@ not a to-do list:
   dispatching nothing (KEYS), and Escape no longer spent on the menu (MENU-ESCAPE) each turn their
   lane red. **Not done:** `verbs_at`'s door row is offered for a broken door, and for an open one
   somebody stands in, where E does nothing (`_door_would_toggle` refuses); the plan kept this slice
-  out of `verbs_at`, so the fix is a follow-up. No UI draw cost was measured.
+  out of `verbs_at`, so the fix is a follow-up. No UI draw cost was measured. The shots of the
+  merged head (fe6d3a60), `context_menu` at both windows, are in the project's
+  `planning/ui-slice-3/c4/`; they match the shots the art review judged byte for byte.
 
 - **Kernel & tooling — the playbook and the init audit, 2026-10-23.** The owner asked for the
   repository to be initialised for agents and for one playbook every agent can read. An audit of
@@ -2971,6 +2975,10 @@ not a to-do list:
   branch 11.45, 10.62, 11.17 ms mean (median 11.17), main 10.75, 10.24, 11.36 (median 10.75),
   inside the run-to-run noise of about 1 ms. Main's night draw is itself over its 10 ms target
   on this container; that is B1's open number, not this slice's.
+  A campfire's flicker follows the shader's real-time clock (`TIME` in `night_light.gdshader`),
+  so a shot with a fire in it is not pixel-stable between runs (about 20k pixels at 1080p in the
+  torch-over-campfire shot). A before/after pixel diff of such a shot pins the time first, or
+  compares only shots with no flame in view; the plain `night_torch` scene has none and is stable.
 
 - **Feel — bodies glide between ticks, and a slow frame drops time, 2026-10-19.** Item A2 of
   the 2026-10-19 alpha plan. The sim steps at 20 Hz and every body used to be drawn on the
