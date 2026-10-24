@@ -3860,8 +3860,6 @@ not a to-do list:
   player's patch it makes E the window; both halves fail on the old `has_tile` test) and
   `godot:check:context` BAR's new case (a tin on the stockpile beside a crate: the bar's E words
   begin "pick up", the menu's first row is the same, and the stockpile row is still offered).
-  `on_own_patch` asks the patch set by the tile and by its `"tx,ty"` String until the drop-point
-  follow-up's `Vector2i` keys land; the String branch goes with it.
 - **Attack order: a picked colonist goes after one zombie or raider they can see — 2026-10-24 orders slice A2.**
   With a colonist picked on the street, the menu's "have Mara attack it" row offers an `attack` order on a
   zombie or raider the colonist or the player can see right now (`SimOrders.accepts`, the scarce-information
