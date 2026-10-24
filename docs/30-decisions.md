@@ -6167,7 +6167,10 @@ counts). The calls below are engineering calls taken in the slice.
   `stockpile.open`, taken off by `stockpile.close` (Escape), by stepping off the zone, or by opening
   a cupboard. A cupboard opened in the stockpile takes the window. A save from before the slice has
   no such component and loads with the window shut; there is no version bump.
-- **At 1280x720 the window sits over the action bar,** as a tall cupboard's does, so the grid can
-  be four rows and hold a pack. At 1920x1080 it is ten by six and clears the bar.
+- **The window never drops over the action bar.** `set_loot` puts a box too tall to clear the bar
+  over it, which at 1280x720 cut the bar's sentence in half under the window. The stockpile's grid is
+  sized to clear it instead: eight by three at 1280x720, ten by six at 1920x1080. A pack, four cells
+  tall, does not fit the 720 grid; the header says "and more besides" and the sheet's column (Tab,
+  seven by six) holds it.
 - **A take drops the item's claim.** A cook's claim on a raw (`reserved`) goes with the item when
   the player takes it, so the cook's job cannot finish on a tin in the player's pocket.

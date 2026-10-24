@@ -3646,9 +3646,10 @@ not a to-do list:
   while the window is open (main.gd and the panel share one layout); the zone's patches are cached on
   the world, so finding the patch went from 7.1 ms to 0.01 ms. Nothing runs on the tick path but a
   close check over bodies with the window open, so no tick bench. Not built: a pile holding more than
-  the window's cells shows the nearest and says "and more besides" rather than scrolling, so at
-  1280x720 a long rifle beside a pack is reached from the sheet's column (Tab) or by "take all that
-  fits". Shots, before and after at both sizes:
+  the window's cells shows the nearest and says "and more besides" rather than scrolling. At 1280x720
+  the grid is eight by three so the window clears the action bar, and a pack (four cells tall) is
+  reached from the sheet's column (Tab) or by "take all that fits". Shots, before and after at both
+  sizes:
   `planning/stockpile/s4/` in the project files.
 - **Attack order: a picked colonist goes after one zombie or raider they can see — 2026-10-24 orders slice A2.**
   With a colonist picked on the street, the menu's "have Mara attack it" row offers an `attack` order on a
