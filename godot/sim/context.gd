@@ -177,11 +177,16 @@ static func verbs_at(world: Variant, actor: int, hit: Dictionary, selected: int 
 	# The stockpile, from inside it: an item of the patch you stand in, or its bare floor. The window
 	# lists what you see of the patch, so the row says nothing about which item; it opens the lot.
 	# First, because on the pile it is what E does (`reach_words`): the bar's E words are this row.
+	# Except with a cupboard in reach, where E keeps its old ladder (the pick-up, then the cupboard)
+	# and the stockpile row follows the rows E would take, so the bar and the menu's first row agree.
+	var stores_row: Dictionary = {}
 	if (kind == "item" or (kind == "ground" and tile.x >= 0)) and SimStockpileRes.standing_on(world, actor):
-		var patch: Dictionary = SimStockpileRes.patch_under(world, actor)
 		var at: Vector2i = SimStockpileRes.tile_of(world, entity) if kind == "item" and entity >= 0 else tile
-		if patch.has("%d,%d" % [at.x, at.y]):
-			rows.append({"text": SimStockpileRes.OPEN_WORDS, "command": {"type": SimStockpileRes.OPEN_COMMAND}, "target": -1})
+		if SimStockpileRes.on_own_patch(world, actor, at):
+			stores_row = {"text": SimStockpileRes.OPEN_WORDS, "command": {"type": SimStockpileRes.OPEN_COMMAND}, "target": -1}
+	var box_in_reach: bool = int(SimContainersRes.nearest(world, actor, false, SimContainersRes.Want.Openable)) >= 0
+	if not stores_row.is_empty() and not box_in_reach:
+		rows.append(stores_row)
 
 	if kind == "item" and entity >= 0 and _within(world, actor, entity, SimInventoryRes.PICKUP_REACH):
 		var name: String = SimItemsRes.item_name(world, entity).to_lower()
@@ -192,6 +197,8 @@ static func verbs_at(world: Variant, actor: int, hit: Dictionary, selected: int 
 			var s: Variant = world.components.get_component(entity, "searchable")
 			var label: String = String((s as Dictionary).get("kind", SimContainersRes.DEFAULT_KIND)) if s is Dictionary else SimContainersRes.DEFAULT_KIND
 			rows.append({"text": "open the %s" % label, "command": {"type": "container.open", "container": entity}, "target": entity})
+	if not stores_row.is_empty() and box_in_reach:
+		rows.append(stores_row)
 
 	if kind == "door" and tile.x >= 0:
 		var reach_tile: Vector2i = SimFortifyRes._door_in_reach(world, actor)

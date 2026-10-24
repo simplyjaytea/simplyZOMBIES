@@ -41,7 +41,7 @@ npm run godot:m2:transform # what a thing cooks, boils or purifies into → M2_T
 npm run godot:m2:noise     # a device you wind up, put down and pick back up → M2_NOISE_OK
 npm run godot:m2:comfort   # something for your own morale that is not a meal → M2_COMFORT_OK
 npm run godot:m2:teach     # a book, read once, bounded by what practice pays → M2_TEACH_OK
-npm run godot:m2:stockpile # the stockpile as a zone: default, mark, walled, readers, save, spread, patch, walk, cook, raider, take, empty, full, far → M2_STOCKPILE_OK
+npm run godot:m2:stockpile # the stockpile as a zone: default, mark, walled, readers, save, spread, patch, walk, cook, raider, take, empty, full, nextdoor, far → M2_STOCKPILE_OK
 npm run godot:m2:warmth    # insulation per part, wet, cooling, and what sheds rain → M2_WARMTH_OK
 npm run godot:m2:light_burn # a lamp runs out, a headlamp lights, a floodlight stands → M2_LIGHT_BURN_OK
 npm run godot:m2:armor     # armour slots, and coverage that stops a blow → M2_ARMOR_OK
