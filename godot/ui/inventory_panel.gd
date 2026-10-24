@@ -1087,18 +1087,19 @@ func _release_at(p: Vector2) -> void:
 	var rotated: bool = _drag_rotated
 	var verdict: Dictionary = drop_hint(p)
 	_cancel_drag()
-	for box in _slot_boxes():
-		if (box["rect"] as Rect2).has_point(p):
-			_world.commands.push({"type": "item.equip", "item": item, "slot": String(box["slot"])})
-			_redraw_columns()
-			return
 	# A part dropped on a weapon fits it when there is an empty slot for it and the survivor may work
-	# on it here. Otherwise the drop is the ordinary grid placement below, as it always was.
+	# on it here. It is asked before the equipment boxes, as `drop_hint` asks it, so a worn weapon's
+	# box fits a part rather than equipping it. Otherwise the drop is the box or the grid, as before.
 	var host: Dictionary = _host_under(p)
 	if not host.is_empty():
 		var slot: String = SimGunsmith.drop_slot(_world, _actor, item, int(host["item"]))
 		if slot != "":
 			_world.commands.push({"type": "item.attach", "host": int(host["item"]), "item": item, "slot": slot})
+			_redraw_columns()
+			return
+	for box in _slot_boxes():
+		if (box["rect"] as Rect2).has_point(p):
+			_world.commands.push({"type": "item.equip", "item": item, "slot": String(box["slot"])})
 			_redraw_columns()
 			return
 	if not _column_rect().has_point(p):
@@ -1277,7 +1278,12 @@ func _host_under(p: Vector2) -> Dictionary:
 		var view: Variant = BagGrid.item_at(column, cell as Vector2i)
 		if not view is Dictionary or int((view as Dictionary).get("item", -1)) < 0:
 			return {}
-		return {"item": int((view as Dictionary)["item"]), "rect": BagGrid.plate_rect(BagGrid.origin_of(at), view as Dictionary)}
+		# Clipped to the grid it is drawn in: a plate that runs under the scroll edge is not a target
+		# past it, and its wash is not drawn past it either.
+		var drawn: Rect2 = BagGrid.plate_rect(BagGrid.origin_of(at), view as Dictionary).intersection(_column_rect())
+		if not drawn.has_area():
+			return {}
+		return {"item": int((view as Dictionary)["item"]), "rect": drawn}
 	return {}
 
 

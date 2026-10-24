@@ -1510,9 +1510,48 @@ func _a_part_dropped_on_a_weapon_fits_it_or_lands_in_the_grid() -> bool:
 		ok = false
 	w.step()
 
+	# A worn weapon takes a part by its box: the magazine comes off the rifle again, the rifle is worn
+	# in its primary slot, and the spare dropped on that box is the fit (the box used to equip it).
+	var box_spare: int = SimAttachments.in_slot(w, rifle, "magazine")
+	w.commands.push({"type": "item.detach", "item": box_spare})
+	w.step()
+	if not SimInventory.equip(w, actor, rifle, "primary"):
+		push_error("FIT-DROP: the rifle would not be worn in its primary slot")
+		ok = false
+	_refresh_sheet(panel, w, actor)
+	var box_at: Variant = _box_centre(panel, "primary")
+	if box_at == null:
+		push_error("FIT-DROP: the primary slot has no box on the sheet")
+		ok = false
+	else:
+		panel.set("_drag_item", box_spare)
+		var box_hint: Dictionary = panel.call("drop_hint", box_at) as Dictionary
+		if not bool(box_hint.get("fit", false)):
+			push_error("FIT-DROP: a magazine held over a worn rifle's box shows no fit")
+			ok = false
+		w.commands.take(int(w.tick))
+		panel.call("_release_at", box_at)
+		if not _pending_has(w, "item.attach", box_spare):
+			push_error("FIT-DROP: a magazine dropped on a worn rifle's box was not attached")
+			ok = false
+		if _pending_has(w, "item.equip", box_spare):
+			push_error("FIT-DROP: a magazine dropped on a worn rifle's box was equipped instead")
+			ok = false
+		w.step()
+		if SimAttachments.in_slot(w, rifle, "magazine") != box_spare:
+			push_error("FIT-DROP: the magazine dropped on the worn rifle is not in the rifle")
+			ok = false
+
 	viewport.queue_free()
 	await process_frame
 	return ok
+
+
+func _box_centre(panel: Control, slot: String) -> Variant:
+	for box in panel.call("_slot_boxes") as Array:
+		if String((box as Dictionary)["slot"]) == slot:
+			return ((box as Dictionary)["rect"] as Rect2).get_center()
+	return null
 
 
 func _refresh_sheet(panel: Control, w: Variant, actor: int) -> void:

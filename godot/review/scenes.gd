@@ -253,12 +253,15 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 			var sheet: Variant = main.get("_inventory_panel")
 			if sheet == null:
 				return "the sheet is not on the screen"
-			var over: Variant = _plate_centre(sheet as Control, rifle)
-			if over == null:
+			var plate: Variant = _plate_rect(sheet as Control, rifle)
+			if plate == null:
 				return "the rifle has no plate on the sheet to point at"
+			# The top third of the plate, not its centre: the held magazine is drawn on the pointer,
+			# and the rifle has to show around it.
+			var over: Vector2 = (plate as Rect2).position + Vector2((plate as Rect2).size.x * 0.5, (plate as Rect2).size.y / 3.0)
 			sheet.set("_drag_item", mag)
 			sheet.set("_placed", sheet.call("_column_places"))
-			var window_at: Vector2 = (sheet as Control).get_global_transform_with_canvas() * (over as Vector2)
+			var window_at: Vector2 = (sheet as Control).get_global_transform_with_canvas() * over
 			Input.warp_mouse(window_at)
 			main.set_meta("bench_drop_rifle", rifle)
 			await _settle(tree, main)
@@ -402,16 +405,16 @@ static func _settle(tree: SceneTree, main: Node) -> void:
 	await tree.process_frame
 
 
-## The centre of an item's plate on the sheet, in the sheet's own coordinates, or null when it is not
-## drawn there. The same arithmetic the drop path uses, so the pointer lands on the plate it names.
-static func _plate_centre(sheet: Control, item: int) -> Variant:
+## An item's plate on the sheet, in the sheet's own coordinates, or null when it is not drawn there.
+## The same arithmetic the drop path uses, so the pointer lands on the plate it names.
+static func _plate_rect(sheet: Control, item: int) -> Variant:
 	var bag: GDScript = load("res://ui/bag_grid.gd") as GDScript
 	for placed in sheet.call("_column_places") as Array:
 		var column: Dictionary = (placed as Dictionary)["column"] as Dictionary
 		for entry in column.get("items", []) as Array:
 			if int((entry as Dictionary).get("item", -1)) == item:
 				var origin: Vector2 = bag.call("origin_of", (placed as Dictionary)["at"] as Vector2)
-				return (bag.call("plate_rect", origin, entry) as Rect2).get_center()
+				return bag.call("plate_rect", origin, entry) as Rect2
 	return null
 
 
