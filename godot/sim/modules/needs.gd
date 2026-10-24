@@ -13,6 +13,7 @@ const SimLightMod = preload("res://sim/modules/light.gd")
 const SimAttention = preload("res://sim/modules/attention_emitter.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
+const SimStockpile = preload("res://sim/modules/stockpile.gd")
 
 const HUNGER_EMPTY_DAYS: float = 8.0
 const THIRST_EMPTY_DAYS: float = 4.0
@@ -28,7 +29,8 @@ const CAMPFIRE_HEAT_M: float = 4.0
 # hundred-point body `WARMTH_WEIGHTS` divides. See `wearing_armor`, which used to ask the torso
 # key alone and so could not tell a full suit from a chest plate.
 const ARMOR_POINTS_HEAT: int = 25
-const CAMPFIRE_LIGHT_M: float = 20.0
+# A lit campfire lights what is near it: 8 m (docs/23, "The night's reach on screen", JT 2026-10-24).
+const CAMPFIRE_LIGHT_M: float = 8.0
 # A lit fire burns down. Half a night (9,000 ticks on the one-hour day) from the last lighting, then
 # it is doused
 # unless somebody is cooking on it; a cook's completion, a warm-seek and the E toggle each
@@ -2891,20 +2893,19 @@ static func nearest_bed(world: Variant, x: float, y: float, free_only: bool = tr
 	return best
 
 
+# The stockpile is a zone of tiles now (`stockpile.gd`), and this is the one question every reader
+# asks of it. The default zone is the annex's indoor floor, so on an unchanged colony the answer is
+# the one it always was.
 static func is_stockpile_tile(world: Variant, tx: int, ty: int) -> bool:
 	if world.tilemap == null:
 		return false
-	if not SimTileMap.is_indoors(world.tilemap, tx, ty):
-		return false
-	if SimTileMap.tile_at(world.tilemap, tx, ty) != SimTileMap.Tile.Floor:
-		return false
-	# The stockpile is the annex's indoor floor, and where the annex is comes off the map now
-	# rather than out of `SimDirector.ANNEX`. An unstamped district reports the empty rect, which
-	# has no points -- so it has no stockpile, rather than one at somebody else's coordinates.
-	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
-	if annex.size.x <= 0 or annex.size.y <= 0:
-		return false
-	return annex.has_point(Vector2i(tx, ty))
+	return SimStockpile.has_tile(world, tx, ty)
+
+
+# Indoors, floor, inside the annex: the default zone, and nothing else. Where a bed may go asks this
+# and not `is_stockpile_tile`, so moving the stockpile never moves a bed.
+static func is_annex_floor(world: Variant, tx: int, ty: int) -> bool:
+	return SimStockpile.is_annex_floor(world, tx, ty)
 
 
 static func stockpile_items(world: Variant) -> Array[int]:

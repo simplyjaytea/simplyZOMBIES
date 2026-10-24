@@ -2,7 +2,10 @@ extends SceneTree
 # The right-click menu and walk-here: `sim/context.gd`'s `verbs_at` names only what the sim would
 # accept (VERBS), every row it hands back actually moves the sim when pushed and stepped
 # (DISPATCH), a click orders a walk at the same speed the stick would (SPEED), and the scene
-# itself opens the menu, dispatches a row and closes on anything else (RIGHT-CLICK).
+# itself opens the menu, dispatches a row and closes on anything else (RIGHT-CLICK). The menu's
+# header names what was clicked and the bare ground has none (HEADER, in the sim and on the
+# scene's menu); Up, Down, Enter and Escape drive it (KEYS); and the action bar's E clause is the
+# menu's first in-reach row, word for word, at a window, a door, a loose item and a crate (BAR).
 #
 # Every assertion below carries its own negative, the convention `check_ban_health_bar.gd` set:
 # a row that only ever appears would pass just as happily if `verbs_at` always returned
@@ -22,6 +25,9 @@ const TopDownProjection = preload("res://presentation/projection.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const ItemMenu = preload("res://ui/item_menu.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
+const Hud = preload("res://ui/hud.gd")
+const Pick = preload("res://presentation/pick.gd")
+const Locker = preload("res://ui/locker.gd")
 
 const MAP_TILES: int = 24
 const SCENE_PATH: String = "res://presentation/main.tscn"
@@ -37,10 +43,12 @@ func _run() -> void:
 	ok = _decline() and ok
 	ok = _dispatch() and ok
 	ok = _speed() and ok
+	ok = _labels() and ok
+	ok = _bar() and ok
 	var right_click_ok: bool = await _right_click()
 	ok = right_click_ok and ok
 	if ok:
-		print("CONTEXT_OK the street menu offers only what the sim would accept, every row moves the sim, a click walks at the stick's own speed, and the scene opens, dispatches and closes it")
+		print("CONTEXT_OK the street menu offers only what the sim would accept, every row moves the sim, a click walks at the stick's own speed, its header names what was clicked, the bar's E words are its first row's, and the scene opens, dispatches, closes it and answers its keys")
 		quit(0)
 	else:
 		push_error("CONTEXT_FAIL")
@@ -286,6 +294,141 @@ func _collect(into: Array, rows: Array[Dictionary]) -> void:
 # fixture picks a base that was never going to collide with it.
 func _spawn_test_item(w: Variant) -> int:
 	return SimItems.spawn_item(w, "item.food.canned", {"tier": "scavenged"})
+
+
+# --- HEADER and BAR ----------------------------------------------------------------------------
+
+# `SimContext.target_label`: the menu's header for whatever was clicked. True positives on a
+# colonist (by name), a container (by kind), a loose item (by name), a door and a zombie; the true
+# negative is the bare ground, which has none. And a zombie is "a zombie" whatever it is: the label
+# must never say which kind of dead it is, so a runner reads the same as a shambler.
+func _labels() -> bool:
+	var ok: bool = true
+	var w: Variant = _world()
+	var ren: int = int(w.entities.spawn())
+	w.components.set_component(ren, "position", {"x": 11.0, "y": 10.5})
+	w.components.set_component(ren, "identity", {"name": "Ren Okafor"})
+	var crate: int = int(w.entities.spawn())
+	w.components.set_component(crate, "position", {"x": 12.5, "y": 10.5})
+	w.components.set_component(crate, "searchable", {"kind": "crate", "searched": false})
+	var item: int = _spawn_test_item(w)
+	w.components.set_component(item, "position", {"x": 11.0, "y": 11.5})
+	var zed: int = int(w.entities.spawn())
+	w.components.set_component(zed, "position", {"x": 13.0, "y": 10.5})
+	w.components.set_component(zed, "shambler", {"type": "runner"})
+	var item_name: String = SimItems.item_name(w, item).to_lower()
+	var cases: Array = [
+		# The whole name the identity carries, not a first name cut out of it.
+		[{"kind": "colonist", "entity": ren, "tile": Vector2i(11, 10)}, "Ren Okafor"],
+		[{"kind": "colonist", "entity": int(w.player), "tile": Vector2i(10, 10)}, "you"],
+		[{"kind": "container", "entity": crate, "tile": Vector2i(12, 10)}, "the crate"],
+		[{"kind": "item", "entity": item, "tile": Vector2i(11, 11)}, "the " + item_name],
+		[{"kind": "door", "entity": -1, "tile": Vector2i(14, 10)}, "the door"],
+		[{"kind": "zombie", "entity": zed, "tile": Vector2i(13, 10)}, "a zombie"],
+		[{"kind": "ground", "entity": -1, "tile": Vector2i(15, 15)}, ""],
+	]
+	for c in cases:
+		var got: String = SimContext.target_label(w, c[0] as Dictionary)
+		if got != String(c[1]):
+			push_error("HEADER: %s is labelled '%s', not '%s'" % [str(c[0]), got, String(c[1])])
+			ok = false
+		if _has_digit(got):
+			push_error("HEADER: a label carries a digit: '%s'" % got)
+			ok = false
+	if SimContext.target_label(w, {}) != "" or SimContext.target_label(null, cases[0][0] as Dictionary) != "":
+		push_error("HEADER: an empty hit or a null world was given a label")
+		ok = false
+	# The header is drawn above the rows and is not one: the rows start below it, and a menu with
+	# no header keeps its old shape -- the loot sheet's menu passes none.
+	var texts: Array = ["attack", "walk here"]
+	var with_head: Array[Dictionary] = ItemMenu.verb_rects(Vector2.ZERO, texts, "a zombie")
+	var bare: Array[Dictionary] = ItemMenu.verb_rects(Vector2.ZERO, texts)
+	if (with_head[0]["rect"] as Rect2).position.y < ItemMenu.PAD_Y + ItemMenu.HEADER_H:
+		push_error("HEADER: the first row starts inside the header line")
+		ok = false
+	if (bare[0]["rect"] as Rect2).position.y != ItemMenu.PAD_Y:
+		push_error("HEADER: a menu without a header moved its rows")
+		ok = false
+	if ItemMenu.size_of(texts, "a zombie").y != ItemMenu.size_of(texts).y + ItemMenu.HEADER_H:
+		push_error("HEADER: the header does not add exactly its own line to the menu")
+		ok = false
+	# The street menu's ink follows its ring: the ringed row alone is amber, so an old lead word
+	# ("walk here") cannot outshine the row Enter takes. The loot sheet's menu (no ring) keeps its
+	# lead verbs lit -- the negative that shows `lit` is what moved the colour.
+	if ItemMenu.row_colour("open the crate", 0, 0) != Locker.ACCENT or ItemMenu.row_colour("walk here", 1, 0) != Locker.TEXT:
+		push_error("HEADER: the ringed row is not the one amber row on the street menu")
+		ok = false
+	if ItemMenu.row_colour("walk here", 1, -1) != Locker.ACCENT or ItemMenu.row_colour("open the crate", 0, -1) != Locker.TEXT:
+		push_error("HEADER: the loot menu's lead verbs lost their accent")
+		ok = false
+	var menu_src: String = FileAccess.get_file_as_string("res://ui/context_menu.gd")
+	if menu_src.find("ItemMenu.draw_menu(self, Vector2.ZERO, _texts(), 1.0, _header, _focus)") < 0:
+		push_error("HEADER: the street menu does not hand its ring to the draw, so the ink cannot follow it")
+		ok = false
+	if ok:
+		print("HEADER OK a colonist by name, you, the crate, the tin's name, the door and 'a zombie' for a runner; nothing for the ground; the rows sit under it and a menu without one keeps its shape")
+	return ok
+
+
+# The action bar's E clause is the menu's first in-reach row for the same thing, word for word:
+# `ui/hud.gd`'s `_reach_clause` asks `SimContext.reach_words`, the menu writes `verbs_at`'s rows,
+# and this holds them equal at a window, a door (shut, then open), a loose item and a crate. The true
+# negative is the source the bar used to read: a boarded window's look-at state ("intact") is not
+# the menu's row, so a bar that went back to it would fail here, as it failed before this slice.
+func _bar() -> bool:
+	var ok: bool = true
+	var cases: Array = []
+	# A window, facing east from (10.5, 10.5), with a board on it.
+	var ww: Variant = _world(10.5, 10.5, 0.0)
+	_set_tile(ww, 11, 10, SimTileMap.Tile.Window)
+	SimFortify._board_window(ww, 11, 10)
+	cases.append(["window", ww, {"kind": "ground", "entity": -1, "tile": Vector2i(11, 10)}])
+	# A door, the same way, shut and then open.
+	var wd: Variant = _world(10.5, 10.5, 0.0)
+	_set_tile(wd, 11, 10, SimTileMap.Tile.Door)
+	SimFortify.spawn_doors(wd, wd.tilemap)
+	cases.append(["shut door", wd, {"kind": "door", "entity": -1, "tile": Vector2i(11, 10)}])
+	# A loose tin in reach.
+	var wi: Variant = _world()
+	var item: int = _spawn_test_item(wi)
+	wi.components.set_component(item, "position", {"x": 11.0, "y": 10.5})
+	cases.append(["loose item", wi, {"kind": "item", "entity": item, "tile": Vector2i(11, 10)}])
+	# An unsearched crate in reach.
+	var wc: Variant = _world()
+	var crate: int = int(wc.entities.spawn())
+	wc.components.set_component(crate, "position", {"x": 11.0, "y": 10.5})
+	wc.components.set_component(crate, "searchable", {"kind": "crate", "searched": false})
+	cases.append(["crate", wc, {"kind": "container", "entity": crate, "tile": Vector2i(11, 10)}])
+	for c in cases:
+		ok = _bar_matches(String(c[0]), c[1], c[2] as Dictionary) and ok
+	SimFortify.toggle_door(wd, 11, 10)
+	ok = _bar_matches("open door", wd, {"kind": "door", "entity": -1, "tile": Vector2i(11, 10)}) and ok
+	# The negative: the look-at state the bar used to put under E is not the menu's row.
+	var state: String = String(SimFortify.look_at(ww, ww.player).get("window", ""))
+	var first: Array[Dictionary] = SimContext.verbs_at(ww, ww.player, {"kind": "ground", "entity": -1, "tile": Vector2i(11, 10)})
+	if state.is_empty() or first.is_empty() or state == String(first[0].get("text", "")):
+		push_error("BAR: the boarded window's state '%s' cannot be told from the menu's row, so this lane cannot fail" % state)
+		ok = false
+	if ok:
+		print("BAR OK the bar's E clause is the menu's first row at a boarded window, a shut and an open door, a loose tin and a crate, and the window's state is not that row")
+	return ok
+
+
+func _bar_matches(what: String, w: Variant, hit: Dictionary) -> bool:
+	var rows: Array[Dictionary] = SimContext.verbs_at(w, w.player, hit)
+	if rows.is_empty():
+		push_error("BAR: the menu at the %s offers nothing, so there is no row to match" % what)
+		return false
+	var row: String = String(rows[0].get("text", ""))
+	var line: String = Hud.action_line(w, w.player)
+	var e: String = ""
+	for clause in line.split(Hud.ACTION_SEP):
+		if String(clause).begins_with("E — "):
+			e = String(clause).substr(4)
+	if e != row:
+		push_error("BAR: at the %s the bar says E '%s' and the menu's first row says '%s'" % [what, e, row])
+		return false
+	return true
 
 
 # --- DISPATCH --------------------------------------------------------------------------------
@@ -548,10 +691,7 @@ func _right_click() -> bool:
 				push_error("RIGHT-CLICK: the menu over a shambler carries no attack row (rows: %s, dir %s, zombie at %.2f,%.2f)" % [str(texts_dbg), str(dir), zx, zy])
 				ok = false
 			else:
-				var texts: Array = []
-				for r in rows:
-					texts.append(String((r as Dictionary).get("text", "")))
-				var rects: Array[Dictionary] = ItemMenu.verb_rects(Vector2.ZERO, texts)
+				var rects: Array[Dictionary] = menu.call("row_rects") as Array[Dictionary]
 				var row_pos: Vector2 = menu.get("position") as Vector2
 				var click_at: Vector2 = row_pos + (rects[attack_index]["rect"] as Rect2).get_center()
 				(world.commands as Variant)._pending.clear()
@@ -618,9 +758,136 @@ func _right_click() -> bool:
 			if shell == null or not bool((shell as CanvasItem).visible):
 				push_error("RIGHT-CLICK: with no menu open, Escape no longer raises the pause menu -- the Escape lane cannot fail")
 				ok = false
+			# Back to the street for the lanes below.
+			_tap(KEY_ESCAPE)
+
+		ok = _menu_header_and_keys(main, world, screen_pos, px, py) and ok
 
 	main.queue_free()
 	await process_frame
 	if ok:
 		print("RIGHT-CLICK OK the scene opens the menu on a Focal shambler, dispatches its row, closes on anything else, and Escape is spent on it")
+	return ok
+
+
+# On the scene's own menu. HEADER: a right-click on the shambler heads the menu "a zombie" above
+# its rows, a click on the header picks nothing, and a right-click on the bare ground opens a menu
+# with no header line at all. KEYS: the ring opens on the first row; Down then Enter dispatches the
+# second row's own command and closes the menu; Up from the first row wraps to the last; an arrow
+# under the menu walks nobody; Escape closes it with nothing dispatched.
+func _menu_header_and_keys(main: Node, world: Variant, zombie_at: Vector2, px: float, py: float) -> bool:
+	var ok: bool = true
+	var menu: Variant = main.get("_context_menu")
+	if menu == null:
+		push_error("HEADER: the scene has no context menu")
+		return false
+	var shell: Variant = main.get("_shell")
+	if shell != null and bool((shell as CanvasItem).visible):
+		push_error("HEADER: the pause menu is still up, so the street lanes cannot run")
+		return false
+	root.push_input(_mouse(zombie_at, MOUSE_BUTTON_RIGHT, true))
+	root.push_input(_mouse(zombie_at, MOUSE_BUTTON_RIGHT, false))
+	if not bool(menu.call("is_open")):
+		push_error("HEADER: the menu did not open on the shambler")
+		return false
+	if String(menu.call("header")) != "a zombie":
+		push_error("HEADER: the menu over a shambler is headed '%s'" % String(menu.call("header")))
+		ok = false
+	# A click on the header line is no row: it closes the menu and dispatches nothing.
+	var origin: Vector2 = menu.get("position") as Vector2
+	(world.commands as Variant)._pending.clear()
+	var on_head: Vector2 = origin + Vector2(ItemMenu.PAD_X + 4.0, ItemMenu.PAD_Y + ItemMenu.HEADER_H / 2.0)
+	root.push_input(_mouse(on_head, MOUSE_BUTTON_LEFT, true))
+	root.push_input(_mouse(on_head, MOUSE_BUTTON_LEFT, false))
+	if not ((world.commands as Variant)._pending as Array).is_empty():
+		push_error("HEADER: a click on the header dispatched %s" % str((world.commands as Variant)._pending))
+		ok = false
+
+	# KEYS, on the shambler's menu again.
+	root.push_input(_mouse(zombie_at, MOUSE_BUTTON_RIGHT, true))
+	root.push_input(_mouse(zombie_at, MOUSE_BUTTON_RIGHT, false))
+	var rows: Array = menu.call("rows") as Array
+	if rows.size() < 2:
+		push_error("KEYS: the shambler's menu has %d rows, so Down has nowhere to go" % rows.size())
+		return false
+	if int(menu.call("focused")) != 0:
+		push_error("KEYS: the ring did not open on the first row")
+		ok = false
+	(world.commands as Variant)._pending.clear()
+	_tap(KEY_DOWN)
+	if int(menu.call("focused")) != 1 or not bool(menu.call("is_open")):
+		push_error("KEYS: Down did not move the ring to the second row (ring %d)" % int(menu.call("focused")))
+		ok = false
+	_tap(KEY_UP)
+	if int(menu.call("focused")) != 0:
+		push_error("KEYS: Up did not bring the ring back to the first row (ring %d)" % int(menu.call("focused")))
+		ok = false
+	_tap(KEY_UP)
+	if int(menu.call("focused")) != rows.size() - 1:
+		push_error("KEYS: Up from the first row did not wrap to the last (ring %d)" % int(menu.call("focused")))
+		ok = false
+	# Down from the last wraps to the first, and once more is the second row again.
+	_tap(KEY_DOWN)
+	_tap(KEY_DOWN)
+	if int(menu.call("focused")) != 1:
+		push_error("KEYS: Down from the last row did not wrap round to the second (ring %d)" % int(menu.call("focused")))
+		ok = false
+	for c in (world.commands as Variant)._pending as Array:
+		if String((c as Dictionary).get("type", "")) == "move" and (absf(float((c as Dictionary).get("dx", 0.0))) > 0.0 or absf(float((c as Dictionary).get("dy", 0.0))) > 0.0):
+			push_error("KEYS: an arrow under the menu walked the body (%s)" % str(c))
+			ok = false
+	var want: Dictionary = (rows[1] as Dictionary).get("command", {}) as Dictionary
+	(world.commands as Variant)._pending.clear()
+	_tap(KEY_ENTER)
+	var pushed: Array = (world.commands as Variant)._pending as Array
+	if want.is_empty() or String(want.get("type", "")) == "attack.context":
+		push_error("KEYS: the second row (%s) carries no plain command to compare" % str(rows[1]))
+		ok = false
+	elif not pushed.has(want):
+		push_error("KEYS: Enter on the second row pushed %s, not its command %s" % [str(pushed), str(want)])
+		ok = false
+	if bool(menu.call("is_open")):
+		push_error("KEYS: the menu stayed open after Enter dispatched a row")
+		ok = false
+	# Escape: closed, nothing dispatched.
+	root.push_input(_mouse(zombie_at, MOUSE_BUTTON_RIGHT, true))
+	root.push_input(_mouse(zombie_at, MOUSE_BUTTON_RIGHT, false))
+	(world.commands as Variant)._pending.clear()
+	_tap(KEY_ESCAPE)
+	if bool(menu.call("is_open")) or not ((world.commands as Variant)._pending as Array).is_empty():
+		push_error("KEYS: Escape left the menu open or dispatched %s" % str((world.commands as Variant)._pending))
+		ok = false
+
+	# The bare ground: a menu with rows and no header line. Found by asking the pick, since the
+	# district is procedural.
+	var camera: Dictionary = main.get("camera")
+	# Input reaches the viewport at any point, on the screen or off it (the headless window is
+	# tiny), so the search walks tiles round the player rather than the window's pixels.
+	var ground_at: Vector2 = Vector2.ZERO
+	var found: bool = false
+	for off in [Vector2(-3, 0), Vector2(3, 0), Vector2(0, -3), Vector2(0, 3), Vector2(-4, -2), Vector2(4, 2), Vector2(-2, 4), Vector2(2, -4)]:
+		var sc: Dictionary = TopDownProjection.world_to_screen(camera, px + (off as Vector2).x, py + (off as Vector2).y)
+		var at := Vector2(float(sc["sx"]), float(sc["sy"]))
+		var hit: Dictionary = Pick.pick_at(world, camera, at)
+		if String(hit.get("kind", "")) == "ground" and not SimContext.verbs_at(world, int(world.player), hit).is_empty():
+			ground_at = at
+			found = true
+			break
+	if not found:
+		print("HEADER: the bare-ground negative skipped, no open ground with a row near spawn")
+	else:
+		root.push_input(_mouse(ground_at, MOUSE_BUTTON_RIGHT, true))
+		root.push_input(_mouse(ground_at, MOUSE_BUTTON_RIGHT, false))
+		if not bool(menu.call("is_open")):
+			push_error("HEADER: a right-click on open ground opened no menu")
+			ok = false
+		elif not String(menu.call("header")).is_empty():
+			push_error("HEADER: the bare ground's menu is headed '%s'" % String(menu.call("header")))
+			ok = false
+		elif ((menu.call("row_rects") as Array)[0]["rect"] as Rect2).position.y != ItemMenu.PAD_Y:
+			push_error("HEADER: the bare ground's menu left room for a header it does not have")
+			ok = false
+		_tap(KEY_ESCAPE)
+	if ok:
+		print("KEYS OK the ring opens on the first row and wraps, Down then Enter dispatches the second row and closes, an arrow walks nobody, Escape closes with nothing sent; the header names the shambler, is not a row%s" % (", and the ground has none" if found else " (the ground's negative skipped)"))
 	return ok

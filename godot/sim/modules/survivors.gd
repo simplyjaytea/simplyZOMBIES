@@ -76,6 +76,8 @@ static func list_uniques(world: Variant) -> Array[Dictionary]:
 static func give_eyes(world: Variant, ent: int) -> void:
 	if not world.components.has_component(ent, "observer"):
 		world.components.set_component(ent, "observer", SimVisibilityRes.daylight_eyes())
+	# A person's eyes keep the night floor (visibility.gd NIGHT_EYES_FLOOR_M); a zombie's and a raider's do not.
+	(world.components.get_component(ent, "observer") as Dictionary)["night_eyes"] = true
 	SimSightingsRes.attach(world, ent)
 
 

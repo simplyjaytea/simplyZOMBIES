@@ -6,11 +6,15 @@ extends SceneTree
 #
 # Every lane carries a true negative. Sabotage that proves it: forcing `beam` to 0 in
 # `beam_of` turns CONE red; a recast on turn turns TURN red; ignoring the wedge in
-# `_lean_to_light` turns LEAN red.
+# `_lean_to_light` turns LEAN red; light_texels asking the round cast instead of `lights_tile`
+# turns READS red.
 #
-# READS is the dead-socket rule. `lit_metres` and `_lean_to_light` must reach `lights_tile`.
-# `LightLook` (the screen) is not yet a reader; that half lands with the beam on screen (B3) and is
-# skipped out loud until then.
+# A beam lights a tile any of it falls on (`BEAM_EDGE_M`, B3), so the screen's straight-edged beam
+# lies inside the lit tiles: CONE holds a tile just past the half-angle lit and the far diagonal
+# dark, and a carrier with no facing throws round.
+#
+# READS is the dead-socket rule. `lit_metres`, `_lean_to_light` and `LightLook` (the screen, since
+# the beam on screen, B3) must reach `lights_tile`.
 
 const World = preload("res://sim/world.gd")
 const SimBoot = preload("res://sim/boot.gd")
@@ -24,6 +28,7 @@ const SimItems = preload("res://sim/modules/items.gd")
 const SimSave = preload("res://sim/save.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 const Clock = preload("res://sim/time/clock.gd")
+const LightLook = preload("res://presentation/light_look.gd")
 
 const TORCH: String = "item.torch.handheld"
 const LANTERN: String = "item.lantern.storm"
@@ -50,7 +55,7 @@ func _run() -> void:
 	ok = _the_beam_survives_a_save() and ok
 	ok = _the_beam_reaches_the_reader() and ok
 	if ok:
-		print("M2_TORCH_OK cone turn lean sight save reads (LightLook half skipped until B3)")
+		print("M2_TORCH_OK cone turn lean sight save reads")
 		quit(0)
 	else:
 		push_error("M2_TORCH_FAIL")
@@ -108,6 +113,16 @@ func _a_torch_is_a_cone_and_a_lantern_is_round() -> bool:
 	if _lit(w, holder, HOLDER_TX + 4, HOLDER_TY + 4):
 		push_error("CONE: the far diagonal, 45 degrees off the facing, is lit by a 22 degree beam")
 		return false
+	# The tile whose centre is 27 degrees off the facing, 4.5 m out: the beam's edge falls across it,
+	# though not through its centre.
+	if not _lit(w, holder, HOLDER_TX + 4, HOLDER_TY - 2):
+		push_error("CONE: the tile the beam's edge falls across, 27 degrees off at 4.5 m, is dark -- the wedge is cut at tile centres")
+		return false
+	w.components.remove(holder, "facing")
+	w.step()
+	if not _lit(w, holder, HOLDER_TX - REACH_M, HOLDER_TY) or float((w.light.source_at(holder) as Dictionary)["beam"]) != 0.0:
+		push_error("CONE: a torch carried by a body with no facing still throws a wedge -- it has nowhere to point")
+		return false
 	var lw: Variant = _world(LANTERN)
 	var lantern_holder: int = int(lw.player)
 	if lw.light.source_at(lantern_holder) == null or float((lw.light.source_at(lantern_holder) as Dictionary)["beam"]) != 0.0:
@@ -116,7 +131,7 @@ func _a_torch_is_a_cone_and_a_lantern_is_round() -> bool:
 	if not _lit(lw, lantern_holder, HOLDER_TX - REACH_M, HOLDER_TY):
 		push_error("CONE: a storm lantern does not light the tile 8 m behind its carrier")
 		return false
-	print("CONE OK a torch lights 8 m ahead and its spill, not 8 m behind or 45 degrees off; a lantern lights both ways")
+	print("CONE OK a torch lights 8 m ahead, its spill and the tile its edge falls across, not 8 m behind or 45 degrees off; with no facing it throws round; a lantern lights both ways")
 	return true
 
 
@@ -212,7 +227,9 @@ func _the_beam_survives_a_save() -> bool:
 
 
 # READS. `lit_metres` answers the wedge, not the round cast: a point 6 m ahead is lit and one 6 m
-# behind is not. `_lean_to_light` is proved by LEAN above. LightLook is skipped until B3.
+# behind is not. `_lean_to_light` is proved by LEAN above. LightLook's light map carries the torch's
+# bit on the tile 6 m ahead and not on the one 6 m behind, which the round cast reaches -- so the
+# screen reads `lights_tile`, not the cast.
 func _the_beam_reaches_the_reader() -> bool:
 	var w: Variant = _world(TORCH)
 	if not (w.light.lit_metres(_mid(HOLDER_TX + 6), _mid(HOLDER_TY)) > 0.0):
@@ -221,9 +238,25 @@ func _the_beam_reaches_the_reader() -> bool:
 	if w.light.lit_metres(_mid(HOLDER_TX - 6), _mid(HOLDER_TY)) > 0.0:
 		push_error("READS: lit_metres lights 6 m behind a torch -- it reads the round cast, not lights_tile")
 		return false
-	print("READS SKIP LightLook is not yet a reader of lights_tile; that half lands with the beam on screen (B3)")
-	print("READS OK lit_metres reads the wedge; _lean_to_light is proved by LEAN")
+	var holder: int = int(w.player)
+	var texels: Dictionary = LightLook.light_texels(w, holder, Rect2i(0, 0, MAP_TILES, MAP_TILES))
+	var lights: Array = texels["lights"] as Array
+	if lights.size() != 1 or int((lights[0] as Dictionary)["entity"]) != holder:
+		push_error("READS: the light map does not carry the torch as its one source (%s)" % str(lights))
+		return false
+	var seen: Variant = w.vision.tiles_for(holder)
+	if not bool((w.light.tiles_for(holder) as Object).call("has_tile", HOLDER_TX - 6, HOLDER_TY)) or not bool((seen as Object).call("has_tile", HOLDER_TX - 6, HOLDER_TY)):
+		push_error("READS: the tile 6 m behind is not in the torch's round cast and the holder's sight -- the screen half has nothing to judge")
+		return false
+	if _bit(texels, HOLDER_TX + 6, HOLDER_TY) != 1 or _bit(texels, HOLDER_TX - 6, HOLDER_TY) != 0:
+		push_error("READS: LightLook's light map carries the torch's bit %d ahead and %d behind -- it reads the round cast, not lights_tile" % [_bit(texels, HOLDER_TX + 6, HOLDER_TY), _bit(texels, HOLDER_TX - 6, HOLDER_TY)])
+		return false
+	print("READS OK lit_metres reads the wedge; _lean_to_light is proved by LEAN; LightLook's light map lights the tile 6 m ahead and not the one 6 m behind")
 	return true
+
+
+func _bit(texels: Dictionary, tx: int, ty: int) -> int:
+	return int((texels["bytes"] as PackedByteArray)[(ty * MAP_TILES + tx) * 4 + 1]) & 1
 
 
 func _zombie(w: Variant, tx: int, ty: int, facing: float) -> int:

@@ -39,6 +39,7 @@ const SimTreatment = preload("res://sim/modules/treatment.gd")
 const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimVehicles = preload("res://sim/modules/vehicles.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
+const SimContext = preload("res://sim/context.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Chrome = preload("res://ui/chrome.gd")
@@ -386,8 +387,8 @@ static func pawn_tag(world: Variant, actor: int) -> String:
 # model says anything the line is "" and the bar draws nothing at all.
 #
 # Digit-free by construction rather than by scrubbing: every clause is either a sim read model
-# already under the HUD's digit ban (fortify's window prose, the noise device's one word, the
-# container and vehicle clauses) or a phrase built here out of a part label and a person's name.
+# already under the HUD's digit ban (`SimContext.reach_words`, the car's clause from its seat) or
+# a phrase built here out of a part label and a person's name.
 # check_hud's ACTION lane scans the built line and proves its scanner on "E — 3 boards".
 #
 # **`SimTreatment.context` is deliberately not called.** It reads like the T key's read model and
@@ -405,11 +406,11 @@ const VERB_PROSE: Dictionary = {
 }
 
 
-static func action_line(world: Variant, actor: int, look: Dictionary, hint: String) -> String:
+static func action_line(world: Variant, actor: int) -> String:
 	if world == null or actor < 0:
 		return ""
 	var clauses: Array[String] = []
-	var reach: String = _reach_clause(world, actor, look, hint)
+	var reach: String = _reach_clause(world, actor)
 	if not reach.is_empty():
 		clauses.append("E — " + reach)
 	var aid: String = _aid_clause(world, actor)
@@ -421,37 +422,20 @@ static func action_line(world: Variant, actor: int, look: Dictionary, hint: Stri
 	return ACTION_SEP.join(clauses)
 
 
-# E, in main.gd's own order: the window you are facing, the bait, the device under your hand,
-# then the top rung of the rest of the ladder, then the cupboard, then the car. `hint` is the
-# context line main.gd has already resolved for this frame, and it is the last word rather than
-# the first -- mostly it is the same fortify look-at read through a different door, so it only
-# wins when this file's own sources have gone quiet and main.gd knows about something they do not.
-# The content-error hint is not an action: it is a fault report main.gd borrows the hint line for,
-# and naming a key beside it would be a lie about what E does.
+# E: what the key does here, a verb in the words the right-click menu's in-reach row uses for the
+# same thing (`SimContext.reach_words`, which walks `_use_context`'s ladder in its own order and
+# ends on `SimFortify.rung_of`). From a seat, the car's own clause, which ends on "E to get out".
 #
-# `SimFortify.rung_of` is deliberately asked after the look-at group and before the cupboard and
-# the car: those two already have their own read models (`SimContainers.hud_clause`,
-# `SimVehicles.hud_clause`) and `rung_of` says nothing while either would fire, so the order here
-# never contradicts the order `_use_context` actually takes. Past that, this is the one place the
-# bar names sleep, a fire, a filter, the latrine, a bench, a trap, the bait, a lift, a barricade --
-# docs/23's follow-up "the ladder names its rung": the sim decides the verb, this only asks it.
-static func _reach_clause(world: Variant, actor: int, look: Dictionary, hint: String) -> String:
-	for key in ["window", "noisemaker", "device"]:
-		var clause: String = String(look.get(key, ""))
-		if not clause.is_empty():
-			return clause
-	var rung: String = String(SimFortify.rung_of(world, actor).get("prose", ""))
-	if not rung.is_empty():
-		return rung
-	var here: String = SimContainers.hud_clause(world, actor)
-	if not here.is_empty():
-		return here
-	var car: String = SimVehicles.hud_clause(world, actor)
-	if not car.is_empty():
-		return car
-	if not hint.is_empty() and not hint.begins_with("content: "):
-		return hint
-	return ""
+# It used to lead with the look-at -- a boarded window's state ("intact", "splintering"), the
+# noisemaker's, the device's -- and fall back on main.gd's context line. Both are what you see,
+# not what E does: facing a boarded window the bar said "E — intact" while E boarded it and the
+# menu said "board up the window", and at a door it said nothing while E opened it. Those states
+# still reach the screen, on the survivor's lines through `hint`; only the key's clause changed.
+# docs/30, "Menus and the E prompt speak one grammar".
+static func _reach_clause(world: Variant, actor: int) -> String:
+	if world.components.has_component(actor, "mounted"):
+		return SimVehicles.hud_clause(world, actor)
+	return SimContext.reach_words(world, actor)
 
 
 # T. A channel already running says the one thing the key does to it, which is end it; otherwise

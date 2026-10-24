@@ -56,7 +56,7 @@ static func accepts(world: Variant, ent: int, command: Dictionary) -> bool:
 		"hold":
 			return SimPath.walkable(world, int(command.get("tx", -1)), int(command.get("ty", -1)))
 		"haul":
-			return _haulable(world, int(command.get("target", -1)))
+			return _haulable(world, ent, int(command.get("target", -1)))
 		"attack":
 			return _attackable(world, ent, int(command.get("target", -1)))
 		"clear":
@@ -95,7 +95,7 @@ static func _seen_by_either(world: Variant, ent: int, target: int) -> bool:
 # A loose item on the ground that is not already where a stockpile wants it. A corpse is not an
 # item to haul under an order: the corpse dump is the Haul job's own overflow rule, not a choice a
 # player makes one body at a time.
-static func _haulable(world: Variant, item: int) -> bool:
+static func _haulable(world: Variant, ent: int, item: int) -> bool:
 	if item < 0 or not world.entities.is_alive(item):
 		return false
 	if not world.components.has_component(item, "itemBase") or world.components.has_component(item, "stored"):
@@ -103,7 +103,24 @@ static func _haulable(world: Variant, item: int) -> bool:
 	if world.components.has_component(item, "corpse") or not world.components.has_component(item, "position"):
 		return false
 	var p: Dictionary = world.components.get_component(item, "position") as Dictionary
-	return not SimNeeds.is_stockpile_tile(world, floori(float(p["x"])), floori(float(p["y"])))
+	if SimNeeds.is_stockpile_tile(world, floori(float(p["x"])), floori(float(p["y"]))):
+		return false
+	return not _carried_off_by_another(world, ent, item)
+
+
+# An item another living colonist's live Haul job is already carrying off (its `reserved` record
+# names that colonist and the job). The row is then simply absent, so two colonists are not sent
+# to one item. An order that has only reserved the item and has no job yet does not count: the
+# reservation holds the item for its colonist, it does not stop someone else from being offered it.
+static func _carried_off_by_another(world: Variant, ent: int, item: int) -> bool:
+	var claim: Variant = world.components.get_component(item, "reserved")
+	if not (claim is Dictionary):
+		return false
+	var by: int = int((claim as Dictionary).get("by", -1))
+	if by < 0 or by == ent or not world.entities.is_alive(by) or world.components.has_component(by, "corpse"):
+		return false
+	var job: Variant = world.components.get_component(by, "job")
+	return job is Dictionary and String((job as Dictionary).get("kind", "")) == "Haul" and int((job as Dictionary).get("target", -1)) == item
 
 
 # Take one order, if it is accepted. Whatever the colonist was doing is dropped first, so the
@@ -114,7 +131,7 @@ static func issue(world: Variant, command: Dictionary) -> bool:
 		return false
 	var kind: String = String(command.get("kind", ""))
 	if kind == "clear":
-		SimJobs.end_order(world, ent)
+		SimJobs.end_order(world, ent, "stood-down")
 		return true
 	SimJobs.drop_job(world, ent)
 	var order: Dictionary = {"kind": kind, "path": [], "pathGen": -1}

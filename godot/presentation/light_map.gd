@@ -15,12 +15,15 @@ extends RefCounted
 
 const LightLook = preload("res://presentation/light_look.gd")
 const NightShader = preload("res://presentation/night_light.gdshader")
+const SimLight = preload("res://sim/vision/light.gd")
 
 const DARK_INDEX: int = 1000
 const GLOW_INDEX: int = 1001
 # Pixels of art per tile: the pack's 32 px tile, so at zoom 64 one art pixel is two screen pixels
 # and the light steps on the same grid the sprites do.
 const ART_TILE_PX: float = 32.0
+# How far inside a beam's half-angle its edge starts to soften, in radians (about six degrees).
+const BEAM_SOFT: float = 0.1
 
 var _parent: RID
 var _dark: RID
@@ -118,7 +121,11 @@ func frame(ctx: Dictionary, show: bool) -> void:
 		tint[i] = Vector4(c.r, c.g, c.b, LightLook.source_cap(float(l["magnitude"])))
 		var beam: float = float(l.get("beam", 0.0))
 		var facing: float = float(l.get("facing", 0.0))
-		dir[i] = Vector4(cos(facing), sin(facing), cos(beam) if beam > 0.0 else 0.0, 0.0)
+		# z: the cosine of the beam's own half-angle, where its light ends; w: the cosine BEAM_SOFT
+		# inside it, where its light is full. The edge softens inward, so the drawn beam ends at the
+		# half-angle and stays inside the tiles the sim's wedge lights (sim/vision/light.gd's
+		# `lights_tile`, which lights any tile the beam falls on).
+		dir[i] = Vector4(cos(facing), sin(facing), cos(beam) if beam > 0.0 else 0.0, cos(maxf(0.0, beam - BEAM_SOFT)) if beam > 0.0 else 0.0)
 	var night: Color = ctx["night"] as Color
 	_material.set_shader_parameter("light_tex", _tex)
 	_material.set_shader_parameter("view_origin", view.position)
@@ -135,6 +142,9 @@ func frame(ctx: Dictionary, show: bool) -> void:
 	_material.set_shader_parameter("light_pos", pos)
 	_material.set_shader_parameter("light_tint", tint)
 	_material.set_shader_parameter("light_dir", dir)
+	# The disc a beam draws at the hand is the sim's spill, the ground a torch lights whichever way it
+	# points, not a size of the look's own.
+	_material.set_shader_parameter("spill_m", SimLight.SPILL_M)
 	_material.set_shader_parameter("night_colour", night)
 	_material.set_shader_parameter("night_wash", float(ctx["night_wash"]))
 	_material.set_shader_parameter("eye_floor", LightLook.EYE_FLOOR)

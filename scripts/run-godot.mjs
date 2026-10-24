@@ -330,6 +330,15 @@ switch (mode) {
   case "--m2-orders":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_orders.gd"];
     break;
+  case "--m2-stockpile":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_stockpile.gd",
+    ];
+    break;
   case "--m2-people":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_people.gd"];
     break;

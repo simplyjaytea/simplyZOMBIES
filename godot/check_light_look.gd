@@ -27,6 +27,7 @@ const SimBoot = preload("res://sim/boot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
+const SimLight = preload("res://sim/vision/light.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const LightLook = preload("res://presentation/light_look.gd")
 const Palette = preload("res://presentation/palette.gd")
@@ -35,6 +36,7 @@ const Items = preload("res://sim/modules/items.gd")
 const Inventory = preload("res://sim/modules/inventory.gd")
 const SimNeedsMod = preload("res://sim/modules/needs.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
+const Appearance = preload("res://presentation/appearance.gd")
 
 const MAIN_GD: String = "res://presentation/main.gd"
 const MAP_TILES: int = 24
@@ -67,6 +69,7 @@ func _run() -> void:
 	ok = _a_beam_is_content_and_needs_a_facing() and ok
 	ok = _a_flame_flickers_and_a_bulb_does_not() and ok
 	ok = _a_window_lights_the_floor_beyond_not_the_masonry() and ok
+	ok = _the_night_floor_grows_the_drawn_disc() and ok
 	if ok:
 		print("LIGHT_LOOK_OK the light map's texels put light on no unseen tile (a walled campfire's far side carries no seen byte and no source bit, the open twin is lit, remembered tiles read 128), light through a window lands on the floor beyond and not on the opaque tiles there, pools are rings capped by their reach (fire over lantern, and redder), the eye disc derives from sight (and differs from raw ambient on the same lit scene), falls back to ambient exactly with no observer or no emitter, pools are lit-and-seen with a walled far side drawn nowhere, the near/far split lands at %.0f m, full daylight clears the light map, and main.gd's _draw calls both helpers" % LightLook.POOL_SPLIT_METRES)
 		quit(0)
@@ -610,7 +613,7 @@ func _dead_socket_main_gd_draws_what_light_look_returns() -> bool:
 		return false
 	# The light map: the night is built from LightLook's texels (lit ∩ seen as bits), its sky from
 	# ambient_of, and handed to light_map.gd's frame; the night-wash constant still drives it.
-	for needle in ["LightLook.light_texels(", "LightLook.ambient_of(", "LightLook.eye_disc_metres(", "_light_map.call(\"frame\"", "\"night_wash\": NIGHT_WASH", "_interp.offset("]:
+	for needle in ["LightLook.light_texels(", "LightLook.ambient_of(", "LightLook.eye_disc_metres(", "_light_map.call(\"frame\"", "\"night_wash\": NIGHT_WASH", "_interp.offset(", "LightLook.hand_metres("]:
 		if not wash_fn.contains(needle):
 			push_error("_draw_night_wash does not reach %s: the light map is not what is on screen" % needle)
 			return false
@@ -629,16 +632,16 @@ func _dead_socket_main_gd_draws_what_light_look_returns() -> bool:
 	# light_map.gd hands the shader every number LightLook owns, and the shader multiplies (so it
 	# can only darken) and reads the texels and the beams it is handed.
 	var map_src: String = FileAccess.get_file_as_string("res://presentation/light_map.gd")
-	for needle in ["LightLook.source_cap(", "LightLook.POOL_LEVELS", "LightLook.EYE_FLOOR", "LightLook.NIGHT_FLOOR", "LightLook.MAX_LIGHTS", "\"light_tex\"", "\"light_dir\"", "\"light_pos\"", "\"eye_reach\""]:
+	for needle in ["LightLook.source_cap(", "LightLook.POOL_LEVELS", "LightLook.EYE_FLOOR", "LightLook.NIGHT_FLOOR", "LightLook.MAX_LIGHTS", "\"light_tex\"", "\"light_dir\"", "\"light_pos\"", "\"eye_reach\"", "\"spill_m\", SimLight.SPILL_M"]:
 		if not map_src.contains(needle):
 			push_error("light_map.gd does not hand the shader %s" % needle)
 			return false
 	var shader_src: String = FileAccess.get_file_as_string("res://presentation/night_light.gdshader")
-	for needle in ["render_mode blend_mul", "float b = tint.w * rings(fall * mask, threshold);", "eye_floor * (1.0 - ambient) * eye_fade * rings(1.0 - smoothstep(disc_r * 0.45, disc_r, d_eye), threshold)", "texelFetch(light_tex", "light_dir[i]", "float mask = inside(own,", "if (light_count > 0 && own_r > 191)"]:
+	for needle in ["render_mode blend_mul", "float b = tint.w * rings(fall * mask, threshold);", "eye_floor * (1.0 - ambient) * eye_fade * rings(1.0 - smoothstep(disc_r * 0.3, disc_r, d_eye), threshold)", "texelFetch(light_tex", "light_dir[i]", "float mask = inside(own,", "if (light_count > 0 && own_r > 191)", "float hand = 1.0 - smoothstep(spill_m * 0.4, spill_m, d);", "float wedge = smoothstep(beam.z, beam.w, along);", "hue = min(mix(hue, hue_beam, best_beam / (best + best_beam)), cap);"]:
 		if not shader_src.contains(needle):
 			push_error("night_light.gdshader lost %s" % needle)
 			return false
-	print("DEAD SOCKET OK the O channel alone draws tile pools (lit_pool_tiles, both Palette tints); _draw_night_wash builds the light map from light_texels and ambient_of before _draw_effects(true), which blits into the glow item; light_map.gd hands the shader LightLook's caps, rings, eye floor, eye disc and texels; the shader multiplies, rings every light, feathers source light inward on seen tiles only and reads the beams")
+	print("DEAD SOCKET OK the O channel alone draws tile pools (lit_pool_tiles, both Palette tints); _draw_night_wash builds the light map from light_texels and ambient_of before _draw_effects(true), which blits into the glow item; light_map.gd hands the shader LightLook's caps, rings, eye floor, eye disc and texels and the sim's spill; a beam leaves the hand (LightLook.hand_metres); the shader multiplies, rings every light, feathers source light inward on seen tiles only, reads the beams, ends each at its half-angle draws the spill's disc at the hand and lays a beam over a pool's colour")
 	return true
 
 
@@ -761,7 +764,9 @@ func _a_pool_is_rings_capped_by_its_reach() -> bool:
 	var w: Variant = _world(false, NIGHT_FRACTION)
 	var lantern: Dictionary = Items.content_entry(w, "item", "item.lantern.storm") as Dictionary
 	var lantern_light: Dictionary = lantern.get("light", {}) as Dictionary
-	var fire_cap: float = LightLook.source_cap(SimNeedsMod.CAMPFIRE_LIGHT_M)
+	# The campfire is drawn at the pool it has always had (CAMPFIRE_POOL_REACH_M), not at its 8 m sim reach:
+	# the brightness the screen gives a fire is the drawn number, and that is what this lane judges.
+	var fire_cap: float = LightLook.source_cap(LightLook.CAMPFIRE_POOL_REACH_M)
 	var lantern_cap: float = LightLook.source_cap(float(lantern_light.get("magnitude", 0.0)))
 	if not (fire_cap > lantern_cap + 0.05):
 		push_error("RINGS: the campfire's pool caps at %f and the storm lantern's at %f -- overlapping, they clip to one level" % [fire_cap, lantern_cap])
@@ -790,11 +795,48 @@ func _a_pool_is_rings_capped_by_its_reach() -> bool:
 	return true
 
 
-# BEAM. A carried hand torch is a beam of its content's half-angle along its carrier's facing; the
-# same carrier with no facing is round, and a carried storm lantern (no beam in its content) is
-# round. Every content light with a beam is an item a body can carry (an equipSlot or an
-# attachment), or the key would be read by nothing.
+# NIGHT FLOOR ON SCREEN. At midnight with no light, a survivor's sim sight is the night floor (their
+# eyes carry night_eyes) and the drawn eye disc is that same sight, capped by EYE_DISC_MAX_M. The
+# true negative is the same survivor without night_eyes: the disc is the sky's share, as before.
+# This is the lane that goes red when the floor is applied to the sim but not to the drawn disc.
+func _the_night_floor_grows_the_drawn_disc() -> bool:
+	var w: Variant = _world(false, NIGHT_FRACTION)
+	w.step()
+	var obs: Dictionary = w.components.get_component(int(w.player), "observer") as Dictionary
+	var range_m: float = float(SimVisibility.daylight_eyes()["range_metres"])
+	var sky: float = LightLook.ambient_of(w) * range_m
+	obs.erase("night_eyes")
+	var plain: float = LightLook.eye_disc_metres(w, int(w.player))
+	if absf(plain - sky) > 0.0001:
+		push_error("NIGHT FLOOR: with no night_eyes the eye disc is %f m, not the sky's share %f m" % [plain, sky])
+		return false
+	obs["night_eyes"] = true
+	var floored: float = LightLook.eye_disc_metres(w, int(w.player))
+	var sight: float = SimLight.sight_metres(w, obs, PLAYER_X, PLAYER_Y)
+	if absf(sight - SimLight.NIGHT_EYES_FLOOR_M) > 0.0001:
+		push_error("NIGHT FLOOR: the sim's sight with night_eyes is %f m, not the %f m floor" % [sight, SimLight.NIGHT_EYES_FLOOR_M])
+		return false
+	if absf(floored - minf(sight, LightLook.EYE_DISC_MAX_M)) > 0.0001 or floored <= plain + EPS:
+		push_error("NIGHT FLOOR: the drawn eye disc is %f m, not min(sight %f, cap %f), or no wider than the %f m without the floor" % [floored, sight, LightLook.EYE_DISC_MAX_M, plain])
+		return false
+	print("NIGHT FLOOR OK the drawn eye disc grows from %.2f m to %.2f m with night_eyes, the sim's sight is %.2f m" % [plain, floored, sight])
+	return true
+
+
+# BEAM. The screen's beam is the sim's (slice B3). A carried hand torch reads the half-angle the
+# light index keeps for it -- its content's, through sim/modules/light.gd -- and the light map's bits
+# for it are `lights_tile`'s answer tile for tile: present ahead in the wedge and in the spill behind
+# the holder's back, zero on a seen tile behind them past the spill, where the sim's round cast still
+# reaches but its wedge does not. The negatives: a carried storm lantern is round and its bit is on
+# that same tile behind; the same torch on a carrier with no facing throws round in the sim and so on
+# the screen. The beam leaves the hand: a torch in the secondary hand starts at that hand's point off
+# the feet-anchored pawn canvas, and a headlamp, held in no hand, at the body's own point. Every
+# content light with a beam is an item a body can carry (an equipSlot or an attachment), or the key
+# would be read by nothing.
 func _a_beam_is_content_and_needs_a_facing() -> bool:
+	var behind := Vector2i(int(PLAYER_X) - 6, int(PLAYER_Y))
+	var ahead := Vector2i(int(PLAYER_X) + 6, int(PLAYER_Y))
+	var spill := Vector2i(int(PLAYER_X) - 1, int(PLAYER_Y))
 	var w: Variant = _world(false, NIGHT_FRACTION)
 	var torch: int = int(Items.spawn_item(w, "item.torch.handheld", {}))
 	if not Inventory.equip(w, int(w.player), torch, ""):
@@ -804,16 +846,48 @@ func _a_beam_is_content_and_needs_a_facing() -> bool:
 	w.step()
 	var want: float = deg_to_rad(float((Items.content_entry(w, "item", "item.torch.handheld").get("light", {}) as Dictionary).get("beam", 0.0)))
 	var beam: float = LightLook.source_beam(w, int(w.player))
-	if not (want > 0.0) or absf(beam - want) > EPS:
-		push_error("BEAM: a carried hand torch reads beam %f, content says %f" % [beam, want])
+	var sim_beam: float = float((w.light.source_at(int(w.player)) as Dictionary).get("beam", -1.0))
+	if not (want > 0.0) or absf(beam - want) > EPS or absf(beam - sim_beam) > EPS:
+		push_error("BEAM: a carried hand torch reads beam %f on screen, %f in the sim, content says %f" % [beam, sim_beam, want])
 		return false
 	var texels: Dictionary = LightLook.light_texels(w, int(w.player), _view())
 	var lights: Array = texels["lights"] as Array
 	if lights.is_empty() or absf(float((lights[0] as Dictionary).get("beam", 0.0)) - want) > EPS:
 		push_error("BEAM: light_texels does not hand the torch's beam on to the light map")
 		return false
+	var seen: Variant = w.vision.tiles_for(int(w.player))
+	for t in [behind, ahead, spill]:
+		if not bool((seen as Object).call("has_tile", (t as Vector2i).x, (t as Vector2i).y)):
+			push_error("BEAM: the survivor does not see tile %s -- the lane has no bit to judge" % str(t))
+			return false
+	if not bool((w.light.tiles_for(int(w.player)) as Object).call("has_tile", behind.x, behind.y)):
+		push_error("BEAM: the torch's round cast does not reach the tile behind -- nothing for the wedge to cut")
+		return false
+	for t in [behind, ahead, spill]:
+		var tv: Vector2i = t as Vector2i
+		var bit: bool = (_texel(texels, tv.x, tv.y)[1] & 1) == 1
+		var sim: bool = bool(w.light.lights_tile(int(w.player), tv.x, tv.y))
+		if bit != sim:
+			push_error("BEAM: tile %s carries bit %s on screen and lights_tile says %s -- the drawn wedge is not the sim's" % [str(tv), str(bit), str(sim)])
+			return false
+	if (_texel(texels, behind.x, behind.y)[1] & 1) != 0 or (_texel(texels, ahead.x, ahead.y)[1] & 1) != 1 or (_texel(texels, spill.x, spill.y)[1] & 1) != 1:
+		push_error("BEAM: a torch facing east is not lit 6 m ahead and in its spill and dark 6 m behind on screen")
+		return false
+	var hand: Vector2 = LightLook.hand_metres(w, int(w.player), 0.0, "", 64.0)
+	var grip: Vector2i = Appearance.HELD_HANDS["secondary"]["e"] as Vector2i
+	var want_hand := Vector2((float(grip.x) + 0.5 - float(Appearance.PAWN_CANVAS.x) / 2.0) / 32.0, (float(grip.y) + 0.5 - float(Appearance.PAWN_CANVAS.y)) / 32.0 + Appearance.FOOT_DROP_PX / 64.0)
+	if hand.distance_to(want_hand) > 0.0001 or hand.length() < 0.05:
+		push_error("BEAM: the torch's beam leaves %s, not the secondary hand's point %s" % [str(hand), str(want_hand)])
+		return false
+	# Seen from behind the beam starts at the hand's side on the ground, not above the head.
+	var back: Vector2 = LightLook.hand_metres(w, int(w.player), -PI / 2.0, "", 64.0)
+	var back_grip: Vector2i = Appearance.HELD_HANDS["secondary"]["n"] as Vector2i
+	if absf(back.y) > 0.0001 or absf(back.x - (float(back_grip.x) + 0.5 - float(Appearance.PAWN_CANVAS.x) / 2.0) / 32.0) > 0.0001:
+		push_error("BEAM: facing north the beam leaves %s, not the hand's side on the ground under the body" % str(back))
+		return false
 	w.components.remove(w.player, "facing")
-	if LightLook.source_beam(w, int(w.player)) != 0.0:
+	w.step()
+	if LightLook.source_beam(w, int(w.player)) != 0.0 or not bool(w.light.lights_tile(int(w.player), behind.x, behind.y)):
 		push_error("BEAM: a carrier with no facing still has a beam -- it has nowhere to point")
 		return false
 	var lw: Variant = _world(false, NIGHT_FRACTION)
@@ -823,6 +897,17 @@ func _a_beam_is_content_and_needs_a_facing() -> bool:
 	lw.step()
 	if lw.light.source_count() < 1 or LightLook.source_beam(lw, int(lw.player)) != 0.0:
 		push_error("BEAM: a carried storm lantern is not a lit round pool")
+		return false
+	if (_texel(LightLook.light_texels(lw, int(lw.player), _view()), behind.x, behind.y)[1] & 1) != 1:
+		push_error("BEAM: a carried storm lantern leaves the tile behind its carrier dark on screen -- the cut is not the wedge's")
+		return false
+	var hw: Variant = _world(false, NIGHT_FRACTION)
+	var lamp: int = int(Items.spawn_item(hw, "item.headlamp.band", {}))
+	Inventory.equip(hw, int(hw.player), lamp, "")
+	SimLightMod.refresh_carried(hw, int(hw.player))
+	hw.step()
+	if LightLook.source_beam(hw, int(hw.player)) <= 0.0 or LightLook.hand_metres(hw, int(hw.player), 0.0, "", 64.0) != Vector2.ZERO:
+		push_error("BEAM: a headlamp is not a beam from the body's own point (beam %f, origin %s)" % [LightLook.source_beam(hw, int(hw.player)), str(LightLook.hand_metres(hw, int(hw.player), 0.0, "", 64.0))])
 		return false
 	var beams: int = 0
 	for path in (w.content as Dictionary).keys():
@@ -839,7 +924,7 @@ func _a_beam_is_content_and_needs_a_facing() -> bool:
 	if beams == 0:
 		push_error("BEAM: no content declares a beam -- the key is read by nothing")
 		return false
-	print("BEAM OK a carried hand torch is a %.0f degree half-angle beam handed to the light map; no facing and a lantern are round; %d content lights declare a beam and every one can be carried" % [rad_to_deg(want), beams])
+	print("BEAM OK a carried hand torch is the sim's %.0f degree beam on screen: its bits are lights_tile's, lit 6 m ahead and in the spill, dark 6 m behind where its round cast reaches; it leaves the secondary hand (%.2f, %.2f) m off the feet, and seen from behind that hand's side on the ground; no facing and a lantern are round and light the tile behind; a headlamp leaves the body's point; %d content lights declare a beam and every one can be carried" % [rad_to_deg(want), hand.x, hand.y, beams])
 	return true
 
 

@@ -5921,7 +5921,7 @@ only a zombie in its light is drawn toward it (cards in the planning thread, 202
 
 Still open: the screen draws the wedge from the sim's cone only after the beam-on-screen slice (B3).
 Until then `LightLook` draws its own wedge from content, which is the half `godot:m2:torch` READS
-skips out loud.
+skips out loud. (Closed by "The torch on screen", below.)
 
 ## Weapon assembly starts with the hands, 2026-10-24
 
@@ -5947,6 +5947,18 @@ the command (`SimOrders.draft_command`); the key pushes it.
 
 **How to apply:** the draft is the `hold` order on the colonist's own tile. A new draft-like verb
 goes through `orders.gd`, not a second flag.
+
+## The night's reach on screen, 2026-10-24
+
+**JT's card, both changes (the default).** A campfire lights 8 m in the sim, not 20. Its drawn pool
+keeps the 20 m look it had, so the lit pool stays about 6 m across and the screen does not lose the
+fire. Survivors see at least 3.5 m after dark with no light, through a `night_eyes` key on their
+observer (zombies and raiders do not get it). Noon is unchanged. A save from before the key gets it
+on restore, as give_eyes would have set it, so no version bump (coordinator, 2026-10-24).
+
+**How to apply:** a survivor's sight floor is `SimLight.NIGHT_EYES_FLOOR_M` in `sim/vision/light.gd`,
+not a light, and the drawn eye disc reads it through `sight_metres` like the sim does; a look that
+should match the sim's reach reads `pool_reach_of`, never the raw sim number.
 
 ## A dropped part fits only an empty slot, 2026-10-24
 
@@ -5991,3 +6003,91 @@ and behaviour-preserving:
   memo, which is a behaviour question for the coordinator, not a loop cut. Repair's double scan of
   the stockpile happens only when a worn item sits on the pile, which starts a job rather than
   recurring each tick, so it was left alone too.
+
+## Menus and the E prompt speak one grammar, 2026-10-24
+
+The action bar's E clause names what E does, in the words the right-click menu uses for the same
+row. It used to lead with the look-at, so a boarded window put its state under the key ("E —
+intact") while E boarded it. The states still reach the screen, on the survivor's lines; the key's
+clause is a verb or nothing. One source for the words, `SimContext.reach_words`, walking
+`_use_context`'s ladder, held to `verbs_at` by `godot:check:context`'s BAR lane.
+
+The menu's header names what was clicked and nothing more: a colonist by name, a thing by its kind,
+any zombie as "a zombie". With the menu open the arrows are the menu's, never a step, and Enter
+does what the ringed row says; the ring opens on the first row, which is the bar's E clause
+whenever the clicked thing is the one in reach.
+
+**How to apply:** a new E rung gets its words in `reach_words` and its row in `verbs_at` in the
+same commit, and BAR gains a case for it. A state is never an E clause.
+
+`reach_words` reads three of `SimFortify`'s underscore helpers (`_door_in_reach`,
+`_door_would_toggle`, `_on_river`), as `verbs_at` already read the first: they are the ladder's own
+predicates, and a copy here would drift from `_use_context`. Renaming one breaks the BAR lane, which
+is the point.
+
+## The torch on screen, 2026-10-24
+
+The three-features plan (B3) put the sim's cone on screen. JT's card "torch seen from behind"
+stands: behind the holder, past the spill, the screen is dark because the sim is. Calls taken
+without the owner:
+
+- **The screen's beam is the sim's.** `LightLook.light_texels` sets a beam's bit only where
+  `SimLight.lights_tile` lights the tile, and `source_beam` and the beam's facing are read from
+  the light index (`source_at`), not from content. One answer for the zombies, the holder's sight
+  and the picture.
+- **A beam lights every tile it falls on** (`SimLight.BEAM_EDGE_M`, 1 m). Through tile centres alone
+  the lit tiles are a staircase: one row wide for the first two metres, then three, then five. The
+  screen can only draw inside lit tiles, so the drawn beam was that staircase too (the first cut's
+  shots in the project's `planning/night-torch/`). With the margin, every point of the beam, drawn
+  from the hand, is inside a lit tile, so the drawn beam keeps the straight edges it had before B3.
+  The margin is half a tile's diagonal plus a hand's breadth off the body's point. The cost: the
+  sim lights a little more at the beam's edge, so a zombie a little outside the 22° half-angle is
+  pulled when it stands on a tile the beam crosses. The far diagonal (45° at 5.7 m) stays dark.
+- **A carrier with no facing throws round.** The B2 plan said so and the light index did not do it:
+  `SimLight.refresh` now keeps a beam only for a source with a `facing` component. Every person
+  has one, so nothing that ships changes.
+- **The beam leaves the hand.** The wedge's apex is the hand holding the light, on the frame the
+  body was drawn on (`LightLook.hand_metres`, `Appearance.frame_hand`), so a torch in the secondary
+  hand lights from that hand and not from the soles. A headlamp or a clip light is in no hand, so
+  its beam starts at the body's point.
+- **The disc at the hand is the sim's spill** (`SimLight.SPILL_M`, handed to the shader as
+  `spill_m`), and the beam's edge now softens inward from its half-angle instead of outward past
+  it, so the drawn beam ends where the sim's half-angle does.
+- **Seen from behind, the beam starts on the ground under the body** (art review). Facing north the
+  hand is in front of the body and the beam runs up the screen through it, so a beam from the
+  hand's height showed first above the head and read as a headlamp. It starts at the hand's side
+  at the body's ground point instead.
+- **A beam over a pool keeps the pool's colour** (art review). Brightness stays the brighter of the
+  two, max and never sum, as the sim keeps it; the colour is the two tints weighed by how bright
+  each is there, so a torch across a campfire's ground stays warm under the white. Two round pools
+  still show the brighter's own hue (the A10 review's rule), and a pixel only one light reaches
+  keeps its tint exactly.
+
+**How to apply:** a change to how a beam is drawn changes `lights_tile` or the shader's wedge, never
+a second presentation answer. Gated by `godot:check:light` BEAM and `godot:m2:torch` CONE and READS.
+
+## Stockpiles are in scope, 2026-10-24
+
+JT's 2026-10-23 answer to the alpha plan's Q1 moved orders, blueprints, stockpiles and crafting into
+scope, and the 2026-10-19 "parked until after the alpha" line no longer holds for stockpiles. JT's
+2026-10-24 "yes" started the stockpile and hauling feature, and this is its first slice (S1, the zone
+as tiles in the sim). Calls taken without the owner:
+
+- **The zone is a record on the player, made at the first mark.** `stockpile: {"tiles": {"tx,ty":
+  true}}`, keyed by the String `"tx,ty"`. Until anybody marks anything there is no record, and the zone
+  is the annex's indoor floor, so an unchanged colony and every save from before this slice read as
+  they always did. No `SAVE_VERSION` bump, the `was` and `night_eyes` precedent. The record sits on the
+  player rather than a new entity, so no entity id after it moves.
+- **Marking is explored-only, indoors or out.** A tile the player has never seen cannot be marked.
+  Indoors and out are both allowed: the card default, which keeps the camp's ground open to a pile
+  if the player wants one there.
+- **Only open floor can be marked.** A wall, deep or ford water, a door, a low tile, a tree or a
+  scrap barricade is refused. The plan named the first four; the rule is floor only, and it is
+  stricter than the plan.
+- **A tile walled over leaves the zone and comes back when opened.** A zone is a choice about ground,
+  and a barricade on it is not a stockpile tile while it stands.
+- **Caps are 400 tiles.** The zone holds at most 400 tiles, and one `on` rectangle covers at most 400
+  tiles. Both refuse whole, so a drag too large is a no-op and the screen may split it. An `off`
+  scans the zone, not the rectangle, so clearing a large area is always safe.
+- **Beds stay on the annex floor.** `_free_indoor` asks `is_annex_floor`, so moving the stockpile
+  never moves where a bed goes.
