@@ -157,14 +157,6 @@ static func header_baseline(inset: float = HEADER_INSET) -> float:
 	return floorf(inset + (HEADER_H - DIVIDER_H - inset - cap) / 2.0 + cap)
 
 
-# One grid cell backing: the kit's empty slot.
-static func cell(ci: CanvasItem, rect: Rect2, alpha: float) -> void:
-	var r: Rect2 = _snap(rect)
-	if frame(ci, r, "slot_empty", alpha):
-		return
-	_drawn(ci, r, CELL_BG, CELL_EDGE, alpha, alpha, 1.0)
-
-
 # Any kit style by id into `rect`. False when it could not -- the id is not one the screens
 # consume, the texture did not resolve, or the rect is smaller than the style's margins -- so
 # the caller can draw its own fallback.

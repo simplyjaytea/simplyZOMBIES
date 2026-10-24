@@ -135,8 +135,10 @@ const ALLOWED: Dictionary = {
 	# `_show_screen`), which is the bar's whole promise.
 	"web": ["web", "escape", "legend", "inventory", "work"],
 	# The bench is the sim's own screen -- `benchFocus` on the survivor opens it and
-	# `bench.close` shuts it -- so Escape is the only key that has anything to say to it.
-	"bench": ["escape"],
+	# `bench.close` shuts it. Escape is the router's (it pushes the close); the arrows, which
+	# answer "move", and Enter, which answers "dismiss", are the assembly screen's own, handed to
+	# it below the way the shell takes its keys.
+	"bench": ["escape", "move", "dismiss"],
 	"sheet": ["inventory", "escape", "reload", "strip", "sheets", "legend", "work", "web"],
 	"work": ["work", "escape", "inventory", "web"],
 }
@@ -240,6 +242,14 @@ func _input(event: InputEvent) -> void:
 		# walks the body behind the menu.
 		if focus == "shell":
 			if main._shell != null and bool(main._shell.call("key", ke)):
+				main.queue_redraw()
+			return
+		# The assembly screen walks its plates on the arrows and fits on Enter. Like the shell it
+		# returns rather than falling through: under the bench an arrow is not a step and Enter is
+		# not the legend's.
+		if focus == "bench" and action != "escape":
+			if main._bench_panel != null and main._bench_panel.has_method("key"):
+				main._bench_panel.call("key", ke)
 				main.queue_redraw()
 			return
 		# The one interact key, named once (INTERACT_KEY) rather than as a literal in the match
