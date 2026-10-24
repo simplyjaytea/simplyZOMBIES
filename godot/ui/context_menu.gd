@@ -73,7 +73,15 @@ func open(at: Vector2, rows_in: Array[Dictionary], header_in: String = "") -> vo
 	_focus = 0
 	var sz: Vector2 = ItemMenu.size_of(_texts(), _header)
 	var view: Vector2 = get_viewport_rect().size
-	position = Vector2(clampf(at.x, 0.0, maxf(0.0, view.x - sz.x)), clampf(at.y, 0.0, maxf(0.0, view.y - sz.y)))
+	# The menu stops above the HUD's bottom band (the action bar and the belt under it), so a
+	# right-click just over the bar does not cover the keys it would otherwise hide. Snapped to the
+	# art grid, like every panel.
+	var floor_y: float = view.y
+	var hud: Variant = main.get("_hud") if main != null else null
+	if hud != null and bool((hud as CanvasItem).visible) and (hud as Object).has_method("bar_top"):
+		floor_y = minf(view.y, float(hud.call("bar_top")) - Locker.PX * 2.0)
+	position = Vector2(clampf(at.x, 0.0, maxf(0.0, view.x - sz.x)), clampf(at.y, 0.0, maxf(0.0, floor_y - sz.y)))
+	position = (position / Locker.PX).floor() * Locker.PX
 	size = sz
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = true
@@ -99,7 +107,7 @@ func _texts() -> Array:
 
 
 func _draw() -> void:
-	ItemMenu.draw_menu(self, Vector2.ZERO, _texts(), 1.0, _header)
+	ItemMenu.draw_menu(self, Vector2.ZERO, _texts(), 1.0, _header, _focus)
 	var rects: Array[Dictionary] = row_rects()
 	if _focus >= 0 and _focus < rects.size():
 		var r: Rect2 = rects[_focus]["rect"] as Rect2

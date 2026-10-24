@@ -5,7 +5,7 @@ extends SceneTree
 # itself opens the menu, dispatches a row and closes on anything else (RIGHT-CLICK). The menu's
 # header names what was clicked and the bare ground has none (HEADER, in the sim and on the
 # scene's menu); Up, Down, Enter and Escape drive it (KEYS); and the action bar's E clause is the
-# menu's first in-reach row, word for word, at a window, a door and a loose item (BAR).
+# menu's first in-reach row, word for word, at a window, a door, a loose item and a crate (BAR).
 #
 # Every assertion below carries its own negative, the convention `check_ban_health_bar.gd` set:
 # a row that only ever appears would pass just as happily if `verbs_at` always returned
@@ -27,6 +27,7 @@ const ItemMenu = preload("res://ui/item_menu.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const Hud = preload("res://ui/hud.gd")
 const Pick = preload("res://presentation/pick.gd")
+const Locker = preload("res://ui/locker.gd")
 
 const MAP_TILES: int = 24
 const SCENE_PATH: String = "res://presentation/main.tscn"
@@ -306,7 +307,7 @@ func _labels() -> bool:
 	var w: Variant = _world()
 	var ren: int = int(w.entities.spawn())
 	w.components.set_component(ren, "position", {"x": 11.0, "y": 10.5})
-	w.components.set_component(ren, "identity", {"name": "Ren"})
+	w.components.set_component(ren, "identity", {"name": "Ren Okafor"})
 	var crate: int = int(w.entities.spawn())
 	w.components.set_component(crate, "position", {"x": 12.5, "y": 10.5})
 	w.components.set_component(crate, "searchable", {"kind": "crate", "searched": false})
@@ -317,7 +318,8 @@ func _labels() -> bool:
 	w.components.set_component(zed, "shambler", {"type": "runner"})
 	var item_name: String = SimItems.item_name(w, item).to_lower()
 	var cases: Array = [
-		[{"kind": "colonist", "entity": ren, "tile": Vector2i(11, 10)}, "Ren"],
+		# The whole name the identity carries, not a first name cut out of it.
+		[{"kind": "colonist", "entity": ren, "tile": Vector2i(11, 10)}, "Ren Okafor"],
 		[{"kind": "colonist", "entity": int(w.player), "tile": Vector2i(10, 10)}, "you"],
 		[{"kind": "container", "entity": crate, "tile": Vector2i(12, 10)}, "the crate"],
 		[{"kind": "item", "entity": item, "tile": Vector2i(11, 11)}, "the " + item_name],
@@ -350,6 +352,19 @@ func _labels() -> bool:
 	if ItemMenu.size_of(texts, "a zombie").y != ItemMenu.size_of(texts).y + ItemMenu.HEADER_H:
 		push_error("HEADER: the header does not add exactly its own line to the menu")
 		ok = false
+	# The street menu's ink follows its ring: the ringed row alone is amber, so an old lead word
+	# ("walk here") cannot outshine the row Enter takes. The loot sheet's menu (no ring) keeps its
+	# lead verbs lit -- the negative that shows `lit` is what moved the colour.
+	if ItemMenu.row_colour("open the crate", 0, 0) != Locker.ACCENT or ItemMenu.row_colour("walk here", 1, 0) != Locker.TEXT:
+		push_error("HEADER: the ringed row is not the one amber row on the street menu")
+		ok = false
+	if ItemMenu.row_colour("walk here", 1, -1) != Locker.ACCENT or ItemMenu.row_colour("open the crate", 0, -1) != Locker.TEXT:
+		push_error("HEADER: the loot menu's lead verbs lost their accent")
+		ok = false
+	var menu_src: String = FileAccess.get_file_as_string("res://ui/context_menu.gd")
+	if menu_src.find("ItemMenu.draw_menu(self, Vector2.ZERO, _texts(), 1.0, _header, _focus)") < 0:
+		push_error("HEADER: the street menu does not hand its ring to the draw, so the ink cannot follow it")
+		ok = false
 	if ok:
 		print("HEADER OK a colonist by name, you, the crate, the tin's name, the door and 'a zombie' for a runner; nothing for the ground; the rows sit under it and a menu without one keeps its shape")
 	return ok
@@ -357,7 +372,7 @@ func _labels() -> bool:
 
 # The action bar's E clause is the menu's first in-reach row for the same thing, word for word:
 # `ui/hud.gd`'s `_reach_clause` asks `SimContext.reach_words`, the menu writes `verbs_at`'s rows,
-# and this holds them equal at a window, a door (shut, then open) and a loose item. The true
+# and this holds them equal at a window, a door (shut, then open), a loose item and a crate. The true
 # negative is the source the bar used to read: a boarded window's look-at state ("intact") is not
 # the menu's row, so a bar that went back to it would fail here, as it failed before this slice.
 func _bar() -> bool:
@@ -378,6 +393,12 @@ func _bar() -> bool:
 	var item: int = _spawn_test_item(wi)
 	wi.components.set_component(item, "position", {"x": 11.0, "y": 10.5})
 	cases.append(["loose item", wi, {"kind": "item", "entity": item, "tile": Vector2i(11, 10)}])
+	# An unsearched crate in reach.
+	var wc: Variant = _world()
+	var crate: int = int(wc.entities.spawn())
+	wc.components.set_component(crate, "position", {"x": 11.0, "y": 10.5})
+	wc.components.set_component(crate, "searchable", {"kind": "crate", "searched": false})
+	cases.append(["crate", wc, {"kind": "container", "entity": crate, "tile": Vector2i(11, 10)}])
 	for c in cases:
 		ok = _bar_matches(String(c[0]), c[1], c[2] as Dictionary) and ok
 	SimFortify.toggle_door(wd, 11, 10)
@@ -389,7 +410,7 @@ func _bar() -> bool:
 		push_error("BAR: the boarded window's state '%s' cannot be told from the menu's row, so this lane cannot fail" % state)
 		ok = false
 	if ok:
-		print("BAR OK the bar's E clause is the menu's first row at a boarded window, a shut and an open door and a loose tin, and the window's state is not that row")
+		print("BAR OK the bar's E clause is the menu's first row at a boarded window, a shut and an open door, a loose tin and a crate, and the window's state is not that row")
 	return ok
 
 
