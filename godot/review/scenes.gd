@@ -32,6 +32,7 @@ const NAMES: Array[String] = [
 	"day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing",
 	"colony_picked", "colony_crowd", "colony_scrolled", "bench_drop",
 	"bench", "bench_field",
+	"context_menu",
 ]
 # The Colony screen's two fuller shots (art QA, slice 2): Mara picked by a click on her name, her
 # row made manual by one changed number, the pointer resting on the medic chip; and a roster of
@@ -153,6 +154,15 @@ static func click(tree: SceneTree, at: Vector2) -> void:
 		mb.position = at
 		mb.global_position = at
 		tree.root.push_input(mb)
+
+
+# The street menu's shot (C4): a crate in reach on the street, right-clicked, so the menu's header
+# ("the crate"), its first row and the action bar's E clause are in one picture and can be read
+# against each other.
+const HudRes = preload("res://ui/hud.gd")
+const PickRes = preload("res://presentation/pick.gd")
+const ProjectionRes = preload("res://presentation/projection.gd")
+const MENU_CRATE: String = "crate"
 
 
 ## Set up the named scene on a booted `main`. Returns "" on success, or the reason it could not.
@@ -313,6 +323,32 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 				# The plate keeps the keys: the column beside it already lists what fits, and the footer
 				# shows "take off" lit, the hands' own job on a fitted magazine.
 				field_panel.call("pick_slot", BENCH_FIELD_SLOT)
+		"context_menu":
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			var street_m: Vector2 = _street_spot(world)
+			if street_m.x < 0.0:
+				return "no open paved street within %d tiles" % SEARCH_TILES
+			world.components.set_component(world.player, "position", {"x": street_m.x, "y": street_m.y})
+			world.components.set_component(world.player, "facing", {"radians": 0.0})
+			var crate: int = int(world.entities.spawn())
+			world.components.set_component(crate, "position", {"x": street_m.x + 1.0, "y": street_m.y})
+			world.components.set_component(crate, "searchable", {"kind": MENU_CRATE, "searched": false})
+			main.call("_snap_camera")
+			await _settle(tree, main)
+			main.call("_snap_camera")
+			var camera: Dictionary = main.get("camera")
+			var cp: Dictionary = world.components.get_component(crate, "position") as Dictionary
+			var sc: Dictionary = ProjectionRes.world_to_screen(camera, float(cp["x"]), float(cp["y"]))
+			var at := Vector2(float(sc["sx"]), float(sc["sy"]))
+			if String(PickRes.pick_at(world, camera, at).get("kind", "")) != "container":
+				return "the crate beside the body does not pick as a container"
+			for pressed in [true, false]:
+				var mb := InputEventMouseButton.new()
+				mb.button_index = MOUSE_BUTTON_RIGHT
+				mb.pressed = pressed
+				mb.position = at
+				mb.global_position = at
+				tree.root.push_input(mb)
 		_:
 			return "unknown scene %s" % scene
 	# The camera jumps to where the body now stands. Without this the follow lerp was still walking
@@ -413,6 +449,20 @@ static func verify(main: Node, scene: String) -> String:
 			var picked: int = int((main.get("_work_panel") as Object).call("selected"))
 			var ident: Variant = world.components.get_component(picked, "identity") if picked >= 0 else null
 			return "" if ident is Dictionary and String((ident as Dictionary).get("backstoryId", "")) != "" else "no generated colonist is picked"
+		"context_menu":
+			var menu: Variant = main.get("_context_menu")
+			if menu == null or not bool(menu.call("is_open")):
+				return "the street menu is not open"
+			if String(menu.call("header")) != "the " + MENU_CRATE:
+				return "the menu is headed '%s', not the crate" % String(menu.call("header"))
+			var rows: Array = menu.call("rows") as Array
+			var first: String = String((rows[0] as Dictionary).get("text", "")) if not rows.is_empty() else ""
+			if first != "open the " + MENU_CRATE:
+				return "the menu's first row is '%s', not opening the crate" % first
+			var line: String = HudRes.action_line(world, int(world.player))
+			if line.find("E — " + first) < 0:
+				return "the action bar says '%s', not E for the menu's first row" % line
+			return ""
 		"viewing":
 			if not bool(main.get("web_open")):
 				return "the skills screen is not open"

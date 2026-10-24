@@ -887,12 +887,16 @@ func _set_inventory_open(open: bool) -> void:
 	_sync_nav()
 
 
+const SimContextRes = preload("res://sim/context.gd")
+
+
 # The right-click menu. `input_map.gd` has already asked `Pick.pick_at` and `SimContext.verbs_at`
 # -- this only ever opens what the sim already decided, exactly the hand-off `_strip_use` below
-# makes to the inventory panel.
-func _open_context_menu(pos: Vector2, _hit: Dictionary, rows: Array[Dictionary]) -> void:
+# makes to the inventory panel. The header names what was clicked, in the sim's words
+# (`SimContext.target_label`); the bare ground has none.
+func _open_context_menu(pos: Vector2, hit: Dictionary, rows: Array[Dictionary]) -> void:
 	if _context_menu != null:
-		_context_menu.call("open", pos, rows)
+		_context_menu.call("open", pos, rows, SimContextRes.target_label(world, hit))
 
 
 # What a click on a row means. Every row but two carries a real command in `row.command` and this
@@ -1370,9 +1374,10 @@ func _update_hud() -> void:
 		_hud.set("hint", context)
 		_hud.set("time_words", SessionRes.speed_words(speed, paused, world))
 		# What the contextual keys would do, right here: the sim's read models decide the verb --
-		# fortify's look-at, the cupboard, the car, the aid ladder, the hands on a neighbour --
-		# and the line only names the key. check_hud's ACTION lane asserts both halves.
-		_hud.call("set_action", HudRead.action_line(world, world.player, look, context))
+		# E's ladder in the menu's own words (`SimContext.reach_words`), the aid ladder, the hands
+		# on a neighbour -- and the line only names the key. check_hud's ACTION lane asserts both
+		# halves; check_context's BAR lane holds E's words to the menu's.
+		_hud.call("set_action", HudRead.action_line(world, world.player))
 		# The first-day hint: the next thing this save has not yet been told, offered only while the street
 		# is up and running. A menu, the sheet, the title or P's pause would cover it, so it waits for them.
 		var offered: String = ""
