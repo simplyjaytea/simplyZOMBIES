@@ -3613,9 +3613,11 @@ not a to-do list:
   state bytes, the rim at 3:1 or better on seven grounds, the frame reaching it), `godot:check:hud`
   ACTION (the brush's lines digit-free), `godot:m2:stockpile` PREVIEW (preview is what the mark
   does, the cap refuses whole, the zone's signature moves with a mark and holds otherwise),
-  `godot:check:shots` (`stockpile_mark`, `stockpile_rest`; nineteen scenes). Sabotage, each shown
-  red: no push on release (MARK), no explored check in `cells` (STOCKPILE), `cells` ignoring the
-  kept geometry (STOCKPILE), no pending entry on release (MARK), a constant signature (PREVIEW).
+  `godot:check:shots` (`stockpile_mark`, `stockpile_rest`, and `stockpile_night`, the zone's edge
+  through the campfire's pool on the board floor, added after art QA round 2; twenty scenes).
+  Sabotage, each shown red: no push on release (MARK), no explored check in `cells` (STOCKPILE),
+  `cells` ignoring the kept geometry (STOCKPILE), no pending entry on release (MARK), a constant
+  signature (PREVIEW).
   Frame cost, `xvfb-run -a npm run godot:bench:frame`, three interleaved pairs against the same
   build with `_draw_stockpile` returning at once: the first cut, painting every tile fresh each
   frame, was 17.77, 17.61, 18.04 ms shipped-draw against 9.04, 10.86, 10.26, a regression. The zone
