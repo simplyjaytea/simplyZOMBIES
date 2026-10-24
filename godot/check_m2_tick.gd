@@ -32,6 +32,8 @@ const SimWeather = preload("res://sim/modules/weather.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
+const SimHome = preload("res://sim/home.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
 
 const FIXTURE: Dictionary = {"seed": 71, "tick_hz": 20, "map": {"width": 16, "height": 16, "walls": []}, "player": {"id": 0, "x": 8.5, "y": 8.5, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
 
@@ -72,8 +74,9 @@ func _run() -> void:
 	ok = _the_door_swing_asks_the_set_the_walk_answered() and ok
 	ok = _equal_ties_go_to_the_nearer_tile() and ok
 	ok = _the_players_cast_lands_on_the_next_tick() and ok
+	ok = _the_haul_walk_runs_on_the_nearest_clear_item() and ok
 	if ok:
-		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square query care claw sky observe ambient seek far-think spread impair dress scent arcs table recall swing near-ties player-cast")
+		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square query care claw sky observe ambient seek far-think spread impair dress scent arcs table recall swing near-ties player-cast order")
 		quit(0)
 	else:
 		push_error("M2_TICK_FAIL")
@@ -2142,3 +2145,94 @@ func _player_cast_lane() -> bool:
 	if refresh.find("_spend(map, player_queue, PLAYER_QUADRANTS_PER_TICK") < 0 or refresh.find("_spend(map, queue, PERSON_QUADRANTS_PER_TICK") < 0:
 		return _fail("PLAYER-CAST", "refresh does not spend both queues on their own budgets")
 	return true
+
+
+# Haul's zombie walk runs on the nearest loose item and no further than the first clear one, so the
+# answer must be the one a walk over every item would give: the nearest with no zombie within
+# DANGER_TARGET_METRES, ties to the item found first. Its own world: the boot's loose items are taken
+# off the ground and every zombie is moved far off, so the only things in reach are the ones placed
+# here. A lane that cannot find two outdoor tiles to place its items on says so and skips.
+func _the_haul_walk_runs_on_the_nearest_clear_item() -> bool:
+	var w: Variant = SimBoot.playable()["world"]
+	for z in w.components.query(["shambler"]):
+		w.components.set_component(int(z), "position", {"x": 1000.0, "y": 1000.0})
+	for item in SimInventory.ground_items(w):
+		w.components.remove(int(item), "position")
+	var o: Vector2 = SimHome.centre(w)
+	var tiles: Array[Vector2i] = _outdoor_floor_around(w, o, 14)
+	if tiles.size() < 2:
+		print("ORDER skipped: fewer than two outdoor floor tiles near home")
+		return true
+	var a: Vector2 = _tile_centre(tiles[0])
+	var far: Vector2i = Vector2i(-1, -1)
+	for t in tiles:
+		var b: Vector2 = _tile_centre(t)
+		if b.distance_to(o) > a.distance_to(o) and b.distance_to(a) > SimJobs.DANGER_TARGET_METRES + 1.0:
+			far = t
+			break
+	if far.x < 0:
+		print("ORDER skipped: no outdoor tile far enough from the nearest one")
+		return true
+	# The nearest item has a zombie on it; the second has none within reach of it.
+	var near_item: int = _ground_item_at(w, _tile_centre(tiles[0]))
+	var far_item: int = _ground_item_at(w, _tile_centre(far))
+	var zombie: int = w.components.query(["shambler"])[0]
+	w.components.set_component(zombie, "position", {"x": a.x + 0.3, "y": a.y})
+	var got: int = int(SimJobs._haul_work(w, o.x, o.y).get("target", -1))
+	if got != far_item:
+		return _fail("ORDER", "a zombie beside the nearest item sent Haul to %d, not the clear item %d" % [got, far_item])
+	# Two clear items at the same distance: the one found first in ground_items wins.
+	w.components.set_component(zombie, "position", {"x": 1000.0, "y": 1000.0})
+	w.components.remove(near_item, "position")
+	w.components.remove(far_item, "position")
+	var pair: Array[Vector2i] = _equidistant_pair(tiles, o)
+	if pair.size() < 2:
+		print("ORDER tie case skipped: no two outdoor tiles at the same distance from home")
+		return true
+	var first_item: int = _ground_item_at(w, _tile_centre(pair[0]))
+	var second_item: int = _ground_item_at(w, _tile_centre(pair[1]))
+	var expected: int = first_item if SimInventory.ground_items(w).find(first_item) < SimInventory.ground_items(w).find(second_item) else second_item
+	got = int(SimJobs._haul_work(w, o.x, o.y).get("target", -1))
+	if got != expected:
+		return _fail("ORDER", "a tie sent Haul to %d, not the first found %d" % [got, expected])
+	return true
+
+
+func _tile_centre(t: Vector2i) -> Vector2:
+	return Vector2(float(t.x) + 0.5, float(t.y) + 0.5)
+
+
+# Outdoor, walkable floor within `reach` tiles of `o`, nearest first, ties by row-major order.
+func _outdoor_floor_around(w: Variant, o: Vector2, reach: int) -> Array[Vector2i]:
+	var found: Array[Vector2i] = []
+	for ty in range(floori(o.y) - reach, floori(o.y) + reach + 1):
+		for tx in range(floori(o.x) - reach, floori(o.x) + reach + 1):
+			if tx < 0 or ty < 0 or tx >= w.map_width or ty >= w.map_height:
+				continue
+			if SimTileMap.is_solid(w.tilemap, tx, ty) or SimTileMap.is_indoors(w.tilemap, tx, ty):
+				continue
+			if SimTileMap.tile_at(w.tilemap, tx, ty) != SimTileMap.Tile.Floor:
+				continue
+			found.append(Vector2i(tx, ty))
+	found.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return _tile_centre(a).distance_squared_to(o) < _tile_centre(b).distance_squared_to(o))
+	return found
+
+
+func _equidistant_pair(tiles: Array[Vector2i], o: Vector2) -> Array[Vector2i]:
+	for i in tiles.size():
+		for j in range(i + 1, tiles.size()):
+			var di: float = _tile_centre(tiles[i]).distance_squared_to(o)
+			var dj: float = _tile_centre(tiles[j]).distance_squared_to(o)
+			if di > 0.0 and is_equal_approx(di, dj):
+				var pair: Array[Vector2i] = [tiles[i], tiles[j]]
+				return pair
+	var none: Array[Vector2i] = []
+	return none
+
+
+# The loose item placed on the tile centre `at`, spawned fresh so the lane owns it.
+func _ground_item_at(w: Variant, at: Vector2) -> int:
+	var item: int = SimItems.spawn_item(w, "item.scrap.metal", {"tier": "scavenged"})
+	w.components.set_component(item, "position", {"x": at.x, "y": at.y})
+	return item
+

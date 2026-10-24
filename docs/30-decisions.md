@@ -5989,6 +5989,21 @@ taken without the owner, all presentation:
   something in the pack that fits wears an amber dog-ear. Both are the read model's answers
   (`required`, an offer for the slot), never a guess on the screen.
 
+## Haul's walk runs on the nearest item, 2026-10-24
+
+The tick's P0 slice (docs/22, "P0, the colony sample"). Calls taken without the owner, all sim-side
+and behaviour-preserving:
+
+- **The zombie walk is deferred, not removed.** `_haul_work` still asks `_danger_at` of every
+  candidate it would pick, and of nothing it would not; it asks it of the nearest one first, and
+  of the rest in distance order only when that one has a zombie near it. Same answer, pinned by
+  `godot:m2:tick`'s ORDER lane and a serialize hash equal to main's.
+- **Dress and Repair were left alone.** Dress asks `_is_better_armor` of every ground item and may
+  erase a stale claim as it goes, so its order is part of what it decides; cutting it needs a
+  memo, which is a behaviour question for the coordinator, not a loop cut. Repair's double scan of
+  the stockpile happens only when a worn item sits on the pile, which starts a job rather than
+  recurring each tick, so it was left alone too.
+
 ## Menus and the E prompt speak one grammar, 2026-10-24
 
 The action bar's E clause names what E does, in the words the right-click menu uses for the same
