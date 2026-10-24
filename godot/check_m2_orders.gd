@@ -65,9 +65,11 @@ func _run() -> void:
 	ok = _the_ordered_target_is_picked_before_a_nearer_one() and ok
 	ok = _an_attack_order_refuses_what_is_unseen_colonist_or_dead() and ok
 	ok = _a_critically_injured_colonist_loses_the_attack_order() and ok
+	ok = _an_order_ends_with_the_reason_it_ended() and ok
+	ok = _a_colonist_is_not_offered_an_item_another_is_carrying_off() and ok
 	ok = _the_record_is_plain_values() and ok
 	if ok:
-		print("M2_ORDERS_OK go walks and ends, hold keeps off work against a free control, haul stocks the item, stand down refuses with none, an order drops the job in hand, the HUD and the menu follow the sim, the draft holds and frees a colonist, an attack walks to its target and strikes it, the order picks its target before a nearer one, and the record is plain values")
+		print("M2_ORDERS_OK go walks and ends, hold keeps off work against a free control, haul stocks the item, stand down refuses with none, an order drops the job in hand, the HUD and the menu follow the sim, the draft holds and frees a colonist, an attack walks to its target and strikes it, the order picks its target before a nearer one, an order says why it ended, a haul is not offered twice, and the record is plain values")
 		quit(0)
 	else:
 		push_error("M2_ORDERS_FAIL")
@@ -608,6 +610,83 @@ func _a_critically_injured_colonist_loses_the_attack_order() -> bool:
 	var ok: bool = held and lost
 	if not ok:
 		push_error("ATTACK-BREAK: held %s, order gone after a critical wound %s" % [held, lost])
+	return ok
+
+
+# --- endings and the haul collision (plan A3) ----------------------------------------------
+
+# A walkable tile between `lo` and `hi` tiles away that no route from `from` reaches: a walled-off
+# destination, which an order will accept (walkable is all `go` asks) and then cannot reach.
+func _walled_off_near(w: Variant, from: Vector2i, lo: int, hi: int) -> Vector2i:
+	for dy in range(-hi, hi + 1):
+		for dx in range(-hi, hi + 1):
+			var d: int = maxi(absi(dx), absi(dy))
+			if d < lo:
+				continue
+			var t := Vector2i(from.x + dx, from.y + dy)
+			if SimPath.walkable(w, t.x, t.y) and SimPath.find(w, from, t).is_empty():
+				return t
+	return Vector2i(-1, -1)
+
+
+# Steps up to `ticks` and returns the reason of the first `order.ended` for `ent`, or "" if none.
+func _ending_of(w: Variant, ent: int, ticks: int) -> String:
+	for _t in ticks:
+		w.step()
+		for e in w.events.drained:
+			var ev: Dictionary = e as Dictionary
+			if String(ev.get("type", "")) == "order.ended" and int(ev.get("entity", -1)) == ent:
+				return String(ev.get("reason", ""))
+	return ""
+
+
+func _an_order_ends_with_the_reason_it_ended() -> bool:
+	var w: Variant = _world()
+	var mara: int = _mara(w)
+	var here: Vector2i = _tile(w, mara)
+	var walled: Vector2i = _walled_off_near(w, here, 3, 40)
+	if walled.x < 0:
+		push_error("ENDINGS: no walled-off walkable tile near Mara")
+		return false
+	w.commands.push(_cmd(mara, {"kind": "go", "tx": walled.x, "ty": walled.y}))
+	var no_route: String = _ending_of(w, mara, WALK_TICKS)
+
+	var v: Variant = _world()
+	var ellis: int = _ellis(v)
+	var goal: Vector2i = _reachable_away(v, _tile(v, ellis), 4, SEARCH_RADIUS)
+	if goal.x < 0:
+		push_error("ENDINGS: no reachable goal for Ellis")
+		return false
+	v.commands.push(_cmd(ellis, {"kind": "go", "tx": goal.x, "ty": goal.y}))
+	var arrived: String = _ending_of(v, ellis, WALK_TICKS)
+
+	var ok: bool = no_route == "no-route" and arrived == "arrived"
+	if not ok:
+		push_error("ENDINGS: a walled-off go ended as '%s' (want no-route); a reachable go ended as '%s' (want arrived)" % [no_route, arrived])
+	return ok
+
+
+func _a_colonist_is_not_offered_an_item_another_is_carrying_off() -> bool:
+	var w: Variant = _world()
+	var mara: int = _mara(w)
+	var ellis: int = _ellis(w)
+	var spot: Vector2i = _reachable_away(w, _tile(w, ellis), 3, SEARCH_RADIUS)
+	if spot.x < 0:
+		push_error("COLLIDE: no loose tile near Ellis")
+		return false
+	var item: int = _loose_item_at(w, spot)
+	var offered_free: bool = SimOrders.accepts(w, mara, {"kind": "haul", "target": item})
+	# Ellis's live Haul: the reservation and the job that carries it.
+	w.components.set_component(item, "reserved", {"by": ellis, "job": "Haul"})
+	w.components.set_component(ellis, "job", {"kind": "Haul", "target": item, "ticksLeft": 0, "path": [], "pathGen": -1})
+	var refused_taken: bool = not SimOrders.accepts(w, mara, {"kind": "haul", "target": item})
+	var ellis_still: bool = SimOrders.accepts(w, ellis, {"kind": "haul", "target": item})
+	# Not a live job, only a reservation: the item is offered again.
+	w.components.remove_component(ellis, "job")
+	var offered_reserved_only: bool = SimOrders.accepts(w, mara, {"kind": "haul", "target": item})
+	var ok: bool = offered_free and refused_taken and ellis_still and offered_reserved_only
+	if not ok:
+		push_error("COLLIDE: free offered %s, taken refused %s, Ellis's own offer %s, reservation alone offered %s" % [offered_free, refused_taken, ellis_still, offered_reserved_only])
 	return ok
 
 

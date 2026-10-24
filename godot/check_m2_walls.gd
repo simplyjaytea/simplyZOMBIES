@@ -36,13 +36,150 @@ func _run() -> void:
 	ok = _walls_out() and ok
 	ok = _yard_in() and ok
 	ok = _yard_out() and ok
+	ok = _retreat_walk_bound() and ok
+	ok = _retreat_walk_before_bound() and ok
+	ok = _construct_resume_refused() and ok
+	ok = _construct_resume_plain() and ok
+	ok = _construct_resume_clear() and ok
 	SimJobs.BREAK_OFF_FROM_DANGER = was
 	if ok:
-		print("M2_WALLS_OK a zombie inside the walls 3 m off breaks a hauling colonist's errand off, a zombie outside the walls 5.5 m off does not, a zombie in the yard breaks off a colonist there, and a yard with no zombie in the lot does not")
+		print("M2_WALLS_OK a zombie inside the walls 3 m off breaks a hauling colonist's errand off, a zombie outside the walls 5.5 m off does not, a zombie in the yard breaks off a colonist there, and a yard with no zombie in the lot does not; a Retreat whose walk home runs past its bound is re-planned inside in a bounded number of ticks, and before the bound it is left alone; a colonist shaken by a Retreat does not resume Construct at a window with a zombie within 10 m, resumes at one without, and the shake clears when it does")
 		quit(0)
 	else:
 		push_error("M2_WALLS_FAIL")
 		quit(1)
+
+# A walk home that has run past RETREAT_WALK_TICKS is re-planned to the nearest tile inside the
+# walls. The fixture is a colonist in the north yard with a stale route that leads east, away from
+# the house, for eighty tiles: the old walk follows it and never reaches a door in the bound.
+func _retreat_walk_bound() -> bool:
+	var w: Variant = _world()
+	var annex: Rect2i = SimTileMap.annex_rect(w.tilemap)
+	var yard: Vector2i = Vector2i(SimTileMap.player_start(w.tilemap).x, annex.position.y + 1)
+	var ellis: int = _walk_fixture(w, yard, SimJobs.RETREAT_WALK_TICKS + 1)
+	if ellis < 0:
+		return false
+	for i in range(600):
+		SimJobs._tick_one(w, ellis)
+		_move(w, ellis)
+		var pos: Dictionary = w.components.get_component(ellis, "position") as Dictionary
+		if _inside(w, annex, Vector2i(floori(float(pos["x"])), floori(float(pos["y"])))):
+			return true
+	push_error("RETREAT: a walk home past its %d-tick bound was not re-planned inside within 600 ticks (%s)" % [SimJobs.RETREAT_WALK_TICKS, str(w.components.get_component(ellis, "job"))])
+	return false
+
+
+# Before the bound the same stale route is followed: the job keeps its home tile and is not
+# re-planned, so the bound is the only thing that changes a walk home.
+func _retreat_walk_before_bound() -> bool:
+	var w: Variant = _world()
+	var annex: Rect2i = SimTileMap.annex_rect(w.tilemap)
+	var yard: Vector2i = Vector2i(SimTileMap.player_start(w.tilemap).x, annex.position.y + 1)
+	var ellis: int = _walk_fixture(w, yard, 0)
+	if ellis < 0:
+		return false
+	var home: Vector2i = Vector2i(int(SimJobs._home_centre(w).x), int(SimJobs._home_centre(w).y))
+	for i in range(50):
+		SimJobs._tick_one(w, ellis)
+	var job: Dictionary = w.components.get_component(ellis, "job") as Dictionary
+	if String(job.get("kind", "")) != "Retreat" or int(job.get("tx", -1)) != home.x or bool(job.get("rerouted", false)):
+		push_error("RETREAT: a walk home inside its bound was re-planned (%s), so the bound is not what decides it" % str(job))
+		return false
+	return true
+
+
+# A Retreat job on Ellis at `spot`, a stale eighty-tile route to the east, and the walk counter set.
+func _walk_fixture(w: Variant, spot: Vector2i, walked: int) -> int:
+	for z in w.components.query(["shambler"]):
+		w.despawn(int(z))
+	var ellis: int = _ellis(w)
+	if ellis < 0:
+		push_error("RETREAT: no Ellis in the booted district, so the lane judges nothing")
+		return -1
+	var home: Vector2 = SimJobs._home_centre(w)
+	var route: Array = []
+	for step in range(80):
+		route.append({"x": spot.x + step + 1, "y": spot.y})
+	w.components.set_component(ellis, "position", {"x": float(spot.x) + 0.5, "y": float(spot.y) + 0.5})
+	w.components.set_component(ellis, "job", {"kind": "Retreat", "tx": int(home.x), "ty": int(home.y), "ticksLeft": 0, "path": route, "pathGen": int(w.mapGeneration), "walked": walked, "was": ""})
+	return ellis
+
+
+# A colonist shaken by a Retreat does not take a window with a zombie 3 m off it: `_construct_work`
+# offers no window at all, or another one, never that one.
+func _construct_resume_refused() -> bool:
+	var w: Variant = _world()
+	var win: Vector2i = _first_window(w)
+	if win.x < 0:
+		push_error("CONSTRUCT-RESUME: no window in the annex, so the lane judges nothing")
+		return false
+	var ellis: int = _ellis(w)
+	for z in w.components.query(["shambler"]):
+		w.despawn(int(z))
+	var at: Vector2 = Vector2(float(win.x) + 0.5, float(win.y) + 1.5)
+	w.components.set_component(ellis, "position", {"x": at.x, "y": at.y})
+	w.components.set_component(ellis, "shaken", {"tick": int(w.tick)})
+	SimRoster.spawn_zombie(w, float(win.x) + 3.5, float(win.y) + 0.5, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
+	var got: Dictionary = SimJobs._construct_work(w, at.x, at.y, ellis)
+	if got.is_empty():
+		if not w.components.has_component(ellis, "shaken"):
+			push_error("CONSTRUCT-RESUME: the shake cleared though no window was taken")
+			return false
+		return true
+	var tx: int = int(got.get("tx", -1))
+	var ty: int = int(got.get("ty", -1))
+	if SimJobs._danger_at(w, float(tx) + 0.5, float(ty) + 0.5, SimJobs.DANGER_TARGET_METRES):
+		push_error("CONSTRUCT-RESUME: a shaken colonist took a window with a zombie within %.0f m of it" % SimJobs.DANGER_TARGET_METRES)
+		return false
+	return true
+
+
+# Not shaken: the same window with the same zombie is taken, as before the rule.
+func _construct_resume_plain() -> bool:
+	var w: Variant = _world()
+	var win: Vector2i = _first_window(w)
+	var ellis: int = _ellis(w)
+	for z in w.components.query(["shambler"]):
+		w.despawn(int(z))
+	var at: Vector2 = Vector2(float(win.x) + 0.5, float(win.y) + 1.5)
+	w.components.set_component(ellis, "position", {"x": at.x, "y": at.y})
+	w.components.remove(ellis, "shaken")
+	SimRoster.spawn_zombie(w, float(win.x) + 3.5, float(win.y) + 0.5, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
+	var got: Dictionary = SimJobs._construct_work(w, at.x, at.y, ellis)
+	if int(got.get("tx", -1)) != win.x or int(got.get("ty", -1)) != win.y:
+		push_error("CONSTRUCT-RESUME: an unshaken colonist was refused the window (%s)" % str(got))
+		return false
+	return true
+
+
+# Shaken, with no zombie near the window: the window is taken, and the shake clears.
+func _construct_resume_clear() -> bool:
+	var w: Variant = _world()
+	var win: Vector2i = _first_window(w)
+	var ellis: int = _ellis(w)
+	for z in w.components.query(["shambler"]):
+		w.despawn(int(z))
+	var at: Vector2 = Vector2(float(win.x) + 0.5, float(win.y) + 1.5)
+	w.components.set_component(ellis, "position", {"x": at.x, "y": at.y})
+	w.components.set_component(ellis, "shaken", {"tick": int(w.tick)})
+	var got: Dictionary = SimJobs._construct_work(w, at.x, at.y, ellis)
+	if int(got.get("tx", -1)) != win.x or int(got.get("ty", -1)) != win.y:
+		push_error("CONSTRUCT-RESUME: a shaken colonist with no zombie near the window was refused it (%s)" % str(got))
+		return false
+	if w.components.has_component(ellis, "shaken"):
+		push_error("CONSTRUCT-RESUME: the shake did not clear when a window was taken")
+		return false
+	return true
+
+
+func _first_window(w: Variant) -> Vector2i:
+	var annex: Rect2i = SimTileMap.annex_rect(w.tilemap)
+	for j in range(annex.position.y, annex.position.y + annex.size.y):
+		for i in range(annex.position.x, annex.position.x + annex.size.x):
+			if SimTileMap.tile_at(w.tilemap, i, j) == SimTileMap.Tile.Window:
+				return Vector2i(i, j)
+	return Vector2i(-1, -1)
+
 
 func _walls_in() -> bool:
 	var w: Variant = _world()
@@ -118,6 +255,18 @@ func _haul(w: Variant, spot: Vector2i, zombie: Vector2) -> String:
 	SimJobs._tick_one(w, ellis)
 	var job: Variant = w.components.get_component(ellis, "job")
 	return String((job as Dictionary).get("kind", "")) if job is Dictionary else "none"
+
+# The world step is not run here, so a body's velocity (set by the job's walk) is integrated by hand
+# over one tick, at 20 ticks a second.
+func _move(w: Variant, ent: int) -> void:
+	var pos: Dictionary = w.components.get_component(ent, "position") as Dictionary
+	var vel: Variant = w.components.get_component(ent, "velocity")
+	if not vel is Dictionary:
+		return
+	pos["x"] = float(pos["x"]) + float((vel as Dictionary)["dx"]) * 0.05
+	pos["y"] = float(pos["y"]) + float((vel as Dictionary)["dy"]) * 0.05
+	w.components.set_component(ent, "position", pos)
+
 
 func _inside(w: Variant, annex: Rect2i, tile: Vector2i) -> bool:
 	return SimJobs._inside_walls(w.tilemap, annex, tile.x, tile.y)

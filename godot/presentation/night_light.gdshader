@@ -261,7 +261,7 @@ void fragment() {
 	float sky_r = max(0.5, ambient * range_m - 0.5);
 	float sky = ambient * (1.0 - eye_fade * smoothstep(sky_r * 0.5, sky_r, d_eye));
 	float disc_r = max(0.5, eye_reach - 0.5);
-	float disc = eye_floor * (1.0 - ambient) * eye_fade * rings(1.0 - smoothstep(disc_r * 0.45, disc_r, d_eye), threshold);
+	float disc = eye_floor * (1.0 - ambient) * eye_fade * rings(1.0 - smoothstep(disc_r * 0.3, disc_r, d_eye), threshold);
 	float shown = max(sky, max(disc, best));
 	// How far a lightless pixel goes toward the night's colour: night_wash at dusk, all the way at
 	// midnight, so outside the pools and the survivor's disc the night holds at the same floor the
