@@ -1229,7 +1229,9 @@ tables and day lines are report-noise.md in the project's planning/balance folde
     scripted player's route, which met a zombie 4 m off instead of 5.6 m. One pocket cell turned
     a seed from day 9 to day 1, so three seeds of one scripted survivor cannot tell a lever from
     noise. A well inside the wall, more loot water and a rain barrel stay unbuilt and are the
-    owner's.
+    owner's. **Settled 2026-10-23: the bottles stay.** With the Rest fix on, ten seeds with the
+    starting bottles reverted (`ace75bb1-nobottle`) were worse: median wipe day 3.5 against 4.0,
+    alive on day 10 1 of 10 against 4 (`planning/balance/report-ten-seed.md`, shared folder).
   - **Next measurement: ten seeds, median wipe day.** The same driver on ten seeds, run on main
     and on each candidate, reporting the median wipe day (and the spread) rather than three
     single runs, so one perturbed route cannot flip a verdict. No balance lever is judged on the
