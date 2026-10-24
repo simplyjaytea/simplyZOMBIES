@@ -30,6 +30,14 @@ extends SceneTree
 #              feet, even when the cook stands at the pile.
 #   RAIDER  -- a raider's looter finds a marked outdoor pile: `_is_stores` and `_loot_goal` read the
 #              zone, so an outdoor pile is looted as the annex is.
+#   TAKE    -- the stockpile window's commands, by the sim's own rules (slice S4). Standing in a
+#              patch with the window open, a tin in view is taken into the pockets; a tin on the
+#              same patch behind a wall, a tin off the zone, and any take with the window shut are
+#              refused, and each stays where it lay. A carried tin is put back onto a tile of the
+#              patch in view; off the zone the window shuts and a put is refused. E opens the window
+#              where the item it would pick up lies on the pile, and the bar's words say so; off the
+#              pile E still picks the item up. Sabotage: dropping the sight test from `in_sight`
+#              lists the walled tin and turns TAKE red.
 #   SAVE    -- the zone round-trips a save. A save with no zone record (every save from before this
 #              slice) loads with the default zone.
 #
@@ -49,6 +57,7 @@ const SimSave = preload("res://sim/save.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimRaiders = preload("res://sim/modules/raiders.gd")
+const SimContext = preload("res://sim/context.gd")
 
 const SEED: int = 20260805
 const MAP: int = 64
@@ -77,11 +86,12 @@ func _run() -> void:
 	ok = _a_haul_walks_onto_an_outdoor_pile() and ok
 	ok = _a_meal_lands_at_the_fire_not_at_the_cooks_feet() and ok
 	ok = _a_raider_loots_an_outdoor_pile() and ok
+	ok = _the_window_takes_and_puts_by_the_sims_rules() and ok
 	var skip_note: String = ""
 	if not _skipped.is_empty():
 		skip_note = " SKIPPED(no data): " + ", ".join(_skipped)
 	if ok:
-		print("M2_STOCKPILE_OK default mark walled readers save spread patch walk cook raider%s" % skip_note)
+		print("M2_STOCKPILE_OK default mark walled readers save spread patch walk cook raider take%s" % skip_note)
 		quit(0)
 	else:
 		push_error("M2_STOCKPILE_FAIL")
@@ -632,3 +642,114 @@ func _items_based_on(w: Variant, base: String) -> Array[int]:
 		if b is Dictionary and String((b as Dictionary).get("baseId", "")) == base:
 			out.append(int(item))
 	return out
+
+
+# TAKE. The window's four commands, each accepted and refused by the sim's own rules. A 3x3 pile
+# outdoors, the player on its west middle tile, a wall dropped on its centre: the east middle tile is
+# on the same patch (round the wall by the top and bottom rows) and out of sight behind the wall.
+func _the_window_takes_and_puts_by_the_sims_rules() -> bool:
+	var w: Variant = _world()
+	var block: Vector2i = _markable_block(w, 3, 6)
+	if block.x < 0:
+		push_error("TAKE: no explored 3x3 of open ground clear of the annex on this map")
+		return false
+	_mark(w, block.x, block.y, block.x + 2, block.y + 2, true)
+	var stand := Vector2i(block.x, block.y + 1)
+	var wall := Vector2i(block.x + 1, block.y + 1)
+	var hidden := Vector2i(block.x + 2, block.y + 1)
+	var corner := Vector2i(block.x + 1, block.y)
+	var off := Vector2i(block.x - 1, block.y + 1)
+	if not SimStockpile.markable(w, off.x, off.y) or SimStockpile.has_tile(w, off.x, off.y):
+		push_error("TAKE: the tile west of the pile at %s is not open ground off the zone" % str(off))
+		return false
+	w.tilemap.tiles[wall.y * int(w.tilemap.w) + wall.x] = SimTileMap.Tile.Wall
+	w.map_generation = int(w.map_generation) + 1
+	_stand(w, stand)
+	var here_tin: int = _put_on(w, stand, CANNED)
+	var hid_tin: int = _put_on(w, hidden, CANNED)
+	var near_tin: int = _put_on(w, corner, CANNED)
+	var off_tin: int = _put_on(w, off, CANNED)
+	w.step()
+	if SimStockpile.patch_under(w, w.player).size() != 8 or not SimStockpile.patch_under(w, w.player).has("%d,%d" % [hidden.x, hidden.y]):
+		push_error("TAKE: the walled pile is not one patch of eight round the wall: %s" % str(SimStockpile.patch_under(w, w.player).keys()))
+		return false
+	# Shut, the window takes nothing, and lists nothing.
+	_send(w, {"type": SimStockpile.TAKE_COMMAND, "item": here_tin})
+	if not _lies(w, here_tin) or not SimStockpile.stores_view(w, w.player).is_empty():
+		push_error("TAKE: a take with the window shut moved the tin, or the shut window lists something")
+		return false
+	# E, standing on the pile with a tin of it in reach: the window, not the pick-up. The bar says so.
+	if SimContext.reach_words(w, w.player) != SimStockpile.OPEN_WORDS:
+		push_error("TAKE: the bar's E words on the pile are %s" % SimContext.reach_words(w, w.player))
+		return false
+	_send(w, {"type": "use.context"})
+	if not SimStockpile.is_open(w, w.player) or not _lies(w, here_tin) or not _lies(w, near_tin):
+		push_error("TAKE: E on the pile did not open the window, or picked a tin up instead")
+		return false
+	var listed: Array[int] = SimStockpile.in_sight(w, w.player)
+	if not listed.has(here_tin) or not listed.has(near_tin):
+		push_error("TAKE: the tins in view are not listed: %s" % str(listed))
+		return false
+	if listed.has(hid_tin):
+		push_error("TAKE: the tin behind the wall is listed")
+		return false
+	if listed.has(off_tin):
+		push_error("TAKE: the tin off the zone is listed")
+		return false
+	var view: Dictionary = SimStockpile.stores_view(w, w.player)
+	if int(view.get("container", 0)) != SimStockpile.STORES or String(view.get("label", "")) != "the stockpile" or (view.get("items", []) as Array).size() != listed.size():
+		push_error("TAKE: the window's view is not the listed tins under the stockpile's name: %s" % str(view))
+		return false
+	_send(w, {"type": SimStockpile.TAKE_COMMAND, "item": hid_tin})
+	_send(w, {"type": SimStockpile.TAKE_COMMAND, "item": off_tin})
+	if not _lies(w, hid_tin) or not _lies(w, off_tin):
+		push_error("TAKE: a tin out of sight, or off the zone, was taken")
+		return false
+	_send(w, {"type": SimStockpile.TAKE_COMMAND, "item": here_tin})
+	if _lies(w, here_tin) or not SimInventory.owns(w, w.player, here_tin):
+		push_error("TAKE: the tin in view was not taken into the pockets")
+		return false
+	# Put back: onto a tile of this patch the player sees, not the hidden side.
+	_send(w, {"type": SimStockpile.PUT_COMMAND, "item": here_tin})
+	var back: Vector2i = _tile_of(w, here_tin)
+	if not _lies(w, here_tin) or not SimStockpile.patch_under(w, w.player).has("%d,%d" % [back.x, back.y]) or not SimStockpile.in_view(w, w.player, float(back.x) + 0.5, float(back.y) + 0.5):
+		push_error("TAKE: the put tin is at %s, not on a tile of the patch in view" % str(back))
+		return false
+	# Off the zone the window shuts, and a put is refused: the tin stays in the pockets.
+	_send(w, {"type": SimStockpile.TAKE_COMMAND, "item": here_tin})
+	_stand(w, off)
+	w.step()
+	if SimStockpile.is_open(w, w.player) or w.components.has_component(w.player, SimStockpile.OPEN_COMPONENT):
+		push_error("TAKE: the window stayed open off the zone")
+		return false
+	_send(w, {"type": SimStockpile.PUT_COMMAND, "item": here_tin})
+	if _lies(w, here_tin):
+		push_error("TAKE: a put off the zone put the tin down")
+		return false
+	# E off the pile, with the off-zone tin at the player's feet, is still the pick-up.
+	if SimContext.reach_words(w, w.player).find("pick up") != 0:
+		push_error("TAKE: the bar's E words off the pile are %s" % SimContext.reach_words(w, w.player))
+		return false
+	_send(w, {"type": "use.context"})
+	if _lies(w, off_tin) or w.components.has_component(w.player, SimStockpile.OPEN_COMPONENT):
+		push_error("TAKE: E off the pile did not pick the tin up, or opened the window")
+		return false
+	print("TAKE OK the window takes a tin in view and puts it back in view; out of sight, off the zone, shut or off the pile it refuses; E opens it on the pile and picks up off it")
+	return true
+
+
+# The player's sight lands whole a tick after a move (`SimVisibility.STAGGER_PLAYER_CAST`), so a lane
+# that moves the player gives it that tick before asking what is in view.
+func _stand(w: Variant, t: Vector2i) -> void:
+	w.components.set_component(w.player, "position", {"x": float(t.x) + 0.5, "y": float(t.y) + 0.5})
+	w.step()
+
+
+func _send(w: Variant, cmd: Dictionary) -> void:
+	w.commands.push(cmd)
+	w.step()
+
+
+# Whether the item lies loose on the ground.
+func _lies(w: Variant, item: int) -> bool:
+	return w.components.has_component(item, "position") and not w.components.has_component(item, "stored")
