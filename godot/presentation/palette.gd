@@ -326,6 +326,12 @@ const LIGHT_POOL_FAR_OVERLAY: Color = Color(LIGHT_POOL_RGB.r, LIGHT_POOL_RGB.g, 
 const STOCKPILE_WASH: Color = Color("#8a96a3")
 const STOCKPILE_WASH_REST: float = 0.16
 const STOCKPILE_WASH_MARKING: float = 0.26
+# The same two by night. The night pass darkens the wash with the ground under it, so at the day
+# alphas the zone all but vanished on the board floor by firelight; StockpileLook.cells leans from
+# the day pair to this one as the ambient falls, and the STOCKPILE lane's NIGHT half holds the wash
+# by firelight at least as plain as the day wash is at noon, on every ground.
+const STOCKPILE_WASH_REST_NIGHT: float = 0.34
+const STOCKPILE_WASH_MARKING_NIGHT: float = 0.55
 const STOCKPILE_TAPE: Color = Color("#cfc6a8")
 const STOCKPILE_SHADOW: Color = Color("#08090a")
 const STOCKPILE_RIM_REST: float = 0.85

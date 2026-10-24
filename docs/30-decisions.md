@@ -6109,11 +6109,12 @@ taken without the owner:
   checks the modifier, the camp key's C and Ctrl+C precedent.
 - **Escape puts the brush down, and a second Escape is the menu.** Escape speaks to the thing in
   front, as everywhere else.
-- **The bar names the key as a keycap.** The plan's sentence ended "Z to finish"; the bar draws every
+- **The bar names the keys as keycaps.** The plan's sentence ended "Z to finish"; the bar draws every
   key it names as a cap, so the line is "Marking the stockpile: drag to mark, right-drag to clear"
-  then a Z cap and "finish". A drag the sim would refuse whole (past the 400-tile cap) says "Too
-  much ground for the stockpile: let go and nothing changes" and previews nothing. No digit either
-  way.
+  then a Z cap, an Esc cap and "put the brush down" (both keys do; art QA asked for Esc to be named,
+  so a lead clause may now name two keys as "Z / Esc — ..."). A drag the sim would refuse whole
+  (past the tile cap) says "Too much ground for the stockpile: let go and nothing changes" and
+  previews nothing. No digit either way.
 - **The preview is the sim's answer.** `SimStockpile.preview` returns the tiles a mark would add or
   take back, or that it would be refused; `mark` now applies exactly that answer, so what the drag
   draws is what the release changes. A mark that changes nothing no longer writes a zone record.
@@ -6146,9 +6147,21 @@ taken without the owner:
   the batch is rebuilt only when a zone tile's state (explored, seen, roofed), the brush or the zoom
   changes. The drag's preview and the pending marks are small and drawn fresh.
 
-Worth the owner's eye: the default zone (the annex floor) is 320 of the 400 tiles S1 allows, so a
-player can mark about 80 tiles elsewhere before they have to clear part of the annex. That is S1's
-cap, unchanged here.
+- **The cap is 1000 tiles, up from S1's 400.** The default zone (the annex floor) is 320 tiles, so
+  400 left about 80 to mark anywhere else, which is not "any explored ground". The coordinator's
+  tuning call, taken here. The cap bounds the zone query the Haul drop asks every tick a hauler walks
+  with an item (`SimStockpile.tiles`), which cost 2.1 to 3.4 ms at 320 tiles and would have been
+  about 9 ms at 1000; the query is rewritten to parse each key once and sort natively, and now costs
+  0.67 ms at 320 and 2.1 ms at 1000 on the bench box, under what 400 cost before. A drag's preview
+  over a full 1000-tile rectangle costs about 5 ms to answer, so the screen asks it once per change of
+  the rectangle, not per frame.
+- **The wash is stronger at night.** The night pass darkens the wash with the ground, and at the day
+  alphas the zone all but vanished on the board floor by firelight (art QA). The wash leans from its
+  day alphas (0.16 at rest, 0.26 marking) to night ones (0.34, 0.55) as the ambient falls, and the
+  STOCKPILE lane holds it, by firelight on every ground, at least as plain as the day wash at noon.
+  The rim is left as it is: its 3:1 is judged on the unlit ground, as every ground graphic's is, and
+  under the night pass it falls with the ground's own detail (about 1.9 to 2.5:1 by firelight in the
+  lane's model). Drawing it over the night would make it glow.
 
 **How to apply:** what the brush may change is `SimStockpile.preview`'s answer, never a second one on
 screen; how it looks is `presentation/stockpile_look.gd`. Gated by `godot:check:play` MARK,

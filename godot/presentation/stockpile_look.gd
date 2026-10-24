@@ -61,8 +61,9 @@ static func geometry(zone: Array[Vector2i]) -> Dictionary:
 ## corners}. `zone` is the sim's tile list, `seen` the current shadowcast (anything with
 ## `has_tile(tx, ty)`, or null), `explored` the remembered set (the same, or null: nothing draws),
 ## `roof` the tiles under a roof this frame, `view` the tiles on screen, `geom` the zone's
-## `geometry` when the caller kept it (built here when it did not).
-static func cells(zone: Array[Vector2i], seen: Variant, explored: Variant, roof: Array, marking: bool, view: Rect2i, geom: Dictionary = {}) -> Array[Dictionary]:
+## `geometry` when the caller kept it (built here when it did not), `ambient` the daylight from 1 at
+## noon to 0 at night (`LightLook.ambient_of`), which leans the wash toward its night alpha.
+static func cells(zone: Array[Vector2i], seen: Variant, explored: Variant, roof: Array, marking: bool, view: Rect2i, geom: Dictionary = {}, ambient: float = 1.0) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if explored == null:
 		return out
@@ -70,7 +71,7 @@ static func cells(zone: Array[Vector2i], seen: Variant, explored: Variant, roof:
 		geom = geometry(zone)
 	var roofed: Dictionary = roofed_set(roof)
 	var wash: Color = Palette.STOCKPILE_WASH
-	wash.a = Palette.STOCKPILE_WASH_MARKING if marking else Palette.STOCKPILE_WASH_REST
+	wash.a = wash_alpha(marking, ambient)
 	var tape: Color = Palette.STOCKPILE_TAPE
 	tape.a = Palette.STOCKPILE_RIM_MARKING if marking else Palette.STOCKPILE_RIM_REST
 	var shadow: Color = Palette.STOCKPILE_SHADOW
@@ -96,6 +97,14 @@ static func cells(zone: Array[Vector2i], seen: Variant, explored: Variant, roof:
 			"edges": shape.x, "corners": shape.y, "dashed": true,
 		})
 	return out
+
+
+## The wash's alpha: the day pair at full daylight, the night pair in the dark, and between them as
+## the ambient falls, so dusk does not step.
+static func wash_alpha(marking: bool, ambient: float) -> float:
+	var day: float = Palette.STOCKPILE_WASH_MARKING if marking else Palette.STOCKPILE_WASH_REST
+	var night: float = Palette.STOCKPILE_WASH_MARKING_NIGHT if marking else Palette.STOCKPILE_WASH_REST_NIGHT
+	return lerpf(night, day, clampf(ambient, 0.0, 1.0))
 
 
 ## What each zone tile is to the player right now, one byte a tile in the zone's order: 1 explored,

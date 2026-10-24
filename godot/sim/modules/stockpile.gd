@@ -29,7 +29,7 @@ const COMPONENT: String = "stockpile"
 # The most tiles a zone may hold, and the most a single `on` rectangle may cover. Both bound every
 # scan of the zone (the Haul search, the drop point, the window that lists it). A mark that would
 # pass the cap is refused whole, never applied in part.
-const MAX_TILES: int = 400
+const MAX_TILES: int = 1000
 
 
 static func register_module(world: Variant) -> void:
@@ -87,13 +87,24 @@ static func tiles(world: Variant) -> Array[Vector2i]:
 				if has_tile(world, i, j):
 					out.append(Vector2i(i, j))
 		return out
+	# The Haul drop asks this every tick a hauler walks with an item, so it is kept cheap: each key
+	# is parsed once, the solid test is asked directly (the key is in the zone by construction, the
+	# rest of `has_tile`), and the row-major order is a native sort of `ty * w + tx`. Same answer as
+	# `has_tile` over the keys sorted by (ty, tx); godot:m2:stockpile's WALLED lane holds it to that.
+	var map: Variant = world.tilemap
+	var w: int = int(map.w)
+	var order := PackedInt32Array()
 	for key in (rec as Dictionary)["tiles"].keys():
-		var t: Vector2i = _parse(String(key))
-		if has_tile(world, t.x, t.y):
-			out.append(t)
-	out.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
-		return a.y < b.y or (a.y == b.y and a.x < b.x)
-	)
+		var k: String = String(key)
+		var comma: int = k.find(",")
+		var tx: int = k.substr(0, comma).to_int()
+		var ty: int = k.substr(comma + 1).to_int()
+		if not SimTileMap.is_solid(map, tx, ty):
+			order.append(ty * w + tx)
+	order.sort()
+	out.resize(order.size())
+	for i in order.size():
+		out[i] = Vector2i(order[i] % w, order[i] / w)
 	return out
 
 

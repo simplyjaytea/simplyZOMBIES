@@ -160,6 +160,14 @@ var _stockpile_frame_key: int = 0
 # world takes none, so without these a drag let go under P would show nothing until play resumed.
 var _mark_pending: Array = []
 var _stockpile_pending_drawn: Array[Vector2i] = []
+var _pending_paint: Dictionary = {}
+var _pending_paint_key: int = 0
+# The drag's preview: the sim's answer, the key it was asked for, and its paint.
+var _mark_change_memo: Dictionary = {}
+var _mark_change_key: int = 0
+var _drag_paint: Dictionary = {}
+var _drag_paint_key: int = 0
+var _drag_cells: Array[Vector2i] = []
 var _stockpile_cells: Array[Vector2i] = []
 
 # ui refs (created in _ready if CanvasLayer available)
@@ -443,6 +451,12 @@ func _on_world_replaced() -> void:
 	_stockpile_paint_key = 0
 	_stockpile_frame_key = 0
 	_mark_pending = []
+	_pending_paint = {}
+	_pending_paint_key = 0
+	_mark_change_memo = {}
+	_mark_change_key = 0
+	_drag_paint = {}
+	_drag_paint_key = 0
 	_stockpile_cells = []
 	_glimpse_parts = []
 	_glimpse_stance = 2
@@ -957,8 +971,14 @@ func _set_marking(on: bool) -> void:
 func _mark_change() -> Dictionary:
 	if world == null or not marking or _mark_drag.is_empty():
 		return {}
-	var on: bool = int(_mark_drag["button"]) == MOUSE_BUTTON_LEFT
-	return SimStockpile.preview(world, InputMapRes.mark_command(_mark_drag["from"] as Vector2i, _mark_drag["to"] as Vector2i, on))
+	# Asked of the sim once per change of the drag's rectangle, the zone or the tick: a drag over a
+	# large rectangle costs milliseconds to answer, and the frame and the bar both want it.
+	var key: int = hash([_mark_drag, SimStockpile.signature(world), int(world.tick)])
+	if key != _mark_change_key or _mark_change_memo.is_empty():
+		_mark_change_key = key
+		var on: bool = int(_mark_drag["button"]) == MOUSE_BUTTON_LEFT
+		_mark_change_memo = SimStockpile.preview(world, InputMapRes.mark_command(_mark_drag["from"] as Vector2i, _mark_drag["to"] as Vector2i, on))
+	return _mark_change_memo
 
 
 func _draft_selected() -> void:
@@ -2821,19 +2841,24 @@ func _draw_stockpile(seen: Variant, explored: Variant, roof: Array, view: Rect2i
 		_stockpile_zone = SimStockpile.tiles(world)
 		_stockpile_geom = StockpileLook.geometry(_stockpile_zone)
 	# What the zone paints changes only with the zone, what the player knows and sees of it, the roof,
-	# the brush and the zoom. So it is batched once per change, on the whole map in tile-grid
-	# coordinates, and moved under the camera with a transform. A frame between ticks reuses it
-	# outright; a new tick reads each zone tile's state (explored, seen, roofed) and batches again only
-	# when one of them moved -- walking the street far from the pile costs the read, not the batch.
-	var frame_key: int = hash([sig, int(world.tick), int(world.player), marking, zoom, roof])
+	# the brush, the zoom and the daylight. So it is batched once per change, on the whole map in
+	# tile-grid coordinates, and moved under the camera with a transform. The frame key stands in for
+	# the sight sets and the roof without reading them: both are built from the tick's shadowcast, the
+	# player's tile, the map's generation and the tiles on screen (`view`; RoofLook.roof_tiles cuts the
+	# roof to the same rectangle). A frame with the same key reuses everything; a new key reads each
+	# zone tile's state (explored, seen, roofed) and batches again only when one of them moved --
+	# walking the street far from the pile costs the read, not the batch. The daylight is taken in
+	# twentieths, so dusk rebuilds the batch twenty times, not once a tick.
+	var light: float = snappedf(LightLook.ambient_of(world), 0.05)
+	var frame_key: int = hash([sig, int(world.tick), int(world.player), int(world.map_generation), marking, zoom, view, light])
 	if frame_key != _stockpile_frame_key or _stockpile_paint.is_empty():
 		_stockpile_frame_key = frame_key
 		var state: PackedByteArray = StockpileLook.states(_stockpile_zone, seen, explored, roof)
-		var key: int = hash([sig, int(world.player), marking, zoom, state])
+		var key: int = hash([sig, int(world.player), marking, zoom, light, state])
 		if key != _stockpile_paint_key or _stockpile_paint.is_empty():
 			_stockpile_paint_key = key
 			var whole := Rect2i(0, 0, int(world.map_width), int(world.map_height))
-			var cells: Array[Dictionary] = StockpileLook.cells(_stockpile_zone, seen, explored, roof, marking, whole, _stockpile_geom)
+			var cells: Array[Dictionary] = StockpileLook.cells(_stockpile_zone, seen, explored, roof, marking, whole, _stockpile_geom, light)
 			_stockpile_cells = []
 			for cell in cells:
 				_stockpile_cells.append(cell["tile"] as Vector2i)
@@ -2843,28 +2868,44 @@ func _draw_stockpile(seen: Variant, explored: Variant, roof: Array, view: Rect2i
 	for t in _stockpile_cells:
 		if view.has_point(t):
 			_stockpile_drawn.append(t)
-	draw_set_transform(origin)
-	_draw_painted(_stockpile_paint, px)
-	draw_set_transform(Vector2.ZERO)
 	# Released marks the sim has not taken yet, in the preview's look: still pending, not yet laid.
-	_stockpile_pending_drawn = []
+	# The sim's answer for them is asked once per change of the list, the zone or the frame key.
 	_mark_pending = _mark_pending.filter(func(p: Dictionary) -> bool: return int(p["tick"]) == int(world.tick))
-	for p in _mark_pending:
-		var cmd: Dictionary = (p as Dictionary)["cmd"] as Dictionary
-		var pending: Array[Dictionary] = StockpileLook.preview_cells(SimStockpile.preview(world, cmd)["tiles"] as Array, bool(cmd["on"]), explored, roof)
+	var pending_key: int = hash([_mark_pending, frame_key])
+	if pending_key != _pending_paint_key:
+		_pending_paint_key = pending_key
+		var pending: Array[Dictionary] = []
+		for p in _mark_pending:
+			var cmd: Dictionary = (p as Dictionary)["cmd"] as Dictionary
+			pending.append_array(StockpileLook.preview_cells(SimStockpile.preview(world, cmd)["tiles"] as Array, bool(cmd["on"]), explored, roof))
+		_stockpile_pending_drawn = []
 		for cell in pending:
 			_stockpile_pending_drawn.append(cell["tile"] as Vector2i)
-		_draw_painted(StockpileLook.batch(pending, origin, zoom, px), px)
+		_pending_paint = StockpileLook.batch(pending, Vector2.ZERO, zoom, px)
+	# The drag's preview: the sim's answer from _mark_change (asked once per change of the drag, the
+	# zone or the tick, and shared with the bar), painted once per change of that answer.
+	var drag_paint: Dictionary = {}
 	if marking:
 		var change: Dictionary = _mark_change()
-		if not change.is_empty():
+		var drag_key: int = hash([change, int(_mark_drag.get("button", 0)), frame_key])
+		if not change.is_empty() and drag_key != _drag_paint_key:
+			_drag_paint_key = drag_key
 			var pv: Array[Dictionary] = StockpileLook.preview_cells(change["tiles"] as Array, int(_mark_drag["button"]) == MOUSE_BUTTON_LEFT, explored, roof)
+			_drag_cells = []
 			for cell in pv:
-				_stockpile_drawn.append(cell["tile"] as Vector2i)
-			_draw_painted(StockpileLook.batch(pv, origin, zoom, px), px)
-		if _mark_hover.x >= 0:
-			for part in StockpileLook.cursor(_tile_origin(_mark_hover), zoom, px):
-				draw_rect((part as Array)[0] as Rect2, (part as Array)[1] as Color)
+				_drag_cells.append(cell["tile"] as Vector2i)
+			_drag_paint = StockpileLook.batch(pv, Vector2.ZERO, zoom, px)
+		if not change.is_empty():
+			drag_paint = _drag_paint
+			_stockpile_drawn.append_array(_drag_cells)
+	draw_set_transform(origin)
+	_draw_painted(_stockpile_paint, px)
+	_draw_painted(_pending_paint, px)
+	_draw_painted(drag_paint, px)
+	draw_set_transform(Vector2.ZERO)
+	if marking and _mark_hover.x >= 0:
+		for part in StockpileLook.cursor(_tile_origin(_mark_hover), zoom, px):
+			draw_rect((part as Array)[0] as Rect2, (part as Array)[1] as Color)
 
 
 # One StockpileLook.batch onto the canvas: its fills, then each colour's segments in one call.
