@@ -476,6 +476,8 @@ static func _work_for(world: Variant, ent: int, kind: String) -> Dictionary:
 	var y: float = float((pos as Dictionary)["y"])
 	match kind:
 		"Haul":
+			if _hands_full(world, ent):
+				return {}
 			return _haul_work(world, x, y)
 		"Scavenge":
 			return _scavenge_work(world, ent, x, y)
@@ -516,6 +518,8 @@ static func _work_for(world: Variant, ent: int, kind: String) -> Dictionary:
 		"Bury":
 			return _bury_work(world, x, y)
 		"Repair":
+			if _hands_full(world, ent):
+				return {}
 			return _repair_work(world, ent, x, y)
 	return {}
 
@@ -736,7 +740,11 @@ static func _do_scavenge(world: Variant, ent: int, job: Dictionary) -> void:
 # (`_nearest_clear`), so a colony with a lot on the ground pays one walk instead of one per item.
 static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 	var cands: Array[Dictionary] = []
-	for item in SimInventory.ground_items(world):
+	# With no stockpile tile anywhere there is nowhere to carry a thing to: nothing on the ground is
+	# "off the stockpile" in any sense that matters, and a haul would end with the item in the
+	# hauler's pack. The corpse dump below is not the stockpile and is still offered.
+	var ground: Array[int] = SimInventory.ground_items(world) if SimStockpile.has_any_tile(world) else ([] as Array[int])
+	for item in ground:
 		var p: Variant = world.components.get_component(item, "position")
 		if not p is Dictionary:
 			continue
@@ -1345,8 +1353,13 @@ static func _do_repair(world: Variant, ent: int, job: Dictionary) -> void:
 		_stop(world, ent)
 		return
 	if not SimInventory.owns(world, ent, item) and world.components.has_component(item, "position"):
+		var lay: Dictionary = (world.components.get_component(item, "position") as Dictionary).duplicate()
 		world.components.remove(item, "position")
 		if not SimInventory.stow(world, ent, item):
+			# Nowhere in the pack for it: it stays where it lay. Taken off the map and left there,
+			# it was in nobody's pack and on no tile, and no reader could find it again.
+			world.components.set_component(item, "position", lay)
+			_hands_full_now(world, ent)
 			_stop(world, ent)
 			return
 		return
@@ -1527,6 +1540,12 @@ const DANGER_TARGET_METRES: float = 10.0
 # How long a colonist who walked home from a zombie stays there before taking work again: half a
 # minute of real time, a few in-game minutes.
 const RETREAT_HOLD_TICKS: int = 600
+# How long a colonist whose pack would not take the thing they went to pick up (Haul, Repair) is
+# offered neither job again: the same half minute. Without the hold the same item is walked to and
+# refused every tick. The record is `handsFull: {tick}` on the colonist, absent by default, so a
+# save from before it loads with nobody held.
+const HANDS_FULL_TICKS: int = 600
+const HANDS_FULL: String = "handsFull"
 # How long a walk home may run before it is re-planned to the nearest tile inside the walls. At the
 # colonist's pace (2.1 tiles a second, 20 ticks) a walk across the lot is about 200 ticks, so 200
 # leaves room for a detour and no more. The day-99 trace ran 6,000 ticks round the yard.
@@ -1879,8 +1898,15 @@ static func _do_haul(world: Variant, ent: int, job: Dictionary) -> void:
 		SimNeeds.dirt(world, ent, 1)
 		return
 	if not SimInventory.stow(world, ent, item):
+		var lay: Variant = world.components.get_component(item, "position")
 		world.components.remove(item, "position")
 		if not SimInventory.stow(world, ent, item):
+			# Nowhere in the pack for it: it stays where it lay, and this hauler is not offered a
+			# haul for a while (`HANDS_FULL_TICKS`). Until this the item was taken off the map and
+			# left there -- on no tile and in nobody's pack, so no reader could find it again.
+			if lay is Dictionary:
+				world.components.set_component(item, "position", lay)
+			_hands_full_now(world, ent)
 			_stop(world, ent)
 			return
 	world.components.remove(item, "position")
@@ -2020,9 +2046,14 @@ static func _do_cook(world: Variant, ent: int, job: Dictionary) -> void:
 	SimNeeds.mark_spoilage(world, cooked, into)
 	# The meal lands nearest the fire it was made at, not the cook's feet: a cook may be standing
 	# somewhere else when the job completes.
-	var drop: Vector2i = _stock_drop(world, _tile_centre(_entity_tile(world, fire if fire >= 0 else ent)))
-	if drop.x >= 0:
-		world.components.set_component(cooked, "position", {"x": float(drop.x) + 0.5, "y": float(drop.y) + 0.5})
+	# With no free stockpile tile anywhere (the zone emptied, or every tile under a bed or a fire)
+	# the meal lies at the fire's own tile: a meal spawned without a position was on no tile and in
+	# no pack, and nobody could eat it.
+	var at: Vector2i = _entity_tile(world, fire if fire >= 0 else ent)
+	var drop: Vector2i = _stock_drop(world, _tile_centre(at))
+	if drop.x < 0:
+		drop = at
+	world.components.set_component(cooked, "position", {"x": float(drop.x) + 0.5, "y": float(drop.y) + 0.5})
 	SimNeeds.set_lit(world, fire, true, false)
 	_stop(world, ent, "Cook")
 
@@ -2698,6 +2729,22 @@ static func _still(world: Variant, ent: int) -> void:
 	if vel is Dictionary:
 		(vel as Dictionary)["dx"] = 0.0
 		(vel as Dictionary)["dy"] = 0.0
+
+
+# The hold a refused pickup puts on a colonist (`HANDS_FULL`): set when a stow fails, read by
+# `_work_for` for Haul and Repair, and taken off once `HANDS_FULL_TICKS` have passed.
+static func _hands_full_now(world: Variant, ent: int) -> void:
+	world.components.set_component(ent, HANDS_FULL, {"tick": int(world.tick)})
+
+
+static func _hands_full(world: Variant, ent: int) -> bool:
+	var held: Variant = world.components.get_component(ent, HANDS_FULL)
+	if not (held is Dictionary):
+		return false
+	if int(world.tick) - int((held as Dictionary).get("tick", 0)) < HANDS_FULL_TICKS:
+		return true
+	world.components.remove(ent, HANDS_FULL)
+	return false
 
 
 static func _stop(world: Variant, ent: int, completed: String = "") -> void:
