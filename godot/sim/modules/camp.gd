@@ -34,8 +34,10 @@ extends RefCounted
 # deferred slice, and it is about numbers rather than plumbing.
 #
 # The owner's shape for a camp, 2026-09-10: **temporary, evolvable later, usable as an outpost.** So
-# this is not a second annex -- no indoor floor, no stockpile, no walls, and `SimNeeds` deliberately
-# still reads the annex for the stockpile. Giving a camp those is the "evolve a camp" work.
+# this is not a second annex -- no indoor floor, no walls. A camp can hold a stockpile, but only one
+# the player marks beside it (`stockpile.gd`): the stockpile zone is open ground too, and a colonist
+# beside a camp stocks the nearest pile, which is the camp's. Giving a camp an indoor floor and walls
+# is the "evolve a camp" work.
 
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimRegionRes = preload("res://sim/map/region.gd")
