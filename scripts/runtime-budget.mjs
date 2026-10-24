@@ -4,6 +4,7 @@ export const TARGETS = Object.freeze({
   "shipped-tick": { samples: 600, warmup: 100, mean: 8, max: 16 },
   "shipped-draw": { samples: 120, warmup: 30, mean: 10 },
   "crowded-draw": { samples: 120, warmup: 30, mean: 10 },
+  "night-draw": { samples: 120, warmup: 30, mean: 10 },
 });
 
 export function statistics(samples) {
@@ -18,7 +19,8 @@ export function statistics(samples) {
 export function judgeRuntime(kind, stdout, engineExit = 0) {
   const errors = [];
   const summaries = [];
-  const wanted = kind === "tick" ? ["shipped-tick"] : ["shipped-draw", "crowded-draw"];
+  const wanted =
+    kind === "tick" ? ["shipped-tick"] : ["shipped-draw", "crowded-draw", "night-draw"];
   if (!["tick", "frame"].includes(kind)) errors.push(`unknown runtime kind: ${kind}`);
   if (engineExit !== 0) errors.push(`engine exited ${engineExit}`);
   if (/SCRIPT ERROR:|Parse Error:|RUNTIME_FRAME_FAIL/.test(stdout)) {

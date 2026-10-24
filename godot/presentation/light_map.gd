@@ -96,12 +96,12 @@ func frame(ctx: Dictionary, show: bool) -> void:
 	if bytes.size() != size.x * size.y * 4:
 		bytes = PackedByteArray()
 		bytes.resize(size.x * size.y * 4)
-	var img: Image = Image.create_from_data(size.x, size.y, false, Image.FORMAT_RGBA8, bytes)
+	# The same texels as the last frame's (ctx.texels_cached) need no second upload.
 	if _tex == null or _tex_size != size:
-		_tex = ImageTexture.create_from_image(img)
+		_tex = ImageTexture.create_from_image(Image.create_from_data(size.x, size.y, false, Image.FORMAT_RGBA8, bytes))
 		_tex_size = size
-	else:
-		_tex.update(img)
+	elif not bool(ctx.get("texels_cached", false)):
+		_tex.update(Image.create_from_data(size.x, size.y, false, Image.FORMAT_RGBA8, bytes))
 	var zoom: float = float(ctx["zoom"])
 	var pos := PackedVector4Array()
 	var tint := PackedVector4Array()
