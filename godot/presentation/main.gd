@@ -895,6 +895,15 @@ func _open_context_menu(pos: Vector2, _hit: Dictionary, rows: Array[Dictionary])
 # than the sim's, and `attack.context` is a marker for the two commands a swing actually needs
 # (`aim`, then whichever of `fire`/`swing` is in hand) rather than a command `world.gd` itself
 # would recognise.
+func _draft_selected() -> void:
+	if world == null or _selected < 0 or _selected == int(world.player):
+		return
+	var command: Dictionary = SimOrders.draft_command(world, _selected)
+	if not command.is_empty():
+		world.commands.push(command)
+	queue_redraw()
+
+
 func _context_pick(row: Dictionary) -> void:
 	if world == null:
 		return
