@@ -654,12 +654,27 @@ about 0.9 ms at the edge of this bench's noise. A first cut that asked the sim's
 solid predicates per neighbour cost about 2.5 ms and was replaced by the tile-class tables
 (`LightLook._open`), which defer to the sim's predicates only where a tile carries an overlay.
 
-**Open: the night's `_draw` stage is over target.** At night, with a carried torch and a lit
-campfire, the `_draw` CPU stage measured **17.0–18.3 ms** mean at 1280×720 after A10 (20.7–21.7 ms
-before it). The 10 ms target is not met. The day boot scene sits at 12.9–14.1 ms on the same
-container. On the faster container of the revision table the same night stage is 10.35–10.91 ms,
-still just over. This is not the light map's cost, since A10 lowered the number; what the rest of
-the night frame spends it on has not been profiled.
+**The night's `_draw` stage, measured and closed to the day's (2026-10-24, B1).** `godot:bench:frame`
+now commits a `night-draw` sample: the crowd is removed, the survivor carries a hand torch
+(`item.torch.handheld`), and a lit campfire four metres off is the second source, at the review
+scenes' midnight. Three runs each, llvmpipe, Intel Xeon @ 2.80 GHz, 1280×720, on the same container:
+
+| Sample | Before (median of 3) | After (median of 3) |
+|---|---:|---:|
+| shipped-draw (day) `_draw` CPU, mean | 10.30 ms (9.66–10.42) | 9.90 ms (9.60–10.92) |
+| night-draw `_draw` CPU, mean | 13.94 ms (13.18–14.47) | 10.04 ms (9.84–10.52) |
+
+The profile (throwaway instrumentation, not committed) put the night's extra cost in
+`LightLook.light_texels`, 2.5–2.9 ms a frame, rebuilt every frame although its answer is a fact
+about the sim, which changes only in `step()`. The light map also re-uploaded its RGBA8 texture
+every frame, about 0.5 ms. Both now run once per tick and per view: `main.gd` keys the texels on
+(world, tick, eyes, view), and `light_map.gd` skips the upload when the texels are the last
+frame's. Night frames that share a tick are byte-identical to before, and the night screenshots
+(`night_lights`, 1280×720 and 1920×1080) decode to identical pixels before and after. Left: the
+night's `_draw` now costs what the day's does, about 8–9 ms of entity drawing and 2 ms of world
+layers on this container, shared with the day. Night is about 0.1–0.3 ms above day, at the edge of
+this bench's noise. The 10 ms target is met by the median on this container only because the day
+draw sits at it too; a faster container will read lower, and a slower one higher, for both.
 
 ### Flat dressing, baked
 

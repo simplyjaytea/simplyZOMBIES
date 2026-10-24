@@ -214,8 +214,10 @@ first:
   `godot/ui/work_panel.gd`, and the coordinator's input routing. **Proof:** the web gate's
   layout lanes and a play lane that drives the roster from the keyboard.
 - **Weapon assembly and contextual actions.** Rework the bench around actual installed
-  slots, eligible carried parts and categorical comparisons. The assembly screen itself and the
-  720p bench clip landed with slice 3's C2 (2026-10-24, recorded below). Bring item/world menus,
+  slots, eligible carried parts and categorical comparisons. Slice 3 (2026-10-24) landed the
+  by-hand half of this bullet, field work on a fitted part (C1), and the assembly screen with the
+  720p bench clip (C2), both recorded below; drop-to-fit and the shared menu grammar are still
+  open. Bring item/world menus,
   building feedback and other E actions into the shared hierarchy. **Files:** bench,
   inspect and context/item menu controls. **Proof:** bench, inventory, context, play and
   skin gates; compare/fit/strip and cancel flows with correct ownership/reach at both sizes.
@@ -1172,12 +1174,12 @@ session, each with its gate red both ways and its record.
 **Colony management — the RimWorld half** (alpha scope, decided 2026-10-19 in docs/30: colonist orders and
 the NPCs that already exist, nothing more):
 
-- **Hide the stub job columns.** Firefight, Hunt, Farm, Craft, Modify and Butcher leave the work
-  grid until each has a consumer, so the grid stops promising work nothing does. Gate:
-  `godot:check:play`'s work lane.
-- **Draft and move orders.** Select a colonist, then right-click to move, attack or hold there; a
-  draft toggle stops a drafted colonist taking jobs. Sim-owned: a `colonist.order` command through
-  `godot/sim/context.gd`. Gate: `godot:check:context` and a new `godot:m2:orders`.
+- **Colonist orders, the rest.** Still open from plan A16: an attack order (a picked colonist walks
+  to one zombie or raider they can see and strikes it, breaking off by the normal rules); a line from
+  the colonist when a destination has no route; and a haul order on an item another colonist is
+  already carrying off. Named non-goals: box or multi-select, formation moves, blueprints, stockpiles,
+  crafting and farming. Gate: `godot:m2:orders` (its ATTACK and ENDINGS lanes, once they land) and
+  `godot:check:speech`.
 **Parked until after the alpha** (decided 2026-10-19, docs/30): blueprints for wall, door, barricade,
 window board and bed, with Construct consuming materials; stockpile zones that replace the annex-floor
 test in `SimNeeds.is_stockpile_tile`; crafting at a bench, with the Craft job as its consumer. Each keeps
@@ -1304,8 +1306,9 @@ tables and day lines are report-noise.md in the project's planning/balance folde
 - **Sleep fast-forward, real 3x and 10x, and speed on the HUD.** Sleep runs at the fastest speed
   until woken; paused and speed show in words on the HUD. Gate:   `godot:check:play` lanes for pause, speed and sleep. The 10x half waits on the sim-tick piece.
 - **Day length: one in-game day is one real hour at 1x**, as in Project Zomboid, with every per-day rate
-  rescaled. Decided 2026-10-19 (docs/30); not built. Gate: a balance re-baseline with `godot:m2:balance`
-  before and after, recorded in the record, and `godot:check:play` for the clock on the HUD.
+  rescaled. Decided 2026-10-19 (docs/30); built in #159 (`b8c5d551`). Gate: a balance re-baseline with
+  `godot:m2:balance` before and after, recorded in the record, and `godot:check:play` for the clock
+  on the HUD.
 - **Aim follows the cursor.** The cursor is the aimer: the weapon is held toward it and the character turns
   to follow, as in Project Zomboid. Decided 2026-10-19 (docs/30); not built. Gate: `godot:m2:aim` and
   `godot:check:worn`.
@@ -2421,6 +2424,21 @@ not a to-do list:
   multiples, the inventory's filter chips and knife slot off the grid, the interior camera's odd
   offset, and the bark bubble's old style.
 
+- **UI overhaul, slice 3: weapon assembly, by hand first, 2026-10-24 (C1 of the three-features
+  plan, `/mnt/project-files/planning/2026-10-24_three-features.md`).** A weapon you can change
+  with your hands opens where you stand. `SimGunsmith.field_work` is true when the host wears a
+  part that content marks `fieldSwap`, or carries one that fits a slot of it; `may_open` is
+  "at a bench or field work", and both the `modify` verb (`SimInventory.verbs_for`) and the
+  open command ask it. `bench_view` says `at_bench` and marks each slot row `field`. The screen
+  stays open where you stand while there is still something to change by hand, and closes when
+  there is not. `modify` in the item menu now pushes `bench.open`; it pushed nothing before.
+  Gates: `godot:m2:bench` gains FIELD (a fitted magazine comes off away from a bench, a barrel
+  does not, a gun with nothing to change opens for no one); `godot:check:inventory`'s modify lane
+  now says absent-with-nothing-to-change rather than absent-away; `godot:m2:attach`,
+  `godot:check:context`, `godot:check:play`. **Still open in the bullet:** the assembly screen
+  and the 720p bench clip (C2, the next entry), a part dropped on a weapon (C3), and the shared
+  menu and E-prompt grammar (C4).
+
 - **UI overhaul, slice 3: the assembly screen, 2026-10-24 (C2 of the three-features plan,
   `/mnt/project-files/planning/2026-10-24_three-features.md`).** `godot/ui/bench_panel.gd` is
   rewritten on the Salvage Locker's steel: the weapon's name on tape with its condition word and
@@ -2466,8 +2484,11 @@ not a to-do list:
   the arm, so it now finds the line that is the label alone. A new review scene, `bench`, shoots a
   hunting rifle at a bench with the sight picked and a candidate keyed; before and after shots at
   both windows are in the project's planning files under ui-slice-3. `godot:check:context`,
-  `:inventory`, `:hud`, `:shots`, `godot:m2:bench` and `check:routing` pass locally. **Not done:**
-  the `bench_field` scene waits for C1 (by hand) to land on main; the kit's `slot_empty` style is
+  `:inventory`, `:hud`, `:shots`, `godot:m2:bench` and `check:routing` pass locally. A second
+  scene, `bench_field`, shoots the same rifle by hand on the street (C1's field work) with the
+  fitted magazine picked: the header says "by hand", and only parts the hands can fit wear the
+  amber corner. **Not done:** a slot only a bench can change (`field` false in the view) looks the
+  same as one the hands can, by hand; the kit's `slot_empty` style is
   now drawn by no screen (it stays in `Kit.NINE` and its manifest checks); no UI draw cost was
   measured.
 
@@ -2831,7 +2852,10 @@ not a to-do list:
   the shader rings every light and lights only seen tiles. The per-point fraction and curve
   helpers the first cut drew from (`light_fraction_at`, `shown`, `wash_alpha`) went with the look
   that read them, and their lanes with them. `godot:check:appearance` pins the campfire's new
-  tint. Budget: see docs/22's light-map section. Before, first-cut and revised shots are in the
+  tint. Budget: see docs/22's light-map section. **2026-10-24 (night draw, B1):** the committed
+  `night-draw` sample (`godot:bench:frame`, `check:runtime-budget`) measures the night at the day's
+  draw on llvmpipe, median 10.0 ms against 13.9 ms; the texels are cached per tick and the light
+  texture uploads only when they change, and night screenshots are pixel-identical. Numbers in docs/22. Before, first-cut and revised shots are in the
   project's `planning/lighting/`, with an overlap shot and a torch aimed point-blank at a wall
   with two windows: light passes the windows and stops at the masonry between them. WINDOW: a
   campfire inside a room lights a screen tile behind the glass in the sim, and it carries no
@@ -3438,6 +3462,15 @@ not a to-do list:
   commit and 7.2 ms with the slice (medians of three to six runs each, the same container; the
   spread between runs is about 1 ms), p95 about 10 ms both ways, inside the alpha target of a mean
   at or under 10 ms. Before and after shots: `/mnt/project-files/planning/orders/`.
+- **Draft key: X holds a colonist where they stand, X again sets them free — 2026-10-24 orders slice A1.**
+  With a colonist picked on the street, X pushes the command `SimOrders.draft_command` decides: a
+  `hold` on the tile they stand on, or a `clear` when they already hold an order. A drafted colonist
+  takes no work and stays put; the menu's "hold here" and "go here" rows are unchanged. The player,
+  a grabbed colonist, a corpse and a recruit are refused. JT picked the key (docs/30, "The draft key
+  on X, 2026-10-24"). Gate: `godot:m2:orders`'s DRAFT lane (an undrafted control takes the work, the
+  drafted colonist does not for 2,400 ticks and strays nowhere, the second press frees them and they
+  take it, the refusals), and `godot:check:play`'s DRAFT lane and KEYS row (X with Mara picked pushes
+  the hold, X again the clear, X with nobody picked pushes nothing).
 - **UI — the sheet and Work grid fit the reviewed viewports, 2026-10-03.** At 1280×720,
   inventory now separates its equipment, native 56-pixel bag cells and inspect pane, keeping
   all seven frame-pack columns reachable. The compact sheet uses the condition chart at integer

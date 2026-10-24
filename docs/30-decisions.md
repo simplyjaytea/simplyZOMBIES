@@ -5902,6 +5902,32 @@ Gated by `godot:m2:jobs` BUILDER: a zombie 3 m off the yard breaks the job off, 
 a builder inside the house is not broken off, and the walk home holds for `RETREAT_HOLD_TICKS` and
 the builder goes back to the wall after it. The lane was run red against the lot-as-home rule first.
 
+## Weapon assembly starts with the hands, 2026-10-24
+
+The three-features plan (C1) made the bench's screen reachable away from a bench, for one reason:
+a magazine and a sight are changed by hand (`fieldSwap`), and a gun that has one should open where
+you stand. Calls taken without the owner:
+
+- **The question is one predicate.** `SimGunsmith.may_open` (at a bench, or `field_work`) is what
+  the `modify` verb and the open command both ask, so a verb cannot be offered for a gun the
+  command refuses.
+- **A screen opened by hand stays open where you stand** while there is still a part to change
+  by hand, and closes when there is none. Walking away from a bench still closes the bench screen,
+  as `SimContainers` closes a box, for a gun with nothing to change.
+- **`modify` in the item menu pushes `bench.open`.** It was offered at a bench and pushed nothing,
+  which the dead-socket rule forbids. Gated by `godot:m2:bench` FIELD and `godot:check:inventory`.
+
+## The draft key on X, 2026-10-24
+
+**JT picked the draft toggle for a colonist: X.** With a colonist picked on the street, X holds them
+where they stand and takes them off work; X again sets them free. The menu keeps "hold here" and
+"go here" as they were, so a right-click move still says whether it keeps the draft. The sim decides
+the command (`SimOrders.draft_command`); the key pushes it.
+
+**How to apply:** the draft is the `hold` order on the colonist's own tile. A new draft-like verb
+goes through `orders.gd`, not a second flag.
+
+
 ## The assembly screen is a screen, 2026-10-24
 
 The three-features plan's C2 rewrote the bench as an assembly view on the Salvage Locker. Calls
@@ -5919,4 +5945,3 @@ taken without the owner, all presentation:
 - **A required slot wears a "needed" tape, rimmed in rust while it is empty,** and a plate with
   something in the pack that fits wears an amber dog-ear. Both are the read model's answers
   (`required`, an offer for the slot), never a guess on the screen.
-
