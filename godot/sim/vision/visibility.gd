@@ -62,6 +62,11 @@ static var STAGGER_PLAYER_CAST: bool = true
 ## Quadrants cast for the player that way.
 var player_quadrants: int = 0
 
+# The least a survivor sees after dark, with no light anywhere (docs/23, "The night's reach on
+# screen"): a person who can see at all can see the tile at their feet and the one past it. Only a
+# survivor's eyes carry `night_eyes`; a zombie or a raider does not get the floor.
+const NIGHT_EYES_FLOOR_M: float = 3.5
+
 ## Daylight eyes — 48 m, 60° focal, 190° total FoV. Port of DAYLIGHT_EYES.
 static func daylight_eyes() -> Dictionary:
 	return {"range_metres": 48.0, "focal_half_angle": PI / 6.0, "peripheral_half_angle": 95.0 * PI / 180.0, "eye": 0}
@@ -336,7 +341,8 @@ func _sight_metres(world: Variant, observer: Dictionary, x: float, y: float, amb
 	var light_idx: Variant = _light_index(world)
 	if light_idx != null:
 		lit = light_idx.lit_metres(x, y)
-	return min(float(observer["range_metres"]), max(ambient, lit))
+	var floor_m: float = NIGHT_EYES_FLOOR_M if bool(observer.get("night_eyes", false)) else 0.0
+	return min(float(observer["range_metres"]), max(ambient, lit, floor_m))
 
 
 ## How many times this observer's shadowcast has actually recomputed, or -1 for an observer with

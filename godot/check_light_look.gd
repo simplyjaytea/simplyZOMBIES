@@ -761,7 +761,9 @@ func _a_pool_is_rings_capped_by_its_reach() -> bool:
 	var w: Variant = _world(false, NIGHT_FRACTION)
 	var lantern: Dictionary = Items.content_entry(w, "item", "item.lantern.storm") as Dictionary
 	var lantern_light: Dictionary = lantern.get("light", {}) as Dictionary
-	var fire_cap: float = LightLook.source_cap(SimNeedsMod.CAMPFIRE_LIGHT_M)
+	# The campfire is drawn at the pool it has always had (CAMPFIRE_POOL_REACH_M), not at its 8 m sim reach:
+	# the brightness the screen gives a fire is the drawn number, and that is what this lane judges.
+	var fire_cap: float = LightLook.source_cap(LightLook.CAMPFIRE_POOL_REACH_M)
 	var lantern_cap: float = LightLook.source_cap(float(lantern_light.get("magnitude", 0.0)))
 	if not (fire_cap > lantern_cap + 0.05):
 		push_error("RINGS: the campfire's pool caps at %f and the storm lantern's at %f -- overlapping, they clip to one level" % [fire_cap, lantern_cap])
