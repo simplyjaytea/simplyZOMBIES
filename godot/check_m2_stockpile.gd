@@ -39,6 +39,13 @@ extends SceneTree
 #              previews exactly the tiles the mark then adds, an `off` exactly the ones it takes
 #              back, and a rectangle that would take the zone past MAX_TILES previews refused and
 #              its mark changes nothing, where a small one beside it is not refused.
+#   SUMMARY -- slice S5's read model (`godot/sim/stockpile_read.gd`), which the Colony screen draws:
+#              a stack of three tins and a stack of two read food "some", the stack counted as its
+#              count, named most numerous first; a bandage reads medicine "one"; every other group
+#              "none". The negative: a tin outside the stockpile is not counted, so an emptied
+#              pile reads food "none" with it lying there. The amount ladder is held at each edge,
+#              and every group is one some content item falls in, so no group is a word nothing
+#              can fill.
 #
 # Every lane carries its true negative. The sabotage that proves the lanes are not vacuous: making
 # `has_tile` ignore the record turns MARK and READERS red; making `markable` accept a wall turns
@@ -85,11 +92,12 @@ func _run() -> void:
 	ok = _a_haul_walks_onto_an_outdoor_pile() and ok
 	ok = _a_meal_lands_at_the_fire_not_at_the_cooks_feet() and ok
 	ok = _a_raider_loots_an_outdoor_pile() and ok
+	ok = _the_summary_reads_the_pile_in_words() and ok
 	var skip_note: String = ""
 	if not _skipped.is_empty():
 		skip_note = " SKIPPED(no data): " + ", ".join(_skipped)
 	if ok:
-		print("M2_STOCKPILE_OK default mark walled readers save preview spread patch walk cook raider%s" % skip_note)
+		print("M2_STOCKPILE_OK default mark walled readers save preview spread patch walk cook raider summary%s" % skip_note)
 		quit(0)
 	else:
 		push_error("M2_STOCKPILE_FAIL")
@@ -768,3 +776,68 @@ func _items_based_on(w: Variant, base: String) -> Array[int]:
 		if b is Dictionary and String((b as Dictionary).get("baseId", "")) == base:
 			out.append(int(item))
 	return out
+
+
+# SUMMARY. The pile emptied, a tin left outside it, then two stacks of tins and a bandage on it.
+func _the_summary_reads_the_pile_in_words() -> bool:
+	var Read: GDScript = load("res://sim/stockpile_read.gd") as GDScript
+	var w: Variant = _world()
+	var pile: Array[Vector2i] = SimStockpile.tiles(w)
+	var outside: Vector2i = _find(w, func(tx: int, ty: int) -> bool: return _is_outdoor_floor_outside_annex(w, tx, ty))
+	if pile.size() < 2 or outside.x < 0:
+		push_error("SUMMARY: no two stockpile tiles and an open floor outside them to judge with")
+		return false
+	# Empty the pile: an item with no position is not on the ground.
+	for item in SimNeeds.stockpile_items(w):
+		w.components.remove_component(item, "position")
+	var stray: int = SimItems.spawn_item(w, "item.food.beans.tin", {"tier": "scavenged", "count": 3})
+	w.components.set_component(stray, "position", {"x": float(outside.x) + 0.5, "y": float(outside.y) + 0.5})
+	var bare: Array = Read.call("summary", w) as Array
+	for row in bare:
+		if String((row as Dictionary)["words"]) != "none" or not ((row as Dictionary)["names"] as Array).is_empty():
+			push_error("SUMMARY: the emptied pile, a tin outside it, reads %s" % str(row))
+			return false
+	var placed: Array[Dictionary] = [
+		{"id": "item.food.beans.tin", "count": 3},
+		{"id": "item.food.fruit.tin", "count": 2},
+		{"id": "item.bandage.cloth", "count": 1},
+	]
+	for i in placed.size():
+		var item: int = SimItems.spawn_item(w, String(placed[i]["id"]), {"tier": "scavenged", "count": int(placed[i]["count"])})
+		var t: Vector2i = pile[i % pile.size()]
+		w.components.set_component(item, "position", {"x": float(t.x) + 0.5, "y": float(t.y) + 0.5})
+	var rows: Dictionary = {}
+	var order: Array[String] = []
+	for row in Read.call("summary", w) as Array:
+		rows[String((row as Dictionary)["group"])] = row
+		order.append(String((row as Dictionary)["group"]))
+	if order != (Read.get("GROUPS") as Array):
+		push_error("SUMMARY: the rows stand %s, not the groups' order" % str(order))
+		return false
+	var food: Dictionary = rows["food"] as Dictionary
+	if String(food["words"]) != "some" or (food["names"] as Array) != ["Tin of Beans", "Tin of Peaches"]:
+		push_error("SUMMARY: three tins and two read food %s %s, not some, Tin of Beans then Tin of Peaches" % [String(food["words"]), str(food["names"])])
+		return false
+	var med: Dictionary = rows["medicine"] as Dictionary
+	if String(med["words"]) != "one" or (med["names"] as Array) != ["Cloth Bandage"]:
+		push_error("SUMMARY: a bandage reads medicine %s %s, not one Cloth Bandage" % [String(med["words"]), str(med["names"])])
+		return false
+	for g in rows.keys():
+		if g != "food" and g != "medicine" and String((rows[g] as Dictionary)["words"]) != "none":
+			push_error("SUMMARY: %s reads %s with nothing of it on the pile" % [String(g), String((rows[g] as Dictionary)["words"])])
+			return false
+	var ladder: Dictionary = {0: "none", 1: "one", 2: "a few", 4: "a few", 5: "some", 9: "some", 10: "plenty", 40: "plenty"}
+	for n in ladder.keys():
+		if String(Read.call("amount_word", int(n))) != String(ladder[n]):
+			push_error("SUMMARY: %d reads %s, not %s" % [int(n), String(Read.call("amount_word", int(n))), String(ladder[n])])
+			return false
+	var filled: Dictionary = {}
+	for base in SimItems.content_entries(w, "item"):
+		if base is Dictionary:
+			filled[String(Read.call("group_of", base as Dictionary))] = true
+	for g in Read.get("GROUPS") as Array:
+		if not filled.has(String(g)):
+			push_error("SUMMARY: no item in the content falls in %s" % String(g))
+			return false
+	print("SUMMARY OK an emptied pile reads none with a tin outside it; three tins and two read food some, named most first; a bandage reads medicine one; the ladder holds at each edge; every group has content")
+	return true

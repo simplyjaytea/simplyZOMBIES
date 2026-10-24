@@ -6214,3 +6214,35 @@ screen; how it looks is `presentation/stockpile_look.gd`. Gated by `godot:check:
 `godot:check:memory` STOCKPILE, `godot:check:hud` ACTION, `godot:m2:stockpile` PREVIEW and
 `godot:check:shots` (`stockpile_mark`, `stockpile_rest`, `stockpile_night`).
 
+## The stockpile on the Colony screen, 2026-10-24
+
+Slice S5 of the stockpile plan. JT's card 4 default stands: the Colony screen reads the stockpile as
+a word per group and up to three names, never a count. Calls taken without the owner:
+
+- **The colony knows its own stockpile.** The summary reads what lies on the stockpile's tiles now,
+  not what anybody saw there. A colony keeping its own stores is what a colony manager knows, the
+  same footing as the "now" line's job words; it says nothing about where anything is, and nothing
+  outside the stockpile (a loose tin in the yard, what a colonist carries) is counted. The feature
+  review checks this against the scarce-information rule.
+- **The water group reads "drink".** The plan named it water, but sodas, beer and coffee fall in it
+  by the content's own `drink` block, and "water: a few, Can of Beer" would read wrong. Purification
+  tablets go with it, as what makes water drinkable.
+- **Groups come off fields the content already carries.** First match wins: a `food` block, a
+  `drink` block or `purifies`, a care field the treatment code reads, an `ammo` block, a weapon
+  class, armour or a container you wear, then tools, materials, attachments and other containers,
+  then other. No content key was added.
+- **The block takes the drawer's place.** Measured at 1280x720, a ninth block under the drawer costs
+  the roster rows it needs. With nobody picked the drawer shows the stockpile; with somebody picked
+  a "the stockpile" button shows it in their drawer, with "back to" their name. The drawer keeps one
+  height for both, so pressing the button never moves the grid.
+- **A name that does not fit is passed over, not cut.** Names stand most numerous first, and one
+  too long for what is left of its column is skipped so a shorter one after it may still stand; a
+  stocked group never reads as a word with no name, because the first is cut, marked, when none
+  fits whole.
+- **The read model lives beside `work_read.gd`, not in the stockpile module.** Two other slices
+  were editing `stockpile.gd` at the same time; a read model that asks `SimNeeds.stockpile_items`
+  follows the zone just as well.
+
+**How to apply:** a change to what the Colony screen says about the stores changes
+`StockpileRead.summary`, never the panel. Gated by `godot:check:play` STOCKPILE and
+`godot:m2:stockpile` SUMMARY.

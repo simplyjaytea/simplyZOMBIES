@@ -6,7 +6,7 @@ extends SceneTree
 # gate runs the same `review/scenes.gd` functions the driver runs and asks the world what it made.
 #
 # Lanes, each with a true positive and a true negative:
-#   NAMES     the twenty scenes and the two windows, by name -- a scene added to the driver has to be
+#   NAMES     every scene and the two windows, by name -- a scene added to the driver has to be
 #             added here too
 #   UNKNOWN   a scene name nothing knows is refused by setup and by verify, not passed quietly
 #   SETUP     each scene boots, is set up, and the world says it is that scene
@@ -36,7 +36,7 @@ func _run() -> void:
 	await _negative()
 	await _pixels()
 	if _ok:
-		print("SHOTS_OK twenty scenes boot, set up and verify at 1280x720 and 1920x1080; %s" % _pixels_note)
+		print("SHOTS_OK %d scenes boot, set up and verify at 1280x720 and 1920x1080; %s" % [Scenes.NAMES.size(), _pixels_note])
 	quit(0 if _ok else 1)
 
 
@@ -44,7 +44,9 @@ func _names() -> void:
 	if Scenes.NAMES != ["day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing", "colony_picked", "colony_crowd", "colony_scrolled", "bench_drop", "bench", "bench_field", "context_menu", "night_torch",
 			"stockpile_mark",
 			"stockpile_rest",
-			"stockpile_night"]:
+			"stockpile_night",
+			"colony_stockpile",
+			"colony_stockpile_picked"]:
 		_fail("NAMES: the scene list is %s" % str(Scenes.NAMES))
 	var sizes: Array[Vector2i] = Scenes.SIZES
 	if not sizes.has(Vector2i(1280, 720)) or not sizes.has(Vector2i(1920, 1080)):
@@ -131,6 +133,10 @@ func _negative() -> void:
 		_fail("NEGATIVE: the boot's colony of two verified as a crowd")
 	if Scenes.verify(main, "colony_scrolled").is_empty():
 		_fail("NEGATIVE: the boot's colony of two verified as a scrolled roster")
+	if Scenes.verify(main, "colony_stockpile").is_empty():
+		_fail("NEGATIVE: the boot's stockpile verified as the stocked one")
+	if Scenes.verify(main, "colony_stockpile_picked").is_empty():
+		_fail("NEGATIVE: the colony with nobody picked verified as the stockpile shown for Mara")
 	await _discard(main)
 
 
