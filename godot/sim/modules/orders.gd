@@ -17,6 +17,7 @@ extends RefCounted
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimPath = preload("res://sim/path.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
+const SimStockpile = preload("res://sim/modules/stockpile.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
@@ -104,6 +105,9 @@ static func _haulable(world: Variant, ent: int, item: int) -> bool:
 		return false
 	var p: Dictionary = world.components.get_component(item, "position") as Dictionary
 	if SimNeeds.is_stockpile_tile(world, floori(float(p["x"])), floori(float(p["y"]))):
+		return false
+	# With no stockpile tile anywhere there is nowhere to haul it to, so the row is absent.
+	if not SimStockpile.has_any_tile(world):
 		return false
 	return not _carried_off_by_another(world, ent, item)
 

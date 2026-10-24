@@ -6287,3 +6287,25 @@ counts). The calls below are engineering calls taken in the slice.
 **How to apply:** what the window may take or put is the sim's answer (`SimStockpile.take`,
 `put`, `in_sight`), never the panel's. Gated by `godot:m2:stockpile` TAKE, `godot:check:inventory`
 STOCKPILE, `godot:check:context` BAR and `godot:check:shots` (`stockpile_window`).
+
+## Nowhere to put it, 2026-10-24
+
+The stockpile review's first two findings, taken as engineering calls while the owner's card
+(may the zone be emptied at all?) is open; the card does not gate the work and the default built
+is the honest one.
+
+- **A thing that will not stow stays where it lay.** A Haul or Repair pickup that finds no room in
+  the pack puts the item's `position` back and stops. Taking it off the map first and leaving it
+  there was the one path by which an item left the game with nobody holding it.
+- **Full hands are a hold, not a retry.** The colonist whose pack refused is not offered Haul or
+  Repair for `SimJobs.HANDS_FULL_TICKS` (600 ticks, the Retreat hold's length): the `handsFull`
+  record on the colonist, absent by default, so no save version moves. Without it the same item was
+  walked to and refused every tick.
+- **An empty zone is allowed and honest.** With no stockpile tile anywhere, Haul offers no item and
+  the haul order row is absent (`SimStockpile.has_any_tile`), and a cooked meal lies at the fire's
+  own tile. Nothing is refused, nothing is lost; the colony simply stops stocking until a tile is
+  marked. Whether the clear should be refused instead, or the bar should say what it means, is the
+  owner's card.
+
+**How to apply:** no sim path may remove an item's `position` without putting it somewhere -- a
+pack, a tile, or a despawn. `godot:m2:stockpile` EMPTY and FULL hold the two paths found.
