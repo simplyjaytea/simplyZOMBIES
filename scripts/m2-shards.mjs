@@ -104,6 +104,7 @@ export const M2_SHARDS = [
     "godot:check:play",
     "godot:check:ui_skin",
     "godot:m2:jobs",
+    "godot:m2:walls",
     "godot:m2:director",
     "godot:m2:filter",
     "godot:m2:fog",

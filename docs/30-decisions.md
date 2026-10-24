@@ -5922,3 +5922,14 @@ only a zombie in its light is drawn toward it (cards in the planning thread, 202
 Still open: the screen draws the wedge from the sim's cone only after the beam-on-screen slice (B3).
 Until then `LightLook` draws its own wedge from content, which is the half `godot:m2:torch` READS
 skips out loud.
+
+
+## The draft key on X, 2026-10-24
+
+**JT picked the draft toggle for a colonist: X.** With a colonist picked on the street, X holds them
+where they stand and takes them off work; X again sets them free. The menu keeps "hold here" and
+"go here" as they were, so a right-click move still says whether it keeps the draft. The sim decides
+the command (`SimOrders.draft_command`); the key pushes it.
+
+**How to apply:** the draft is the `hold` order on the colonist's own tile. A new draft-like verb
+goes through `orders.gd`, not a second flag.
