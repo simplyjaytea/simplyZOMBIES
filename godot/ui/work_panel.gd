@@ -13,6 +13,10 @@ extends Control
 #     the colonist does); who they are, the whole clause wrapped rather than cut; what they know
 #     and, when the learning is yours, what they could learn now, each a word you click; and a
 #     button to their Skills.
+#   - **the stockpile.** What the colony keeps, a word per group and up to three names, never a
+#     count (`StockpileRead.summary`, the stockpile plan's slice S5). It stands in the drawer's
+#     place: whenever nobody is picked, and when the drawer's "the stockpile" button is pressed for
+#     somebody who is. At 1280x720 a ninth block under the drawer would cost the roster its rows.
 #   - **the footer.** The six job names nothing does yet, named as such, so the grid does not
 #     look like it is hiding work and the six are not mistaken for work anybody does.
 #
@@ -34,6 +38,7 @@ const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimSkills = preload("res://sim/modules/skills.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
 const WorkRead = preload("res://sim/work_read.gd")
+const StockpileRead = preload("res://sim/stockpile_read.gd")
 const UiText = preload("res://ui/text.gd")
 const Chrome = preload("res://ui/chrome.gd")
 const Locker = preload("res://ui/locker.gd")
@@ -105,6 +110,11 @@ const MORE_H: float = 26.0
 const FOCUS_CYCLE: Array[String] = ["Auto", "Fighter", "Worker", "Medic", "Scout", "Manual"]
 
 const NOW_LEAD: String = "now "
+# The stockpile block: its heading, the button that shows it for a picked colonist, and its groups
+# in two columns of STORES_ROWS, STORES_SEP apart.
+const STORES_HEAD: String = "the stockpile"
+const STORES_ROWS: int = 4
+const STORES_SEP: float = 48.0
 const LEGEND: String = "1 first · 4 last · – never · click counts up, right-click down · a changed number makes the row manual"
 
 var _world: Variant = null
@@ -117,6 +127,15 @@ var _selected: int = -1
 var _block_lines: Vector3i = Vector3i(1, 1, 1)
 # The Focus chip under the mouse, whose sentence the drawer shows while it is pointed at; "" for none.
 var _hover_focus: String = ""
+# The drawer shows the stockpile for a picked colonist while this is set; a new pick clears it.
+var _show_stores: bool = false
+# The stockpile's summary and the world and tick it was read on. Reading it walks every loose item
+# (about half a millisecond on a booted district), and nothing on the tiles moves between ticks, so
+# the panel reads it once a tick rather than on every layout. Showing the panel clears the key, so
+# whatever moved without a tick (a drop while paused, a load onto the same tick) is read afresh
+# when the screen opens.
+var _stores: Array[Dictionary] = []
+var _stores_key: Array = []
 # The pick the roster last scrolled to, so the wheel is the player's until the pick changes.
 var _scrolled_for: int = -1
 # The size the column heads were drawn at, for the gate (25, or 20 where 25 does not fit).
@@ -257,6 +276,7 @@ func set_world(world: Variant, who: int = -1) -> void:
 	# undid every wheel step that moved the picked row off screen (art QA, slice 2, round three).
 	if _selected != _scrolled_for:
 		_scrolled_for = _selected
+		_show_stores = false
 		_scroll_to(_selected)
 
 
@@ -304,7 +324,14 @@ func _row_of(entity: int) -> int:
 
 
 func _drawer_h() -> float:
-	return PX * 4.0 + LINE + PX * 4.0 + CHIP_H + PX * 4.0 + LINE * float(_block_lines.x + _block_lines.y + _block_lines.z) + PX * 4.0
+	var person: float = PX * 4.0 + LINE + PX * 4.0 + CHIP_H + PX * 4.0 + LINE * float(_block_lines.x + _block_lines.y + _block_lines.z) + PX * 4.0
+	var stores: float = PX * 4.0 + LINE + PX * 4.0 + LINE * float(STORES_ROWS) + PX * 4.0
+	return maxf(person, stores)
+
+
+# Does the drawer show the stockpile: whenever nobody is picked, and on the button for somebody who is.
+func stores_shown() -> bool:
+	return _selected < 0 or _show_stores
 
 
 # The drawer's text width at the panel's current size.
@@ -524,6 +551,7 @@ func _layout() -> Dictionary:
 	var sk_w: float = Locker.label_width(sk_label, TEXT_SIZE) + PX * 4.0
 	out["skills"] = Rect2(Vector2(size.x - GUTTER - sk_w, y), Vector2(sk_w, CHIP_H))
 	out["skills_label"] = sk_label
+	_layout_stores(out, font, y)
 	y += LINE + PX * 4.0
 	out["focus_label_at"] = Vector2(GUTTER, floorf(y + (CHIP_H - Chrome.line_height(TEXT_SIZE)) / 2.0 + Chrome.ascent(TEXT_SIZE)))
 	var cx: float = body_x
@@ -552,6 +580,94 @@ func _layout() -> Dictionary:
 	out["learn"] = _learning_runs(font, Vector2(body_x, y + NAME_DY - PX * 2.0), inner, _selected, focus_now)
 	out["foot_at"] = Vector2(GUTTER, size.y - FOOT_H + NAME_DY - PX * 2.0)
 	return out
+
+
+# The stockpile's place in the drawer, whose top line is at `y`: {stores_shown, stores_toggle (the
+# button, Rect2() with nobody picked), stores_toggle_label, stores_head_at, stores_hint (the ask
+# with nobody picked), stores_hint_at (right-aligned against the gutter, on the heading's line, so
+# the heading keeps the name's place), stores: [{group, words, names, label_at, word_at, names_at}]}. `names` are the
+# summary's names that fit the column whole, joined (`_fit_names`).
+func _layout_stores(out: Dictionary, font: Font, y: float) -> void:
+	var shown: bool = stores_shown()
+	out["stores_shown"] = shown
+	var sk: Rect2 = out["skills"] as Rect2
+	out["stores_toggle"] = Rect2()
+	out["stores_toggle_label"] = ""
+	if _selected >= 0:
+		var sel: int = _row_of(_selected)
+		var who: String = String(_rows[sel].get("name", "?")) if sel >= 0 else "?"
+		var label: String = ("back to " + who) if shown else STORES_HEAD
+		var tw: float = Locker.label_width(label, TEXT_SIZE) + PX * 4.0
+		# Showing the stockpile, the way back stands where "their skills" was; showing the person, the
+		# button stands to the left of it.
+		var right: float = sk.end.x if shown else sk.position.x - PX * 3.0
+		out["stores_toggle"] = Rect2(Vector2(right - tw, y), Vector2(tw, CHIP_H))
+		out["stores_toggle_label"] = label
+	out["stores_head_at"] = Vector2(GUTTER, y + NAME_DY - PX * 2.0)
+	var hint: String = ""
+	if _selected < 0:
+		hint = "nobody to manage yet" if _rows.is_empty() else "click a colonist's name to see them here"
+	out["stores_hint"] = hint
+	var hw: float = font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE).x
+	out["stores_hint_at"] = Vector2(floorf((size.x - GUTTER - hw) / 2.0) * 2.0, y + NAME_DY - PX * 2.0)
+	var rows: Array[Dictionary] = []
+	if not shown:
+		out["stores"] = rows
+		return
+	var summary: Array[Dictionary] = _summary()
+	var colw: float = floorf((size.x - GUTTER * 2.0 - STORES_SEP) / 4.0) * 2.0
+	var ww: float = 0.0
+	for w in StockpileRead.amount_words():
+		ww = maxf(ww, font.get_string_size(w, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE).x)
+	ww = ceilf((ww + PX * 6.0) / 2.0) * 2.0
+	var top: float = y + LINE + PX * 4.0 + NAME_DY - PX * 2.0
+	var columns: int = ceili(float(summary.size()) / float(STORES_ROWS))
+	for c in columns:
+		var x: float = GUTTER + float(c) * (colw + STORES_SEP)
+		var lw: float = 0.0
+		for i in range(c * STORES_ROWS, mini(summary.size(), (c + 1) * STORES_ROWS)):
+			lw = maxf(lw, font.get_string_size(String(summary[i]["group"]), HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE).x)
+		lw = ceilf((lw + PX * 8.0) / 2.0) * 2.0
+		var room: float = colw - lw - ww
+		for i in range(c * STORES_ROWS, mini(summary.size(), (c + 1) * STORES_ROWS)):
+			var row: Dictionary = summary[i]
+			var base: float = top + LINE * float(i - c * STORES_ROWS)
+			rows.append({
+				"group": String(row["group"]),
+				"words": String(row["words"]),
+				"names": _fit_names(font, row["names"] as Array, room),
+				"label_at": Vector2(x, base),
+				"word_at": Vector2(x + lw, base),
+				"names_at": Vector2(x + lw + ww, base),
+			})
+	out["stores"] = rows
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_VISIBILITY_CHANGED:
+		_stores_key = []
+
+
+func _summary() -> Array[Dictionary]:
+	var key: Array = [(_world as Object).get_instance_id(), int(_world.tick)] if _world != null else []
+	if key != _stores_key or key.is_empty():
+		_stores = StockpileRead.summary(_world)
+		_stores_key = key
+	return _stores
+
+
+# Every one of `names` that fits `room` whole, in their order, joined by commas: a name too long for
+# what is left is passed over and a shorter one after it may still stand. When none fits whole, the
+# first is cut, marked, so a stocked group never reads as a word with no name.
+static func _fit_names(font: Font, names: Array, room: float) -> String:
+	var said: String = ""
+	for n in names:
+		var next: String = String(n) if said.is_empty() else said + ", " + String(n)
+		if font.get_string_size(next, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE).x <= room:
+			said = next
+	if said.is_empty() and not names.is_empty():
+		return UiText.fit(font, String(names[0]), TEXT_SIZE, room)
+	return said
 
 
 # What the picked colonist knows and, when the learning is the player's, what they could learn now,
@@ -601,7 +717,8 @@ func _gui_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseMotion:
 		var over: String = ""
-		for chip in _layout()["chips"] as Array:
+		var hover_laid: Dictionary = _layout()
+		for chip in (hover_laid["chips"] as Array if not bool(hover_laid["stores_shown"]) else []):
 			if ((chip as Dictionary)["rect"] as Rect2).has_point((event as InputEventMouseMotion).position):
 				over = String((chip as Dictionary)["focus"])
 		if over != _hover_focus:
@@ -630,7 +747,11 @@ func _gui_input(event: InputEvent) -> void:
 # "focus", "skills", "learn" or "".
 func _click(p: Vector2, right: bool) -> String:
 	var laid: Dictionary = _layout()
-	if not right:
+	if not right and (laid["stores_toggle"] as Rect2).has_point(p):
+		_show_stores = not _show_stores
+		queue_redraw()
+		return "stores"
+	if not right and not bool(laid["stores_shown"]):
 		for chip in laid["chips"] as Array:
 			if ((chip as Dictionary)["rect"] as Rect2).has_point(p) and _selected >= 0:
 				_world.commands.push({"type": "job.focus", "entity": _selected, "focus": String((chip as Dictionary)["focus"])})
@@ -655,6 +776,7 @@ func _click(p: Vector2, right: bool) -> String:
 		if right:
 			return ""
 		_selected = ent
+		_show_stores = false
 		picked.emit(ent)
 		queue_redraw()
 		return "row"
@@ -754,10 +876,12 @@ func _draw() -> void:
 func _draw_drawer(font: Font, laid: Dictionary, a: float) -> void:
 	var dr: Rect2 = laid["drawer"] as Rect2
 	Locker.groove(self, dr.position, dr.size.x, a)
-	drawn["who"] = laid["who_lines"]
-	if _selected < 0:
-		var ask: String = "nobody to manage yet" if _rows.is_empty() else "click a colonist's name to see them here"
-		draw_string(font, laid["name_at"] as Vector2, ask, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, Locker.TEXT_DIM)
+	drawn["who"] = laid["who_lines"] if not bool(laid["stores_shown"]) else []
+	drawn["stores"] = []
+	if not String(laid["stores_toggle_label"]).is_empty():
+		Locker.button(self, laid["stores_toggle"] as Rect2, String(laid["stores_toggle_label"]), false, a)
+	if bool(laid["stores_shown"]):
+		_draw_stores(font, laid)
 		return
 	var sel: int = _row_of(_selected)
 	var name: String = String(_rows[sel].get("name", "?")) if sel >= 0 else "?"
@@ -784,3 +908,23 @@ func _draw_drawer(font: Font, laid: Dictionary, a: float) -> void:
 	for run in laid["learn"] as Array:
 		var rd: Dictionary = run as Dictionary
 		draw_string(font, rd["at"] as Vector2, String(rd["text"]), HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, rd["col"] as Color)
+
+
+# The stockpile in the drawer's place: its heading, the ask when nobody is picked, and a row per
+# group -- the group's word dim, how much in the ink ("none" dim, as an empty group reads), and the
+# names in the ink. `drawn["stores"]` keeps each row as drawn for the gates.
+func _draw_stores(font: Font, laid: Dictionary) -> void:
+	draw_string(font, laid["stores_head_at"] as Vector2, STORES_HEAD, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, Locker.TEXT)
+	var hint: String = String(laid["stores_hint"])
+	if not hint.is_empty():
+		draw_string(font, laid["stores_hint_at"] as Vector2, hint, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, Locker.TEXT_DIM)
+	var rows: Array = []
+	for r in laid["stores"] as Array:
+		var row: Dictionary = r as Dictionary
+		var words: String = String(row["words"])
+		draw_string(font, row["label_at"] as Vector2, String(row["group"]), HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, Locker.TEXT_DIM)
+		var word_col: Color = Locker.TEXT_DIM if words == StockpileRead.NONE else Locker.TEXT
+		draw_string(font, row["word_at"] as Vector2, words, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, word_col)
+		draw_string(font, row["names_at"] as Vector2, String(row["names"]), HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, Locker.TEXT)
+		rows.append({"group": String(row["group"]), "words": words, "names": String(row["names"]), "word_col": word_col})
+	drawn["stores"] = rows

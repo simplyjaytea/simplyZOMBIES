@@ -3666,6 +3666,37 @@ not a to-do list:
   shared with the bar, and the pending marks once per change; the bar says "Z / Esc — put the brush
   down" as two caps. Not in this slice: S3's placement, stash and looter, and S5's Colony-screen
   words.
+- **The stockpile on the Colony screen, in words: slice S5 of the 2026-10-24 plan.** The Colony
+  screen (J) says what the colony keeps, so a run can be planned without walking to the pile. A
+  read model, `godot/sim/stockpile_read.gd` (`StockpileRead.summary`), gives one row per group in a
+  fixed order (food, drink, medicine, ammunition, weapons, clothing and armour, tools and
+  materials, other), each an amount word (none, one, a few for two to four, some for five to nine,
+  plenty for ten or more, a stack counted as its count) and up to three item names, most numerous
+  first. It reads what lies on the stockpile's tiles now (`SimNeeds.stockpile_items`), so it follows
+  the zone S1 made; a group comes off fields the content already carries, so no content key was
+  added. The block stands in the drawer's place, two columns of four, whenever nobody is picked,
+  and a "the stockpile" button beside "their skills" shows it for a picked colonist, with "back to"
+  their name where "their skills" was; the drawer is the same rectangle either way, so the grid
+  never moves and the roster keeps every row it had (1280x720 measured: a ninth block under the
+  drawer would cost the roster its rows). Names that do not fit a column whole are passed over, not
+  cut, so a shorter one after them may stand. The panel reads the summary once a tick (about half a
+  millisecond on a booted district) and afresh whenever the screen opens, so a drop while paused or a
+  load onto the same tick is not shown stale. Gates: `godot:check:play` STOCKPILE (at both windows
+  the words are the read model's and the names are its names in order; a pile emptied with no tick
+  reads none, dim, naming nothing once the screen opens again; no digit but an item name `_name_is_allowed` allows, where an amount of "12" is
+  refused; every row inside the drawer, which holds still between the pile and a person; the button
+  shows the pile without moving the game's pick or queueing anything, a right click does nothing,
+  a Focus chip's place queues nothing while the pile is shown, and the way back shows the person;
+  both inks at 4.5:1 or better on the steel) and `godot:m2:stockpile` SUMMARY (an emptied pile
+  reads none with a tin lying outside it; a stack of three tins and one of two read food "some",
+  named most numerous first; a bandage reads medicine "one"; the amount ladder at each edge; every
+  group has content that falls in it). Sabotage: the read model walking every loose item instead of
+  the stockpile's turns SUMMARY and STOCKPILE red; a stack counted as one turns SUMMARY red; the
+  button that does not flip turns STOCKPILE red; "none" drawn in the full ink turns STOCKPILE red.
+  Review scenes `colony_stockpile` (nobody picked, a pile stocked across seven groups) and
+  `colony_stockpile_picked` (the pile shown for Mara), both windows, with before and after of
+  `colony`, `colony_picked` and `colony_crowd`. Not in this slice: taking from the Colony screen,
+  and anything carried or lying outside the stockpile. No sim system changed, so no bench.
 - **Attack order: a picked colonist goes after one zombie or raider they can see — 2026-10-24 orders slice A2.**
   With a colonist picked on the street, the menu's "have Mara attack it" row offers an `attack` order on a
   zombie or raider the colonist or the player can see right now (`SimOrders.accepts`, the scarce-information

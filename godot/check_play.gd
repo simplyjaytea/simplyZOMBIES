@@ -32,6 +32,9 @@ extends SceneTree
 #   WALK       a held key moves the body, release stops it, two keys sum to a diagonal
 #   SHEET      Tab opens the sheet and peels the four things that sit under it
 #   STUBS      the work grid draws the columns that have a consumer, and no others (A15)
+#   STOCKPILE  the Colony screen's stockpile block says the read model's words and names, reads
+#              none with the pile emptied, carries no digit but an item's name, and its button
+#              shows the pile for a picked colonist without moving the pick (stockpile plan, S5)
 #   SETTINGS   Escape peels in order -- the legend first, the pause menu only once it is gone,
 #              and settings is a row on that menu rather than a key of its own
 #   ROUNDTRIP  F5 writes a save F9 restores; a corrupt slot leaves the world untouched
@@ -213,6 +216,7 @@ func _run() -> void:
 	ok = await _the_work_grid_fits_and_keeps_its_clicks(main) and ok
 	ok = await _the_work_grid_draws_only_what_something_does(main) and ok
 	ok = await _the_colony_screen_is_one_survivor_context(main) and ok
+	ok = await _the_colony_screen_reads_the_stockpile(main) and ok
 	var sheet_ok: bool = await _tab_opens_the_sheet(main)
 	ok = sheet_ok and ok
 	var peel_ok: bool = await _escape_peels_in_order(main)
@@ -2839,6 +2843,253 @@ func _mouse(at: Vector2, button: MouseButton) -> void:
 		press.pressed = down
 		press.position = at
 		root.push_input(press)
+
+
+# The Colony screen's stockpile block (stockpile plan, slice S5), in the real scene at 1280x720 and
+# 1920x1080, through real clicks:
+#   - with nobody picked the drawer shows the stockpile, each group's word is the read model's
+#     (`StockpileRead.summary`) and each name drawn is one of its names, in its order; a pile with
+#     a stack of rounds is not all "none" (the positive the negative below is judged against);
+#   - with the pile emptied (no tick between) and the screen opened again, every group reads
+#     "none", dim, and names nothing (the negative);
+#   - no string the block draws carries a digit but an item's name that `_name_is_allowed` allows,
+#     where the same digits as an amount word would be refused (the check can fail);
+#   - every row sits inside the drawer, and the drawer is the same rectangle for the stockpile and
+#     for a person, so pressing the button never moves the grid;
+#   - a click on Mara's name shows her; "the stockpile" shows the pile without changing the game's
+#     pick or queueing anything; a right click on it does nothing; while the pile is shown a click
+#     where a Focus chip stood queues nothing; "back to" her name shows her again;
+#   - the ink the block uses reads at 4.5:1 or better on the steel.
+func _the_colony_screen_reads_the_stockpile(main: Node) -> bool:
+	var panel: Control = main.get("_work_panel") as Control
+	var world: Variant = main.get("world")
+	if panel == null or world == null:
+		return _skip("STOCKPILE", "the scene built no Colony screen")
+	var Read: GDScript = load("res://sim/stockpile_read.gd") as GDScript
+	var SimStockpile: GDScript = load("res://sim/modules/stockpile.gd") as GDScript
+	var Locker: GDScript = load("res://ui/locker.gd") as GDScript
+	var jobs: GDScript = load("res://sim/modules/jobs.gd") as GDScript
+	var pile: Array = SimStockpile.call("tiles", world) as Array
+	if pile.is_empty():
+		return _skip("STOCKPILE", "the colony has no stockpile tile to stock")
+	var mara: int = -1
+	for row in jobs.call("work_view", world) as Array:
+		if String((row as Dictionary).get("name", "")).begins_with("Mara"):
+			mara = int((row as Dictionary)["entity"])
+	if mara < 0:
+		return _skip("STOCKPILE", "the boot colony has no Mara to pick")
+	var old_size: Vector2i = root.size
+	var was_paused: bool = bool(main.get("paused"))
+	main.set("paused", true)
+	var ok: bool = true
+	# Rounds on the pile, so the ammunition row names a round whose name carries a digit.
+	var rounds: int = SimItems.spawn_item(world, "item.ammo.rifle.match", {"tier": "scavenged", "count": 10})
+	var first: Vector2i = pile[0] as Vector2i
+	world.components.set_component(rounds, "position", {"x": float(first.x) + 0.5, "y": float(first.y) + 0.5})
+	for c in [Locker.get("TEXT"), Locker.get("TEXT_DIM")]:
+		for bg in [Locker.get("STEEL"), Locker.get("STEEL_GRAIN")]:
+			if _contrast(c as Color, bg as Color) < 4.5:
+				push_error("STOCKPILE: ink %s reads %.2f:1 on %s" % [str(c), _contrast(c as Color, bg as Color), str(bg)])
+				ok = false
+	for dims in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
+		root.size = dims
+		main.call("_show_screen", "")
+		main.set("_selected", -1)
+		await process_frame
+		_tap(KEY_J)
+		main.call("_process", 0.0)
+		panel.set("_stores_key", [])
+		panel.queue_redraw()
+		await process_frame
+		var summary: Array = Read.call("summary", world) as Array
+		var drawn: Array = (panel.get("drawn") as Dictionary).get("stores", []) as Array
+		if not bool(panel.call("stores_shown")) or drawn.size() != summary.size():
+			push_error("STOCKPILE: with nobody picked the drawer shows %d stockpile rows, the read model %d (%s)" % [drawn.size(), summary.size(), str(dims)])
+			ok = false
+		var stocked: int = 0
+		for i in mini(drawn.size(), summary.size()):
+			var d: Dictionary = drawn[i] as Dictionary
+			var r: Dictionary = summary[i] as Dictionary
+			if String(d["group"]) != String(r["group"]) or String(d["words"]) != String(r["words"]):
+				push_error("STOCKPILE: row %d draws %s %s, the read model %s %s" % [i, String(d["group"]), String(d["words"]), String(r["group"]), String(r["words"])])
+				ok = false
+			if not _names_in_order(String(d["names"]), r["names"] as Array):
+				push_error("STOCKPILE: %s draws names %s, not the read model's %s in order" % [String(d["group"]), String(d["names"]), str(r["names"])])
+				ok = false
+			if String(d["words"]) != "none":
+				stocked += 1
+				if String(d["names"]).is_empty():
+					push_error("STOCKPILE: %s reads %s and names nothing" % [String(d["group"]), String(d["words"])])
+					ok = false
+		if stocked == 0:
+			push_error("STOCKPILE: a pile with rounds on it reads none in every group, so the negative is not judged")
+			ok = false
+		var ammo_names: String = ""
+		for d in drawn:
+			if String((d as Dictionary)["group"]) == "ammunition":
+				ammo_names = String((d as Dictionary)["names"])
+		if ammo_names.find(".308 Winchester Match") < 0:
+			push_error("STOCKPILE: the ammunition row names %s, not the rounds on the pile" % ammo_names)
+			ok = false
+		var laid: Dictionary = panel.call("_layout") as Dictionary
+		var said: Array[String] = [String(panel.get_script().get("STORES_HEAD")), String(laid["stores_hint"])]
+		if not _stores_digits_ok(drawn, said):
+			ok = false
+		# The same check refuses a digit anywhere but a name: an amount said as a number.
+		var doctored: Array = drawn.duplicate(true)
+		if not doctored.is_empty():
+			(doctored[0] as Dictionary)["words"] = "12"
+		if doctored.is_empty() or _stores_digits_ok(doctored, [], true):
+			push_error("STOCKPILE: an amount word of 12 passed the digit check, so the check cannot fail")
+			ok = false
+		var drawer: Rect2 = laid["drawer"] as Rect2
+		for r in laid["stores"] as Array:
+			var rd: Dictionary = r as Dictionary
+			var at: Vector2 = rd["label_at"] as Vector2
+			var font: Font = Chrome.font()
+			var end_x: float = (rd["names_at"] as Vector2).x + font.get_string_size(String(rd["names"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
+			if at.x < drawer.position.x or end_x > drawer.end.x or at.y - Chrome.ascent(25) < drawer.position.y or at.y > drawer.end.y:
+				push_error("STOCKPILE: the %s row at %s to x %d leaves the drawer %s (%s)" % [String(rd["group"]), str(at), int(end_x), str(drawer), str(dims)])
+				ok = false
+		# Emptied with no tick, as a drop while paused would: closing and opening the screen reads it
+		# afresh, and every row reads none, dim, naming nothing.
+		var moved: Dictionary = {}
+		for item in SimNeeds.stockpile_items(world):
+			moved[item] = (world.components.get_component(item, "position") as Dictionary).duplicate()
+			world.components.remove_component(item, "position")
+		main.call("_show_screen", "")
+		await process_frame
+		_tap(KEY_J)
+		main.call("_process", 0.0)
+		panel.queue_redraw()
+		await process_frame
+		for d in (panel.get("drawn") as Dictionary).get("stores", []) as Array:
+			var dd: Dictionary = d as Dictionary
+			if String(dd["words"]) != "none" or not String(dd["names"]).is_empty() or (dd["word_col"] as Color) != (Locker.get("TEXT_DIM") as Color):
+				push_error("STOCKPILE: the emptied pile draws %s %s %s, not none, dim, with no name" % [String(dd["group"]), String(dd["words"]), String(dd["names"])])
+				ok = false
+		for item in moved.keys():
+			world.components.set_component(int(item), "position", moved[item])
+		panel.set("_stores_key", [])
+		# The button: Mara picked by her name, then the pile, then back.
+		var mara_band: Rect2 = Rect2()
+		for row in laid["rows"] as Array:
+			if int((row as Dictionary)["entity"]) == mara:
+				mara_band = (row as Dictionary)["band"] as Rect2
+		_drain(main)
+		_mouse(panel.position + mara_band.position + Vector2(24.0, 12.0), MOUSE_BUTTON_LEFT)
+		await process_frame
+		laid = panel.call("_layout") as Dictionary
+		var person_drawer: Rect2 = laid["drawer"] as Rect2
+		var toggle: Rect2 = laid["stores_toggle"] as Rect2
+		var chip_at: Vector2 = ((laid["chips"] as Array)[0] as Dictionary)["rect"].get_center() if not (laid["chips"] as Array).is_empty() else Vector2.ZERO
+		if bool(panel.call("stores_shown")) or String(laid["stores_toggle_label"]) != "the stockpile" or toggle.size.x <= 0.0:
+			push_error("STOCKPILE: with Mara picked the drawer shows the pile %s, its button reads %s" % [str(panel.call("stores_shown")), String(laid["stores_toggle_label"])])
+			ok = false
+		_mouse(panel.position + toggle.get_center(), MOUSE_BUTTON_RIGHT)
+		if bool(panel.call("stores_shown")):
+			push_error("STOCKPILE: a right click on the stockpile button showed the pile")
+			ok = false
+		_mouse(panel.position + toggle.get_center(), MOUSE_BUTTON_LEFT)
+		await process_frame
+		laid = panel.call("_layout") as Dictionary
+		if not bool(panel.call("stores_shown")) or int(main.get("_selected")) != mara or int(panel.call("selected")) != mara or not _pending(main).is_empty():
+			push_error("STOCKPILE: the stockpile button showed the pile %s, left the pick on %d and queued %s" % [str(panel.call("stores_shown")), int(main.get("_selected")), str(_pending(main))])
+			ok = false
+		if (laid["drawer"] as Rect2) != person_drawer:
+			push_error("STOCKPILE: the drawer is %s for the pile and %s for Mara (%s)" % [str(laid["drawer"]), str(person_drawer), str(dims)])
+			ok = false
+		if ((panel.get("drawn") as Dictionary).get("stores", []) as Array).size() != summary.size() or not ((panel.get("drawn") as Dictionary).get("who", []) as Array).is_empty():
+			push_error("STOCKPILE: with the pile shown for Mara the drawer draws her too, or not the pile")
+			ok = false
+		_mouse(panel.position + chip_at, MOUSE_BUTTON_LEFT)
+		if not _pending(main).is_empty():
+			push_error("STOCKPILE: a click where a focus chip stood, the pile shown, queued %s" % str(_pending(main)))
+			ok = false
+		_drain(main)
+		var back: Rect2 = laid["stores_toggle"] as Rect2
+		if not String(laid["stores_toggle_label"]).begins_with("back to Mara"):
+			push_error("STOCKPILE: the way back reads %s" % String(laid["stores_toggle_label"]))
+			ok = false
+		_mouse(panel.position + back.get_center(), MOUSE_BUTTON_LEFT)
+		await process_frame
+		if bool(panel.call("stores_shown")) or ((panel.get("drawn") as Dictionary).get("who", []) as Array).is_empty():
+			push_error("STOCKPILE: back to Mara left the pile shown or her drawer empty")
+			ok = false
+		_drain(main)
+		main.call("_show_screen", "")
+		main.set("_selected", -1)
+		await process_frame
+	world.components.remove_component(rounds, "position")
+	root.size = old_size
+	main.set("paused", was_paused)
+	await process_frame
+	if ok:
+		print("STOCKPILE OK at 1280x720 and 1920x1080 nobody picked shows the pile, each word the read model's and each name one of its names in order; an emptied pile reads none, dim, naming nothing; no digit but an allowed item name, where an amount of 12 is refused; every row inside the drawer, which holds still between the pile and a person; the stockpile button shows the pile without moving the pick or queueing, a right click does nothing, a chip's place queues nothing, back to Mara shows her; both inks read 4.5:1 on the steel")
+	return ok
+
+
+# Is `drawn` (a comma-joined line of names) the read model's names, or a part of them, in order?
+func _names_in_order(drawn: String, names: Array) -> bool:
+	if drawn.is_empty():
+		return true
+	var at: int = 0
+	for piece in drawn.split(", "):
+		var found: bool = false
+		while at < names.size():
+			var n: String = String(names[at])
+			at += 1
+			if n == piece or (piece.ends_with("…") and n.begins_with(piece.trim_suffix("…"))):
+				found = true
+				break
+		if not found:
+			return false
+	return true
+
+
+# No string the stockpile block draws carries a digit, but an item's name `_name_is_allowed` allows.
+# `quiet` judges without reporting, for the check's own negative.
+func _stores_digits_ok(rows: Array, also: Array[String], quiet: bool = false) -> bool:
+	var ok: bool = true
+	var bad: Array[String] = []
+	for s in also:
+		if _has_digit(s):
+			bad.append(s)
+	for r in rows:
+		var d: Dictionary = r as Dictionary
+		for s in [String(d["group"]), String(d["words"])]:
+			if _has_digit(s):
+				bad.append(s)
+		if not String(d["names"]).is_empty():
+			for piece in String(d["names"]).split(", "):
+				if _has_digit(piece) and not CheckInventory._name_is_allowed(piece):
+					bad.append(piece)
+	if not bad.is_empty():
+		ok = false
+		if not quiet:
+			push_error("STOCKPILE: the block draws digits in %s" % str(bad))
+	return ok
+
+
+func _has_digit(s: String) -> bool:
+	for ch in s:
+		if ch >= "0" and ch <= "9":
+			return true
+	return false
+
+
+# WCAG contrast of two opaque colours.
+func _contrast(a: Color, b: Color) -> float:
+	var la: float = _luminance(a)
+	var lb: float = _luminance(b)
+	return (maxf(la, lb) + 0.05) / (minf(la, lb) + 0.05)
+
+
+func _luminance(c: Color) -> float:
+	var ch: Array[float] = []
+	for v in [c.r, c.g, c.b]:
+		ch.append(float(v) / 12.92 if float(v) <= 0.03928 else pow((float(v) + 0.055) / 1.055, 2.4))
+	return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]
 
 
 # --- BENCH ----------------------------------------------------------------------------------------
