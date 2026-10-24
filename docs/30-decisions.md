@@ -5921,7 +5921,7 @@ only a zombie in its light is drawn toward it (cards in the planning thread, 202
 
 Still open: the screen draws the wedge from the sim's cone only after the beam-on-screen slice (B3).
 Until then `LightLook` draws its own wedge from content, which is the half `godot:m2:torch` READS
-skips out loud.
+skips out loud. (Closed by "The torch on screen", below.)
 
 ## Weapon assembly starts with the hands, 2026-10-24
 
@@ -5947,3 +5947,35 @@ the command (`SimOrders.draft_command`); the key pushes it.
 
 **How to apply:** the draft is the `hold` order on the colonist's own tile. A new draft-like verb
 goes through `orders.gd`, not a second flag.
+
+## The torch on screen, 2026-10-24
+
+The three-features plan (B3) put the sim's cone on screen. JT's card "torch seen from behind"
+stands: behind the holder, past the spill, the screen is dark because the sim is. Calls taken
+without the owner:
+
+- **The screen's beam is the sim's.** `LightLook.light_texels` sets a beam's bit only where
+  `SimLight.lights_tile` lights the tile, and `source_beam` and the beam's facing are read from
+  the light index (`source_at`), not from content. One answer for the zombies, the holder's sight
+  and the picture.
+- **A beam lights every tile it falls on** (`SimLight.BEAM_EDGE_M`, 1 m). Through tile centres alone
+  the lit tiles are a staircase: one row wide for the first two metres, then three, then five. The
+  screen can only draw inside lit tiles, so the drawn beam was that staircase too (the first cut's
+  shots in the project's `planning/night-torch/`). With the margin, every point of the beam, drawn
+  from the hand, is inside a lit tile, so the drawn beam keeps the straight edges it had before B3.
+  The margin is half a tile's diagonal plus a hand's breadth off the body's point. The cost: the
+  sim lights a little more at the beam's edge, so a zombie a little outside the 22° half-angle is
+  pulled when it stands on a tile the beam crosses. The far diagonal (45° at 5.7 m) stays dark.
+- **A carrier with no facing throws round.** The B2 plan said so and the light index did not do it:
+  `SimLight.refresh` now keeps a beam only for a source with a `facing` component. Every person
+  has one, so nothing that ships changes.
+- **The beam leaves the hand.** The wedge's apex is the hand holding the light, on the frame the
+  body was drawn on (`LightLook.hand_metres`, `Appearance.frame_hand`), so a torch in the secondary
+  hand lights from that hand and not from the soles. A headlamp or a clip light is in no hand, so
+  its beam starts at the body's point.
+- **The disc at the hand is the sim's spill** (`SimLight.SPILL_M`, handed to the shader as
+  `spill_m`), and the beam's edge now softens inward from its half-angle instead of outward past
+  it, so the drawn beam ends where the sim's half-angle does.
+
+**How to apply:** a change to how a beam is drawn changes `lights_tile` or the shader's wedge, never
+a second presentation answer. Gated by `godot:check:light` BEAM and `godot:m2:torch` CONE and READS.
