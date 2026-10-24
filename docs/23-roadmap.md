@@ -1020,8 +1020,11 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
   (`SimNeeds.CAMPFIRE_LIGHT_M`); its drawn pool keeps the 20 m look it had
   (`LightLook.CAMPFIRE_POOL_REACH_M`, a look number, about 6 m across). A survivor's eyes carry
   `night_eyes`, and sight takes at least 3.5 m of it after dark (`godot:m2:sight` FLOOR, with a
-  load lane for a save with no key). Red-to-green under sabotage; `godot:check:light` RINGS re-pinned
-  to the drawn reach. **Not yet measured:** one ten-seed set on main after the torch slices land
+  load lane for a save with no key). The floor sits in `SimLight.sight_metres`, which the drawn eye
+  disc reads too, so the disc grows with the sight (1.92 m to 3.5 m, `godot:check:light` NIGHT
+  FLOOR). Red-to-green under sabotage; `godot:check:light` RINGS re-pinned to the drawn reach.
+  The night shot lights the campfire nearest the body, so its warm pool is on screen.
+  **Not yet measured:** one ten-seed set on main after the torch slices land
   batches this change with them and is the balance number; ten-day numbers are a measurement here,
   not a merge gate (coordinator, 2026-10-24).
 - **What driving left behind.** The first driving slice landed 2026-09-05 (the record below,
