@@ -150,6 +150,11 @@ extends RefCounted
 # the job the walk home broke off, which nothing in the sim reads (only `sim/work_read.gd`'s now
 # line, out of the player's sight). A v33 save's walk home has none and reads "idle" out of sight
 # until it ends; the walk itself restores and runs exactly as before.
+# The walk home adds two optional keys to a `Retreat` job, `walked` (ticks walked, for the bound)
+# and `rerouted` (set once it has been re-planned inside), and a transient `shaken` component beside
+# it, set when the hold ends and cleared when a window is taken. A v33 save has none of the three:
+# each walk starts its count at zero and a colonist is not shaken, which is how they were before.
+# No version bump.
 const SAVE_VERSION: int = 33
 
 

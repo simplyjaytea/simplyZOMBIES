@@ -1261,10 +1261,8 @@ tables and day lines are report-noise.md in the project's planning/balance folde
     so a builder boarding from the yard breaks off at `DANGER_METRES`; every other kind keeps the lot
     as home. The one-line `DANGER_KINDS` add alone changed nothing on the yard. A window refusal at
     `DANGER_TARGET_METRES` was tried and reverted: it broke `godot:m2:needs` (a builder left a
-    boarding from inside the house and died resting beside the zombies). Open: a builder walks back
-    to a window with a zombie still at it after each Retreat hold. Deferred (the coordinator's call,
-    2026-10-23): after a Retreat, skip Construct targets with a zombie within the danger radius for the
-    hold, without refusing windows outright. Gate: `godot:m2:jobs` BUILDER lanes.
+    boarding from inside the house and died resting beside the zombies). Gate: `godot:m2:jobs`
+    BUILDER lanes.
     Measured: the ten-seed set, the column for the head commit in planning/balance/report-ten-seed.md.
   - **Zombies inside the walls break the errand off (the day-one trace, 2024 and 8080).** On
     7753a14f, seed 2024, colonist 129 stood on Construct inside the annex walls for about 30,000
@@ -1281,6 +1279,20 @@ tables and day lines are report-noise.md in the project's planning/balance folde
     planning/balance/report-ten-seed.md. The yard question (should the yard ever count as safe
     while zombies are in the lot?) went to the owner on 2026-10-24: the yard is home while the lot
     is clear, which is what is built.
+  - **A Retreat that will not end, and a builder that goes back to a zombie (the day-99 trace).**
+    On 6b89d17e, seed 99, colonist 113 spent 9,000 ticks on Retreat round the north yard and died
+    there on day 1, grabbed at 0.8 to 1 m each time it turned, with the doorway about 4 m away at
+    tick 12000. Two rules, one piece. (1) A walk home that has run `RETREAT_WALK_TICKS` (200 ticks,
+    about 21 tiles at the colonist's pace) is re-planned once to the nearest tile inside the walls
+    that a route reaches (`_retreat_inside`, at most `RETREAT_INSIDE_TRIES` path searches); a route
+    with no way home is re-planned the same way before the walk is dropped. (2) The hold's end
+    leaves a `shaken` component; until a window is taken, Construct does not resume at one with a
+    zombie within `DANGER_TARGET_METRES` (`_construct_work`, which takes the colonist), and taking a
+    window clears the shake. The rest of the day-99 chain (the Retreat that began at tick 9900 with
+    a zombie 7.8 m off) is not changed here. Gate: `godot:m2:walls` RETREAT and CONSTRUCT-RESUME
+    lanes; the bound lane fails with the re-plan switched off, the resume lane with the shake off.
+    The walk-home bound lane moves the body by hand, since the world step does not run in a lane.
+    Ten seeds on this head are a separate measurement, after the 6b89d17e set.
 
 **Feel and speed — smooth motion, and time a player can live with:**
 
