@@ -3008,8 +3008,9 @@ not a to-do list:
   **Measured** in docs/22 ("The overcast day grade"): the `_draw` stage did not move past noise
   (day 5.46 → 5.69 ms, night untouched); the renderer pays about 6.3 ms of llvmpipe wall time by
   day for the screen copy and the pass. **Shots,** before and after at both windows, of
-  `day_street`, `interior`, `dusk_street`, `combat` and `night_lights`, in the project's
-  `planning/night-torch/b5/`. **What did not ship:** the plan's palette re-pin of the PALETTE,
+  `day_street`, `interior`, `dusk_street`, `combat`, `night_lights` and `night_torch`, in the
+  project's `planning/night-torch/b5/`: `night_torch` decodes to identical pixels before and after,
+  and `night_lights` differs only inside the campfire's pool, which flickers on the shader's clock. **What did not ship:** the plan's palette re-pin of the PALETTE,
   TEXTURE, ACCENT, WALL and GREY lanes, deliberately (their source tables did not move); and a
   zombie's dim sound-word in a speech bubble, under 4.5:1 before and after, named in what's left.
 - **Feel — bodies glide between ticks, and a slow frame drops time, 2026-10-19.** Item A2 of
