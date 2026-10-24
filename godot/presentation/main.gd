@@ -57,6 +57,7 @@ const RenderInterp = preload("res://presentation/interp.gd")
 const AnimClock = preload("res://presentation/anim_clock.gd")
 const WorldLayersRes = preload("res://presentation/world_layers.gd")
 const LightMapRes = preload("res://presentation/light_map.gd")
+const DayGradeRes = preload("res://presentation/day_grade.gd")
 
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / 20.0
@@ -287,6 +288,8 @@ var _white: Dictionary = {}
 var _layers: RefCounted = WorldLayersRes.new()
 # The night, per pixel, and the glow over it (presentation/light_map.gd).
 var _light_map: RefCounted = LightMapRes.new()
+# The overcast day, graded over the finished picture and under the night (presentation/day_grade.gd).
+var _day_grade: RefCounted = DayGradeRes.new()
 # The night's texels and the key they were built for (world, tick, eyes, view). They are a fact
 # about the sim, which changes only in step(), so the frames between two ticks reuse them.
 var _texels: Dictionary = {}
@@ -442,6 +445,7 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_PREDELETE:
 		_layers.call("detach")
 		_light_map.call("detach")
+		_day_grade.call("detach")
 	elif what == 413: # NOTIFICATION_RESIZED
 		_resize_camera()
 		queue_redraw()
@@ -1433,6 +1437,7 @@ func _draw() -> void:
 	_draw_rain()
 	_draw_lightning()
 	_draw_fog()
+	_draw_day_grade()
 	_draw_night_wash()
 	_draw_effects(true)
 	_draw_reticle()
@@ -3771,3 +3776,10 @@ func _draw_night_wash() -> void:
 		ctx["eye"] = Vector2(float((eye_pos as Dictionary)["x"]) + eye_slide.x, float((eye_pos as Dictionary)["y"]) + eye_slide.y)
 		ctx["eye_reach"] = LightLook.eye_disc_metres(world, eyes)
 	_light_map.call("frame", ctx, true)
+
+
+# The overcast day (presentation/day_grade.gd): the finished picture graded cool and grey by the
+# sky's share of daylight, under the night's multiply and the glow, and nothing at all at night.
+func _draw_day_grade() -> void:
+	_day_grade.call("attach", get_canvas_item())
+	_day_grade.call("frame", get_viewport_rect().size, LightLook.ambient_of(world))

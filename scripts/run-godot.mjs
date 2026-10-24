@@ -546,6 +546,17 @@ switch (mode) {
       "res://check_memory_look.gd",
     ];
     break;
+  case "--grade":
+    // Headless unless there is a display: with one (DISPLAY=:1, xvfb-run) the PIXELS lane
+    // captures the day street with and without the grade; without one it says so and skips.
+    args = [
+      ...(process.env.DISPLAY ? [] : ["--headless"]),
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_grade_look.gd",
+    ];
+    break;
   case "--road":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_road_look.gd"];
     break;
