@@ -66,6 +66,14 @@ extends SceneTree
 #              detaches, the arrows and Enter do the same from the keys; a click on the wash
 #              swings at nothing; every word drawn is digit-free but an item's name; Escape closes
 #              it and clears `benchFocus`
+#   MARK       the stockpile brush (slice S2 of the stockpile plan): Z picks it up and Ctrl+Z does
+#              not; under it a left drag pushes exactly one `stockpile.mark` with that rectangle and
+#              `on: true`, a right drag one with `on: false`, a click one tile; paused, a released
+#              mark draws pending until a tick takes it (`_stockpile_pending_drawn`, empty after the
+#              tick); F swings at nothing and
+#              a right click opens no menu; the frame paints the zone on explored tiles only; the bar
+#              says what the brush does; Escape puts it down and a second Escape is the menu; with
+#              the brush down the same drag pushes no `stockpile.mark`
 #   BUDGET     the whole gate under a minute
 #
 # A lane with no data says so and skips; it never passes quietly.
@@ -138,6 +146,8 @@ const PRESSED_KEYS: Array = [
 	["Ctrl+S", "Ctrl+S stands"],
 	["F", "F swings, and does not while the sheet is open"],
 	["X", "X drafts the colonist you picked, and again sets them free"],
+	["Z", "Z picks up the stockpile brush, and again puts it down"],
+	["Ctrl+Z", "Ctrl+Z goes prone, and does not pick up the brush"],
 ]
 
 # The two actions `input_map.gd` binds that the legend deliberately does not name, each excused
@@ -222,6 +232,8 @@ func _run() -> void:
 	ok = nav_ok and ok
 	var menu_ok: bool = await _escape_closes_the_menu_first(main)
 	ok = menu_ok and ok
+	var mark_ok: bool = await _z_marks_the_stockpile(main)
+	ok = mark_ok and ok
 	var pause_ok: bool = await _escape_pauses_to_the_menu(main)
 	ok = pause_ok and ok
 	var notice_ok: bool = await _a_refused_save_says_one_sentence(main)
@@ -2001,8 +2013,10 @@ func _every_key_pressed_is_a_key_the_legend_names() -> bool:
 	# And the ladder the owner moved onto Ctrl is on Ctrl, not still on the bare letters where it
 	# collided with the camp key.
 	# X is the draft key now (2026-10-24), so it is no longer a stale stance key; the old ladder row
-	# "Z / X / C / V" still is, and it is the one that would name X as a stance.
-	for stale in ["Z / X / C / V", "Z", "V"]:
+	# "Z / X / C / V" still is, and it is the one that would name X as a stance. Z is the stockpile
+	# brush since slice S2 of the stockpile plan (2026-10-24), for the same reason no longer stale on
+	# its own -- and the MARK lane proves the bare Z is the brush and Ctrl+Z the prone rung.
+	for stale in ["Z / X / C / V", "V"]:
 		if named.has(stale):
 			push_error("KEYS: the legend still offers '%s' as a stance key; the ladder is on Ctrl now" % stale)
 			return false
@@ -3465,3 +3479,186 @@ func _escape_closes_the_menu_first(main: Node) -> bool:
 		return false
 	print("%s OK a menu opened low stops above the action bar on the art grid, a right click on yourself opens one headed 'you', Escape closes it and raises nothing, and with no menu the same key still pauses" % lane)
 	return true
+
+
+# --- MARK -------------------------------------------------------------------------------------
+
+const HudRes = preload("res://ui/hud.gd")
+const SimStockpile = preload("res://sim/modules/stockpile.gd")
+const SimSightingsRes = preload("res://sim/modules/sightings.gd")
+
+
+# One drag through the viewport: the button down at `from`, the pointer moved to `to`, the button up
+# there. A press and release at one point is a click.
+func _drag(from: Vector2, to: Vector2, button: MouseButton) -> void:
+	var down := InputEventMouseButton.new()
+	down.button_index = button
+	down.pressed = true
+	down.position = from
+	down.global_position = from
+	root.push_input(down)
+	var move := InputEventMouseMotion.new()
+	move.position = to
+	move.global_position = to
+	root.push_input(move)
+	var up := InputEventMouseButton.new()
+	up.button_index = button
+	up.pressed = false
+	up.position = to
+	up.global_position = to
+	root.push_input(up)
+
+
+func _tile_on_screen(main: Node, t: Vector2i) -> Vector2:
+	var sc: Dictionary = ProjectionRes.world_to_screen(main.get("camera") as Dictionary, float(t.x) + 0.5, float(t.y) + 0.5)
+	return Vector2(float(sc["sx"]), float(sc["sy"]))
+
+
+func _marks_in(cmds: Array) -> Array:
+	return cmds.filter(func(c: Variant) -> bool: return String((c as Dictionary).get("type", "")) == SimStockpile.COMMAND)
+
+
+func _z_marks_the_stockpile(main: Node) -> bool:
+	var lane: String = "MARK"
+	var world: Variant = main.get("world")
+	var router: Node = _router(main)
+	if router == null or world == null:
+		return _skip(lane, "the scene has no router or no world")
+	if _state(main) != Session.State.PLAYING:
+		return _skip(lane, "the scene is not playing, so there is no street to mark")
+	var old_size: Vector2i = root.size
+	root.size = Vector2i(1280, 720)
+	main.call("_snap_camera")
+	await process_frame
+	var ok: bool = true
+	var me: Vector2i = Vector2i(floori(float(_pos(main)["x"])), floori(float(_pos(main)["y"])))
+	var a: Vector2i = me + Vector2i(-2, -1)
+	var b: Vector2i = me + Vector2i(1, 1)
+	_drain(main)
+	# The negatives first, with the brush down. Ctrl+Z is the prone rung: it pushes the stance and
+	# leaves the brush where it was.
+	_tap(KEY_Z, true)
+	await process_frame
+	var prone: Array = _drain(main)
+	if bool(main.get("marking")):
+		push_error("%s: Ctrl+Z picked up the stockpile brush; it is the prone rung" % lane)
+		ok = false
+	if prone.filter(func(c: Variant) -> bool: return String((c as Dictionary).get("type", "")) == "stance").is_empty():
+		push_error("%s: Ctrl+Z pushed no stance, so the lane cannot tell the rung from the brush" % lane)
+		ok = false
+	_tap(KEY_S, true)
+	_drain(main)
+	# With the brush down a drag is the street's: it attacks, and marks nothing.
+	_drag(_tile_on_screen(main, a), _tile_on_screen(main, b), MOUSE_BUTTON_LEFT)
+	await process_frame
+	var street: Array = _drain(main)
+	if not _marks_in(street).is_empty():
+		push_error("%s: with the brush down a drag pushed %s" % [lane, str(_marks_in(street))])
+		ok = false
+	if street.filter(func(c: Variant) -> bool: return ["swing", "fire"].has(String((c as Dictionary).get("type", "")))).is_empty():
+		push_error("%s: with the brush down a left click did not attack, so the drag below proves nothing about the brush" % lane)
+		ok = false
+	# Z picks it up.
+	_tap(KEY_Z)
+	await process_frame
+	if not bool(main.get("marking")) or String(router.call("_focus")) != "mark":
+		push_error("%s: Z left the brush %s under focus %s" % [lane, "up" if bool(main.get("marking")) else "down", String(router.call("_focus"))])
+		root.size = old_size
+		main.call("_set_marking", false)
+		return false
+	main.call("_update_hud")
+	var hud: Variant = main.get("_hud")
+	var line: String = String(hud.get("_action")) if hud != null else ""
+	if line != HudRes.marking_line(false) or not _digits_in(line).is_empty():
+		push_error("%s: under the brush the bar says '%s'" % [lane, line])
+		ok = false
+	# A left drag: exactly one mark, that rectangle, on.
+	_drain(main)
+	_drag(_tile_on_screen(main, a), _tile_on_screen(main, b), MOUSE_BUTTON_LEFT)
+	await process_frame
+	var left: Array = _drain(main)
+	var want_on: Dictionary = InputMapRes.mark_command(a, b, true)
+	if _marks_in(left) != [want_on] or left.size() != 1:
+		push_error("%s: a left drag from %s to %s pushed %s, not exactly %s" % [lane, str(a), str(b), str(left), str(want_on)])
+		ok = false
+	# A right drag: exactly one, off.
+	_drag(_tile_on_screen(main, b), _tile_on_screen(main, a), MOUSE_BUTTON_RIGHT)
+	await process_frame
+	var right: Array = _drain(main)
+	var want_off: Dictionary = InputMapRes.mark_command(b, a, false)
+	if _marks_in(right) != [want_off] or right.size() != 1:
+		push_error("%s: a right drag pushed %s, not exactly %s" % [lane, str(right), str(want_off)])
+		ok = false
+	var menu: Variant = main.get("_context_menu")
+	if menu != null and bool(menu.call("is_open")):
+		push_error("%s: a right drag under the brush opened the street menu" % lane)
+		ok = false
+	# A click marks the one tile.
+	_drag(_tile_on_screen(main, a), _tile_on_screen(main, a), MOUSE_BUTTON_LEFT)
+	await process_frame
+	var click: Array = _drain(main)
+	if _marks_in(click) != [InputMapRes.mark_command(a, a, true)]:
+		push_error("%s: a click under the brush pushed %s, not one tile" % [lane, str(click)])
+		ok = false
+	# Paused, a released mark is not taken until play resumes, and the frame draws it pending; once a
+	# tick has taken it the pending draw is gone. A right drag over the annex, the default zone, so the
+	# off has tiles to take back.
+	main.set("paused", true)
+	_drag(_tile_on_screen(main, b), _tile_on_screen(main, a), MOUSE_BUTTON_RIGHT)
+	main.queue_redraw()
+	await process_frame
+	await process_frame
+	var pending: Array = main.get("_stockpile_pending_drawn") as Array
+	if pending.is_empty():
+		push_error("%s: a mark let go while paused draws nothing until play resumes" % lane)
+		ok = false
+	_drain(main)
+	main.set("paused", false)
+	var held_tick: int = int(world.tick)
+	_frames(main, 2)
+	main.queue_redraw()
+	await process_frame
+	if int(world.tick) == held_tick:
+		_skip(lane + " pending", "the world did not tick in two frames of the loop, so the pending draw's end is not judged")
+	elif not (main.get("_stockpile_pending_drawn") as Array).is_empty():
+		push_error("%s: the pending mark still draws after a tick took the queue" % lane)
+		ok = false
+	# F swings at nothing under the brush.
+	_tap(KEY_F)
+	await process_frame
+	var f_press: Array = _drain(main)
+	if not f_press.filter(func(c: Variant) -> bool: return String((c as Dictionary).get("type", "")) == "swing").is_empty():
+		push_error("%s: F swung under the brush" % lane)
+		ok = false
+	# The frame paints the zone: the boot stands the survivor in the annex, whose floor is the default
+	# zone, and every tile painted is one the player has explored.
+	await process_frame
+	var drawn: Array = main.get("_stockpile_drawn") as Array
+	if drawn.is_empty():
+		push_error("%s: the frame painted no stockpile tile with the survivor standing in the annex" % lane)
+		ok = false
+	for t in drawn:
+		if not SimSightingsRes.knows_tile(world, int(world.player), (t as Vector2i).x, (t as Vector2i).y):
+			push_error("%s: the frame painted the stockpile on %s, which the player has not explored" % [lane, str(t)])
+			ok = false
+			break
+	# Escape puts the brush down, and only the brush; the second is the menu.
+	_tap(KEY_ESCAPE)
+	await process_frame
+	if bool(main.get("marking")) or _state(main) != Session.State.PLAYING:
+		push_error("%s: Escape under the brush left it %s in state %d" % [lane, "up" if bool(main.get("marking")) else "down", _state(main)])
+		ok = false
+	# Z picks it up and Z again puts it down.
+	_tap(KEY_Z)
+	_tap(KEY_Z)
+	await process_frame
+	if bool(main.get("marking")):
+		push_error("%s: a second Z did not put the brush down" % lane)
+		ok = false
+	_drain(main)
+	main.call("_set_marking", false)
+	root.size = old_size
+	await process_frame
+	if ok:
+		print("%s OK Z picks up the brush and Ctrl+Z goes prone; a left drag pushes one stockpile.mark on, a right drag one off and no menu, a click one tile, a mark let go while paused draws pending until a tick takes it, F swings at nothing; the frame paints %d explored zone tiles; the bar speaks the brush digit-free; Escape and a second Z put it down; with the brush down a drag attacks and marks nothing" % [lane, drawn.size()])
+	return ok

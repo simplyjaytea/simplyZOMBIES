@@ -22,6 +22,20 @@ extends SceneTree
 #              reaches `Palette.remembered(` with its escape hatch (`continue`) intact
 #   NO-BODIES  the ground-item, prop and body branches still gate on Focal/Unseen exactly as
 #              before -- nothing here widened who gets to stand on a remembered tile
+#   STOCKPILE  the stockpile on the street (presentation/stockpile_look.gd, slice S2 of the
+#              stockpile plan), on fabricated sight sets: never on an unexplored tile, a remembered
+#              tile pulled through Palette.remembered and a seen one not, a roofed tile absent with
+#              the brush up or down, the rim on outer sides only with the concave notch, the rest
+#              look quieter than the marking look, the drag preview only on explored unroofed
+#              tiles, the rim's contrast at least 3:1 on every ground the district has (the measure
+#              proved on a rim that matches its ground first); by firelight (NIGHT_POOL) the wash at
+#              least as plain as the day wash at noon on every ground, at rest and marking, which the
+#              day alphas fail; textual: `_draw_world` reaches
+#              `_draw_stockpile`, which paints StockpileLook's cells over `SimStockpile.tiles` (read
+#              again only when `SimStockpile.signature` moves, and batched again only when the zone,
+#              the tick, the brush, the zoom or the roof moves) with the explored set and the roof,
+#              batched (`StockpileLook.batch`: a row of one wash is one fill, a change of wash
+#              breaks it)
 #
 # A lane with no data to judge says so and skips (`_skip`), never passes quietly.
 
@@ -51,6 +65,7 @@ func _run() -> void:
 	ok = _the_pure_fade_has_a_ceiling_near_one_and_a_floor_at_zero() and ok
 	ok = _the_afterimage_reads_remembered_never_a_live_position() and ok
 	ok = _the_entity_branches_still_gate_on_focal_and_unseen() and ok
+	ok = _the_stockpile_draws_on_known_ground_and_dims_with_it() and ok
 
 	var main: Node = await _boot()
 	if main == null:
@@ -83,7 +98,7 @@ func _run() -> void:
 
 	if ok:
 		var skipped: String = "no lane skipped" if _skips.is_empty() else "skipped: %s" % ", ".join(PackedStringArray(_skips))
-		print("MEMORY_LOOK_OK a Focal body caches its look and a Peripheral one does not, the afterimage fades over the sim's own FRESH_TICKS band and reads only SimSightings.remembered, a walked-away tile stays known and the tile loop reaches Palette.remembered( with its continue intact, and the ground-item/prop/body branches still gate on Focal and Unseen (%s)" % skipped)
+		print("MEMORY_LOOK_OK a Focal body caches its look and a Peripheral one does not, the afterimage fades over the sim's own FRESH_TICKS band and reads only SimSightings.remembered, a walked-away tile stays known and the tile loop reaches Palette.remembered( with its continue intact, the ground-item/prop/body branches still gate on Focal and Unseen, and the stockpile paints only known unroofed ground, dimmed with it, its rim at least 3:1 on every ground (%s)" % skipped)
 		quit(0)
 	else:
 		push_error("MEMORY_LOOK_FAIL")
@@ -392,3 +407,229 @@ func _function_body(path: String, name: String) -> String:
 		if inside:
 			out += line + "\n"
 	return out
+
+
+# --- STOCKPILE --------------------------------------------------------------------------------
+
+const StockpileLook = preload("res://presentation/stockpile_look.gd")
+const Palette = preload("res://presentation/palette.gd")
+
+
+# A sight set the fixture writes by hand: anything with `has_tile`, which is all the look asks of
+# the sim's own two.
+class FakeTiles:
+	extends RefCounted
+	var tiles: Dictionary = {}
+	func _init(list: Array) -> void:
+		for t in list:
+			tiles[t as Vector2i] = true
+	func has_tile(tx: int, ty: int) -> bool:
+		return tiles.has(Vector2i(tx, ty))
+
+
+# The grounds the district draws a rim on. COLOURS' own entries, so a regrade of a ground is judged
+# against the rim the day it lands.
+const RIM_GROUNDS: Array[String] = ["floor", "dirt", "grass", "undergrowth", "rubble", "indoorFloor", "sidewalk"]
+const RIM_CONTRAST: float = 3.0
+# How far the night pass darkens the ground inside a campfire's pool, as a share of its noon colour:
+# the darkest channel of the board floor in the pool in the night_lights review shot is about 0.55 of
+# the same floor at noon (the red channel keeps more, up to 0.9, for the fire's warmth). A flat
+# multiply is the model, and the darkest share is the hard case for a wash to stay visible.
+const NIGHT_POOL: float = 0.55
+
+
+# The wash over `ground` against the bare ground, both darkened by `light` (1 at noon).
+func _wash_contrast(alpha: float, ground: Color, light: float) -> float:
+	var wash: Color = Palette.STOCKPILE_WASH
+	wash.a = alpha
+	var top: Color = StockpileLook.over(wash, ground)
+	return StockpileLook.contrast(Color(top.r * light, top.g * light, top.b * light), Color(ground.r * light, ground.g * light, ground.b * light))
+
+
+func _cell_at(cells: Array[Dictionary], t: Vector2i) -> Dictionary:
+	for c in cells:
+		if (c["tile"] as Vector2i) == t:
+			return c
+	return {}
+
+
+# The better of the tape and its shadow against the ground beside the zone: the pair reads where
+# either does.
+func _rim_contrast(tape: Color, shadow: Color, ground: Color) -> float:
+	return maxf(StockpileLook.contrast(StockpileLook.over(tape, ground), ground), StockpileLook.contrast(StockpileLook.over(shadow, ground), ground))
+
+
+func _the_stockpile_draws_on_known_ground_and_dims_with_it() -> bool:
+	var lane: String = "STOCKPILE"
+	var ok: bool = true
+	# A 3x3 patch at (10,10)-(12,12) with one more tile east of its bottom-right, (13,12): that makes
+	# (12,12) a concave tile -- its north (12,11) and east (13,12) are in the zone and its north-east
+	# (13,11) is not -- and leaves (11,11) the patch's middle.
+	var zone: Array[Vector2i] = []
+	for ty in range(10, 13):
+		for tx in range(10, 13):
+			zone.append(Vector2i(tx, ty))
+	zone.append(Vector2i(13, 12))
+	var unexplored := Vector2i(10, 10)
+	var remembered := Vector2i(11, 10)
+	var roofed := Vector2i(12, 10)
+	var explored_list: Array = zone.duplicate()
+	explored_list.erase(unexplored)
+	var explored := FakeTiles.new(explored_list)
+	var seen_list: Array = explored_list.duplicate()
+	seen_list.erase(remembered)
+	var seen := FakeTiles.new(seen_list)
+	var view := Rect2i(0, 0, 64, 64)
+	var rest: Array[Dictionary] = StockpileLook.cells(zone, seen, explored, [roofed], false, view)
+	var marking: Array[Dictionary] = StockpileLook.cells(zone, seen, explored, [roofed], true, view)
+	# Explored: an unexplored zone tile is absent, an explored one present; nothing at all without a set.
+	if not _cell_at(rest, unexplored).is_empty() or not _cell_at(marking, unexplored).is_empty():
+		push_error("%s: the stockpile painted %s, which the player has never seen" % [lane, str(unexplored)])
+		ok = false
+	if _cell_at(rest, Vector2i(11, 11)).is_empty():
+		push_error("%s: a seen zone tile painted nothing, so the absence above proves nothing" % lane)
+		ok = false
+	if not StockpileLook.cells(zone, seen, null, [], false, view).is_empty():
+		push_error("%s: with no explored set the stockpile still painted" % lane)
+		ok = false
+	# Off the screen: a zone tile outside the view is not painted.
+	if not StockpileLook.cells(zone, seen, explored, [], false, Rect2i(0, 0, 4, 4)).is_empty():
+		push_error("%s: the stockpile painted tiles outside the view" % lane)
+		ok = false
+	# Dim: the remembered tile wears Palette.remembered of the seen tile's colours, and they differ.
+	var live_c: Dictionary = _cell_at(rest, Vector2i(11, 11))
+	var mem_c: Dictionary = _cell_at(rest, remembered)
+	if mem_c.is_empty() or bool(mem_c["live"]) or not bool(live_c.get("live", false)):
+		push_error("%s: the remembered zone tile is missing or reads as seen" % lane)
+		ok = false
+	elif (mem_c["wash"] as Color) != Palette.remembered(live_c["wash"] as Color) or (mem_c["tape"] as Color) != Palette.remembered(live_c["tape"] as Color):
+		push_error("%s: the remembered zone tile is not pulled through Palette.remembered" % lane)
+		ok = false
+	elif (mem_c["wash"] as Color) == (live_c["wash"] as Color):
+		push_error("%s: the remembered wash equals the seen one; the dim is a dead socket" % lane)
+		ok = false
+	# Roof: absent with the brush up and down; its neighbour present.
+	if not _cell_at(rest, roofed).is_empty() or not _cell_at(marking, roofed).is_empty():
+		push_error("%s: the stockpile painted over a roof" % lane)
+		ok = false
+	if _cell_at(StockpileLook.cells(zone, seen, explored, [], false, view), roofed).is_empty():
+		push_error("%s: the roofed tile is absent even with no roof, so the roof proves nothing" % lane)
+		ok = false
+	# Edges: the patch's middle has none, a corner has its two outer sides, the concave tile its notch.
+	var mid: Dictionary = _cell_at(rest, Vector2i(11, 11))
+	var corner: Dictionary = _cell_at(rest, Vector2i(10, 12))
+	var concave: Dictionary = _cell_at(rest, Vector2i(12, 12))
+	if int(mid.get("edges", -1)) != 0 or int(mid.get("corners", -1)) != 0:
+		push_error("%s: the middle of the patch carries a rim (edges %d) -- a seam inside the zone" % [lane, int(mid.get("edges", -1))])
+		ok = false
+	if int(corner.get("edges", 0)) != (StockpileLook.S | StockpileLook.W):
+		push_error("%s: the south-west corner's rim is %d, not its south and west sides" % [lane, int(corner.get("edges", 0))])
+		ok = false
+	if int(concave.get("edges", 0)) != StockpileLook.S or int(concave.get("corners", 0)) != StockpileLook.NE:
+		push_error("%s: the concave tile carries edges %d and corners %d, not south and the north-east notch" % [lane, int(concave.get("edges", 0)), int(concave.get("corners", 0))])
+		ok = false
+	# Paint: a tile with no outer side paints its wash and nothing else; one with a side paints tape;
+	# a row of tiles in one wash is one fill, and a change of wash along the row breaks it.
+	var mid_paint: Dictionary = StockpileLook.batch([mid], Vector2.ZERO, 64.0, 2.0)
+	if (mid_paint["fills"] as Array).size() != 1 or not (mid_paint["lines"] as Dictionary).is_empty():
+		push_error("%s: the middle tile paints more than its wash" % lane)
+		ok = false
+	if (StockpileLook.batch([corner], Vector2.ZERO, 64.0, 2.0)["lines"] as Dictionary).is_empty():
+		push_error("%s: the corner tile paints no tape" % lane)
+		ok = false
+	var row: Array[Dictionary] = [_cell_at(rest, Vector2i(10, 11)), mid, _cell_at(rest, Vector2i(12, 11))]
+	var row_fills: Array = StockpileLook.batch(row, Vector2.ZERO, 64.0, 2.0)["fills"]
+	if row_fills.size() != 1 or ((row_fills[0] as Array)[0] as Rect2) != Rect2(640.0, 704.0, 192.0, 64.0):
+		push_error("%s: a row of three tiles in one wash painted %d fills, not one rect over all three" % [lane, row_fills.size()])
+		ok = false
+	var odd: Dictionary = (row[2] as Dictionary).duplicate()
+	odd["wash"] = Color(1, 0, 0, 0.5)
+	if (StockpileLook.batch([row[0], row[1], odd], Vector2.ZERO, 64.0, 2.0)["fills"] as Array).size() != 2:
+		push_error("%s: a tile of another wash merged into its neighbour's fill" % lane)
+		ok = false
+	# The kept shape is what draws: cells reads the geometry it is handed instead of rebuilding it.
+	var kept: Dictionary = StockpileLook.geometry(zone)
+	kept[Vector2i(11, 11)] = Vector2i(StockpileLook.N, 0)
+	if int(_cell_at(StockpileLook.cells(zone, seen, explored, [], false, view, kept), Vector2i(11, 11)).get("edges", 0)) != StockpileLook.N:
+		push_error("%s: cells ignored the geometry it was handed, so main.gd's kept shape is a dead socket" % lane)
+		ok = false
+	# The state key main.gd re-batches by: the same sight gives the same bytes, and a tile coming
+	# into sight, or going under a roof, changes them.
+	var st: PackedByteArray = StockpileLook.states(zone, seen, explored, [roofed])
+	if st != StockpileLook.states(zone, seen, explored, [roofed]):
+		push_error("%s: the zone's state bytes differ for the same sight" % lane)
+		ok = false
+	if st == StockpileLook.states(zone, explored, explored, [roofed]) or st == StockpileLook.states(zone, seen, explored, []):
+		push_error("%s: the zone's state bytes did not move when a tile came into sight or a roof lifted, so a kept batch would go stale" % lane)
+		ok = false
+	# Quieter at rest.
+	var rest_c: Dictionary = _cell_at(rest, Vector2i(11, 11))
+	var mark_c: Dictionary = _cell_at(marking, Vector2i(11, 11))
+	if not ((rest_c["wash"] as Color).a < (mark_c["wash"] as Color).a and (rest_c["tape"] as Color).a < (mark_c["tape"] as Color).a):
+		push_error("%s: the rest look is not quieter than the marking look" % lane)
+		ok = false
+	# Preview: only on explored, unroofed tiles.
+	var pv: Array[Dictionary] = StockpileLook.preview_cells([unexplored, roofed, Vector2i(11, 11)], true, explored, [roofed])
+	if pv.size() != 1 or (pv[0]["tile"] as Vector2i) != Vector2i(11, 11):
+		push_error("%s: the drag preview painted %s, not the one explored unroofed tile" % [lane, str(pv.map(func(c: Dictionary) -> Vector2i: return c["tile"]))])
+		ok = false
+	if bool(pv[0].get("dashed", true)) if not pv.is_empty() else true:
+		push_error("%s: the preview's rim is laid in strips like a zone already made" % lane)
+		ok = false
+	# Contrast: the measure proved on a rim that is its own ground, then held on every ground.
+	var g0: Color = Palette.COLOURS["dirt"] as Color
+	if _rim_contrast(g0, Color(g0, 0.0), g0) >= RIM_CONTRAST:
+		push_error("%s: a rim the colour of its ground scored %.2f; the measure cannot fail" % [lane, _rim_contrast(g0, Color(g0, 0.0), g0)])
+		ok = false
+	var add_c: Dictionary = StockpileLook.preview_cells([Vector2i(11, 11)], true, explored, [])[0]
+	var clr_c: Dictionary = StockpileLook.preview_cells([Vector2i(11, 11)], false, explored, [])[0]
+	var rims: Dictionary = {"rest": rest_c, "marking": mark_c, "mark preview": add_c, "clear preview": clr_c}
+	var worst: float = 99.0
+	for key in RIM_GROUNDS:
+		var ground: Color = Palette.COLOURS[key] as Color
+		for name in rims.keys():
+			var c: Dictionary = rims[name] as Dictionary
+			var r: float = _rim_contrast(c["tape"] as Color, c["shadow"] as Color, ground)
+			worst = minf(worst, r)
+			if r < RIM_CONTRAST:
+				push_error("%s: the %s rim is %.2f:1 on %s, under %.1f" % [lane, String(name), r, key, RIM_CONTRAST])
+				ok = false
+	# NIGHT: by firelight the wash is at least as plain on every ground as the day wash is at noon, at
+	# rest and marking. Measured first on the day alphas at night, which must fall short -- else the
+	# night pair is not what makes the difference -- and `cells` must use the night alpha when it is
+	# handed the dark.
+	var night_worst: float = 99.0
+	for marking_now in [false, true]:
+		var short: bool = false
+		for key in RIM_GROUNDS:
+			var ground: Color = Palette.COLOURS[key] as Color
+			var day_c: float = _wash_contrast(StockpileLook.wash_alpha(marking_now, 1.0), ground, 1.0)
+			var night_c: float = _wash_contrast(StockpileLook.wash_alpha(marking_now, 0.0), ground, NIGHT_POOL)
+			night_worst = minf(night_worst, night_c / day_c)
+			if night_c < day_c:
+				push_error("%s: by firelight the %s wash is %.3f:1 on %s, under its %.3f:1 at noon" % [lane, "marking" if marking_now else "rest", night_c, key, day_c])
+				ok = false
+			if _wash_contrast(StockpileLook.wash_alpha(marking_now, 1.0), ground, NIGHT_POOL) < day_c:
+				short = true
+		if not short:
+			push_error("%s: the day wash already holds its noon contrast by firelight, so the NIGHT measure cannot fail" % lane)
+			ok = false
+	var dark_cell: Dictionary = _cell_at(StockpileLook.cells(zone, seen, explored, [], false, view, {}, 0.0), Vector2i(11, 11))
+	if not is_equal_approx((dark_cell.get("wash", Color()) as Color).a, Palette.STOCKPILE_WASH_REST_NIGHT):
+		push_error("%s: cells handed the dark washes at %.2f, not the night alpha" % [lane, (dark_cell.get("wash", Color()) as Color).a])
+		ok = false
+	# Textual: the frame reaches it, with the sim's zone, the explored set and the roof.
+	var world_body: String = _function_body(MAIN_GD, "_draw_world")
+	var draw_body: String = _function_body(MAIN_GD, "_draw_stockpile")
+	if world_body.is_empty() or draw_body.is_empty():
+		push_error("%s: could not read _draw_world or _draw_stockpile out of %s" % [lane, MAIN_GD])
+		ok = false
+	elif not world_body.contains("_draw_stockpile(seen, explored, roof"):
+		push_error("%s: _draw_world never calls _draw_stockpile with the sight sets and the roof" % lane)
+		ok = false
+	elif not draw_body.contains("SimStockpile.tiles(world)") or not draw_body.contains("SimStockpile.signature(world)") or not draw_body.contains("StockpileLook.cells(_stockpile_zone, seen, explored, roof, marking, whole, _stockpile_geom, light)") or not draw_body.contains("LightLook.ambient_of(world)") or not draw_body.contains("StockpileLook.batch(cells") or not draw_body.contains("int(world.tick)") or not draw_body.contains("StockpileLook.states(_stockpile_zone, seen, explored, roof)"):
+		push_error("%s: _draw_stockpile does not paint StockpileLook's cells over SimStockpile.tiles, kept by its signature" % lane)
+		ok = false
+	if ok:
+		print("%s OK never on unexplored ground, remembered tiles dimmed through Palette.remembered, roofs win with the brush up or down, one rim with no inner seams and the concave notch, a row of one wash in one fill, the state bytes move with sight and roof, quieter at rest, the preview on explored unroofed ground in one strip, the rim %.2f:1 at worst on %d grounds, the wash by firelight at least its noon contrast (worst %.2fx), and _draw_world reaches it" % [lane, worst, RIM_GROUNDS.size(), night_worst])
+	return ok
