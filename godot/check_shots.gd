@@ -10,8 +10,8 @@ extends SceneTree
 #             added here too
 #   UNKNOWN   a scene name nothing knows is refused by setup and by verify, not passed quietly
 #   SETUP     each scene boots, is set up, and the world says it is that scene
-#   NEGATIVE  a day street is not a night, is not a combat, is not the torch shot or the stockpile window, and has no sheet
-#             open; the night with no torch in hand is not the torch shot; the plain Colony
+#   NEGATIVE  a day street is not a night, is not a combat, is not the torch shot, is not the
+#             stockpile being marked or the stockpile window, and has no sheet open; the night with no torch in hand is not the torch shot; the plain Colony
 #             screen is not Mara picked, not a crowd and not scrolled: verify refuses a state that is not the one
 #             named, so a before/after pair cannot compare two states
 #   PIXELS    with a display, the day street and the combat scene each capture to a picture that is
@@ -42,6 +42,11 @@ func _run() -> void:
 
 func _names() -> void:
 	if Scenes.NAMES != ["day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing", "colony_picked", "colony_crowd", "colony_scrolled", "bench_drop", "bench", "bench_field", "context_menu", "night_torch",
+			"stockpile_mark",
+			"stockpile_rest",
+			"stockpile_night",
+			"colony_stockpile",
+			"colony_stockpile_picked",
 			"stockpile_window"]:
 		_fail("NAMES: the scene list is %s" % str(Scenes.NAMES))
 	var sizes: Array[Vector2i] = Scenes.SIZES
@@ -97,6 +102,10 @@ func _negative() -> void:
 		_fail("NEGATIVE: a street with no sheet open verified as the inventory")
 	if Scenes.verify(main, "night_torch").is_empty():
 		_fail("NEGATIVE: a day street verified as the torch at night")
+	if Scenes.verify(main, "stockpile_mark").is_empty():
+		_fail("NEGATIVE: a day street with the brush down verified as the stockpile being marked")
+	if Scenes.verify(main, "stockpile_rest").is_empty():
+		_fail("NEGATIVE: a day street outside the stockpile verified as standing in it")
 	if Scenes.verify(main, "stockpile_window").is_empty():
 		_fail("NEGATIVE: a day street with no window up verified as the stockpile window")
 	await _discard(main)
@@ -110,6 +119,8 @@ func _negative() -> void:
 		_fail("NEGATIVE: the night did not set up: %s" % err)
 	if Scenes.verify(main, "night_torch").is_empty():
 		_fail("NEGATIVE: the night with no torch in hand verified as the torch shot")
+	if Scenes.verify(main, "stockpile_night").is_empty():
+		_fail("NEGATIVE: the night with the whole annex in the zone verified as the zone's edge by the fire")
 	await _discard(main)
 	# The plain Colony screen, nobody picked and the boot's two colonists, is neither fuller shot.
 	main = await Scenes.boot(self)
@@ -125,6 +136,10 @@ func _negative() -> void:
 		_fail("NEGATIVE: the boot's colony of two verified as a crowd")
 	if Scenes.verify(main, "colony_scrolled").is_empty():
 		_fail("NEGATIVE: the boot's colony of two verified as a scrolled roster")
+	if Scenes.verify(main, "colony_stockpile").is_empty():
+		_fail("NEGATIVE: the boot's stockpile verified as the stocked one")
+	if Scenes.verify(main, "colony_stockpile_picked").is_empty():
+		_fail("NEGATIVE: the colony with nobody picked verified as the stockpile shown for Mara")
 	await _discard(main)
 
 

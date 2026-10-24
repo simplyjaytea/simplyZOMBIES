@@ -450,7 +450,28 @@ func _the_action_line_names_keys_only() -> bool:
 	if hud_src.find("func _draw_action_bar(") < 0 or _function_body("res://ui/hud.gd", "_draw").find("_draw_action_bar(") < 0:
 		push_error("ACTION: the HUD holds an action line that nothing draws")
 		return false
-	print("ACTION OK '%s', digit-free, E/T/H in order, the board's state never under E, and _update_hud hands it over" % held)
+	# The stockpile brush's line (slice S2 of the stockpile plan): digit-free both ways, the refusal its
+	# own words, the keys it names Z and Esc (both put the brush down), and _update_hud hands it over under the brush.
+	var brush: String = Hud.marking_line(false)
+	var refused: String = Hud.marking_line(true)
+	for l in [brush, refused]:
+		if not _digits(String(l)).is_empty():
+			push_error("ACTION: the brush's line carries digits (%s): '%s'" % [_digits(String(l)), String(l)])
+			return false
+		var keys: Array = []
+		for entry in Hud.keycaps(String(l), ""):
+			if bool((entry as Dictionary)["lead"]):
+				keys.append_array((entry as Dictionary)["keys"] as Array)
+		if keys != ["Z", "Esc"]:
+			push_error("ACTION: the brush's line names the keys %s, not Z and Esc: '%s'" % [str(keys), String(l)])
+			return false
+	if brush == refused:
+		push_error("ACTION: a refused drag says what an accepted one does: '%s'" % brush)
+		return false
+	if code.find("HudRead.marking_line(") < 0:
+		push_error("ACTION: _update_hud never hands the brush's line to the HUD")
+		return false
+	print("ACTION OK '%s', digit-free, E/T/H in order, the board's state never under E, the brush's two lines digit-free naming Z and Esc, and _update_hud hands both over" % held)
 	return true
 
 

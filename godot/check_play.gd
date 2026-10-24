@@ -32,6 +32,9 @@ extends SceneTree
 #   WALK       a held key moves the body, release stops it, two keys sum to a diagonal
 #   SHEET      Tab opens the sheet and peels the four things that sit under it
 #   STUBS      the work grid draws the columns that have a consumer, and no others (A15)
+#   STOCKPILE  the Colony screen's stockpile block says the read model's words and names, reads
+#              none with the pile emptied, carries no digit but an item's name, and its button
+#              shows the pile for a picked colonist without moving the pick (stockpile plan, S5)
 #   SETTINGS   Escape peels in order -- the legend first, the pause menu only once it is gone,
 #              and settings is a row on that menu rather than a key of its own
 #   ROUNDTRIP  F5 writes a save F9 restores; a corrupt slot leaves the world untouched
@@ -63,6 +66,14 @@ extends SceneTree
 #              detaches, the arrows and Enter do the same from the keys; a click on the wash
 #              swings at nothing; every word drawn is digit-free but an item's name; Escape closes
 #              it and clears `benchFocus`
+#   MARK       the stockpile brush (slice S2 of the stockpile plan): Z picks it up and Ctrl+Z does
+#              not; under it a left drag pushes exactly one `stockpile.mark` with that rectangle and
+#              `on: true`, a right drag one with `on: false`, a click one tile; paused, a released
+#              mark draws pending until a tick takes it (`_stockpile_pending_drawn`, empty after the
+#              tick); F swings at nothing and
+#              a right click opens no menu; the frame paints the zone on explored tiles only; the bar
+#              says what the brush does; Escape puts it down and a second Escape is the menu; with
+#              the brush down the same drag pushes no `stockpile.mark`
 #   BUDGET     the whole gate under a minute
 #
 # A lane with no data says so and skips; it never passes quietly.
@@ -135,6 +146,8 @@ const PRESSED_KEYS: Array = [
 	["Ctrl+S", "Ctrl+S stands"],
 	["F", "F swings, and does not while the sheet is open"],
 	["X", "X drafts the colonist you picked, and again sets them free"],
+	["Z", "Z picks up the stockpile brush, and again puts it down"],
+	["Ctrl+Z", "Ctrl+Z goes prone, and does not pick up the brush"],
 ]
 
 # The two actions `input_map.gd` binds that the legend deliberately does not name, each excused
@@ -203,6 +216,7 @@ func _run() -> void:
 	ok = await _the_work_grid_fits_and_keeps_its_clicks(main) and ok
 	ok = await _the_work_grid_draws_only_what_something_does(main) and ok
 	ok = await _the_colony_screen_is_one_survivor_context(main) and ok
+	ok = await _the_colony_screen_reads_the_stockpile(main) and ok
 	var sheet_ok: bool = await _tab_opens_the_sheet(main)
 	ok = sheet_ok and ok
 	var peel_ok: bool = await _escape_peels_in_order(main)
@@ -218,6 +232,8 @@ func _run() -> void:
 	ok = nav_ok and ok
 	var menu_ok: bool = await _escape_closes_the_menu_first(main)
 	ok = menu_ok and ok
+	var mark_ok: bool = await _z_marks_the_stockpile(main)
+	ok = mark_ok and ok
 	var pause_ok: bool = await _escape_pauses_to_the_menu(main)
 	ok = pause_ok and ok
 	var notice_ok: bool = await _a_refused_save_says_one_sentence(main)
@@ -1997,8 +2013,10 @@ func _every_key_pressed_is_a_key_the_legend_names() -> bool:
 	# And the ladder the owner moved onto Ctrl is on Ctrl, not still on the bare letters where it
 	# collided with the camp key.
 	# X is the draft key now (2026-10-24), so it is no longer a stale stance key; the old ladder row
-	# "Z / X / C / V" still is, and it is the one that would name X as a stance.
-	for stale in ["Z / X / C / V", "Z", "V"]:
+	# "Z / X / C / V" still is, and it is the one that would name X as a stance. Z is the stockpile
+	# brush since slice S2 of the stockpile plan (2026-10-24), for the same reason no longer stale on
+	# its own -- and the MARK lane proves the bare Z is the brush and Ctrl+Z the prone rung.
+	for stale in ["Z / X / C / V", "V"]:
 		if named.has(stale):
 			push_error("KEYS: the legend still offers '%s' as a stance key; the ladder is on Ctrl now" % stale)
 			return false
@@ -2827,6 +2845,253 @@ func _mouse(at: Vector2, button: MouseButton) -> void:
 		root.push_input(press)
 
 
+# The Colony screen's stockpile block (stockpile plan, slice S5), in the real scene at 1280x720 and
+# 1920x1080, through real clicks:
+#   - with nobody picked the drawer shows the stockpile, each group's word is the read model's
+#     (`StockpileRead.summary`) and each name drawn is one of its names, in its order; a pile with
+#     a stack of rounds is not all "none" (the positive the negative below is judged against);
+#   - with the pile emptied (no tick between) and the screen opened again, every group reads
+#     "none", dim, and names nothing (the negative);
+#   - no string the block draws carries a digit but an item's name that `_name_is_allowed` allows,
+#     where the same digits as an amount word would be refused (the check can fail);
+#   - every row sits inside the drawer, and the drawer is the same rectangle for the stockpile and
+#     for a person, so pressing the button never moves the grid;
+#   - a click on Mara's name shows her; "the stockpile" shows the pile without changing the game's
+#     pick or queueing anything; a right click on it does nothing; while the pile is shown a click
+#     where a Focus chip stood queues nothing; "back to" her name shows her again;
+#   - the ink the block uses reads at 4.5:1 or better on the steel.
+func _the_colony_screen_reads_the_stockpile(main: Node) -> bool:
+	var panel: Control = main.get("_work_panel") as Control
+	var world: Variant = main.get("world")
+	if panel == null or world == null:
+		return _skip("STOCKPILE", "the scene built no Colony screen")
+	var Read: GDScript = load("res://sim/stockpile_read.gd") as GDScript
+	var SimStockpile: GDScript = load("res://sim/modules/stockpile.gd") as GDScript
+	var Locker: GDScript = load("res://ui/locker.gd") as GDScript
+	var jobs: GDScript = load("res://sim/modules/jobs.gd") as GDScript
+	var pile: Array = SimStockpile.call("tiles", world) as Array
+	if pile.is_empty():
+		return _skip("STOCKPILE", "the colony has no stockpile tile to stock")
+	var mara: int = -1
+	for row in jobs.call("work_view", world) as Array:
+		if String((row as Dictionary).get("name", "")).begins_with("Mara"):
+			mara = int((row as Dictionary)["entity"])
+	if mara < 0:
+		return _skip("STOCKPILE", "the boot colony has no Mara to pick")
+	var old_size: Vector2i = root.size
+	var was_paused: bool = bool(main.get("paused"))
+	main.set("paused", true)
+	var ok: bool = true
+	# Rounds on the pile, so the ammunition row names a round whose name carries a digit.
+	var rounds: int = SimItems.spawn_item(world, "item.ammo.rifle.match", {"tier": "scavenged", "count": 10})
+	var first: Vector2i = pile[0] as Vector2i
+	world.components.set_component(rounds, "position", {"x": float(first.x) + 0.5, "y": float(first.y) + 0.5})
+	for c in [Locker.get("TEXT"), Locker.get("TEXT_DIM")]:
+		for bg in [Locker.get("STEEL"), Locker.get("STEEL_GRAIN")]:
+			if _contrast(c as Color, bg as Color) < 4.5:
+				push_error("STOCKPILE: ink %s reads %.2f:1 on %s" % [str(c), _contrast(c as Color, bg as Color), str(bg)])
+				ok = false
+	for dims in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
+		root.size = dims
+		main.call("_show_screen", "")
+		main.set("_selected", -1)
+		await process_frame
+		_tap(KEY_J)
+		main.call("_process", 0.0)
+		panel.set("_stores_key", [])
+		panel.queue_redraw()
+		await process_frame
+		var summary: Array = Read.call("summary", world) as Array
+		var drawn: Array = (panel.get("drawn") as Dictionary).get("stores", []) as Array
+		if not bool(panel.call("stores_shown")) or drawn.size() != summary.size():
+			push_error("STOCKPILE: with nobody picked the drawer shows %d stockpile rows, the read model %d (%s)" % [drawn.size(), summary.size(), str(dims)])
+			ok = false
+		var stocked: int = 0
+		for i in mini(drawn.size(), summary.size()):
+			var d: Dictionary = drawn[i] as Dictionary
+			var r: Dictionary = summary[i] as Dictionary
+			if String(d["group"]) != String(r["group"]) or String(d["words"]) != String(r["words"]):
+				push_error("STOCKPILE: row %d draws %s %s, the read model %s %s" % [i, String(d["group"]), String(d["words"]), String(r["group"]), String(r["words"])])
+				ok = false
+			if not _names_in_order(String(d["names"]), r["names"] as Array):
+				push_error("STOCKPILE: %s draws names %s, not the read model's %s in order" % [String(d["group"]), String(d["names"]), str(r["names"])])
+				ok = false
+			if String(d["words"]) != "none":
+				stocked += 1
+				if String(d["names"]).is_empty():
+					push_error("STOCKPILE: %s reads %s and names nothing" % [String(d["group"]), String(d["words"])])
+					ok = false
+		if stocked == 0:
+			push_error("STOCKPILE: a pile with rounds on it reads none in every group, so the negative is not judged")
+			ok = false
+		var ammo_names: String = ""
+		for d in drawn:
+			if String((d as Dictionary)["group"]) == "ammunition":
+				ammo_names = String((d as Dictionary)["names"])
+		if ammo_names.find(".308 Winchester Match") < 0:
+			push_error("STOCKPILE: the ammunition row names %s, not the rounds on the pile" % ammo_names)
+			ok = false
+		var laid: Dictionary = panel.call("_layout") as Dictionary
+		var said: Array[String] = [String(panel.get_script().get("STORES_HEAD")), String(laid["stores_hint"])]
+		if not _stores_digits_ok(drawn, said):
+			ok = false
+		# The same check refuses a digit anywhere but a name: an amount said as a number.
+		var doctored: Array = drawn.duplicate(true)
+		if not doctored.is_empty():
+			(doctored[0] as Dictionary)["words"] = "12"
+		if doctored.is_empty() or _stores_digits_ok(doctored, [], true):
+			push_error("STOCKPILE: an amount word of 12 passed the digit check, so the check cannot fail")
+			ok = false
+		var drawer: Rect2 = laid["drawer"] as Rect2
+		for r in laid["stores"] as Array:
+			var rd: Dictionary = r as Dictionary
+			var at: Vector2 = rd["label_at"] as Vector2
+			var font: Font = Chrome.font()
+			var end_x: float = (rd["names_at"] as Vector2).x + font.get_string_size(String(rd["names"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
+			if at.x < drawer.position.x or end_x > drawer.end.x or at.y - Chrome.ascent(25) < drawer.position.y or at.y > drawer.end.y:
+				push_error("STOCKPILE: the %s row at %s to x %d leaves the drawer %s (%s)" % [String(rd["group"]), str(at), int(end_x), str(drawer), str(dims)])
+				ok = false
+		# Emptied with no tick, as a drop while paused would: closing and opening the screen reads it
+		# afresh, and every row reads none, dim, naming nothing.
+		var moved: Dictionary = {}
+		for item in SimNeeds.stockpile_items(world):
+			moved[item] = (world.components.get_component(item, "position") as Dictionary).duplicate()
+			world.components.remove_component(item, "position")
+		main.call("_show_screen", "")
+		await process_frame
+		_tap(KEY_J)
+		main.call("_process", 0.0)
+		panel.queue_redraw()
+		await process_frame
+		for d in (panel.get("drawn") as Dictionary).get("stores", []) as Array:
+			var dd: Dictionary = d as Dictionary
+			if String(dd["words"]) != "none" or not String(dd["names"]).is_empty() or (dd["word_col"] as Color) != (Locker.get("TEXT_DIM") as Color):
+				push_error("STOCKPILE: the emptied pile draws %s %s %s, not none, dim, with no name" % [String(dd["group"]), String(dd["words"]), String(dd["names"])])
+				ok = false
+		for item in moved.keys():
+			world.components.set_component(int(item), "position", moved[item])
+		panel.set("_stores_key", [])
+		# The button: Mara picked by her name, then the pile, then back.
+		var mara_band: Rect2 = Rect2()
+		for row in laid["rows"] as Array:
+			if int((row as Dictionary)["entity"]) == mara:
+				mara_band = (row as Dictionary)["band"] as Rect2
+		_drain(main)
+		_mouse(panel.position + mara_band.position + Vector2(24.0, 12.0), MOUSE_BUTTON_LEFT)
+		await process_frame
+		laid = panel.call("_layout") as Dictionary
+		var person_drawer: Rect2 = laid["drawer"] as Rect2
+		var toggle: Rect2 = laid["stores_toggle"] as Rect2
+		var chip_at: Vector2 = ((laid["chips"] as Array)[0] as Dictionary)["rect"].get_center() if not (laid["chips"] as Array).is_empty() else Vector2.ZERO
+		if bool(panel.call("stores_shown")) or String(laid["stores_toggle_label"]) != "the stockpile" or toggle.size.x <= 0.0:
+			push_error("STOCKPILE: with Mara picked the drawer shows the pile %s, its button reads %s" % [str(panel.call("stores_shown")), String(laid["stores_toggle_label"])])
+			ok = false
+		_mouse(panel.position + toggle.get_center(), MOUSE_BUTTON_RIGHT)
+		if bool(panel.call("stores_shown")):
+			push_error("STOCKPILE: a right click on the stockpile button showed the pile")
+			ok = false
+		_mouse(panel.position + toggle.get_center(), MOUSE_BUTTON_LEFT)
+		await process_frame
+		laid = panel.call("_layout") as Dictionary
+		if not bool(panel.call("stores_shown")) or int(main.get("_selected")) != mara or int(panel.call("selected")) != mara or not _pending(main).is_empty():
+			push_error("STOCKPILE: the stockpile button showed the pile %s, left the pick on %d and queued %s" % [str(panel.call("stores_shown")), int(main.get("_selected")), str(_pending(main))])
+			ok = false
+		if (laid["drawer"] as Rect2) != person_drawer:
+			push_error("STOCKPILE: the drawer is %s for the pile and %s for Mara (%s)" % [str(laid["drawer"]), str(person_drawer), str(dims)])
+			ok = false
+		if ((panel.get("drawn") as Dictionary).get("stores", []) as Array).size() != summary.size() or not ((panel.get("drawn") as Dictionary).get("who", []) as Array).is_empty():
+			push_error("STOCKPILE: with the pile shown for Mara the drawer draws her too, or not the pile")
+			ok = false
+		_mouse(panel.position + chip_at, MOUSE_BUTTON_LEFT)
+		if not _pending(main).is_empty():
+			push_error("STOCKPILE: a click where a focus chip stood, the pile shown, queued %s" % str(_pending(main)))
+			ok = false
+		_drain(main)
+		var back: Rect2 = laid["stores_toggle"] as Rect2
+		if not String(laid["stores_toggle_label"]).begins_with("back to Mara"):
+			push_error("STOCKPILE: the way back reads %s" % String(laid["stores_toggle_label"]))
+			ok = false
+		_mouse(panel.position + back.get_center(), MOUSE_BUTTON_LEFT)
+		await process_frame
+		if bool(panel.call("stores_shown")) or ((panel.get("drawn") as Dictionary).get("who", []) as Array).is_empty():
+			push_error("STOCKPILE: back to Mara left the pile shown or her drawer empty")
+			ok = false
+		_drain(main)
+		main.call("_show_screen", "")
+		main.set("_selected", -1)
+		await process_frame
+	world.components.remove_component(rounds, "position")
+	root.size = old_size
+	main.set("paused", was_paused)
+	await process_frame
+	if ok:
+		print("STOCKPILE OK at 1280x720 and 1920x1080 nobody picked shows the pile, each word the read model's and each name one of its names in order; an emptied pile reads none, dim, naming nothing; no digit but an allowed item name, where an amount of 12 is refused; every row inside the drawer, which holds still between the pile and a person; the stockpile button shows the pile without moving the pick or queueing, a right click does nothing, a chip's place queues nothing, back to Mara shows her; both inks read 4.5:1 on the steel")
+	return ok
+
+
+# Is `drawn` (a comma-joined line of names) the read model's names, or a part of them, in order?
+func _names_in_order(drawn: String, names: Array) -> bool:
+	if drawn.is_empty():
+		return true
+	var at: int = 0
+	for piece in drawn.split(", "):
+		var found: bool = false
+		while at < names.size():
+			var n: String = String(names[at])
+			at += 1
+			if n == piece or (piece.ends_with("…") and n.begins_with(piece.trim_suffix("…"))):
+				found = true
+				break
+		if not found:
+			return false
+	return true
+
+
+# No string the stockpile block draws carries a digit, but an item's name `_name_is_allowed` allows.
+# `quiet` judges without reporting, for the check's own negative.
+func _stores_digits_ok(rows: Array, also: Array[String], quiet: bool = false) -> bool:
+	var ok: bool = true
+	var bad: Array[String] = []
+	for s in also:
+		if _has_digit(s):
+			bad.append(s)
+	for r in rows:
+		var d: Dictionary = r as Dictionary
+		for s in [String(d["group"]), String(d["words"])]:
+			if _has_digit(s):
+				bad.append(s)
+		if not String(d["names"]).is_empty():
+			for piece in String(d["names"]).split(", "):
+				if _has_digit(piece) and not CheckInventory._name_is_allowed(piece):
+					bad.append(piece)
+	if not bad.is_empty():
+		ok = false
+		if not quiet:
+			push_error("STOCKPILE: the block draws digits in %s" % str(bad))
+	return ok
+
+
+func _has_digit(s: String) -> bool:
+	for ch in s:
+		if ch >= "0" and ch <= "9":
+			return true
+	return false
+
+
+# WCAG contrast of two opaque colours.
+func _contrast(a: Color, b: Color) -> float:
+	var la: float = _luminance(a)
+	var lb: float = _luminance(b)
+	return (maxf(la, lb) + 0.05) / (minf(la, lb) + 0.05)
+
+
+func _luminance(c: Color) -> float:
+	var ch: Array[float] = []
+	for v in [c.r, c.g, c.b]:
+		ch.append(float(v) / 12.92 if float(v) <= 0.03928 else pow((float(v) + 0.055) / 1.055, 2.4))
+	return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]
+
+
 # --- BENCH ----------------------------------------------------------------------------------------
 
 # The assembly screen in the real scene, at both windows, through real keys and clicks. The world
@@ -3214,3 +3479,186 @@ func _escape_closes_the_menu_first(main: Node) -> bool:
 		return false
 	print("%s OK a menu opened low stops above the action bar on the art grid, a right click on yourself opens one headed 'you', Escape closes it and raises nothing, and with no menu the same key still pauses" % lane)
 	return true
+
+
+# --- MARK -------------------------------------------------------------------------------------
+
+const HudRes = preload("res://ui/hud.gd")
+const SimStockpile = preload("res://sim/modules/stockpile.gd")
+const SimSightingsRes = preload("res://sim/modules/sightings.gd")
+
+
+# One drag through the viewport: the button down at `from`, the pointer moved to `to`, the button up
+# there. A press and release at one point is a click.
+func _drag(from: Vector2, to: Vector2, button: MouseButton) -> void:
+	var down := InputEventMouseButton.new()
+	down.button_index = button
+	down.pressed = true
+	down.position = from
+	down.global_position = from
+	root.push_input(down)
+	var move := InputEventMouseMotion.new()
+	move.position = to
+	move.global_position = to
+	root.push_input(move)
+	var up := InputEventMouseButton.new()
+	up.button_index = button
+	up.pressed = false
+	up.position = to
+	up.global_position = to
+	root.push_input(up)
+
+
+func _tile_on_screen(main: Node, t: Vector2i) -> Vector2:
+	var sc: Dictionary = ProjectionRes.world_to_screen(main.get("camera") as Dictionary, float(t.x) + 0.5, float(t.y) + 0.5)
+	return Vector2(float(sc["sx"]), float(sc["sy"]))
+
+
+func _marks_in(cmds: Array) -> Array:
+	return cmds.filter(func(c: Variant) -> bool: return String((c as Dictionary).get("type", "")) == SimStockpile.COMMAND)
+
+
+func _z_marks_the_stockpile(main: Node) -> bool:
+	var lane: String = "MARK"
+	var world: Variant = main.get("world")
+	var router: Node = _router(main)
+	if router == null or world == null:
+		return _skip(lane, "the scene has no router or no world")
+	if _state(main) != Session.State.PLAYING:
+		return _skip(lane, "the scene is not playing, so there is no street to mark")
+	var old_size: Vector2i = root.size
+	root.size = Vector2i(1280, 720)
+	main.call("_snap_camera")
+	await process_frame
+	var ok: bool = true
+	var me: Vector2i = Vector2i(floori(float(_pos(main)["x"])), floori(float(_pos(main)["y"])))
+	var a: Vector2i = me + Vector2i(-2, -1)
+	var b: Vector2i = me + Vector2i(1, 1)
+	_drain(main)
+	# The negatives first, with the brush down. Ctrl+Z is the prone rung: it pushes the stance and
+	# leaves the brush where it was.
+	_tap(KEY_Z, true)
+	await process_frame
+	var prone: Array = _drain(main)
+	if bool(main.get("marking")):
+		push_error("%s: Ctrl+Z picked up the stockpile brush; it is the prone rung" % lane)
+		ok = false
+	if prone.filter(func(c: Variant) -> bool: return String((c as Dictionary).get("type", "")) == "stance").is_empty():
+		push_error("%s: Ctrl+Z pushed no stance, so the lane cannot tell the rung from the brush" % lane)
+		ok = false
+	_tap(KEY_S, true)
+	_drain(main)
+	# With the brush down a drag is the street's: it attacks, and marks nothing.
+	_drag(_tile_on_screen(main, a), _tile_on_screen(main, b), MOUSE_BUTTON_LEFT)
+	await process_frame
+	var street: Array = _drain(main)
+	if not _marks_in(street).is_empty():
+		push_error("%s: with the brush down a drag pushed %s" % [lane, str(_marks_in(street))])
+		ok = false
+	if street.filter(func(c: Variant) -> bool: return ["swing", "fire"].has(String((c as Dictionary).get("type", "")))).is_empty():
+		push_error("%s: with the brush down a left click did not attack, so the drag below proves nothing about the brush" % lane)
+		ok = false
+	# Z picks it up.
+	_tap(KEY_Z)
+	await process_frame
+	if not bool(main.get("marking")) or String(router.call("_focus")) != "mark":
+		push_error("%s: Z left the brush %s under focus %s" % [lane, "up" if bool(main.get("marking")) else "down", String(router.call("_focus"))])
+		root.size = old_size
+		main.call("_set_marking", false)
+		return false
+	main.call("_update_hud")
+	var hud: Variant = main.get("_hud")
+	var line: String = String(hud.get("_action")) if hud != null else ""
+	if line != HudRes.marking_line(false) or not _digits_in(line).is_empty():
+		push_error("%s: under the brush the bar says '%s'" % [lane, line])
+		ok = false
+	# A left drag: exactly one mark, that rectangle, on.
+	_drain(main)
+	_drag(_tile_on_screen(main, a), _tile_on_screen(main, b), MOUSE_BUTTON_LEFT)
+	await process_frame
+	var left: Array = _drain(main)
+	var want_on: Dictionary = InputMapRes.mark_command(a, b, true)
+	if _marks_in(left) != [want_on] or left.size() != 1:
+		push_error("%s: a left drag from %s to %s pushed %s, not exactly %s" % [lane, str(a), str(b), str(left), str(want_on)])
+		ok = false
+	# A right drag: exactly one, off.
+	_drag(_tile_on_screen(main, b), _tile_on_screen(main, a), MOUSE_BUTTON_RIGHT)
+	await process_frame
+	var right: Array = _drain(main)
+	var want_off: Dictionary = InputMapRes.mark_command(b, a, false)
+	if _marks_in(right) != [want_off] or right.size() != 1:
+		push_error("%s: a right drag pushed %s, not exactly %s" % [lane, str(right), str(want_off)])
+		ok = false
+	var menu: Variant = main.get("_context_menu")
+	if menu != null and bool(menu.call("is_open")):
+		push_error("%s: a right drag under the brush opened the street menu" % lane)
+		ok = false
+	# A click marks the one tile.
+	_drag(_tile_on_screen(main, a), _tile_on_screen(main, a), MOUSE_BUTTON_LEFT)
+	await process_frame
+	var click: Array = _drain(main)
+	if _marks_in(click) != [InputMapRes.mark_command(a, a, true)]:
+		push_error("%s: a click under the brush pushed %s, not one tile" % [lane, str(click)])
+		ok = false
+	# Paused, a released mark is not taken until play resumes, and the frame draws it pending; once a
+	# tick has taken it the pending draw is gone. A right drag over the annex, the default zone, so the
+	# off has tiles to take back.
+	main.set("paused", true)
+	_drag(_tile_on_screen(main, b), _tile_on_screen(main, a), MOUSE_BUTTON_RIGHT)
+	main.queue_redraw()
+	await process_frame
+	await process_frame
+	var pending: Array = main.get("_stockpile_pending_drawn") as Array
+	if pending.is_empty():
+		push_error("%s: a mark let go while paused draws nothing until play resumes" % lane)
+		ok = false
+	_drain(main)
+	main.set("paused", false)
+	var held_tick: int = int(world.tick)
+	_frames(main, 2)
+	main.queue_redraw()
+	await process_frame
+	if int(world.tick) == held_tick:
+		_skip(lane + " pending", "the world did not tick in two frames of the loop, so the pending draw's end is not judged")
+	elif not (main.get("_stockpile_pending_drawn") as Array).is_empty():
+		push_error("%s: the pending mark still draws after a tick took the queue" % lane)
+		ok = false
+	# F swings at nothing under the brush.
+	_tap(KEY_F)
+	await process_frame
+	var f_press: Array = _drain(main)
+	if not f_press.filter(func(c: Variant) -> bool: return String((c as Dictionary).get("type", "")) == "swing").is_empty():
+		push_error("%s: F swung under the brush" % lane)
+		ok = false
+	# The frame paints the zone: the boot stands the survivor in the annex, whose floor is the default
+	# zone, and every tile painted is one the player has explored.
+	await process_frame
+	var drawn: Array = main.get("_stockpile_drawn") as Array
+	if drawn.is_empty():
+		push_error("%s: the frame painted no stockpile tile with the survivor standing in the annex" % lane)
+		ok = false
+	for t in drawn:
+		if not SimSightingsRes.knows_tile(world, int(world.player), (t as Vector2i).x, (t as Vector2i).y):
+			push_error("%s: the frame painted the stockpile on %s, which the player has not explored" % [lane, str(t)])
+			ok = false
+			break
+	# Escape puts the brush down, and only the brush; the second is the menu.
+	_tap(KEY_ESCAPE)
+	await process_frame
+	if bool(main.get("marking")) or _state(main) != Session.State.PLAYING:
+		push_error("%s: Escape under the brush left it %s in state %d" % [lane, "up" if bool(main.get("marking")) else "down", _state(main)])
+		ok = false
+	# Z picks it up and Z again puts it down.
+	_tap(KEY_Z)
+	_tap(KEY_Z)
+	await process_frame
+	if bool(main.get("marking")):
+		push_error("%s: a second Z did not put the brush down" % lane)
+		ok = false
+	_drain(main)
+	main.call("_set_marking", false)
+	root.size = old_size
+	await process_frame
+	if ok:
+		print("%s OK Z picks up the brush and Ctrl+Z goes prone; a left drag pushes one stockpile.mark on, a right drag one off and no menu, a click one tile, a mark let go while paused draws pending until a tick takes it, F swings at nothing; the frame paints %d explored zone tiles; the bar speaks the brush digit-free; Escape and a second Z put it down; with the brush down a drag attacks and marks nothing" % [lane, drawn.size()])
+	return ok
