@@ -22,6 +22,8 @@ const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimAttachments = preload("res://sim/modules/attachments.gd")
+const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
 
 const SCENE_PATH: String = "res://presentation/main.tscn"
@@ -29,7 +31,7 @@ const SCENE_PATH: String = "res://presentation/main.tscn"
 const SIZES: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(1920, 1080)]
 const NAMES: Array[String] = [
 	"day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing",
-	"colony_picked", "colony_crowd", "colony_scrolled",
+	"colony_picked", "colony_crowd", "colony_scrolled", "bench_drop",
 	"night_torch",
 ]
 # The Colony screen's two fuller shots (art QA, slice 2): Mara picked by a click on her name, her
@@ -41,6 +43,10 @@ const HOVER_FOCUS: String = "Medic"
 const CROWD: int = 7
 # The scrolled shot's roster: more than the 1920x1080 window draws, so both windows scroll.
 const SCROLL_CROWD: int = 12
+# The weapon the drop scene holds a spare over: a rifle carried in a pack, its magazine taken off by
+# hand, so the spare held over it is a fit and the rifle wears the fit wash.
+const RIFLE: String = "item.rifle.hunting"
+const PACK: String = "item.pack.frame"
 # The part the care scene cuts and then picks on the figure: an arm, so the pane has a bleeding
 # wound to offer pressure for and a dressing it can say is missing.
 const CARE_PART: String = "arm_left"
@@ -246,6 +252,39 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 				await _settle(tree, main)
 				if not await _click_row(tree, main, born[0]):
 					return "no generated colonist's name is on the screen to click"
+		"bench_drop":
+			# C3 of the three-features plan: a magazine held over a rifle whose magazine slot is empty.
+			# The rifle sits in a pack on the back; its magazine comes off by hand, which is the fit.
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			var pack: int = SimItems.spawn_item(world, PACK, {"tier": "scavenged"})
+			if not SimInventory.equip(world, world.player, pack, "back"):
+				return "no pack would go on the back"
+			var rifle: int = SimItems.spawn_item(world, RIFLE, {"tier": "scavenged"})
+			if not SimInventory.stow(world, world.player, rifle):
+				return "the rifle would not go in the pack"
+			var mag: int = SimAttachments.in_slot(world, rifle, "magazine")
+			if mag < 0:
+				return "the rifle has no magazine to take off"
+			world.commands.push({"type": "item.detach", "item": mag})
+			await _settle(tree, main)
+			await _settle(tree, main)
+			press(tree, KEY_TAB)
+			await _settle(tree, main)
+			var sheet: Variant = main.get("_inventory_panel")
+			if sheet == null:
+				return "the sheet is not on the screen"
+			var plate: Variant = _plate_rect(sheet as Control, rifle)
+			if plate == null:
+				return "the rifle has no plate on the sheet to point at"
+			# The top third of the plate, not its centre: the held magazine is drawn on the pointer,
+			# and the rifle has to show around it.
+			var over: Vector2 = (plate as Rect2).position + Vector2((plate as Rect2).size.x * 0.5, (plate as Rect2).size.y / 3.0)
+			sheet.set("_drag_item", mag)
+			sheet.set("_placed", sheet.call("_column_places"))
+			var window_at: Vector2 = (sheet as Control).get_global_transform_with_canvas() * over
+			Input.warp_mouse(window_at)
+			main.set_meta("bench_drop_rifle", rifle)
+			await _settle(tree, main)
 		"viewing":
 			# Skills on somebody else: a colonist picked on the street, then K -- the bar names them
 			# and stamps the page "viewing".
@@ -293,6 +332,17 @@ static func verify(main: Node, scene: String) -> String:
 	if world == null:
 		return "no world"
 	match scene:
+		"bench_drop":
+			var rifle: int = int(main.get_meta("bench_drop_rifle", -1))
+			var sheet: Variant = main.get("_inventory_panel")
+			if rifle < 0 or sheet == null:
+				return "the rifle or the sheet is not there"
+			var held: int = int(sheet.get("_drag_item"))
+			if held < 0:
+				return "nothing is held over the sheet"
+			if SimAttachments.in_slot(world, rifle, "magazine") >= 0:
+				return "the rifle's magazine slot is not empty"
+			return "" if SimGunsmith.drop_slot(world, int(world.player), held, rifle) != "" else "the held part does not fit the rifle"
 		"day_street":
 			if Clock.phase_of(int(world.tick)) != Clock.Phase.Day:
 				return "it is not day"
@@ -467,6 +517,19 @@ static func _settle(tree: SceneTree, main: Node) -> void:
 	for i in 2:
 		main.call("_process", TICK_SECONDS)
 	await tree.process_frame
+
+
+## An item's plate on the sheet, in the sheet's own coordinates, or null when it is not drawn there.
+## The same arithmetic the drop path uses, so the pointer lands on the plate it names.
+static func _plate_rect(sheet: Control, item: int) -> Variant:
+	var bag: GDScript = load("res://ui/bag_grid.gd") as GDScript
+	for placed in sheet.call("_column_places") as Array:
+		var column: Dictionary = (placed as Dictionary)["column"] as Dictionary
+		for entry in column.get("items", []) as Array:
+			if int((entry as Dictionary).get("item", -1)) == item:
+				var origin: Vector2 = bag.call("origin_of", (placed as Dictionary)["at"] as Vector2)
+				return bag.call("plate_rect", origin, entry) as Rect2
+	return null
 
 
 ## The colonist whose name begins with `first`, from the Colony screen's own view, or -1.
