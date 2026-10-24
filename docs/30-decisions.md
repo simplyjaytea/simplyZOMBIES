@@ -5923,6 +5923,20 @@ Still open: the screen draws the wedge from the sim's cone only after the beam-o
 Until then `LightLook` draws its own wedge from content, which is the half `godot:m2:torch` READS
 skips out loud.
 
+## Weapon assembly starts with the hands, 2026-10-24
+
+The three-features plan (C1) made the bench's screen reachable away from a bench, for one reason:
+a magazine and a sight are changed by hand (`fieldSwap`), and a gun that has one should open where
+you stand. Calls taken without the owner:
+
+- **The question is one predicate.** `SimGunsmith.may_open` (at a bench, or `field_work`) is what
+  the `modify` verb and the open command both ask, so a verb cannot be offered for a gun the
+  command refuses.
+- **A screen opened by hand stays open where you stand** while there is still a part to change
+  by hand, and closes when there is none. Walking away from a bench still closes the bench screen,
+  as `SimContainers` closes a box, for a gun with nothing to change.
+- **`modify` in the item menu pushes `bench.open`.** It was offered at a bench and pushed nothing,
+  which the dead-socket rule forbids. Gated by `godot:m2:bench` FIELD and `godot:check:inventory`.
 
 ## The draft key on X, 2026-10-24
 
