@@ -147,8 +147,16 @@ static func has_any_tile(world: Variant) -> bool:
 
 ## The zone's patches: groups of zone tiles that touch edge to edge, each row-major. A pile marked at
 ## a camp is its own patch however far it is from the annex. Patches come out in the row-major order
-## of their first tile, so the list has one order whatever the record's keys were.
+## of their first tile, so the list has one order whatever the record's keys were. Served from the
+## index `_patch_index` keeps on the world, so a haul pickup, a cooked meal and the window all read
+## one walk per change of the zone or the map (the walk is about 3 ms on the default zone; the
+## review's finding 4). Callers read the groups and never change them.
 static func patches(world: Variant) -> Array:
+	return _patch_index(world)["groups"] as Array
+
+
+# The walk itself: a flood fill over the zone, keyed by the tile.
+static func _walk_patches(world: Variant) -> Array:
 	var zone: Array[Vector2i] = tiles(world)
 	# Keyed by the tile itself: a String key per tile and per neighbour was most of this walk's cost.
 	var member: Dictionary = {}
@@ -458,41 +466,48 @@ static func standing_on(world: Variant, actor: int) -> bool:
 	return t.x >= 0 and has_tile(world, t.x, t.y)
 
 
-## The patch `actor` stands in, as a set of "tx,ty" keys; empty off the zone. Read from the zone's
-## patches, which are worked out once per zone and map (`_patch_index`), not once per ask: the window
-## asks every tick it is open, and walking the default zone tile by tile is milliseconds.
+## The patch `actor` stands in, as a set keyed by the tile (`Vector2i`); empty off the zone. Read
+## from the zone's patches, which are worked out once per zone and map (`_patch_index`), not once per
+## ask: the window asks every tick it is open, and walking the default zone tile by tile is
+## milliseconds.
 static func patch_under(world: Variant, actor: int) -> Dictionary:
 	var start: Vector2i = tile_of(world, actor)
 	if start.x < 0:
 		return {}
 	var index: Dictionary = _patch_index(world)
-	var which: Variant = (index["of"] as Dictionary).get(_key(start.x, start.y))
+	var which: Variant = (index["of"] as Dictionary).get(start)
 	if which == null:
 		return {}
 	return (index["sets"] as Array)[int(which)] as Dictionary
 
 
-# The zone's patches as {sig, of: {"tx,ty": patch}, sets: [{"tx,ty": true}]}, kept on the world (as
-# metadata, never saved and never shared between two worlds) for as long as the zone record and the
-# map generation are what they were. Every answer is the one `patches` gives; this only keeps it.
+# The zone's patches as {sig, groups: [[Vector2i]], of: {Vector2i: patch}, sets: [{Vector2i: true}]},
+# kept on the world (as metadata, never saved and never shared between two worlds) for as long as the
+# zone record and the map generation are what they were. Every answer is the one `_walk_patches`
+# gives; this only keeps it. Keyed by the tile throughout: the String keys this used to build were
+# most of its cost, and the drop point reads it now as well as the window.
 const _PATCH_META: StringName = &"stockpile_patch_index"
 
 
 static func _patch_index(world: Variant) -> Dictionary:
 	var rec: Variant = _record(world)
 	var sig: int = hash([int(world.map_generation), (rec as Dictionary)["tiles"] if rec is Dictionary else null])
-	var kept: Variant = (world as Object).get_meta(_PATCH_META, null)
-	if kept is Dictionary and int((kept as Dictionary)["sig"]) == sig:
-		return kept as Dictionary
+	# `has_meta` first: `get_meta` with a null default raises an engine error when the key is absent,
+	# which it is on every world's first ask.
+	if (world as Object).has_meta(_PATCH_META):
+		var kept: Variant = (world as Object).get_meta(_PATCH_META)
+		if kept is Dictionary and int((kept as Dictionary)["sig"]) == sig:
+			return kept as Dictionary
+	var groups: Array = _walk_patches(world)
 	var of: Dictionary = {}
 	var sets: Array = []
-	for group in patches(world):
+	for group in groups:
 		var members: Dictionary = {}
 		for t in group:
-			members[_key((t as Vector2i).x, (t as Vector2i).y)] = true
-			of[_key((t as Vector2i).x, (t as Vector2i).y)] = sets.size()
+			members[t as Vector2i] = true
+			of[t as Vector2i] = sets.size()
 		sets.append(members)
-	var built: Dictionary = {"sig": sig, "of": of, "sets": sets}
+	var built: Dictionary = {"sig": sig, "groups": groups, "of": of, "sets": sets}
 	(world as Object).set_meta(_PATCH_META, built)
 	return built
 
@@ -517,13 +532,21 @@ static func close(world: Variant, actor: int) -> void:
 
 
 ## What E would open here: the actor stands on the zone, no cupboard is in reach (a cupboard wins),
-## and the loose item E would otherwise pick up lies on the zone. That last condition keeps E's
-## ladder as it was everywhere else -- a door, a bed or a fire beside an empty pile still takes E.
+## and the loose item E would otherwise pick up lies on the patch the actor stands in. That last
+## condition keeps E's ladder as it was everywhere else -- a door, a bed or a fire beside an empty
+## pile still takes E -- and it is the patch, not the zone: a tin on a neighbouring patch within
+## arm's reach is not in the window this would open (the window lists the actor's patch), so E picks
+## it up instead (the review's finding 6).
 static func e_opens(world: Variant, actor: int, nearest_item: Variant, box_in_reach: bool) -> bool:
 	if box_in_reach or nearest_item == null or not standing_on(world, actor):
 		return false
 	var t: Vector2i = tile_of(world, int(nearest_item))
-	return t.x >= 0 and has_tile(world, t.x, t.y)
+	return t.x >= 0 and on_own_patch(world, actor, t)
+
+
+## Whether tile `t` is in the patch `actor` stands in (the patch set is keyed by the tile).
+static func on_own_patch(world: Variant, actor: int, t: Vector2i) -> bool:
+	return patch_under(world, actor).has(t)
 
 
 ## Whether `actor` sees the spot from where they stand: walls and range (`line_of_sight`), or a lit
@@ -556,7 +579,7 @@ static func in_sight(world: Variant, actor: int) -> Array[int]:
 		var p: Dictionary = world.components.get_component(id, "position") as Dictionary
 		var px: float = float(p["x"])
 		var py: float = float(p["y"])
-		if not patch.has(_key(floori(px), floori(py))):
+		if not patch.has(Vector2i(floori(px), floori(py))):
 			continue
 		if not in_view(world, actor, px, py):
 			continue
@@ -665,10 +688,13 @@ static func _first_fit(used: Array[bool], cols: int, rows: int, iw: int, ih: int
 ## `stockpile.take {item}`: the ordinary pickup -- stow it, else wear it -- of an item the window
 ## lists, with the patch in place of the 1.5 m reach. With `container`, `x`, `y`, `rotated` it goes
 ## to that cell of a bag the actor carries, or nowhere. Refused, the item stays where it lay.
-static func take(world: Variant, actor: int, item: int, cell: Dictionary = {}) -> Dictionary:
+## `listed` is the window's list when the caller already holds it (`take_all`); a single take asks
+## `in_sight` itself.
+static func take(world: Variant, actor: int, item: int, cell: Dictionary = {}, listed: Variant = null) -> Dictionary:
 	if not is_open(world, actor):
 		return {"ok": false, "reason": "not-open"}
-	if item < 0 or not in_sight(world, actor).has(item):
+	var seen: Array[int] = listed if listed is Array else in_sight(world, actor)
+	if item < 0 or not seen.has(item):
 		return {"ok": false, "reason": "not-in-sight"}
 	var SimInventory: GDScript = load("res://sim/modules/inventory.gd") as GDScript
 	var pos: Dictionary = (world.components.get_component(item, "position") as Dictionary).duplicate()
@@ -692,13 +718,29 @@ static func take(world: Variant, actor: int, item: int, cell: Dictionary = {}) -
 
 
 ## "take all that fits": every listed item, in the window's order, that stows. Returns how many moved.
+## The list is read once and handed to each take: asked again per item, a pile of 120 things in
+## sight cost 170 ms in one tick (a line-of-sight test per thing per take; the review's finding 3).
+## A footprint the pack has already refused is not tried again for a thing that could neither merge
+## into a stack nor be worn: the pack has not changed, so the answer has not either.
 static func take_all(world: Variant, actor: int) -> int:
 	var moved: int = 0
 	if not is_open(world, actor):
 		return moved
-	for item in in_sight(world, actor):
-		if bool(take(world, actor, item).get("ok", false)):
+	var SimInventory: GDScript = load("res://sim/modules/inventory.gd") as GDScript
+	var SimItems: GDScript = load("res://sim/modules/items.gd") as GDScript
+	var seen: Array[int] = in_sight(world, actor)
+	var refused: Dictionary = {}
+	for item in seen:
+		var size: Dictionary = SimItems.call("size_of_item", world, item) as Dictionary
+		var foot := Vector2i(mini(int(size.get("w", 1)), int(size.get("h", 1))), maxi(int(size.get("w", 1)), int(size.get("h", 1))))
+		var could_merge: bool = world.components.has_component(item, "stack")
+		var could_wear: bool = SimInventory.call("equip_slot_for", world, item) != null
+		if refused.has(foot) and not could_merge and not could_wear:
+			continue
+		if bool(take(world, actor, item, {}, seen).get("ok", false)):
 			moved += 1
+		elif not could_merge and not could_wear:
+			refused[foot] = true
 	return moved
 
 
@@ -715,7 +757,7 @@ static func put(world: Variant, actor: int, item: int) -> Dictionary:
 	var taken: Dictionary = {}
 	for kind in ["bed", "campfire"]:
 		for e in world.components.query([kind, "position"]):
-			taken[_key(tile_of(world, int(e)).x, tile_of(world, int(e)).y)] = true
+			taken[tile_of(world, int(e))] = true
 	var lying: Array[Vector2i] = []
 	for g in world.components.query(["position", "itemBase"]):
 		if not world.components.has_component(int(g), "stored"):
@@ -725,7 +767,8 @@ static func put(world: Variant, actor: int, item: int) -> Dictionary:
 	# The tile underfoot is always seen, so a free patch always has somewhere.
 	var here: Vector2i = tile_of(world, actor)
 	var drop: Vector2i = drop_tile(world, Vector2(float(here.x) + 0.5, float(here.y) + 0.5), lying, func(tx: int, ty: int) -> bool:
-		return patch.has(_key(tx, ty)) and not taken.has(_key(tx, ty)) and in_view(world, actor, float(tx) + 0.5, float(ty) + 0.5)
+		var t := Vector2i(tx, ty)
+		return patch.has(t) and not taken.has(t) and in_view(world, actor, float(tx) + 0.5, float(ty) + 0.5)
 	)
 	if drop.x < 0:
 		return {"ok": false, "reason": "no-free-tile"}

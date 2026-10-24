@@ -50,6 +50,14 @@ extends SceneTree
 #   FULL    -- a hauler whose pack will not take the tin leaves it where it lay: `position` kept,
 #              `handsFull` set, no Haul offered for HANDS_FULL_TICKS and offered again after. The
 #              old code took the tin off the map and stopped, leaving it on no tile and in no pack.
+#   NEXTDOOR -- E opens the window only for a tin of the patch the player stands in: a tin on a
+#              neighbouring patch within arm's reach is picked up (the window would not list it),
+#              and the bar's words say so; the same tin moved onto the player's patch is the window.
+#   FAR     -- the cook takes the raw nearest the fire, not the first in entity order, and never one
+#              with a zombie within DANGER_TARGET_METRES: with a raw at home and one on a far pile
+#              beside a zombie (spawned first), the home raw is cooked; with only the far raw, no
+#              Cook is offered; with the zombie gone, the far raw is. Cook is in DANGER_KINDS, so a
+#              cook on that walk breaks off like a hauler.
 #   PREVIEW -- slice S2's read model: `SimStockpile.preview` is what the screen's drag draws, so it
 #              has to be what `mark` does. On a fresh world it creates no record (it only asks);
 #              `markable_in` answers `markable` tile for tile, an unexplored tile included; an `on`
@@ -114,11 +122,13 @@ func _run() -> void:
 	ok = _the_window_takes_and_puts_by_the_sims_rules() and ok
 	ok = _an_emptied_zone_hauls_nothing_and_the_meal_lies_at_the_fire() and ok
 	ok = _a_full_pack_leaves_the_tin_where_it_lay() and ok
+	ok = _e_opens_only_for_the_patch_underfoot() and ok
+	ok = _the_cook_takes_the_near_raw_and_never_one_by_a_zombie() and ok
 	var skip_note: String = ""
 	if not _skipped.is_empty():
 		skip_note = " SKIPPED(no data): " + ", ".join(_skipped)
 	if ok:
-		print("M2_STOCKPILE_OK default mark walled readers save preview spread patch walk cook raider summary take empty full%s" % skip_note)
+		print("M2_STOCKPILE_OK default mark walled readers save preview spread patch walk cook raider summary take empty full nextdoor far%s" % skip_note)
 		quit(0)
 	else:
 		push_error("M2_STOCKPILE_FAIL")
@@ -709,7 +719,28 @@ func _a_pile_apart_from_home_is_its_own_patch() -> bool:
 	if not SimNeeds.is_annex_floor(w, from_home.x, from_home.y):
 		push_error("PATCH: an item dropped at home went to %s, not into the annex" % str(from_home))
 		return false
-	print("PATCH OK the pile is its own patch: beside it the drop is %s, at home %s" % [str(from_camp), str(from_home)])
+	# `patches` is served from the index the window reads (`patch_under`), so the two cannot
+	# disagree, and the index follows the zone and the map: a tile marked beside the pile joins its
+	# patch, and a wall across the pile splits it. Each answer is the fresh walk's.
+	var n_before: int = SimStockpile.patches(w).size()
+	_mark(w, block.x + 2, block.y, block.x + 2, block.y, true)
+	var grown: Array = []
+	for patch2 in SimStockpile.patches(w):
+		if (patch2 as Array).has(block):
+			grown = patch2 as Array
+	if grown.size() != 5 or SimStockpile.patches(w).size() != n_before or not _same(SimStockpile.patches(w), SimStockpile._walk_patches(w)):
+		push_error("PATCH: a tile marked beside the pile did not join its patch in the kept index (%d tiles, %d patches)" % [grown.size(), SimStockpile.patches(w).size()])
+		return false
+	w.components.set_component(w.player, "position", {"x": float(block.x) + 0.5, "y": float(block.y) + 0.5})
+	if SimStockpile.patch_under(w, w.player).size() != 5 or not SimStockpile.patch_under(w, w.player).has(Vector2i(block.x + 2, block.y)):
+		push_error("PATCH: the patch under the player is not the grown pile, keyed by the tile: %s" % str(SimStockpile.patch_under(w, w.player).keys()))
+		return false
+	w.tilemap.tiles[block.y * int(w.tilemap.w) + block.x + 1] = SimTileMap.Tile.Wall
+	w.invalidate_tiles(Rect2i(block.x + 1, block.y, 1, 1))
+	if SimStockpile.patches(w).size() != n_before + 1 or not _same(SimStockpile.patches(w), SimStockpile._walk_patches(w)):
+		push_error("PATCH: a wall across the pile did not split the kept index (%d patches, expected %d)" % [SimStockpile.patches(w).size(), n_before + 1])
+		return false
+	print("PATCH OK the pile is its own patch: beside it the drop is %s, at home %s; the kept index grows with a mark and splits at a wall" % [str(from_camp), str(from_home)])
 	return true
 
 
@@ -942,7 +973,7 @@ func _the_window_takes_and_puts_by_the_sims_rules() -> bool:
 	var near_tin: int = _put_on(w, corner, CANNED)
 	var off_tin: int = _put_on(w, off, CANNED)
 	w.step()
-	if SimStockpile.patch_under(w, w.player).size() != 8 or not SimStockpile.patch_under(w, w.player).has("%d,%d" % [hidden.x, hidden.y]):
+	if SimStockpile.patch_under(w, w.player).size() != 8 or not SimStockpile.patch_under(w, w.player).has(hidden):
 		push_error("TAKE: the walled pile is not one patch of eight round the wall: %s" % str(SimStockpile.patch_under(w, w.player).keys()))
 		return false
 	# Shut, the window takes nothing, and lists nothing.
@@ -981,10 +1012,17 @@ func _the_window_takes_and_puts_by_the_sims_rules() -> bool:
 	if _lies(w, here_tin) or not SimInventory.owns(w, w.player, here_tin):
 		push_error("TAKE: the tin in view was not taken into the pockets")
 		return false
+	# "Take all that fits": the one tin still listed comes in (into the pockets, or merged into the
+	# stack of the tin already there), the hidden and off-zone tins stay.
+	_send(w, {"type": SimStockpile.TAKE_COMMAND, "all": true})
+	var near_taken: bool = not _lies(w, near_tin) and (not w.entities.is_alive(near_tin) or SimInventory.owns(w, w.player, near_tin))
+	if not near_taken or not _lies(w, hid_tin) or not _lies(w, off_tin):
+		push_error("TAKE: take all did not take exactly the tins in view (near taken %s, hidden lies %s, off lies %s)" % [str(near_taken), str(_lies(w, hid_tin)), str(_lies(w, off_tin))])
+		return false
 	# Put back: onto a tile of this patch the player sees, not the hidden side.
 	_send(w, {"type": SimStockpile.PUT_COMMAND, "item": here_tin})
 	var back: Vector2i = _tile_of(w, here_tin)
-	if not _lies(w, here_tin) or not SimStockpile.patch_under(w, w.player).has("%d,%d" % [back.x, back.y]) or not SimStockpile.in_view(w, w.player, float(back.x) + 0.5, float(back.y) + 0.5):
+	if not _lies(w, here_tin) or not SimStockpile.patch_under(w, w.player).has(back) or not SimStockpile.in_view(w, w.player, float(back.x) + 0.5, float(back.y) + 0.5):
 		push_error("TAKE: the put tin is at %s, not on a tile of the patch in view" % str(back))
 		return false
 	# Off the zone the window shuts, and a put is refused: the tin stays in the pockets.
@@ -1156,6 +1194,118 @@ func _a_full_pack_leaves_the_tin_where_it_lay() -> bool:
 	if not ok:
 		return false
 	print("FULL OK the helmet the pack refused lies where it lay at %s, the hauler's hands are full for %d ticks and the haul comes back after" % [str(beside), SimJobs.HANDS_FULL_TICKS])
+	return true
+
+
+# NEXTDOOR. Two one-tile patches two tiles apart; the player on the first, a tin on the second inside
+# the pick-up reach. E picks it up. Moved onto the player's own patch, the same tin makes E the window.
+func _e_opens_only_for_the_patch_underfoot() -> bool:
+	var w: Variant = _world()
+	var b: Vector2i = _markable_block(w, 3, 2)
+	if b.x < 0:
+		push_error("NEXTDOOR: no explored 3x1 of open ground clear of the annex on this map")
+		return false
+	_mark(w, b.x, b.y, b.x, b.y, true)
+	_mark(w, b.x + 2, b.y, b.x + 2, b.y, true)
+	if SimStockpile.has_tile(w, b.x + 1, b.y):
+		push_error("NEXTDOOR: the tile between the two patches is in the zone")
+		return false
+	w.components.set_component(w.player, "position", {"x": float(b.x) + 0.9, "y": float(b.y) + 0.5})
+	var tin: int = _put_on(w, Vector2i(b.x + 2, b.y), CANNED)
+	w.components.set_component(tin, "position", {"x": float(b.x) + 2.1, "y": float(b.y) + 0.5})
+	w.step()
+	w.step()
+	var nearest: Variant = SimInventory.nearest_ground_item(w, w.player)
+	if nearest == null or int(nearest) != tin:
+		push_error("NEXTDOOR: the tin on the next patch is not the nearest loose item, so the lane cannot be judged")
+		return false
+	if SimContext.reach_words(w, w.player).find("pick up") != 0:
+		push_error("NEXTDOOR: the bar's E words with a tin on the next patch are '%s'" % SimContext.reach_words(w, w.player))
+		return false
+	_send(w, {"type": "use.context"})
+	if _lies(w, tin) or w.components.has_component(w.player, SimStockpile.OPEN_COMPONENT):
+		push_error("NEXTDOOR: E with a tin on the next patch opened the window (%s) or left the tin (%s)" % [str(w.components.has_component(w.player, SimStockpile.OPEN_COMPONENT)), str(_lies(w, tin))])
+		return false
+	# The positive: the tin on the player's own patch, E is the window.
+	var tin2: int = _put_on(w, Vector2i(b.x, b.y), CANNED)
+	w.components.set_component(tin2, "position", {"x": float(b.x) + 0.4, "y": float(b.y) + 0.5})
+	w.step()
+	if SimContext.reach_words(w, w.player) != SimStockpile.OPEN_WORDS:
+		push_error("NEXTDOOR: the bar's E words with a tin on the player's own patch are '%s'" % SimContext.reach_words(w, w.player))
+		return false
+	_send(w, {"type": "use.context"})
+	if not _lies(w, tin2) or not SimStockpile.is_open(w, w.player):
+		push_error("NEXTDOOR: E with a tin on the player's own patch did not open the window")
+		return false
+	print("NEXTDOOR OK a tin on the next patch is picked up and the bar says so; the same tin on the player's patch makes E the window")
+	return true
+
+
+# FAR. The cook's raw: nearest the fire, never beside a zombie, and Cook breaks off like an errand.
+func _the_cook_takes_the_near_raw_and_never_one_by_a_zombie() -> bool:
+	var w: Variant = _world()
+	var mara: int = _colonist(w)
+	var fires: Array[int] = w.components.query(["campfire"])
+	var home: Array[Vector2i] = _annex_floor(w)
+	var block: Vector2i = _markable_block(w, 2, 6)
+	var zombies: Array[int] = w.components.query(["shambler", "position"])
+	if mara < 0 or fires.is_empty() or home.is_empty() or block.x < 0 or zombies.is_empty():
+		push_error("FAR: needs Mara, a campfire, an annex floor, a pile clear of the annex and a zombie; the booted map did not give them all")
+		return false
+	if not SimJobs.DANGER_KINDS.has("Cook"):
+		push_error("FAR: Cook is not a job the danger rule breaks off")
+		return false
+	_mark(w, block.x, block.y, block.x + 1, block.y + 1, true)
+	var danger_was: bool = SimJobs.BREAK_OFF_FROM_DANGER
+	SimJobs.BREAK_OFF_FROM_DANGER = true
+	# The far raw is spawned first, so the old first-in-order answer would be the far one.
+	var far_raw: int = _put_on(w, block, RAW_FOOD)
+	var near_tile := Vector2i(-1, -1)
+	for t in home:
+		if _free(w, t):
+			near_tile = t
+			break
+	var near_raw: int = _put_on(w, near_tile, RAW_FOOD)
+	# Every zombie is moved by hand and put back, and nothing steps in between: the booted map's dead
+	# stand where they like, and the lane is about the rule, not about where this seed put them.
+	var zombie_was: Dictionary = {}
+	for z in zombies:
+		zombie_was[int(z)] = (w.components.get_component(int(z), "position") as Dictionary).duplicate()
+	var far_corner := Vector2(0.5, 0.5) if block.x > int(w.tilemap.w) / 2 else Vector2(float(w.tilemap.w) - 0.5, 0.5)
+	for z in zombies:
+		w.components.set_component(int(z), "position", {"x": far_corner.x, "y": far_corner.y})
+	w.components.set_component(int(zombies[0]), "position", {"x": float(block.x) + 1.5, "y": float(block.y) + 1.5})
+	var ok: bool = true
+	var first: Dictionary = SimJobs._cook_work(w, mara)
+	if int(first.get("target", -1)) != near_raw:
+		push_error("FAR: with a raw at home and one on the far pile by a zombie, the cook took %s, not the home raw %d" % [str(first.get("target", -1)), near_raw])
+		ok = false
+	w.components.remove(near_raw, "reserved")
+	w.components.remove(near_raw, "position")
+	w.despawn(near_raw)
+	if ok and not SimJobs._cook_work(w, mara).is_empty():
+		push_error("FAR: with only the far raw, beside a zombie, a Cook was offered")
+		ok = false
+	w.components.set_component(int(zombies[0]), "position", {"x": far_corner.x, "y": far_corner.y})
+	if ok and SimJobs._danger_at(w, float(block.x) + 0.5, float(block.y) + 0.5, SimJobs.DANGER_TARGET_METRES):
+		push_error("FAR: a zombie still stands within danger of the pile with all of them in the far corner, so the positive cannot be judged")
+		ok = false
+	if ok and int(SimJobs._cook_work(w, mara).get("target", -1)) != far_raw:
+		push_error("FAR: with the zombie gone the far raw is still not cooked")
+		ok = false
+	# The ranking on its own, no zombie near either: a second home raw, spawned after the far one, so
+	# the first in entity order is the far raw and the nearest to the fire is this one.
+	w.components.remove(far_raw, "reserved")
+	var near_again: int = _put_on(w, near_tile, RAW_FOOD)
+	if ok and int(SimJobs._cook_work(w, mara).get("target", -1)) != near_again:
+		push_error("FAR: with no zombie near either raw, the cook took %s, not the home raw %d nearest the fire" % [str(SimJobs._cook_work(w, mara).get("target", -1)), near_again])
+		ok = false
+	for z in zombies:
+		w.components.set_component(int(z), "position", zombie_was[int(z)])
+	SimJobs.BREAK_OFF_FROM_DANGER = danger_was
+	if not ok:
+		return false
+	print("FAR OK the cook takes the home raw over the far one by a zombie, takes nothing when only the far one is there, takes it once the zombie is gone, and with no zombie near either takes the one nearest the fire")
 	return true
 
 
