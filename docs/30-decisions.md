@@ -6433,6 +6433,9 @@ piece itself is the owner's standing item ("nobody seeks comfort, or reads, on t
   the mood rules.
 - **"Low" means any band worse than content** (`SimNeeds.mood_band != "content"`), so miserable and
   breaking colonists take comfort too. Nothing is compared against a threshold of the tick's own.
+- **A comfort is used where it lies.** One unit comes off a stack and the rest stays on the pile for
+  the next colonist; a reusable comfort is used and left whole. The first cut carried the whole
+  stack into the pack. The pack's room no longer matters, so the full-pack refusal went with it.
 
 **How to apply:** a new autonomy kind that walks outside goes into `DANGER_KINDS`, and an idle
 fallback goes below every ranked column in `_pick`, not in `_tick_one`.
@@ -6532,4 +6535,3 @@ cost as much as a kill.
 wound that closes by itself unless the design wants the player to treat it. `godot:m2:attach` CUT
 holds the rule: a connecting swing scratches, and a miss, a wrapped grip, a destroyed hand and a
 nailed bat do not.
-
