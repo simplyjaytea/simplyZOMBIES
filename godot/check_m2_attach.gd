@@ -1981,7 +1981,23 @@ func _an_affix_reaches_the_wear_it_names() -> bool:
 	if host_bare <= 0.0 or absf(host_ruin - 2.0 * host_bare) > 0.000001:
 		push_error("%s: a ruined pistol lost %.6f from one wear event, not twice the bare %.6f" % [lane, host_ruin, host_bare])
 		return false
-	print("  WEAR OK a part with condition_loss x2 loses %.5f a shot, plain %.5f; a ruined pistol loses %.5f, bare %.5f" % [worn, plain, host_ruin, host_bare])
+	# A global entry is the world's, not the item's: it sits inside the scoped resolve and the
+	# unscoped one alike, so the item's own share divides it out, as repair_cost_factor does. The
+	# positive is that an item carrying its own x2 still reads 2.0 under the same global x3; the
+	# negative is that the bare item under that global reads 1.0, not 3.0.
+	var wg: Variant = _world()
+	var gpistol: int = _armed_pistol(wg)
+	wg.modifiers.call("add", {"stat": "condition_loss", "op": "mul", "value": 3.0, "source": "gate.global"}, null)
+	wg.modifiers.call("add", {"stat": "noise_emission", "op": "mul", "value": 3.0, "source": "gate.global"}, null)
+	if absf(SimItems.condition_loss_of(wg, gpistol) - 1.0) > 0.000001 or absf(SimItems.noise_emission_of(wg, gpistol) - 1.0) > 0.000001:
+		push_error("%s: a global x3 on condition_loss and noise_emission read as the item's own (%.3f, %.3f), not 1.0" % [lane, SimItems.condition_loss_of(wg, gpistol), SimItems.noise_emission_of(wg, gpistol)])
+		return false
+	wg.modifiers.call("add", {"stat": "condition_loss", "op": "mul", "value": 2.0, "source": "gate.own"}, gpistol)
+	wg.modifiers.call("add", {"stat": "noise_emission", "op": "mul", "value": 2.0, "source": "gate.own"}, gpistol)
+	if absf(SimItems.condition_loss_of(wg, gpistol) - 2.0) > 0.000001 or absf(SimItems.noise_emission_of(wg, gpistol) - 2.0) > 0.000001:
+		push_error("%s: an item's own x2 under a global x3 read (%.3f, %.3f), not 2.0" % [lane, SimItems.condition_loss_of(wg, gpistol), SimItems.noise_emission_of(wg, gpistol)])
+		return false
+	print("  WEAR OK a part with condition_loss x2 loses %.5f a shot, plain %.5f; a ruined pistol loses %.5f, bare %.5f; a global x3 is not the item's own" % [worn, plain, host_ruin, host_bare])
 	return true
 
 

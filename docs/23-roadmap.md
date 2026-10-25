@@ -2461,6 +2461,11 @@ not a to-do list:
     of Salvage to 0.9600 and 0.9775, a quiet-handed one to 0.9500). `godot:m2:web`'s READERS lane
     now empties `AWAITING_READER` and drops `condition_loss` and `noise_emission` from the excuses;
     `EXCUSED_DEAD` is down to four, and `bleed_on_hit` is the only one a shipped affix still writes.
+  - **A global entry is not the item's own.** `noise_emission_of` and `condition_loss_of` resolved
+    the item's scope alone, and a scoped resolve includes the global entries, so a global modifier
+    on either stat would have been read as the item's. They now divide the unscoped value out, the
+    way `repair_cost_factor` does. `godot:m2:attach` WEAR holds it: a global x3 reads 1.0 for a
+    bare item, and an item's own x2 under that global x3 still reads 2.0.
   - **Not measured.** Affixes are rolled into loot, so a campaign that rolls them will see
     different wear and noise. No campaign claim is made here and the ten-seed table was not re-run.
 - **Medicine — the tourniquet, and the limb it costs, 2026-10-26.** docs/05's first stop on a bleed
