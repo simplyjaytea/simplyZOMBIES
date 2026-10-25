@@ -250,7 +250,7 @@ record together. No new camp, treatment, loadout or hidden-information mechanics
 ##### Other remaining work
 
 **Waiting on the owner — decisions, not code.** Each is measured and written up; none may be
-decided unilaterally. **The full list lives in [docs/33-owner-decisions.md](33-owner-decisions.md)** (items 0 to 12 as of 2026-10-23; the
+decided unilaterally. **The full list lives in [docs/33-owner-decisions.md](33-owner-decisions.md)** (items 0 to 16 as of 2026-10-26; the
 newest two are the antibiotic loot weight and a held colonist striking its holder, and the six of 2026-09-06 were the
 driving and weather first cuts, the free wind, the unseen-wall roof, the one-handed silhouettes,
 the forest density, and the two playable-state flips against the compressed tier's survival
@@ -265,6 +265,85 @@ look**: upright face-on pawns that flip, nobody rotates, a warm dark-fantasy pal
 with thickness, roofs cut out where seen. The record below and
 [docs/30](30-decisions.md#the-dungeon-settlers-look-2026-09-03) carry the decisions; the arc
 they open is the art group below.)
+
+**Content arcs — opened by the owner, 2026-10-26.** The direction and the order are
+[docs/38's "The content arcs"](38-playbook.md#the-content-arcs); the decision is
+[docs/30](30-decisions.md#the-release-plan-and-the-content-arcs-2026-10-26). The rule for every
+piece: readers before content, pictures a stage behind. Each piece is one session with its gate
+red both ways; a piece that adds a body or a kind inside ten days re-baselines the ten-seed table
+and says so. The arcs are ordered so that stopping after any piece leaves the tree honest.
+
+*Firearms, readers first (stage 1):*
+
+- **The three dead stats get readers.** `noise_emission`, `condition_loss` and `repair_cost` are
+  declared in `sim/modifiers/stats.gd` and resolved by nothing. The shot reads the first, the
+  wear event the second, the repair verb the third, each on the item. Gate: `godot:m2:ranged`
+  and `godot:m2:attach` lanes that move a stat and watch the reader move; the inert ranged
+  suffixes (`quiet_hand`, `long_nights`, `salvage`, `ruin`) become the true positive.
+- **The barrel governs.** Length, quality and material on a barrel part read into velocity (damage
+  falloff and noise), accuracy and wear. The short barrel is louder and wanders; the match barrel
+  is heavier and steadier. Gate: `godot:m2:attach` BARREL, a lane per axis.
+- **Conversions are kits.** A caliber conversion is barrel plus bolt-or-cylinder plus magazine;
+  two of three jams. The allowed table is content keyed by receiver family, written to a realism
+  table in docs/10 (the owner vetoes rows; docs/33). About twelve across the twelve receivers.
+  Gate: `godot:m2:ammo` KIT, refusing a two-part kit and an off-table pairing.
+- **Furniture is ergonomics.** Stock, grip and foregrip read into aim time, recoil recovery and
+  which stances may fire (a folding stock fires from the car). Gate: `godot:m2:aim` and
+  `godot:m2:stance`.
+- **Internals wear, and the jam derives.** Springs, sear and extractor are parts with condition;
+  `jamChance` derives from the worst of them, keeping docs/09's coupling. Gate: `godot:m2:ammo`
+  JAM with a pristine and a worn sear.
+- **Gunsmithing decides field versus bench, and the botch.** Skill moves operations between
+  `is_field_swap` and the bench and feeds `modification.gd`'s failure curve. Gate:
+  `godot:m2:bench`.
+- (Already named above and part of this arc: choosing which round to fire, the magazine that
+  remembers its load, the hand-loaded round, the five ranged affixes.)
+
+*Melee, frames and recipes (stage 1):*
+
+- **Melee frames and the widened slots.** The nineteen melee bases gain a `family` (club, blade,
+  polearm, tool) and three new slots: `stud`, `guard`, `weight`, each with `appliesTo` by family.
+  A part in a slot nothing reads is refused by the gate. Gate: `godot:m2:attach` MELEE.
+- **The improvised recipe table.** About twenty-five plausible combinations as content: a knife
+  lashed to a hockey stick, nails in a wooden bat (and the aluminium bat that splits), a blade
+  head on a long haft, a pitchfork head on a pipe with cordage and a fixing. Each names its
+  materials and what it costs the frame. Gate: `godot:m2:bench` RECIPES, with a refused
+  implausible pairing.
+- **Specific melee wear.** Studs fall out on hits through the `struck` wear word (shared with the
+  plate piece), an edge dulls and a whetstone restores it, a lashed head flies off one swing in N
+  from its own RNG stream. Gate: `godot:m2:swipe` WEAR.
+- **A bespoke weapon may be named.** Past three modifications the player may name the item; the
+  name follows the digit ban's item-name clause. Gate: `godot:check:inventory`.
+
+*Zombies, seven to fourteen (stage 2 for the first four, stage 4 for the rest):*
+
+- **The crawler.** Legless, slow, below sightline height, grabs ankles. Reader: a prone-height
+  check in `sightings.gd`. Gate: `godot:m2:sight` LOW and `godot:m2:contact`.
+- **The bloodhound.** Follows the scent field alone, deaf to noise. Reader exists in the attention
+  field. Gate: `godot:m2:district` SCENT-ONLY.
+- **The gassed bloater.** Its burst leaves a tile cloud that lingers and hurts. Reader: a tile
+  status field with a decay. Gate: `godot:m2:filter` (the mask already reads it) and a CLOUD lane.
+- **The lurker.** Dormant indoors, wakes on indoor noise. Reuses the dormant placement seam from
+  the population plan. Gate: `godot:m2:district` DORMANT.
+- **The juggernaut.** A heavy that shoves barricades, not only windows. Reader: fortify damage
+  from a zombie. Gate: `godot:m2:fortify` SHOVE.
+- **The burner.** Carries fire and spreads it to timber. Waits on fire as a sim fact (owner's
+  card, docs/33). Gate: named with the fire piece.
+- **The feigner.** Lies among settled corpses, rises on approach. Reader: the corpse memory.
+  Gate: `godot:m2:sight` FEIGN.
+
+*Raiders, doctrine and archetypes (doctrine stage 2, archetypes stage 4):*
+
+- **A doctrine on the band.** `doctrine` in {probe, raid, siege, trade}, drawn by the director by
+  day off the `raid` stream. Probe turns for home at first loss (the lookout already does);
+  siege camps outside the wall and waits; trade approaches unarmed with a flag and offers barter
+  (owner's card: before factions exist?). Gate: `godot:m2:raiders` DOCTRINE, one lane each.
+- **Five archetypes.** Breacher (sledge, goes for the door), marksman (hunting rifle, holds
+  range), medic (bandages the band, retreats with the wounded), arsonist (waits on fire), dog
+  handler (a hound as a scent sensor). Each is a content file in `godot/content/raiders/` and one
+  behaviour hook. Gate: `godot:m2:raiders`, a lane per archetype.
+- **A raider's weapon is assembled.** Raiders spawn holding weapons built from the part tables,
+  so the drop is the weapon as built. Gate: `godot:m2:raiders` LOOT asserting parts on the drop.
 
 **The playable state — the owner's twelve decisions, 2026-09-06.** Three code-grounded
 surveys of what the shipped game does in play (survival and needs, the NPC colonists, the
