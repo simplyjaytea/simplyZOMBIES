@@ -6472,6 +6472,11 @@ The rule is the smallest honest one, taken without a tuned curve:
 - **Loosening in time is free.** It is a channel of `TOURNIQUET_LOOSEN_TICKS` (20). Once the window
   has closed there is nothing left to loosen and the verb is refused `not-tied`. The bleed resumes
   on any wound still open.
+- **A lost limb is closed with its wounds (the default taken).** When the window runs out the
+  part goes to `DESTROYED` and every wound on it is dropped with it, so a stump does not bleed: a
+  forgotten tie costs the limb and nothing more. The first cut left the wounds `bleeding: true`,
+  which let the bleed come back on a limb that no longer existed. Whether the bleed should come
+  back is the owner's call (docs/33, card 17); the lane for either answer is one line.
 - **The item is spent on the tie.** A tourniquet is used up on the leg it goes on; a loosen does not
   give it back. A reusable one would be a second spend path and a return to the pack, and is not
   built.

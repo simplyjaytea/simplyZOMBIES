@@ -336,3 +336,10 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
 16. **May raiders trade before factions exist?** (2026-10-26). The `trade` doctrine approaches
     unarmed and offers barter, which is one verb of Milestone 4's faction seam landed early. The
     default is no: the doctrine ships as probe, raid and siege, and trade waits. Same entry.
+
+17. **Lost limb with its wounds closed, or lost limb and the bleed comes back?** (2026-10-26, the
+    tourniquet piece, docs/30's "The tourniquet, and the limb it costs"). When a tie's window runs
+    out the part is destroyed. The default is **its wounds are closed with it**, so a forgotten tie
+    costs the limb and nothing more. The alternative is that the wounds stay open on the stump and
+    the bleed resumes, which makes a forgotten tie a limb and then a death unless the survivor is
+    dressed. One lane assertion in `godot:m2:treatment` TOURNIQUET COST changes with the answer.
