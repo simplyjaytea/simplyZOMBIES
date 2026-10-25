@@ -404,6 +404,16 @@ static func _refused_outdoors(world: Variant, _ent: int, job: Dictionary) -> boo
 	return not SimTileMap.is_indoors(world.tilemap, tile.x, tile.y)
 
 
+# Whether a storm would send a colonist in from the ground at this point: the sky refuses outdoor
+# work and the point is not under a roof. The same question `_refused_outdoors` asks of a job, asked
+# of an item before a job is made for it, so a Comfort, Dress or Read job is not created for an
+# outdoor item in a storm only to be dropped on the next tick and created again.
+static func _storm_keeps_off(world: Variant, x: float, y: float) -> bool:
+	if SimWeather.outdoor_work_allowed(world) or world.tilemap == null:
+		return false
+	return not SimTileMap.is_indoors(world.tilemap, floori(x), floori(y))
+
+
 static func _pick(world: Variant, ent: int) -> void:
 	var jp: Variant = world.components.get_component(ent, "jobPriorities")
 	if not jp is Dictionary:
@@ -1879,7 +1889,7 @@ static func _dress_job(world: Variant, ent: int) -> Dictionary:
 		var p: Dictionary = world.components.get_component(int(item), "position") as Dictionary
 		var ix: float = float(p["x"])
 		var iy: float = float(p["y"])
-		if not _near_home(world, ix, iy):
+		if not _near_home(world, ix, iy) or _storm_keeps_off(world, ix, iy):
 			continue
 		if _is_unreachable(world, int(item)):
 			continue
@@ -1955,7 +1965,7 @@ static func _comfort_job(world: Variant, ent: int) -> Dictionary:
 		var p: Dictionary = world.components.get_component(int(item), "position") as Dictionary
 		var ix: float = float(p["x"])
 		var iy: float = float(p["y"])
-		if not _near_home(world, ix, iy):
+		if not _near_home(world, ix, iy) or _storm_keeps_off(world, ix, iy):
 			continue
 		if _is_unreachable(world, int(item)):
 			continue
@@ -2019,7 +2029,7 @@ static func _read_job(world: Variant, ent: int) -> Dictionary:
 		var p: Dictionary = world.components.get_component(int(item), "position") as Dictionary
 		var ix: float = float(p["x"])
 		var iy: float = float(p["y"])
-		if not _near_home(world, ix, iy):
+		if not _near_home(world, ix, iy) or _storm_keeps_off(world, ix, iy):
 			continue
 		if _is_unreachable(world, int(item)):
 			continue

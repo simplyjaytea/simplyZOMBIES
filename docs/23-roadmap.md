@@ -13950,6 +13950,13 @@ not a to-do list:
   Water job and leaves the book shut. The READ precondition (the Water work exists) is asserted
   first, so the negative cannot pass on a fixture with nothing to lose to.
 
+  **A storm makes no job it would take back.** `_refused_outdoors` drops a Comfort or Dress job to an
+  outdoor item on the tick after it is made, so a low-mood colonist beside an outdoor pile was handed
+  the job and had it taken away every tick of a storm. `_comfort_job`, `_read_job` and `_dress_job`
+  now skip an outdoor item while the sky refuses outdoor work (`_storm_keeps_off`). The COMFORT
+  lane's STORM section holds it: the same outdoor pile is handed over under a clear sky and not
+  under a storm, and a pile on the annex floor, under a roof, is still handed over in the storm.
+
   **The pile survives one colonist's comfort.** The first cut stowed the whole pile stack in the
   colonist's pack before spending one unit of it, so a stack of three packs vanished from the
   stockpile at one colonist's first smoke. `_do_comfort` now spends where the item lies: one unit
