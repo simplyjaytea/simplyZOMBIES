@@ -6436,3 +6436,21 @@ piece itself is the owner's standing item ("nobody seeks comfort, or reads, on t
 
 **How to apply:** a new autonomy kind that walks outside goes into `DANGER_KINDS`, and an idle
 fallback goes below every ranked column in `_pick`, not in `_tick_one`.
+## Three walls, one substance each, 2026-10-26
+
+Engineering calls taken on the buildables slice. None rebalances a shipped verb, and none moves a
+pinned lane. The numbers they set are first cuts, named in the record as unmeasured.
+
+- **A wire fence stops the body and not the eye.** The timber wall and the stone course block sight
+  as the barricade does; the fence is the one raised wall the shadowcast sees through. The sim
+  already distinguished the two halves (a door is solid and opaque by its state, a board is opaque
+  until its stage), so the fence is one more overlay kind with its own answer, not a new mechanism.
+- **A recipe names one substance.** The table is verb to kind, so the fence is wire alone and not
+  wire with fixings. A recipe that wants a pair is a shape change and goes to the owner first.
+- **Walls are not singletons.** `can_build` is the barricade's ground rule without its window-side
+  rule, and more than one wall may stand. The scrap barricade's one-of-a-kind check stays as it was.
+
+**How to apply:** a new raised wall is a `RECIPES` row, a `BUILD_TICKS` row, a `BLOCKERS` row, a
+`STAGE_COST` row, and one answer in each of `SimTileMap.is_solid`, `opacity_at`,
+`shadowcast._overlay_opacity` and the presentation's overlay arm. WALLS in `godot:m2:fortify` is the
+lane that proves the answers agree, and it must go red when any one of them is sabotaged.

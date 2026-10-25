@@ -42,6 +42,7 @@ func _init() -> void:
 func _run() -> void:
 	var ok: bool = true
 	ok = _verbs() and ok
+	ok = _raised_rows() and ok
 	ok = _decline() and ok
 	ok = _dispatch() and ok
 	ok = _speed() and ok
@@ -50,7 +51,7 @@ func _run() -> void:
 	var right_click_ok: bool = await _right_click()
 	ok = right_click_ok and ok
 	if ok:
-		print("CONTEXT_OK the street menu offers only what the sim would accept, every row moves the sim, a click walks at the stick's own speed, its header names what was clicked, the bar's E words are its first row's, and the scene opens, dispatches, closes it and answers its keys")
+		print("CONTEXT_OK the street menu offers only what the sim would accept, every row moves the sim, a click walks at the stick's own speed, its header names what was clicked, the bar's E words are its first row's, the raised walls are offered only where their material is carried and the ground takes them, and the scene opens, dispatches, closes it and answers its keys")
 		quit(0)
 	else:
 		push_error("CONTEXT_FAIL")
@@ -342,6 +343,49 @@ func _collect(into: Array, rows: Array[Dictionary]) -> void:
 # fixture picks a base that was never going to collide with it.
 func _spawn_test_item(w: Variant) -> int:
 	return SimItems.spawn_item(w, "item.food.canned", {"tier": "scavenged"})
+
+
+# The three raised walls: a row for each, offered on the tile in front only while the survivor
+# carries its one substance and the ground takes a wall. Each row's `use.context` starts that
+# wall's own channel, which is read back off the actor's construct component.
+func _raised_rows() -> bool:
+	var ok: bool = true
+	var cases: Array[Dictionary] = [
+		{"item": "item.plank.sawn", "row": "raise a timber wall", "verb": "timber"},
+		{"item": "item.stone.block", "row": "raise a stone course", "verb": "stone"},
+		{"item": "item.wire.steel", "row": "string a wire fence", "verb": "fence"},
+	]
+	var hit: Dictionary = {"kind": "ground", "entity": -1, "tile": Vector2i(11, 10)}
+	for case in cases:
+		var w: Variant = _world(10.5, 10.5, 0.0)
+		var bare_rows: Array[Dictionary] = SimContext.verbs_at(w, w.player, hit)
+		if _has_row(bare_rows, String(case["row"])):
+			push_error("RAISED: '%s' offered with nothing carried" % String(case["row"]))
+			ok = false
+		var item: int = SimItems.spawn_item(w, String(case["item"]), {"tier": "scavenged", "count": 1})
+		if not SimInventory.stow(w, w.player, item):
+			push_error("RAISED: could not stow '%s'" % String(case["item"]))
+			return false
+		var rows: Array[Dictionary] = SimContext.verbs_at(w, w.player, hit)
+		if not _has_row(rows, String(case["row"])):
+			push_error("RAISED: '%s' not offered on open ground with its material carried" % String(case["row"]))
+			ok = false
+		SimFortify._use_context(w, w.player)
+		var channel: Variant = w.components.get_component(w.player, "construct")
+		if not channel is Dictionary or String((channel as Dictionary).get("verb", "")) != String(case["verb"]):
+			push_error("RAISED: the row's use.context did not start the '%s' channel" % String(case["verb"]))
+			ok = false
+
+	# A window in front is not ground a wall takes: the scrap barricade's window rule is the
+	# barricade's, and the raised walls ask only for open floor, so this refusal is the window's own.
+	var wn: Variant = _world(10.5, 10.5, 0.0)
+	_set_tile(wn, 11, 10, SimTileMap.Tile.Window)
+	var plank: int = SimItems.spawn_item(wn, "item.plank.sawn", {"tier": "scavenged", "count": 1})
+	SimInventory.stow(wn, wn.player, plank)
+	if _has_row(SimContext.verbs_at(wn, wn.player, hit), "raise a timber wall"):
+		push_error("RAISED: a timber wall offered on a window tile")
+		ok = false
+	return ok
 
 
 # --- HEADER and BAR ----------------------------------------------------------------------------

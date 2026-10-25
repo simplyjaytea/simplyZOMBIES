@@ -55,7 +55,22 @@ const MATERIAL_KINDS: Array[String] = [
 # is additive, so they cost nothing after it. How *much* a recipe costs is not here either -- one
 # unit a stage, and the owner kept per-recipe quantity closed; the bench's standing three is
 # still SimGunsmith.BENCH_SCRAP, exactly where it already was.
-const RECIPES: Dictionary = {"scrap": "metal", "bench": "metal", "repair": "metal"}
+const RECIPES: Dictionary = {
+	"scrap": "metal", "bench": "metal", "repair": "metal",
+	# The raised buildables of the 2026-10-26 slice: a timber wall off a plank, a stone course off
+	# rubble, a wire fence off wire. One substance each -- a recipe that wanted a *pair* (fixings
+	# to hand, cordage to lash) would be a shape change to this table, not a row.
+	"timber": "plank", "stone": "stone", "fence": "wire",
+}
+
+# Channel length in ticks for the three raised buildables. Verbs not named here keep CHANNEL_TICKS
+# (or the bench's BENCH_TICKS).
+const BUILD_TICKS: Dictionary = {"timber": 80, "stone": 160, "fence": 30}
+
+# The component each raised buildable stands as, keyed by the verb that raises it. Each component
+# carries its own `kind` (the verb), and `sync_map` reads that back into the map overlay, so the
+# map, the kernel and vision see one shape.
+const BLOCKERS: Dictionary = {"timber": "timberWall", "stone": "stoneWall", "fence": "wireFence"}
 
 
 ## What a recipe is built out of. An unknown verb answers "" -- and "" is not a kind, so
@@ -119,10 +134,11 @@ static func consume_material(world: Variant, actor: int, kind: String) -> bool:
 # the dead whose wanted move it stopped this tick -- the kernel's `pressX`/`pressY` -- and a
 # crowd presses harder than its number: n bodies press n x (1 + 0.5 x (n - 1)), so one is 1,
 # two 3, three 6, four 10. Each kind has a cost per stage; four stages and it gives: a board or a
-# barricade is gone, a door hangs off its hinges (stage DOOR_BROKEN, a doorway for good).
-# `fortify.breached` says which kind. A body standing beside a barrier with nowhere it wants to
-# go presses nothing -- the old passive adjacency wear is gone with this.
-const STAGE_COST: Dictionary = {"board": 40, "door": 160, "scrap": 90}
+# barricade is gone, a door hangs off its hinges (stage DOOR_BROKEN, a doorway for good), and a
+# raised buildable comes down as floor again -- the fence in the fewest presses, the stone course
+# in the most. `fortify.breached` says which kind. A body standing beside a barrier with nowhere
+# it wants to go presses nothing -- the old passive adjacency wear is gone with this.
+const STAGE_COST: Dictionary = {"board": 40, "door": 160, "scrap": 90, "timber": 120, "stone": 180, "fence": 60}
 const DOOR_PROSE: Array[String] = ["shut", "rattling", "splintering", "hanging off its hinges"]
 
 
@@ -358,6 +374,15 @@ static func sync_map(world: Variant, full: bool = true) -> void:
 		var sx: int = floori(float((pos as Dictionary)["x"]))
 		var sy: int = floori(float((pos as Dictionary)["y"]))
 		table[sy * int(map.w) + sx] = {"kind": "scrap"}
+	for component in BLOCKERS.values():
+		for entity3 in world.components.query([String(component), "position"]):
+			var wall: Variant = world.components.get_component(int(entity3), String(component))
+			var pos3: Variant = world.components.get_component(int(entity3), "position")
+			if not wall is Dictionary or not pos3 is Dictionary:
+				continue
+			var wx: int = floori(float((pos3 as Dictionary)["x"]))
+			var wy: int = floori(float((pos3 as Dictionary)["y"]))
+			table[wy * int(map.w) + wx] = {"kind": String((wall as Dictionary).get("kind", ""))}
 	map.overlays = table
 	var w: int = int(map.w)
 	if not full and before is Dictionary and world.map_cells.size() == w * int(map.h) and int(world.map_width) == w and world.has_method("invalidate_tiles"):
@@ -425,7 +450,7 @@ static func look_at(world: Variant, actor: int) -> Dictionary:
 # The two gate tiles are read off the map the colony was stamped onto rather than off a pair of
 # constants: where the gate is belongs to the district, and a map that carries no anchors answers
 # with the (-1, -1) sentinel, which is why each gate is compared only after it says it exists.
-static func can_scrap(map: Variant, tx: int, ty: int) -> bool:
+static func _buildable_ground(map: Variant, tx: int, ty: int) -> bool:
 	var here := Vector2i(tx, ty)
 	var gate_a: Vector2i = SimTileMap.gate_a(map)
 	if gate_a.x >= 0 and here == gate_a:
@@ -437,12 +462,26 @@ static func can_scrap(map: Variant, tx: int, ty: int) -> bool:
 		return false
 	if SimTileMap.is_indoors(map, tx, ty):
 		return false
-	if SimTileMap.overlay_at(map, tx, ty) != null:
+	return SimTileMap.overlay_at(map, tx, ty) == null
+
+
+# The barricade is anything `_buildable_ground` would take *plus* a window within a tile's step:
+# it exists to plug the gap between a boarded window and the street, and raising one in the middle
+# of the yard asks nothing of the game it answers.
+static func can_scrap(map: Variant, tx: int, ty: int) -> bool:
+	if not _buildable_ground(map, tx, ty):
 		return false
 	for d in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]:
 		if SimTileMap.tile_at(map, tx + d.x, ty + d.y) == SimTileMap.Tile.Window:
 			return true
 	return false
+
+
+# Whether a timber wall, a stone course or a wire fence can stand on this tile: the same ground
+# the barricade wants, without the window-side rule. A wall is for the middle of the yard, not
+# only for the gap under a glass, and more than one may stand at once.
+static func can_build(map: Variant, tx: int, ty: int) -> bool:
+	return _buildable_ground(map, tx, ty)
 
 
 # The top rung of E, read rather than taken. `_use_context` below decides and acts in the same
@@ -534,6 +573,14 @@ static func rung_of(world: Variant, actor: int) -> Dictionary:
 		return {"verb": "lift_noise", "target": -1, "prose": "take up the noise device"}
 	if can_scrap(world.tilemap, face.x, face.y) and carried_material(world, actor, recipe_kind("scrap")) >= 0 and world.components.query(["scrapBarricade"]).is_empty():
 		return {"verb": "scrap", "target": face, "prose": "raise a scrap barricade"}
+	# The raised buildables sit under the barricade and above the free placements, so where a wall
+	# can go up, E raises it before it would lay a free alarm or noisemaker on the same tile.
+	if _buildable_rung(world, actor, "timber"):
+		return {"verb": "timber", "target": face, "prose": "raise a timber wall"}
+	if _buildable_rung(world, actor, "stone"):
+		return {"verb": "stone", "target": face, "prose": "raise a stone course"}
+	if _buildable_rung(world, actor, "fence"):
+		return {"verb": "fence", "target": face, "prose": "string a wire fence"}
 	if _empty_floor(world, face.x, face.y):
 		if alarm == null:
 			return {"verb": "alarm", "target": face, "prose": "lay a trip alarm"}
@@ -542,6 +589,19 @@ static func rung_of(world: Variant, actor: int) -> Dictionary:
 		elif int(Gunsmith.call("bench_in_reach", world, actor)) < 0 and material_count(world, actor, recipe_kind("bench")) >= int(Gunsmith.get("BENCH_SCRAP")):
 			return {"verb": "bench", "target": face, "prose": "build a bench"}
 	return {}
+
+
+# Whether one of the three raised buildables would fire on the tile in front: ground that takes it,
+# a unit of its one substance in the pack, and the tile within reach. The read half of the three
+# rungs, shared so the words on the menu and the channel the key starts cannot disagree -- the same
+# predicate rule `can_scrap` set.
+static func _buildable_rung(world: Variant, actor: int, verb: String) -> bool:
+	var face: Vector2i = _facing_tile(world, actor)
+	if not can_build(world.tilemap, face.x, face.y):
+		return false
+	if not _in_reach_tile(world, actor, face.x, face.y):
+		return false
+	return carried_material(world, actor, recipe_kind(verb)) >= 0
 
 
 # Whether `toggle_door` would open or close the door at this tile, asked without doing it: a
@@ -726,6 +786,15 @@ static func _use_context(world: Variant, actor: int) -> void:
 		"scrap":
 			var st: Vector2i = rung.get("target", Vector2i(-1, -1))
 			_start(world, actor, "scrap", st.x, st.y)
+		"timber":
+			var tw: Vector2i = rung.get("target", Vector2i(-1, -1))
+			_start(world, actor, "timber", tw.x, tw.y)
+		"stone":
+			var sw: Vector2i = rung.get("target", Vector2i(-1, -1))
+			_start(world, actor, "stone", sw.x, sw.y)
+		"fence":
+			var wf: Vector2i = rung.get("target", Vector2i(-1, -1))
+			_start(world, actor, "fence", wf.x, wf.y)
 		"alarm":
 			var at: Vector2i = rung.get("target", Vector2i(-1, -1))
 			_start(world, actor, "alarm", at.x, at.y)
@@ -749,6 +818,18 @@ static func _intake_verb(world: Variant, actor: int, c: Dictionary) -> void:
 		"barricade.scrap":
 			if can_scrap(world.tilemap, tx, ty) and carried_material(world, actor, recipe_kind("scrap")) >= 0 and world.components.query(["scrapBarricade"]).is_empty():
 				_start(world, actor, "scrap", tx, ty)
+		# The raised buildables' rows, under their own names. Each re-asks the predicate its rung was
+		# offered behind (`can_build` on the tile named, and a unit of the one substance carried), so
+		# a tile the menu named gets the same answer the menu believed.
+		"barricade.timber":
+			if can_build(world.tilemap, tx, ty) and carried_material(world, actor, recipe_kind("timber")) >= 0:
+				_start(world, actor, "timber", tx, ty)
+		"wall.stone":
+			if can_build(world.tilemap, tx, ty) and carried_material(world, actor, recipe_kind("stone")) >= 0:
+				_start(world, actor, "stone", tx, ty)
+		"fence.wire":
+			if can_build(world.tilemap, tx, ty) and carried_material(world, actor, recipe_kind("fence")) >= 0:
+				_start(world, actor, "fence", tx, ty)
 		"trap.alarm.place":
 			if _first(world, "alarmLine") == null and _empty_floor(world, tx, ty):
 				_start(world, actor, "alarm", tx, ty)
@@ -805,6 +886,8 @@ static func _start(world: Variant, actor: int, verb: String, tx: int, ty: int) -
 	var ticks: int = CHANNEL_TICKS
 	if verb == "bench":
 		ticks = int(_Gunsmith().get("BENCH_TICKS"))
+	elif BUILD_TICKS.has(verb):
+		ticks = int(BUILD_TICKS[verb])
 	world.components.set_component(actor, "construct", {"verb": verb, "ticksLeft": ticks, "tx": tx, "ty": ty})
 
 
@@ -838,6 +921,8 @@ static func _complete(world: Variant, _actor: int, verb: String, tx: int, ty: in
 			_board_window(world, tx, ty)
 		"scrap":
 			_place_scrap(world, _actor, tx, ty)
+		"timber", "stone", "fence":
+			_place_wall(world, _actor, verb, tx, ty)
 		"alarm":
 			_place_alarm(world, tx, ty)
 		"noisemaker":
@@ -894,6 +979,21 @@ static func _place_scrap(world: Variant, actor: int, tx: int, ty: int) -> void:
 	var ent: int = int(world.entities.spawn())
 	world.components.set_component(ent, "position", {"x": float(tx) + 0.5, "y": float(ty) + 0.5})
 	world.components.set_component(ent, "scrapBarricade", {})
+	sync_map(world, false)
+
+
+# A raised buildable: the same shape as `_place_scrap`, with the wall's own kind on its component.
+# Re-validated on completion, so a tile that was built on, or a pack that lost its material, mid
+# channel spends the channel and stands nothing up. Several may stand at once -- `can_build` only
+# asks that the tile be open ground, so the scrap barricade's one-of-a-kind check does not apply.
+static func _place_wall(world: Variant, actor: int, verb: String, tx: int, ty: int) -> void:
+	if not can_build(world.tilemap, tx, ty):
+		return
+	if not consume_material(world, actor, recipe_kind(verb)):
+		return
+	var ent: int = int(world.entities.spawn())
+	world.components.set_component(ent, "position", {"x": float(tx) + 0.5, "y": float(ty) + 0.5})
+	world.components.set_component(ent, String(BLOCKERS[verb]), {"kind": verb, "stage": 0, "contactTicks": 0})
 	sync_map(world, false)
 
 
@@ -1146,6 +1246,20 @@ static func _tick_contact(world: Variant) -> void:
 			if int((scrap as Dictionary)["stage"]) >= 4:
 				world.events.publish({"type": "fortify.breached", "tx": sx, "ty": sy, "kind": "scrap"})
 				world.despawn(int(entity2))
+	for component in BLOCKERS.values():
+		for entity4 in world.components.query([String(component), "position"]):
+			var wall: Variant = world.components.get_component(int(entity4), String(component))
+			var wpos: Variant = world.components.get_component(int(entity4), "position")
+			if not wall is Dictionary or not wpos is Dictionary:
+				continue
+			var wx: int = floori(float((wpos as Dictionary)["x"]))
+			var wy: int = floori(float((wpos as Dictionary)["y"]))
+			var wall_kind: String = String((wall as Dictionary).get("kind", ""))
+			if _press(wall as Dictionary, presses, wx, wy, wall_kind):
+				dirty = true
+				if int((wall as Dictionary)["stage"]) >= 4:
+					world.events.publish({"type": "fortify.breached", "tx": wx, "ty": wy, "kind": wall_kind})
+					world.despawn(int(entity4))
 	var doors: Dictionary = world.components.table("door")
 	for entity3 in world.components.query(["door"]):
 		var door: Variant = doors.get(int(entity3))
