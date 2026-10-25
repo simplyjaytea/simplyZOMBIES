@@ -530,12 +530,20 @@ system.
   heat is the owner's call and it breaks that pin.
 - ~~**Cooking and water: the transform keys**~~ — **landed** 2026-09-12, see the record.
 - ~~**Build materials: the substance that is not scrap**~~ — **landed** 2026-09-12, see the record.
-- **Buildables for the other eleven kinds.** The materials slice landed the vocabulary, the content
-  and the loot; what it could not land is an economy. Three recipes exist and **all three want
-  metal**, so wood, planks, stone, fibre, cordage, fixings, ingots, charcoal, clay, wire and
-  circuits are declared, findable, read end to end — and unspent. `check_m2_materials.gd`'s RECIPES
-  lane prints the count and the names on every run rather than letting it go quiet. What closes it
-  is docs/12's own list: a timber wall, a stone course, a wire fence.
+- **Buildables for the other eight kinds.** The materials slice landed the vocabulary, the content
+  and the loot, and the three raised walls of docs/12's own list have landed since (the record
+  says which half). Eight kinds still spend on nothing: wood, fibre, cordage, fixings, ingots,
+  charcoal, clay and circuits. Each needs a verb of its own, with its own decision about what it
+  makes, and its own gate lane. `check_m2_materials.gd`'s RECIPES lane prints the eight names on
+  every run. The pictures of the three new walls are open and belong to the art thread.
+- **Colonists raise no walls.** `SimJobs._construct_work` takes annex windows and beds and nothing
+  else, and the scrap barricade never was colonist work. The three raised walls are built by the
+  survivor on E or by the right-click menu. Whether a colonist should work a marked wall is a
+  Construct decision, not a `_material_for` one: the material already resolves for any kind.
+- **The director does not count the raised walls.** `SimDirector._power` reads the window board and
+  the scrap barricade as the colony's defence, and not the timber wall, the stone course or the wire
+  fence. Adding them changes the director's pressure, which is a balance call and needs the
+  before-and-after run that a rebalance owes.
 - ~~**Light that burns down, and what feeds it**~~ — **landed** 2026-09-12, see the record.
 - ~~**Noise that is an item**~~ — **landed** 2026-09-12, see the record. Half of it: the eight new
   devices are real, and the alarm and the noisemaker are **still free world singletons**, by the
@@ -13995,6 +14003,46 @@ not a to-do list:
   findable and wired end to end; **three recipes exist and all three want metal**, so eleven kinds
   have nothing to spend them on yet. The RECIPES lane prints that count and those names every time
   rather than letting it go quiet, and the remainder is named as its own piece in what's-left.
+- **Items** — **the three raised walls** landed 2026-10-26, **half of the eleven-kind bullet**
+  (`npm run godot:m2:materials` → **`M2_MATERIALS_OK pinned kind kinds findable reach recipes builds`**,
+  with the RECIPES lane now printing eight unspent kinds where it printed eleven; `godot:m2:fortify`
+  → **`M2_FORTIFY_OK ... and the three raised walls`**, its WALLS lane; `godot:check:context`
+  → **`CONTEXT_OK`**, its RAISED lane; the full `godot:m2` chain before the commit). Each lane was
+  broken on purpose and watched go red: a timber recipe pointed at metal, a fence made opaque in the
+  tile map alone, a fence made opaque in the shadowcast alone, and the press loop switched off.
+
+  **Three recipes, one substance each.** A timber wall wants a plank, a stone course a stone block,
+  a wire fence a steel wire, and each is a row of `SimFortify.RECIPES` beside `scrap`, `bench` and
+  `repair`. The table maps a verb to one kind, so a recipe that wanted a pair (fixings to hand,
+  cordage to lash) would be a shape change, not a row, and none was taken. Each raises its own
+  component (`timberWall`, `stoneWall`, `wireFence`) carrying its own `kind`, which `sync_map` reads
+  back into the map overlay, so the tile map, the kernel and vision all see one shape. A wall is for
+  the middle of the yard: `can_build` is the barricade's ground rule without the window-side rule,
+  and more than one may stand.
+
+  **The sim distinguishes the two blocking halves, and the fence uses it.** A timber wall and a
+  stone course are solid and opaque, as the barricade is. **A wire fence is solid and clear**:
+  `SimTileMap.is_solid`, `opacity_at` and the shadowcast's `_overlay_opacity` all answer for it, so
+  it stops a body and the eye goes through it. WALLS asserts all of it through `blocks_sight`,
+  `is_blocked_tile` and the shadowcast's own sightline.
+
+  **Channel and press numbers are a first cut and unmeasured.** The channels are 80 ticks for the
+  timber wall, 160 for the stone course and 30 for the fence. Under crowd pressure a stage costs 120,
+  180 and 60. Nothing here is a balance claim: WALLS holds the one ordering the design needs, that a
+  fence falls to one presser inside 260 ticks and a stone course does not, and the number is the
+  owner's to re-measure.
+
+  **Colonists build none of them, and the record says so rather than leaving it to be found.**
+  `_construct_work` takes annex windows and beds, and `_material_for` already resolves any
+  `MATERIAL_KINDS` kind, so it needed no change; a marked wall a colonist could work is a separate
+  piece, named above.
+
+  **Pictures are open.** The walls draw as the procedural wall tile in `presentation/main.gd`, which
+  is what keeps a blocked tile from drawing as floor. No `prop.*` sibling was added to
+  `stations.json`: the scrap barricade's picture is read only through `PROP_KINDS` in
+  `appearance.gd`, and wiring the walls to it would stand a barricade picture over every wall, so
+  it waits for the art thread's own pictures.
+
 - **Items** — ~~the mask that filters~~ **landed** 2026-09-12
   (`npm run godot:m2:filter` → **`M2_FILTER_OK content worn max bloom cloud notsafe pinned`**, a new
   gate whose seven lanes were each broken and watched go red before they were trusted;

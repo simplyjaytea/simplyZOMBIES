@@ -201,7 +201,7 @@ static func is_solid(map: Variant, tx: int, ty: int) -> bool:
 	var ov: Variant = overlay_at(map, tx, ty)
 	if ov is Dictionary:
 		var kind: String = String((ov as Dictionary).get("kind", ""))
-		if kind == "scrap":
+		if kind == "scrap" or kind == "timber" or kind == "stone" or kind == "fence":
 			return true
 		if kind == "door":
 			return not bool((ov as Dictionary).get("open", false))
@@ -212,8 +212,12 @@ static func opacity_at(map: Variant, tx: int, ty: int) -> int:
 	var ov: Variant = overlay_at(map, tx, ty)
 	if ov is Dictionary:
 		var kind: String = String((ov as Dictionary).get("kind", ""))
-		if kind == "scrap":
+		if kind == "scrap" or kind == "timber" or kind == "stone":
 			return Opacity.Opaque
+		# A wire fence stops a body and not a sightline: the wire is the one raised buildable the
+		# eye goes through, which is what makes it a fence and not a second barricade.
+		if kind == "fence":
+			return Opacity.Clear
 		if kind == "board":
 			if int((ov as Dictionary).get("stage", 0)) >= 3:
 				return Opacity.Low
