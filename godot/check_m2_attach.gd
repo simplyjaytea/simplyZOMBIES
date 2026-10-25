@@ -11,6 +11,7 @@ const World = preload("res://sim/world.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
+const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
@@ -2260,18 +2261,45 @@ func _swing_once(w: Variant, weapon: int) -> void:
 	SimMelee._resolve_strike(w, w.player, SimItems.melee_profile_of(w, weapon) as Dictionary, w.rng.stream("melee"), candidates)
 
 
+# A body a metre in front of the player, who stands at (8.5, 12.5) facing east: a swing connects.
+func _victim(w: Variant) -> int:
+	var v: int = int(w.entities.spawn())
+	w.components.set_component(v, "position", {"x": 9.5, "y": 12.5})
+	SimHealth.make_survivor_body(w, v)
+	return v
+
+
+func _scratches_of_the_hand(w: Variant) -> int:
+	var inj: Variant = w.components.get_component(w.player, "injuries")
+	if not inj is Dictionary:
+		return 0
+	var n: int = 0
+	for wound in (inj as Dictionary).get("wounds", []) as Array:
+		var d: Dictionary = wound as Dictionary
+		if String(d.get("bodyPart", "")) == "hand_right" and int(d.get("severity", -1)) == SimWounds.Severity.Scratch and int(d.get("clotsAtTick", -1)) >= 0:
+			n += 1
+	return n
+
+
 func _a_glass_blade_cuts_the_hand_that_holds_it_until_it_is_wrapped() -> bool:
 	var w: Variant = _world()
 	var bat: int = _spawn(w, WOOD_BAT)
 	if not SimAttachments.attach(w, bat, _spawn(w, GLASS), "stud"):
 		push_error("CUT: glass was refused a wooden bat's stud")
 		return false
-	# True positive: a swing with the grip bare cuts the hand, and the cut is a wound on it.
+	# True negative: a swing that finds nobody costs the hand nothing.
 	_swing_once(w, bat)
-	if _cuts_of_the_hand(w) != 1:
-		push_error("CUT: glass with a bare grip cut the hand %d times on one swing, not once" % _cuts_of_the_hand(w))
+	if _cuts_of_the_hand(w) != 0:
+		push_error("CUT: a swing that missed cut the hand (%d cuts)" % _cuts_of_the_hand(w))
 		return false
-	# True negative: wrap the grip and the same swing keeps the hand.
+	# True positive: a swing that connects with the grip bare scratches the hand once, and the
+	# scratch is the kind that clots on its own (a Laceration never does).
+	_victim(w)
+	_swing_once(w, bat)
+	if _cuts_of_the_hand(w) != 1 or _scratches_of_the_hand(w) != 1:
+		push_error("CUT: glass with a bare grip left %d cuts and %d clotting scratches on one connecting swing, not one of each" % [_cuts_of_the_hand(w), _scratches_of_the_hand(w)])
+		return false
+	# True negative: wrap the grip and the same connecting swing keeps the hand.
 	if not SimAttachments.attach(w, bat, _spawn(w, CORD_WRAP), "wrap"):
 		push_error("CUT: a cord wrap was refused the grip")
 		return false
@@ -2279,16 +2307,29 @@ func _a_glass_blade_cuts_the_hand_that_holds_it_until_it_is_wrapped() -> bool:
 	if _cuts_of_the_hand(w) != 1:
 		push_error("CUT: a wrapped grip was cut (%d cuts)" % _cuts_of_the_hand(w))
 		return false
+	# True negative, a hand that is gone: nothing is left to cut, and nothing is added.
+	var w3: Variant = _world()
+	var gone_bat: int = _spawn(w3, WOOD_BAT)
+	if not SimAttachments.attach(w3, gone_bat, _spawn(w3, GLASS), "stud"):
+		push_error("CUT: glass was refused a wooden bat's stud (destroyed-hand world)")
+		return false
+	_victim(w3)
+	(w3.components.get_component(w3.player, "body") as Dictionary)["hand_right"] = SimWounds.DESTROYED
+	_swing_once(w3, gone_bat)
+	if _cuts_of_the_hand(w3) != 0:
+		push_error("CUT: a destroyed hand was cut (%d cuts)" % _cuts_of_the_hand(w3))
+		return false
 	# True negative, the other way: nails declare no handCut, so a bare grip with nails is not cut.
 	var w2: Variant = _world()
 	var nailed: int = _spawn(w2, WOOD_BAT)
 	if not SimAttachments.attach(w2, nailed, _spawn(w2, NAILS), "stud"):
 		push_error("CUT: nails were refused a wooden bat's stud")
 		return false
+	_victim(w2)
 	_swing_once(w2, nailed)
 	if _cuts_of_the_hand(w2) != 0:
 		push_error("CUT: nails cut the hand, which only glass declares")
 		return false
-	print("  CUT OK glass on a bare grip cuts the right hand once a swing, a cord wrap stops it, nails never cut")
+	print("  CUT OK glass on a bare grip scratches the right hand once per connecting swing (a clotting scratch); a miss, a cord wrap and a destroyed hand cost nothing; nails never cut")
 	return true
 

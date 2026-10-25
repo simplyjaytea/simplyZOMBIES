@@ -2508,8 +2508,9 @@ not a to-do list:
   `attachment.recipe.kinds`, one unit of each material kind spent per part, and `item.improvise`
   makes the part from what the survivor carries and fits it, checking every refusal before anything
   is spent. Bench work unless the part is `fieldSwap`. Glass Shards carry `handCut`: a swing on a
-  bare grip cuts the right hand through the wound path a bad exposure uses (kind `cut`), and a wrap
-  in the wrap slot stops it. Two profile fields that already had readers became multipliers:
+  bare grip that connects scratches the right hand through the wound path a bad exposure uses (kind
+  `cut`, a Scratch that clots on its own; docs/30, "The hand-cut rule, as changed"), and a wrap in
+  the wrap slot stops it. Two profile fields that already had readers became multipliers:
   `weight` (what `recover_ticks` reads) and `connectNoise` (the loudness of a landed swing). No
   stat without a reader was authored. Gate: `godot:m2:attach` FAMILY, APPLIES, PLAUSIBLE, RECIPE
   and CUT; CONTENT exempts a recipe from findability, since it is made and never looted, and APPLIES
