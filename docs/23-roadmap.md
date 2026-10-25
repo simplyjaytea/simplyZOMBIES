@@ -301,14 +301,6 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
 
 *Melee, frames and recipes (stage 1):*
 
-- **Melee frames and the widened slots.** The nineteen melee bases gain a `family` (club, blade,
-  polearm, tool) and three new slots: `stud`, `guard`, `weight`, each with `appliesTo` by family.
-  A part in a slot nothing reads is refused by the gate. Gate: `godot:m2:attach` MELEE.
-- **The improvised recipe table.** About twenty-five plausible combinations as content: a knife
-  lashed to a hockey stick, nails in a wooden bat (and the aluminium bat that splits), a blade
-  head on a long haft, a pitchfork head on a pipe with cordage and a fixing. Each names its
-  materials and what it costs the frame. Gate: `godot:m2:bench` RECIPES, with a refused
-  implausible pairing.
 - **Specific melee wear.** Studs fall out on hits through the `struck` wear word (shared with the
   plate piece), an edge dulls and a whetstone restores it, a lashed head flies off one swing in N
   from its own RNG stream. Gate: `godot:m2:swipe` WEAR.
@@ -2415,6 +2407,35 @@ What landed and what proved it, system by system (condensed from the retired bac
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **Melee frames and the widened slots, and the improvised recipe table, 2026-10-26.** The first
+  stage of the melee arc (docs/38). Every melee item declares a `family` (club, blade, polearm or
+  tool): the nineteen melee bases, a new `item.bat.wood` (a twentieth base, so the wooden bat the
+  nails need exists), and the three named melee items. The wooden bat is findable only in
+  `loot.industrial` (weight 5): the same entry in `loot.residential` moved the ten-day balance
+  campaigns, seed 90210 lost its colony in the fast tier, and `godot:m2:balance` refused it
+  (M2_BALANCE_FAIL); in `loot.industrial` the gate passes (M2_BALANCE_OK, 228 s), and `godot:m2:gear`
+  CATALOGUE needs a loot table or kit for every base that does something. Three slots
+  widen the melee bases: `stud`, `guard` and `weight`, each declared only where it is plausible
+  (`item.pipe.steel` takes stud and weight, `item.sabre.cavalry` takes guard, and the aluminium bat
+  takes weight but no stud). An attachment declares `appliesTo` beside `fits`, a list of families
+  or base ids, and `SimAttachments.plausible` asks both. Every offer to a slot (the bench view, the
+  field drop, the field-work verb) asks it too, so a refused part is never offered. Twenty-five
+  improvised parts are content in `godot/content/items/improvised.json`. Each carries
+  `attachment.recipe.kinds`, one unit of each material kind spent per part, and `item.improvise`
+  makes the part from what the survivor carries and fits it, checking every refusal before anything
+  is spent. Bench work unless the part is `fieldSwap`. Glass Shards carry `handCut`: a swing on a
+  bare grip cuts the right hand through the wound path a bad exposure uses (kind `cut`), and a wrap
+  in the wrap slot stops it. Two profile fields that already had readers became multipliers:
+  `weight` (what `recover_ticks` reads) and `connectNoise` (the loudness of a landed swing). No
+  stat without a reader was authored. Gate: `godot:m2:attach` FAMILY, APPLIES, PLAUSIBLE, RECIPE
+  and CUT; CONTENT exempts a recipe from findability, since it is made and never looted, and APPLIES
+  holds it to being improvisable. Also `godot:m2:bench`, `godot:m2:swipe`, `godot:check:inventory`,
+  `godot:validate`, `npm test` and the full `godot:m2` chain. No pictures: the new parts and the
+  wooden bat have no sprite and fall back through `presentation/appearance.gd` to role colours. Not
+  in this piece: the bench screen does not offer improvised parts yet (the command is sim-reachable
+  and the gate reads it; a screen row is the next step), and the wear of studs and edges is the arc's
+  next piece.
 
 - **UI overhaul, slice 2: the Colony screen in one survivor context, 2026-10-23.** The second
   bullet of [the UI overhaul group](#ui-overhaul), its Colony half, against docs/32's roster row.
