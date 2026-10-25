@@ -480,8 +480,30 @@ static func can_scrap(map: Variant, tx: int, ty: int) -> bool:
 # Whether a timber wall, a stone course or a wire fence can stand on this tile: the same ground
 # the barricade wants, without the window-side rule. A wall is for the middle of the yard, not
 # only for the gap under a glass, and more than one may stand at once.
-static func can_build(map: Variant, tx: int, ty: int) -> bool:
-	return _buildable_ground(map, tx, ty)
+# It also asks what is standing on the tile, which the ground rule alone never did: a wall raised on
+# a body, a well, a bed, a bench, a lamp, a fire or a loose item would trap it inside a solid tile.
+static func can_build(world: Variant, tx: int, ty: int) -> bool:
+	if not _buildable_ground(world.tilemap, tx, ty):
+		return false
+	return not _tile_held(world, tx, ty)
+
+
+# The components that keep a wall off a tile when their entity stands on it. A body is any entity
+# with a `body` and a position (a survivor, a shambler, a raider); the rest are the furniture and
+# the water the colony lives beside, and `itemBase` is a loose item lying on the ground (an item in
+# a pack has no `position`, so it is never in the way).
+const TILE_OCCUPANTS: Array[String] = ["body", "water_source", "bed", "workbench", "placedLight", "campfire", "latrine", "searchable", "itemBase"]
+
+
+static func _tile_held(world: Variant, tx: int, ty: int) -> bool:
+	for component in TILE_OCCUPANTS:
+		for entity in world.components.query([component, "position"]):
+			var pos: Variant = world.components.get_component(int(entity), "position")
+			if not pos is Dictionary:
+				continue
+			if floori(float((pos as Dictionary).get("x", -1.0))) == tx and floori(float((pos as Dictionary).get("y", -1.0))) == ty:
+				return true
+	return false
 
 
 # The top rung of E, read rather than taken. `_use_context` below decides and acts in the same
@@ -597,11 +619,12 @@ static func rung_of(world: Variant, actor: int) -> Dictionary:
 # predicate rule `can_scrap` set.
 static func _buildable_rung(world: Variant, actor: int, verb: String) -> bool:
 	var face: Vector2i = _facing_tile(world, actor)
-	if not can_build(world.tilemap, face.x, face.y):
+	# The cheap asks first: can_build walks every body and piece of furniture for the tile.
+	if carried_material(world, actor, recipe_kind(verb)) < 0:
 		return false
 	if not _in_reach_tile(world, actor, face.x, face.y):
 		return false
-	return carried_material(world, actor, recipe_kind(verb)) >= 0
+	return can_build(world, face.x, face.y)
 
 
 # Whether `toggle_door` would open or close the door at this tile, asked without doing it: a
@@ -822,13 +845,13 @@ static func _intake_verb(world: Variant, actor: int, c: Dictionary) -> void:
 		# offered behind (`can_build` on the tile named, and a unit of the one substance carried), so
 		# a tile the menu named gets the same answer the menu believed.
 		"barricade.timber":
-			if can_build(world.tilemap, tx, ty) and carried_material(world, actor, recipe_kind("timber")) >= 0:
+			if carried_material(world, actor, recipe_kind("timber")) >= 0 and can_build(world, tx, ty):
 				_start(world, actor, "timber", tx, ty)
 		"wall.stone":
-			if can_build(world.tilemap, tx, ty) and carried_material(world, actor, recipe_kind("stone")) >= 0:
+			if carried_material(world, actor, recipe_kind("stone")) >= 0 and can_build(world, tx, ty):
 				_start(world, actor, "stone", tx, ty)
 		"fence.wire":
-			if can_build(world.tilemap, tx, ty) and carried_material(world, actor, recipe_kind("fence")) >= 0:
+			if carried_material(world, actor, recipe_kind("fence")) >= 0 and can_build(world, tx, ty):
 				_start(world, actor, "fence", tx, ty)
 		"trap.alarm.place":
 			if _first(world, "alarmLine") == null and _empty_floor(world, tx, ty):
@@ -984,10 +1007,11 @@ static func _place_scrap(world: Variant, actor: int, tx: int, ty: int) -> void:
 
 # A raised buildable: the same shape as `_place_scrap`, with the wall's own kind on its component.
 # Re-validated on completion, so a tile that was built on, or a pack that lost its material, mid
-# channel spends the channel and stands nothing up. Several may stand at once -- `can_build` only
-# asks that the tile be open ground, so the scrap barricade's one-of-a-kind check does not apply.
+# channel spends the channel and stands nothing up. Several may stand at once -- `can_build` asks
+# that the tile be open ground with nothing on it, so the scrap barricade's one-of-a-kind check
+# does not apply.
 static func _place_wall(world: Variant, actor: int, verb: String, tx: int, ty: int) -> void:
-	if not can_build(world.tilemap, tx, ty):
+	if not can_build(world, tx, ty):
 		return
 	if not consume_material(world, actor, recipe_kind(verb)):
 		return
