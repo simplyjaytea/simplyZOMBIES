@@ -467,10 +467,6 @@ system.
   lane prints the count and the names on every run rather than letting it go quiet. What closes it
   is docs/12's own list: a timber wall, a stone course, a wire fence.
 - ~~**Light that burns down, and what feeds it**~~ — **landed** 2026-09-12, see the record.
-- **A planted floodlight cannot be picked back up.** The light slice stands one up as furniture,
-  deliberately matching `_place_bench`, and there is no verb to take it down again. That is a real
-  restriction on a thing that came out of the player's own pack, and not obviously what anyone would
-  expect; named rather than left to be discovered.
 - ~~**Noise that is an item**~~ — **landed** 2026-09-12, see the record. Half of it: the eight new
   devices are real, and the alarm and the noisemaker are **still free world singletons**, by the
   owner's decision of 2026-09-12. Repricing them is below.
@@ -13391,6 +13387,31 @@ not a to-do list:
   **The screen's half is one word.** `fuel_clause` gives the inspect pane "burning steadily",
   "burning low", "guttering" or "dark" and nothing at all for something that is not a lamp — never a
   fraction, never a count — and `check_inventory.gd`'s digit ban judges it with the rest of the pane.
+- **Items** — ~~a planted floodlight cannot be picked back up~~ **landed** 2026-10-26
+  (`npm run godot:m2:light_burn` → **`M2_LIGHT_BURN_OK pinned content slots burn headlamp feed plant
+  unplant siphon night`**, the UNPLANT lane added to the existing gate; `godot:check:context`'s VERBS
+  lane for the menu row; `godot:m2:torch` and `godot:check:light` held), the **take-down verb for
+  the furniture the light slice stood up**.
+
+  **The way back is the plant's own reach.** `light.unplant` takes the nearest planted lamp within
+  fortify's `REACH` of the actor, the distance `_start` enforced before the channel opened, and puts
+  it into the pack. The `lightFuel` record goes with it, so the same entity stands up again half
+  burnt. The pack is asked first: a full grid refuses through the inventory's own answer, the
+  self-store and position come back, and the lamp keeps burning where it stands.
+
+  **The menu row is the sim's own predicate.** `SimContext.verbs_at` offers "take down the
+  floodlight" on a planted lamp only when `planted_in_reach` names that lamp, and the row carries
+  `light.unplant` as its command, dispatched as every row is. Bare ground beside it offers nothing.
+
+  **What the yard check proves, and what it cannot.** The plant writes nothing to the map, so the
+  3x3 was never blocked and there is no tile to restore. The lane checks that the patch is walkable
+  after the take-down and that the walkable scan can tell a wall from open ground. It does not show a
+  restored tile, because there was no tile to restore.
+
+  **It reverses a recorded call.** docs/30's "Two placeable items, two opposite answers" (2026-09-12)
+  made the floodlight one-way on purpose. The owner taking the piece up supersedes that call; see
+  docs/30's "The floodlight comes back down" (2026-10-26).
+
 - **Items** — ~~clothing: warmth, wet and cooling~~ **landed** 2026-09-12
   (`npm run godot:m2:warmth` → **`M2_WARMTH_OK pinned content compose bands cool wet rain armour
   art`**, a new gate with nine lanes, every one run red; `godot:m2:cold`, `godot:m2:heat`,
