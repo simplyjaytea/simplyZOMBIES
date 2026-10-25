@@ -13944,6 +13944,14 @@ not a to-do list:
   Water job and leaves the book shut. The READ precondition (the Water work exists) is asserted
   first, so the negative cannot pass on a fixture with nothing to lose to.
 
+  **The pile survives one colonist's comfort.** The first cut stowed the whole pile stack in the
+  colonist's pack before spending one unit of it, so a stack of three packs vanished from the
+  stockpile at one colonist's first smoke. `_do_comfort` now spends where the item lies: one unit
+  comes off a stack and the rest stays on the pile unclaimed, and a reusable comfort (cards, a
+  rosary) is used and left whole. The COMFORT lane's PILE-STACK section holds it: a pile of three
+  holds two afterwards, nothing was carried off, no claim is left, a second colonist is handed what
+  is left, and a deck is still on the pile after it is played. It failed on the stowing version.
+
   **The READ lane found a silent drop.** `_do_read` looked the book up through the content entry,
   not the `itemBase` component, so `can_learn_from` saw an empty base id and the colonist stopped at
   the shelf with nothing read and no event. The pile lane failed on it before the fix.

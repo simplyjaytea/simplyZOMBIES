@@ -1939,8 +1939,6 @@ static func _comfort_job(world: Variant, ent: int) -> Dictionary:
 		if packed is Dictionary and SimNeeds.is_comfort(world, String((packed as Dictionary).get("baseId", ""))):
 			SimNeeds.take_comfort(world, ent, int(carried))
 			return {}
-	if _hands_full(world, ent):
-		return {}
 	var here: Variant = world.components.get_component(ent, "position")
 	if not here is Dictionary:
 		return {}
@@ -1971,9 +1969,10 @@ static func _comfort_job(world: Variant, ent: int) -> Dictionary:
 	return {"kind": "Comfort", "target": best, "ticksLeft": 0, "path": [], "pathGen": -1}
 
 
-## At the pile: pick the comfort up and spend it through the same function the player verb runs.
-## A pack with no room for it leaves it where it lay and holds this colonist off it
-## (`HANDS_FULL_TICKS`, the Repair rule), so the same refused pickup is not walked to every tick.
+## At the pile: the comfort is used where it lies, through the same function the player verb runs.
+## One unit of a stack is spent off the pile and the rest stays on it for the next colonist; a
+## reusable comfort (a deck of cards, a rosary: `spends` false) is left whole. Nothing is carried
+## off, so a full pack neither refuses it nor makes it a thing to walk to again.
 static func _do_comfort(world: Variant, ent: int, job: Dictionary) -> void:
 	var item: int = int(job.get("target", -1))
 	if item < 0 or not world.components.has_component(item, "position"):
@@ -1982,14 +1981,6 @@ static func _do_comfort(world: Variant, ent: int, job: Dictionary) -> void:
 	var tile: Vector2i = _entity_tile(world, item)
 	if not _at(world, ent, tile, REACH):
 		_walk(world, ent, job, tile)
-		return
-	var laid: Variant = world.components.get_component(item, "position")
-	world.components.remove(item, "position")
-	if not SimInventory.stow(world, ent, item):
-		if laid is Dictionary:
-			world.components.set_component(item, "position", laid)
-		_hands_full_now(world, ent)
-		_stop(world, ent)
 		return
 	SimNeeds.take_comfort(world, ent, item)
 	_stop(world, ent, "Comfort")

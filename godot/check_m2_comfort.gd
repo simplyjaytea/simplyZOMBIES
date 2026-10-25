@@ -774,7 +774,97 @@ func _a_low_colonist_takes_the_comfort_on_their_own_body() -> bool:
 			SimNeeds.comfort_of(w3, ellis3), SimNeeds.mood_band(w3, ellis3)])
 		return false
 
-	print("AUTONOMY: a low-mood colonist takes the pack's comfort where he stands, walks to the pile's, claims it and spends it through the same take_comfort with the now line saying the words; a content colonist leaves the identical item alone")
+	if not _a_pile_survives_one_colonists_comfort():
+		return false
+
+	print("AUTONOMY: a low-mood colonist takes the pack's comfort where he stands, walks to the pile's, claims it and spends it through the same take_comfort with the now line saying the words; a content colonist leaves the identical item alone; a stacked pile loses one unit, a reusable comfort loses none, and the next colonist can find what is left")
+	return true
+
+
+# The pile after one colonist's Comfort job. A stack of three packs loses exactly one and the rest
+# is still on the pile, unclaimed, with a position, and a second colonist is handed it as a Comfort
+# job. A reusable comfort (cards, `spends` false) is used and left whole. The negative is the one
+# unit: the pile is not gone, and the first colonist did not carry the stack off.
+func _a_pile_survives_one_colonists_comfort() -> bool:
+	var w: Variant = _world()
+	var ellis: int = _ellis(w)
+	if ellis < 0 or not _colonist_ready_for_the_tick(w, ellis):
+		push_error("PILE-STACK: no Ellis, or the fixture would not settle, so the stack was not judged")
+		return false
+	_force_mood(w, ellis, -30.0)
+	var pile: int = _commodity_on_the_pile_or_pack(w, ellis, CIGARETTES, false, 3)
+	if pile < 0:
+		push_error("PILE-STACK: the fixture would not place three packs on a stockpile tile")
+		return false
+	if int((w.components.get_component(pile, "stack") as Dictionary).get("count", 0)) != 3:
+		push_error("PILE-STACK: the fixture's pile does not hold three packs, so the lane cannot tell one spent from all")
+		return false
+	SimJobs._tick_one(w, ellis)
+	var comforted: Array = []
+	w.events.subscribe({"id": "gate.comfort.stack", "type": "mood.comforted", "handler": func(e: Dictionary) -> void:
+		comforted.append(int(e.get("entity", -1)))
+	})
+	var spins: int = 0
+	while spins < 600 and not comforted.has(ellis):
+		w.step()
+		spins += 1
+	if not comforted.has(ellis):
+		push_error("PILE-STACK: %d ticks and Ellis never took his comfort off the stack" % spins)
+		return false
+	if not w.entities.is_alive(pile) or not w.components.has_component(pile, "position"):
+		push_error("PILE-STACK: the stack left the pile with one colonist's comfort")
+		return false
+	var left: int = int((w.components.get_component(pile, "stack") as Dictionary).get("count", 0))
+	if left != 2:
+		push_error("PILE-STACK: the pile holds %d packs after one colonist's comfort, not 2" % left)
+		return false
+	for carried in SimInventory.carried_items(w, ellis):
+		var cb: Variant = w.components.get_component(int(carried), "itemBase")
+		if cb is Dictionary and String((cb as Dictionary).get("baseId", "")) == CIGARETTES:
+			push_error("PILE-STACK: Ellis carried a pack off the pile")
+			return false
+	if w.components.get_component(pile, "reserved") != null:
+		push_error("PILE-STACK: the finished job left its claim on the pile")
+		return false
+	var mara: int = -1
+	for e in w.components.query(["identity"]):
+		var ident: Variant = w.components.get_component(int(e), "identity")
+		if ident is Dictionary and String((ident as Dictionary).get("id", "")) == "survivor.unique.mara":
+			mara = int(e)
+	if mara < 0:
+		push_error("PILE-STACK: no Mara, so a second colonist finding the pile was not judged")
+		return false
+	var offered: Dictionary = SimJobs._comfort_job(w, mara)
+	if String(offered.get("kind", "")) != "Comfort" or int(offered.get("target", -1)) != pile:
+		push_error("PILE-STACK: a second colonist is not handed what is left on the pile: %s" % str(offered))
+		return false
+
+	# A reusable comfort is used in place and the item stays whole on the pile.
+	var w2: Variant = _world()
+	var ellis2: int = _ellis(w2)
+	if ellis2 < 0 or not _colonist_ready_for_the_tick(w2, ellis2):
+		push_error("PILE-STACK: the reusable fixture would not settle")
+		return false
+	_force_mood(w2, ellis2, -30.0)
+	var cards: int = _commodity_on_the_pile_or_pack(w2, ellis2, "item.cards.deck", false)
+	if cards < 0:
+		push_error("PILE-STACK: the fixture would not place the deck on a stockpile tile")
+		return false
+	SimJobs._tick_one(w2, ellis2)
+	var played: Array = []
+	w2.events.subscribe({"id": "gate.comfort.reuse", "type": "mood.comforted", "handler": func(e: Dictionary) -> void:
+		played.append(int(e.get("entity", -1)))
+	})
+	spins = 0
+	while spins < 600 and not played.has(ellis2):
+		w2.step()
+		spins += 1
+	if not played.has(ellis2):
+		push_error("PILE-STACK: Ellis never played the deck on the pile")
+		return false
+	if not w2.entities.is_alive(cards) or not w2.components.has_component(cards, "position"):
+		push_error("PILE-STACK: a reusable comfort left the pile after one use")
+		return false
 	return true
 
 
@@ -821,7 +911,7 @@ func _force_mood(w: Variant, ent: int, value: float) -> void:
 # The cigarettes into the pack (`in_pack`) or onto a default-zoned stockpile tile of the annex.
 # The pack is emptied but for the pipe his content equips, so the fixture's stow is a fact and
 # not a hope about pocket space.
-func _commodity_on_the_pile_or_pack(w: Variant, ellis: int, base_id: String, in_pack: bool) -> int:
+func _commodity_on_the_pile_or_pack(w: Variant, ellis: int, base_id: String, in_pack: bool, count: int = 1) -> int:
 	for carried in SimInventory.carried_items(w, ellis).duplicate():
 		var b: Variant = w.components.get_component(int(carried), "itemBase")
 		var bid: String = String((b as Dictionary).get("baseId", "")) if b is Dictionary else ""
@@ -829,7 +919,7 @@ func _commodity_on_the_pile_or_pack(w: Variant, ellis: int, base_id: String, in_
 			continue
 		SimInventory.remove_from_container(w, int(carried))
 		w.despawn(int(carried))
-	var item: int = SimItems.spawn_item(w, base_id, {"tier": "scavenged"})
+	var item: int = SimItems.spawn_item(w, base_id, {"tier": "scavenged", "count": count})
 	if item < 0:
 		return -1
 	if in_pack:
