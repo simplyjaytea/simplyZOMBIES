@@ -1829,8 +1829,8 @@ func _a_tourniquet_stops_a_bleeding_leg() -> bool:
 	return true
 
 
-# Positive: a window run out costs the limb -- DESTROYED, the lasting word on it, and the bleed then
-# resumes on the open wound. Negatives: the same span untied keeps the limb, and a leg tied and then
+# Positive: a window run out costs the limb -- DESTROYED, the lasting word on it, its wounds closed
+# with it, and the bleed does not come back. Negatives: the same span untied keeps the limb, and a leg tied and then
 # still inside its window keeps the limb too.
 func _a_tourniquet_costs_the_limb_once_its_window_runs_out() -> bool:
 	var w: Variant = _world()
@@ -1857,10 +1857,16 @@ func _a_tourniquet_costs_the_limb_once_its_window_runs_out() -> bool:
 	if word != "tourniquet":
 		push_error("the condition view says '%s' for the lost leg, not 'tourniquet'" % word)
 		return false
+	# A lost limb is closed with its wounds (the default taken, docs/33): no wound is left on the leg,
+	# and the blood lost stays where it was. The loosened lane holds the opposite for a limb kept.
+	for wound in _wounds(w, w.player):
+		if String((wound as Dictionary).get("bodyPart", "")) == LEG:
+			push_error("a lost leg still carries a wound: %s" % str(wound))
+			return false
 	var before_resume: float = _blood(w, w.player)
 	_run_ticks(w, 100)
-	if _blood(w, w.player) <= before_resume:
-		push_error("the bleed did not resume on the open wound once the tie was spent")
+	if _blood(w, w.player) != before_resume:
+		push_error("the bleed resumed on a lost limb: %.4f then %.4f" % [before_resume, _blood(w, w.player)])
 		return false
 
 	var untied: Variant = _world()
@@ -1872,7 +1878,7 @@ func _a_tourniquet_costs_the_limb_once_its_window_runs_out() -> bool:
 	if String(_part_entry(untied, untied.player, LEG).get("lasting", "")) != "none":
 		push_error("an untied leg carries a lasting word it was never given")
 		return false
-	print("TOURNIQUET COST OK the tied leg reads 0.0000 and 'tourniquet' after its window and bleeds again; the untied leg over the same span keeps its integrity and reads none")
+	print("TOURNIQUET COST OK the tied leg reads 0.0000 and 'tourniquet' after its window, carries no wound and bleeds no more; the untied leg over the same span keeps its integrity and reads none")
 	return true
 
 
@@ -1897,6 +1903,13 @@ func _loosening_in_time_keeps_the_limb() -> bool:
 		return false
 	if _limb_of(w, w.player, LEG) <= SimWounds.DESTROYED:
 		push_error("a loosened leg was lost")
+		return false
+	var open_on_leg: int = 0
+	for wound in _wounds(w, w.player):
+		if String((wound as Dictionary).get("bodyPart", "")) == LEG and bool((wound as Dictionary).get("bleeding", false)):
+			open_on_leg += 1
+	if open_on_leg == 0:
+		push_error("a loosened leg lost its open wound -- only a lost limb is closed with its wounds")
 		return false
 	var before_resume: float = _blood(w, w.player)
 	_run_ticks(w, 100)

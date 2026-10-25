@@ -2465,8 +2465,11 @@ not a to-do list:
     only suppresses. A tied leg lost 0.0000 blood over 200 ticks against 4.8200 for the untied
     control, the wound stayed open, and the tie spent the item.
   - **It costs the limb after the window.** The leg goes to `DESTROYED` and the condition view reads
-    the lasting word `tourniquet` on it (`LASTING_WORDS` gained the one word). The bleed resumes on
-    the open wound. The untied control keeps its integrity and reads `none`.
+    the lasting word `tourniquet` on it (`LASTING_WORDS` gained the one word). The wounds on the
+    lost part are closed with it, so the bleed does not come back (the default taken; docs/33, card
+    17). TOURNIQUET COST asserts the blood stays where it was; LOOSEN holds the negative, that a
+    loosened-in-time leg keeps its open wound. The untied control keeps its integrity and reads
+    `none`.
   - **Loosening in time is free.** A leg loosened at 300 ticks keeps its integrity and its
     word-free condition, and the window it left behind costs nothing.
   - **Refused by name.** A torso, a head and a hand are `not-a-limb`; a clotted leg is

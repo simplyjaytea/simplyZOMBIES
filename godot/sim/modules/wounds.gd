@@ -155,7 +155,8 @@ const LIMP_MOVE_MUL: float = 0.90
 #     already clotted still spends the window, because the limb is what is being starved;
 #   * when the window runs out the limb is lost. The part goes to DESTROYED, the same floor an
 #     amputation leaves (infection.gd's `amputate`), and the lasting word `tourniquet` records why.
-#     No new number is introduced: the cost is the one docs/05 already has for a lost limb;
+#     No new number is introduced: the cost is the one docs/05 already has for a lost limb. The
+#     wounds on the part are closed with it (a stump does not bleed), the default taken in docs/30;
 #   * loosening before the window clears the record and costs nothing; the bleed then resumes on
 #     any wound still open. Once the window has passed the limb is gone and there is nothing left
 #     to loosen.
@@ -233,6 +234,16 @@ static func _lose_limb(world: Variant, entity: int, part: String) -> void:
 	var body: Variant = world.components.get_component(entity, "body")
 	if body is Dictionary and (body as Dictionary).has(part):
 		(body as Dictionary)[part] = DESTROYED
+	# A lost limb is closed with its wounds: the stump does not bleed. The owner's call is open (docs/33),
+	# and this is the default taken, so a forgotten tie costs the limb and nothing more. The list is
+	# rebuilt rather than erased from, because Array.erase matches Dictionaries by value (docs/37).
+	var inj: Variant = world.components.get_component(entity, "injuries")
+	if inj is Dictionary:
+		var kept: Array = []
+		for wound in ((inj as Dictionary).get("wounds", []) as Array):
+			if String((wound as Dictionary).get("bodyPart", "")) != part:
+				kept.append(wound)
+		(inj as Dictionary)["wounds"] = kept
 	add_lasting(world, entity, TOURNIQUET_LOST_WORD, part)
 
 
