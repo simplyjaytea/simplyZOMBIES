@@ -44,6 +44,8 @@ const JOB_WORDS: Dictionary = {
 	"Retreat": "heading home",
 	"Rearm": "finding a weapon",
 	"Dress": "putting on armour",
+	"Comfort": "taking a moment",
+	"Read": "reading a book",
 }
 
 # What a Seek walks for, by the need `seek_kind` names.

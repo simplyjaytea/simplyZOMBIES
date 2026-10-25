@@ -486,11 +486,6 @@ system.
   game is strictly a countdown. A refill recipe is the obvious close, and it wants the buildables
   economy above rather than a key of its own.
 - ~~**Comfort that is not food**~~ — **landed** 2026-09-12, see the record.
-- **Nobody seeks comfort, or reads, on their own.** Both the comfort slice and the books slice ship
-  a player verb on the inventory sheet and no autonomy job behind it. A colonist whose mood band has
-  dropped will not go and find the cigarettes, and nobody ever picks up a field manual unaided, so
-  both categories help a colony exactly as much as the player remembers to spend them. The re-arm
-  path in `jobs.gd` is the shape either would copy.
 - ~~**The mask that filters**~~ — **landed** 2026-09-12, see the record.
 - **The explosives docs/09 says already exist.** docs/09's cut list asserted *"they exist as rare
   loot"* and docs/12's military yield lists them, and **no explosive item has ever existed** — zero
@@ -13682,8 +13677,8 @@ not a to-do list:
   `until % 20 != 0`, so the offset cannot silently stop working. Found by sabotage, not by review.
 
   **Shipped whole, with one limitation recorded rather than hidden:** comfort is a player and NPC
-  *verb*, and no autonomy job makes a colonist seek it out when their mood drops. Named in what's
-  left, shared with the books slice.
+  *verb*, and no autonomy job makes a colonist seek it out when their mood drops. The autonomy half
+  landed 2026-10-26, in the record below.
 - **Items** — ~~books that teach~~ **landed** 2026-09-12
   (`npm run godot:m2:teach` → **`M2_TEACH_OK pinned content reach twice bound save`**, a new gate of
   six lanes, all six broken and watched go red; `godot:m2:web`, `godot:m2:gear`, `godot:m2:needs`,
@@ -13716,7 +13711,28 @@ not a to-do list:
   `godot/content/items/books.json`, nineteen loot rows, additive and verified.
 
   **Shipped whole**, with the same limitation as comfort: reading is a player verb and no NPC ever
-  chooses to read.
+  chooses to read. The autonomy half landed 2026-10-26, in the record below.
+- **Items** — ~~nobody seeks comfort, or reads, on their own~~ **landed** 2026-10-26
+  (`npm run godot:m2:comfort` → **`M2_COMFORT_OK ... autonomy`**, its AUTONOMY lane; `npm run
+  godot:m2:teach` → **`M2_TEACH_OK ... read`**, its READ lane; `godot:m2:jobs` DOING holds both new
+  kinds to their words; `godot:m2:autonomy`, `godot:m2:needs` and `godot:m2:gear` held), the autonomy
+  half of the comfort and books slices.
+
+  **Both kinds are the re-arm and dress shape, and both spend through the player verb's own
+  functions.** Comfort is a between-jobs claim beside Dress: a colonist below `content` takes the
+  comfort in his pack where he stands, or walks to one on the pile, claims it with `_claim_live`,
+  and spends it through `SimNeeds.take_comfort`. Read is the idle fallback in `_pick`, reached only
+  after every ranked column has come back empty, and spends through `SimNeeds.read_book`. Both are
+  in `JOB_KINDS`, `DANGER_KINDS` and `WorkRead.JOB_WORDS` ("taking a moment", "reading a book").
+
+  **The COMFORT lane's true negative is a content colonist who leaves the identical pack of
+  cigarettes on the pile**, and the READ lane's is a colonist with Water work pending who takes the
+  Water job and leaves the book shut. The READ precondition (the Water work exists) is asserted
+  first, so the negative cannot pass on a fixture with nothing to lose to.
+
+  **The READ lane found a silent drop.** `_do_read` looked the book up through the content entry,
+  not the `itemBase` component, so `can_learn_from` saw an empty base id and the colonist stopped at
+  the shelf with nothing read and no event. The pile lane failed on it before the fix.
 - **Items** — ~~cooking and water: the transform keys~~ **landed** 2026-09-12
   (`npm run godot:m2:transform` → **`M2_TRANSFORM_OK pinned content cook order boil purify rank
   reach`**, a new gate of eight lanes; `godot:m2:jobs`, `godot:m2:needs`, `godot:m2:gear`,
