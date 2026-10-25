@@ -748,9 +748,10 @@ func _mean_distance(w: Variant, bodies: Array[int]) -> float:
 
 # --- LIFT -------------------------------------------------------------------------------------
 #
-# The owner's decision of 2026-09-12, and the one place this slice deliberately parts company with
-# the light slice: a floodlight is planted one-way and a noise device is not. So there is a verb
-# that takes it back up, it is E, and the device that comes back up is the same device -- placed
+# The owner's decision of 2026-09-12, and where this slice parted company with the light slice: a
+# floodlight was planted one-way and a noise device was not. The floodlight has had its own way back
+# since 2026-10-26 (`light.unplant`, `godot:m2:light_burn` UNPLANT), but the two verbs stay separate:
+# a noise device is taken up with E, and the device that comes back up is the same device -- placed
 # again, its clock starts again.
 func _a_device_comes_back_up_and_goes_down_again() -> bool:
 	var lane: String = "LIFT"
