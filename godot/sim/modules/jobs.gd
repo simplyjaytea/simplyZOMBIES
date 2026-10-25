@@ -34,7 +34,7 @@ const COLUMNS: Array[String] = [
 # DOING lane holds this list to the literals in this file, so a new kind cannot go unsaid.
 const JOB_KINDS: Array[String] = [
 	"Haul", "Scavenge", "Construct", "Cook", "Doctor", "Rest", "Patient", "Guard", "Water", "Clean",
-	"Bury", "Repair", "Retreat", "Rearm", "Dress", "Seek",
+	"Bury", "Repair", "Retreat", "Rearm", "Dress", "Seek", "Comfort", "Read",
 ]
 const CONSUMERS: Array[String] = ["Haul", "Scavenge", "Construct", "Cook", "Doctor", "Rest", "Patient", "Guard", "Water", "Clean", "Bury", "Repair"]
 # How far from home a colonist works the ground: Haul and Scavenge reach only this far from the
@@ -358,6 +358,19 @@ static func _tick_one(world: Variant, ent: int) -> void:
 			world.components.set_component(ent, "job", dress)
 			_advance_job(world, ent, dress)
 			return
+	# Low mood asks for comfort before more work, in the Dress shape: no job in hand, mood band
+	# dropped, and a comfort on hand or on the pile. It takes the pack's comfort where they stand
+	# or walks to the pile's and spends it through the same `take_comfort` the player verb calls.
+	# One comfort while one is standing takes nothing: the standing one is the comfort, and a
+	# second spent smoke adds nothing under the cap. Comfort beats Read (a real morale pressure
+	# beats idle) and, like Dress, it is a between-jobs claim on the colonist, not something that
+	# interrupts the job in hand.
+	if _low_mood(world, ent) and SimNeeds.comfort_of(world, ent) <= 0.0:
+		var comfort: Dictionary = _comfort_job(world, ent)
+		if not comfort.is_empty():
+			world.components.set_component(ent, "job", comfort)
+			_advance_job(world, ent, comfort)
+			return
 	_pick(world, ent)
 
 
@@ -424,6 +437,13 @@ static func _pick(world: Variant, ent: int) -> void:
 			var n: Dictionary = SimNeeds.of(world, ent)
 			n["dirtyWake"] = true
 		return
+	# Every column the row ranks came back empty. The idle fallback: a book this colonist can
+	# still learn from, in the pack or on the pile, is read now. It is reached only after every
+	# ranked column refused, so it never beats Water or Construct -- that is what the record's
+	# "ranked below every real column" is mechanically.
+	var read: Dictionary = _read_job(world, ent)
+	if not read.is_empty():
+		world.components.set_component(ent, "job", read)
 
 
 # Is it the watch's hour, and does this survivor's row put Guard ahead of the job in hand?
@@ -1218,6 +1238,10 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 			_do_rearm(world, ent, job)
 		"Dress":
 			_do_dress(world, ent, job)
+		"Comfort":
+			_do_comfort(world, ent, job)
+		"Read":
+			_do_read(world, ent, job)
 		"Scavenge":
 			_do_scavenge(world, ent, job)
 		"Construct":
@@ -1566,7 +1590,7 @@ static var BREAK_OFF_FROM_DANGER: bool = true
 # arm's length until they were taken (trace 99, docs/23).
 # Cook joined with the stockpile review (finding 7): a raw on a pile marked outdoors is a walk out
 # among the dead, which it never was while every raw lay on the annex floor.
-const DANGER_KINDS: Array[String] = ["Haul", "Scavenge", "Water", "Bury", "Dress", "Rearm", "Doctor", "Construct", "Cook"]
+const DANGER_KINDS: Array[String] = ["Haul", "Scavenge", "Water", "Bury", "Dress", "Rearm", "Doctor", "Construct", "Cook", "Comfort", "Read"]
 # How close a zombie comes before an errand is dropped: a shambler's contact range (1.6 m) with
 # room for a colonist to turn and walk off before the hands close.
 const DANGER_METRES: float = 6.0
@@ -1883,6 +1907,169 @@ static func _do_dress(world: Variant, ent: int, job: Dictionary) -> void:
 		return
 	SimInventory.equip(world, ent, item)
 	_stop(world, ent, "Dress")
+
+
+# --- comfort and reading: what a colonist does when nobody is watching --------------------------
+#
+# The two inventory-sheet verbs ("use" on a comfort, "use" on a book) made automatic. Comfort
+# sits beside Dress above the rows and fires only between jobs, with the mood band
+# `SimNeeds.mood_band` already speaks dropped to low or worse at the tick the colonist goes
+# looking; Read sits below every row, reached only after every ranked column came back empty.
+# Both spend through the same functions the player verb calls -- `SimNeeds.take_comfort`,
+# `SimNeeds.read_book` -- so there is one effect, not a second copy of it. The behaviour
+# halves are `check_m2_comfort.gd`'s AUTONOMY lane and `check_m2_teach.gd`'s READ lane.
+
+
+# The mood gate, named so a reader does not have to guess at a number: the band the needs module
+# already exposes, anything worse than content, and nothing the tick compares itself.
+static func _low_mood(world: Variant, ent: int) -> bool:
+	return SimNeeds.mood_band(world, ent) != "content"
+
+
+## The low-mood colonist's comfort, the player verb's shape made automatic: one in the pack is
+## taken where they stand (the same `take_comfort` the intake calls, no job); one on the pile is
+## walked to as a Comfort job, claimed the Dress claim's way -- `_claim_live`, so two idle
+## colonists do not both cross the district for the same pack of cigarettes and a claim whose
+## holder died is erased on sight -- and spent through the same function. Empty when there is
+## nothing comforting on hand and nothing worth walking to. Land near home only, the Dress scan's
+## rule: the pile the colony keeps things on, not the walk out into the street for a smoke.
+static func _comfort_job(world: Variant, ent: int) -> Dictionary:
+	for carried in SimInventory.carried_items(world, ent):
+		var packed: Variant = world.components.get_component(int(carried), "itemBase")
+		if packed is Dictionary and SimNeeds.is_comfort(world, String((packed as Dictionary).get("baseId", ""))):
+			SimNeeds.take_comfort(world, ent, int(carried))
+			return {}
+	if _hands_full(world, ent):
+		return {}
+	var here: Variant = world.components.get_component(ent, "position")
+	if not here is Dictionary:
+		return {}
+	var hx: float = float((here as Dictionary)["x"])
+	var hy: float = float((here as Dictionary)["y"])
+	var best: int = -1
+	var best_d: float = INF
+	for item in SimNeeds.stockpile_items(world):
+		var piled: Variant = world.components.get_component(int(item), "itemBase")
+		if not piled is Dictionary or not SimNeeds.is_comfort(world, String((piled as Dictionary).get("baseId", ""))):
+			continue
+		if _claim_live(world, int(item)):
+			continue
+		var p: Dictionary = world.components.get_component(int(item), "position") as Dictionary
+		var ix: float = float(p["x"])
+		var iy: float = float(p["y"])
+		if not _near_home(world, ix, iy):
+			continue
+		if _is_unreachable(world, int(item)):
+			continue
+		var d: float = (ix - hx) * (ix - hx) + (iy - hy) * (iy - hy)
+		if d < best_d:
+			best_d = d
+			best = int(item)
+	if best < 0:
+		return {}
+	world.components.set_component(best, "reserved", {"by": ent, "job": "Comfort"})
+	return {"kind": "Comfort", "target": best, "ticksLeft": 0, "path": [], "pathGen": -1}
+
+
+## At the pile: pick the comfort up and spend it through the same function the player verb runs.
+## A pack with no room for it leaves it where it lay and holds this colonist off it
+## (`HANDS_FULL_TICKS`, the Repair rule), so the same refused pickup is not walked to every tick.
+static func _do_comfort(world: Variant, ent: int, job: Dictionary) -> void:
+	var item: int = int(job.get("target", -1))
+	if item < 0 or not world.components.has_component(item, "position"):
+		_stop(world, ent)
+		return
+	var tile: Vector2i = _entity_tile(world, item)
+	if not _at(world, ent, tile, REACH):
+		_walk(world, ent, job, tile)
+		return
+	var laid: Variant = world.components.get_component(item, "position")
+	world.components.remove(item, "position")
+	if not SimInventory.stow(world, ent, item):
+		if laid is Dictionary:
+			world.components.set_component(item, "position", laid)
+		_hands_full_now(world, ent)
+		_stop(world, ent)
+		return
+	SimNeeds.take_comfort(world, ent, item)
+	_stop(world, ent, "Comfort")
+
+
+## The idle fallback under every column of every row: a book in the pack is read where they stand
+## (the same `read_book` -- and so the same `SimSkills.teach` -- the player verb runs); one on the
+## pile is walked to as a Read job and claimed as Dress claims. A title already read teaches
+## nothing and is not walked to, because `can_learn_from` is the same predicate the reader refuses
+## on; nowhere near home, either, the same rule the comfort walk keeps.
+static func _read_job(world: Variant, ent: int) -> Dictionary:
+	for carried in SimInventory.carried_items(world, ent):
+		var packed: Variant = world.components.get_component(int(carried), "itemBase")
+		if not packed is Dictionary:
+			continue
+		if SimNeeds.can_learn_from(world, ent, String((packed as Dictionary).get("baseId", ""))):
+			SimNeeds.read_book(world, ent, int(carried))
+			return {}
+	if _hands_full(world, ent):
+		return {}
+	var here: Variant = world.components.get_component(ent, "position")
+	if not here is Dictionary:
+		return {}
+	var hx: float = float((here as Dictionary)["x"])
+	var hy: float = float((here as Dictionary)["y"])
+	var best: int = -1
+	var best_d: float = INF
+	for item in SimNeeds.stockpile_items(world):
+		var piled: Variant = world.components.get_component(int(item), "itemBase")
+		if not piled is Dictionary:
+			continue
+		if not SimNeeds.can_learn_from(world, ent, String((piled as Dictionary).get("baseId", ""))):
+			continue
+		if _claim_live(world, int(item)):
+			continue
+		var p: Dictionary = world.components.get_component(int(item), "position") as Dictionary
+		var ix: float = float(p["x"])
+		var iy: float = float(p["y"])
+		if not _near_home(world, ix, iy):
+			continue
+		if _is_unreachable(world, int(item)):
+			continue
+		var d: float = (ix - hx) * (ix - hx) + (iy - hy) * (iy - hy)
+		if d < best_d:
+			best_d = d
+			best = int(item)
+	if best < 0:
+		return {}
+	world.components.set_component(best, "reserved", {"by": ent, "job": "Read"})
+	return {"kind": "Read", "target": best, "ticksLeft": 0, "path": [], "pathGen": -1}
+
+
+## At the pile: pick the book up and read it through the same function the player verb runs, so a
+## copy read earns its one lesson and is spent, and the ledger that refuses a second copy is this
+## colonist's. Re-checked at arrival: the title can stop being learnable between the pick and
+## the walk (another colonist's copy does not, but this body's own ledger moves only when this
+## body reads), and a book that is gone teaches nobody.
+static func _do_read(world: Variant, ent: int, job: Dictionary) -> void:
+	var item: int = int(job.get("target", -1))
+	if item < 0 or not world.components.has_component(item, "position"):
+		_stop(world, ent)
+		return
+	var base: Variant = world.components.get_component(item, "itemBase")
+	if not base is Dictionary or not SimNeeds.can_learn_from(world, ent, String((base as Dictionary).get("baseId", ""))):
+		_stop(world, ent)
+		return
+	var tile: Vector2i = _entity_tile(world, item)
+	if not _at(world, ent, tile, REACH):
+		_walk(world, ent, job, tile)
+		return
+	var laid: Variant = world.components.get_component(item, "position")
+	world.components.remove(item, "position")
+	if not SimInventory.stow(world, ent, item):
+		if laid is Dictionary:
+			world.components.set_component(item, "position", laid)
+		_hands_full_now(world, ent)
+		_stop(world, ent)
+		return
+	SimNeeds.read_book(world, ent, item)
+	_stop(world, ent, "Read")
 
 
 static func _tile_centre(t: Vector2i) -> Vector2:
