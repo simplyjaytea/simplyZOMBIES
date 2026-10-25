@@ -20,7 +20,7 @@ the better you live, the harder they come. [docs/00](00-vision.md) is the vision
 Only the Godot build ships (`godot/`, Godot 4.7.1, typed GDScript). The TypeScript under `src/`
 is a frozen oracle: CI keeps it green, and nothing new goes into it.
 
-## Where it stands (2026-10-23)
+## Where it stands (2026-10-26)
 
 - **Milestone 2, the vertical slice.** The exit criterion is ten in-game days, permanent loss,
   succession, and still wanting another run.
@@ -32,7 +32,8 @@ is a frozen oracle: CI keeps it green, and nothing new goes into it.
   [what's left](23-roadmap.md#whats-left-in-milestone-2)). The next measurement is ten seeds and
   a median wipe day, on `main` and on each candidate. No lever is judged on three seeds again.
 - **What is open** is [what's left](23-roadmap.md#whats-left-in-milestone-2): the UI overhaul's
-  later slices, the balance follow-ups, and the named pieces under them.
+  later slices, the balance follow-ups, the content arcs, and the named pieces under them. Which
+  stage each belongs to is [the release plan](#the-release-plan) below.
 - **For the current `main`,** run `git log origin/main -1` and look at its CI. This file carries
   no commit hash on purpose, because a hash written here is out of date after the next merge.
 
@@ -129,6 +130,94 @@ owner's project-chat instruction, not here. The roles:
 | Traps that already cost someone a session | [docs/37](37-traps.md) |
 | Performance targets and dated measurements | [docs/22](22-performance.md) |
 | Where a system's code lives, and the gate that judges it | `CLAUDE.md`'s routing table |
+
+## The release plan
+
+Decided by the owner on 2026-10-26 ([docs/30](30-decisions.md#the-release-plan-and-the-content-arcs-2026-10-26)).
+Five stages, each with the thing it has to prove. Pieces are named in docs/23's what's left;
+this section says which stage each group belongs to, and nothing here is ticked. The art style
+does not change between stages: flat top-down, 32 px a tile at 2x, the outpost pack as the
+floor, the Dungeon Settlers mood (docs/30, 2026-09-03 and 2026-09-17). An isometric view was
+asked about and declined on 2026-10-26, for the third time; depth where wanted is oblique
+treatment inside this projection.
+
+1. **Alpha closed: it loops.** Milestone 2's exit criterion in code, not balance. Everything in
+   flight lands (colonist self-care, the buildables, the floodlight take-down, the Colony screen
+   nits), then the sim pieces that need no owner call: round choice and the magazine's memory,
+   the tourniquet, the purifier refill, the alarm and noisemaker priced, the plate that wears, the
+   ranged affix readers, the repair economy. UI overhaul bullets three to five. The first
+   worker-sized pieces of the content arcs below (the readers and the melee frames). Proof: the
+   `godot:m2` chain green, `godot:check:play` covering every shell state.
+2. **Alpha open: it survives.** The balance wall, judged only by ten seeds and a median wipe day.
+   The named levers (a well inside the wall, the antibiotic weight, the six-survivor checkpoint,
+   Guard and Scout, the night-3 table) and the speed pieces (sleep fast-forward, 3x and 10x, the
+   tick to its 8 ms budget) so ten days fit an evening. The first zombie kinds and raider doctrine
+   land here because they move the table. Release: the Windows build plus a Linux preset, and a
+   seed you can type on the web build.
+3. **The art pass: it looks finished.** Runs beside stage 2, on the art tier. The remaining pack
+   wall states, pictures for the buildables and every new kind, part and frame from stage 1,
+   remembered marks, the glimpse disc on the art grid, the last two held weapons, aim following
+   the cursor, stamina in the world, the re-illustrated anatomy and the 1280x720 drawer, a roster
+   for a large colony. Full before-and-after review at both windows. World draw to its 10 ms
+   budget by baking chunks.
+4. **Beta: people and the world.** Milestone 3A and the near half of 3B: relationships and grief,
+   the six attributes, the full work grid, scars and the blind eye, diagnosis by skill, procedural
+   people, the captive arc, explosives, the remaining zombie kinds and raider archetypes, the
+   camp's labour cost, evolving camps, outposts that draw raiders, the region as the default boot
+   if it plays. The save format freezes here and migrates from then on.
+5. **1.0: breadth.** The rest of 3B and Milestone 4: streaming and district tiers, breakdowns and
+   mobile bases, the industrial yard, factions and trade, the escape endgame, storyteller presets,
+   a signed macOS build. Multiplayer (3C) is off this track and is 1.x unless the owner pulls it
+   forward.
+
+## The content arcs
+
+Opened by the owner on 2026-10-26, the same entry. Four arcs, each a group in docs/23's what's
+left with one piece per line there; this is the shape and the order, not the list. The rule that
+binds all four: **readers before content, pictures a stage behind.** A stat nothing resolves is
+not authored; a kind, part or frame gets its picture in the stage after its sim piece.
+
+- **Zombies, seven to fourteen kinds.** Shipped: shambler, runner, stalker, screamer, bloater,
+  heavy, armored (`godot/content/zombies/`). Planned, in landing order, each a content file and
+  one behaviour hook with its own lane: the crawler (under sightline height, grabs ankles), the
+  bloodhound (follows scent alone, deaf to noise), the gassed bloater (a lingering tile cloud),
+  the lurker (dormant indoors, wakes on indoor noise), the juggernaut (shoves barricades), the
+  burner (spreads fire to timber; waits on fire as a sim fact), the feigner (lies among corpses,
+  rises on approach). Each re-baselines the ten-seed table and says so.
+- **Raiders, four to nine archetypes, and a doctrine on the band.** Shipped: scav, looter,
+  lookout, gunhand (`godot/content/raiders/`). A band gains a `doctrine` the director draws by
+  day: probe, raid, siege, trade. Siege camps outside the wall and waits; trade approaches
+  unarmed and offers barter, the one verb of Milestone 4's faction seam landed early. New
+  archetypes: breacher, marksman, medic, arsonist (waits on fire), dog handler (the hound is a
+  scent sensor and pairs with the bloodhound). A raider's weapon is assembled from the same part
+  tables, so a dead marksman yields the rifle as he built it. The captive arc already in docs/23
+  slots here unchanged.
+- **Firearms: every number is a sum of its parts.** The assembly model exists: a base is the
+  receiver, it spawns holding real parts, a conversion moves caliber, the bench and the field
+  swap are split (`godot/sim/modules/gunsmith.gd`, `attachments.gd`, docs/10). The arc deepens
+  it, readers first: the three stats that resolve against nothing (`noise_emission`,
+  `condition_loss`, `repair_cost`) gain readers in the shot, the wear event and the repair verb;
+  the barrel governs velocity, noise, accuracy and wear by length, quality and material;
+  conversions become kits (barrel, bolt or cylinder, magazine, all three or it jams) drawn from a
+  realism table in docs/10 keyed by receiver family, about twelve across the twelve receivers;
+  furniture reads into aim time, recoil recovery and stance; internals are parts with condition
+  and jam chance derives from the worst of them; magazines remember their load, the player picks
+  the round, hand-loads are worse; Gunsmithing decides what is field work and the botch chance.
+  The bench says it in words, never in numbers.
+- **Melee: frames, not weapons, and bespoke results.** The nineteen melee weapons become frames
+  in four families (club, blade, polearm, tool) and the slots widen from head, haft and wrap to
+  add stud (nails, screws, barbed wire, glass), guard and weight. About twenty-five physically
+  plausible recipes, each with what the modification costs the frame: nails split an aluminium
+  bat and want wood; a pitchfork head on a pipe wants cordage and a fixing; glass cuts the hand
+  without a wrap. Wear is specific: studs fall out on hits (the `struck` wear word), an edge
+  dulls and wants a whetstone, a lashed head flies off one swing in N. A weapon past three
+  modifications may be named by the player, which is how bespoke reads on a screen with no stat
+  line.
+
+**Open owner calls from the arcs** (docs/33 carries them): the realism table for conversions
+(the coordinator writes it, the owner vetoes); whether fire becomes a sim fact in stage 1 or
+stage 4 (it unlocks the burner, the arsonist and timber walls that burn); whether raiders may
+trade before factions exist.
 
 ## Open owner calls
 
