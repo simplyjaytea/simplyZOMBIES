@@ -2031,6 +2031,10 @@
         }
       },
       {
+        "item": "item.medical.tourniquet",
+        "weight": 8
+      },
+      {
         "item": "item.peroxide.bottle",
         "weight": 6,
         "count": {

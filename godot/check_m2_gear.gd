@@ -326,7 +326,7 @@ func _worn(w: Variant, actor: int, slot: String) -> Variant:
 # SimNeeds.furnish_bed, which the Construct bed job spends it through, and `hygiene` by
 # SimNeeds._spend_soap, which every wash goes through -- the CAMP lane below names both readers by
 # file and function so the claim cannot outlive the code.
-const READ_KEYS: Array[String] = ["equipSlot", "melee", "ranged", "armor", "container", "food", "drink", "fuel", "light", "modification", "ammo", "filter", "buildMaterial", "warmth", "shedsRain", "lightFuel", "cooksInto", "boilsInto", "purifies", "noise", "comfort", "teaches", "bedQuality", "hygiene"]
+const READ_KEYS: Array[String] = ["equipSlot", "melee", "ranged", "armor", "container", "food", "drink", "fuel", "light", "modification", "ammo", "filter", "buildMaterial", "warmth", "shedsRain", "lightFuel", "cooksInto", "boilsInto", "purifies", "noise", "comfort", "teaches", "bedQuality", "hygiene", "tourniquet", "bandageTier", "attachment", "recipe"]
 # The keys whose value is another base id this one turns into, and therefore a way of reaching that
 # other base without a loot table. One list, walked twice below: once to collect what is reachable,
 # and once to refuse a target that is not a base at all.
@@ -402,6 +402,7 @@ func _the_catalogue_is_findable_and_read() -> bool:
 			return false
 		produced_ids[pid] = true
 	var judged: int = 0
+	var made: int = 0
 	var unreachable: Array[String] = []
 	for id in by_id.keys():
 		var e: Dictionary = by_id[id] as Dictionary
@@ -410,6 +411,14 @@ func _the_catalogue_is_findable_and_read() -> bool:
 			if e.has(k):
 				read = true
 		if not read:
+			continue
+		# A recipe part is made, not found: `item.improvise` builds it from what the survivor carries
+		# (godot:m2:attach's RECIPE and APPLIES lanes hold the recipe to a real, runnable one). The
+		# exemption is the recipe block itself, with kinds named, so a bare attachment still has to be
+		# findable.
+		var att: Variant = e.get("attachment")
+		if att is Dictionary and (att as Dictionary).get("recipe") is Dictionary and not (((att as Dictionary)["recipe"] as Dictionary).get("kinds", []) as Array).is_empty():
+			made += 1
 			continue
 		judged += 1
 		if not (findable.has(String(id)) or kits.has(String(id)) or empties.has(String(id)) or produced_ids.has(String(id))):
@@ -449,11 +458,17 @@ func _the_catalogue_is_findable_and_read() -> bool:
 	if not orphan_read:
 		push_error("CATALOGUE: a fabricated armoured orphan would not have been judged at all")
 		return false
+	# The four keys this lane once missed are judged now: a fabricated tourniquet, dressing, bare
+	# attachment and recipe each read as something that does something, so each would need a table.
+	for key in ["tourniquet", "bandageTier", "attachment", "recipe"]:
+		if not READ_KEYS.has(key):
+			push_error("CATALOGUE: READ_KEYS lacks '%s', so a base carrying only it would never be judged" % key)
+			return false
 	var mute_tool: Dictionary = {"id": "item.gate.mutetool", "class": "tool"}
 	if mute_tool.has("light") or mute_tool.has("modification") or mute_tool.has("noise") or mute_tool.has("comfort") or mute_tool.has("bedQuality"):
 		push_error("CATALOGUE: the tool predicate cannot say no")
 		return false
-	print("  CATALOGUE: %d bases that do something are each rolled by a table, carried in a kit or left as somebody's empties (%d table ids, %d kit ids, %d empties); every round is a findable base; every tool is a light, a bench consumable, a noise device or a comfort; an orphan and a mute tool are refused" % [judged, findable.size(), kits.size(), empties.size()])
+	print("  CATALOGUE: %d bases that do something are each rolled by a table, carried in a kit or left as somebody's empties (%d table ids, %d kit ids, %d empties); every round is a findable base; every tool is a light, a bench consumable, a noise device or a comfort; an orphan and a mute tool are refused; %d improvised parts are made and not looted" % [judged, findable.size(), kits.size(), empties.size(), made])
 	return true
 
 
