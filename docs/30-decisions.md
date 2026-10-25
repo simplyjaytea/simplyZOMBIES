@@ -6406,3 +6406,16 @@ and the pieces it opens are in docs/23's what's left under "Content arcs".
 "Content arcs" group before it is a branch. A stat on a part needs a reader in the same slice or
 it is not authored. A conversion between calibers is allowed only where the realism table in
 docs/10 says so; the coordinator writes the table and the owner vetoes.
+## The floodlight comes back down (2026-10-26)
+
+The 2026-09-12 call in "Two placeable items, two opposite answers" made the floodlight one-way on
+purpose: standing it up commits the thing to that street. The owner took the planted-floodlight
+piece up on 2026-10-26 and chose to build the way back, which supersedes that call.
+
+The floodlight is still a rigged installation and still costs the street. What changes is that the
+commitment can be taken back: `light.unplant` lifts the lamp within the plant's own reach into the
+pack with its fuel carried, and refuses, leaving it standing, when the pack has no room. The
+noise devices keep their answer and the alarm and noisemaker stay free, as that call left them.
+
+**How to apply:** a planted light has a way back, so a gate or a record that calls the floodlight
+one-way is out of date. `godot:m2:light_burn` UNPLANT is the lane that holds the take-down.
