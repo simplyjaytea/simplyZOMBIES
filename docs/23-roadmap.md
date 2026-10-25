@@ -14070,7 +14070,8 @@ not a to-do list:
 - **Items** — **the three raised walls** landed 2026-10-26, **half of the eleven-kind bullet**
   (`npm run godot:m2:materials` → **`M2_MATERIALS_OK pinned kind kinds findable reach recipes builds`**,
   with the RECIPES lane now printing eight unspent kinds where it printed eleven; `godot:m2:fortify`
-  → **`M2_FORTIFY_OK ... and the three raised walls`**, its WALLS lane; `godot:check:context`
+  → **`M2_FORTIFY_OK ... the three raised walls, and the E ladder that puts them above the alarm`**, its
+  WALLS and E-LADDER lanes; `godot:check:context`
   → **`CONTEXT_OK`**, its RAISED lane; the full `godot:m2` chain before the commit). Each lane was
   broken on purpose and watched go red: a timber recipe pointed at metal, a fence made opaque in the
   tile map alone, a fence made opaque in the shadowcast alone, and the press loop switched off.
@@ -14107,6 +14108,10 @@ not a to-do list:
   against the line above that the director does not count the raised walls. WALLS holds the
   negative (a fence breach starts no lull, with the director registered in the world); PRESS holds
   the positive (a door breach still does).
+
+  **The E ladder is pinned.** The walls sit above the alarm and the noisemaker, so E on open floor
+  with a plank raises a timber wall and, with no material, lays the alarm. E-LADDER asks both
+  `rung_of` and the key itself, so the read and the act cannot name different rungs.
 
   **A wall is not raised on top of anything.** `can_build` takes the world and, past the ground
   rule, refuses a tile holding a body, a loose item, a water source, a bed, a workbench, a placed
