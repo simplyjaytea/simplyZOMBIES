@@ -6371,3 +6371,36 @@ is the honest one.
 
 **How to apply:** no sim path may remove an item's `position` without putting it somewhere -- a
 pack, a tile, or a despawn. `godot:m2:stockpile` EMPTY and FULL hold the two paths found.
+
+## The tourniquet, and the limb it costs, 2026-10-26
+
+docs/05 names three ways to stop a bleed -- pressure, tourniquet, bandage -- and two existed. The
+tourniquet is built as a fourth thing the pressure channel does, not as a dressing grade (docs/23).
+The rule is the smallest honest one, taken without a tuned curve:
+
+- **It holds the whole limb for a window, and then the limb goes.** A tie on an arm or a leg holds
+  every open wound on that part shut for `SimWounds.TOURNIQUET_TICKS`, 2400 ticks: two minutes of
+  a one-hour day. When the window runs out the part goes to `DESTROYED`, the floor an amputation
+  leaves, and the lasting word `tourniquet` says why.
+- **The clock is the time on, not the state of the wound.** A wound a hand has already clotted still
+  spends the window. The limb is what is being starved, and a hand on the wound does not feed it.
+- **No new number.** The cost is a limb docs/05 already has, not a graded ischaemia with a movement
+  or swing penalty. A penalty curve nobody has measured is a balance claim this piece does not get
+  to make, and whether a tie should ever be survivable at all is the owner's call, not a default.
+- **Loosening in time is free.** It is a channel of `TOURNIQUET_LOOSEN_TICKS` (20). Once the window
+  has closed there is nothing left to loosen and the verb is refused `not-tied`. The bleed resumes
+  on any wound still open.
+- **The item is spent on the tie.** A tourniquet is used up on the leg it goes on; a loosen does not
+  give it back. A reusable one would be a second spend path and a return to the pack, and is not
+  built.
+- **Arms and legs only.** A hand or a foot is refused `not-a-limb`. That is the sided-limb set
+  `SimWounds._is_limb` already keeps for fractures and sprains, and the brief's own words.
+
+**Not in this piece, on purpose:** no loot table names the item yet, so a survivor finds one only in
+a pack that was handed to them (a loot line moves the ten-seed table; it is named in docs/23). The
+self-aid context and the T key offer pressure and dressing only, so a colonist does not tie one on
+themselves. The care pane is the one surface that offers the verb.
+
+**How to apply:** a tie that a hand has already clotted is still a limb on the clock. Do not end the
+window when the wound does, and do not make a tie survivable without an owner decision. The
+TOURNIQUET lanes of `godot:m2:treatment` hold the rule.

@@ -92,6 +92,10 @@
       ],
       "description": "What grade of dressing this item makes when it is used to bandage a wound, per docs/05-health-injury.md. Absent means the item cannot dress a wound at all. A flat scalar, not a nested block: the content validator is shallow, so a nested object would get an is-it-an-object check and nothing more -- this way the enum is actually enforced."
     },
+    "tourniquet": {
+      "type": "boolean",
+      "description": "Whether this item is a tourniquet, per docs/05-health-injury.md's first step. Read by sim/modules/treatment.gd's verb_of_supply, which answers it with the `tourniquet` verb: it holds the bleed on an arm or a leg for SimWounds.TOURNIQUET_TICKS and then costs the limb. A boolean and not a grade, because a tourniquet is not a dressing grade (docs/23): there is one kind, so there is no pick order to rank. Absent means no, which is every item but one. A flat top-level scalar for the reason bandageTier is one: the content validator is shallow, and a type declared up here is actually enforced."
+    },
     "cleanTier": {
       "enum": [
         "water",
