@@ -43,6 +43,10 @@ const PIPE: String = "item.pipe.steel"
 const SABRE: String = "item.sabre.cavalry"
 const NAILS: String = "item.attach.stud.nails"
 const GLASS: String = "item.attach.stud.glass"
+const SCREWS: String = "item.attach.stud.screws"
+const BOLTS: String = "item.attach.stud.bolts"
+const BATON: String = "item.baton.police"
+const CLAW_HAMMER: String = "item.hammer.claw"
 const KNUCKLE: String = "item.attach.guard.knuckle"
 const PIPE_CAP: String = "item.attach.weight.pipe_cap"
 const SCYTHE: String = "item.attach.head.scythe"
@@ -2143,6 +2147,26 @@ func _a_part_goes_on_where_its_slot_and_its_family_say_and_nowhere_else() -> boo
 	if SimAttachments.attach(w, alu, _spawn(w, NAILS), "stud"):
 		push_error("PLAUSIBLE: nails went into an aluminium bat")
 		return false
+	# The negative that has to refuse by host and not by slot: screws, bolts and glass fit a stud and
+	# a steel pipe and a police baton both have one, so only the part's own `appliesTo` (wooden hosts)
+	# can keep them off. The wooden bat and the claw hammer are the positives on the same slot.
+	var steel_pipe: int = _spawn(w, PIPE)
+	var baton: int = _spawn(w, BATON)
+	if not SimAttachments.slots_of(w, steel_pipe).has("stud") or not SimAttachments.slots_of(w, baton).has("stud"):
+		push_error("PLAUSIBLE: the pipe or the baton lost its stud slot, so the refusals below prove nothing about the host")
+		return false
+	for studs in [SCREWS, BOLTS, GLASS]:
+		if not SimAttachments.fits(w, _spawn(w, String(studs)), "stud"):
+			push_error("PLAUSIBLE: %s no longer fits a stud slot, so the refusal below proves nothing" % String(studs))
+			return false
+		for steel_host in [steel_pipe, baton]:
+			if SimAttachments.attach(w, int(steel_host), _spawn(w, String(studs)), "stud"):
+				push_error("PLAUSIBLE: %s went into a steel host's stud slot" % String(studs))
+				return false
+		for wooden in [_spawn(w, WOOD_BAT), _spawn(w, CLAW_HAMMER)]:
+			if not SimAttachments.attach(w, int(wooden), _spawn(w, String(studs)), "stud"):
+				push_error("PLAUSIBLE: %s was refused a wooden host's stud slot" % String(studs))
+				return false
 	# True negative, the one the piece names: a guard on a pipe. A pipe has no guard.
 	var pipe: int = _spawn(w, PIPE)
 	if SimAttachments.attach(w, pipe, _spawn(w, KNUCKLE), "guard"):
@@ -2174,7 +2198,7 @@ func _a_part_goes_on_where_its_slot_and_its_family_say_and_nowhere_else() -> boo
 	if w1 <= w0:
 		push_error("PLAUSIBLE: a pipe cap went on and the swing weight did not move (%.2f vs %.2f)" % [w1, w0])
 		return false
-	print("  PLAUSIBLE OK nails on a wooden bat move damage %.2f -> %.2f; nails in an aluminium bat, a guard on a pipe and a polearm head on a pipe all refused; a pipe cap moves weight %.2f -> %.2f" % [float(before["damage"]), float(after["damage"]), w0, w1])
+	print("  PLAUSIBLE OK nails on a wooden bat move damage %.2f -> %.2f; nails in an aluminium bat, screws, bolts and glass in a steel pipe or a baton, a guard on a pipe and a polearm head on a pipe all refused; a pipe cap moves weight %.2f -> %.2f" % [float(before["damage"]), float(after["damage"]), w0, w1])
 	return true
 
 
