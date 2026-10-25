@@ -6419,3 +6419,20 @@ noise devices keep their answer and the alarm and noisemaker stay free, as that 
 
 **How to apply:** a planted light has a way back, so a gate or a record that calls the floodlight
 one-way is out of date. `godot:m2:light_burn` UNPLANT is the lane that holds the take-down.
+## Colonists look after themselves, 2026-10-26
+
+The autonomy half of the comfort and books slices, taken as engineering calls inside the piece; the
+piece itself is the owner's standing item ("nobody seeks comfort, or reads, on their own").
+
+- **Comfort ranks like Dress, above the columns; Read ranks below all of them.** A low colonist
+  stops to smoke before he works, the way an unarmed one re-arms and a bare one dresses. Read is
+  only the empty day's fallback, so it can never beat Water or Construct.
+- **Autonomy spends only while no comfort is standing.** `take_comfort` accumulates toward the cap
+  and the player verb has no such gate, because a player chooses the moment. Without this gate a low
+  colonist smokes the whole pile in consecutive ticks. The gate is in `jobs.gd`'s `_tick_one`, not in
+  the mood rules.
+- **"Low" means any band worse than content** (`SimNeeds.mood_band != "content"`), so miserable and
+  breaking colonists take comfort too. Nothing is compared against a threshold of the tick's own.
+
+**How to apply:** a new autonomy kind that walks outside goes into `DANGER_KINDS`, and an idle
+fallback goes below every ranked column in `_pick`, not in `_tick_one`.
