@@ -174,7 +174,7 @@ func _lull_skips() -> bool:
 	var w: Variant = _boot()["world"]
 	_jump_dusk(w, 8)
 	var after_packet: int = _live(w)
-	w.events.publish({"type": "fortify.breached", "tx": 46, "ty": 42})
+	w.events.publish({"type": "fortify.breached", "tx": 46, "ty": 42, "kind": "door"})
 	w.events.drain()
 	var night: Variant = _run_night(w, 9)
 	if not night is Dictionary:
@@ -467,7 +467,7 @@ func _a_lull_opens_at_the_next_dawn_and_a_second_breach_extends_it() -> bool:
 		push_error("LULL-EDGE: a fresh district already carries a lull %s" % str(st))
 		return false
 	_jump_dusk(w, 8)
-	w.events.publish({"type": "fortify.breached", "tx": 46, "ty": 42})
+	w.events.publish({"type": "fortify.breached", "tx": 46, "ty": 42, "kind": "door"})
 	w.events.drain()
 	var from_tick: int = int(st.get("lullFromTick", 0))
 	var until_tick: int = int(st.get("lullUntilTick", 0))
@@ -483,7 +483,7 @@ func _a_lull_opens_at_the_next_dawn_and_a_second_breach_extends_it() -> bool:
 	if not night9 is Dictionary or String((night9 as Dictionary)["reason"]) != "lull":
 		push_error("LULL-EDGE: night 9 inside the lull was %s" % str(night9))
 		return false
-	w.events.publish({"type": "fortify.breached", "tx": 46, "ty": 42})
+	w.events.publish({"type": "fortify.breached", "tx": 46, "ty": 42, "kind": "door"})
 	w.events.drain()
 	if int(st.get("lullFromTick", 0)) != dawn9:
 		push_error("LULL-EDGE: a second breach moved the edge to %d" % int(st.get("lullFromTick", 0)))

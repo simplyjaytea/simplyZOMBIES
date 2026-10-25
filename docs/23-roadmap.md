@@ -14080,6 +14080,13 @@ not a to-do list:
   `MATERIAL_KINDS` kind, so it needed no change; a marked wall a colonist could work is a separate
   piece, named above.
 
+  **A raised wall's breach buys no quiet night.** `fortify.breached` says the wall's kind, and the
+  director's `director.breach-lull` answers only `board`, `door` and `scrap` (`LULL_BREACH_KINDS`).
+  Without that read a one-wire fence that falls in seconds would have bought a lull every day,
+  against the line above that the director does not count the raised walls. WALLS holds the
+  negative (a fence breach starts no lull, with the director registered in the world); PRESS holds
+  the positive (a door breach still does).
+
   **Pictures are open.** The walls draw as the procedural wall tile in `presentation/main.gd`, which
   is what keeps a blocked tile from drawing as floor. No `prop.*` sibling was added to
   `stations.json`: the scrap barricade's picture is read only through `PROP_KINDS` in

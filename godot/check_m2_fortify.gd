@@ -578,9 +578,11 @@ func _raised_walls() -> bool:
 	# Breach: a crowd presses each wall in turn from the east. The fence costs 60 a stage and the
 	# stone course 180, so over the same press the fence falls and the stone course stands.
 	var breach: Dictionary = {}
+	var lulled: Dictionary = {}
 	for kind in ["fence", "stone"]:
 		var press_w: Variant = _world()
 		_set_tile(press_w, 10, 12, SimTileMap.Tile.Floor)
+		SimDirector.register_module(press_w)
 		var mat: String = "item.wire.steel" if kind == "fence" else "item.stone.block"
 		var cmd_row: String = "fence.wire" if kind == "fence" else "wall.stone"
 		var item: int = SimItems.spawn_item(press_w, mat, {"tier": "scavenged", "count": 1})
@@ -596,13 +598,19 @@ func _raised_walls() -> bool:
 			(press_w.components.get_component(z, "velocity") as Dictionary)["dx"] = -2.0
 			press_w.step()
 		breach[kind] = SimTileMap.overlay_at(press_w.tilemap, 10, 12) == null
+		lulled[kind] = int((press_w.director as Dictionary).get("lullUntilTick", 0)) > 0
 	if not bool(breach["fence"]):
 		push_error("%s: a wire fence held 260 ticks of one presser -- its 60-a-stage cost did not bite" % lane)
 		return false
 	if bool(breach["stone"]):
 		push_error("%s: a stone course fell inside 260 ticks of one presser -- it should take 720" % lane)
 		return false
-	print("  WALLS: timber and fence block walking, timber blocks sight and the fence does not; each spends one unit and a second on the same tile is refused; the fence breaches in 260 ticks of one presser and the stone course does not")
+	# The true negative for the director: the fence fell, and a wall the colony raised itself buys no
+	# quiet night. The true positive is PRESS, where a door breach still starts a lull.
+	if bool(lulled["fence"]):
+		push_error("%s: a wire fence breach started a director lull -- only board, door and scrap count" % lane)
+		return false
+	print("  WALLS: timber and fence block walking, timber blocks sight and the fence does not; each spends one unit and a second on the same tile is refused; the fence breaches in 260 ticks of one presser, starts no lull, and the stone course does not breach")
 	return true
 
 
