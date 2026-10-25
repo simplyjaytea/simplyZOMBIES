@@ -6539,3 +6539,23 @@ cost as much as a kill.
 wound that closes by itself unless the design wants the player to treat it. `godot:m2:attach` CUT
 holds the rule: a connecting swing scratches, and a miss, a wrapped grip, a destroyed hand and a
 nailed bat do not.
+
+## The wooden bat is found in industrial yards, 2026-10-26
+
+The melee frames piece added `item.bat.wood`, so that the bat the nails need exists. A bat nobody
+can find is a dead socket, so it needed a loot line, and the line is a balance claim.
+
+- **One line, `loot.industrial`, weight 5.** The first cut put the same line in `loot.residential`.
+  That moved the ten-day balance campaigns: seed 90210 lost its colony in the fast tier and
+  `godot:m2:balance` refused it (`M2_BALANCE_FAIL`). The same line in `loot.industrial` passes
+  (`M2_BALANCE_OK`).
+- **The ten-seed table was not re-run for it.** The balance gate's own seeds judged the line, which
+  is a floor and not a table of outcomes. A weight of 5 of 434 is a placeholder with a name on it,
+  and the bat's yard is a default taken because residential was refused, not a measured best home.
+- **No card was opened.** The weight is a first cut under the standing rule for tuning numbers
+  (docs/38: agents decide numbers that come out of a measurement); a bat is a club that does what
+  the aluminium bat does, and it adds a way to reach nails, not a stronger weapon.
+
+**How to apply:** a loot line for a new base is judged by `godot:m2:balance` before the commit, and
+the record says which gate saw it and which table did not.
+
