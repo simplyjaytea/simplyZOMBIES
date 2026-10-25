@@ -151,7 +151,7 @@ static func text_room(font: Font, box: Rect2, with_picture: bool, count: int) ->
 
 
 # The lines a slot's name is drawn as: wrapped at spaces into at most `max_lines` lines that fit
-# `room` whole, the last one fitted with the ellipsis when the words run out first, so a cut is
+# `room` whole, each one fitted with the ellipsis when a word or the words run out first, so a cut is
 # marked, never silent (`UiText.fit`). Pure, so the gate asks the same lines the draw lays.
 static func name_lines(font: Font, text: String, room: float, max_lines: int) -> Array[String]:
 	var lines: Array[String] = []
@@ -169,7 +169,9 @@ static func name_lines(font: Font, text: String, room: float, max_lines: int) ->
 			continue
 		if lines.size() == max_lines - 1:
 			break
-		lines.append(line)
+		# Every appended line is fitted, not only the last: one word wider than `room` is accepted
+		# onto an empty line above, and appended bare it would draw past the slot.
+		lines.append(UiText.fit(font, line, NAME_SIZE, maxf(room, 1.0)))
 		line = ""
 	if i < words.size():
 		line = line + " " + " ".join(words.slice(i))

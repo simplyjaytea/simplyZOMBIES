@@ -2419,7 +2419,10 @@ not a to-do list:
     the gate share), marking a cut with the ellipsis only when two lines run out. The empty bottle
     in slot 1 reads whole in 92 px. `godot:check:hud`'s STRIP lane: the positive is the bottle's
     whole name; the negatives are that it does not fit the one line the strip drew before, and
-    that a name twice as long is still cut.
+    that a name twice as long is still cut. Review follow-up: `name_lines` fitted only the last
+    line, so one word wider than the room drew past the slot; every appended line is fitted now,
+    and STRIP holds an overlong first word cut with the ellipsis inside the room (red on the old
+    code) beside a short name left whole.
   - Also run green: `godot:smoke`, `godot:check:inventory`, `godot:check:ui_skin`,
     `godot:check:respond`, `godot:check:web_look`, `godot:check:context`, `check:routing`.
 - **Items — the three dead stats get readers, 2026-10-26.** The first piece of the firearms arc
