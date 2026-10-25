@@ -6406,11 +6406,13 @@ and the pieces it opens are in docs/23's what's left under "Content arcs".
 "Content arcs" group before it is a branch. A stat on a part needs a reader in the same slice or
 it is not authored. A conversion between calibers is allowed only where the realism table in
 docs/10 says so; the coordinator writes the table and the owner vetoes.
-## The floodlight comes back down (2026-10-26)
+
+## The floodlight comes back down, 2026-10-26
 
 The 2026-09-12 call in "Two placeable items, two opposite answers" made the floodlight one-way on
 purpose: standing it up commits the thing to that street. The owner took the planted-floodlight
-piece up on 2026-10-26 and chose to build the way back, which supersedes that call.
+piece up on 2026-10-26 and chose to build the way back (approved in the coordinator chat), which
+supersedes that call.
 
 The floodlight is still a rigged installation and still costs the street. What changes is that the
 commitment can be taken back: `light.unplant` lifts the lamp within the plant's own reach into the
@@ -6419,6 +6421,7 @@ noise devices keep their answer and the alarm and noisemaker stay free, as that 
 
 **How to apply:** a planted light has a way back, so a gate or a record that calls the floodlight
 one-way is out of date. `godot:m2:light_burn` UNPLANT is the lane that holds the take-down.
+
 ## Colonists look after themselves, 2026-10-26
 
 The autonomy half of the comfort and books slices, taken as engineering calls inside the piece; the
@@ -6439,6 +6442,7 @@ piece itself is the owner's standing item ("nobody seeks comfort, or reads, on t
 
 **How to apply:** a new autonomy kind that walks outside goes into `DANGER_KINDS`, and an idle
 fallback goes below every ranked column in `_pick`, not in `_tick_one`.
+
 ## Three walls, one substance each, 2026-10-26
 
 Engineering calls taken on the buildables slice. None rebalances a shipped verb, and none moves a
@@ -6461,6 +6465,7 @@ pinned lane. The numbers they set are first cuts, named in the record as unmeasu
 `STAGE_COST` row, and one answer in each of `SimTileMap.is_solid`, `opacity_at`,
 `shadowcast._overlay_opacity` and the presentation's overlay arm. WALLS in `godot:m2:fortify` is the
 lane that proves the answers agree, and it must go red when any one of them is sabotaged.
+
 ## The tourniquet, and the limb it costs, 2026-10-26
 
 docs/05 names three ways to stop a bleed -- pressure, tourniquet, bandage -- and two existed. The
@@ -6490,10 +6495,11 @@ The rule is the smallest honest one, taken without a tuned curve:
 - **Arms and legs only.** A hand or a foot is refused `not-a-limb`. That is the sided-limb set
   `SimWounds._is_limb` already keeps for fractures and sprains, and the brief's own words.
 
-**Not in this piece, on purpose:** no loot table names the item yet, so a survivor finds one only in
-a pack that was handed to them (a loot line moves the ten-seed table; it is named in docs/23). The
-self-aid context and the T key offer pressure and dressing only, so a colonist does not tie one on
-themselves. The care pane is the one surface that offers the verb.
+**Not in this piece, on purpose:** the self-aid context offers pressure and dressing only, so a
+colonist does not tie one on themselves. The player has two ways to the verb: the care pane, and the
+item's strip key, whose `supply_plan` picks the bleeding limb when a torso bleeds beside it
+(`godot:m2:treatment` TOURNIQUET OFFERED). The loot line came later, in "The tourniquet is
+findable".
 
 **How to apply:** a tie that a hand has already clotted is still a limb on the clock. Do not end the
 window when the wound does, and do not make a tie survivable without an owner decision. The
