@@ -14108,6 +14108,13 @@ not a to-do list:
   negative (a fence breach starts no lull, with the director registered in the world); PRESS holds
   the positive (a door breach still does).
 
+  **A wall is not raised on top of anything.** `can_build` takes the world and, past the ground
+  rule, refuses a tile holding a body, a loose item, a water source, a bed, a workbench, a placed
+  light, a campfire, a latrine or a container, and `_place_wall` re-asks it when the channel ends,
+  so a body that stepped onto the tile mid-channel spends the channel and the plank stays in the
+  pack. WALLS holds a body and a loose item as true negatives against the clear tile that took the
+  wall, each broken on purpose and watched go red.
+
   **Pictures are open.** The walls draw as the procedural wall tile in `presentation/main.gd`, which
   is what keeps a blocked tile from drawing as floor. No `prop.*` sibling was added to
   `stations.json`: the scrap barricade's picture is read only through `PROP_KINDS` in

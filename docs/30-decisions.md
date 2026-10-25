@@ -6452,6 +6452,10 @@ pinned lane. The numbers they set are first cuts, named in the record as unmeasu
   wire with fixings. A recipe that wants a pair is a shape change and goes to the owner first.
 - **Walls are not singletons.** `can_build` is the barricade's ground rule without its window-side
   rule, and more than one wall may stand. The scrap barricade's one-of-a-kind check stays as it was.
+- **A wall waits for an empty tile.** `can_build` also refuses a tile holding a body, a loose item,
+  a water source, a bed, furniture or a container, in the predicate and again when the channel
+  ends. The first cut asked about the ground only and would have walled a survivor, a well or a
+  dropped rifle into a solid tile.
 
 **How to apply:** a new raised wall is a `RECIPES` row, a `BUILD_TICKS` row, a `BLOCKERS` row, a
 `STAGE_COST` row, and one answer in each of `SimTileMap.is_solid`, `opacity_at`,

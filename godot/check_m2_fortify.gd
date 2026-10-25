@@ -528,6 +528,36 @@ func _raised_walls() -> bool:
 		push_error("%s: a refused second wall spent a plank" % lane)
 		return false
 
+	# Occupied ground: the same tile, the same plank, and something standing on it. A body or a loose
+	# item on the tile refuses the wall at the predicate and again at the end of the channel, and the
+	# plank is not spent. The clear tile above is the control: it took the wall.
+	for occupant in ["body", "item"]:
+		var occ_w: Variant = _world()
+		var occ_plank: int = SimItems.spawn_item(occ_w, "item.plank.sawn", {"tier": "scavenged", "count": 1})
+		if not SimInventory.stow(occ_w, occ_w.player, occ_plank):
+			push_error("%s: could not stow a plank for the %s case" % [lane, occupant])
+			return false
+		if not SimFortify.can_build(occ_w, 10, 12):
+			push_error("%s: the %s control tile was refused with nothing on it" % [lane, occupant])
+			return false
+		if occupant == "body":
+			var sitter: int = int(occ_w.entities.spawn())
+			occ_w.components.set_component(sitter, "position", {"x": 10.5, "y": 12.5})
+			SimHealth.make_survivor_body(occ_w, sitter)
+		else:
+			var loose: int = SimItems.spawn_item(occ_w, "item.scrap.metal", {"tier": "scavenged", "count": 1})
+			occ_w.components.set_component(loose, "position", {"x": 10.4, "y": 12.6})
+		if SimFortify.can_build(occ_w, 10, 12):
+			push_error("%s: can_build said yes to a tile with a %s on it" % [lane, occupant])
+			return false
+		_channel_build(occ_w, {"type": "barricade.timber", "tx": 10, "ty": 12}, "timber")
+		if not (occ_w.components.query(["timberWall"]) as Array).is_empty():
+			push_error("%s: a timber wall was raised on a tile holding a %s" % [lane, occupant])
+			return false
+		if SimFortify.material_count(occ_w, occ_w.player, "plank") != 1:
+			push_error("%s: the refused wall over a %s spent the plank" % [lane, occupant])
+			return false
+
 	# Stone: rubble-grade stone, opaque, the longest channel of the three.
 	var w2: Variant = _world(10.5, 13.5)
 	var stone: int = SimItems.spawn_item(w2, "item.stone.block", {"tier": "scavenged", "count": 1})
@@ -610,7 +640,7 @@ func _raised_walls() -> bool:
 	if bool(lulled["fence"]):
 		push_error("%s: a wire fence breach started a director lull -- only board, door and scrap count" % lane)
 		return false
-	print("  WALLS: timber and fence block walking, timber blocks sight and the fence does not; each spends one unit and a second on the same tile is refused; the fence breaches in 260 ticks of one presser, starts no lull, and the stone course does not breach")
+	print("  WALLS: timber and fence block walking, timber blocks sight and the fence does not; each spends one unit and a second on the same tile is refused, as is a tile holding a body or a loose item; the fence breaches in 260 ticks of one presser, starts no lull, and the stone course does not breach")
 	return true
 
 
