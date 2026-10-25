@@ -271,11 +271,6 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
 
 *Firearms, readers first (stage 1):*
 
-- **The three dead stats get readers.** `noise_emission`, `condition_loss` and `repair_cost` are
-  declared in `sim/modifiers/stats.gd` and resolved by nothing. The shot reads the first, the
-  wear event the second, the repair verb the third, each on the item. Gate: `godot:m2:ranged`
-  and `godot:m2:attach` lanes that move a stat and watch the reader move; the inert ranged
-  suffixes (`quiet_hand`, `long_nights`, `salvage`, `ruin`) become the true positive.
 - **The barrel governs.** Length, quality and material on a barrel part read into velocity (damage
   falloff and noise), accuracy and wear. The short barrel is louder and wanders; the match barrel
   is heavier and steadier. Gate: `godot:m2:attach` BARREL, a lane per axis.
@@ -2424,6 +2419,44 @@ not a to-do list:
     that a name twice as long is still cut.
   - Also run green: `godot:smoke`, `godot:check:inventory`, `godot:check:ui_skin`,
     `godot:check:respond`, `godot:check:web_look`, `godot:check:context`, `check:routing`.
+- **Items — the three dead stats get readers, 2026-10-26.** The first piece of the firearms arc
+  (readers before content). `noise_emission`, `condition_loss` and `repair_cost` were declared in
+  `sim/modifiers/stats.gd` and two of them resolved by nothing, so the ranged affixes that name
+  `noise_emission` and `condition_loss` moved no number a gun reads. `repair_cost` was read, by
+  the repair verb, for any item. Each is read through the **item's own scope**, the way every
+  affix is scoped, so a quiet hand on one pistol does not quiet the next one holstered:
+  - **The shot and the connect.** `SimItems.noise_emission_of` scales the `noise.emitted` a shot
+    publishes (`ranged.gd`'s `_fire_shot`) and the one a melee connect publishes
+    (`melee.gd`'s `_resolve_strike`), by the profile's `source`. A bare hand and a zombie's body
+    carry no source and read 1.0, so every swing and shot that is not carrying a noise affix is
+    byte-identical to before. A melee swing emits noise only on a connect, so that is the one
+    melee place it is read.
+  - **The wear.** `SimItems.condition_loss_of` scales the amount `SimItems.apply_wear` takes (the
+    host's shot, reload and hit) and the amount `SimAttachments._wear_one` takes off a fitted part.
+    Gun oil and the failed-modification loss in `modification.gd` are not `WEAR_EVENTS` and are not
+    touched.
+  - **The repair.** Read honestly: `repair_cost` has been read since 2026-09-13, by
+    `SimItems.repair_item` lowering the ceiling by `REPAIR_CEILING_DROP` times the repairer's and
+    the item's own factor (the "repair cost is read" entry above). The scrap is still one whole
+    unit. This piece added no code on that path; it adds the ranged proof that an item's own
+    `repair_cost` reaches it.
+  - **What is live on a ranged weapon now.** `quiet_hand`, `salvage`, `ruin` (its `condition_loss`
+    half; its `melee_damage` half is read only by melee) and the `reinforced` prefix, whose
+    `condition_loss` was authored on `weapon.ranged` and was inert. **Still inert on a ranged
+    weapon: `long_nights`.** Its stat, `swing_stamina`, is read only by the melee profile, and what
+    stamina a shot should cost is a design call, not a reader. Named here, not fixed.
+  - **Gates.** `godot:m2:ranged` lane QUIET-SHOT (a real shot: bare 180.0, quiet hand 153.00 at
+    tier zero and 108.00 at tier two, of Salvage 180.0) and lane RUIN-SHOT (one shot leaves a bare
+    pistol at 0.99850 and an of Ruin one at 0.99700, a quiet-handed one at the bare 0.99850).
+    `godot:m2:attach` lanes SWING (an axe connect at 8.00 bare, 6.80 quiet hand, 4.80 at tier
+    two, 8.00 of Salvage), WEAR (a part with `condition_loss` x2 loses exactly twice what it loses
+    plain, and one with `ranged_accuracy` x2 loses the plain amount; a ruined pistol loses
+    0.00300 to one wear event, 0.00150 bare) and REPAIR (a plain pistol's ceiling goes to 0.9500,
+    of Salvage to 0.9600 and 0.9775, a quiet-handed one to 0.9500). `godot:m2:web`'s READERS lane
+    now empties `AWAITING_READER` and drops `condition_loss` and `noise_emission` from the excuses;
+    `EXCUSED_DEAD` is down to four, and `bleed_on_hit` is the only one a shipped affix still writes.
+  - **Not measured.** Affixes are rolled into loot, so a campaign that rolls them will see
+    different wear and noise. No campaign claim is made here and the ten-seed table was not re-run.
 - **UI overhaul, slice 2: the Colony screen in one survivor context, 2026-10-23.** The second
   bullet of [the UI overhaul group](#ui-overhaul), its Colony half, against docs/32's roster row.
   The calls taken are in docs/30, "The Colony screen". What changed:
