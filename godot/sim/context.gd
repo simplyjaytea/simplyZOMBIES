@@ -37,6 +37,7 @@ const SimPathRes = preload("res://sim/path.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
 const SimOrdersRes = preload("res://sim/modules/orders.gd")
 const SimStockpileRes = preload("res://sim/modules/stockpile.gd")
+const SimLightRes = preload("res://sim/modules/light.gd")
 
 # A tile more than this from the actor reads as a walk *over* rather than a walk *here* -- the same
 # distinction the word already carries in speech, an errand across the street versus a step to the
@@ -216,6 +217,20 @@ static func verbs_at(world: Variant, actor: int, hit: Dictionary, selected: int 
 
 	if kind == "vehicle" and entity >= 0 and int(SimVehiclesRes.nearest_in_reach(world, actor)) == entity:
 		rows.append({"text": _vehicle_row_text(world, actor, entity), "command": {"type": "use.context"}, "target": -1})
+
+	# Take a planted floodlight back down. The lamp is a prop to the cursor (`pick_at` finds it
+	# through `Appearance.PROP_KINDS`'s `placedLight` entry), and the row is offered only when the
+	# sim's own `planted_in_reach` names *this* lamp -- the same reach the plant itself used, so
+	# standing it up there and taking it down from here are one decision apart. The command is the
+	# sim's own `light.unplant`, and a full pack refuses it exactly as it refuses anything else,
+	# which is why the row can promise nothing the sim does not keep.
+	if kind == "prop" and entity >= 0 and world.components.has_component(entity, "placedLight"):
+		if int(SimLightRes.planted_in_reach(world, actor)) == entity:
+			rows.append({
+				"text": "take down the %s" % SimItemsRes.item_name(world, entity).to_lower(),
+				"command": {"type": "light.unplant"},
+				"target": entity,
+			})
 
 	if kind == "colonist" and entity >= 0:
 		var treat_row: Dictionary = _treat_row(world, actor, entity)

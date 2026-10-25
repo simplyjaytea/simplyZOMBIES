@@ -6371,3 +6371,17 @@ is the honest one.
 
 **How to apply:** no sim path may remove an item's `position` without putting it somewhere -- a
 pack, a tile, or a despawn. `godot:m2:stockpile` EMPTY and FULL hold the two paths found.
+
+## The floodlight comes back down (2026-10-26)
+
+The 2026-09-12 call in "Two placeable items, two opposite answers" made the floodlight one-way on
+purpose: standing it up commits the thing to that street. The owner took the planted-floodlight
+piece up on 2026-10-26 and chose to build the way back, which supersedes that call.
+
+The floodlight is still a rigged installation and still costs the street. What changes is that the
+commitment can be taken back: `light.unplant` lifts the lamp within the plant's own reach into the
+pack with its fuel carried, and refuses, leaving it standing, when the pack has no room. The
+noise devices keep their answer and the alarm and noisemaker stay free, as that call left them.
+
+**How to apply:** a planted light has a way back, so a gate or a record that calls the floodlight
+one-way is out of date. `godot:m2:light_burn` UNPLANT is the lane that holds the take-down.
