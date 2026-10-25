@@ -21,11 +21,12 @@ extends RefCounted
 ## a tile with a verb, wind up, go off, run down -- and, by the owner's decision, are **picked back
 ## up and placed again**.
 ##
-## The contrast with the light slice is deliberate and worth stating where somebody will read it:
-## `item.floodlight.rigged` is planted **one-way** -- it becomes furniture, there is no verb to take
-## it down, and it matches `_place_bench`. A noise device is the opposite. Bait is a thing you move;
-## a floodlight is a thing you site. Whether the two placement mechanisms should eventually converge
-## is a real question and it is deliberately not answered here.
+## The contrast with the light slice was deliberate when this was written: `item.floodlight.rigged`
+## was planted one-way and a noise device was the opposite. Bait is a thing you move; a floodlight is
+## a thing you site. The floodlight has since been given its own way back (`light.unplant`, docs/30's
+## "The floodlight comes back down"), so the difference left is the verb and the reach, not whether
+## the thing can be taken up. Whether the two placement mechanisms should converge is still not
+## answered here.
 
 const SimInventoryRes = preload("res://sim/modules/inventory.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
