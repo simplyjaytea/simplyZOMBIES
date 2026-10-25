@@ -37,6 +37,8 @@ const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const WorkRead = preload("res://sim/work_read.gd")
+const SimWeather = preload("res://sim/modules/weather.gd")
+const SimStockpile = preload("res://sim/modules/stockpile.gd")
 
 # --- what shipped before this slice, and must still ship ----------------------------------------
 #
@@ -100,8 +102,9 @@ func _run() -> void:
 	ok = _the_menu_and_the_intake_are_one_function() and ok
 	ok = _a_half_block_is_refused_rather_than_taken_for_free() and ok
 	ok = _a_low_colonist_takes_the_comfort_on_their_own() and ok
+	ok = _a_storm_makes_no_comfort_job_for_an_outdoor_pile() and ok
 	if ok:
-		print("M2_COMFORT_OK pinned cap clock reach menu block autonomy")
+		print("M2_COMFORT_OK pinned cap clock reach menu block autonomy storm")
 		quit(0)
 	else:
 		push_error("M2_COMFORT_FAIL")
@@ -942,3 +945,84 @@ func _first_stockpile_tile(w: Variant) -> Vector2i:
 			if SimNeeds.is_stockpile_tile(w, i, j):
 				return Vector2i(i, j)
 	return Vector2i(-1, -1)
+
+
+# --- STORM -------------------------------------------------------------------------------------
+#
+# A storm sends everybody in: `_refused_outdoors` drops a job whose tile is outdoors on the tick
+# after it is made. Before the builders asked the same question, a low-mood colonist beside an
+# outdoor pile was handed a Comfort job each tick and had it taken away the next, for as long as
+# the storm lasted. The positive: the identical outdoor pile under a clear sky is handed over. The
+# negatives: the storm hands nothing over for it, and a pile on the annex's floor, under a roof, is
+# still handed over under the same storm, so the lane is judging the roof and not refusing every
+# job in a storm.
+func _a_storm_makes_no_comfort_job_for_an_outdoor_pile() -> bool:
+	var handed: Dictionary = {}
+	for sky in ["clear", "storm"]:
+		var w: Variant = _world()
+		var ellis: int = _ellis(w)
+		if ellis < 0 or not _colonist_ready_for_the_tick(w, ellis):
+			push_error("STORM: no Ellis, or the fixture would not settle")
+			return false
+		_force_mood(w, ellis, -30.0)
+		var pile: int = _commodity_on_the_pile_or_pack(w, ellis, CIGARETTES, false)
+		var outdoor: Vector2i = _mark_outdoor_tile_near_the_annex(w)
+		if pile < 0 or outdoor.x < 0:
+			push_error("STORM: the fixture would not place the cigarettes on an outdoor stockpile tile")
+			return false
+		w.components.set_component(pile, "position", {"x": float(outdoor.x) + 0.5, "y": float(outdoor.y) + 0.5})
+		SimWeather.set_kind(w, sky, 1 << 40)
+		handed[sky] = SimJobs._comfort_job(w, ellis)
+		if sky == "storm" and w.components.get_component(pile, "reserved") != null:
+			push_error("STORM: an outdoor pile was claimed under a storm")
+			return false
+	if String((handed["clear"] as Dictionary).get("kind", "")) != "Comfort":
+		push_error("STORM: the clear sky handed over %s, so the outdoor pile is out of the lane's reach and the storm half proves nothing" % str(handed["clear"]))
+		return false
+	if not (handed["storm"] as Dictionary).is_empty():
+		push_error("STORM: a storm made a Comfort job for a pile outdoors: %s" % str(handed["storm"]))
+		return false
+	var w2: Variant = _world()
+	var ellis2: int = _ellis(w2)
+	if ellis2 < 0 or not _colonist_ready_for_the_tick(w2, ellis2):
+		push_error("STORM: the indoor fixture would not settle")
+		return false
+	_force_mood(w2, ellis2, -30.0)
+	var roofed: int = _commodity_on_the_pile_or_pack(w2, ellis2, CIGARETTES, false)
+	var floor_tile: Vector2i = _first_stockpile_tile(w2)
+	if roofed < 0 or floor_tile.x < 0 or not SimTileMap.is_indoors(w2.tilemap, floor_tile.x, floor_tile.y):
+		push_error("STORM: the annex's stockpile tile is not under a roof, so the indoor negative is not one")
+		return false
+	SimWeather.set_kind(w2, "storm", 1 << 40)
+	if String(SimJobs._comfort_job(w2, ellis2).get("kind", "")) != "Comfort":
+		push_error("STORM: a storm refused a pile under a roof")
+		return false
+	print("STORM: under a clear sky the outdoor pile is handed over; under a storm it is not, and a pile under a roof still is")
+	return true
+
+
+# The open-air floor tile nearest the annex that the stockpile will take, marked as the zone and
+# returned, or (-1, -1). The player has seen the whole map first, because the zone only takes ground
+# the player has seen.
+func _mark_outdoor_tile_near_the_annex(w: Variant) -> Vector2i:
+	var bytes: PackedByteArray = PackedByteArray()
+	bytes.resize(int((w.tilemap.w * w.tilemap.h + 7) / 8))
+	bytes.fill(255)
+	w.components.set_component(w.player, "explored", {"w": int(w.tilemap.w), "h": int(w.tilemap.h), "bits": Marshalls.raw_to_base64(bytes)})
+	var annex: Rect2i = SimTileMap.annex_rect(w.tilemap)
+	var centre: Vector2 = Vector2(annex.position) + Vector2(annex.size) * 0.5
+	var best: Vector2i = Vector2i(-1, -1)
+	var best_d: float = INF
+	for j in int(w.tilemap.h):
+		for i in int(w.tilemap.w):
+			if annex.has_point(Vector2i(i, j)) or SimTileMap.is_indoors(w.tilemap, i, j):
+				continue
+			if not SimStockpile.markable(w, i, j):
+				continue
+			var d: float = centre.distance_to(Vector2(i, j))
+			if d < best_d:
+				best_d = d
+				best = Vector2i(i, j)
+	if best.x >= 0:
+		SimStockpile.mark(w, {"x0": best.x, "y0": best.y, "x1": best.x, "y1": best.y, "on": true})
+	return best
