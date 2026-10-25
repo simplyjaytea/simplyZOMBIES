@@ -5,6 +5,8 @@ const SimCombat = preload("res://sim/combat.gd")
 const SimAimRes = preload("res://sim/aim.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
+const SimAttachmentsRes = preload("res://sim/modules/attachments.gd")
+const SimWoundsRes = preload("res://sim/modules/wounds.gd")
 
 enum SwingState { Idle = 0, WindUp = 1, Recover = 2 }
 
@@ -258,6 +260,13 @@ static func _resolve_strike(world: Variant, attacker: int, weapon: Dictionary, r
 	var facing: float = SimAimRes.radians_of(world.components, attacker)
 	var facing_x: float = cos(facing)
 	var facing_y: float = sin(facing)
+	# A blade with glass in its head and nothing on its grip opens the hand that holds it, whether or
+	# not the swing finds anybody: the cut is in the hand before the weapon is anywhere near a body.
+	# The wound goes through the same append-and-publish a bad exposure does (needs.gd's
+	# _exposure_wound), and no integrity is taken, because the hand is cut, not crushed.
+	if SimAttachmentsRes.cuts_hand(world, int(weapon.get("source", -1))):
+		SimWoundsRes.append_wound(world, attacker, "cut", "hand_right", -1, 0.0, "", SimWoundsRes.Severity.Laceration)
+		world.events.publish({"type": "injury.sustained", "entity": attacker, "injury": "cut", "bodyPart": "hand_right"})
 	var reach: float = float(weapon.get("reachMetres", 1.4)) + MELEE_REACH_FUDGE
 	var limit_sq: float = reach * reach
 

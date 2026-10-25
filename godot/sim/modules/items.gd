@@ -325,6 +325,11 @@ static func content_entries(world: Variant, type_id: String) -> Array:
 	return _all_entries(world, type_id)
 
 
+## The content entry for a base id, or null. For a caller that holds a recipe's id and not an item.
+static func base_by_id(world: Variant, base_id: String) -> Variant:
+	return _content_get(world, "item", base_id)
+
+
 static func item_base_of(world: Variant, item: int) -> Variant:
 	var b: Variant = world.components.get_component(item, "itemBase")
 	if b == null:

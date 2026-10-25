@@ -2967,6 +2967,10 @@
     },
     "entries": [
       {
+        "item": "item.bat.wood",
+        "weight": 5
+      },
+      {
         "item": "item.scrap.metal",
         "weight": 16,
         "count": {
