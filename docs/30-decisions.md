@@ -6371,3 +6371,38 @@ is the honest one.
 
 **How to apply:** no sim path may remove an item's `position` without putting it somewhere -- a
 pack, a tile, or a despawn. `godot:m2:stockpile` EMPTY and FULL hold the two paths found.
+
+## The release plan and the content arcs, 2026-10-26
+
+Decided by the owner, 2026-10-26, from a proposal in the coordinator's chat. Four calls, each
+recorded once here; the plan itself is [docs/38's "The release plan"](38-playbook.md#the-release-plan)
+and the pieces it opens are in docs/23's what's left under "Content arcs".
+
+- **The projection stays flat top-down.** An isometric view in Project Zomboid's manner was
+  asked about and declined. The reasons, in the order they weighed: the sim is projection-blind
+  and would not move, but occlusion management (wall extrusion, the cutaway over the player, the
+  per-frame depth sort) was deleted whole in the 2026-09 reversal and would come back whole;
+  about forty-six of the look gates pin flat-projection facts; and every shipped picture -- the
+  outpost pack and the generated tier both -- is drawn flat, so nothing reuses. This is the third
+  time the question has been settled (the isometric start, the top-down reversal, and now), and
+  it is settled the same way as docs/00's reversal argument. Depth on walls and furniture, where
+  wanted, is an oblique treatment inside the current projection, never a new one.
+- **Release goes in five stages.** Named in docs/38: alpha closed (it loops), alpha open (it
+  survives), the art pass (it looks finished), beta (people and the world), and 1.0 (breadth).
+  Multiplayer is off the track and is 1.x unless the owner pulls it forward. The art pass runs
+  beside the balance stage, not after it.
+- **Four content arcs open.** More zombie kinds (seven to fourteen), raider doctrine and
+  archetypes (four to nine), realistic firearm customization on the existing assembly model, and
+  bespoke melee customization on the same model. The owner's words for the weapons: *"you can
+  customize every aspect of the weapon, change out barrels, different calibers, etc., but it needs
+  to be realistic"*, and for melee: *"a baseball bat, but you can put nails in it, or a hockey
+  stick, put a knife on it, a scythe ... organic and nice and a little bespoke."*
+- **Readers before content, pictures a stage behind.** Every arc lands its readers first (the
+  three stats that resolve against nothing come before any new part), and the art for a new
+  kind, part or frame is scheduled one stage behind its sim piece, so no picture ships before
+  the thing it shows exists.
+
+**How to apply:** a new zombie kind, raider archetype, part or melee frame is a piece in docs/23's
+"Content arcs" group before it is a branch. A stat on a part needs a reader in the same slice or
+it is not authored. A conversion between calibers is allowed only where the realism table in
+docs/10 says so; the coordinator writes the table and the owner vetoes.
