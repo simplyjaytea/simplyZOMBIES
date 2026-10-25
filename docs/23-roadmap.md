@@ -205,14 +205,11 @@ first:
   (roster entry point, job groups, explicit priority and Focus, the six stubs named, a truthful
   "now" line, the drawer and its Skills button). Still open: reflow the skill web itself rather
   than shrinking it to fit (slice 1's stopgap), with the selected node's detail and learn action
-  separate from the web; keyboard navigation of the roster and the chips; and a roster layout
-  for a large colony (review shot `colony_crowd`: at 1280×720 seven colonists show three rows and
-  scroll the rest, because the drawer keeps the room the longest clause needs). One known nit in
-  the scroll to the pick: `work_panel.gd`'s `_scrolled_for` is not cleared when the screen
-  closes, so a colonist wheeled off screen, then picked again in the street after another,
-  can open off screen; clear it when the panel hides, or scroll from main.gd's `_set_work_open`. **Files:** `godot/ui/web_panel.gd`, `godot/ui/web_layout.gd`,
+  separate from the web; and a roster layout for a large colony (review shot `colony_crowd`: at
+  1280×720 seven colonists show three rows and scroll the rest, because the drawer keeps the room
+  the longest clause needs). **Files:** `godot/ui/web_panel.gd`, `godot/ui/web_layout.gd`,
   `godot/ui/work_panel.gd`, and the coordinator's input routing. **Proof:** the web gate's
-  layout lanes and a play lane that drives the roster from the keyboard.
+  layout lanes.
 - **Weapon assembly and contextual actions.** Rework the bench around actual installed
   slots, eligible carried parts and categorical comparisons. Slice 3 (2026-10-24) landed the
   by-hand half of this bullet, field work on a fitted part (C1), the assembly screen with the
@@ -225,8 +222,7 @@ first:
 - **Field HUD and every vehicle instrument layout.** Finish compact prose, six quick slots,
   colony access, interaction hints, speech and event/feedback treatment. Reserve space for
   car, handlebar and board instruments; retain their existing information semantics.
-  One known nit, seen in C4's review shots: at 1280×720 a quick slot cuts a longer name short
-  ("Empty Bo…" for the empty bottle in slot 1); it predates C4. **Files:** HUD, dashboard,
+  **Files:** HUD, dashboard,
   quick strip, motion/cursors and coordinator-owned world UI composition. **Proof:** HUD,
   vehicles, speech, play and skin gates; long prose and all three mounting/driving/exit layouts
   without covering active controls.
@@ -2416,6 +2412,27 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Colony screen follow-ups, 2026-10-26.** Three nits the Colony and HUD bullets named, one piece.
+  - **Reopen scrolls to the pick.** `work_panel.gd` clears `_scrolled_for` on
+    `NOTIFICATION_VISIBILITY_CHANGED`, so a reopened screen scrolls to the game's pick afresh.
+    `godot:check:play`'s REOPEN lane: the wheel takes the picked first row off the roster, the
+    screen closes and reopens, and the row is drawn again (the positive); with the screen up and
+    the pick unchanged, five frames pass without a scroll of their own (the negative).
+  - **The roster and the Focus chips from the keyboard.** Up and Down, which answer "move" under
+    the work focus, move the pick; Left and Right point the chips; Enter ("dismiss") presses the
+    pointed chip. Tab, J and K still answer first (`input_map.gd`, `work_panel.gd`'s `key`).
+    `godot:check:play`'s ROSTER-KEYS lane: Down moves the pick, Right points Auto and again Fighter,
+    Enter queues one `job.focus` for the picked colonist (the positive); W moves nobody and queues
+    nothing, Enter with no chip pointed queues nothing, and J still puts the screen away (the
+    negatives).
+  - **Quick slot names at 1280×720.** `quick_strip.gd` wraps a name into at most two lines in the
+    slot's height (`name_lines`, with `text_room` and `keeps_picture` as the one room the draw and
+    the gate share), marking a cut with the ellipsis only when two lines run out. The empty bottle
+    in slot 1 reads whole in 92 px. `godot:check:hud`'s STRIP lane: the positive is the bottle's
+    whole name; the negatives are that it does not fit the one line the strip drew before, and
+    that a name twice as long is still cut.
+  - Also run green: `godot:smoke`, `godot:check:inventory`, `godot:check:ui_skin`,
+    `godot:check:respond`, `godot:check:web_look`, `godot:check:context`, `check:routing`.
 - **UI overhaul, slice 2: the Colony screen in one survivor context, 2026-10-23.** The second
   bullet of [the UI overhaul group](#ui-overhaul), its Colony half, against docs/32's roster row.
   The calls taken are in docs/30, "The Colony screen". What changed:
