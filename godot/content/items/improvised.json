@@ -41,7 +41,7 @@
     "massKg": 0.2,
     "attachment": {
       "fits": ["stud"],
-      "appliesTo": ["club"],
+      "appliesTo": ["item.bat.wood", "item.hammer.claw"],
       "recipe": { "kinds": ["cordage"] },
       "handCut": true,
       "melee": { "damage": 1.3, "speed": 0.95 },
@@ -58,7 +58,7 @@
     "massKg": 0.1,
     "attachment": {
       "fits": ["stud"],
-      "appliesTo": ["club"],
+      "appliesTo": ["item.bat.wood", "item.hammer.claw"],
       "recipe": { "kinds": ["fixings"] },
       "fieldSwap": true,
       "melee": { "damage": 1.08, "staggerTicks": 1.15 },
@@ -91,7 +91,7 @@
     "massKg": 0.2,
     "attachment": {
       "fits": ["stud"],
-      "appliesTo": ["club"],
+      "appliesTo": ["item.bat.wood", "item.hammer.claw"],
       "recipe": { "kinds": ["fixings"] },
       "fieldSwap": true,
       "melee": { "damage": 1.1, "staggerTicks": 1.1 },

@@ -2501,8 +2501,11 @@ not a to-do list:
   CATALOGUE needs a loot table or kit for every base that does something. Three slots
   widen the melee bases: `stud`, `guard` and `weight`, each declared only where it is plausible
   (`item.pipe.steel` takes stud and weight, `item.sabre.cavalry` takes guard, and the aluminium bat
-  takes weight but no stud). An attachment declares `appliesTo` beside `fits`, a list of families
-  or base ids, and `SimAttachments.plausible` asks both. Every offer to a slot (the bench view, the
+  takes weight but no stud; Screw Studs, Bolt Studs and Glass Shards name only the wooden hosts,
+  `item.bat.wood` and `item.hammer.claw`, so a steel pipe or a police baton refuses them although
+  both have a stud slot, and PLAUSIBLE holds that refusal by host and not by slot). An attachment
+  declares `appliesTo` beside `fits`, a list of families or base ids, and
+  `SimAttachments.plausible` asks both. Every offer to a slot (the bench view, the
   field drop, the field-work verb) asks it too, so a refused part is never offered. Twenty-five
   improvised parts are content in `godot/content/items/improvised.json`. Each carries
   `attachment.recipe.kinds`, one unit of each material kind spent per part, and `item.improvise`
