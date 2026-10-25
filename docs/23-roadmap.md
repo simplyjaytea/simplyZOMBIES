@@ -14119,6 +14119,12 @@ not a to-do list:
   with a plank raises a timber wall and, with no material, lays the alarm. E-LADDER asks both
   `rung_of` and the key itself, so the read and the act cannot name different rungs.
 
+  **A round marks the wall it hits.** `SimDecals.surface_of` knew only the scrap barricade among
+  the overlays, so a round into a raised wall marked what stood behind it. A timber wall takes
+  chips and a stone course a hole on its own tile; the wire fence is left out on purpose, as glass
+  is, because a round goes through it. `godot:check:decals` ROUND holds the two marks and the fence
+  as the negative.
+
   **A wall is not raised on top of anything.** `can_build` takes the world and, past the ground
   rule, refuses a tile holding a body, a loose item, a water source, a bed, a workbench, a placed
   light, a campfire, a latrine or a container, and `_place_wall` re-asks it when the channel ends,
