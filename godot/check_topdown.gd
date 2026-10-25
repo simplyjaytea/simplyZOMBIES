@@ -48,12 +48,13 @@ func _run() -> void:
 	ok = _props_reach_the_draw_path() and ok
 	ok = _built_mass_is_thin_and_still_solid() and ok
 	ok = _windows_are_glass_art() and ok
+	ok = _the_fence_is_a_fence_and_not_a_wall() and ok
 	ok = _bodies_face_by_flipping() and ok
 	ok = _bodies_turn_and_walk() and ok
 	ok = _bodies_scale_with_the_zoom() and ok
 	ok = _a_still_body_is_not_glimpsed() and ok
 	if ok:
-		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced, windows drawn as tinted glass pictures, nobody rotates and a face-on body flips, the pack's bodies turn four ways and walk on the render clock, bodies scale with the zoom, a still body is not glimpsed")
+		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced, windows drawn as tinted glass pictures, a wire fence drawn as strand over its floor, nobody rotates and a face-on body flips, the pack's bodies turn four ways and walk on the render clock, bodies scale with the zoom, a still body is not glimpsed")
 		quit(0)
 	else:
 		push_error("TOPDOWN_FAIL")
@@ -467,6 +468,68 @@ func _built_mass_is_thin_and_still_solid() -> bool:
 		return false
 	print("WALL OK cap -%.2f, faces +%.2f/+%.2f over a %.2f-tile band, lit margin +%.3f (>= %.2f), dim margin +%.3f (>= %.2f), brightest generator ground %.3f; against the pack's ground (brightest %.3f) the lit face clears by %+.3f and the shaded by %+.3f, the walls slice's to answer" % [Palette.WALL_CAP_DARKEN, Palette.WALL_FACE_LIT, Palette.WALL_FACE_DIM, Palette.WALL_FACE_SHARE, _luma(lit) - brightest, FACE_LIT_MARGIN, _luma(dim) - brightest, FACE_DIM_MARGIN, brightest, pack_brightest, _luma(lit) - pack_brightest, _luma(dim) - pack_brightest])
 	return true
+
+
+# FENCE: the wire fence stops a body and not the eye (the sim says so: solid, and clear), so it must
+# not draw as masonry. It has its own palette token, brighter than the wall's, the district draw
+# hands the overlay to `_draw_fence_wire` over the floor and does not set the wall tile for it, and
+# the timber and stone arm beside it does -- which is the scanner's true negative, proof that the
+# lines read are the arms they name. Textual, as the lanes above are, because a draw pass cannot be
+# run headless.
+func _the_fence_is_a_fence_and_not_a_wall() -> bool:
+	if not Palette.COLOURS.has("fence"):
+		push_error("FENCE: Palette.COLOURS has no 'fence' token, so the fence has no colour of its own")
+		return false
+	var fence: Color = Palette.COLOURS["fence"]
+	var wall: Color = Palette.COLOURS["wall"]
+	if _luma(fence) <= _luma(wall):
+		push_error("FENCE: the fence token (luma %.3f) is no brighter than the wall's (%.3f), so a strand would sink into masonry" % [_luma(fence), _luma(wall)])
+		return false
+	var district: String = _code_only(_function_body(MAIN_GD, "_draw_district"))
+	if district.is_empty():
+		push_error("FENCE: could not read _draw_district out of %s" % MAIN_GD)
+		return false
+	var fence_arm: String = _arm_after(district, "elif kind == \"fence\":")
+	var wall_arm: String = _arm_after(district, "elif kind == \"timber\" or kind == \"stone\":")
+	if fence_arm.is_empty() or wall_arm.is_empty():
+		push_error("FENCE: the fence arm (%d chars) or the timber-and-stone arm (%d chars) was not found in _draw_district" % [fence_arm.length(), wall_arm.length()])
+		return false
+	if not wall_arm.contains("Tile.Wall"):
+		push_error("FENCE: the timber-and-stone arm no longer sets the wall tile, so the scanner is not reading the arm it thinks it is")
+		return false
+	if fence_arm.contains("Tile.Wall") or fence_arm.contains("COLOURS[\"wall\"]"):
+		push_error("FENCE: the fence arm draws a wall; the eye goes through a fence and the tile has to say so")
+		return false
+	if not district.contains("_draw_fence_wire(") or not district.contains("Palette.COLOURS[\"fence\"]"):
+		push_error("FENCE: _draw_district never draws the fence's strand in its own token")
+		return false
+	var wire: String = _function_body(MAIN_GD, "_draw_fence_wire")
+	if wire.is_empty() or not wire.contains("draw_rect"):
+		push_error("FENCE: _draw_fence_wire is missing or draws nothing")
+		return false
+	print("FENCE OK a wire fence has its own token (luma %.3f over the wall's %.3f), draws its strand over the floor it stands on, and is not set as a wall tile where timber and stone are" % [_luma(fence), _luma(wall)])
+	return true
+
+
+# The code lines under an `elif` arm, up to the next arm at the same indentation or a shallower one.
+func _arm_after(body: String, header: String) -> String:
+	var lines: PackedStringArray = body.split("\n")
+	var out: String = ""
+	var at: int = -1
+	var indent: int = 0
+	for i in lines.size():
+		if at < 0:
+			if lines[i].strip_edges() == header:
+				at = i
+				indent = lines[i].length() - lines[i].lstrip("\t").length()
+			continue
+		var depth: int = lines[i].length() - lines[i].lstrip("\t").length()
+		if lines[i].strip_edges().is_empty():
+			continue
+		if depth <= indent:
+			break
+		out += lines[i] + "\n"
+	return out
 
 
 # GLASS: a window's pane and rim are pictures since 2026-10-19 (docs/23, "Window glass as art"),

@@ -14132,9 +14132,13 @@ not a to-do list:
   pack. WALLS holds a body and a loose item as true negatives against the clear tile that took the
   wall, each broken on purpose and watched go red.
 
-  **Pictures are open.** The walls draw as the procedural wall tile in `presentation/main.gd`, which
-  is what keeps a blocked tile from drawing as floor. No `prop.*` sibling was added to
-  `stations.json`: the scrap barricade's picture is read only through `PROP_KINDS` in
+  **Pictures are open.** The timber wall and the stone course draw as the procedural wall tile in
+  `presentation/main.gd`, which is what keeps a blocked tile from drawing as floor. The wire fence
+  does not: it draws the floor it stands on with two posts and two strands over it in its own
+  palette token (`Palette.COLOURS["fence"]`, `_draw_fence_wire`), because the eye goes through it.
+  `godot:check:topdown` FENCE holds it (token brighter than the wall's; the fence arm sets no wall
+  tile and the timber-and-stone arm beside it does; red when the fence arm is made a wall). No
+  `prop.*` sibling was added to `stations.json`: the scrap barricade's picture is read only through `PROP_KINDS` in
   `appearance.gd`, and wiring the walls to it would stand a barricade picture over every wall, so
   it waits for the art thread's own pictures.
 
