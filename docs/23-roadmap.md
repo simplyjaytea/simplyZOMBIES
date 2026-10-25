@@ -506,10 +506,9 @@ system.
 
 - ~~**Ammo types: the caliber and the round**~~ — **landed** 2026-09-12, see the record.
 - ~~**Food, drink, and the medical quality tiers**~~ — **landed** 2026-09-12, see the record.
-- **A tourniquet in a loot table.** The tourniquet landed 2026-10-26 (see the record): its item and
-  its reader are gated, but no loot table names `item.medical.tourniquet`, so a survivor finds one
-  only in a pack that was handed to them. A loot line moves the ten-seed table, so it is a balance
-  call with an owner's word on which table and how often, not a number to guess from this side.
+- ~~**A tourniquet in a loot table.**~~ **Landed** 2026-10-26 as a default, see the record: one line
+  in `loot.medical` at weight 8, beside the sterile dressing. A loot line moves the ten-seed table
+  and that table was not re-run; the weight is the owner's call (docs/33, card 18).
 - ~~**Clothing, weather gear and bags**~~ — **landed** 2026-09-12, see the record.
 - **Does a coat make you hotter?** Found by the warmth slice and left exactly as it was, because
   changing it is a rule change rather than a bug fix. Positive warmth goes through `_shift_temp`,
@@ -2481,7 +2480,11 @@ not a to-do list:
     skipped), the one UI change.
   - **Content.** `item.medical.tourniquet` in `godot/content/items/supplies.json`, with a boolean
     `tourniquet` key declared in `godot/content/schemas/item.schema.json`. `godot:validate` and
-    `npm test` both pass on it. Not in any loot table yet; see what's left.
+    `npm test` both pass on it. In `loot.medical` at weight 8 since the review that found
+    `godot:m2:gear` CATALOGUE blind to it (its `READ_KEYS` lacked `tourniquet`, `bandageTier`,
+    `attachment` and `recipe`; now it judges all four, and exempts only a part carrying a
+    `recipe.kinds` block, made by `item.improvise` and never looted). The ten-seed balance table
+    was not re-run for that line; docs/30, "The tourniquet is findable".
 - **Melee frames and the widened slots, and the improvised recipe table, 2026-10-26.** The first
   stage of the melee arc (docs/38). Every melee item declares a `family` (club, blade, polearm or
   tool): the nineteen melee bases, a new `item.bat.wood` (a twentieth base, so the wooden bat the

@@ -6491,3 +6491,24 @@ themselves. The care pane is the one surface that offers the verb.
 **How to apply:** a tie that a hand has already clotted is still a limb on the clock. Do not end the
 window when the wound does, and do not make a tie survivable without an owner decision. The
 TOURNIQUET lanes of `godot:m2:treatment` hold the rule.
+
+## The tourniquet is findable, 2026-10-26
+
+The tourniquet shipped with no loot table naming it, and `godot:m2:gear` CATALOGUE did not notice:
+its `READ_KEYS` lacked `tourniquet`, `bandageTier`, `attachment` and `recipe`, so a base carrying
+only one of them was never judged. The keys are in, and the lane now sees the tourniquet.
+
+- **One line in `loot.medical`, weight 8, no count.** That is the sterile dressing's weight (8 of
+  274 before, 8 of 282 now), taken as a default so the lane could go green and the item could be
+  found at all. It is the table that already carries dressings, and no other table was touched.
+- **The ten-seed balance table was not re-run for this line.** A loot line moves campaign outcomes
+  and the claim of workflow step 5 is a measurement, not a guess. The weight is a placeholder with
+  a name on it; docs/33 card 18 puts it to the owner.
+- **A made part is exempt from findability, narrowly.** The 25 improvised attachments carry a
+  `recipe.kinds` block and are built by `item.improvise`, never rolled. CATALOGUE exempts a base
+  with that block and no other attachment, and counts them in its line so the exemption stays
+  visible.
+
+**How to apply:** a new key that makes a base do something goes into `READ_KEYS` in the same slice
+as the key, or the dead-socket check cannot see it.
+
