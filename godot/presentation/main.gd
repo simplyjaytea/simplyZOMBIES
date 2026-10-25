@@ -1652,6 +1652,12 @@ func _draw_district(region: Rect2i, bake_pass: int) -> void:
 					elif kind == "scrap":
 						col = Palette.COLOURS["rubble"]
 						tile = SimTileMap.Tile.Wall
+					# The raised buildables stand as walls until they have pictures (the art thread's
+					# open item): a blocked tile must not draw as floor, and a wire fence blocks walking
+					# the same way a wall does even though the eye goes through it.
+					elif kind == "timber" or kind == "stone" or kind == "fence":
+						col = Palette.COLOURS["wall"]
+						tile = SimTileMap.Tile.Wall
 			elif world.is_blocked_tile(tx, ty):
 				col = Palette.COLOURS["wall"]
 				tile = SimTileMap.Tile.Wall
