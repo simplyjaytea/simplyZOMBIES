@@ -248,6 +248,24 @@ static func _capable_of(world: Variant, entity: int, cap: String) -> bool:
 		return stance != 0
 	return true
 
+# A blade with glass in its head and nothing on its grip scratches the hand that holds it, once for
+# each swing that connects. A swing that finds nobody costs nothing, and neither does a hand that is
+# gone. The wound is a Scratch, which clots on its own: a Laceration never does, and one opened on
+# every swing, hit or miss, bled a survivor out of a weapon he was winning with. It goes through the
+# same append-and-publish a bad exposure does (needs.gd's _exposure_wound), and takes no integrity,
+# because the hand is cut, not crushed. docs/30, "The hand-cut rule, as changed".
+static func _scratch_the_gripping_hand(world: Variant, attacker: int, weapon: Dictionary) -> void:
+	if not SimAttachmentsRes.cuts_hand(world, int(weapon.get("source", -1))):
+		return
+	var body: Variant = world.components.get_component(attacker, "body")
+	if not body is Dictionary or not (body as Dictionary).has("hand_right"):
+		return
+	if float((body as Dictionary)["hand_right"]) <= SimWoundsRes.DESTROYED:
+		return
+	SimWoundsRes.append_wound(world, attacker, "cut", "hand_right", -1, 0.0, "", SimWoundsRes.Severity.Scratch)
+	world.events.publish({"type": "injury.sustained", "entity": attacker, "injury": "cut", "bodyPart": "hand_right"})
+
+
 static func _resolve_strike(world: Variant, attacker: int, weapon: Dictionary, rng: Variant, candidates: Array[int]) -> void:
 	var from: Variant = world.components.get_component(attacker, "position")
 	var facing_v: Variant = world.components.get_component(attacker, "facing")
@@ -260,13 +278,6 @@ static func _resolve_strike(world: Variant, attacker: int, weapon: Dictionary, r
 	var facing: float = SimAimRes.radians_of(world.components, attacker)
 	var facing_x: float = cos(facing)
 	var facing_y: float = sin(facing)
-	# A blade with glass in its head and nothing on its grip opens the hand that holds it, whether or
-	# not the swing finds anybody: the cut is in the hand before the weapon is anywhere near a body.
-	# The wound goes through the same append-and-publish a bad exposure does (needs.gd's
-	# _exposure_wound), and no integrity is taken, because the hand is cut, not crushed.
-	if SimAttachmentsRes.cuts_hand(world, int(weapon.get("source", -1))):
-		SimWoundsRes.append_wound(world, attacker, "cut", "hand_right", -1, 0.0, "", SimWoundsRes.Severity.Laceration)
-		world.events.publish({"type": "injury.sustained", "entity": attacker, "injury": "cut", "bodyPart": "hand_right"})
 	var reach: float = float(weapon.get("reachMetres", 1.4)) + MELEE_REACH_FUDGE
 	var limit_sq: float = reach * reach
 
@@ -319,3 +330,4 @@ static func _resolve_strike(world: Variant, attacker: int, weapon: Dictionary, r
 	# SimItems.register_module. A publisher with no weapon (a zombie's bite) sends -1.
 	world.events.publish({"type": "attack.connected", "attacker": attacker, "target": target, "bodyPart": body_part, "damage": damage, "item": int(weapon.get("source", -1))})
 	world.events.publish({"type": "entity.staggered", "entity": target, "ticks": int(weapon.get("staggerTicks", 8))})
+	_scratch_the_gripping_hand(world, attacker, weapon)

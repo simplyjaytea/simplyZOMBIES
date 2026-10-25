@@ -6512,3 +6512,24 @@ only one of them was never judged. The keys are in, and the lane now sees the to
 **How to apply:** a new key that makes a base do something goes into `READ_KEYS` in the same slice
 as the key, or the dead-socket check cannot see it.
 
+## The hand-cut rule, as changed, 2026-10-26
+
+The melee frames piece shipped Glass Shards with a `handCut` flag: a glass blade on a bare grip
+cut the hand that held it. The first cut opened a new Laceration on the right hand on every
+swing, hit or miss, even on a hand that was already destroyed, and a Laceration never clots on
+its own. A survivor swinging a glass-studded bat at a crowd bled out of the weapon, and a miss
+cost as much as a kill.
+
+- **One Scratch per swing that connects.** The wound is kind `cut`, severity Scratch, so it clots
+  on its own (`CLOT_TICKS`). It is written after the strike has found a body, beside the
+  `attack.connected` event, and a swing that finds nobody costs the hand nothing.
+- **A hand that is gone is not cut.** The wound is skipped when `hand_right` is absent from the
+  body or already at `DESTROYED`.
+- **A wrap still stops it, and nails never cut.** Both are unchanged; only glass declares
+  `handCut`.
+
+**How to apply:** a self-inflicted cost on a swing belongs where the swing connects, and is a
+wound that closes by itself unless the design wants the player to treat it. `godot:m2:attach` CUT
+holds the rule: a connecting swing scratches, and a miss, a wrapped grip, a destroyed hand and a
+nailed bat do not.
+
