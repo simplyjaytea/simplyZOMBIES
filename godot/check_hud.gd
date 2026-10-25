@@ -36,6 +36,7 @@ const SimRoster = preload("res://sim/modules/roster.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
 const Chrome = preload("res://ui/chrome.gd")
+const UiText = preload("res://ui/text.gd")
 
 const RELOAD_GD: String = "res://platform/content_reload.gd"
 const FORTIFY_GD: String = "res://sim/modules/fortify.gd"
@@ -57,6 +58,7 @@ func _run() -> void:
 	ok = _the_action_line_names_keys_only() and ok
 	ok = _the_action_line_names_the_top_rung() and ok
 	ok = _the_bar_keeps_every_key_at_1280() and ok
+	ok = _the_strip_names_survive_1280() and ok
 	ok = _the_first_day_hints_are_prose_and_due_once() and ok
 	var hint_ok: bool = await _the_hint_card_clears_on_a_click_and_never_blocks()
 	ok = hint_ok and ok
@@ -68,7 +70,7 @@ func _run() -> void:
 	var reload_ok: bool = await _an_untouched_tree_is_not_reloaded()
 	ok = reload_ok and ok
 	if ok:
-		print("HUD_OK prose only, day counter excepted, raw sheet gated, the body speaks for itself, the action bar names the top rung and keeps every key at 1280 beside an E clause, an untouched tree is not reloaded, the first-day hints are one line each and due once, and the hint card clears on a click and stops only that press")
+		print("HUD_OK prose only, day counter excepted, raw sheet gated, the body speaks for itself, the action bar names the top rung and keeps every key at 1280 beside an E clause, the quick slots wrap a name at 1280 that one line cut, an untouched tree is not reloaded, the first-day hints are one line each and due once, and the hint card clears on a click and stops only that press")
 		quit(0)
 	else:
 		push_error("HUD_FAIL")
@@ -96,6 +98,50 @@ func _the_bar_keeps_every_key_at_1280() -> bool:
 			push_error("BAR: at 1280 the bar draws %d of %d keys for '%s'" % [got, want, String(case[0])])
 			ok = false
 	return ok
+
+
+# STRIP: the field HUD's quick slots keep a name whole at 1280x720. The empty bottle in slot 1 read
+# "Empty Bo…" there (docs/23's HUD bullet): the strip drew the name to the one line left after the
+# key, the picture and the stack, and cut. The draw now wraps the name into the slot's height and
+# the lane asks the strip's own arithmetic -- the slot boxes at the shipped strip's rect, then
+# `text_room` and `name_lines` -- so it cannot drift from what is drawn. The positive: the
+# content's empty-bottle name, wrapped, is still its whole name. The negatives: that name does not
+# fit the one line this replaced (so the wrap is doing real work), and a name twice as long is
+# still cut (so the lane is judging a cut, not a wide room).
+func _the_strip_names_survive_1280() -> bool:
+	var font: Font = Chrome.font()
+	var bottle: String = ""
+	var supplies: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://content/items/supplies.json"))
+	if supplies is Array:
+		for it in supplies as Array:
+			if it is Dictionary and String((it as Dictionary).get("id", "")) == "item.water.bottle.empty":
+				bottle = String((it as Dictionary).get("name", ""))
+	if bottle.is_empty():
+		push_error("STRIP: the empty bottle the review named dropped out of content/items/supplies.json")
+		return false
+	var panel: GDScript = load("res://ui/inventory_panel.gd") as GDScript
+	var map: Dictionary = panel.get_script_constant_map()
+	var strip: GDScript = load("res://ui/quick_strip.gd") as GDScript
+	var rect: Rect2 = strip.call("rect_for", Vector2(1280.0, 720.0), float(map["PAD"]), float(map["STRIP_H"])) as Rect2
+	var boxes: Array[Rect2] = strip.call("slot_boxes", font, rect) as Array[Rect2]
+	var room: float = float(strip.call("text_room", font, boxes[0], true, 1))
+	var lines: Array = strip.call("name_lines", font, bottle, room, int(strip.get_script_constant_map()["NAME_LINES"])) as Array
+	var said: String = " ".join(PackedStringArray(lines))
+	if said != bottle:
+		push_error("STRIP: slot 1 at 1280x720 draws %s for the empty bottle instead of %s" % [str(lines), bottle])
+		return false
+	# The one line this replaced cut the name: the negative that proves the lane has data to judge.
+	if UiText.fit(font, bottle, int(strip.get_script_constant_map()["NAME_SIZE"]), room) == bottle:
+		push_error("STRIP: %s fits the one-line room at 1280 (%d px), so the wrap was not judged" % [bottle, int(room)])
+		return false
+	# And two lines are not a drawer: a name twice as long is still cut, marked with the ellipsis.
+	var long_name: String = bottle + " of the longest filter cartridge a run can fill"
+	var long_lines: Array = strip.call("name_lines", font, long_name, room, int(strip.get_script_constant_map()["NAME_LINES"])) as Array
+	if " ".join(PackedStringArray(long_lines)) == long_name:
+		push_error("STRIP: %s came back whole in %d px across two lines, so the cut was not judged" % [long_name, int(room)])
+		return false
+	print("STRIP OK slot 1 at 1280x720 wraps %s whole in %d px, the one line it replaces cuts it, and a name twice as long is still cut" % [bottle, int(room)])
+	return true
 
 
 func _fixture() -> Dictionary:
