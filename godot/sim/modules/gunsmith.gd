@@ -86,6 +86,12 @@ static func may_work(world: Variant, actor: int, part: int) -> bool:
 	return bench_in_reach(world, actor) >= 0
 
 
+## The same rule for a part that does not exist yet -- an improvised recipe, asked by its content entry
+## rather than by an item. A recipe is field work when its content says so, and bench work otherwise.
+static func may_work_spec(world: Variant, actor: int, spec: Dictionary) -> bool:
+	return bool(spec.get("fieldSwap", false)) or bench_in_reach(world, actor) >= 0
+
+
 ## Why not, as a reason id, or "" when they may. Kept beside `may_work` so the two cannot drift.
 static func refusal(world: Variant, actor: int, part: int) -> String:
 	return "" if may_work(world, actor, part) else "no-bench"
@@ -107,7 +113,7 @@ static func field_work(world: Variant, actor: int, host: int) -> bool:
 		if not is_field_swap(world, spare):
 			continue
 		for slot in SimAttachments.slots_of(world, host):
-			if SimAttachments.fits(world, spare, String(slot)):
+			if SimAttachments.plausible(world, host, spare, String(slot)):
 				return true
 	return false
 
@@ -131,7 +137,7 @@ static func drop_slot(world: Variant, actor: int, part: int, host: int) -> Strin
 		var slot: String = String(slot_v)
 		if int(fitted.get(slot, -1)) >= 0:
 			continue
-		if SimAttachments.fits(world, part, slot):
+		if SimAttachments.plausible(world, host, part, slot):
 			return slot
 	return ""
 
@@ -224,7 +230,7 @@ static func bench_view(world: Variant, actor: int, host: int) -> Dictionary:
 			continue
 		for slot_v2 in slots:
 			var slot2: String = String(slot_v2)
-			if not SimAttachments.fits(world, part2, slot2):
+			if not SimAttachments.plausible(world, host, part2, slot2):
 				continue
 			if not may_work(world, actor, part2):
 				continue

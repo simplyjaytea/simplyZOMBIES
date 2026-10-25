@@ -22,6 +22,8 @@ const SimLightModule = preload("res://sim/modules/light.gd")
 const SimSave = preload("res://sim/save.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 const Clock = preload("res://sim/time/clock.gd")
+const SimFortify = preload("res://sim/modules/fortify.gd")
+const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 
 const SUPPRESSOR: String = "item.attach.suppressor"
 const RED_DOT: String = "item.attach.optic.red_dot"
@@ -34,6 +36,19 @@ const RIFLE: String = "item.rifle.hunting"
 const STD_BARREL: String = "item.part.barrel.standard"
 const WEAPON_LIGHT: String = "item.attach.underbarrel.light"
 const FOREGRIP: String = "item.attach.underbarrel.grip"
+const WOOD_BAT: String = "item.bat.wood"
+const ALU_BAT: String = "item.bat.aluminium"
+const PIPE: String = "item.pipe.steel"
+const SABRE: String = "item.sabre.cavalry"
+const NAILS: String = "item.attach.stud.nails"
+const GLASS: String = "item.attach.stud.glass"
+const KNUCKLE: String = "item.attach.guard.knuckle"
+const PIPE_CAP: String = "item.attach.weight.pipe_cap"
+const SCYTHE: String = "item.attach.head.scythe"
+const PITCHFORK_HEAD: String = "item.attach.head.pitchfork"
+const CORD_WRAP: String = "item.attach.wrap.cord"
+const MELEE_FAMILIES: Array[String] = ["club", "blade", "polearm", "tool"]
+const NEW_SLOTS: Array[String] = ["stud", "guard", "weight"]
 
 
 func _init() -> void:
@@ -69,8 +84,13 @@ func _run() -> void:
 	ok = _an_affix_reaches_the_swing_it_names() and ok
 	ok = _an_affix_reaches_the_wear_it_names() and ok
 	ok = _an_affix_reaches_the_repair_it_names() and ok
+	ok = _every_melee_base_has_a_family_and_the_new_slots_have_hosts() and ok
+	ok = _every_applies_to_names_a_real_family_or_base_and_every_recipe_has_a_host() and ok
+	ok = _a_part_goes_on_where_its_slot_and_its_family_say_and_nowhere_else() and ok
+	ok = _an_improvised_part_is_made_from_what_is_carried_and_fitted() and ok
+	ok = _a_glass_blade_cuts_the_hand_that_holds_it_until_it_is_wrapped() and ok
 	if ok:
-		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair required headless override mismatch names light armor swing wear salvage")
+		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair required headless override mismatch names light armor swing wear salvage family applies plausible improvise cut")
 		quit(0)
 	else:
 		push_error("M2_ATTACH_FAIL")
@@ -189,6 +209,11 @@ func _content_is_wired_to_something() -> bool:
 		return false
 	for e in attachments:
 		var aid: String = String((e as Dictionary).get("id", "?"))
+		# A recipe part is made, not found. The melee arc's exemption is narrow on purpose: it is
+		# not a way out of findability, it is a claim that the part is improvised, and the MELEE
+		# RECIPE lane holds that claim to a real recipe that `item.improvise` can run.
+		if (e as Dictionary)["attachment"].get("recipe") is Dictionary:
+			continue
 		if not droppable.has(aid):
 			push_error("CONTENT: %s is in no loot table, so it cannot be found" % aid)
 			return false
@@ -1996,3 +2021,274 @@ func _an_affix_reaches_the_repair_it_names() -> bool:
 		return false
 	print("  REPAIR OK a plain pistol's ceiling goes to %.4f; of Salvage to %.4f and %.4f; quiet hand leaves it at %.4f" % [plain, salvage, salvage_deep, quiet])
 	return true
+# --- MELEE FRAMES -----------------------------------------------------------------------------
+#
+# docs/23's melee arc, stage 1. Every melee base is in one of four families; the slots widen to
+# stud, guard and weight; and about two dozen improvised parts go on by what their `fits` and their
+# `appliesTo` say. Each lane has a true positive and a true negative, and the negative is picked so
+# that the rule under test is the thing refusing: a part that has the right slot and the wrong
+# family, not merely a slot that is not there.
+
+func _family_ok(family: String) -> bool:
+	return MELEE_FAMILIES.has(family)
+
+
+func _melee_bases() -> Array:
+	var out: Array = []
+	for entry_v in SimItems.content_entries(_world(), "item"):
+		if (entry_v as Dictionary).get("melee") is Dictionary:
+			out.append(entry_v)
+	return out
+
+
+func _every_melee_base_has_a_family_and_the_new_slots_have_hosts() -> bool:
+	var counts: Dictionary = {}
+	var melee: Array = _melee_bases()
+	if melee.is_empty():
+		push_error("FAMILY: no melee base was read, so this lane is asserting nothing")
+		return false
+	for e in melee:
+		var id: String = String((e as Dictionary).get("id", "?"))
+		var family: String = String((e as Dictionary).get("family", ""))
+		if not _family_ok(family):
+			push_error("FAMILY: %s declares family '%s', which is none of %s" % [id, family, str(MELEE_FAMILIES)])
+			return false
+		for s in (e as Dictionary).get("slots", []) as Array:
+			counts[String(s)] = int(counts.get(String(s), 0)) + 1
+	for slot in NEW_SLOTS:
+		if int(counts.get(slot, 0)) == 0:
+			push_error("FAMILY: no melee base declares the %s slot, so a part for it is a dead socket" % slot)
+			return false
+	# TN: the predicate has to be able to say no, and a base with no family says it.
+	if _family_ok("") or _family_ok("gate.family") or not _family_ok("club"):
+		push_error("FAMILY: the family predicate cannot tell a family from a fabricated name")
+		return false
+	print("  FAMILY OK %d melee bases, each in one of four families; stud on %d, guard on %d, weight on %d" % [melee.size(), counts.get("stud", 0), counts.get("guard", 0), counts.get("weight", 0)])
+	return true
+
+
+func _every_applies_to_names_a_real_family_or_base_and_every_recipe_has_a_host() -> bool:
+	var ids: Dictionary = {}
+	var melee: Array = _melee_bases()
+	for e in melee:
+		ids[String((e as Dictionary).get("id", "?"))] = true
+	var recipes: int = 0
+	var named: int = 0
+	for entry_v in SimItems.content_entries(_world(), "item"):
+		var e: Dictionary = entry_v as Dictionary
+		if not (e.get("attachment") is Dictionary):
+			continue
+		var id: String = String(e.get("id", "?"))
+		var spec: Dictionary = e["attachment"] as Dictionary
+		if spec.get("appliesTo") is Array:
+			named += 1
+			for n in spec["appliesTo"] as Array:
+				if not _family_ok(String(n)) and not ids.has(String(n)):
+					push_error("APPLIES: %s applies to '%s', which is neither a melee family nor a shipped base" % [id, String(n)])
+					return false
+		if not (spec.get("recipe") is Dictionary):
+			continue
+		recipes += 1
+		# An improvised part is made from materials, so every kind it names has to be one the
+		# material vocabulary ranks, and its description has to keep the digit ban.
+		for kind in (spec["recipe"] as Dictionary).get("kinds", []) as Array:
+			if not SimFortify.MATERIAL_KINDS.has(String(kind)):
+				push_error("APPLIES: %s recipe names '%s', which is not a material kind" % [id, String(kind)])
+				return false
+		var desc: String = String(e.get("description", ""))
+		for digit in "0123456789":
+			if desc.contains(digit):
+				push_error("APPLIES: %s has a digit in its description, which the HUD digit ban forbids" % id)
+				return false
+		# Installable on at least one shipped base: some melee base declares a slot the part fits
+		# and takes it by family or by id. The dead-socket rule, one level out from HOSTS.
+		var hosted: bool = false
+		for b in melee:
+			for slot in spec.get("fits", []) as Array:
+				if (b as Dictionary).get("slots", []).has(String(slot)) and SimAttachments.takes(b as Dictionary, spec):
+					hosted = true
+		if not hosted:
+			push_error("APPLIES: %s fits and applies to no shipped melee base -- a dead socket" % id)
+			return false
+	if recipes == 0 or named == 0:
+		push_error("APPLIES: no recipe or no appliesTo was read, so this lane is asserting nothing")
+		return false
+	# TN: a fabricated family or id is refused by the predicate, and a kind the vocabulary lacks is.
+	var probe: Dictionary = {"fits": ["stud"], "appliesTo": ["gate.family"]}
+	if SimAttachments.takes(melee[0] as Dictionary, probe):
+		push_error("APPLIES: the applies predicate admits a fabricated family")
+		return false
+	if SimFortify.MATERIAL_KINDS.has("gate.kind"):
+		push_error("APPLIES: the material vocabulary admits a fabricated kind")
+		return false
+	print("  APPLIES OK %d appliesTo names, %d improvised parts, each a real family or base, each hosted, each in material kinds" % [named, recipes])
+	return true
+
+
+func _a_part_goes_on_where_its_slot_and_its_family_say_and_nowhere_else() -> bool:
+	var w: Variant = _world()
+	# True positive: nails are driven into a wooden bat's stud, and the damage they declare arrives.
+	var bat: int = _spawn(w, WOOD_BAT)
+	var before: Dictionary = SimItems.melee_profile_of(w, bat) as Dictionary
+	if not SimAttachments.attach(w, bat, _spawn(w, NAILS), "stud"):
+		push_error("PLAUSIBLE: nails were refused a wooden bat's stud, which is the one place they go")
+		return false
+	var after: Dictionary = SimItems.melee_profile_of(w, bat) as Dictionary
+	if float(after["damage"]) <= float(before["damage"]):
+		push_error("PLAUSIBLE: nails went in and the damage did not move (%.2f vs %.2f)" % [float(after["damage"]), float(before["damage"])])
+		return false
+	# True negative, the one the piece names: nails in an aluminium bat. There is no stud on it.
+	var alu: int = _spawn(w, ALU_BAT)
+	if SimAttachments.attach(w, alu, _spawn(w, NAILS), "stud"):
+		push_error("PLAUSIBLE: nails went into an aluminium bat")
+		return false
+	# True negative, the one the piece names: a guard on a pipe. A pipe has no guard.
+	var pipe: int = _spawn(w, PIPE)
+	if SimAttachments.attach(w, pipe, _spawn(w, KNUCKLE), "guard"):
+		push_error("PLAUSIBLE: a knuckle guard went onto a steel pipe")
+		return false
+	# The negative that has to refuse by family and not by slot: a scythe fits a head, and a pipe
+	# has one, so only the polearm family can keep it off the pipe.
+	var scythe: int = _spawn(w, SCYTHE)
+	if not SimAttachments.fits(w, scythe, "head"):
+		push_error("PLAUSIBLE: the scythe no longer fits a head, so the refusal below proves nothing")
+		return false
+	if SimAttachments.attach(w, pipe, scythe, "head"):
+		push_error("PLAUSIBLE: a polearm head went onto a club's pipe")
+		return false
+	# And the positive on the same pipe: a pitchfork head is the one head that names it.
+	if not SimAttachments.attach(w, pipe, _spawn(w, PITCHFORK_HEAD), "head"):
+		push_error("PLAUSIBLE: a pitchfork head was refused the pipe it names")
+		return false
+	if not SimAttachments.attach(w, _spawn(w, SABRE), _spawn(w, KNUCKLE), "guard"):
+		push_error("PLAUSIBLE: a knuckle guard was refused a sabre's guard slot")
+		return false
+	# Weight is a real reader: a pipe cap changes the swing weight the recovery is computed from.
+	var heavy: int = _spawn(w, PIPE)
+	var w0: float = float((SimItems.melee_profile_of(w, heavy) as Dictionary)["weight"])
+	if not SimAttachments.attach(w, heavy, _spawn(w, PIPE_CAP), "weight"):
+		push_error("PLAUSIBLE: a pipe cap was refused a pipe's weight slot")
+		return false
+	var w1: float = float((SimItems.melee_profile_of(w, heavy) as Dictionary)["weight"])
+	if w1 <= w0:
+		push_error("PLAUSIBLE: a pipe cap went on and the swing weight did not move (%.2f vs %.2f)" % [w1, w0])
+		return false
+	print("  PLAUSIBLE OK nails on a wooden bat move damage %.2f -> %.2f; nails in an aluminium bat, a guard on a pipe and a polearm head on a pipe all refused; a pipe cap moves weight %.2f -> %.2f" % [float(before["damage"]), float(after["damage"]), w0, w1])
+	return true
+
+
+func _an_improvised_part_is_made_from_what_is_carried_and_fitted() -> bool:
+	var w: Variant = _world()
+	# A survivor carrying one unit of fixings, the nails' material.
+	var fixings: int = SimItems.spawn_item(w, "item.fixings.nails", {"tier": "scavenged"})
+	if not SimInventory.stow(w, w.player, fixings):
+		w.components.set_component(fixings, "stored", {"container": w.player})
+	var bat: int = _spawn(w, WOOD_BAT)
+	var before: int = int(SimFortify.material_count(w, w.player, "fixings"))
+	if before != 1:
+		push_error("RECIPE: the survivor carries %d fixings, not the one this lane put in the pack" % before)
+		return false
+	# True positive, through the command the screen sends: field work, so no bench is needed.
+	w.commands.push({"type": "item.improvise", "host": bat, "slot": "stud", "recipe": NAILS})
+	w.step()
+	var made: int = int(SimAttachments.in_slot(w, bat, "stud"))
+	if made < 0 or String((SimItems.item_base_of(w, made) as Dictionary).get("id", "")) != NAILS:
+		push_error("RECIPE: item.improvise did not fit nails into the wooden bat's stud")
+		return false
+	if int(SimFortify.material_count(w, w.player, "fixings")) != before - 1:
+		push_error("RECIPE: the nails were fitted and the fixings were not spent")
+		return false
+	var made_events: Array = []
+	for e in w.events.drained:
+		if String((e as Dictionary).get("type", "")) == "attachment.improvised":
+			made_events.append(e)
+	if made_events.size() != 1:
+		push_error("RECIPE: a successful improvise published %d attachment.improvised events, not one" % made_events.size())
+		return false
+	# True negative, the bench rule: glass is bench work and there is no bench in this world. The
+	# check order puts the bench before the materials, so the reason is the bench, and nothing is spent.
+	var glassed: int = _spawn(w, WOOD_BAT)
+	var reason: String = SimAttachments.improvise(w, w.player, glassed, "stud", GLASS)
+	if reason != "no-bench":
+		push_error("RECIPE: glass was made with no bench in reach (reason '%s')" % reason)
+		return false
+	# True negative, the materials rule: no fixings left, so nails cannot be made.
+	var short: String = SimAttachments.improvise(w, w.player, _spawn(w, WOOD_BAT), "stud", NAILS)
+	if short != "no-material:fixings":
+		push_error("RECIPE: nails were made with no fixings (reason '%s')" % short)
+		return false
+	# True negative, the plausibility rule: a survivor with fixings in the pack still cannot nail
+	# them into an aluminium bat, and the fixings are not spent on the refusal.
+	var stock: int = SimItems.spawn_item(w, "item.fixings.nails", {"tier": "scavenged"})
+	if not SimInventory.stow(w, w.player, stock):
+		w.components.set_component(stock, "stored", {"container": w.player})
+	var misfit: String = SimAttachments.improvise(w, w.player, _spawn(w, ALU_BAT), "stud", NAILS)
+	if misfit != "not-plausible" or int(SimFortify.material_count(w, w.player, "fixings")) != 1:
+		push_error("RECIPE: nails went into an aluminium bat, or the refusal spent the fixings (reason '%s')" % misfit)
+		return false
+	# True positive, the bench path: a workbench in reach makes the glass, and it spends the cord.
+	var wb: Variant = _world()
+	SimGunsmith.make_bench(wb, 8.5, 12.5)
+	var cord: int = SimItems.spawn_item(wb, "item.cordage.twine", {"tier": "scavenged"})
+	if not SimInventory.stow(wb, wb.player, cord):
+		wb.components.set_component(cord, "stored", {"container": wb.player})
+	var glass_bat: int = _spawn(wb, WOOD_BAT)
+	if SimAttachments.improvise(wb, wb.player, glass_bat, "stud", GLASS) != "":
+		push_error("RECIPE: glass was refused at a bench with cord in the pack")
+		return false
+	if int(SimAttachments.in_slot(wb, glass_bat, "stud")) < 0 or int(SimFortify.material_count(wb, wb.player, "cordage")) != 0:
+		push_error("RECIPE: the glass did not go in, or the cord was not spent")
+		return false
+	print("  RECIPE OK nails made from one fixings and fitted by command in the field; glass refused with no bench (no-bench), nails refused with no fixings, a misfit refused and not spent; glass made at a bench and the cord spent")
+	return true
+
+
+func _cuts_of_the_hand(w: Variant) -> int:
+	var inj: Variant = w.components.get_component(w.player, "injuries")
+	if not inj is Dictionary:
+		return 0
+	var n: int = 0
+	for wound in (inj as Dictionary).get("wounds", []) as Array:
+		var d: Dictionary = wound as Dictionary
+		if String(d.get("kind", "")) == "cut" and String(d.get("bodyPart", "")) == "hand_right":
+			n += 1
+	return n
+
+
+func _swing_once(w: Variant, weapon: int) -> void:
+	var candidates: Array[int] = []
+	SimMelee._resolve_strike(w, w.player, SimItems.melee_profile_of(w, weapon) as Dictionary, w.rng.stream("melee"), candidates)
+
+
+func _a_glass_blade_cuts_the_hand_that_holds_it_until_it_is_wrapped() -> bool:
+	var w: Variant = _world()
+	var bat: int = _spawn(w, WOOD_BAT)
+	if not SimAttachments.attach(w, bat, _spawn(w, GLASS), "stud"):
+		push_error("CUT: glass was refused a wooden bat's stud")
+		return false
+	# True positive: a swing with the grip bare cuts the hand, and the cut is a wound on it.
+	_swing_once(w, bat)
+	if _cuts_of_the_hand(w) != 1:
+		push_error("CUT: glass with a bare grip cut the hand %d times on one swing, not once" % _cuts_of_the_hand(w))
+		return false
+	# True negative: wrap the grip and the same swing keeps the hand.
+	if not SimAttachments.attach(w, bat, _spawn(w, CORD_WRAP), "wrap"):
+		push_error("CUT: a cord wrap was refused the grip")
+		return false
+	_swing_once(w, bat)
+	if _cuts_of_the_hand(w) != 1:
+		push_error("CUT: a wrapped grip was cut (%d cuts)" % _cuts_of_the_hand(w))
+		return false
+	# True negative, the other way: nails declare no handCut, so a bare grip with nails is not cut.
+	var w2: Variant = _world()
+	var nailed: int = _spawn(w2, WOOD_BAT)
+	if not SimAttachments.attach(w2, nailed, _spawn(w2, NAILS), "stud"):
+		push_error("CUT: nails were refused a wooden bat's stud")
+		return false
+	_swing_once(w2, nailed)
+	if _cuts_of_the_hand(w2) != 0:
+		push_error("CUT: nails cut the hand, which only glass declares")
+		return false
+	print("  CUT OK glass on a bare grip cuts the right hand once a swing, a cord wrap stops it, nails never cut")
+	return true
+
