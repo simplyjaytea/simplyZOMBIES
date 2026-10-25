@@ -32,8 +32,9 @@ func _run() -> void:
 	ok = _the_district_has_doors_and_the_boot_shuts_them() and ok
 	ok = _a_crowd_gets_through() and ok
 	ok = _raised_walls() and ok
+	ok = _e_orders_the_walls_above_the_free_placements() and ok
 	if ok:
-		print("M2_FORTIFY_OK board scrap alarm bait v18, doors that open, close and break, a crowd that presses through, and the three raised walls")
+		print("M2_FORTIFY_OK board scrap alarm bait v18, doors that open, close and break, a crowd that presses through, the three raised walls, and the E ladder that puts them above the alarm")
 		quit(0)
 	else:
 		push_error("M2_FORTIFY_FAIL")
@@ -641,6 +642,40 @@ func _raised_walls() -> bool:
 		push_error("%s: a wire fence breach started a director lull -- only board, door and scrap count" % lane)
 		return false
 	print("  WALLS: timber and fence block walking, timber blocks sight and the fence does not; each spends one unit and a second on the same tile is refused, as is a tile holding a body or a loose item; the fence breaches in 260 ticks of one presser, starts no lull, and the stone course does not breach")
+	return true
+
+
+
+# The ladder's order, pinned: the raised walls sit above the alarm and the noisemaker, by design
+# (docs/30, "Three walls"), so E on open floor with a plank in the pack raises a timber wall, and
+# with nothing to build from falls through to the free alarm. Both the read (`rung_of`) and the key
+# (`use.context`) are asked, because they are two functions that must name the same rung.
+func _e_orders_the_walls_above_the_free_placements() -> bool:
+	var lane: String = "E-LADDER"
+	var bare: Variant = _world()
+	var bare_rung: Dictionary = SimFortify.rung_of(bare, bare.player)
+	if String(bare_rung.get("verb", "")) != "alarm":
+		push_error("%s: E on open floor with no material names '%s', not the alarm" % [lane, str(bare_rung.get("verb", ""))])
+		return false
+	_channel(bare, {"type": "use.context"})
+	if (bare.components.query(["alarmLine"]) as Array).is_empty() or not (bare.components.query(["timberWall"]) as Array).is_empty():
+		push_error("%s: E with no material did not lay the alarm" % lane)
+		return false
+
+	var armed: Variant = _world()
+	var plank: int = SimItems.spawn_item(armed, "item.plank.sawn", {"tier": "scavenged", "count": 1})
+	if not SimInventory.stow(armed, armed.player, plank):
+		push_error("%s: could not stow a plank" % lane)
+		return false
+	var rung: Dictionary = SimFortify.rung_of(armed, armed.player)
+	if String(rung.get("verb", "")) != "timber":
+		push_error("%s: E on open floor with a plank names '%s', not the timber wall" % [lane, str(rung.get("verb", ""))])
+		return false
+	_channel_build(armed, {"type": "use.context"}, "timber")
+	if (armed.components.query(["timberWall"]) as Array).size() != 1 or not (armed.components.query(["alarmLine"]) as Array).is_empty():
+		push_error("%s: E with a plank did not raise the wall in place of the alarm" % lane)
+		return false
+	print("  E-LADDER: E on open floor lays the alarm with no material and raises a timber wall, not the alarm, with a plank in the pack")
 	return true
 
 
