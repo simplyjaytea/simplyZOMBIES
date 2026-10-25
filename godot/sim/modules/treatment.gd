@@ -18,6 +18,11 @@ extends RefCounted
 #   clean     costs a cleaning supply and buys docs/05's sepsis discount. It does not stop a bleed.
 #   close     costs a suture kit, refuses a wound that is still bleeding, and needs a medic for a
 #             deep one. See the constant block below for what each of the two later rungs reads.
+#   tourniquet  an arm or a leg that is bleeding, and a tourniquet from the pack. It holds every open
+#             wound on that limb shut for SimWounds.TOURNIQUET_TICKS, then costs the limb. It is a
+#             channel of its own length, and the one verb that acts on a limb rather than a wound.
+#             The rule and its reasons are in wounds.gd's tourniquet block.
+#   loosen    takes the tourniquet off: free while its window is open, refused once it has closed.
 #
 # The infection verbs are **routed, not reimplemented**. SimInfection.cauterize/amputate/
 # use_antibiotics/quarantine/put_down already validate their own windows and already return
@@ -189,7 +194,17 @@ const SURGERY_TICKS: Dictionary = {
 	"amputate": 900,
 }
 
-const CHANNEL_VERBS: Array[String] = ["pressure", "bandage", "clean", "close"]
+# The tourniquet pair, and why they are channels. A tie is applied in a couple of seconds, not held
+# for as long as a hand is, so it has its own short span. Both are channels so every interrupt, the
+# per-tick re-check and the R1 arbitration apply to them unchanged -- a held survivor cannot tie one
+# on anybody, and a stagger knocks the tie loose before it lands.
+const TOURNIQUET_APPLY_TICKS: int = 40
+const TOURNIQUET_LOOSEN_TICKS: int = 20
+# The flat content key a tourniquet carries. A boolean, not a grade: there is one kind, so there is
+# no pick order to rank, and a second kind would be a second key rather than a second value.
+const TOURNIQUET_KEY: String = "tourniquet"
+
+const CHANNEL_VERBS: Array[String] = ["pressure", "bandage", "clean", "close", "tourniquet", "loosen"]
 const SURGERY_VERBS: Array[String] = ["cauterize", "amputate"]
 # `painkillers` sits with the infection verbs rather than with the channels because it is the same
 # shape: instant, its own precondition list, its own {ok, reason}. It is answered by SimWounds
@@ -338,6 +353,10 @@ static func begin(world: Variant, actor: int, patient: int, part: String, verb: 
 # they used to be two lists of checks kept in step by hand, and a fourth verb is exactly how that
 # ends badly.
 static func _plan(world: Variant, actor: int, patient: int, part: String, verb: String) -> Dictionary:
+	# Decided before the wound is looked up: a tied limb's wounds may all have clotted under a hand,
+	# and loosening it must still be possible then. The tourniquet works on the limb, not the wound.
+	if verb == "tourniquet" or verb == "loosen":
+		return _plan_tourniquet(world, actor, patient, part, verb)
 	var wound: Variant = _worst_target(world, patient, part, verb)
 	if wound == null:
 		return {"ok": false, "reason": _nothing_reason(world, patient, part, verb)}
@@ -384,6 +403,26 @@ static func _plan(world: Variant, actor: int, patient: int, part: String, verb: 
 	if ticks <= 0:
 		return {"ok": false, "reason": "nothing-to-do"}
 	return {"ok": true, "ticks": ticks}
+
+
+# The tourniquet pair's `_plan`. Reasons are the ones a survivor can act on: an untied limb cannot be
+# loosened, a tied one cannot be tied again, and a tie wants a limb that is bleeding and a tourniquet
+# in the pack. A hand or a foot is refused "not-a-limb" -- the rule is an arm or a leg, as docs/05
+# words it, and a tourniquet on a hand has no meaning the sim models.
+static func _plan_tourniquet(world: Variant, actor: int, patient: int, part: String, verb: String) -> Dictionary:
+	if verb == "loosen":
+		if not SimWounds.tourniquet_on(world, patient, part):
+			return {"ok": false, "reason": "not-tied"}
+		return {"ok": true, "ticks": TOURNIQUET_LOOSEN_TICKS}
+	if not SimWounds.can_tourniquet(part):
+		return {"ok": false, "reason": "not-a-limb"}
+	if SimWounds.tourniquet_on(world, patient, part):
+		return {"ok": false, "reason": "already-tied"}
+	if _open_wounds(world, patient, part).is_empty():
+		return {"ok": false, "reason": "not-bleeding"}
+	if _tourniquet_to_spend(world, actor, -1) < 0:
+		return {"ok": false, "reason": "no-tourniquet"}
+	return {"ok": true, "ticks": TOURNIQUET_APPLY_TICKS}
 
 
 # A span at a speed: a table entry of zero stays zero, so "nothing-to-do" still means that, and
@@ -688,6 +727,9 @@ static func _complete(world: Variant, actor: int, patient: int, part: String, ve
 	if SURGERY_VERBS.has(verb):
 		_invoke_infection(world, patient, part, verb)
 		return
+	if verb == "tourniquet" or verb == "loosen":
+		_complete_tourniquet(world, actor, patient, part, verb, supply)
+		return
 
 	# Re-validated at completion, the way fortify._place_scrap re-validates before consuming.
 	# An interrupted channel has cost nothing, and a channel that finishes after the wound
@@ -771,6 +813,62 @@ static func _complete(world: Variant, actor: int, patient: int, part: String, ve
 			"close":
 				wd["closed"] = true
 	world.events.publish({"type": "wound.treated", "entity": patient, "treater": actor, "bodyPart": part, "verb": verb, "tier": tier, "wounds": targets.size()})
+
+
+# The tourniquet pair's completion. A tie is re-validated here like every channel: a tie that finishes
+# after its wounds have all clotted, or after the limb has been tied already, spends nothing. The
+# item is spent on the tie and is not given back on a loosen -- a tourniquet is used up on the leg it
+# was put on, as a dressing is used up on the wound it covers. A loosen that finds no tourniquet
+# (its window closed mid-channel and took the limb) does nothing.
+static func _complete_tourniquet(world: Variant, actor: int, patient: int, part: String, verb: String, supply: int) -> void:
+	if verb == "loosen":
+		if not SimWounds.untie_tourniquet(world, patient, part):
+			return
+	else:
+		if not SimWounds.can_tourniquet(part) or SimWounds.tourniquet_on(world, patient, part):
+			return
+		if _open_wounds(world, patient, part).is_empty():
+			return
+		var kit: int = _tourniquet_to_spend(world, actor, supply)
+		if kit < 0 or not SimNeeds.consume_item(world, actor, kit):
+			_refuse(world, actor, verb, "no-tourniquet")
+			return
+		SimWounds.tie_tourniquet(world, patient, part)
+	world.events.publish({"type": "wound.treated", "entity": patient, "treater": actor, "bodyPart": part, "verb": verb, "tier": "none", "wounds": _open_wounds(world, patient, part).size()})
+
+
+# The tourniquet a tie spends: the one the actor reached for when it is one, otherwise the first
+# carried. -1 when nothing carried is a tourniquet.
+static func _tourniquet_to_spend(world: Variant, actor: int, supply: int) -> int:
+	if supply >= 0 and SimInventory.owns(world, actor, supply) and _is_tourniquet(world, supply):
+		return supply
+	for item in SimInventory.carried_items(world, actor):
+		if _is_tourniquet(world, int(item)):
+			return int(item)
+	return -1
+
+
+static func _is_tourniquet(world: Variant, item: int) -> bool:
+	var base: Variant = SimItems.item_base_of(world, item)
+	return base is Dictionary and bool((base as Dictionary).get(TOURNIQUET_KEY, false))
+
+
+# The worst bleeding limb a tie could still go on, or "". What a strip key on a tourniquet picks: the
+# torso can be the worst wound on a body and still be no place for one, so `_worst_part_for` would
+# name a part the verb refuses.
+static func _worst_limb_to_tie(world: Variant, entity: int) -> String:
+	var best_part: String = ""
+	var best_sev: int = -1
+	for part in SimCombat.SURVIVOR_BODY_PARTS:
+		var p: String = String(part)
+		if not SimWounds.can_tourniquet(p) or SimWounds.tourniquet_on(world, entity, p):
+			continue
+		for wound in _open_wounds(world, entity, p):
+			var sev: int = int((wound as Dictionary).get("severity", 0))
+			if sev > best_sev:
+				best_sev = sev
+				best_part = p
+	return best_part
 
 
 # A stagger lands on one entity, and that entity may be either end of a treatment: being
@@ -1099,6 +1197,8 @@ static func verb_of_supply(world: Variant, item: int) -> String:
 	if not (base is Dictionary):
 		return ""
 	var b: Dictionary = base as Dictionary
+	if bool(b.get(TOURNIQUET_KEY, false)):
+		return "tourniquet"
 	if String(b.get(TIER_KEY, "")) != "":
 		return "bandage"
 	if String(b.get(CLEAN_KEY, "")) != "":
@@ -1123,6 +1223,8 @@ static func supply_plan(world: Variant, actor: int, item: int) -> Dictionary:
 	var part: String = ""
 	if verb == "bandage":
 		part = _worst_bleeding_part(world, patient)
+	elif verb == "tourniquet":
+		part = _worst_limb_to_tie(world, patient)
 	elif verb == "close":
 		var kind: String = String((SimItems.item_base_of(world, item) as Dictionary).get(CLOSE_KEY, ""))
 		var kinds: Array[String] = [kind]
