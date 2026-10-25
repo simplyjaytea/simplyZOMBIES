@@ -307,21 +307,6 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    grabbed colonist out of play. The answer to a grab is somebody else's weapon, or breaking free.
    Letting a held colonist hit back is a new mechanic. It was offered on an optional card that was
    never answered. The default is **no**, and nothing is built.
-14. **The conversion realism table** (2026-10-26). Which caliber conversions a receiver family
-    accepts: the coordinator writes the table into docs/10 as the firearms arc's kit piece lands,
-    and the owner vetoes rows. Nothing is built off-table. docs/30's "The release plan and the
-    content arcs".
-
-15. **Fire as a sim fact: stage 1 or stage 4?** (2026-10-26). A burning tile, timber that catches,
-    a body that carries flame. It unlocks the burner zombie, the arsonist raider and the timber
-    wall that burns; it is also a new attention emitter (light) and a new way to die. The default
-    is stage 4 (beta), so nothing in the alpha depends on it. Same entry.
-
-16. **May raiders trade before factions exist?** (2026-10-26). The `trade` doctrine approaches
-    unarmed and offers barter, which is one verb of Milestone 4's faction seam landed early. The
-    default is no: the doctrine ships as probe, raid and siege, and trade waits. Same entry.
-
-
 13. **The stockpile's five cards (2026-10-24).** The stockpile and hauling feature shipped on
    defaults while its cards wait: (1) **how you mark it**, a dragged rectangle of tiles (built) or
    crates you build, each a container; (2) **where it may go**, any explored ground, indoors or
@@ -336,3 +321,18 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    re-decided; the alternatives change readers (1), the camp's stash (2), the window's list (3),
    the information rule for the colony's own stores (4), or one refusal line (5). The plan is
    `planning/2026-10-24_stockpile-hauling.md` section 11 in the project files.
+
+
+14. **The conversion realism table** (2026-10-26). Which caliber conversions a receiver family
+    accepts: the coordinator writes the table into docs/10 as the firearms arc's kit piece lands,
+    and the owner vetoes rows. Nothing is built off-table. docs/30's "The release plan and the
+    content arcs".
+
+15. **Fire as a sim fact: stage 1 or stage 4?** (2026-10-26). A burning tile, timber that catches,
+    a body that carries flame. It unlocks the burner zombie, the arsonist raider and the timber
+    wall that burns; it is also a new attention emitter (light) and a new way to die. The default
+    is stage 4 (beta), so nothing in the alpha depends on it. Same entry.
+
+16. **May raiders trade before factions exist?** (2026-10-26). The `trade` doctrine approaches
+    unarmed and offers barter, which is one verb of Milestone 4's faction seam landed early. The
+    default is no: the doctrine ships as probe, raid and siege, and trade waits. Same entry.
