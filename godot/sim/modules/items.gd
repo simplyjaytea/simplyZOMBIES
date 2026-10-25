@@ -141,11 +141,17 @@ static func repair_cost_factor(world: Variant, item: int, repairer: int = -1) ->
 
 # How loud the thing does what it does: a shot, a connect. The item's own `noise_emission`, read
 # through the item's scope, so a quiet hand on one pistol does not quiet the next one holstered.
-# No item (a bare hand, a zombie's bite) and no modifier table read as plain: 1.0.
+# No item (a bare hand, a zombie's bite) and no modifier table read as plain: 1.0. The item's own
+# share is its scoped value over the unscoped one -- the division `repair_cost_factor` does -- so a
+# global modifier, which sits inside both resolves, is counted once by whoever reads the stat and not
+# twice. The stat names stay literal at each resolve, because godot:m2:web's READERS lane finds a
+# reader by that literal.
 static func noise_emission_of(world: Variant, item: int) -> float:
 	if item < 0 or world.modifiers == null or not (world.modifiers as Object).has_method("resolve"):
 		return 1.0
-	return _own_share(world, "noise_emission", item)
+	var unscoped: float = float(world.modifiers.call("resolve", "noise_emission"))
+	var scoped: float = float(world.modifiers.call("resolve", "noise_emission", item))
+	return scoped / unscoped if unscoped > 0.0 else scoped
 
 
 # What share of a wear event's amount this item takes: its own `condition_loss`, item-scoped. An
@@ -154,16 +160,8 @@ static func noise_emission_of(world: Variant, item: int) -> float:
 static func condition_loss_of(world: Variant, item: int) -> float:
 	if item < 0 or world.modifiers == null or not (world.modifiers as Object).has_method("resolve"):
 		return 1.0
-	return _own_share(world, "condition_loss", item)
-
-
-# An item's own share of a multiplying stat: its scoped value over the unscoped one, the division
-# `repair_cost_factor` does, so a global modifier -- which sits inside both resolves -- is counted
-# once by whoever reads the stat and not twice. With no global entry the unscoped value is 1.0 and
-# this is the scoped resolve unchanged.
-static func _own_share(world: Variant, stat: String, item: int) -> float:
-	var unscoped: float = float(world.modifiers.call("resolve", stat))
-	var scoped: float = float(world.modifiers.call("resolve", stat, item))
+	var unscoped: float = float(world.modifiers.call("resolve", "condition_loss"))
+	var scoped: float = float(world.modifiers.call("resolve", "condition_loss", item))
 	return scoped / unscoped if unscoped > 0.0 else scoped
 
 
