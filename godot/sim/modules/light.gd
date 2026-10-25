@@ -363,6 +363,71 @@ static func plant(world: Variant, actor: int, tx: int, ty: int) -> int:
 	return item
 
 
+## The planted lamp this body could take back down, or -1. The nearest one standing within the
+## **same reach the plant itself used** -- fortify's `REACH` around its own tile, the distance
+## `_start` enforced before the channel would open -- because "stand it up there" and "take it
+## down from there" should be one distance apart, not two that have to be told apart. The nearest
+## rather than the first, because two floodlights standing side by side is a thing the player can
+## do, and "whichever the component store happened to list first" is not an answer anybody could
+## predict; the tie goes to the lower entity id so the answer is the same on every machine and
+## after every save. This is the one predicate both the sim's own intake and the word menu ask,
+## so the menu and the sim cannot disagree about what is in reach.
+static func planted_in_reach(world: Variant, actor: int) -> int:
+	var here: Variant = world.components.get_component(actor, "position")
+	if not (here is Dictionary):
+		return -1
+	var reach: float = float((_Fortify().get_script_constant_map() as Dictionary)["REACH"])
+	var best: int = -1
+	var best_d: float = reach * reach
+	for planted_v in world.components.query(["placedLight", "position"]):
+		var lamp: int = int(planted_v)
+		var pos: Variant = world.components.get_component(lamp, "position")
+		if not (pos is Dictionary):
+			continue
+		var dx: float = float((pos as Dictionary)["x"]) - float((here as Dictionary)["x"])
+		var dy: float = float((pos as Dictionary)["y"]) - float((here as Dictionary)["y"])
+		var d: float = dx * dx + dy * dy
+		if d > best_d:
+			continue
+		if d == best_d and best >= 0 and lamp >= best:
+			continue
+		best = lamp
+		best_d = d
+	return best
+
+
+## Take a planted lamp back off its stand and into the pack, its half-burnt fuel record carried
+## along. The floodlight was one-way until this verb; docs/30's "Two placeable items, two opposite
+## answers" (2026-09-12) records that as deliberate, and this verb reverses it.
+##
+## The pack is asked **first**, exactly as the noise device's `take_up` does. A lamp lifted into a
+## pack with no room for it would be an entity with no position, no container and no owner -- gone,
+## silently, which is the worst shape a refusal can take. So the self-store is cleared, the stow is
+## attempted through the same inventory refusal a full grid answers false to, and a failure puts
+## the self-store straight back: the lamp stands where it stood, lit as it stood, half burnt as it
+## stood, and nothing else has changed.
+##
+## The yard needs no putting to rights: the plant wrote nothing to keep -- furniture, not a
+## barricade, the map never hears about a floodlight -- so the unplant removes the plant's three
+## writes and no tile is left holding the shape of a stand. One entity, as at planting: the thing
+## that goes back in the pack is the thing that stood there, so a save never has to explain where
+## the second floodlight came from.
+static func unplant(world: Variant, actor: int) -> bool:
+	var lamp: int = planted_in_reach(world, actor)
+	if lamp < 0:
+		return false
+	_Inventory().call("remove_from_container", world, lamp)
+	if not bool(_Inventory().call("stow", world, actor, lamp)):
+		world.components.set_component(lamp, "stored", {"container": lamp, "x": 0, "y": 0, "rotated": false})
+		return false
+	world.components.remove(lamp, "placedLight")
+	# It stops burning the tick it is back in a pocket: a carried light burns only what is
+	# actually lighting somebody, and a 90-metre beacon in a rucksack is nothing's light.
+	world.components.remove(lamp, "light_source")
+	world.events.publish({"type": "light.unplanted", "entity": lamp, "actor": actor})
+	return true
+
+
 # --- the `use` verb -------------------------------------------------------------------------
 
 ## Whether picking `use` on this item would do anything -- the same predicate the word menu asks
@@ -551,13 +616,19 @@ static func register_module(world: Variant) -> void:
 	# command without arguing because each refuses what is not its business -- `use_item` above
 	# answers false for everything that is neither fuel with somewhere to go nor a light that
 	# wants standing up.
+	# `light.unplant` rides the same intake: the menu row right-clicking a standing lamp sends it,
+	# and `planted_in_reach`/`unplant` above are the same predicate the row was offered from --
+	# in reach only, with the pack's own refusal between the lamp and a rucksack with no room.
 	world.systems.register("light.intake", "input", 14, func(w: Variant) -> void:
 		for cmd in w.commands.current as Array:
 			var c: Dictionary = cmd as Dictionary
-			if String(c.get("type", "")) != "item.use":
-				continue
-			for actor in w.components.query(["controlled", "equipment"]):
-				use_item(w, int(actor), int(c.get("item", -1)))
+			var kind: String = String(c.get("type", ""))
+			if kind == "item.use":
+				for actor in w.components.query(["controlled", "equipment"]):
+					use_item(w, int(actor), int(c.get("item", -1)))
+			elif kind == "light.unplant":
+				for actor in w.components.query(["controlled", "position"]):
+					unplant(w, int(actor))
 	)
 
 
