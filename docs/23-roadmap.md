@@ -444,12 +444,10 @@ system.
 
 - ~~**Ammo types: the caliber and the round**~~ — **landed** 2026-09-12, see the record.
 - ~~**Food, drink, and the medical quality tiers**~~ — **landed** 2026-09-12, see the record.
-- **The tourniquet, and pressure as a supply.** docs/05's first step is *"pressure, tourniquet,
-  bandage"* and only two of the three exist. A tourniquet is not a dressing grade — it is a fourth
-  thing the `pressure` channel could spend — so it was deliberately **not** authored beside the
-  medical grades: an item with no reader is the dead socket this whole arc exists to stop, and
-  shipping one inside the slice that removed three welds would have been the joke writing itself.
-  Wants a reader on the pressure channel and its own lane.
+- **A tourniquet in a loot table.** The tourniquet landed 2026-10-26 (see the record): its item and
+  its reader are gated, but no loot table names `item.medical.tourniquet`, so a survivor finds one
+  only in a pack that was handed to them. A loot line moves the ten-seed table, so it is a balance
+  call with an owner's word on which table and how often, not a number to guess from this side.
 - ~~**Clothing, weather gear and bags**~~ — **landed** 2026-09-12, see the record.
 - **Does a coat make you hotter?** Found by the warmth slice and left exactly as it was, because
   changing it is a rule change rather than a bug fix. Positive warmth goes through `_shift_temp`,
@@ -2337,6 +2335,30 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Medicine — the tourniquet, and the limb it costs, 2026-10-26.** docs/05's first stop on a bleed
+  is three verbs now, not two. A tourniquet is a fourth thing the pressure channel does, not a
+  dressing grade. The rule and the calls taken are in docs/30, "The tourniquet, and the limb it
+  costs". Gated in `godot:m2:treatment`, lanes TOURNIQUET STOPS, TOURNIQUET COST, LOOSEN, TOURNIQUET
+  REFUSALS and TOURNIQUET OFFERED:
+  - **It stops the limb.** A tie on a bleeding arm or leg holds every open wound on that part shut
+    for `SimWounds.TOURNIQUET_TICKS` (2400); `wounds.bleed` skips a tied part outright, where a hand
+    only suppresses. A tied leg lost 0.0000 blood over 200 ticks against 4.8200 for the untied
+    control, the wound stayed open, and the tie spent the item.
+  - **It costs the limb after the window.** The leg goes to `DESTROYED` and the condition view reads
+    the lasting word `tourniquet` on it (`LASTING_WORDS` gained the one word). The bleed resumes on
+    the open wound. The untied control keeps its integrity and reads `none`.
+  - **Loosening in time is free.** A leg loosened at 300 ticks keeps its integrity and its
+    word-free condition, and the window it left behind costs nothing.
+  - **Refused by name.** A torso, a head and a hand are `not-a-limb`; a clotted leg is
+    `not-bleeding`; a second tie is `already-tied`; a pack with no tourniquet is `no-tourniquet`;
+    loosening an untied limb is `not-tied`.
+  - **Offered and reached.** `options_for` lists both verbs with their reasons, `supply_plan` picks
+    the leg when a torso bleeds beside it, and the item's strip key reaches the same verb. The
+    care pane needed three word-table rows in `godot/ui/care_pane.gd` (a verb it has no words for is
+    skipped), the one UI change.
+  - **Content.** `item.medical.tourniquet` in `godot/content/items/supplies.json`, with a boolean
+    `tourniquet` key declared in `godot/content/schemas/item.schema.json`. `godot:validate` and
+    `npm test` both pass on it. Not in any loot table yet; see what's left.
 - **UI overhaul, slice 2: the Colony screen in one survivor context, 2026-10-23.** The second
   bullet of [the UI overhaul group](#ui-overhaul), its Colony half, against docs/32's roster row.
   The calls taken are in docs/30, "The Colony screen". What changed:

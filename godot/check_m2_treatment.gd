@@ -86,6 +86,11 @@ func _run() -> void:
 	ok = _the_new_supplies_are_findable() and ok
 	ok = _deterministic_replay() and ok
 	ok = _the_treatment_speed_is_read() and ok
+	ok = _a_tourniquet_stops_a_bleeding_leg() and ok
+	ok = _a_tourniquet_costs_the_limb_once_its_window_runs_out() and ok
+	ok = _loosening_in_time_keeps_the_limb() and ok
+	ok = _the_tourniquet_refuses_what_it_cannot_do() and ok
+	ok = _the_tourniquet_is_offered_by_options_for() and ok
 	if ok:
 		print("M2_TREATMENT_OK pressure is a commitment, a bandage is durable, the ladder cleans and closes, the infection verbs are reachable")
 		quit(0)
@@ -1740,6 +1745,265 @@ func _the_treatment_speed_is_read() -> bool:
 		push_error("SPEED: an Auto survivor bought the field surgeon; a keystone is chosen, never auto-bought")
 		return false
 	print("SPEED OK x2 hands bandage, clean and close a deep wound in half the table and press for the full %d; the patient's modifier moves nothing; the doctor's span is %d at x2; the field surgeon is bought by hand, reads 1.35 and costs six of mood, and an Auto survivor never owns it" % [int(SimWounds.PRESSURE_TICKS[deep]), int(round(float(SimFortify.CHANNEL_TICKS) / 2.0))])
+	return true
+
+
+# --- the tourniquet (docs/05, "pressure, tourniquet, bandage") ----------------------------------
+#
+# The rule is wounds.gd's tourniquet block: an arm or a leg, held shut for SimWounds.TOURNIQUET_TICKS,
+# then the limb is lost (DESTROYED, with the lasting word "tourniquet"). Each lane below is a pair:
+# the thing that must happen, and the same world without the thing that makes it happen, so none of
+# them can pass on a world where nothing was ever going to change.
+
+const LEG: String = "leg_left"
+const TOURNIQUET_BASE: String = "item.medical.tourniquet"
+
+
+func _carried_tourniquets(w: Variant, actor: int) -> int:
+	var n: int = 0
+	for item in SimInventory.carried_items(w, actor):
+		var base: Variant = SimItems.item_base_of(w, int(item))
+		if base is Dictionary and String((base as Dictionary).get("id", "")) == TOURNIQUET_BASE:
+			n += 1
+	return n
+
+
+func _part_entry(w: Variant, entity: int, part: String) -> Dictionary:
+	for e in SimCondition.view(w, entity).get("parts", []) as Array:
+		if String((e as Dictionary).get("part", "")) == part:
+			return e as Dictionary
+	return {}
+
+
+func _option(w: Variant, actor: int, patient: int, part: String, verb: String) -> Dictionary:
+	for o in SimTreatment.options_for(w, actor, patient, part):
+		if String((o as Dictionary).get("verb", "")) == verb:
+			return o as Dictionary
+	return {}
+
+
+func _limb_of(w: Variant, entity: int, part: String) -> float:
+	var body: Variant = w.components.get_component(entity, "body")
+	if not (body is Dictionary):
+		return -1.0
+	return float((body as Dictionary).get(part, -1.0))
+
+
+# Positive: a bleeding leg, tied, loses no blood at all for the whole window's opening. Negative: the
+# same leg untied over the same span bleeds. The tie is spent from the pack and the wound stays open.
+func _a_tourniquet_stops_a_bleeding_leg() -> bool:
+	var tied: Variant = _world()
+	_deep_wound(tied, tied.player, LEG)
+	_give(tied, tied.player, TOURNIQUET_BASE, 1)
+	var res: Dictionary = SimTreatment.begin(tied, tied.player, tied.player, LEG, "tourniquet")
+	if not bool(res.get("ok", false)):
+		push_error("could not tie a tourniquet on a bleeding leg: %s" % str(res))
+		return false
+	_run_ticks(tied, SimTreatment.TOURNIQUET_APPLY_TICKS + 1)
+	if not SimWounds.tourniquet_on(tied, tied.player, LEG):
+		push_error("the tie channel finished and no tourniquet is on the leg")
+		return false
+	if _carried_tourniquets(tied, tied.player) != 0:
+		push_error("the tie did not spend the tourniquet it was tied with")
+		return false
+
+	var at_tie: float = _blood(tied, tied.player)
+	_run_ticks(tied, 200)
+	var held_loss: float = _blood(tied, tied.player) - at_tie
+
+	var free: Variant = _world()
+	_deep_wound(free, free.player, LEG)
+	_run_ticks(free, SimTreatment.TOURNIQUET_APPLY_TICKS + 1 + 200)
+	var free_loss: float = _blood(free, free.player)
+	if absf(held_loss) > 0.000001:
+		push_error("a tied leg lost %.4f blood over 200 ticks; the tie should hold the bleed shut outright" % held_loss)
+		return false
+	if free_loss <= 0.0:
+		push_error("the untied control lost no blood, so the tie proves nothing")
+		return false
+	var still: Dictionary = _wounds(tied, tied.player)[0] as Dictionary
+	if not bool(still.get("bleeding", false)):
+		push_error("the tie read as a clot; the wound should stay open under it")
+		return false
+	print("TOURNIQUET STOPS OK a tied leg lost %.4f blood over 200 ticks against the untied leg's %.4f, the wound stayed open and the tourniquet was spent" % [held_loss, free_loss])
+	return true
+
+
+# Positive: a window run out costs the limb -- DESTROYED, the lasting word on it, and the bleed then
+# resumes on the open wound. Negatives: the same span untied keeps the limb, and a leg tied and then
+# still inside its window keeps the limb too.
+func _a_tourniquet_costs_the_limb_once_its_window_runs_out() -> bool:
+	var w: Variant = _world()
+	_deep_wound(w, w.player, LEG)
+	_give(w, w.player, TOURNIQUET_BASE, 1)
+	if not bool(SimTreatment.begin(w, w.player, w.player, LEG, "tourniquet").get("ok", false)):
+		push_error("could not tie a tourniquet for the window test")
+		return false
+	_run_ticks(w, SimTreatment.TOURNIQUET_APPLY_TICKS + SimWounds.TOURNIQUET_TICKS - 100)
+	if not SimWounds.tourniquet_on(w, w.player, LEG):
+		push_error("the window closed a hundred ticks early")
+		return false
+	if _limb_of(w, w.player, LEG) <= SimWounds.DESTROYED:
+		push_error("the leg was lost inside its window")
+		return false
+	_run_ticks(w, 200)
+	if SimWounds.tourniquet_on(w, w.player, LEG):
+		push_error("the tourniquet is still on after its window ran out")
+		return false
+	if _limb_of(w, w.player, LEG) != SimWounds.DESTROYED:
+		push_error("the leg survived its tourniquet window at %s" % str(_limb_of(w, w.player, LEG)))
+		return false
+	var word: String = String(_part_entry(w, w.player, LEG).get("lasting", ""))
+	if word != "tourniquet":
+		push_error("the condition view says '%s' for the lost leg, not 'tourniquet'" % word)
+		return false
+	var before_resume: float = _blood(w, w.player)
+	_run_ticks(w, 100)
+	if _blood(w, w.player) <= before_resume:
+		push_error("the bleed did not resume on the open wound once the tie was spent")
+		return false
+
+	var untied: Variant = _world()
+	_deep_wound(untied, untied.player, LEG)
+	_run_ticks(untied, SimTreatment.TOURNIQUET_APPLY_TICKS + SimWounds.TOURNIQUET_TICKS + 200)
+	if _limb_of(untied, untied.player, LEG) <= SimWounds.DESTROYED:
+		push_error("an untied leg was lost with no tourniquet on it")
+		return false
+	if String(_part_entry(untied, untied.player, LEG).get("lasting", "")) != "none":
+		push_error("an untied leg carries a lasting word it was never given")
+		return false
+	print("TOURNIQUET COST OK the tied leg reads 0.0000 and 'tourniquet' after its window and bleeds again; the untied leg over the same span keeps its integrity and reads none")
+	return true
+
+
+# Positive: loosening inside the window is free. The limb keeps its integrity, carries no word, and
+# the bleed resumes on the open wound. Negative: the same limb stays intact past where the window
+# would have run out, because the record it would have spent is gone.
+func _loosening_in_time_keeps_the_limb() -> bool:
+	var w: Variant = _world()
+	_deep_wound(w, w.player, LEG)
+	_give(w, w.player, TOURNIQUET_BASE, 1)
+	if not bool(SimTreatment.begin(w, w.player, w.player, LEG, "tourniquet").get("ok", false)):
+		push_error("could not tie a tourniquet for the loosen test")
+		return false
+	_run_ticks(w, SimTreatment.TOURNIQUET_APPLY_TICKS + 1 + 300)
+	var res: Dictionary = SimTreatment.begin(w, w.player, w.player, LEG, "loosen")
+	if not bool(res.get("ok", false)):
+		push_error("loosen was refused inside the window: %s" % str(res))
+		return false
+	_run_ticks(w, SimTreatment.TOURNIQUET_LOOSEN_TICKS + 1)
+	if SimWounds.tourniquet_on(w, w.player, LEG):
+		push_error("the tourniquet is still on after the loosen channel finished")
+		return false
+	if _limb_of(w, w.player, LEG) <= SimWounds.DESTROYED:
+		push_error("a loosened leg was lost")
+		return false
+	var before_resume: float = _blood(w, w.player)
+	_run_ticks(w, 100)
+	if _blood(w, w.player) <= before_resume:
+		push_error("the bleed did not resume after the tourniquet came off")
+		return false
+	_run_ticks(w, SimWounds.TOURNIQUET_TICKS)
+	if _limb_of(w, w.player, LEG) <= SimWounds.DESTROYED or String(_part_entry(w, w.player, LEG).get("lasting", "")) != "none":
+		push_error("a loosened leg was costed after the window it no longer had")
+		return false
+	print("LOOSEN OK a leg loosened at 300 ticks keeps its integrity and carries no word, the bleed resumes, and the window it left behind costs nothing")
+	return true
+
+
+# Each refusal's own case, and the reason it must come back as. The granted case is the first lane.
+func _the_tourniquet_refuses_what_it_cannot_do() -> bool:
+	var cases: Array = [
+		{"why": "not-a-limb", "part": PART, "setup": "bleeding-with-item", "verb": "tourniquet"},
+		{"why": "not-a-limb", "part": "head", "setup": "bleeding-with-item", "verb": "tourniquet"},
+		{"why": "not-a-limb", "part": "hand_left", "setup": "bleeding-with-item", "verb": "tourniquet"},
+		{"why": "no-tourniquet", "part": LEG, "setup": "bleeding", "verb": "tourniquet"},
+		{"why": "not-bleeding", "part": LEG, "setup": "clotted-with-item", "verb": "tourniquet"},
+		{"why": "already-tied", "part": LEG, "setup": "tied-twice", "verb": "tourniquet"},
+		{"why": "not-tied", "part": LEG, "setup": "bleeding-with-item", "verb": "loosen"},
+	]
+	for entry in cases:
+		var c: Dictionary = entry as Dictionary
+		var w: Variant = _world()
+		var part: String = String(c["part"])
+		match String(c["setup"]):
+			"bleeding":
+				_deep_wound(w, w.player, part)
+			"bleeding-with-item":
+				_deep_wound(w, w.player, part)
+				_give(w, w.player, TOURNIQUET_BASE, 1)
+			"clotted-with-item":
+				_stopped_wound(w, w.player, part)
+				_give(w, w.player, TOURNIQUET_BASE, 1)
+			"tied-twice":
+				_deep_wound(w, w.player, part)
+				_give(w, w.player, TOURNIQUET_BASE, 2)
+				SimTreatment.begin(w, w.player, w.player, part, "tourniquet")
+				_run_ticks(w, SimTreatment.TOURNIQUET_APPLY_TICKS + 1)
+			_:
+				pass
+		var res: Dictionary = SimTreatment.begin(w, w.player, w.player, part, String(c["verb"]))
+		if bool(res.get("ok", false)) or String(res.get("reason", "")) != String(c["why"]):
+			push_error("setup '%s' on %s, verb '%s', returned %s, expected reason '%s'" % [c["setup"], part, c["verb"], str(res), c["why"]])
+			return false
+	print("TOURNIQUET REFUSALS OK %d refusals each come back with their own reason: a torso, a head and a hand are not limbs; a clotted leg, a tied leg and an untied one each refuse what they cannot do; and no tourniquet in the pack is refused by name" % cases.size())
+	return true
+
+
+# The dead-socket assertion: options_for lists the verb with the right answer on each side of its
+# rule, and the strip key reaches the same answer. The torso bleed beside a leg bleed picks the leg,
+# which is the one a tourniquet can be tied on.
+func _the_tourniquet_is_offered_by_options_for() -> bool:
+	var w: Variant = _world()
+	_deep_wound(w, w.player, LEG)
+	_deep_wound(w, w.player, PART)
+	var bare: Dictionary = _option(w, w.player, w.player, LEG, "tourniquet")
+	if bare.is_empty():
+		push_error("options_for does not list the tourniquet verb at all")
+		return false
+	if bool(bare.get("ok", false)) or String(bare.get("reason", "")) != "no-tourniquet":
+		push_error("a bleeding leg with no tourniquet offered the verb: %s" % str(bare))
+		return false
+	var item: int = _give(w, w.player, TOURNIQUET_BASE, 1)
+	if String(SimTreatment.verb_of_supply(w, item)) != "tourniquet":
+		push_error("a tourniquet reports verb '%s', not 'tourniquet'" % SimTreatment.verb_of_supply(w, item))
+		return false
+	var offered: Dictionary = _option(w, w.player, w.player, LEG, "tourniquet")
+	if not bool(offered.get("ok", false)):
+		push_error("a bleeding leg with a tourniquet in the pack refused it: %s" % str(offered))
+		return false
+	if not SimTreatment.can_use_supply(w, w.player, item):
+		push_error("the strip key cannot reach a tourniquet on a bleeding leg")
+		return false
+	var plan: Dictionary = SimTreatment.supply_plan(w, w.player, item)
+	if String(plan.get("part", "")) != LEG or String(plan.get("verb", "")) != "tourniquet":
+		push_error("the strip key plans %s, not a tourniquet on the leg: %s" % [str(plan.get("part", "")), str(plan)])
+		return false
+
+	# The limb rule, on the same body: a torso bleed does not get a tourniquet offered.
+	var torso: Dictionary = _option(w, w.player, w.player, PART, "tourniquet")
+	if bool(torso.get("ok", false)) or String(torso.get("reason", "")) != "not-a-limb":
+		push_error("a torso bleed was offered a tourniquet: %s" % str(torso))
+		return false
+
+	# A dressing is not a tourniquet, and a tourniquet is not a dressing: its verb is not bandage.
+	var dressing: int = _give(w, w.player, "item.bandage.cloth", 1)
+	if String(SimTreatment.verb_of_supply(w, dressing)) != "bandage":
+		push_error("a cloth bandage stopped being a bandage")
+		return false
+
+	# Once tied, the offer turns over: tie refused as already tied, loosen offered.
+	SimTreatment.begin(w, w.player, w.player, LEG, "tourniquet")
+	_run_ticks(w, SimTreatment.TOURNIQUET_APPLY_TICKS + 1)
+	var again: Dictionary = _option(w, w.player, w.player, LEG, "tourniquet")
+	var loosen: Dictionary = _option(w, w.player, w.player, LEG, "loosen")
+	if bool(again.get("ok", false)) or String(again.get("reason", "")) != "already-tied":
+		push_error("a tied leg offered a second tie: %s" % str(again))
+		return false
+	if not bool(loosen.get("ok", false)):
+		push_error("a tied leg did not offer loosening: %s" % str(loosen))
+		return false
+	print("TOURNIQUET OFFERED OK options_for lists tourniquet on a bleeding leg only with one in the pack, refuses a torso as not-a-limb, the strip key plans the leg beside a torso bleed, and a tied leg offers loosen")
 	return true
 
 
