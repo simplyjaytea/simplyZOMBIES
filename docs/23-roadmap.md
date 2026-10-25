@@ -295,6 +295,12 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
 - **Specific melee wear.** Studs fall out on hits through the `struck` wear word (shared with the
   plate piece), an edge dulls and a whetstone restores it, a lashed head flies off one swing in N
   from its own RNG stream. Gate: `godot:m2:swipe` WEAR.
+- **The bench offers improvised parts.** `item.improvise` (`godot/sim/modules/attachments.gd`) makes
+  a part from what the survivor carries and fits it, and only gates send it: no screen does, so a
+  player cannot reach the 25 improvised parts. The bench view lists a recipe row per slot with the
+  materials it would spend, refusals in words, and sends the command. The half that shipped is the
+  sim and its refusals; this is the half that did not. Gate: `godot:m2:bench`, and
+  `godot:check:inventory` for the row's words.
 - **A bespoke weapon may be named.** Past three modifications the player may name the item; the
   name follows the digit ban's item-name clause. Gate: `godot:check:inventory`.
 
