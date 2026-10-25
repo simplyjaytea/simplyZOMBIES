@@ -1620,6 +1620,7 @@ func _draw_district(region: Rect2i, bake_pass: int) -> void:
 			if world.tilemap == null or not SimTileMap.is_indoors(world.tilemap, tx, ty):
 				ground = Appearance.ground_with_snow(ground, snow_cover)
 			var col: Color = ground
+			var fence_wire: bool = false
 			if world.tilemap != null:
 				tile = int(SimTileMap.tile_at(world.tilemap, tx, ty))
 				match tile:
@@ -1652,12 +1653,16 @@ func _draw_district(region: Rect2i, bake_pass: int) -> void:
 					elif kind == "scrap":
 						col = Palette.COLOURS["rubble"]
 						tile = SimTileMap.Tile.Wall
-					# The raised buildables stand as walls until they have pictures (the art thread's
-					# open item): a blocked tile must not draw as floor, and a wire fence blocks walking
-					# the same way a wall does even though the eye goes through it.
-					elif kind == "timber" or kind == "stone" or kind == "fence":
+					# The timber wall and the stone course stand as walls until they have pictures (the
+					# art thread's open item): a blocked tile must not draw as floor.
+					elif kind == "timber" or kind == "stone":
 						col = Palette.COLOURS["wall"]
 						tile = SimTileMap.Tile.Wall
+					# A wire fence blocks walking and not the eye, so it is not a wall: the floor it
+					# stands on draws as it would, and the strand is drawn over it in the fence's own
+					# palette colour after the tile (_draw_fence_wire).
+					elif kind == "fence":
+						fence_wire = true
 			elif world.is_blocked_tile(tx, ty):
 				col = Palette.COLOURS["wall"]
 				tile = SimTileMap.Tile.Wall
@@ -1792,6 +1797,8 @@ func _draw_district(region: Rect2i, bake_pass: int) -> void:
 						# pavement. Cosmetic, hash-picked, and drawn over the paint rather than
 						# under it, because litter blows onto a road marking and not beneath one.
 						_draw_scatter(rect, dress, tx, ty)
+			if fence_wire:
+				_draw_fence_wire(rect, Palette.remembered(Palette.COLOURS["fence"]) if remembered else Palette.COLOURS["fence"])
 
 # The world under the bodies, every frame: the baked layers brought up to date and moved with the
 # camera, then the dressing and the props drawn fresh on top of them. What is baked is everything
@@ -2303,6 +2310,17 @@ func _draw_solid_tile(rect: Rect2, col: Color, tx: int, ty: int) -> void:
 		_pen.draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - b), Vector2(rect.size.x, b)), dim)
 	if not _is_solid_at(tx + 1, ty):
 		_pen.draw_rect(Rect2(rect.position + Vector2(rect.size.x - b, 0.0), Vector2(b, rect.size.y)), dim)
+
+# A wire fence: two posts and two strands in the fence's palette colour over the floor, so the tile
+# reads as something that stops a body and that the eye goes through. The floor is drawn first, by
+# the tile's own arm; this is only what stands on it.
+func _draw_fence_wire(rect: Rect2, col: Color) -> void:
+	var t: float = maxf(1.0, roundf(rect.size.x * 0.045))
+	for f in [0.1, 0.9]:
+		_pen.draw_rect(Rect2(rect.position + Vector2(rect.size.x * float(f) - t, 0.0), Vector2(t * 2.0, rect.size.y)), col)
+	for f in [0.35, 0.65]:
+		_pen.draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y * float(f) - t * 0.5), Vector2(rect.size.x, t)), col)
+
 
 # Windows: a bright glass pane + rim so they read against masonry. Orientation
 # follows the neighbouring walls; a corner window falls back to a square pane.
