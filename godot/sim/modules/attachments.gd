@@ -341,7 +341,7 @@ static func _wear_one(world: Variant, host: int, part: int, amount: float) -> vo
 	var before: float = float((c as Dictionary).get("current", 1.0))
 	if before <= 0.0:
 		return
-	var after: float = maxf(0.0, before - amount)
+	var after: float = maxf(0.0, before - amount * SimItemsRes.condition_loss_of(world, part))
 	(c as Dictionary)["current"] = after
 	if after > 0.0:
 		_refresh(world, host)

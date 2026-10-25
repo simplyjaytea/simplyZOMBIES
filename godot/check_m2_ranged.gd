@@ -25,8 +25,10 @@ func _run() -> void:
 	ok = _clearing_a_jam_takes_longer_than_a_reload() and ok
 	ok = _a_sprint_cannot_aim_and_every_other_rung_can() and ok
 	ok = _a_gun_with_no_barrel_does_not_fire_and_says_so() and ok
+	ok = _the_affix_that_names_noise_quiets_the_shot() and ok
+	ok = _the_affix_that_names_condition_loss_wears_the_gun_faster() and ok
 	if ok:
-		print("M2_RANGED_OK bow pistol jam sprint blocked")
+		print("M2_RANGED_OK bow pistol jam sprint blocked quiet ruin")
 		quit(0)
 	else:
 		push_error("M2_RANGED_FAIL")
@@ -411,4 +413,80 @@ func _a_gun_with_no_barrel_does_not_fire_and_says_so() -> bool:
 		return false
 
 	print("  BLOCKED OK no barrel, no shot and no reload, refused as %s; the barrel back in and it fires again" % String(refusals[0]))
+	return true
+
+
+# --- affixes that name a stat a shot reads (firearms arc, stage 1) ----------------------------
+#
+# "of the Quiet Hand" and "of Ruin" were authored against stats nothing resolved, so a pistol
+# carrying either fired and wore exactly like one without. Each lane below fires a real shot
+# through the state machine, so what is asserted is what a trigger does. The affix is item-scoped:
+# it lives on the pistol, and the shot reads it through the pistol's own scope.
+
+# One shot from a pistol carrying `affix_id` at `tier`, and what it left behind: the noise the
+# shot published (-1 if none) and the condition the pistol has after it.
+func _one_shot(affix_id: String, tier: int) -> Dictionary:
+	var w: Variant = _world()
+	SimItems.register_module(w)
+	var pistol: int = SimItems.spawn_item(w, "item.pistol.service", {"tier": "scavenged"})
+	if affix_id != "":
+		w.components.set_component(pistol, "affixes", {"prefixes": [], "suffixes": [{"id": affix_id, "tier": tier}]})
+		SimItems.reapply_affix_modifiers(w, pistol)
+	SimInventory.equip(w, w.player, pistol)
+	var ammo: int = SimItems.spawn_item(w, "item.ammo.9mm", {"tier": "scavenged", "count": 20})
+	SimInventory.stow(w, w.player, ammo)
+	var rng: Variant = w.rng.stream("shambler")
+	SimRoster.spawn_zombie(w, 14.0, 12.0, SimRoster.TYPE_SHAMBLER, rng)
+	w.events.drain()
+	var noises: Array = _fire_through(w, 1)
+	var c: Dictionary = w.components.get_component(pistol, "condition") as Dictionary
+	return {"noise": float(noises[0]) if not noises.is_empty() else -1.0, "condition": float(c["current"])}
+
+
+# A bare pistol is 180 (docs/30). Quiet hand is x0.85 at tier zero and x0.6 at tier two; salvage
+# names repair_cost and must leave the shot exactly where it was.
+func _the_affix_that_names_noise_quiets_the_shot() -> bool:
+	var lane: String = "QUIET-SHOT"
+	var bare: float = float(_one_shot("", 0)["noise"])
+	var quiet: float = float(_one_shot("affix.suffix.quiet_hand", 0)["noise"])
+	var quieter: float = float(_one_shot("affix.suffix.quiet_hand", 2)["noise"])
+	var untouched: float = float(_one_shot("affix.suffix.salvage", 0)["noise"])
+	if absf(bare - 180.0) > 0.01:
+		push_error("%s: a bare pistol shot at %.4f, not 180" % [lane, bare])
+		return false
+	# TP, the dead-socket assertion: the stat is read, so the shot moves to the digit.
+	if absf(quiet - 180.0 * 0.85) > 0.0001 or absf(quieter - 180.0 * 0.6) > 0.0001:
+		push_error("%s: quiet hand shot at %.4f and %.4f, not %.4f and %.4f" % [lane, quiet, quieter, 180.0 * 0.85, 180.0 * 0.6])
+		return false
+	if not (quieter < quiet and quiet < bare):
+		push_error("%s: the tiers do not order (bare %.4f, tier zero %.4f, tier two %.4f)" % [lane, bare, quiet, quieter])
+		return false
+	# TN: an affix that names a different stat leaves the same weapon exactly as loud as bare.
+	if absf(untouched - bare) > 0.0001:
+		push_error("%s: an of Salvage pistol shot at %.4f, not the bare %.4f -- salvage moved the noise" % [lane, untouched, bare])
+		return false
+	print("  QUIET-SHOT OK bare %.1f, quiet hand %.2f (tier two %.2f), of Salvage %.1f" % [bare, quiet, quieter, untouched])
+	return true
+
+
+# A shot wears the pistol by WEAR_PER_SHOT, and of Ruin doubles it (condition_loss x2.0). Quiet
+# hand names noise only, so the wear it leaves is the bare wear to the digit.
+func _the_affix_that_names_condition_loss_wears_the_gun_faster() -> bool:
+	var lane: String = "RUIN-SHOT"
+	var wear: float = SimItems.WEAR_PER_SHOT
+	var bare: float = float(_one_shot("", 0)["condition"])
+	var ruined: float = float(_one_shot("affix.suffix.ruin", 0)["condition"])
+	var untouched: float = float(_one_shot("affix.suffix.quiet_hand", 0)["condition"])
+	if absf(bare - (1.0 - wear)) > 0.000001:
+		push_error("%s: a bare pistol is at %.6f after one shot, not %.6f" % [lane, bare, 1.0 - wear])
+		return false
+	# TP, the dead-socket assertion: condition_loss is read on the shot's wear.
+	if absf(ruined - (1.0 - 2.0 * wear)) > 0.000001:
+		push_error("%s: an of Ruin pistol is at %.6f after one shot, not %.6f" % [lane, ruined, 1.0 - 2.0 * wear])
+		return false
+	# TN: quiet hand leaves the wear where the bare pistol had it.
+	if absf(untouched - bare) > 0.000001:
+		push_error("%s: a quiet-handed pistol is at %.6f after one shot, not the bare %.6f" % [lane, untouched, bare])
+		return false
+	print("  RUIN-SHOT OK one shot leaves a bare pistol at %.5f and an of Ruin one at %.5f" % [bare, ruined])
 	return true
