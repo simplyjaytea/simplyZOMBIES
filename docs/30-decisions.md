@@ -6559,3 +6559,64 @@ can find is a dead socket, so it needed a loot line, and the line is a balance c
 **How to apply:** a loot line for a new base is judged by `godot:m2:balance` before the commit, and
 the record says which gate saw it and which table did not.
 
+## Melee frames, and parts that are made, 2026-10-26
+
+The first stage of the melee arc (docs/38, "The content arcs"; docs/23's record). The calls taken
+inside it, none of which rebalances a shipped weapon:
+
+- **Every melee base declares a `family`.** Club: steel pipe, aluminium bat, wooden bat, demolition
+  sledge, claw hammer, police baton, golf club, and the Siren's Bell and Tetanus Special. Blade:
+  kitchen knife, rusted machete, fire axe, camp hatchet, butcher's cleaver, splitting axe, ice pick
+  and the cavalry sabre. Polearm: the improvised spear, the barn pitchfork and the Long Argument.
+  Tool: crowbar, pipe wrench and sharpened shovel. A family is a word on the base and nothing else;
+  it moves no number.
+- **`appliesTo` names who a part is for, beside `fits` for the slot.** Absent or empty means any
+  base. Otherwise the host's `family` or its own id has to be named, and both tests hold before a
+  part goes in (`SimAttachments.plausible`, asked by every offer, so a refused part is never put
+  on the bench as a choice). A ranged base carries no family, so a part naming only families goes
+  on nothing ranged. The nails name `item.bat.wood` alone; screws, bolts and glass name the wooden
+  hosts (the bat and the claw hammer, whose haft is wood), so a steel pipe and a baton refuse them
+  although both have a stud slot.
+- **Fitted parts are made, which departs from docs/10's "found, not crafted".** The melee arc is
+  the one exception, by the owner's brief ("a baseball bat, but you can put nails in it"): a part
+  is built from what the survivor carries, one unit of each material kind its recipe names, by
+  `item.improvise`, which checks every refusal before it spends anything. Bench work unless the
+  part is `fieldSwap`. docs/10 now says so, and the gear gate's CATALOGUE exempts exactly a base
+  with a `recipe.kinds` block from the findability rule, and says how many it exempted.
+- **Three slots widen the melee bases: `stud`, `guard` and `weight`,** each declared only where it
+  is plausible. The aluminium bat takes weight and no stud; the pipe takes stud and weight; the
+  sabre takes a guard. `weight` and `connectNoise` became multipliers because they already had
+  readers; no stat was authored without one.
+- **Glass cuts the hand that holds it, and the rule changed in review.** See "The hand-cut rule,
+  as changed": one Scratch per swing that connects, not a Laceration per swing.
+- **The wooden bat is a twentieth base,** so the bat the nails need exists. Where it is found is
+  "The wooden bat is found in industrial yards".
+
+**How to apply:** a new melee base declares a `family` and its slots; a new part declares `fits` and
+`appliesTo`, and a part made from materials declares `recipe.kinds`. A part without a reader for
+its stats is not authored.
+
+## The dead stat readers, 2026-10-26
+
+The first piece of the firearms arc (readers before content, docs/38). `noise_emission`,
+`condition_loss` and `repair_cost` were declared stats that resolved against nothing, so the ranged
+affixes that named them moved no number a gun reads.
+
+- **Each stat is read in the item's own scope.** The way every affix is scoped, so a quiet hand on
+  one pistol does not quiet the next one holstered. `SimItems.noise_emission_of` scales the noise
+  a shot or a melee connect publishes, and `condition_loss_of` scales the wear a host or a fitted
+  part takes, both by the profile's `source`. A bare hand or a zombie's body has no source and
+  reads 1.0, so everything not carrying one of these affixes is byte-identical to before.
+- **`repair_cost` was already read** (by the repair verb, since 2026-09-13). The piece added the
+  ranged proof that an item's own factor reaches it, and no code on that path.
+- **`long_nights` is left inert on a ranged weapon, on purpose.** Its stat, `swing_stamina`, is read
+  only by the melee profile. What stamina a shot should cost is a design call and not a reader, so
+  the piece names it and does not fix it. `ruin` is half live for the same reason: its
+  `condition_loss` half is read, its `melee_damage` half only by melee.
+- **Not measured.** Affixes are rolled into loot, so a campaign that rolls them sees different wear
+  and noise. The ten-seed table was not re-run and no campaign claim is made.
+
+**How to apply:** a stat authored on a part is read in item scope in the slice that authors it, or
+the web gate's READERS lane names it as awaiting a reader. `godot:m2:ranged` QUIET-SHOT and
+RUIN-SHOT, and `godot:m2:attach` SWING, WEAR and REPAIR, hold the readers.
+
