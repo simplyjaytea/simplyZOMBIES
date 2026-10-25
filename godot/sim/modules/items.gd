@@ -139,6 +139,24 @@ static func repair_cost_factor(world: Variant, item: int, repairer: int = -1) ->
 	return maxf(0.0, factor)
 
 
+# How loud the thing does what it does: a shot, a connect. The item's own `noise_emission`, read
+# through the item's scope, so a quiet hand on one pistol does not quiet the next one holstered.
+# No item (a bare hand, a zombie's bite) and no modifier table read as plain: 1.0.
+static func noise_emission_of(world: Variant, item: int) -> float:
+	if item < 0 or world.modifiers == null or not (world.modifiers as Object).has_method("resolve"):
+		return 1.0
+	return float(world.modifiers.call("resolve", "noise_emission", item))
+
+
+# What share of a wear event's amount this item takes: its own `condition_loss`, item-scoped. An
+# "of Ruin" gun wears faster from the same round; a reinforced part wears slower. Same no-item and
+# no-table reading as `noise_emission_of`, so every caller that has no item is left exactly as it was.
+static func condition_loss_of(world: Variant, item: int) -> float:
+	if item < 0 or world.modifiers == null or not (world.modifiers as Object).has_method("resolve"):
+		return 1.0
+	return float(world.modifiers.call("resolve", "condition_loss", item))
+
+
 # ---- content helpers (supports both registry object and flat Dict from ContentLoader) ----
 
 static func _content_get(world: Variant, type_id: String, id: String) -> Variant:
@@ -404,7 +422,7 @@ static func apply_wear(world: Variant, item: int, amount: float = WEAR_PER_HIT) 
 	var before: float = float((c as Dictionary).get("current", 1.0))
 	if before <= 0.0:
 		return
-	var after: float = maxf(0.0, before - amount)
+	var after: float = maxf(0.0, before - amount * condition_loss_of(world, item))
 	(c as Dictionary)["current"] = after
 	if after <= 0.0:
 		world.events.publish({"type": "item.broke", "item": item})

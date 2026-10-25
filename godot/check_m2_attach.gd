@@ -15,6 +15,7 @@ const SimMelee = preload("res://sim/modules/melee.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
+const SimCombat = preload("res://sim/combat.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimLightModule = preload("res://sim/modules/light.gd")
@@ -65,8 +66,11 @@ func _run() -> void:
 	ok = _every_override_names_something_real() and ok
 	ok = _a_fitted_light_lights_whoever_is_holding_it() and ok
 	ok = _armour_slots_carry_armour() and ok
+	ok = _an_affix_reaches_the_swing_it_names() and ok
+	ok = _an_affix_reaches_the_wear_it_names() and ok
+	ok = _an_affix_reaches_the_repair_it_names() and ok
 	if ok:
-		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair required headless override mismatch names light armor")
+		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair required headless override mismatch names light armor swing wear salvage")
 		quit(0)
 	else:
 		push_error("M2_ATTACH_FAIL")
@@ -1824,4 +1828,171 @@ func _armour_slots_carry_armour() -> bool:
 		return false
 
 	print("  ARMOR OK a plate takes a carrier's torso %.2f -> %.2f and an empty one to zero (\"%s\"); a lining lifts an arm %.2f -> %.2f by exactly what it declares and leaves the helmet alone; a pouch on a worn vest holds a tin and is out of reach on a vest nobody is wearing" % [declared, plated, said, arm_before, arm_after])
+	return true
+
+
+# --- AFFIXES THAT NAME A STAT (firearms arc, stage 1) ------------------------------------------
+#
+# "of the Quiet Hand", "of Ruin", "of Salvage" and "Reinforced" were authored against stats nothing
+# resolved, so an item carrying one did exactly what an item without it did. Each lane below is
+# the same shape: a true positive (the named stat moves the number it governs), a true negative (a
+# suffix that does not name that stat leaves the number exactly where it was), and the attachment
+# path proved on a part rather than a host. Affixes are item-scoped, so every reader here reads
+# the item it is asked about, never the survivor carrying it.
+
+# A pistol or an axe carrying one affix at a given tier, with the item's own modifiers rebuilt the
+# way a bench edit rebuilds them. An empty id is the bare item.
+func _carrying(w: Variant, id: String, affix_id: String, tier: int) -> int:
+	var item: int = _spawn(w, id)
+	if affix_id != "":
+		w.components.set_component(item, "affixes", {"prefixes": [], "suffixes": [{"id": affix_id, "tier": tier}]})
+		SimItems.reapply_affix_modifiers(w, item)
+	return item
+
+
+# A survivor's swing at a body 0.8 m ahead, as the hands gate stages it, read off the noise the
+# connect publishes. The noise is the attention spine's own magnitude, so it is compared as-is.
+func _connect_noise(affix_id: String, tier: int) -> float:
+	var lane: String = "SWING"
+	var w: Variant = _world()
+	var axe: int = _carrying(w, AXE, affix_id, tier)
+	SimInventory.equip(w, w.player, axe)
+	w.events.drain()
+	var body: int = int(w.entities.spawn())
+	w.components.set_component(body, "position", {"x": 9.3, "y": 12.5})
+	w.components.set_component(body, "velocity", {"dx": 0.0, "dy": 0.0})
+	w.components.set_component(body, "body", SimCombat.ZOMBIE_BODY.duplicate())
+	var noises: Array = []
+	var connected: Array = []
+	w.commands.push({"type": "swing"})
+	for i in 40:
+		w.step()
+		for e in w.events.drained:
+			var ev: Dictionary = e as Dictionary
+			if String(ev.get("type", "")) == "noise.emitted" and int(ev.get("source", -1)) == w.player:
+				noises.append(float(ev.get("magnitude", 0)))
+			if String(ev.get("type", "")) == "attack.connected":
+				connected.append(ev)
+	if connected.is_empty() or noises.is_empty():
+		push_error("%s: an axe swing at 0.8 m did not connect and make a noise (connects %d, noises %s)" % [lane, connected.size(), str(noises)])
+		return -1.0
+	return float(noises[0])
+
+
+func _an_affix_reaches_the_swing_it_names() -> bool:
+	var lane: String = "SWING"
+	var bare: float = _connect_noise("", 0)
+	if bare < 0.0:
+		return false
+	var quiet: float = _connect_noise("affix.suffix.quiet_hand", 0)
+	var quieter: float = _connect_noise("affix.suffix.quiet_hand", 2)
+	var plain: float = _connect_noise("affix.suffix.salvage", 0)
+	# TP: the axe's connect is its own connectNoise (8) scaled by quiet_hand's tier-zero 0.85.
+	if quiet < 0.0 or absf(quiet - float(SimCombat.MELEE_CONNECT_NOISE) * 0.85) > 0.0001:
+		push_error("%s: a quiet-handed axe connects at %.4f, not %.4f" % [lane, quiet, float(SimCombat.MELEE_CONNECT_NOISE) * 0.85])
+		return false
+	if not (quieter < quiet and quiet < bare):
+		push_error("%s: tiers do not order (bare %.4f, tier 0 %.4f, tier 2 %.4f)" % [lane, bare, quiet, quieter])
+		return false
+	# TN: salvage names repair_cost, not noise, so the connect must be the bare connect to the digit.
+	if absf(plain - bare) > 0.0001:
+		push_error("%s: an axe of Salvage connects at %.4f, not the bare %.4f -- salvage moved noise" % [lane, plain, bare])
+		return false
+	print("  SWING OK a quiet-handed axe connects at %.2f (bare %.2f, tier two %.2f); of Salvage leaves it at %.2f" % [quiet, bare, quieter, plain])
+	return true
+
+
+# The part path. A suppressor-shaped part wears through `wear_parts` (the channel a shot uses on a
+# part), and the wear it takes is the part's own `condition_loss` times the declared amount. The
+# two worlds differ by one variable, the part's modifier; the ratio is what is asserted, so this
+# does not depend on the suppressor's declared wearRate.
+func _part_loss_after_one_shot(modifier_value: float) -> float:
+	var w: Variant = _world()
+	var pistol: int = _armed_pistol(w)
+	var can: int = _spawn(w, SUPPRESSOR)
+	if not SimAttachments.attach(w, pistol, can, "muzzle"):
+		return -1.0
+	if modifier_value != 1.0:
+		w.modifiers.add({"stat": "condition_loss", "op": "mul", "value": modifier_value, "source": "gate.fixture"}, can)
+	var before: float = _condition_of(w, can)
+	SimAttachments.wear_parts(w, pistol, "shot")
+	return before - _condition_of(w, can)
+
+
+func _an_affix_reaches_the_wear_it_names() -> bool:
+	var lane: String = "WEAR"
+	var plain: float = _part_loss_after_one_shot(1.0)
+	var worn: float = _part_loss_after_one_shot(2.0)
+	if plain <= 0.0:
+		push_error("%s: one shot took nothing off a fitted part (%.6f), so the ratio measures nothing" % [lane, plain])
+		return false
+	# TP: condition_loss x2 on the part takes exactly twice what it took plain.
+	if absf(worn - 2.0 * plain) > 0.000001:
+		push_error("%s: a part with condition_loss x2 lost %.6f in one shot, not %.6f" % [lane, worn, 2.0 * plain])
+		return false
+	# TN: a part whose condition_loss is untouched is the plain part to the digit, and so is a
+	# part carrying a modifier on some other stat (ranged_accuracy moves aim, not wear).
+	var other_stat: float = 0.0
+	var w: Variant = _world()
+	var pistol: int = _armed_pistol(w)
+	var can: int = _spawn(w, SUPPRESSOR)
+	SimAttachments.attach(w, pistol, can, "muzzle")
+	w.modifiers.add({"stat": "ranged_accuracy", "op": "mul", "value": 2.0, "source": "gate.fixture"}, can)
+	var before: float = _condition_of(w, can)
+	SimAttachments.wear_parts(w, pistol, "shot")
+	other_stat = before - _condition_of(w, can)
+	if absf(other_stat - plain) > 0.000001:
+		push_error("%s: a part moved by ranged_accuracy lost %.6f, not the plain %.6f" % [lane, other_stat, plain])
+		return false
+	# And the host, through the item path: one shot's wear on a pistol carrying ruin is twice the
+	# bare pistol's. The ratio is asserted, not the constant, since the constant is items.gd's.
+	var host_bare: float = _host_loss_after_one_shot("")
+	var host_ruin: float = _host_loss_after_one_shot("affix.suffix.ruin")
+	if host_bare <= 0.0 or absf(host_ruin - 2.0 * host_bare) > 0.000001:
+		push_error("%s: a ruined pistol lost %.6f from one wear event, not twice the bare %.6f" % [lane, host_ruin, host_bare])
+		return false
+	print("  WEAR OK a part with condition_loss x2 loses %.5f a shot, plain %.5f; a ruined pistol loses %.5f, bare %.5f" % [worn, plain, host_ruin, host_bare])
+	return true
+
+
+func _host_loss_after_one_shot(affix_id: String) -> float:
+	var w: Variant = _world()
+	var pistol: int = _carrying(w, PISTOL, affix_id, 0)
+	w.components.set_component(pistol, "condition", {"current": 1.0, "ceiling": 1.0})
+	var before: float = _condition_of(w, pistol)
+	SimItems.apply_wear(w, pistol, SimItems.WEAR_PER_SHOT)
+	return before - _condition_of(w, pistol)
+
+
+# Repair spends the ceiling, and the item's own repair_cost is what it spends it by. The reader is
+# repair_item (docs/23, the wider-web arc's second piece, 2026-09-13), so this lane is the proof
+# that a ranged weapon's affix reaches it, not a second reader. Plain hands, no repairer named.
+func _repaired_ceiling(affix_id: String, tier: int) -> float:
+	var w: Variant = _world()
+	var pistol: int = _carrying(w, PISTOL, affix_id, tier)
+	w.components.set_component(pistol, "condition", {"current": 0.5, "ceiling": 1.0})
+	if not SimItems.repair_item(w, pistol):
+		return -1.0
+	return float((w.components.get_component(pistol, "condition") as Dictionary)["ceiling"])
+
+
+func _an_affix_reaches_the_repair_it_names() -> bool:
+	var lane: String = "REPAIR"
+	var plain: float = _repaired_ceiling("", 0)
+	var salvage: float = _repaired_ceiling("affix.suffix.salvage", 0)
+	var salvage_deep: float = _repaired_ceiling("affix.suffix.salvage", 2)
+	var quiet: float = _repaired_ceiling("affix.suffix.quiet_hand", 0)
+	# A ceiling of 1.0 drops by REPAIR_CEILING_DROP (0.05) times the item's repair_cost.
+	if absf(plain - 0.95) > 0.000001:
+		push_error("%s: a plain pistol repaired to a ceiling of %.6f, not 0.95" % [lane, plain])
+		return false
+	# TP: of Salvage is 0.8 at tier zero and 0.45 at tier two, so the drop shrinks by that much.
+	if absf(salvage - (1.0 - 0.05 * 0.8)) > 0.000001 or absf(salvage_deep - (1.0 - 0.05 * 0.45)) > 0.000001:
+		push_error("%s: salvage left the ceiling at %.6f and %.6f, not 0.96 and 0.9775" % [lane, salvage, salvage_deep])
+		return false
+	# TN: quiet_hand names noise, not repair_cost, so the repair is the plain repair to the digit.
+	if absf(quiet - plain) > 0.000001:
+		push_error("%s: a quiet-handed pistol repaired to %.6f, not the plain %.6f" % [lane, quiet, plain])
+		return false
+	print("  REPAIR OK a plain pistol's ceiling goes to %.4f; of Salvage to %.4f and %.4f; quiet hand leaves it at %.4f" % [plain, salvage, salvage_deep, quiet])
 	return true
