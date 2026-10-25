@@ -140,7 +140,27 @@ func _the_strip_names_survive_1280() -> bool:
 	if " ".join(PackedStringArray(long_lines)) == long_name:
 		push_error("STRIP: %s came back whole in %d px across two lines, so the cut was not judged" % [long_name, int(room)])
 		return false
-	print("STRIP OK slot 1 at 1280x720 wraps %s whole in %d px, the one line it replaces cuts it, and a name twice as long is still cut" % [bottle, int(room)])
+	# A single word wider than the room, first on its line: it must be cut with the ellipsis like any
+	# other overflow, not appended bare and drawn past the slot. The word is grown until it is wider
+	# than the room, so the lane always has an overlong word to judge; the control is the same lane
+	# on a name made only of short words, whose every line is the plain text.
+	var name_size: int = int(strip.get_script_constant_map()["NAME_SIZE"])
+	var long_word: String = "Cartridge"
+	while font.get_string_size(long_word, HORIZONTAL_ALIGNMENT_LEFT, -1, name_size).x <= room * 1.5:
+		long_word += "Cartridge"
+	var word_lines: Array = strip.call("name_lines", font, long_word + " Tail", room, int(strip.get_script_constant_map()["NAME_LINES"])) as Array
+	for line in word_lines:
+		if font.get_string_size(String(line), HORIZONTAL_ALIGNMENT_LEFT, -1, name_size).x > room:
+			push_error("STRIP: the line '%s' is wider than the %d px the slot keeps for a name" % [String(line), int(room)])
+			return false
+	if not String(word_lines[0]).ends_with("…"):
+		push_error("STRIP: an overlong first word was cut without the ellipsis: %s" % str(word_lines))
+		return false
+	var short_lines: Array = strip.call("name_lines", font, "Tin of soup", room, int(strip.get_script_constant_map()["NAME_LINES"])) as Array
+	if " ".join(PackedStringArray(short_lines)) != "Tin of soup":
+		push_error("STRIP: a short name was cut: %s" % str(short_lines))
+		return false
+	print("STRIP OK slot 1 at 1280x720 wraps %s whole in %d px, the one line it replaces cuts it, a name twice as long is still cut, and a first word wider than the room is cut inside it" % [bottle, int(room)])
 	return true
 
 
