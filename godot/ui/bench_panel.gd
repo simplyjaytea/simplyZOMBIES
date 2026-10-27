@@ -344,18 +344,22 @@ func layout() -> Dictionary:
 	var more_above: bool = _offer_top > 0
 	var oy: float = list_top
 	var more_below: bool = false
-	# The make group's label sits over its first row, when that row is drawn; -1 when it is not.
+	# The make group's label sits over its first drawn row: the group's first, or the top of the
+	# window once the column has scrolled into the group, so made parts never sit under the carried
+	# label. It stands a line over its rows as the carried label does, and the overflow test counts
+	# the same room it takes. -1 when no make row is drawn.
 	var make_label_y: float = -1.0
+	var label_at: int = maxi(first_make, _offer_top)
 	for i in range(_offer_top, shown.size()):
 		var offer: Dictionary = shown[i] as Dictionary
 		var h: float = _offer_height(offer)
-		var label_h: float = LINE + OFFER_GAP if i == first_make else 0.0
+		var label_h: float = LINE + OFFER_GAP * 2.0 if i == label_at else 0.0
 		if oy + label_h + h > bottom - LINE and i > _offer_top:
 			more_below = true
 			break
 		if label_h > 0.0:
-			make_label_y = oy + OFFER_GAP
-			oy += label_h + OFFER_GAP
+			make_label_y = oy + OFFER_GAP * 2.0
+			oy += label_h
 		offers.append({"rect": Rect2(Vector2(col_x, oy), Vector2(col_w, h)), "index": i, "item": int(offer.get("item", -1)), "recipe": String(offer.get("recipe", "")), "slot": String(offer.get("slot", ""))})
 		oy += h + OFFER_GAP
 
@@ -729,7 +733,7 @@ func _draw_footer(lay: Dictionary, font: Font) -> void:
 	if not refusal.is_empty():
 		_say(Vector2(frame.position.x + PAD, base_y), UiText.fit(font, refusal, NAME_SIZE, left_room), NAME_SIZE, DANGER_INK)
 	else:
-		var hint: String = "pick a slot, then what fits it"
+		var hint: String = "pick a slot, then what fits it, or make one" if _offers().size() < _entries().size() else "pick a slot, then what fits it"
 		_say(Vector2(frame.position.x + PAD, base_y), UiText.fit(font, hint, NAME_SIZE, left_room), NAME_SIZE, Locker.TEXT_DIM)
 	var lit: String = _enter_does()
 	for b_v in buttons:
@@ -795,9 +799,14 @@ func _gui_input(event: InputEvent) -> void:
 		"plate":
 			pick_slot(String(hit["slot"]))
 		"offer":
-			_offer = int(hit["index"])
+			# A carried part fits on one click, since "take off" undoes it. Making spends materials
+			# for good, so a make row's first click only picks it and the second makes it.
+			var index: int = int(hit["index"])
+			var picked_already: bool = index == _offer and _side == "offers"
+			_offer = index
 			_side = "offers"
-			_press(_offer)
+			if picked_already or not _is_make(_entries()[index] as Dictionary):
+				_press(_offer)
 		"take off":
 			_take_off()
 		"fit":
