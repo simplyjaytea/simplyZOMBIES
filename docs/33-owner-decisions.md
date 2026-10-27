@@ -322,7 +322,6 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    the information rule for the colony's own stores (4), or one refusal line (5). The plan is
    `planning/2026-10-24_stockpile-hauling.md` section 11 in the project files.
 
-
 14. **The conversion realism table** (2026-10-26). Which caliber conversions a receiver family
     accepts: the coordinator writes the table into docs/10 as the firearms arc's kit piece lands,
     and the owner vetoes rows. Nothing is built off-table. docs/30's "The release plan and the
@@ -348,6 +347,7 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
     drops only from `loot.medical`, at weight 8 of 282, the sterile dressing's weight. The
     ten-seed balance table was not re-run for the line. Rarer keeps the limb-for-a-life choice
     sharp; commoner makes the tie a routine tool. Which table, and how often, is the call.
+
 
 
 20. **Can the bloodhound see?** (2026-10-27, the bloodhound piece, docs/30's "The bloodhound,

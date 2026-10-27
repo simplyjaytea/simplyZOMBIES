@@ -335,10 +335,6 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
 
 *Raiders, doctrine and archetypes (doctrine stage 2, archetypes stage 4):*
 
-- **A doctrine on the band.** `doctrine` in {probe, raid, siege, trade}, drawn by the director by
-  day off the `raid` stream. Probe turns for home at first loss (the lookout already does);
-  siege camps outside the wall and waits; trade approaches unarmed with a flag and offers barter
-  (owner's card: before factions exist?). Gate: `godot:m2:raiders` DOCTRINE, one lane each.
 - **Five archetypes.** Breacher (sledge, goes for the door), marksman (hunting rifle, holds
   range), medic (bandages the band, retreats with the wounded), arsonist (waits on fire), dog
   handler (a hound as a scent sensor). Each is a content file in `godot/content/raiders/` and one
@@ -438,7 +434,6 @@ zombies first because they are cheapest and the dormant piece builds the indoor-
 the people pieces reuse; raiders before settlers because the third side is a seam the individual
 raider first touches. Each piece that adds a body or a kind inside ten days re-baselines the FAST
 balance record and says so in its record; `survivors_end >= 1` is never the lever.
-
 
 **Medicine — the back half of treatment:**
 
@@ -1393,7 +1388,6 @@ tables and day lines are report-noise.md in the project's planning/balance folde
 - **Aim follows the cursor.** The cursor is the aimer: the weapon is held toward it and the character turns
   to follow, as in Project Zomboid. Decided 2026-10-19 (docs/30); not built. Gate: `godot:m2:aim` and
   `godot:check:worn`.
-
 
 **UI:**
 
@@ -2413,6 +2407,56 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Raider doctrine, 2026-10-27.** A raid band is drawn `probe`, `raid` or `siege` once it is
+  placed, and every body carries the word. `trade` is not built (docs/33 item 16) and no draw
+  produces it.
+  - **The draw** is `SimDirector._draw_doctrine`, on its own stream `raidDoctrine`, one draw a band.
+    The stream is not `raid`: the pinned `raid` sequences are the campaigns already measured, and
+    the STREAMS lane holds them. First-cut weights: days 8 and 9 probe 50 / raid 50; day 10 on
+    probe 30 / raid 45 / siege 25. `godot:m2:raiders` DOCTRINE-DRAW: 2,000 draws a day on days 8,
+    9 and 10, every share inside 25% of its weight, no siege on days 8 and 9, and the `raid`
+    stream never created by the draw.
+  - **Probe** turns every body home on the first loss, the lookout's rule widened to the band.
+    PROBE: a probe band of three turns both survivors home on the first loss; the same loss under
+    `raid` holds.
+  - **Raid** is today's band. RAID-SAME: a band stamped `raid` walks the same path tick for tick
+    as an unstamped band over 300 ticks.
+  - **Siege** holds at a ring of legal floor 2 to 4 tiles outside the walls box (the annex rect),
+    the tile nearest its entry, found with no draw. It waits there `SIEGE_WAIT_TICKS` (6,000, two
+    in-game hours) from the tick it arrives, then storms: its objective becomes the gate and every
+    rule is the raid's. The wait is JT's pick on docs/33 item 19 ("wait, then storm the wall"),
+    first cut. SIEGE-HOLD: across the whole wait the band never enters the box, never comes within
+    5 m of the gate, and does not withdraw. SIEGE-STORM: it storms exactly one wait after arrival
+    and reaches the gate, while a raid in the same arena reaches it inside 2,500 ticks.
+    SIEGE-REACH: a colonist 1.2 m from the ring takes wounds; one inside the box takes none.
+    SIEGE-HALF: a siege holds through the first loss and turns when one of three is left.
+  - **Load.** A record with no `doctrine` key, or with a word nothing draws, reads as `raid`.
+    LOAD also strips a probe's key and checks it then holds like a raid.
+  - **Dead socket.** PLAYABLE: 120 nights from day 10 on the shipped district. Each band's bodies
+    carry the doctrine the director announced, and a siege body's cached objective is the ring
+    `_siege_site` finds, with no storm before its wait.
+  - **No ring, and the lookout.** A siege with no walls box to hold outside (no annex anchor, or
+    no legal floor 2 to 4 tiles around it) is marked storming on its first read and walks at the
+    gate as a raid does, rather than standing at the edge for the rest of the run, never
+    withdrawing and counting against `RAID_LIVE_CAP`. A lookout in a siege holds on the ring with
+    the band; its twelve-metre stand-off applies to the gate once the band storms, not to the
+    ring. SIEGE-NO-RING: three bodies with a lookout among them all within 2.5 m of the ring
+    after 1,200 ticks and none storming; the same band with the annex anchor erased is storming on
+    its first read, caches the gate, and closes more than 5 m on it in 300 ticks. The lookout's
+    first-loss rule is unchanged: a siege with a lookout in it still turns home at the first loss.
+  - **Not built.** Trade (docs/33 item 16). Roaming bands keep no doctrine. The siege reads the
+    annex rect, not a camp footprint, so a camp's siege has no ring of its own yet.
+  - **Measured.** `godot:m2:balance` on main (d942876d) and on head, back to back on the same
+    machine: the four FAST seed lines are identical (raids 0, 1, 0, 0 on both arms; seed 404 is
+    the one seed with a raid, two in and none down). FAST compresses the campaign, so it shows no
+    doctrine effect either way. The siege wait and the probe turn are not measured by it. The
+    ten-seed table was not re-run: owed by the post-arc re-baseline. `godot:bench:runtime`, main
+    (d942876d) against the reviewed head, three runs each interleaved on a loaded review
+    container: shipped-tick median mean 15.47 ms against 14.27 ms, colony-tick 18.26 ms against
+    20.31 ms, both inside that box's 1 to 4 ms run-to-run noise; the bench window holds no
+    raider, so the one added per-raider read (`doctrine_of`) is not in it either way. No HUD
+    change; the player is not told the doctrine.
+
 - **The bench offers improvised parts, 2026-10-27.** The melee arc's way in: `item.improvise` had
   only ever been sent by gates, and now the assembly screen sends it. `SimGunsmith.bench_view`
   gains `recipes`: for each empty slot, one row per recipe whose spec fits the slot and that the
@@ -2462,7 +2506,7 @@ not a to-do list:
 - **The bloodhound, 2026-10-27.** Zombie kind eight, content only: `godot/content/zombies/bloodhound.json`,
   wave 3, weight 6, `sensory` noise 0, light 0, scent 1.0. It follows the scent field alone and is
   deaf to noise. Light 0 also turns its sight off (`shambler.gd`'s `sight_reach` is range times the
-  square root of the light weight), so it finds a body by contact only: docs/33 item 20's default,
+  square root of the light weight), so it finds a body by contact only: the owner's 2026-10-27 call (docs/30, "The bloodhound"),
   built. It reuses the shambler's workwear body and corpses with its own tints, which is a gap, not
   a decision, until a bloodhound picture is drawn. Gates: `godot:m2:district` SCENT-ONLY (the same
   body with a scent source 8 m east turns east, and without one keeps west; a noise 2 m west that
