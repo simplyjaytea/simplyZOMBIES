@@ -370,3 +370,14 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
     one-line field on the inspect pane, up to 24 characters, Enter keeps it, Escape leaves it as it
     was, and an empty name gives the plain name back (docs/30's "A weapon you named, 2026-10-27").
     `godot:check:play` NAME holds the field.
+
+25. **May a name the player types carry a digit?** (2026-10-27, the named-weapon art review). A
+    typed name rides the item-name clause of the digit ban, the same one that lets an authored
+    round be `.308 Winchester Match`, so "Nailbat 2" is accepted, and when a colonist hauls it
+    `SimOrders.hud_clause` reads "Hauling Nailbat 2 to the stockpile.": a digit the player typed,
+    on a HUD line. Superscripts and fractions pass too; a name with no letter is still refused, and
+    descriptions and every other HUD line stay under the full ban. Built default: **digits
+    allowed**, since authored names already put digits on the same lines. The alternatives are
+    letters only in a typed name (one change to `SimItems.name_char_allowed`), or a typed name kept
+    off the HUD (the order line says the plain weapon name). `godot:check:inventory` NAME holds the
+    default.
