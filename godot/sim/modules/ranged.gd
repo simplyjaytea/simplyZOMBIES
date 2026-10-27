@@ -11,6 +11,7 @@ const SimHealth = preload("res://sim/modules/health.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
 const SimInventoryRes = preload("res://sim/modules/inventory.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
+const SimBarrelRes = preload("res://sim/barrel.gd")
 
 enum FireState { Idle = 0, Raise = 1, Steady = 2, Recover = 3, Reload = 4, Clearing = 5 }
 
@@ -642,7 +643,10 @@ static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: V
 		var roll: float = float(rng.call("next"))
 		if roll < 0.2:
 			body_part = "head"
-		var damage: float = _with_ammo(scale, "damage", float(weapon.get("damage", 12))) * (3.0 if body_part == "head" else 1.0)
+		# How far the round went decides how much of it is left. A plain barrel's round leaves at full
+		# muzzle speed and this is 1.0 at every range, so only a barrel that slows the round changes it.
+		var keep: float = SimBarrelRes.falloff(float(weapon.get("muzzle", 1.0)), sqrt(best_dist) / reach)
+		var damage: float = _with_ammo(scale, "damage", float(weapon.get("damage", 12))) * (3.0 if body_part == "head" else 1.0) * keep
 		world.events.publish({"type": "attack.connected", "attacker": attacker, "target": target, "bodyPart": body_part, "damage": damage, "item": int(weapon.get("source", -1))})
 		world.events.publish({"type": "entity.staggered", "entity": target, "ticks": 8})
 	# A round the weapon never declares recoverable stays unrecoverable however the round scales

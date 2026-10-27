@@ -18,6 +18,7 @@ const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
+const SimBarrel = preload("res://sim/barrel.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimLightModule = preload("res://sim/modules/light.gd")
 const SimSave = preload("res://sim/save.gd")
@@ -94,8 +95,14 @@ func _run() -> void:
 	ok = _a_part_goes_on_where_its_slot_and_its_family_say_and_nowhere_else() and ok
 	ok = _an_improvised_part_is_made_from_what_is_carried_and_fitted() and ok
 	ok = _a_glass_blade_cuts_the_hand_that_holds_it_until_it_is_wrapped() and ok
+	ok = _the_vocabulary_refuses_a_typo_out_loud() and ok
+	ok = _the_shipped_six_keep_their_numbers() and ok
+	ok = _length_moves_the_shot_it_names() and ok
+	ok = _quality_moves_the_cone_it_names() and ok
+	ok = _material_moves_the_wear_it_names() and ok
+	ok = _a_slow_round_loses_damage_past_its_falloff() and ok
 	if ok:
-		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair required headless override mismatch names light armor swing wear salvage family applies plausible improvise cut")
+		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair required headless override mismatch names light armor swing wear salvage family applies plausible improvise cut barrel")
 		quit(0)
 	else:
 		push_error("M2_ATTACH_FAIL")
@@ -295,7 +302,9 @@ func _every_scalable_field_is_scaled_by_something() -> bool:
 		if not (e.get("attachment") is Dictionary):
 			continue
 		read += 1
-		var spec: Dictionary = e["attachment"] as Dictionary
+		# Resolved, not raw: a barrel's `ranged` numbers are its words' product, and the words are what
+		# the content says. Read raw, a barrel would look like it scales nothing.
+		var spec: Dictionary = SimBarrel.resolve(e["attachment"] as Dictionary)
 		for kind in SimAttachments.SCALABLE.keys():
 			var table: Variant = spec.get(String(kind))
 			if not (table is Dictionary):
@@ -2373,3 +2382,278 @@ func _a_glass_blade_cuts_the_hand_that_holds_it_until_it_is_wrapped() -> bool:
 	print("  CUT OK glass on a bare grip scratches the right hand once per connecting swing (a clotting scratch); a miss, a cord wrap and a destroyed hand cost nothing; nails never cut")
 	return true
 
+
+
+# --- BARREL -----------------------------------------------------------------------------------
+#
+# A barrel declares three words (sim/barrel.gd) and the shot reads their product. Six lanes, each
+# with a true negative: the vocabulary refuses a typo out loud, the six shipped barrels keep the
+# numbers they were authored with, length and quality move the shot they name, material and
+# quality move the wear they name, and a slow round loses damage at range where a plain one does
+# not.
+
+const BARREL_STD: String = "item.part.barrel.standard"
+const BARREL_RIMFIRE: String = "item.part.barrel.rimfire"
+const BARREL_45: String = "item.part.barrel.45"
+const BARREL_MATCH: String = "item.attach.barrel.match"
+const BARREL_SHORT: String = "item.attach.barrel.short"
+const BARREL_LONG: String = "item.attach.barrel.long"
+
+# The six barrels as authored before sim/barrel.gd (content at e14a8088). Each number is the total
+# a barrel contributed on that axis. The words must land within 5% of it, and `muzzle` is the one
+# axis that is new: no shipped barrel had it, so it is absent here and only checked to be 1.0 on
+# the barrels that have no reason to slow a round.
+const SHIPPED_BEFORE: Dictionary = {
+	"item.part.barrel.standard": {"ranged": {}, "wearRate": 1.0},
+	"item.part.barrel.rimfire": {"ranged": {"damage": 0.6, "noise": 0.7}, "wearRate": 1.1},
+	"item.part.barrel.45": {"ranged": {"damage": 1.2, "rangeMetres": 0.85, "noise": 1.05}, "wearRate": 1.0},
+	"item.attach.barrel.match": {"ranged": {"cone": 0.82, "rangeMetres": 1.18, "damage": 1.06, "handling": 0.85}, "wearRate": 1.4},
+	"item.attach.barrel.short": {"ranged": {"rangeMetres": 0.72, "noise": 1.22, "handling": 1.25, "cone": 1.1}, "wearRate": 1.0},
+	"item.attach.barrel.long": {"ranged": {"rangeMetres": 1.3, "noise": 1.12, "cone": 0.9}, "wearRate": 1.0},
+}
+
+
+func _within_five(got: float, want: float) -> bool:
+	return absf(got - want) <= 0.05 * absf(want)
+
+
+func _the_vocabulary_refuses_a_typo_out_loud() -> bool:
+	var lane: String = "BARREL VOCAB"
+	var good: Dictionary = {"length": "full", "quality": "service", "material": "steel"}
+	if SimBarrel.error_of(good) != "":
+		push_error("%s: a barrel of known words was refused as '%s'" % [lane, SimBarrel.error_of(good)])
+		return false
+	var cases: Dictionary = {
+		"length:lenght": {"length": "lenght", "quality": "service", "material": "steel"},
+		"quality:matchy": {"length": "full", "quality": "matchy", "material": "steel"},
+		"material:brass": {"length": "full", "quality": "service", "material": "brass"},
+		"missing:material": {"length": "full", "quality": "service"},
+		"unknown-key:colour": {"length": "full", "quality": "service", "material": "steel", "colour": "red"},
+		"not-a-barrel": "steel",
+	}
+	for want in cases.keys():
+		var got: String = SimBarrel.error_of(cases[want])
+		if got != String(want):
+			push_error("%s: %s came back as '%s', not '%s'" % [lane, str(cases[want]), got, String(want)])
+			return false
+	# TN: a typo'd declaration resolves marked with its reason and with no derived numbers, so no
+	# caller can read it as a plain barrel. The `ranged` it carries is left exactly as it was.
+	var bad: Dictionary = SimBarrel.resolve({"barrel": cases["length:lenght"], "ranged": {"noise": 0.5}})
+	if String(bad.get("barrelError", "")) != "length:lenght" or float((bad["ranged"] as Dictionary)["noise"]) != 0.5:
+		push_error("%s: a typo'd barrel resolved as %s" % [lane, str(bad)])
+		return false
+	# Refused at the weapon too: a pistol whose barrel carries a typo is blocked, and the sentence
+	# says so. The base is patched in memory and restored, so no other lane sees the typo.
+	var w: Variant = _world()
+	var pistol: int = _armed_pistol(w)
+	var barrel_base: Dictionary = SimItems.base_by_id(w, BARREL_SHORT) as Dictionary
+	var words: Dictionary = (barrel_base["attachment"] as Dictionary)["barrel"] as Dictionary
+	var keep: String = String(words["length"])
+	words["length"] = "lenght"
+	var part: int = _spawn(w, BARREL_SHORT)
+	var blocked: String = ""
+	if _swap(w, pistol, "barrel", part):
+		blocked = SimAttachments.blocked_reason(w, pistol)
+	words["length"] = keep
+	if blocked != "barrel:length:lenght":
+		push_error("%s: a pistol with a typo'd barrel reads blocked '%s', not 'barrel:length:lenght'" % [lane, blocked])
+		return false
+	# refusal_clause asks the actor, whose `rangedWeapon` carries the reason, not the pistol.
+	if SimAttachments.refusal_clause(w, w.player) != "The barrel in it is not a barrel the bench knows how to bore.":
+		push_error("%s: the refusal sentence is '%s'" % [lane, SimAttachments.refusal_clause(w, w.player)])
+		return false
+	print("  BARREL VOCAB OK typos refused as length:, quality:, material:, missing:, unknown-key:, not-a-barrel; the pistol says so and fires nothing")
+	return true
+
+
+func _the_shipped_six_keep_their_numbers() -> bool:
+	var lane: String = "BARREL SHIPPED"
+	var w: Variant = _world()
+	var checked: int = 0
+	for id_v in SHIPPED_BEFORE.keys():
+		var id: String = String(id_v)
+		var base: Variant = SimItems.base_by_id(w, id)
+		if not base is Dictionary or not ((base as Dictionary).get("attachment") is Dictionary):
+			push_error("%s: %s is not a shipped attachment" % [lane, id])
+			return false
+		var spec: Dictionary = SimBarrel.resolve((base as Dictionary)["attachment"] as Dictionary)
+		var before: Dictionary = SHIPPED_BEFORE[id] as Dictionary
+		var before_ranged: Dictionary = before["ranged"] as Dictionary
+		var ranged: Dictionary = spec.get("ranged", {}) as Dictionary
+		for field in before_ranged.keys():
+			var got: float = float(ranged.get(field, 1.0))
+			if not _within_five(got, float(before_ranged[field])):
+				push_error("%s: %s %s is %.4f, was %.4f" % [lane, id, String(field), got, float(before_ranged[field])])
+				return false
+		for field in ranged.keys():
+			if String(field) == "muzzle" or before_ranged.has(field):
+				continue
+			if not _within_five(float(ranged[field]), 1.0):
+				push_error("%s: %s moved %s, an axis it never had" % [lane, id, String(field)])
+				return false
+		if not _within_five(float(spec.get("wearRate", 1.0)), float(before["wearRate"])):
+			push_error("%s: %s wears at %.4f, was %.4f" % [lane, id, float(spec.get("wearRate", 1.0)), float(before["wearRate"])])
+			return false
+		checked += 1
+	if checked != 6:
+		push_error("%s: %d shipped barrels checked, expected 6" % [lane, checked])
+		return false
+	# TN: a number six percent out is refused, so the 5% band is a band and not a shrug.
+	if _within_five(1.06, 1.0) or not _within_five(1.04, 1.0):
+		push_error("%s: the 5%% band does not separate 1.06 from 1.04" % lane)
+		return false
+	print("  BARREL SHIPPED OK six barrels, every pre-existing axis within 5% of its authored total; no axis moved that it did not have")
+	return true
+
+
+func _length_moves_the_shot_it_names() -> bool:
+	var lane: String = "BARREL LENGTH"
+	var w: Variant = _world()
+	var pistol: int = _armed_pistol(w)
+	var std_noise: float = _noise_of(w, w.player)
+	var std_reach: float = float((SimItems.ranged_profile_of(w, pistol) as Dictionary)["rangeMetres"])
+	_swap(w, pistol, "barrel", _spawn(w, BARREL_LONG))
+	w.events.drain()
+	var long_noise: float = _noise_of(w, w.player)
+	var long_reach: float = float((SimItems.ranged_profile_of(w, pistol) as Dictionary)["rangeMetres"])
+	_swap(w, pistol, "barrel", _spawn(w, BARREL_SHORT))
+	w.events.drain()
+	var short_noise: float = _noise_of(w, w.player)
+	var short_reach: float = float((SimItems.ranged_profile_of(w, pistol) as Dictionary)["rangeMetres"])
+	if not (short_noise > long_noise and long_noise > std_noise):
+		push_error("%s: noise short %.2f, long %.2f, standard %.2f -- the shorter barrel is not the louder one" % [lane, short_noise, long_noise, std_noise])
+		return false
+	if not (long_reach > std_reach and std_reach > short_reach):
+		push_error("%s: reach long %.2f, standard %.2f, short %.2f -- length is not reaching the shot" % [lane, long_reach, std_reach, short_reach])
+		return false
+	# TN: the same length on the same receiver gives the same shot.
+	_swap(w, pistol, "barrel", _spawn(w, BARREL_STD))
+	w.events.drain()
+	var again: float = _noise_of(w, w.player)
+	if absf(again - std_noise) > 0.001:
+		push_error("%s: the same barrel fired twice reads %.4f then %.4f" % [lane, std_noise, again])
+		return false
+	print("  BARREL LENGTH OK noise short %.1f > long %.1f > standard %.1f; reach long %.1f > standard %.1f > short %.1f; the same length twice reads the same" % [short_noise, long_noise, std_noise, long_reach, std_reach, short_reach])
+	return true
+
+
+func _quality_moves_the_cone_it_names() -> bool:
+	var lane: String = "BARREL QUALITY"
+	var std_world: Variant = _world()
+	var std_pistol: int = _armed_pistol(std_world)
+	var std_cone: float = _cone_while_aiming(std_world)
+	var match_world: Variant = _world()
+	var match_pistol: int = _armed_pistol(match_world)
+	_swap(match_world, match_pistol, "barrel", _spawn(match_world, BARREL_MATCH))
+	match_world.events.drain()
+	var match_cone: float = _cone_while_aiming(match_world)
+	if not (match_cone < std_cone * 0.9):
+		push_error("%s: match cone %.4f against standard %.4f -- a true bore is not tighter" % [lane, match_cone, std_cone])
+		return false
+	# TN: a rough bore is wider than service, and a service bore changes nothing at all.
+	var rough: Dictionary = SimBarrel.resolve({"barrel": {"length": "full", "quality": "rough", "material": "steel"}})
+	var service: Dictionary = SimBarrel.resolve({"barrel": {"length": "full", "quality": "service", "material": "steel"}})
+	if not (float((rough["ranged"] as Dictionary)["cone"]) > 1.1) or (service["ranged"] as Dictionary).has("cone"):
+		push_error("%s: rough resolves to %s and service to %s" % [lane, str(rough["ranged"]), str(service["ranged"])])
+		return false
+	# A true bore is also the one that goes off true soonest: `match` wears 1.4 times `service` on
+	# the same steel, so the shipped match barrel's wear is its quality's and not a softer metal's.
+	# TN: service on steel is the identity.
+	var match_steel: Dictionary = SimBarrel.resolve({"barrel": {"length": "full", "quality": "match", "material": "steel"}})
+	if not _within_five(float(match_steel["wearRate"]), 1.4) or float(service["wearRate"]) != 1.0:
+		push_error("%s: match on steel wears at %.3f and service at %.3f, not 1.4 and 1.0" % [lane, float(match_steel["wearRate"]), float(service["wearRate"])])
+		return false
+	print("  BARREL QUALITY OK match cone %.4f against standard %.4f; rough widens, service is the identity; match wears %.1f on the same steel" % [match_cone, std_cone, float(match_steel["wearRate"])])
+	return true
+
+
+func _material_moves_the_wear_it_names() -> bool:
+	var lane: String = "BARREL MATERIAL"
+	# The same short barrel in two worlds, one of them re-declared `mild` in memory for the length
+	# of its twenty shots and restored before the steel world fires, so no other lane and not the
+	# steel world sees the patch. No shipped barrel is mild: the one that wears 1.4 is match on
+	# steel, and that is QUALITY's to hold.
+	var mild_world: Variant = _world()
+	var mild_pistol: int = _armed_pistol(mild_world)
+	var short_base: Dictionary = SimItems.base_by_id(mild_world, BARREL_SHORT) as Dictionary
+	var short_words: Dictionary = (short_base["attachment"] as Dictionary)["barrel"] as Dictionary
+	var keep_material: String = String(short_words["material"])
+	if keep_material != "steel":
+		push_error("%s: the shipped short barrel is %s, this lane assumes steel" % [lane, keep_material])
+		return false
+	short_words["material"] = "mild"
+	_swap(mild_world, mild_pistol, "barrel", _spawn(mild_world, BARREL_SHORT))
+	for i in 20:
+		SimAttachments.wear_parts(mild_world, mild_pistol, "shot")
+	var mild_loss: float = 1.0 - _condition_of(mild_world, SimAttachments.in_slot(mild_world, mild_pistol, "barrel"))
+	short_words["material"] = keep_material
+	var steel_world: Variant = _world()
+	var steel_pistol: int = _armed_pistol(steel_world)
+	_swap(steel_world, steel_pistol, "barrel", _spawn(steel_world, BARREL_SHORT))
+	for i in 20:
+		SimAttachments.wear_parts(steel_world, steel_pistol, "shot")
+	var steel_loss: float = 1.0 - _condition_of(steel_world, SimAttachments.in_slot(steel_world, steel_pistol, "barrel"))
+	if not (mild_loss > 0.0 and steel_loss > 0.0):
+		push_error("%s: a shot wore nothing (mild %.5f, steel %.5f)" % [lane, mild_loss, steel_loss])
+		return false
+	if not _within_five(mild_loss / steel_loss, 1.4):
+		push_error("%s: mild loses %.5f a shot against steel %.5f, ratio %.3f, not 1.4" % [lane, mild_loss, steel_loss, mild_loss / steel_loss])
+		return false
+	# TN: chromed lasts longer than steel, and a material the bench does not know is refused.
+	var chromed: Dictionary = SimBarrel.resolve({"barrel": {"length": "full", "quality": "service", "material": "chromed"}})
+	if not (float(chromed["wearRate"]) < 1.0):
+		push_error("%s: chromed wears at %.3f, not less than steel" % [lane, float(chromed["wearRate"])])
+		return false
+	print("  BARREL MATERIAL OK mild loses %.5f a shot, steel %.5f (ratio %.2f); chromed wears at %.1f" % [mild_loss, steel_loss, mild_loss / steel_loss, float(chromed["wearRate"])])
+	return true
+
+
+# A target a fraction of the standard reach out, in front of a pistol with the named barrel. Fires
+# once and returns the damage the round carried, or -1.0 when nothing was hit. Each world is built
+# from the same seed, so the head-or-torso roll is the same in every run and the ratio is the barrel's.
+func _damage_at(barrel_id: String, distance: float) -> float:
+	var w: Variant = _world()
+	var pistol: int = _armed_pistol(w)
+	if barrel_id != BARREL_STD:
+		_swap(w, pistol, "barrel", _spawn(w, barrel_id))
+	w.events.drain()
+	var target: int = int(w.entities.spawn())
+	w.components.set_component(target, "position", {"x": 8.5 + distance, "y": 12.5})
+	w.components.set_component(target, "velocity", {"dx": 0.0, "dy": 0.0})
+	w.components.set_component(target, "body", SimCombat.ZOMBIE_BODY.duplicate())
+	w.commands.push({"type": "fire"})
+	for i in 80:
+		w.step()
+		for e in w.events.drained:
+			var ev: Dictionary = e as Dictionary
+			if String(ev.get("type", "")) == "attack.connected" and int(ev.get("target", -1)) == target:
+				return float(ev.get("damage", -1.0))
+	return -1.0
+
+
+func _a_slow_round_loses_damage_past_its_falloff() -> bool:
+	var lane: String = "BARREL FALLOFF"
+	if SimBarrel.falloff(1.0, 1.0) != 1.0 or SimBarrel.falloff(0.6, 0.6) != 1.0:
+		push_error("%s: a full-speed round or one inside the start lost damage" % lane)
+		return false
+	if not _within_five(SimBarrel.falloff(0.6, 1.0), 0.6) or not _within_five(SimBarrel.falloff(0.8, 0.9), 0.85):
+		push_error("%s: falloff(0.6, 1.0) %.4f, falloff(0.8, 0.9) %.4f" % [lane, SimBarrel.falloff(0.6, 1.0), SimBarrel.falloff(0.8, 0.9)])
+		return false
+	if not (SimBarrel.falloff(0.6, 0.8) > SimBarrel.falloff(0.6, 0.95)):
+		push_error("%s: a slow round does not lose more the further it goes" % lane)
+		return false
+	var probe: Variant = _world()
+	var reach0: float = float((SimItems.ranged_profile_of(probe, _armed_pistol(probe)) as Dictionary)["rangeMetres"])
+	# 0.65 of the standard reach: inside the short barrel's reach (0.72), past its falloff start.
+	var distance: float = 0.65 * reach0
+	var std_damage: float = _damage_at(BARREL_STD, distance)
+	var short_damage: float = _damage_at(BARREL_SHORT, distance)
+	if std_damage <= 0.0 or short_damage <= 0.0:
+		push_error("%s: a shot at %.2f m did not connect (standard %.3f, short %.3f)" % [lane, distance, std_damage, short_damage])
+		return false
+	# Short: fraction 0.65 / 0.72 of its own reach, which keeps 1 - 0.2 * ((0.903 - 0.6) / 0.4) = 0.849.
+	if not _within_five(short_damage / std_damage, 0.849):
+		push_error("%s: short carries %.3f of standard's damage at %.2f m, not 0.849" % [lane, short_damage / std_damage, distance])
+		return false
+	print("  BARREL FALLOFF OK at %.2f m a cut-down round carries %.3f of the standard round's damage; full speed loses nothing at any range" % [distance, short_damage / std_damage])
+	return true

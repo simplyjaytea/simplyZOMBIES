@@ -146,9 +146,8 @@
     "attachment": {
       "fits": ["barrel"],
       "structural": true,
-      "ranged": { "cone": 0.82, "rangeMetres": 1.18, "damage": 1.06, "handling": 0.85 },
-      "wearsOn": ["shot"],
-      "wearRate": 1.4
+      "barrel": { "length": "full", "quality": "match", "material": "steel" },
+      "wearsOn": ["shot"]
     }
   },
   {
@@ -161,7 +160,7 @@
     "attachment": {
       "fits": ["barrel"],
       "structural": true,
-      "ranged": { "rangeMetres": 0.72, "noise": 1.22, "handling": 1.25, "cone": 1.1 },
+      "barrel": { "length": "short", "quality": "service", "material": "steel" },
       "wearsOn": ["shot"],
       "wearRate": 1.0
     }
@@ -295,7 +294,7 @@
     "attachment": {
       "fits": ["barrel"],
       "structural": true,
-      "ranged": { "rangeMetres": 1.3, "noise": 1.12, "cone": 0.9 },
+      "barrel": { "length": "long", "quality": "service", "material": "steel" },
       "wearsOn": ["shot"],
       "wearRate": 1.0
     }

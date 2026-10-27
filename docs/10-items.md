@@ -147,6 +147,22 @@ still open is the half of the sentence above that says *aimed*: the light is a r
 holder rather than a beam, and an optic does not yet care whether there is any light to look
 through.
 
+### The barrel's words
+
+A barrel part declares `barrel: {length, quality, material}` and no multiplier of its own. Each
+word is a row of multipliers; the barrel's total is their product. A conversion barrel also carries a
+caliber share (its own `ranged` table and literal `wearRate`), which multiplies in on top. An unknown word
+is refused, not read as the plain barrel. The tables live in `godot/sim/barrel.gd`.
+
+| Word | Values | What it does |
+|---|---|---|
+| `length` | `stub`, `short`, `carbine`, `full`, `long` | Muzzle speed (`muzzle`, below 1 for the short ones), noise, reach, handling and cone. `full` is the identity. |
+| `quality` | `rough`, `service`, `match` | Accuracy (cone); `match` also carries damage, reach and handling, and wears 1.4 times as fast, because a true bore is the first to go off true. `service` is the identity. |
+| `material` | `mild`, `steel`, `chromed` | Wear per shot: `mild` 1.4, `steel` 1.0, `chromed` 0.7. Multiplies beside the quality's wear. |
+
+A slow round (muzzle under 1) keeps less of its damage past 60% of its reach, down to its muzzle at
+full reach. A full-speed round keeps all of it, at any range.
+
 ## Ammunition: a caliber, and what the round changes
 
 A weapon says two things about what it eats. `ammo` is the round it **prefers** — the one its
