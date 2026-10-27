@@ -457,11 +457,9 @@ static func _draw_raid(world: Variant, day: int, lull: bool) -> void:
 					reason = "no-edge"
 				else:
 					# Drawn after the band is placed, so a band that never arrived spends nothing
-					# here. A siege's dawn is the start of the next day: the band holds through
-					# the night it came in and goes home when that night is over.
+					# here.
 					doctrine = _draw_doctrine(world, day)
-					var dawn_tick: int = Clock.tick_on_day(day + 1, 0.0)
-					SimRaiders.stamp_doctrine(world, placed["members"] as Array, doctrine, dawn_tick)
+					SimRaiders.stamp_doctrine(world, placed["members"] as Array, doctrine)
 	world.events.publish({
 		"type": "director.raid",
 		"day": day,

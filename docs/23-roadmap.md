@@ -2416,18 +2416,20 @@ not a to-do list:
   - **Raid** is today's band. RAID-SAME: a band stamped `raid` walks the same path tick for tick
     as an unstamped band over 300 ticks.
   - **Siege** holds at a ring of legal floor 2 to 4 tiles outside the walls box (the annex rect),
-    the tile nearest its entry, found with no draw. It never walks into the box, does not run the
-    withdrawal clock while it holds, and goes home at the first dawn after its night (the start of
-    the next day, stamped on each body). SIEGE-HOLD: the band stands on its ring for 1,200 ticks,
-    never inside the box. SIEGE-REACH: a colonist 1.2 m from the ring takes wounds; one inside the
-    box takes none. SIEGE-HALF: a siege holds through the first loss and turns when one of three
-    is left.
+    the tile nearest its entry, found with no draw. It waits there `SIEGE_WAIT_TICKS` (6,000, two
+    in-game hours) from the tick it arrives, then storms: its objective becomes the gate and every
+    rule is the raid's. The wait is JT's pick on docs/33 item 19 ("wait, then storm the wall"),
+    first cut. SIEGE-HOLD: across the whole wait the band never enters the box, never comes within
+    5 m of the gate, and does not withdraw. SIEGE-STORM: it storms exactly one wait after arrival
+    and reaches the gate, while a raid in the same arena reaches it inside 2,500 ticks.
+    SIEGE-REACH: a colonist 1.2 m from the ring takes wounds; one inside the box takes none.
+    SIEGE-HALF: a siege holds through the first loss and turns when one of three is left.
   - **Load.** A record with no `doctrine` key, or with a word nothing draws, reads as `raid`.
     LOAD also strips a probe's key and checks it then holds like a raid.
   - **Dead socket.** PLAYABLE: 120 nights from day 10 on the shipped district. Each band's bodies
     carry the doctrine the director announced, and a siege body's cached objective is the ring
-    `_siege_site` finds, with its dawn at the start of the next day.
-  - **Not built.** Trade. Roaming bands keep no doctrine. A siege with no walls box to hold
+    `_siege_site` finds, with no storm before its wait.
+  - **Not built.** Trade (docs/33 item 16). Roaming bands keep no doctrine. A siege with no walls box to hold
     outside (no annex) stands where it came in; it does not fall back to walking at the gate.
     The siege reads the annex rect, not a camp footprint, so a camp's siege has no ring of its
     own yet.
@@ -2438,7 +2440,7 @@ not a to-do list:
 - **The bloodhound, 2026-10-27.** Zombie kind eight, content only: `godot/content/zombies/bloodhound.json`,
   wave 3, weight 6, `sensory` noise 0, light 0, scent 1.0. It follows the scent field alone and is
   deaf to noise. Light 0 also turns its sight off (`shambler.gd`'s `sight_reach` is range times the
-  square root of the light weight), so it finds a body by contact only: docs/33 item 20's default,
+  square root of the light weight), so it finds a body by contact only: the owner's 2026-10-27 call (docs/30, "The bloodhound"),
   built. It reuses the shambler's workwear body and corpses with its own tints, which is a gap, not
   a decision, until a bloodhound picture is drawn. Gates: `godot:m2:district` SCENT-ONLY (the same
   body with a scent source 8 m east turns east, and without one keeps west; a noise 2 m west that

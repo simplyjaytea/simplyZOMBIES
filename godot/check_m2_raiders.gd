@@ -99,13 +99,14 @@ func _run() -> void:
 	ok = _a_band_draws_a_doctrine_off_its_own_stream() and ok
 	ok = _a_probe_turns_the_whole_band_on_the_first_loss() and ok
 	ok = _a_raid_walks_the_path_it_always_walked() and ok
-	ok = _a_siege_holds_outside_the_walls_until_dawn() and ok
+	ok = _a_siege_holds_outside_the_walls_for_its_wait() and ok
+	ok = _a_siege_storms_the_wall_after_its_wait() and ok
 	ok = _a_siege_strikes_what_comes_into_reach_and_not_what_is_inside() and ok
 	ok = _a_siege_turns_at_half_and_not_at_the_first_loss() and ok
 	ok = _a_band_without_a_doctrine_reads_as_a_raid() and ok
 	ok = _the_playable_district_draws_and_reads_a_doctrine() and ok
 	if ok:
-		print("M2_RAIDERS_OK archetypes draw grace approach blood prey seed death ledger withdraw pool looks distinct no-identity look-reader no-tell streams save chronicle looter lookout role-read fighter crosses engages roam-stream event cap roam-roles skilled debug-band doctrine-draw probe raid-same siege-hold siege-reach siege-half doctrine-load playable-doctrine")
+		print("M2_RAIDERS_OK archetypes draw grace approach blood prey seed death ledger withdraw pool looks distinct no-identity look-reader no-tell streams save chronicle looter lookout role-read fighter crosses engages roam-stream event cap roam-roles skilled debug-band doctrine-draw probe raid-same siege-hold siege-storm siege-reach siege-half doctrine-load playable-doctrine")
 		quit(0)
 	else:
 		push_error("M2_RAIDERS_FAIL")
@@ -3048,7 +3049,6 @@ const DOCTRINE_SLACK: float = 0.25
 const DOCTRINE_NIGHTS: int = 120
 const SIEGE_HOLD_TICKS: int = 1200
 const SIEGE_REACH_TICKS: int = 600
-const SIEGE_DAWN_TICKS: int = 2400
 
 
 # DRAW. The shares over DOCTRINE_DRAWS draws sit inside the first-cut weights on each side of the
@@ -3097,9 +3097,7 @@ func _a_band_draws_a_doctrine_off_its_own_stream() -> bool:
 
 
 # A band of three scavengers on the stores arena, stamped with `doctrine` ("" leaves the record
-# the way a raid's always was). A siege's dawn is `SIEGE_DAWN_TICKS` from the tick it is stamped,
-# so a lane that is not about dawn never sees one. The first man is killed and the band is read
-# 200 ticks on.
+# the way a raid's always was). The first man is killed and the band is read 200 ticks on.
 func _doctrine_band(doctrine: String) -> Dictionary:
 	var w: Variant = _stores_arena()
 	var band: Array = []
@@ -3108,7 +3106,7 @@ func _doctrine_band(doctrine: String) -> Dictionary:
 	band.append(SimRaiders.spawn(w, 15.5, 3.5, "raider.scav"))
 	SimRaiders.stamp_band(w, band, 41)
 	if doctrine != "":
-		SimRaiders.stamp_doctrine(w, band, doctrine, int(w.tick) + SIEGE_DAWN_TICKS)
+		SimRaiders.stamp_doctrine(w, band, doctrine)
 	for _t in 60:
 		w.step()
 	(w.components.get_component(int(band[0]), "body") as Dictionary)["head"] = 0.0
@@ -3174,7 +3172,7 @@ func _walk_trace(doctrine: String) -> Array:
 	band.append(SimRaiders.spawn(w, 15.5, 3.5, "raider.scav"))
 	SimRaiders.stamp_band(w, band, 51)
 	if doctrine != "":
-		SimRaiders.stamp_doctrine(w, band, doctrine, 0)
+		SimRaiders.stamp_doctrine(w, band, doctrine)
 	var out: Array = []
 	for _t in 300:
 		w.step()
@@ -3186,56 +3184,128 @@ func _walk_trace(doctrine: String) -> Array:
 	return out
 
 
-# SIEGE-HOLD. A siege stops on the ring outside the walls box, stays there, never sets foot in the
-# box, and does not walk off on the withdrawal clock while it waits for dawn. The ring is read off
-# the same `_siege_site` the band uses, so the lane is not asking the band to agree with itself.
-func _a_siege_holds_outside_the_walls_until_dawn() -> bool:
+# SIEGE-HOLD. A siege stops on the ring outside the walls box and holds there for its whole wait:
+# it never sets foot in the box, never gets within reach of the gate, never walks off on the
+# withdrawal clock, and has not stormed before the wait is out. The ring is read off the same
+# `_siege_site` the band uses, so the lane is not asking the band to agree with itself.
+func _a_siege_holds_outside_the_walls_for_its_wait() -> bool:
 	var w: Variant = _crossing_arena()
 	var band: Array = _cross_band(w, 3, "raider.scav")
-	var rec: Dictionary = w.components.get_component(int(band[0]), "raider") as Dictionary
-	var ring: Vector2i = SimRaiders._siege_site(w, rec)
+	var rec0: Dictionary = w.components.get_component(int(band[0]), "raider") as Dictionary
+	var ring: Vector2i = SimRaiders._siege_site(w, rec0)
 	if ring.x < 0 or ring.y < 0:
 		push_error("SIEGE-HOLD: the crossing arena has no ring tile to hold at, so the lane has nothing to judge")
 		return false
 	var ring_centre := Vector2(float(ring.x) + 0.5, float(ring.y) + 0.5)
-	SimRaiders.stamp_doctrine(w, band, SimRaiders.DOCTRINE_SIEGE, int(w.tick) + SIEGE_DAWN_TICKS)
-	var inside: int = 0
-	var last_at_ring: Array = [1e12]
-	for t in SIEGE_HOLD_TICKS:
+	var gate_centre := Vector2(float(CROSS_GATE.x) + 0.5, float(CROSS_GATE.y) + 0.5)
+	SimRaiders.stamp_doctrine(w, band, SimRaiders.DOCTRINE_SIEGE)
+	# Arrival first: the wait is counted from the tick the band reaches its ring.
+	var arrived: int = -1
+	for _t in 3000:
 		w.step()
+		var r: Dictionary = w.components.get_component(int(band[0]), "raider") as Dictionary
+		if int(r.get("arrivedAtTick", -1)) >= 0:
+			arrived = int(r["arrivedAtTick"])
+			break
+	if arrived < 0:
+		push_error("SIEGE-HOLD: the siege never reached its ring in 3000 ticks, so there is no wait to read")
+		return false
+	var inside: int = 0
+	var worst_drift: float = 0.0
+	var nearest_gate: float = 1e12
+	var flags: int = 0
+	# The wait is SIEGE_WAIT_TICKS from arrival; the last 100 ticks before it are still held.
+	var until: int = arrived + SimRaiders.SIEGE_WAIT_TICKS - 100
+	while int(w.tick) < until:
+		w.step()
+		for ent in band:
+			var pos: Variant = w.components.get_component(int(ent), "position")
+			if not (pos is Dictionary):
+				flags += 1
+				continue
+			var p := Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
+			if CROSS_ANNEX.has_point(Vector2i(floori(p.x), floori(p.y))):
+				inside += 1
+			worst_drift = maxf(worst_drift, p.distance_to(ring_centre))
+			nearest_gate = minf(nearest_gate, p.distance_to(gate_centre))
+			var rr: Variant = w.components.get_component(int(ent), "raider")
+			if rr is Dictionary and (bool((rr as Dictionary).get("withdrawing", false)) or bool((rr as Dictionary).get("storming", false))):
+				flags += 1
+	if inside > 0:
+		push_error("SIEGE-HOLD: a siege body stood inside the walls box on %d ticks of its wait, so it walked in" % inside)
+		return false
+	if nearest_gate < 5.0:
+		push_error("SIEGE-HOLD: a siege body came %.2f m from the gate during its wait, so it approached the walls" % nearest_gate)
+		return false
+	if worst_drift > 2.5:
+		push_error("SIEGE-HOLD: a body was %.2f m from the ring during its wait, so it was still walking" % worst_drift)
+		return false
+	if flags > 0:
+		push_error("SIEGE-HOLD: %d body(ies) withdrew or stormed before the wait was out" % flags)
+		return false
+	print("SIEGE-HOLD OK a siege of three held on its ring for %d ticks from arrival at %d: never inside the box, never nearer than %.2f m to the gate, worst %.2f m from the ring" % [SimRaiders.SIEGE_WAIT_TICKS - 100, arrived, nearest_gate, worst_drift])
+	return true
+
+
+# SIEGE-STORM. The wait ends in a storm and not before: a siege that has not stormed by the end of
+# its wait is still on its ring, and once it storms it walks to the gate like a raid. The negative
+# is a raid band in the same arena, which reaches the gate inside the window the siege waits out.
+func _a_siege_storms_the_wall_after_its_wait() -> bool:
+	var w: Variant = _crossing_arena()
+	var band: Array = _cross_band(w, 3, "raider.scav")
+	SimRaiders.stamp_doctrine(w, band, SimRaiders.DOCTRINE_SIEGE)
+	var gate_centre := Vector2(float(CROSS_GATE.x) + 0.5, float(CROSS_GATE.y) + 0.5)
+	var arrived: int = -1
+	var storm_tick: int = -1
+	var nearest_before: float = 1e12
+	var nearest_after: float = 1e12
+	for _t in 12000:
+		w.step()
+		var r: Dictionary = w.components.get_component(int(band[0]), "raider") as Dictionary
+		if arrived < 0 and int(r.get("arrivedAtTick", -1)) >= 0:
+			arrived = int(r["arrivedAtTick"])
+		if storm_tick < 0 and bool(r.get("storming", false)):
+			storm_tick = int(w.tick)
 		for ent in band:
 			var pos: Variant = w.components.get_component(int(ent), "position")
 			if not (pos is Dictionary):
 				continue
 			var p := Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
-			if CROSS_ANNEX.has_point(Vector2i(floori(p.x), floori(p.y))):
-				inside += 1
-			last_at_ring[0] = minf(last_at_ring[0], p.distance_to(ring_centre))
-	if inside > 0:
-		push_error("SIEGE-HOLD: a siege body stood inside the walls box on %d ticks, so it walked in" % inside)
+			# Measured from the first arrival, for the print only. The hold itself is SIEGE-HOLD's
+			# claim: a body still walking in when body 0 arrives reads nearer the gate here.
+			if storm_tick < 0 and arrived >= 0:
+				nearest_before = minf(nearest_before, p.distance_to(gate_centre))
+			elif storm_tick >= 0:
+				nearest_after = minf(nearest_after, p.distance_to(gate_centre))
+		if storm_tick >= 0 and int(w.tick) >= storm_tick + 2500:
+			break
+	if arrived < 0:
+		push_error("SIEGE-STORM: the siege never reached its ring, so there is no wait to end")
 		return false
-	if float(last_at_ring[0]) > 2.0:
-		push_error("SIEGE-HOLD: the nearest the band got to its ring was %.2f m, so it never held there" % float(last_at_ring[0]))
+	if storm_tick < 0:
+		push_error("SIEGE-STORM: the siege never stormed in 12000 ticks")
 		return false
-	var drift: float = 0.0
-	for ent in band:
-		var pos2: Variant = w.components.get_component(int(ent), "position")
-		if not (pos2 is Dictionary):
-			push_error("SIEGE-HOLD: a siege body was gone before dawn, so it did not hold")
-			return false
-		drift = maxf(drift, Vector2(float((pos2 as Dictionary)["x"]), float((pos2 as Dictionary)["y"])).distance_to(ring_centre))
-	if drift > 2.5:
-		push_error("SIEGE-HOLD: a body ended %.2f m from the ring, so it was still walking when the hold was read" % drift)
+	var waited: int = storm_tick - arrived
+	if waited < SimRaiders.SIEGE_WAIT_TICKS or waited > SimRaiders.SIEGE_WAIT_TICKS + 20:
+		push_error("SIEGE-STORM: the siege stormed %d ticks after it arrived, not after the %d-tick wait" % [waited, SimRaiders.SIEGE_WAIT_TICKS])
 		return false
-	# The withdrawal clock is WITHDRAW_AFTER_TICKS (6000). The hold is read well inside that, so a
-	# band that had been standing for the clock would have gone by now; the siege must be
-	# standing still without it.
-	for ent in band:
-		var rr: Variant = w.components.get_component(int(ent), "raider")
-		if rr is Dictionary and bool((rr as Dictionary).get("withdrawing", false)):
-			push_error("SIEGE-HOLD: a siege withdrew before dawn")
-			return false
-	print("SIEGE-HOLD OK a siege of three held on its ring %.2f m out, never inside the box, and was still at dawn's door" % float(last_at_ring[0]))
+	if nearest_after > 3.0:
+		push_error("SIEGE-STORM: the stormed siege never got within 3 m of the gate (nearest %.2f m)" % nearest_after)
+		return false
+	# The negative: a raid in the same arena reaches the gate inside the window the siege waited out.
+	var raid_w: Variant = _crossing_arena()
+	var raid_band: Array = _cross_band(raid_w, 3, "raider.scav")
+	var raid_nearest: float = 1e12
+	for _t in 2500:
+		raid_w.step()
+		for ent in raid_band:
+			var pos: Variant = raid_w.components.get_component(int(ent), "position")
+			if pos is Dictionary:
+				raid_nearest = minf(raid_nearest, Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"])).distance_to(gate_centre))
+	if raid_nearest > 3.0:
+		push_error("SIEGE-STORM: a raid band in the same arena never reached the gate in 2500 ticks (nearest %.2f m), so the comparison proves nothing" % raid_nearest)
+		return false
+	print("SIEGE-STORM OK a siege stormed %d ticks after arrival, the wait's %d, and got within %.2f m of the gate; a raid in the same arena reached it within %.2f m in 2500 ticks, where the siege was still waiting (nearest before its storm %.2f m)" % [waited, SimRaiders.SIEGE_WAIT_TICKS, nearest_after, raid_nearest, nearest_before])
 	return true
 
 
@@ -3245,7 +3315,7 @@ func _a_siege_strikes_what_comes_into_reach_and_not_what_is_inside() -> bool:
 	var near_w: Variant = _crossing_arena()
 	var near_band: Array = _cross_band(near_w, 3, "raider.scav")
 	var near_ring: Vector2i = SimRaiders._siege_site(near_w, near_w.components.get_component(int(near_band[0]), "raider") as Dictionary)
-	SimRaiders.stamp_doctrine(near_w, near_band, SimRaiders.DOCTRINE_SIEGE, int(near_w.tick) + SIEGE_DAWN_TICKS)
+	SimRaiders.stamp_doctrine(near_w, near_band, SimRaiders.DOCTRINE_SIEGE)
 	for _t in SIEGE_HOLD_TICKS:
 		near_w.step()
 	var outside: Variant = _colonist(near_w, float(near_ring.x) + 0.5 - 1.2, float(near_ring.y) + 0.5)
@@ -3255,7 +3325,7 @@ func _a_siege_strikes_what_comes_into_reach_and_not_what_is_inside() -> bool:
 
 	var far_w: Variant = _crossing_arena()
 	var far_band: Array = _cross_band(far_w, 3, "raider.scav")
-	SimRaiders.stamp_doctrine(far_w, far_band, SimRaiders.DOCTRINE_SIEGE, int(far_w.tick) + SIEGE_DAWN_TICKS)
+	SimRaiders.stamp_doctrine(far_w, far_band, SimRaiders.DOCTRINE_SIEGE)
 	var inside_colonist: Variant = _colonist(far_w, 54.5, 54.5)
 	var entered: int = 0
 	for _t in SIEGE_HOLD_TICKS + SIEGE_REACH_TICKS:
@@ -3288,7 +3358,7 @@ func _a_siege_turns_at_half_and_not_at_the_first_loss() -> bool:
 	band.append(SimRaiders.spawn(w, 14.5, 3.5, "raider.scav"))
 	band.append(SimRaiders.spawn(w, 15.5, 3.5, "raider.scav"))
 	SimRaiders.stamp_band(w, band, 71)
-	SimRaiders.stamp_doctrine(w, band, SimRaiders.DOCTRINE_SIEGE, int(w.tick) + SIEGE_DAWN_TICKS)
+	SimRaiders.stamp_doctrine(w, band, SimRaiders.DOCTRINE_SIEGE)
 	for _t in 60:
 		w.step()
 	_kill(w, int(band[0]))
@@ -3351,7 +3421,7 @@ func _a_band_without_a_doctrine_reads_as_a_raid() -> bool:
 	band.append(SimRaiders.spawn(w, 14.5, 3.5, "raider.scav"))
 	band.append(SimRaiders.spawn(w, 15.5, 3.5, "raider.scav"))
 	SimRaiders.stamp_band(w, band, 61)
-	SimRaiders.stamp_doctrine(w, band, SimRaiders.DOCTRINE_PROBE, 0)
+	SimRaiders.stamp_doctrine(w, band, SimRaiders.DOCTRINE_PROBE)
 	for ent in band:
 		(w.components.get_component(int(ent), "raider") as Dictionary).erase("doctrine")
 	for _t in 60:
@@ -3401,9 +3471,11 @@ func _the_playable_district_draws_and_reads_a_doctrine() -> bool:
 			if doctrine != SimRaiders.DOCTRINE_SIEGE:
 				continue
 			sieges += 1
-			var want_dawn: int = Clock.tick_on_day(day + 1, 0.0)
-			if int(rec.get("dawnTick", -1)) != want_dawn:
-				push_error("PLAYABLE: a siege stamped dawn %s, not the start of day %d at %d" % [str(rec.get("dawnTick", -1)), day + 1, want_dawn])
+			if rec.has("dawnTick"):
+				push_error("PLAYABLE: a siege body carries a dawn stamp, which the wait-then-storm rule does not have")
+				return false
+			if bool(rec.get("storming", false)):
+				push_error("PLAYABLE: a siege body stormed on the night it was drawn, before any wait")
 				return false
 			var ring: Vector2i = SimRaiders._siege_site(w, rec)
 			var cached := Vector2i(int(rec.get("goalX", -1)), int(rec.get("goalY", -1)))
@@ -3417,5 +3489,5 @@ func _the_playable_district_draws_and_reads_a_doctrine() -> bool:
 	if sieges == 0:
 		print("PLAYABLE SKIP %d bands in %d nights from day %d and none drew a siege, so the siege read has no data on this seed" % [bands, DOCTRINE_NIGHTS, SimDirector.DOCTRINE_LATE_FROM_DAY])
 		return true
-	print("PLAYABLE OK %d bands in %d nights from day %d, %d siege bodies read their ring and their dawn off the stamp" % [bands, DOCTRINE_NIGHTS, SimDirector.DOCTRINE_LATE_FROM_DAY, sieges])
+	print("PLAYABLE OK %d bands in %d nights from day %d, %d siege bodies read their ring off the stamp and held before any storm" % [bands, DOCTRINE_NIGHTS, SimDirector.DOCTRINE_LATE_FROM_DAY, sieges])
 	return true

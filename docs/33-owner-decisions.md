@@ -347,18 +347,3 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
     drops only from `loot.medical`, at weight 8 of 282, the sterile dressing's weight. The
     ten-seed balance table was not re-run for the line. Rarer keeps the limb-for-a-life choice
     sharp; commoner makes the tie a routine tool. Which table, and how often, is the call.
-
-19. **What a siege band does outside the wall** (2026-10-27, docs/30's "Raider doctrine,
-    2026-10-27"). A siege band holds at a ring of ground outside the walls box until dawn, strikes
-    whoever comes within its reach, and walks home at dawn or when half the band is down. The
-    default is that, and it is built. The alternatives are a storm on the wall after a set wait,
-    and a camp beside the colony's water and stores instead of the wall. The trade doctrine stays
-    item 16's call, default no.
-
-20. **Can the bloodhound see?** (2026-10-27, the bloodhound piece, docs/30's "The bloodhound,
-    2026-10-27"). It follows the scent field and is deaf to noise. The default is that it sees only
-    at contact range: its eyes are off, so it finds a body by walking into it, or by the scent it
-    follows, and noise and light draw nothing. That is built with `sensory.light` 0. The
-    alternatives are normal zombie sight, or fully blind (the same, with contact removed too). One
-    value in `godot/content/zombies/bloodhound.json` changes the answer, and the SCENT-ONLY lane in
-    `godot:m2:district` holds the default.

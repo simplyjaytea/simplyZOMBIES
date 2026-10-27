@@ -6628,11 +6628,16 @@ has the gate lanes). Four calls were taken while it was built.
 - **First-cut weights.** Days 8 and 9: probe 50, raid 50, siege 0. From day 10: probe 30, raid 45,
   siege 25. Days 8 and 9 never draw a siege; a ten-day campaign sees doctrine on three nights at
   most. These are first cuts, not measured, and the ten-seed table is owed the re-baseline.
-- **The siege default (docs/33 item 19).** A siege band holds at a ring of legal floor 2 to 4 tiles
-  outside the walls box, goes home at the first dawn, strikes whatever comes within reach, and
-  goes home early when half the band is down. The ring is the nearest legal tile to the band's
-  entry, so the choice is deterministic and draws nothing. The alternatives, a storm after a wait
-  and a camp by the water, are not built.
+- **The siege, as the owner picked it (docs/33 item 19, 2026-10-27: "Wait, then storm the wall").**
+  A siege band holds at a ring of legal floor 2 to 4 tiles outside the walls box, strikes whatever
+  comes within its reach while it waits, and then storms the wall and gate exactly as a raid band
+  does. The ring is the nearest legal tile to the band's entry, deterministic and draws nothing.
+  The wait is `SimRaiders.SIEGE_WAIT_TICKS`, 6,000 ticks: two in-game hours, a day being 72,000
+  ticks and 24 in-game hours. It is a first cut. It is counted from the tick the band reaches its
+  ring, and a fight pauses it, since a halted band does not run the arrival clock. After the storm
+  the usual withdrawal rules apply: the half-strength clause and the arrival clock. The first pick
+  drafted for this item (goes home at dawn) was replaced before merge and is not built. The camp by
+  the water is not built.
 - **Probe widens the lookout's rule, it does not add one.** The first loss turns every body of a
   probe. The lookout's own rule is unchanged and still reads the role.
 - **Trade is not built.** docs/33 item 16 is still the owner's, default no. `trade` is not in the
@@ -6691,7 +6696,7 @@ Zombie kind eight, content only: `godot/content/zombies/bloodhound.json`, with n
 
 - **`sensory.noise` 0.** A sense of 0 is the deaf case, and `shambler.gd` already reads it as
   hearing nothing (`noise_sense > 0.0`). No sim line was needed.
-- **`sensory.light` 0, which is docs/33 item 20's default.** `sight_reach` is the observer's range
+- **`sensory.light` 0, which is the owner's 2026-10-27 call.** `sight_reach` is the observer's range
   times the square root of the light weight, so 0 gives a reach of 0, and `_seen_target` returns
   null at a zero reach. The lean toward a lamp (`_lean_to_light`) is weighted by the same number, so
   it is off too. Contact pursuit (`_contact_target`, `CONTACT_METRES`) is not sight and still
@@ -6713,7 +6718,7 @@ Zombie kind eight, content only: `godot/content/zombies/bloodhound.json`, with n
   SCENT-ONLY lane holds what was built; it does not claim the kind out-hunts the shambler.
 - **docs/14's table against the content.** The tracker row reads noise Low, light Low, scent
   Extreme. The content is 0, 0, 1.0: deaf by the what's-left bullet's own words, blind by docs/33
-  item 20's default. The table row is a stage behind the content until the sight card is taken.
+  the owner's 2026-10-27 call. The table row is a stage behind the content until the sight card is taken.
 - **Locomotion: speed 1.0, wander 0.35, mill 0.25, crawl 0.25.** Speed is the stalker's 1.0, a
   little above the shambler's 0.8. The rest are the shambler's, so the difference is what it
   follows, not how it walks.
@@ -6746,6 +6751,10 @@ this head. Every line matches except seed 404's grabs (163 on head, 160 on main)
 Deaths, survivors, kills, raids and breaches are unchanged on all four seeds.
 
 The ten-seed table was not re-run. It is owed by the post-arc re-baseline.
+
+- **The owner confirmed it on 2026-10-27.** Docs/33 item 20 was answered on its card: the bloodhound
+  sees only at contact range, which is what this piece shipped with `sensory.light` 0. Normal sight and
+  fully blind were the alternatives and are not built.
 
 ## How pieces reach main, and who reviews the art, 2026-10-27
 
