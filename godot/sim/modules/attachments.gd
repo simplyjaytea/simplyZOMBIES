@@ -493,15 +493,19 @@ static func _shed(world: Variant, host: int, part: int) -> void:
 
 
 # A lashed head comes off as its own item, at the swinger's feet. The cordage goes; the head does not.
+# A swinger with no feet to land at sends the head down `detach`'s ladder instead, and the ladder
+# runs before the head is unlinked so that a refusal leaves it fitted: the same "no path through
+# here loses a part" that `detach` keeps, because a head that is unlinked and then homed nowhere is
+# a head that is gone.
 static func _fly_off(world: Variant, host: int, part: int, swinger: int) -> void:
-	var slot: String = _unlink(world, host, part)
 	var pos: Variant = world.components.get_component(swinger, "position")
+	if not pos is Dictionary and not _rehome(world, host, part):
+		return
+	var slot: String = _unlink(world, host, part)
 	if pos is Dictionary:
 		world.components.set_component(part, "position", {
 			"x": float((pos as Dictionary)["x"]), "y": float((pos as Dictionary)["y"]),
 		})
-	else:
-		_rehome(world, host, part)
 	_refresh(world, host)
 	world.events.publish({"type": "attachment.flew_off", "host": host, "item": part, "slot": slot})
 
