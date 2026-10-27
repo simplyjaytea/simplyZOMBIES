@@ -189,6 +189,9 @@ var _part: String = ""
 var _naming: int = -1
 var _name_text: String = ""
 var _name_caret: int = 0
+# A refusal on the title bar: the bench's warning ink, 5.6:1 on the bar where the kit's DANGER is
+# 3.6:1 -- DANGER is a fill colour, too dark to be read as words there.
+const DANGER_INK: Color = Color("#e07a4f")
 # What the title bar says while the field is open, in place of the sheet's own hint.
 const NAME_HINT: String = "type a name · Enter keeps it · Esc leaves it as it was"
 # Set by main.gd while Colony or Skills is up: the strip is field HUD, and the field HUD is put away
@@ -947,6 +950,10 @@ func _prune() -> void:
 		_selected = -1
 	if _menu_item != -1 and _world != null and not SimInventory.owns(_world, _actor, _menu_item):
 		_close_menu()
+	# A weapon that leaves your hands mid-name takes the field with it: no key goes into a field
+	# that is not on the screen.
+	if _naming != -1 and _world != null and not SimInventory.owns(_world, _actor, _naming):
+		_end_naming()
 
 
 # Whether `item` is in the box the survivor is standing at: selectable and inspectable, and sent
@@ -1101,9 +1108,15 @@ func _redraw_columns() -> void:
 func _press_at(p: Vector2, ctrl: bool = false) -> void:
 	if _world == null or _view.is_empty():
 		return
-	# A press anywhere puts the field down unsent: the name is kept only by Enter, so a click
-	# elsewhere is the same as Escape, never a half-typed name sent by accident.
+	# A press in the field puts the caret where it landed and keeps typing. A press anywhere else
+	# puts the field down unsent: the name is kept only by Enter, so a click elsewhere is the same
+	# as Escape, never a half-typed name sent by accident.
 	if _naming != -1:
+		var box: Rect2 = _name_field_rect()
+		if box.has_point(p):
+			_name_caret = InspectPane.caret_from_click(Chrome.font(), box, _name_text, _name_caret, p.x)
+			queue_redraw()
+			return
 		_end_naming()
 	# The menu first: it is drawn over everything, so it has to be tested before everything.
 	if _menu_item != -1:
@@ -1292,6 +1305,9 @@ static func _refusal_words(reason: String) -> String:
 
 
 func _right_at(p: Vector2) -> void:
+	# The word menu is not opened over a field being typed in: the right press puts the field down
+	# unsent, as a left press outside it does, and then means what it always means.
+	_end_naming()
 	if _drag_item != -1:
 		rotate()
 		return
@@ -1316,6 +1332,7 @@ func _right_at(p: Vector2) -> void:
 func _open_menu(p: Vector2, item: int) -> void:
 	if _world == null or item < 0:
 		return
+	_end_naming()
 	var verbs: Array[String] = SimInventory.verbs_for(_world, _actor, item)
 	if verbs.is_empty():
 		_close_menu()
@@ -1393,14 +1410,23 @@ func _act(verb: String, item: int) -> void:
 
 # Whether the name field is open: `input_map.gd` asks before anything else reads a key.
 func naming() -> bool:
-	return _open and _naming != -1
+	# Only while the pane is showing the item being named: a field the screen does not draw takes
+	# no keys.
+	return _open and _naming != -1 and _naming == _selected and not _showing_part()
 
 
 # The field as the inspect pane draws it, {} while it is shut.
 func name_field() -> Dictionary:
 	if not naming():
 		return {}
-	return {"item": _naming, "text": _name_text, "caret": _name_caret}
+	return {"item": _naming, "text": _name_text, "caret": _name_caret, "plain": SimItems.plain_name(_world, _naming) if _world != null else ""}
+
+
+# Where the name field is on the sheet, Rect2() while it is shut: the pane's own `field_rect`.
+func _name_field_rect() -> Rect2:
+	if not naming() or _showing_part():
+		return Rect2()
+	return InspectPane.field_rect(_inspect_rect(), _world != null)
 
 
 # Opens the field on `item`, prefilled with the name it has now. A name longer than the field takes
@@ -1440,6 +1466,10 @@ func name_key(ke: InputEventKey) -> bool:
 			_end_naming()
 		KEY_ENTER, KEY_KP_ENTER:
 			_commit_name()
+		KEY_BACKSPACE when ke.ctrl_pressed or ke.meta_pressed:
+			# Everything before the caret, at once: the prefill goes in one press, not one a letter.
+			_name_text = _name_text.substr(_name_caret)
+			_name_caret = 0
 		KEY_BACKSPACE:
 			if _name_caret > 0:
 				_name_text = _name_text.substr(0, _name_caret - 1) + _name_text.substr(_name_caret)
@@ -1456,9 +1486,12 @@ func name_key(ke: InputEventKey) -> bool:
 		KEY_END, KEY_DOWN:
 			_name_caret = _name_text.length()
 		_:
+			# Ctrl alone or Cmd is a shortcut, not a letter. Alt is a letter: Option on a Mac types é,
+			# and AltGr on Windows arrives as Ctrl and Alt together for ł, € and @. A letter the
+			# pixel face cannot draw is refused like the cap, by not appearing.
 			var code: int = ke.unicode
-			if not ke.ctrl_pressed and not ke.alt_pressed and not ke.meta_pressed \
-					and code >= 32 and code != 127 and _name_text.length() < SimItems.NAME_MAX:
+			var shortcut: bool = (ke.ctrl_pressed and not ke.alt_pressed) or ke.meta_pressed
+			if not shortcut and SimItems.name_char_allowed(code) and _name_text.length() < SimItems.NAME_MAX:
 				_name_text = _name_text.substr(0, _name_caret) + String.chr(code) + _name_text.substr(_name_caret)
 				_name_caret += 1
 	queue_redraw()
@@ -1475,7 +1508,16 @@ func _commit_name() -> void:
 	if reason != "":
 		_say(SimItems.name_refusal_words(reason), true)
 		return
+	# The name it already has, kept as it is, sends nothing: Enter on an untouched field is a way
+	# out, not a name the same as the plain one stored on top of it.
+	var kept: String = _name_text.strip_edges()
+	if kept == SimItems.item_name(_world, _naming) or (kept.is_empty() and SimItems.given_name(_world, _naming).is_empty()):
+		_end_naming()
+		return
 	_world.commands.push({"type": "item.name", "item": _naming, "name": _name_text})
+	# Said at once, before the tick that takes it: under a pause the title still shows the old name
+	# until the clock runs, and this line is how the player knows Enter took.
+	_say("it is %s now" % kept if not kept.is_empty() else "it is %s again" % SimItems.plain_name(_world, _naming), false)
 	_end_naming()
 
 
@@ -1567,6 +1609,8 @@ func cursor_at(p: Vector2) -> int:
 			if (row["rect"] as Rect2).has_point(p):
 				return Input.CURSOR_POINTING_HAND
 		return Input.CURSOR_ARROW
+	if _name_field_rect().has_point(p):
+		return Input.CURSOR_IBEAM
 	for h in _hit:
 		if (h["rect"] as Rect2).has_point(p):
 			return Input.CURSOR_POINTING_HAND
@@ -1824,7 +1868,7 @@ func _draw_top(font: Font, alpha: float) -> void:
 	var mid: float = top.position.y + top.size.y / 2.0
 	# A notice, when one is up, takes the hint line's place: it is the thing to read right now.
 	var line: String = _notice
-	var col: Color = Locker.DANGER if _notice_bad else Locker.GOOD
+	var col: Color = DANGER_INK if _notice_bad else Locker.GOOD
 	if line.is_empty() and _naming != -1:
 		line = NAME_HINT
 		col = Locker.TEXT_DIM

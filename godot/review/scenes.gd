@@ -35,6 +35,10 @@ const InspectPaneRes = preload("res://ui/inspect_pane.gd")
 # The name field's shot: what the bat is rebuilt with, and the name typed into it.
 const NAMED_BAT: Array = [["item.attach.stud.nails", "stud"], ["item.attach.weight.sandbag", "weight"], ["item.attach.wrap.cord", "wrap"]]
 const NAMED_AS: String = "Old Faithful"
+# The long one: a name at the cap, the caret walked back into its middle, so the shot shows the
+# field at its smaller rung with letters on both sides of the caret.
+const NAMED_LONG: String = "Grandmother's Long Reach"
+const NAMED_LONG_BACK: int = 8
 # The two windows the game supports: check_play's WORK-LAYOUT lane lays out at both.
 const SIZES: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(1920, 1080)]
 const NAMES: Array[String] = [
@@ -52,6 +56,7 @@ const NAMES: Array[String] = [
 	"dusk_street",
 	"raised_walls",
 	"name_field",
+	"name_field_long",
 ]
 # The Colony screen's two fuller shots (art QA, slice 2): Mara picked by a click on her name, her
 # row made manual by one changed number, the pointer resting on the medic chip; and a roster of
@@ -612,7 +617,7 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 				world.components.set_component(ent, String(SimFortify.BLOCKERS[String(piece[2])]), {"kind": String(piece[2]), "stage": 0, "contactTicks": 0})
 			SimFortify.sync_map(world, true)
 			main.set_meta("raised_walls_at", Vector2i(px, py))
-		"name_field":
+		"name_field", "name_field_long":
 			# The one text field in the game (docs/33 item 24): a bat rebuilt with nails, a weight and
 			# a cord wrap, its "name it" button clicked in the inspect pane, and a name typed into the
 			# field that stands where the title was.
@@ -644,8 +649,11 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 			await tree.process_frame
 			for _i in SimItems.item_name(world, bat).length():
 				press(tree, KEY_BACKSPACE)
-			for ch in NAMED_AS:
+			for ch in (NAMED_LONG if scene == "name_field_long" else NAMED_AS):
 				type_char(tree, ch)
+			if scene == "name_field_long":
+				for _i in NAMED_LONG_BACK:
+					press(tree, KEY_LEFT)
 			main.set_meta("name_field_bat", bat)
 		"dusk_street":
 			# The day street's spot at dusk: the day grade at weight 0.5, under a darkening sky.
@@ -929,6 +937,14 @@ static func verify(main: Node, scene: String) -> String:
 			if int(field.get("item", -1)) != int(main.get_meta("name_field_bat", -2)):
 				return "the field is open on something other than the bat"
 			return "" if String(field.get("text", "")) == NAMED_AS else "the field holds '%s', not '%s'" % [String(field.get("text", "")), NAMED_AS]
+		"name_field_long":
+			var sheet_l: Variant = main.get("_inventory_panel")
+			if sheet_l == null or not bool(main.get("inventory_open")) or not bool(sheet_l.call("naming")):
+				return "the name field is not open"
+			var long_field: Dictionary = sheet_l.call("name_field") as Dictionary
+			if String(long_field.get("text", "")) != NAMED_LONG:
+				return "the field holds '%s', not '%s'" % [String(long_field.get("text", "")), NAMED_LONG]
+			return "" if int(long_field.get("caret", -1)) == NAMED_LONG.length() - NAMED_LONG_BACK else "the caret is at %d, not in the middle" % int(long_field.get("caret", -1))
 		"raised_walls":
 			var origin: Vector2i = main.get_meta("raised_walls_at", Vector2i(-1, -1)) as Vector2i
 			if origin.x < 0:

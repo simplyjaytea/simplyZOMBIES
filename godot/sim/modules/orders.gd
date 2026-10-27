@@ -209,7 +209,7 @@ static func hud_clause(world: Variant, actor: int) -> String:
 			var item: int = int(d.get("target", -1))
 			if item < 0 or not world.entities.is_alive(item):
 				return "Hauling something to the stockpile."
-			return "Hauling the %s to the stockpile." % SimItems.item_name(world, item).to_lower()
+			return "Hauling %s to the stockpile." % SimItems.the_item(world, item)
 		"attack":
 			return "Going after the one you pointed at."
 	return ""

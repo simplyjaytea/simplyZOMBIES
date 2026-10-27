@@ -2438,6 +2438,30 @@ not a to-do list:
     types, Tab types nothing, Enter asks `name_refusal` and sends `item.name` or says the refusal
     on the title bar with the field still open, Escape shuts it unsent, and a click anywhere puts
     it down. The title bar's hint says how.
+  - **Art review, round 1** (a PR onto this one). A click in the field moves the caret and keeps
+    it; only a click outside puts it down (`InspectPane.field_rect`, `caret_from_click`). The
+    kept title takes the field's rung rule, 30 then 25 before the ellipsis, so a name the field
+    showed whole stays whole at 1920 (at 1280 it holds 17 before the ellipsis, from 14). The
+    size step and the scroll now ask the same width, which had dropped the first letter of a
+    21-character name at 1920. An emptied field shows the plain name dimmed behind the caret,
+    the name Enter would give back. The open well wears an accent rim, the caret spans the well
+    less two art pixels each side on a whole-pixel baseline. A sentence names a given name as a
+    proper noun: "pick up Old Faithful", "Hauling Old Faithful to the stockpile.", never "the
+    old faithful" (`SimItems.the_item`, read by `sim/context.gd` and `SimOrders.hud_clause`).
+    Typed letters are held to what VT323 draws (`SimItems.name_char_allowed`: Basic Latin,
+    Latin-1, Extended-A, the euro, the dashes, the curly quotes, the ellipsis), so no Cyrillic
+    or emoji falls to the smooth fallback or a box on the web build, and no invisible space gets
+    in; Option and AltGr letters type. A refusal on the title bar is in the bench's warning ink
+    (5.6:1; the kit's DANGER was 3.6:1 there). Enter on the name unchanged sends nothing; a kept
+    name says "it is Old Faithful now"; Ctrl+Backspace clears to the caret. The field takes no
+    keys while the pane shows something else (a right-click, another item, the weapon gone).
+    Gates: `godot:check:inventory` FIELD (24,700 layouts of 0 to 24 letters at every caret in
+    wells from 150 to 300 px: the caret stays in the well, the text never runs past it, a name
+    that fits at either rung starts at its first letter, a click on the caret leaves it), and
+    NAME's PHRASE half (the ground menu, its header and the haul line, with the plain bat as the
+    negative) and its letter fixtures; `godot:check:play` NAME (the emptied field's plain name,
+    a click in the field at each edge, a click outside). Each new assertion was broken on
+    purpose and went red. Review scene `name_field_long` (the cap, the caret in the middle).
   - **Save.** `givenName` round-trips through the generic component store; a save without it loads
     unnamed. `SAVE_VERSION` stays 33.
   - **Gates.** `godot:check:inventory` NAME: a wooden bat counts 0, 1, 2, 3 as nails, a sandbag and
