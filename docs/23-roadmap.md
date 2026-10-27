@@ -293,11 +293,6 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
 
 *Melee, frames and recipes (stage 1):*
 
-- **The bench and the pack offer hone.** `item.hone` (`godot/sim/modules/items.gd`) is built and
-  gated (`godot:m2:attach` HONE), but no screen offers it. The inspect pane and the context menu
-  need a row for it: sim-side in `SimInventory.verbs_for` and `SimContext.verbs_at`, and the
-  screen code in `godot/ui/`. The screen half of "Specific melee wear", named as the improvise row
-  was in #227.
 - **The bench offers improvised parts.** `item.improvise` (`godot/sim/modules/attachments.gd`) makes
   a part from what the survivor carries and fits it, and only gates send it: no screen does, so a
   player cannot reach the 25 improvised parts. The bench view lists a recipe row per slot with the
@@ -2407,6 +2402,25 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Hone on the pack, and the edge in words, 2026-10-27.** The screen half of "Specific melee
+  wear". `SimInventory.verbs_for` offers `hone` exactly when `SimItems.hone_refusal` is empty: a
+  blade, below its edge's ceiling, a whetstone carried, worn or in the pack. `hone_refusal` is the
+  predicate `SimItems.hone` now asks first, so the verb and the command cannot disagree. The
+  inventory panel's dispatch sends `item.hone` for the actor. `inspect_view` gains `edge`, a word
+  ("keen" from three quarters of the edge, "dulling" from two fifths, "dull" below; `EDGE_BANDS`
+  beside `edge_of`) and "" for anything that is not a blade, like `fuel`. The inspect pane draws
+  one state line under the condition, `InspectPane.state_line`: the edge word for a blade, the
+  fuel word for a lamp, nothing otherwise. That also draws `fuel`, which `inspect_view` carried
+  with no reader in `godot/ui/`. The context menu does not offer hone: `SimContext.verbs_at` lists
+  verbs for what is under the cursor in the street, never for a held item, so there is no row to
+  add it to. Gates: `godot:check:inventory` HONE (a dull knife with a whetstone offers hone; a keen
+  knife, a dull knife with no stone, a club with a hand-written edge and a rifle do not; every offer
+  agrees with `hone_refusal`; the pane's hone button, pressed through the panel on the knife in the
+  hand, hones it to keen and spends one stone of two; red with the dispatch branch removed), STATE
+  (a half-dull knife draws "edge dulling", a lantern its fuel, a club nothing, and `draw_pane` asks
+  `state_line`), and INSPECT, whose scanned views now include a dulled knife's `edge` word under the
+  digit ban. `godot:m2:attach` HONE stays green on the refactored `hone`. Off the tick path. The
+  first-cut bands are in docs/30's "Hone on the pack, 2026-10-27".
 - **Raider doctrine, 2026-10-27.** A raid band is drawn `probe`, `raid` or `siege` once it is
   placed, and every body carries the word. `trade` is not built (docs/33 item 16) and no draw
   produces it.

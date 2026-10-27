@@ -52,7 +52,7 @@ const CarePane = preload("res://ui/care_pane.gd")
 # The pane's whole vocabulary. Adding a key here is a decision about what the player is told, so
 # it is made in this file as well as in the read model -- the `check_ban_health_bar` arrangement,
 # and the reason a numeric field cannot be added to either by accident.
-const INSPECT_KEYS: Array[String] = ["item", "name", "condition", "description", "slot", "worn", "attachments", "fits", "fuel"]
+const INSPECT_KEYS: Array[String] = ["item", "name", "condition", "description", "slot", "worn", "attachments", "fits", "fuel", "edge"]
 # `item` is an entity handle the screen routes a click with, never drawn. Every other value is a
 # word, a boolean, or a list of words.
 const INSPECT_HANDLE: String = "item"
@@ -88,8 +88,10 @@ func _run() -> void:
 	ok = await _a_picked_part_offers_only_legal_care() and ok
 	ok = await _a_part_dropped_on_a_weapon_fits_it_or_lands_in_the_grid() and ok
 	ok = await _the_stockpile_is_the_window_where_you_stand() and ok
+	ok = await _a_dull_blade_offers_hone_and_the_button_hones_it() and ok
+	ok = _the_pane_draws_one_state_line() and ok
 	if ok:
-		print("INVENTORY_OK a picked body part offers the care the sim would take and nothing else, descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, a cupboard is a column and a window, a stack that cannot merge is not reported as stored, the list, a ctrl-click and the pane's buttons each move the world, a part dropped on a weapon fits an empty slot and lands in the grid otherwise, and standing in the stockpile the window is the stockpile, a ctrl-click takes and a drag puts back")
+		print("INVENTORY_OK a picked body part offers the care the sim would take and nothing else, descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, a cupboard is a column and a window, a stack that cannot merge is not reported as stored, the list, a ctrl-click and the pane's buttons each move the world, a part dropped on a weapon fits an empty slot and lands in the grid otherwise, and standing in the stockpile the window is the stockpile, a ctrl-click takes and a drag puts back, a dull blade with a whetstone offers hone and the pane's button hones it, and the pane draws a blade's edge or a lamp's fuel as one state line")
 		quit(0)
 	else:
 		push_error("INVENTORY_FAIL")
@@ -319,7 +321,7 @@ func _the_pane_carries_only_words() -> bool:
 	var sabotage: Dictionary = {
 		"item": 7, "name": "Service Pistol", "condition": "worn",
 		"description": "A service pistol. 18 damage at 25 metres.", "slot": "secondary",
-		"worn": true, "attachments": [], "fits": [], "fuel": "",
+		"worn": true, "attachments": [], "fits": [], "fuel": "", "edge": "",
 	}
 	if _inspect_faults(sabotage).is_empty():
 		push_error("the pane scanner passed a description reading \"%s\"" % String(sabotage["description"]))
@@ -370,8 +372,14 @@ func _the_pane_carries_only_words() -> bool:
 	var can: int = _give(w, "item.attach.suppressor")
 	var dot: int = _give(w, "item.attach.optic.red_dot")
 	var tins: int = _give(w, "item.food.canned", _stack_limit(w, "item.food.canned"))
-	if coat < 0 or pistol < 0 or can < 0 or dot < 0 or tins < 0:
+	# A dulled blade, so the `edge` word is in a scanned view and not "" everywhere.
+	var blade: int = _give(w, "item.knife.kitchen")
+	if coat < 0 or pistol < 0 or can < 0 or dot < 0 or tins < 0 or blade < 0:
 		push_error("the fixture could not be carried")
+		return false
+	w.components.set_component(blade, "edge", {"current": 0.5, "ceiling": 1.0})
+	if String(SimInventory.inspect_view(w, w.player, blade).get("edge", "")).is_empty():
+		push_error("a dulled knife's inspect view carried no edge word, so the scan below would not judge one")
 		return false
 	if not SimInventory.equip(w, w.player, coat, "torso"):
 		push_error("the coat would not go on")
@@ -383,7 +391,7 @@ func _the_pane_carries_only_words() -> bool:
 		return false
 
 	var checked: int = 0
-	for item in [coat, pistol, can, dot, tins]:
+	for item in [coat, pistol, can, dot, tins, blade]:
 		var view: Dictionary = SimInventory.inspect_view(w, w.player, int(item))
 		if view.is_empty():
 			push_error("inspect_view said nothing about item %d" % int(item))
@@ -1999,3 +2007,150 @@ func _window_click(panel: Control, at: Vector2, pressed: bool, ctrl: bool) -> vo
 	mb.ctrl_pressed = ctrl
 	mb.position = at
 	panel.call("_loot_input", mb)
+
+
+# --- HONE -----------------------------------------------------------------------------------
+
+# Hone on the pack, 2026-10-27. The verb is offered exactly when `SimItems.hone` would hone -- a
+# blade, below its edge, a whetstone carried -- and absent otherwise, never greyed. Then the
+# dead-socket half: the pane's hone button, pressed through the panel's own dispatch, reaches
+# `SimItems.hone`, brings the edge back and spends one stone.
+func _a_dull_blade_offers_hone_and_the_button_hones_it() -> bool:
+	var lane: String = "HONE"
+	var w: Variant = _world(3141)
+	if not _room(w):
+		push_error("%s: the pack would not go on" % lane)
+		return false
+	var actor: int = w.player
+	var knife: int = _give(w, "item.knife.kitchen")
+	var keen: int = _give(w, "item.knife.kitchen")
+	var club: int = _give(w, "item.bat.wood")
+	var rifle: int = _give(w, "item.rifle.hunting")
+	if knife < 0 or keen < 0 or club < 0 or rifle < 0:
+		push_error("%s: the fixture could not be carried" % lane)
+		return false
+	# The knife dulled, and the club made to *look* dulled: an edge component written on it by hand,
+	# so its refusal is the sim's "not a blade" and not merely a missing component.
+	w.components.set_component(knife, "edge", {"current": 0.3, "ceiling": 1.0})
+	w.components.set_component(club, "edge", {"current": 0.3, "ceiling": 1.0})
+	if float(SimItems.edge_of(w, knife)["current"]) >= 1.0 or float(SimItems.edge_of(w, keen)["current"]) < 1.0:
+		push_error("%s: the fixture knives are not one dull and one keen" % lane)
+		return false
+
+	# No whetstone yet: the dull knife is not offered hone.
+	if SimInventory.verbs_for(w, actor, knife).has("hone"):
+		push_error("%s: hone was offered on a dull knife with no whetstone carried" % lane)
+		return false
+	var stone: int = _give(w, "item.whetstone", 2)
+	if stone < 0 or _count_of(w, stone) != 2:
+		push_error("%s: the fixture could not carry two whetstones" % lane)
+		return false
+	if not SimInventory.verbs_for(w, actor, knife).has("hone"):
+		push_error("%s: hone was not offered on a dull knife with a whetstone carried: %s" % [lane, str(SimInventory.verbs_for(w, actor, knife))])
+		return false
+	for row in [[keen, "a keen knife"], [club, "a club with a hand-written edge"], [rifle, "a rifle"]]:
+		if SimInventory.verbs_for(w, actor, int(row[0])).has("hone"):
+			push_error("%s: hone was offered on %s" % [lane, String(row[1])])
+			return false
+	# Every offer agrees with the command's own predicate, both ways round.
+	for item in [knife, keen, club, rifle]:
+		var offered: bool = SimInventory.verbs_for(w, actor, int(item)).has("hone")
+		if offered != (SimItems.hone_refusal(w, actor, int(item)) == ""):
+			push_error("%s: the menu and SimItems.hone_refusal disagree about item %d" % [lane, int(item)])
+			return false
+	# The edge in words: a word for a blade, "" for a club and a rifle.
+	if String(SimInventory.inspect_view(w, actor, knife).get("edge", "")) != "dull":
+		push_error("%s: a knife at a third of its edge read \"%s\", not \"dull\"" % [lane, String(SimInventory.inspect_view(w, actor, knife).get("edge", ""))])
+		return false
+	if String(SimInventory.inspect_view(w, actor, keen).get("edge", "")) != "keen":
+		push_error("%s: a fresh knife did not read \"keen\"" % lane)
+		return false
+	for item in [club, rifle]:
+		var word: String = String(SimInventory.inspect_view(w, actor, int(item)).get("edge", "?"))
+		if word != "":
+			push_error("%s: item %d has no edge and read \"%s\"" % [lane, int(item), word])
+			return false
+
+	# The button. The knife in the hand, so the press hones a worn blade too.
+	if not SimInventory.equip(w, actor, knife, "primary"):
+		push_error("%s: the knife would not go in the hand" % lane)
+		return false
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(1920, 1080)
+	root.add_child(viewport)
+	var panel: Control = (load(PANEL_GD) as GDScript).new() as Control
+	viewport.add_child(panel)
+	await process_frame
+	panel.call("set_world", w, actor)
+	panel.call("set_open", true)
+	await process_frame
+	panel.set("_selected", knife)
+	var pane: Rect2 = panel.call("_inspect_rect")
+	var hone: Variant = null
+	for b in InspectPane.button_rects(pane, panel.call("_pane_verbs")):
+		if String((b as Dictionary)["verb"]) == "hone":
+			hone = (b as Dictionary)["rect"]
+	var ok: bool = true
+	if hone == null:
+		push_error("%s: the pane offers no hone button for the dull knife in the hand: %s" % [lane, str(panel.call("_pane_verbs"))])
+		ok = false
+	else:
+		panel.call("_press_at", (hone as Rect2).get_center())
+		w.step()
+		var edge: Dictionary = SimItems.edge_of(w, knife)
+		if float(edge["current"]) < float(edge["ceiling"]) or float(edge["current"]) <= 0.3:
+			push_error("%s: pressing hone left the edge at %s" % [lane, str(edge)])
+			ok = false
+		elif _count_of(w, stone) != 1:
+			push_error("%s: pressing hone left %d whetstones of two, not one" % [lane, _count_of(w, stone)])
+			ok = false
+		elif SimInventory.verbs_for(w, actor, knife).has("hone"):
+			push_error("%s: hone was still offered on the knife it just honed" % lane)
+			ok = false
+		elif String(SimInventory.inspect_view(w, actor, knife).get("edge", "")) != "keen":
+			push_error("%s: the honed knife did not read \"keen\"" % lane)
+			ok = false
+	viewport.queue_free()
+	if ok:
+		print("HONE OK a dull knife with a whetstone offers hone and a keen knife, a stoneless dull knife, a club and a rifle do not; the pane's hone button honed the knife in the hand to keen and spent one stone of two")
+	return ok
+
+
+# --- STATE ----------------------------------------------------------------------------------
+
+# The pane's one state line under the condition: the edge word for a blade, the fuel word for a
+# lamp, nothing for a club. The fuel word sat in `inspect_view` with no reader until this lane.
+func _the_pane_draws_one_state_line() -> bool:
+	var lane: String = "STATE"
+	var w: Variant = _world(3142)
+	if not _room(w):
+		push_error("%s: the pack would not go on" % lane)
+		return false
+	var actor: int = w.player
+	var knife: int = _give(w, "item.knife.kitchen")
+	var lamp: int = _give(w, "item.lantern.camping")
+	var club: int = _give(w, "item.bat.wood")
+	if knife < 0 or lamp < 0 or club < 0:
+		push_error("%s: the fixture could not be carried" % lane)
+		return false
+	w.components.set_component(knife, "edge", {"current": 0.5, "ceiling": 1.0})
+	var blade: Dictionary = InspectPane.state_line(SimInventory.inspect_view(w, actor, knife))
+	if String(blade.get("label", "")) != "edge" or String(blade.get("word", "")) != "dulling":
+		push_error("%s: a half-dull knife drew the state line %s, not edge dulling" % [lane, str(blade)])
+		return false
+	var light: Dictionary = InspectPane.state_line(SimInventory.inspect_view(w, actor, lamp))
+	if String(light.get("label", "")) != "fuel" or String(light.get("word", "")).is_empty():
+		push_error("%s: a lantern drew the state line %s, not its fuel" % [lane, str(light)])
+		return false
+	var none: Dictionary = InspectPane.state_line(SimInventory.inspect_view(w, actor, club))
+	if not none.is_empty():
+		push_error("%s: a club drew a state line %s" % [lane, str(none)])
+		return false
+	# The reader: `draw_pane` asks `state_line`, so the line above is the one on screen.
+	var src: String = FileAccess.get_file_as_string(INSPECT_PANE_GD)
+	var body: int = src.find("static func draw_pane(")
+	if body < 0 or src.find("state_line(view)", body) < 0:
+		push_error("%s: %s never asks state_line while drawing -- the edge and fuel words are a dead socket" % [lane, INSPECT_PANE_GD])
+		return false
+	print("STATE OK a half-dull knife draws edge dulling, a lantern draws fuel %s, a club draws no state line, and draw_pane asks state_line" % String(light["word"]))
+	return true

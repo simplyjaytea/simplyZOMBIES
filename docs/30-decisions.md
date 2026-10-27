@@ -6891,3 +6891,33 @@ owner's own:
 **How to apply:** a new improvised part is a content entry with `recipe.kinds`, `fits` and
 `appliesTo`, and the bench offers it with no screen change. A new material kind needs a noun in
 `MATERIAL_NOUN`, or `godot:m2:bench` RECIPES goes red.
+
+## Hone on the pack, 2026-10-27
+
+The screen half of "Melee wear, 2026-10-27": the pack offers `hone`, and the inspect pane says how
+keen a blade is, in a word.
+
+- **The verb asks the command's own predicate.** `SimItems.hone` checked its refusals and spent in
+  one function, so a menu could only guess whether it would work. Its checks moved into
+  `SimItems.hone_refusal`, which spends nothing; `hone` asks it first and `verbs_for` asks the same
+  function. The whetstone check reads the carried items rather than `needs.gd`'s private
+  `_carried_base`, which is fenced for this piece. Offered worn or not: a knife in the hand hones
+  as well as one in the pack.
+- **The edge bands are first-cut words.** "keen" at 0.75 of the edge and up, "dulling" from 0.4,
+  "dull" below (`SimItems.EDGE_BANDS`). They read the edge's current share, not its distance from
+  the ceiling, because the word says how well the blade cuts, which is what `edge_factor` reads.
+  Two consequences, accepted for now: a blade barely off its ceiling still reads "keen" while hone
+  is offered on it (the stone is the player's to spend), and a blade honed down to the 0.5 ceiling
+  floor never reads "keen" again, which is the honest state of a worn-out edge. At 0.025 a connect
+  a fresh blade turns "dulling" after about ten blows and "dull" after about twenty-four.
+- **One state line, two words.** The pane draws the edge word for a blade or the fuel word for a
+  lamp under the condition, in the condition's shape ("edge dulling", "fuel guttering") and on its
+  colour scale. No shipped item is both; the edge is asked first so a future one would still draw
+  one line. Drawing it found `inspect_view`'s `fuel` undrawn: the word had been built and gated
+  for the digit ban with no reader in `godot/ui/`. The STATE lane now asserts both.
+- **No context-menu row.** `SimContext.verbs_at` lists what can be done to the thing under the
+  cursor in the street; it lists nothing for a held item, so hone has no place there.
+
+**How to apply:** a new verb on the pack gets a refusal function its command shares, never a copy
+of the checks. Retune the edge bands in `EDGE_BANDS` with the HONE and STATE lanes' fixtures.
+

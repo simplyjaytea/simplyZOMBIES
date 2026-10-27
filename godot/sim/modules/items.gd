@@ -35,6 +35,15 @@ const EDGE_DAMAGE_FLOOR: float = 0.8
 const HONE_CEILING_DROP: float = 0.02
 const HONE_CEILING_FLOOR: float = 0.5
 const WHETSTONE: String = "item.whetstone"
+# A blade's edge in words, for the inspect pane: the inventory screen's `condition` arrangement
+# applied to the edge (docs/01 clause 4, a word and never a fraction). Read over the edge's current
+# share, not against its ceiling, because the word says how well it cuts, which is what
+# `edge_factor` reads. First-cut bands, docs/30's "Hone on the pack, 2026-10-27".
+const EDGE_BANDS: Array[Dictionary] = [
+	{"atLeast": 0.75, "name": "keen"},
+	{"atLeast": 0.4, "name": "dulling"},
+	{"atLeast": 0.0, "name": "dull"},
+]
 const CONDITION_BANDS: Array[Dictionary] = [
 	{"atLeast": 0.8, "name": "sound"},
 	{"atLeast": 0.5, "name": "worn"},
@@ -529,15 +538,48 @@ static func dull_edge(world: Variant, item: int) -> void:
 	refresh_armed(world, item)
 
 
-# Hones a blade's edge back to its ceiling, spending a whetstone the actor carries. Returns why it
-# refused, or "" when it honed: "not-a-blade", "keen" (already at its ceiling), "no-whetstone". Each
-# refusal is checked before anything is spent, so a refused hone costs nothing.
-static func hone(world: Variant, actor: int, item: int) -> String:
+# A blade's edge as a word ("keen", "dulling", "dull"), or "" for anything with no edge, the way
+# `fuel_clause` is "" for anything that is not a lamp.
+static func edge_word(world: Variant, item: int) -> String:
+	if item < 0 or not _is_blade(world, item):
+		return ""
+	var cur: float = float(edge_of(world, item)["current"])
+	for band in EDGE_BANDS:
+		if cur >= float(band["atLeast"]):
+			return String(band["name"])
+	return String(EDGE_BANDS[EDGE_BANDS.size() - 1]["name"])
+
+
+# Why `hone` would refuse, asked without spending anything: "not-a-blade", "keen" (already at its
+# ceiling), "no-whetstone", or "" when it would hone. The one predicate both the command and the
+# pack's `hone` verb ask, so the menu can never offer a hone the command then drops.
+static func hone_refusal(world: Variant, actor: int, item: int) -> String:
 	if item < 0 or not _is_blade(world, item):
 		return "not-a-blade"
 	var e: Dictionary = edge_of(world, item)
 	if float(e["current"]) >= float(e["ceiling"]):
 		return "keen"
+	if not _carries_base(world, actor, WHETSTONE):
+		return "no-whetstone"
+	return ""
+
+
+static func _carries_base(world: Variant, actor: int, base_id: String) -> bool:
+	for carried in (load("res://sim/modules/inventory.gd") as GDScript).call("carried_items", world, actor):
+		var b: Variant = world.components.get_component(int(carried), "itemBase")
+		if b is Dictionary and String((b as Dictionary).get("baseId", "")) == base_id:
+			return true
+	return false
+
+
+# Hones a blade's edge back to its ceiling, spending a whetstone the actor carries. Returns why it
+# refused, or "" when it honed (see `hone_refusal`). Each refusal is checked before anything is
+# spent, so a refused hone costs nothing.
+static func hone(world: Variant, actor: int, item: int) -> String:
+	var refusal: String = hone_refusal(world, actor, item)
+	if refusal != "":
+		return refusal
+	var e: Dictionary = edge_of(world, item)
 	if not bool(_Needs().call("consume_base", world, actor, WHETSTONE)):
 		return "no-whetstone"
 	e["ceiling"] = maxf(HONE_CEILING_FLOOR, float(e["ceiling"]) - HONE_CEILING_DROP)

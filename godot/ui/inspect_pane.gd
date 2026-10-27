@@ -36,6 +36,20 @@ const BUTTON_GAP: float = 8.0
 const VERB_WORDS: Dictionary = {"stash": "put it here", "take": "take it", "unequip": "take off"}
 
 
+# The one state line under the condition, as {label, word}: a blade's edge, or a lamp's fuel, and
+# nothing for an item that is neither. Both words come out of `inspect_view` ready-made; the pane
+# only chooses which one is not empty. No item is both a blade and a lamp, and the edge is asked
+# first so a future one would still draw one line, not two.
+static func state_line(view: Dictionary) -> Dictionary:
+	var edge: String = String(view.get("edge", ""))
+	if not edge.is_empty():
+		return {"label": "edge", "word": edge}
+	var fuel: String = String(view.get("fuel", ""))
+	if not fuel.is_empty():
+		return {"label": "fuel", "word": fuel}
+	return {}
+
+
 static func verb_word(verb: String) -> String:
 	return String(VERB_WORDS.get(verb, verb))
 
@@ -110,6 +124,16 @@ static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: floa
 	ci.draw_string(font, Vector2(text_x + lead, ty), UiText.fit(font, band, BODY_SIZE, text_wide - lead), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, Locker._a(_band_colour(band), alpha))
 	ty += LINE
 
+	# The state line: how keen a blade is, or how much a lamp has left, in the condition's shape.
+	var state: Dictionary = state_line(view)
+	if not state.is_empty():
+		var label: String = String(state["label"]) + " "
+		var word: String = String(state["word"])
+		ci.draw_string(font, Vector2(text_x, ty), label, HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, Locker._a(Locker.TEXT_DIM, alpha))
+		var state_lead: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE).x
+		ci.draw_string(font, Vector2(text_x + state_lead, ty), UiText.fit(font, word, BODY_SIZE, text_wide - state_lead), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, Locker._a(_state_colour(word), alpha))
+		ty += LINE
+
 	var slot: String = String(view.get("slot", ""))
 	if not slot.is_empty():
 		var where: String = ("worn on the " + slot) if bool(view.get("worn", false)) else ("goes on the " + slot)
@@ -166,6 +190,18 @@ static func _band_colour(band: String) -> Color:
 		"sound":
 			return Locker.GOOD
 		"broken", "barely holding":
+			return Locker.DANGER
+		_:
+			return Locker.ACCENT
+
+
+# The state word's colour, on the condition's scale: at its best reads calm, spent reads as the
+# warning it is, and everything between is the accent.
+static func _state_colour(word: String) -> Color:
+	match word:
+		"keen", "burning steadily":
+			return Locker.GOOD
+		"dull", "dark":
 			return Locker.DANGER
 		_:
 			return Locker.ACCENT
