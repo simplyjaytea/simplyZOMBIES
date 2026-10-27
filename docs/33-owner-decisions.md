@@ -349,3 +349,11 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
     ten-seed balance table was not re-run for the line. Rarer keeps the limb-for-a-life choice
     sharp; commoner makes the tie a routine tool. Which table, and how often, is the call.
 
+
+21. **Does a shed stud leave the world, and does a lashed head land at the feet?** (2026-10-27,
+    docs/30's "Melee wear, 2026-10-27"). The default is as built: a stud that comes out is gone,
+    and a lashed head is its own item lying at the swinger's feet. The alternative is that a shed
+    stud lands at the feet too, so a survivor can pick it up and refit it at a bench, which is the
+    path a lashed head already has. The STUD lane asserts the default. The same call carries a
+    second one: hone spends one whetstone per hone (first cut). Free hone with a whetstone in the
+    pack is the alternative, and the HONE lane's spend assertion changes with it.
