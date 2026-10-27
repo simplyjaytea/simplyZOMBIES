@@ -2412,8 +2412,9 @@ not a to-do list:
   screen cannot offer what the command refuses; `improvise_needs` turns a refusal into words
   ("needs cordage", "needs a bench") and names every material kind missing, not only the first
   ("needs an ingot and cordage"). The material words come from `SimFortify.MATERIAL_NOUN`, a
-  code-owned table beside `MATERIAL_KINDS`. The owner's call of 2026-10-27 (docs/30, "The bench makes parts") is built: a row the survivor
-  cannot make is listed, dimmed, says what it needs, and lights nothing. On screen
+  code-owned table beside `MATERIAL_KINDS`. The owner's call of 2026-10-27 (docs/30, "The bench
+  makes parts") is built: a row the survivor cannot make is listed, dimmed, says what it needs, and
+  lights nothing. On screen
   (`godot/ui/bench_panel.gd`), picking an empty plate lists a "make one" group under what you carry
   that fits; the arrows walk the candidates and the make rows as one column, the footer's lit
   button reads "make it" on a makeable row, and Enter or a click sends `item.improvise` with
