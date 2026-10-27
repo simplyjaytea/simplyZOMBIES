@@ -65,7 +65,9 @@ extends SceneTree
 #              replaced is not at 720; a click on a plate then a candidate fits it, "take off"
 #              detaches, the arrows and Enter do the same from the keys; a click on the wash
 #              swings at nothing; every word drawn is digit-free but an item's name; Escape closes
-#              it and clears `benchFocus`
+#              it and clears `benchFocus`; MAKE: a wooden bat's empty stud lists the parts it could
+#              make, inside the frame at both windows, a row it cannot make lights nothing, and Enter
+#              on the nails sends `item.improvise` and the plate shows them
 #   MARK       the stockpile brush (slice S2 of the stockpile plan): Z picks it up and Ctrl+Z does
 #              not; under it a left drag pushes exactly one `stockpile.mark` with that rectangle and
 #              `on: true`, a right drag one with `on: false`, a click one tile; paused, a released
@@ -3572,7 +3574,142 @@ func _the_bench_opens_fits_and_closes() -> bool:
 	_frames(main, 1)
 	await process_frame
 	world.components.set_component(bench, "position", bench_at)
+	ok = await _bench_makes_a_part(main, world, panel) and ok
 	return await _bench_done(main, old_size, ok)
+
+
+# MAKE (docs/23, "The bench offers improvised parts"): a wooden bat opened at the bench with one
+# unit of fixings in the pack, at both windows. A click picks the empty stud plate; Right then Down
+# walks the column to the nails, Enter, and the key reaches `item.improvise` -- the
+# `attachment.improvised` event fires and the plate shows the part (the dead socket: a command only
+# gates sent until now has a key). On the way: the column lists more parts than it has room for at
+# 1280x720 and every drawn row and the make group's label stay inside the frame above the footer;
+# a row that cannot be made lights no button and Enter on it sends nothing.
+func _bench_makes_a_part(main: Node, world: Variant, panel: Control) -> bool:
+	var lane: String = "BENCH"
+	var me: int = int(world.player)
+	var ok: bool = true
+	for dims in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
+		root.size = dims
+		await process_frame
+		var bat: int = SimItems.spawn_item(world, "item.bat.wood", {"tier": "scavenged"})
+		var nails: int = SimItems.spawn_item(world, "item.fixings.nails", {"tier": "scavenged"})
+		if not SimInventory.stow(world, me, bat) or not SimInventory.stow(world, me, nails):
+			push_error("%s MAKE: the pack would not take a wooden bat and nails" % lane)
+			return false
+		_drain(main)
+		world.commands.push({"type": "bench.open", "item": bat})
+		_frames(main, 1)
+		await process_frame
+		await process_frame
+		if SimGunsmith.focus_of(world, me) != bat or not panel.visible:
+			push_error("%s MAKE: the wooden bat did not open on the bench at %s" % [lane, str(dims)])
+			ok = false
+			continue
+		var lay: Dictionary = panel.call("layout") as Dictionary
+		var plates: Dictionary = lay["plates"] as Dictionary
+		if not plates.has("stud"):
+			push_error("%s MAKE: the wooden bat's stud has no plate" % lane)
+			ok = false
+			continue
+		_mouse((plates["stud"] as Rect2).get_center(), MOUSE_BUTTON_LEFT)
+		await process_frame
+		if String(panel.call("picked_slot")) != "stud":
+			push_error("%s MAKE: a click on the stud plate did not pick it" % lane)
+			ok = false
+		# The fixture before the judgement: the stud offers more rows than one, nails among them.
+		var view: Dictionary = panel.get("_view") as Dictionary
+		var rows: Array = (view.get("recipes", []) as Array).filter(func(r: Variant) -> bool: return String((r as Dictionary).get("slot", "")) == "stud")
+		var at_nails: int = -1
+		var at_dead: int = -1
+		for i in rows.size():
+			var r: Dictionary = rows[i] as Dictionary
+			if String(r.get("recipe", "")) == "item.attach.stud.nails":
+				at_nails = i
+			elif not bool(r.get("makeable", true)) and at_dead < 0:
+				at_dead = i
+		if rows.size() < 5 or at_nails < 0 or at_dead < 0:
+			push_error("%s MAKE: the stud lists %d recipes (nails at %d, one it cannot make at %d)" % [lane, rows.size(), at_nails, at_dead])
+			ok = false
+			continue
+		# The fit: every drawn row, and the group's label, inside the frame and above the footer.
+		lay = panel.call("layout") as Dictionary
+		var frame: Rect2 = lay["frame"] as Rect2
+		var floor_y: float = float(lay["foot_y"])
+		for card_v in lay["offers"] as Array:
+			var rect: Rect2 = (card_v as Dictionary)["rect"] as Rect2
+			if not frame.encloses(rect) or rect.end.y > floor_y:
+				push_error("%s MAKE: a row at %s runs off the frame %s or into the footer at %s" % [lane, str(rect), str(frame), str(dims)])
+				ok = false
+		if float(lay["make_label_y"]) < 0.0 or float(lay["make_label_y"]) > floor_y:
+			push_error("%s MAKE: the make group's label is not drawn inside the column (%s)" % [lane, str(lay["make_label_y"])])
+			ok = false
+		var said_make: bool = false
+		for t_v in panel.call("said") as Array:
+			said_make = said_make or String((t_v as Dictionary).get("text", "")) == BenchPanel.MAKE_SAYS
+		if not said_make:
+			push_error("%s MAKE: the make group's label was not drawn" % lane)
+			ok = false
+		# Enter on the empty plate crosses to the column; Down walks to a row that cannot be made
+		# first. Nothing carried fits the stud, so the column is the recipes alone and the index is
+		# the row's.
+		_tap(KEY_ENTER)
+		if String(panel.call("side")) != "offers":
+			push_error("%s MAKE: Enter on the empty stud did not cross to what could be made for it" % lane)
+			ok = false
+		for _i in at_dead:
+			_tap(KEY_DOWN)
+		await process_frame
+		_drain(main)
+		_tap(KEY_ENTER)
+		var dead: Array = _pending(main).filter(func(c: Variant) -> bool: return String((c as Dictionary).get("type", "")) == "item.improvise")
+		if not dead.is_empty():
+			push_error("%s MAKE: Enter on a part that cannot be made sent %s" % [lane, str(dead)])
+			ok = false
+		for b_v in (panel.call("layout") as Dictionary)["buttons"] as Array:
+			if String((b_v as Dictionary)["kind"]) == "make it":
+				push_error("%s MAKE: a part that cannot be made lights 'make it'" % lane)
+				ok = false
+		# Up to the nails (makeable rows are listed first), and Enter makes them.
+		for _i in at_dead - at_nails:
+			_tap(KEY_UP)
+		await process_frame
+		var lit: bool = false
+		for b_v in (panel.call("layout") as Dictionary)["buttons"] as Array:
+			lit = lit or String((b_v as Dictionary)["kind"]) == "make it"
+		if not lit:
+			push_error("%s MAKE: the nails have the keys and 'make it' is not in the footer" % lane)
+			ok = false
+		_drain(main)
+		_tap(KEY_ENTER)
+		var sent: Array = _pending(main).filter(func(c: Variant) -> bool: return String((c as Dictionary).get("type", "")) == "item.improvise")
+		if sent.size() != 1 or String((sent[0] as Dictionary).get("recipe", "")) != "item.attach.stud.nails" or int((sent[0] as Dictionary).get("host", -1)) != bat or String((sent[0] as Dictionary).get("slot", "")) != "stud":
+			push_error("%s MAKE: Enter on the nails sent %s, not one item.improvise of them into the bat's stud" % [lane, str(sent)])
+			ok = false
+		# One frame, one tick: the record `drained` holds is that tick's (world.gd clears it per step).
+		_frames(main, 1)
+		await process_frame
+		var improvised: bool = false
+		for e_v in world.events.drained:
+			var e: Dictionary = e_v as Dictionary
+			improvised = improvised or (String(e.get("type", "")) == "attachment.improvised" and int(e.get("host", -1)) == bat)
+		var part: int = SimAttachments.in_slot(world, bat, "stud")
+		if not improvised or part < 0:
+			push_error("%s MAKE: the key reached no attachment.improvised (event %s, stud %d) at %s" % [lane, str(improvised), part, str(dims)])
+			ok = false
+		var stud_row: Dictionary = {}
+		for r_v in (panel.get("_view") as Dictionary).get("slots", []) as Array:
+			if String((r_v as Dictionary).get("slot", "")) == "stud":
+				stud_row = r_v as Dictionary
+		if int(stud_row.get("part", -1)) != part or String(stud_row.get("name", "")) != "Nails":
+			push_error("%s MAKE: the plate does not show the nails (the stud's row is %s)" % [lane, str(stud_row)])
+			ok = false
+		_tap(KEY_ESCAPE)
+		_frames(main, 1)
+		await process_frame
+	if ok:
+		print("BENCH MAKE OK a click picks the bat's empty stud, its make rows fit the column at both windows, a part that cannot be made lights nothing and Enter on it sends nothing, Enter on the nails sends item.improvise and the plate shows them")
+	return ok
 
 
 func _bench_done(main: Node, old_size: Vector2i, ok: bool) -> bool:

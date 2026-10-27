@@ -296,12 +296,6 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
 - **Specific melee wear.** Studs fall out on hits through the `struck` wear word (shared with the
   plate piece), an edge dulls and a whetstone restores it, a lashed head flies off one swing in N
   from its own RNG stream. Gate: `godot:m2:swipe` WEAR.
-- **The bench offers improvised parts.** `item.improvise` (`godot/sim/modules/attachments.gd`) makes
-  a part from what the survivor carries and fits it, and only gates send it: no screen does, so a
-  player cannot reach the 25 improvised parts. The bench view lists a recipe row per slot with the
-  materials it would spend, refusals in words, and sends the command. The half that shipped is the
-  sim and its refusals; this is the half that did not. Gate: `godot:m2:bench`, and
-  `godot:check:inventory` for the row's words.
 - **A bespoke weapon may be named.** Past three modifications the player may name the item; the
   name follows the digit ban's item-name clause. Gate: `godot:check:inventory`.
 
@@ -2406,6 +2400,43 @@ What landed and what proved it, system by system (condensed from the retired bac
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **The bench offers improvised parts, 2026-10-27.** The melee arc's way in: `item.improvise` had
+  only ever been sent by gates, and now the assembly screen sends it. `SimGunsmith.bench_view`
+  gains `recipes`: for each empty slot, one row per recipe whose spec fits the slot and that the
+  host takes (`spec_fits` and `takes`, the pair the command asks), carrying the recipe id as a
+  handle that is never drawn, the slot's noun, the part's name, `spends` (the materials in words),
+  `makeable`, and `needs` (why not, in words, "" when it can be made). Makeable rows come first. A
+  filled slot lists none. `SimAttachments.improvise` was split so its checks are
+  `improvise_refusal`, asked by the command before it spends and by the view for each row, so the
+  screen cannot offer what the command refuses; `improvise_needs` turns a refusal into words
+  ("needs cordage", "needs a bench") and names every material kind missing, not only the first
+  ("needs an ingot and cordage"). The material words come from `SimFortify.MATERIAL_NOUN`, a
+  code-owned table beside `MATERIAL_KINDS`. docs/33 item 22's default is built: a row the survivor
+  cannot make is listed, dimmed, says what it needs, and lights nothing. On screen
+  (`godot/ui/bench_panel.gd`), picking an empty plate lists a "make one" group under what you carry
+  that fits; the arrows walk the candidates and the make rows as one column, the footer's lit
+  button reads "make it" on a makeable row, and Enter or a click sends `item.improvise` with
+  `{host, slot, recipe}`. The column scrolls when the stud's six rows do not fit. A `fieldSwap`
+  recipe is makeable by hand. Gates: `godot:m2:bench` RECIPES (the wooden bat's empty stud lists
+  six rows with the makeable ones first; nails makeable with fixings in the pack and glass listed
+  as "needs cordage"; tape and lead names both missing kinds; every row's `makeable` is the
+  command's own answer; a steel pipe's stud lists barbed wire and no screw studs or nails; the
+  glass row's handle sent through the queue is refused and spends nothing, the nails row's makes
+  the part and spends the fixings; the filled stud then lists none; by hand screw studs are
+  makeable and barbed wire "needs a bench"; the noun table is total both ways; red when the view
+  calls every row makeable), VIEW (the view's key set gains `recipes` and its digit scan covers
+  them), PANEL (the panel names `item.improvise`); `godot:check:play` BENCH MAKE at both windows
+  (a click picks the bat's empty stud, every drawn row and the group's label sit inside the frame
+  above the footer, Enter on a row that cannot be made sends nothing and lights no "make it",
+  Enter on the nails sends one `item.improvise` and the `attachment.improvised` event fires and
+  the plate shows the nails; red when the panel's make push is cut); `godot:check:shots` with the
+  new `bench_make` scene. Off the tick path, so no bench bar; `godot:m2:balance` ran once on the
+  head (only a player-commanded path changed). Not in this piece: the amber corner still means a
+  carried part fits and is not raised by a makeable recipe, and a weapon with nothing
+  field-swappable on it still does not open by hand even when a field recipe could be made for it
+  (`SimGunsmith.field_work` asks only carried and fitted parts). The improvised parts still have no
+  pictures (stage 3).
 
 - **The bloodhound, 2026-10-27.** Zombie kind eight, content only: `godot/content/zombies/bloodhound.json`,
   wave 3, weight 6, `sensory` noise 0, light 0, scent 1.0. It follows the scent field alone and is

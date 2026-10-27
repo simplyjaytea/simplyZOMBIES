@@ -27,7 +27,14 @@ extends Control
 # action) and Enter while the bench has the focus, the way the shell takes its own keys; Escape
 # stays the router's, which pushes `bench.close`. The arrows walk the plates by where they are
 # drawn, Right off the last plate crosses to the candidates and Left comes back, and Enter does
-# whatever the footer's lit button says: take the picked part off, or fit the picked candidate.
+# whatever the footer's lit button says: take the picked part off, fit the picked candidate, or
+# make the picked part.
+#
+# **Making a part.** Under what you carry, an empty slot lists the parts that can be made for it
+# (the view's `recipes`, docs/33 item 22's default): each says what it uses, or what it still
+# needs, and only a row the sim says is `makeable` lights "make it". The arrows walk the candidates
+# and the make rows as one column, and a click on a makeable row makes it at once, as a click on a
+# candidate fits it.
 
 const Chrome = preload("res://ui/chrome.gd")
 const Kit = preload("res://ui/kit.gd")
@@ -67,6 +74,8 @@ const PLATE_TEXT_TOP: float = 16.0
 # The amber corner's key: a small well wearing the corner, and its sentence beside it.
 const LEGEND: float = 24.0
 const LEGEND_SAYS: String = "something you carry fits"
+# The make group's label, over the first row of parts the bench can make for the picked slot.
+const MAKE_SAYS: String = "make one"
 # Over a locked part's picture: the wash the window wears, lighter, so the part still shows.
 const LOCKED_WASH: Color = Color(0.027, 0.031, 0.039, 0.6)
 # Rust light enough to read at 4.5:1 on the cells' dark well, where the Locker's DANGER (made for
@@ -127,7 +136,7 @@ func set_world(world: Variant, actor: int) -> void:
 	if _row(_pick).is_empty():
 		var slots: Array = _view.get("slots", []) as Array
 		_pick = String((slots[0] as Dictionary).get("slot", "")) if not slots.is_empty() else ""
-	var n: int = _offers().size()
+	var n: int = _entries().size()
 	_offer = clampi(_offer, 0, maxi(0, n - 1))
 	if n == 0:
 		_side = "slots"
@@ -207,6 +216,30 @@ func _offers() -> Array:
 		if String((offer_v as Dictionary).get("slot", "")) == _pick:
 			out.append(offer_v)
 	return out
+
+
+# The parts the bench can make for the picked slot, in the read model's order (makeable first).
+func _recipes() -> Array:
+	var out: Array = []
+	for recipe_v in _view.get("recipes", []) as Array:
+		if String((recipe_v as Dictionary).get("slot", "")) == _pick:
+			out.append(recipe_v)
+	return out
+
+
+# The right column as the keys walk it: what you carry that fits, then what you could make.
+func _entries() -> Array:
+	return _offers() + _recipes()
+
+
+static func _is_make(entry: Dictionary) -> bool:
+	return entry.has("recipe")
+
+
+# The entry the keys are on in the right column, or {} for none.
+func _focused() -> Dictionary:
+	var shown: Array = _entries()
+	return shown[_offer] as Dictionary if _offer >= 0 and _offer < shown.size() else {}
 
 
 # Whether anything you carry fits `slot`.
@@ -306,17 +339,24 @@ func layout() -> Dictionary:
 	var fits_label_y: float = current.end.y + 20.0
 	var list_top: float = fits_label_y + LINE
 	var offers: Array = []
-	var shown: Array = _offers()
+	var shown: Array = _entries()
+	var first_make: int = _offers().size()
 	var more_above: bool = _offer_top > 0
 	var oy: float = list_top
 	var more_below: bool = false
+	# The make group's label sits over its first row, when that row is drawn; -1 when it is not.
+	var make_label_y: float = -1.0
 	for i in range(_offer_top, shown.size()):
 		var offer: Dictionary = shown[i] as Dictionary
 		var h: float = _offer_height(offer)
-		if oy + h > bottom - LINE and i > _offer_top:
+		var label_h: float = LINE + OFFER_GAP if i == first_make else 0.0
+		if oy + label_h + h > bottom - LINE and i > _offer_top:
 			more_below = true
 			break
-		offers.append({"rect": Rect2(Vector2(col_x, oy), Vector2(col_w, h)), "index": i, "item": int(offer.get("item", -1)), "slot": String(offer.get("slot", ""))})
+		if label_h > 0.0:
+			make_label_y = oy + OFFER_GAP
+			oy += label_h + OFFER_GAP
+		offers.append({"rect": Rect2(Vector2(col_x, oy), Vector2(col_w, h)), "index": i, "item": int(offer.get("item", -1)), "recipe": String(offer.get("recipe", "")), "slot": String(offer.get("slot", ""))})
 		oy += h + OFFER_GAP
 
 	# The footer: the two things Enter can do, as buttons, present only when the sim would take
@@ -330,7 +370,7 @@ func layout() -> Dictionary:
 	bx -= 32.0
 	var bh: float = 40.0
 	var by: float = foot_y + floorf((FOOT_H - bh) / 2.0 / PX) * PX + PX * 2.0
-	for kind in ["fit", "take off"]:
+	for kind in ["fit", "make it", "take off"]:
 		if not _can(kind):
 			continue
 		var bw: float = Locker.label_width(String(kind), NAME_SIZE) + PX * 6.0
@@ -339,12 +379,14 @@ func layout() -> Dictionary:
 		bx -= 12.0
 	return {
 		"frame": frame, "picture": picture, "plates": plates, "tape_at": tape_at, "current": current,
-		"fits_label_y": fits_label_y, "offers": offers, "more_above": more_above, "more_below": more_below,
+		"fits_label_y": fits_label_y, "offers": offers, "more_above": more_above, "more_below": more_below, "make_label_y": make_label_y,
 		"legend_at": legend_at, "foot_y": foot_y, "buttons": buttons, "esc_at": esc_at, "enter_x": bx, "col_x": col_x, "col_w": col_w,
 	}
 
 
 func _offer_height(offer: Dictionary) -> float:
+	if _is_make(offer):
+		return OFFER_THUMB + 16.0
 	var changes: int = (offer.get("changes", []) as Array).size()
 	return maxf(OFFER_THUMB + 16.0, 12.0 + LINE + float(changes) * LINE + 10.0)
 
@@ -360,14 +402,18 @@ static func _keycap_width(label: String) -> float:
 	return maxf(_keycap_height(), text_w + pad * 2.0)
 
 
-# Whether the footer's button would do anything: the sim decided both answers already (the row's
-# `removable`, and the candidate's presence in `offers`, filtered by `may_work`).
+# Whether the footer's button would do anything: the sim decided every answer already (the row's
+# `removable`, the candidate's presence in `offers`, filtered by `may_work`, and a make row's
+# `makeable`, which is `improvise`'s own check).
 func _can(kind: String) -> bool:
 	if kind == "take off":
 		var row: Dictionary = _row(_pick)
 		return bool(row.get("removable", false)) and int(row.get("part", -1)) >= 0
+	var on: Dictionary = _focused() if _side == "offers" else {}
 	if kind == "fit":
-		return _side == "offers" and not _offers().is_empty()
+		return not on.is_empty() and not _is_make(on)
+	if kind == "make it":
+		return not on.is_empty() and _is_make(on) and bool(on.get("makeable", false))
 	return false
 
 
@@ -375,6 +421,8 @@ func _can(kind: String) -> bool:
 func _enter_does() -> String:
 	if _side == "offers" and _can("fit"):
 		return "fit"
+	if _side == "offers" and _can("make it"):
+		return "make it"
 	if _side == "slots" and _can("take off"):
 		return "take off"
 	return ""
@@ -584,20 +632,30 @@ func _draw_candidates(lay: Dictionary, font: Font) -> void:
 		Locker.rim(self, thumb, Locker.WELL_LIP)
 		_say(Vector2(tx, _baseline(cur.position.y + 36.0, NAME_SIZE)), "nothing", NAME_SIZE, Locker.TEXT_DIM)
 
-	# What fits it, from what you carry.
-	var shown: Array = _offers()
+	# What fits it, from what you carry, then what could be made for it.
+	var shown: Array = _entries()
 	var label_y: float = float(lay["fits_label_y"])
-	if shown.is_empty():
+	if _offers().is_empty():
 		_say(Vector2(col_x, _baseline(label_y, SMALL_SIZE)), "nothing you carry fits it", SMALL_SIZE, Locker.TEXT_DIM)
-		return
-	_say(Vector2(col_x, _baseline(label_y, SMALL_SIZE)), "what you carry that fits", SMALL_SIZE, Locker.TEXT_DIM)
+		if shown.is_empty():
+			return
+	else:
+		_say(Vector2(col_x, _baseline(label_y, SMALL_SIZE)), "what you carry that fits", SMALL_SIZE, Locker.TEXT_DIM)
 	if bool(lay["more_above"]):
 		var above: String = "more above"
 		var aw: float = font.get_string_size(above, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE).x
 		_say(Vector2(col_x + col_w - aw, _baseline(label_y, SMALL_SIZE)), above, SMALL_SIZE, Locker.TEXT_DIM)
+	var make_y: float = float(lay["make_label_y"])
+	if make_y >= 0.0:
+		_say(Vector2(col_x, _baseline(make_y, SMALL_SIZE)), MAKE_SAYS, SMALL_SIZE, Locker.TEXT_DIM)
 	for card_v in lay["offers"] as Array:
 		var card: Dictionary = card_v as Dictionary
-		_draw_offer(shown[int(card["index"])] as Dictionary, card["rect"] as Rect2, int(card["index"]) == _offer and _side == "offers", font)
+		var entry: Dictionary = shown[int(card["index"])] as Dictionary
+		var focused: bool = int(card["index"]) == _offer and _side == "offers"
+		if _is_make(entry):
+			_draw_make(entry, card["rect"] as Rect2, focused, font)
+		else:
+			_draw_offer(entry, card["rect"] as Rect2, focused, font)
 	if bool(lay["more_below"]):
 		var last: Array = lay["offers"] as Array
 		var below_y: float = ((last[last.size() - 1] as Dictionary)["rect"] as Rect2).end.y + 6.0 if not last.is_empty() else label_y
@@ -628,6 +686,32 @@ func _draw_offer(offer: Dictionary, r: Rect2, focused: bool, font: Font) -> void
 		var gw: float = _draw_arrow(self, Vector2(tx, gy), word, 1.0)
 		_say(Vector2(tx + gw + 6.0, base_y), "%s %s" % [String(change.get("word", "")), word], SMALL_SIZE, _change_colour(word))
 		cy += LINE
+	if focused:
+		Locker.selected(self, r, 1.0)
+
+
+# A part the bench could make: its picture, its name, and under it what it uses -- or, when it cannot
+# be made here and now, what it still needs, in the sim's words. A row that cannot be made is
+# dimmed and lights no button; it is listed so the player learns what to bring back.
+func _draw_make(entry: Dictionary, r: Rect2, focused: bool, font: Font) -> void:
+	var makeable: bool = bool(entry.get("makeable", false))
+	Locker.well(self, r, 1.0)
+	var thumb: Rect2 = Rect2(r.position + Vector2(PX * 4.0, PX * 4.0), Vector2(OFFER_THUMB, OFFER_THUMB))
+	Locker.well(self, thumb, 1.0)
+	var recipe: String = String(entry.get("recipe", ""))
+	if not recipe.is_empty():
+		ItemPicture.draw(self, thumb.grow(-PX), Appearance.item_look(_world, recipe), 1.0)
+	if not makeable:
+		draw_rect(thumb.grow(-PX), LOCKED_WASH)
+	var tx: float = thumb.end.x + 12.0
+	var room: float = r.end.x - PX * 4.0 - tx
+	var line1: float = _baseline(r.position.y + 10.0, NAME_SIZE)
+	_say(Vector2(tx, line1), UiText.fit(font, String(entry.get("name", "")), NAME_SIZE, room), NAME_SIZE, Locker.TEXT if makeable else Locker.TEXT_DIM, "name")
+	var line2: float = _baseline(r.position.y + 10.0 + LINE + 4.0, SMALL_SIZE)
+	if makeable:
+		_say(Vector2(tx, line2), UiText.fit(font, "uses %s" % String(entry.get("spends", "")), SMALL_SIZE, room), SMALL_SIZE, Locker.TEXT_DIM)
+	else:
+		_say(Vector2(tx, line2), UiText.fit(font, String(entry.get("needs", "")), SMALL_SIZE, room), SMALL_SIZE, DANGER_INK)
 	if focused:
 		Locker.selected(self, r, 1.0)
 
@@ -713,11 +797,13 @@ func _gui_input(event: InputEvent) -> void:
 		"offer":
 			_offer = int(hit["index"])
 			_side = "offers"
-			_fit(_offer)
+			_press(_offer)
 		"take off":
 			_take_off()
 		"fit":
 			_fit(_offer)
+		"make it":
+			_make(_offer)
 	queue_redraw()
 
 
@@ -739,11 +825,14 @@ func key(ke: InputEventKey) -> bool:
 			match _enter_does():
 				"fit":
 					_fit(_offer)
+				"make it":
+					_make(_offer)
 				"take off":
 					_take_off()
 				_:
-					# Nothing in the slot to take off: Enter crosses to what fits it, if anything does.
-					if _side == "slots" and not _offers().is_empty():
+					# Nothing in the slot to take off: Enter crosses to what fits it or could be made
+					# for it, if anything does.
+					if _side == "slots" and not _entries().is_empty():
 						_side = "offers"
 					else:
 						return false
@@ -756,16 +845,16 @@ func key(ke: InputEventKey) -> bool:
 		if dir.x < 0:
 			_side = "slots"
 		elif dir.y != 0:
-			_offer = clampi(_offer + dir.y, 0, _offers().size() - 1)
+			_offer = clampi(_offer + dir.y, 0, _entries().size() - 1)
 			_keep_in_view(lay)
 		queue_redraw()
 		return true
 	var next: String = _neighbour(lay["plates"] as Dictionary, _pick, dir)
 	if not next.is_empty():
 		pick_slot(next)
-	elif dir.x > 0 and not _offers().is_empty():
+	elif dir.x > 0 and not _entries().is_empty():
 		_side = "offers"
-		_offer = clampi(_offer, 0, _offers().size() - 1)
+		_offer = clampi(_offer, 0, _entries().size() - 1)
 	queue_redraw()
 	return true
 
@@ -795,7 +884,7 @@ static func _neighbour(plates: Dictionary, from: String, dir: Vector2i) -> Strin
 
 
 func _scroll(step: int, lay: Dictionary) -> void:
-	var n: int = _offers().size()
+	var n: int = _entries().size()
 	if step > 0 and bool(lay["more_below"]):
 		_offer_top = mini(_offer_top + 1, n - 1)
 	elif step < 0:
@@ -808,7 +897,7 @@ func _keep_in_view(_lay: Dictionary) -> void:
 		_offer_top = _offer
 		return
 	# Step the window down until the focused card is drawn.
-	for _i in _offers().size():
+	for _i in _entries().size():
 		var drawn: Array = (layout()["offers"] as Array).map(func(c: Variant) -> int: return int((c as Dictionary)["index"]))
 		if drawn.has(_offer):
 			return
@@ -826,11 +915,37 @@ func _take_off() -> void:
 	_world.commands.push({"type": "item.detach", "item": part})
 
 
+# A click on an entry in the right column: a candidate is fitted, a makeable part is made, and a part
+# that cannot be made is only picked, so its "needs" line has the keys.
+func _press(index: int) -> void:
+	var shown: Array = _entries()
+	if index < 0 or index >= shown.size():
+		return
+	if _is_make(shown[index] as Dictionary):
+		_make(index)
+	else:
+		_fit(index)
+
+
+# Make the part on this row and fit it, through the same command a gate sends. The sim checks every
+# refusal again before it spends anything; the row's `makeable` only decides whether to ask.
+func _make(index: int) -> void:
+	var shown: Array = _entries()
+	if index < 0 or index >= shown.size():
+		return
+	var entry: Dictionary = shown[index] as Dictionary
+	if not _is_make(entry) or not bool(entry.get("makeable", false)):
+		return
+	_world.commands.push({"type": "item.improvise", "host": int(_view.get("host", -1)), "slot": String(entry.get("slot", "")), "recipe": String(entry.get("recipe", ""))})
+
+
 func _fit(index: int) -> void:
-	var shown: Array = _offers()
+	var shown: Array = _entries()
 	if index < 0 or index >= shown.size():
 		return
 	var offer: Dictionary = shown[index] as Dictionary
+	if _is_make(offer):
+		return
 	var slot: String = String(offer.get("slot", ""))
 	var sitting: int = int(_row(slot).get("part", -1))
 	if sitting >= 0:
