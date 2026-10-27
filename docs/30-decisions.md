@@ -6642,6 +6642,21 @@ Zombie kind eight, content only: `godot/content/zombies/bloodhound.json`, with n
 - **`sensory.scent` 1.0.** docs/14's tracker row reads "Extreme". The shipped top is the shambler's
   0.9, "High", and the schema's range is 0 to 1, so 1.0 is the first value above 0.9 the schema
   allows. The first cut is the ceiling, not a tuned number.
+- **What 1.0 buys, and what it cannot (the review's finding).** `scentSense` is read in one place:
+  the smell threshold, `scentFloor / scentSense`, which is 0.005 at 1.0 against the shambler's
+  0.00556 at 0.9, a nose a tenth wider. The turn toward scent is `_drift_upscent`, weighted by the
+  constant `SCENT_BIAS` (0.35) and never by the sense, and it runs only in the Wander arm, at
+  wander speed. Seek is entered only through `heard` or a seen target; with noise 0 and light 0
+  the bloodhound has neither, so it never Seeks and its `speed` 1.0 is used only in Pursue, after
+  contact. So the kind that ships is a shambler without ears or eyes, a tenth keener in the nose
+  and a quarter faster once it has you, not a body that walks a trail home (docs/14's tracker).
+  That is the composing key the brief said to name if one was missing: a scent-led Seek, or a
+  per-type scent bias, in `shambler.gd`'s think loop, which is sim work on a shared module and
+  waits for its own piece ("The bloodhound's nose as a seek", docs/23's what's left). The
+  SCENT-ONLY lane holds what was built; it does not claim the kind out-hunts the shambler.
+- **docs/14's table against the content.** The tracker row reads noise Low, light Low, scent
+  Extreme. The content is 0, 0, 1.0: deaf by the what's-left bullet's own words, blind by docs/33
+  item 20's default. The table row is a stage behind the content until the sight card is taken.
 - **Locomotion: speed 1.0, wander 0.35, mill 0.25, crawl 0.25.** Speed is the stalker's 1.0, a
   little above the shambler's 0.8. The rest are the shambler's, so the difference is what it
   follows, not how it walks.
