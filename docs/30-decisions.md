@@ -6668,7 +6668,10 @@ Gates:
 - Ran green: `godot:check:zombie_art`, `godot:check:worn`, `godot:check:authored`, `godot:validate`,
   `godot:smoke`, `npm test`, `format:check`, `check:routing`.
 
-Balance, same machine, FAST band, seed 20260805: BALANCE_HEAD_PLACEHOLDER
+Balance, same machine, FAST band (four seeds, ten days): `M2_BALANCE_OK` on main (4fc24469) and on
+this head. Every line matches except seed 404's grabs (163 on head, 160 on main) and the GRABS total
+(360 against 357): the bloodhound arrives from day 7, and on that seed its grabs are the difference.
+Deaths, survivors, kills, raids and breaches are unchanged on all four seeds.
 
 The ten-seed table was not re-run. It is owed by the post-arc re-baseline.
 
