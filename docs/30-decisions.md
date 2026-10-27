@@ -6626,3 +6626,45 @@ affixes that named them moved no number a gun reads.
 the web gate's READERS lane names it as awaiting a reader. `godot:m2:ranged` QUIET-SHOT and
 RUIN-SHOT, and `godot:m2:attach` SWING, WEAR and REPAIR, hold the readers.
 
+
+## Melee wear, 2026-10-27
+
+The sim half of "Specific melee wear" (docs/23's record). Three calls were taken in building it,
+all first cuts, and they are recorded here so a later pass can move them.
+
+**The wear word is `hit`, not `struck`.** docs/23 had the studs wear through `struck`, the
+target-side word the plate piece will use. `hit` already fires on the attacker's weapon at the
+moment it connects, which is when a stud, an edge or a lashing wears. So the stud and lashing rolls
+ride the existing `hit` channel (`SimAttachments.shed_on_connect` on `attack.connected`), and
+`struck` stays free for the plate.
+
+**The numbers.** `shedChance` per stud on a connecting swing: nails 0.03, barbed wire 0.05, glass
+shards 0.06, screws 0.01, rebar 0.02, bolt studs 0.01. The screws and bolts are the ones that
+"stay in better", so they shed least. A lashed head comes off at `LASH_SHED_CHANCE` 0.025, one
+connect in forty. The lashed heads are `item.attach.head.lashed_knife`, `lashed_spike` and
+`pitchfork`: the three heads with cordage in their recipe. The gate measures 70 nails out of 2000
+rolls (band 40 to 80) and 54 heads out of 2000 blows (band 30 to 72). Both bands sit about 2.5
+sigma either side of the expected count, so a seed does not decide them.
+
+**An edge is its own number.** A blade's edge is an `edge` component, `{current, ceiling}`, apart
+from the item's `condition`. The item's condition still wears on every hit for every melee weapon,
+as it did before. The edge loses 0.025 a connect, scaled by the same `condition_loss` the item wears
+by, so twenty connects leave a fresh blade at 0.5. Damage multiplies by `SimItems.edge_factor`,
+which keeps `EDGE_DAMAGE_FLOOR` 0.8 at fully dull. The floor is 0.8 and not the condition floor of
+0.55, because the item's own wear already takes damage down to 0.55 and two floors compound to
+about 0.30. A club has no edge and takes none. A blade that was never dulled has no `edge`
+component and reads keen, so a save from before this piece loads unchanged and `SAVE_VERSION` does
+not move.
+
+Hone (`item.hone`, with `actor` and `item`) puts the edge at its ceiling and lowers the ceiling by
+0.02, floor 0.5, the way repair lowers its own ceiling. Refusals come back as `not-a-blade`,
+`keen` (already at its ceiling) and `no-whetstone`, checked in that order, so a keen blade keeps the
+stone in the pack. One whetstone is spent per hone (docs/33 item 21 is the owner's call on that).
+
+**Gate and stream.** The lanes live in `godot:m2:attach`, not `godot:m2:swipe`: swipe is the zombie
+claw gate and its header pins the claw alone. Every roll is on the new `meleeWear` stream, and only
+a part that declares `shedChance` or `lashed` draws from it, so a weapon with neither draws nothing.
+STREAM holds that: a run of wear rolls moves `meleeWear` and leaves melee, swipe, ranged and test
+where they were. CONNECT is the dead-socket lane: a real swing through the tick loop reaches the
+roll. Broken on purpose, with the connect subscriber replaced by a pass, it goes red with "no nail
+came out".
