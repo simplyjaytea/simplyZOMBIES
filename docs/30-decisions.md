@@ -6407,6 +6407,225 @@ and the pieces it opens are in docs/23's what's left under "Content arcs".
 it is not authored. A conversion between calibers is allowed only where the realism table in
 docs/10 says so; the coordinator writes the table and the owner vetoes.
 
+## The floodlight comes back down, 2026-10-26
+
+The 2026-09-12 call in "Two placeable items, two opposite answers" made the floodlight one-way on
+purpose: standing it up commits the thing to that street. The owner took the planted-floodlight
+piece up on 2026-10-26 and chose to build the way back (approved in the coordinator chat), which
+supersedes that call.
+
+The floodlight is still a rigged installation and still costs the street. What changes is that the
+commitment can be taken back: `light.unplant` lifts the lamp within the plant's own reach into the
+pack with its fuel carried, and refuses, leaving it standing, when the pack has no room. The
+noise devices keep their answer and the alarm and noisemaker stay free, as that call left them.
+
+**How to apply:** a planted light has a way back, so a gate or a record that calls the floodlight
+one-way is out of date. `godot:m2:light_burn` UNPLANT is the lane that holds the take-down.
+
+## Colonists look after themselves, 2026-10-26
+
+The autonomy half of the comfort and books slices, taken as engineering calls inside the piece; the
+piece itself is the owner's standing item ("nobody seeks comfort, or reads, on their own").
+
+- **Comfort ranks like Dress, above the columns; Read ranks below all of them.** A low colonist
+  stops to smoke before he works, the way an unarmed one re-arms and a bare one dresses. Read is
+  only the empty day's fallback, so it can never beat Water or Construct.
+- **Autonomy spends only while no comfort is standing.** `take_comfort` accumulates toward the cap
+  and the player verb has no such gate, because a player chooses the moment. Without this gate a low
+  colonist smokes the whole pile in consecutive ticks. The gate is in `jobs.gd`'s `_tick_one`, not in
+  the mood rules.
+- **"Low" means any band worse than content** (`SimNeeds.mood_band != "content"`), so miserable and
+  breaking colonists take comfort too. Nothing is compared against a threshold of the tick's own.
+- **A comfort is used where it lies.** One unit comes off a stack and the rest stays on the pile for
+  the next colonist; a reusable comfort is used and left whole. The first cut carried the whole
+  stack into the pack. The pack's room no longer matters, so the full-pack refusal went with it.
+
+**How to apply:** a new autonomy kind that walks outside goes into `DANGER_KINDS`, and an idle
+fallback goes below every ranked column in `_pick`, not in `_tick_one`.
+
+## Three walls, one substance each, 2026-10-26
+
+Engineering calls taken on the buildables slice. None rebalances a shipped verb, and none moves a
+pinned lane. The numbers they set are first cuts, named in the record as unmeasured.
+
+- **A wire fence stops the body and not the eye.** The timber wall and the stone course block sight
+  as the barricade does; the fence is the one raised wall the shadowcast sees through. The sim
+  already distinguished the two halves (a door is solid and opaque by its state, a board is opaque
+  until its stage), so the fence is one more overlay kind with its own answer, not a new mechanism.
+- **A recipe names one substance.** The table is verb to kind, so the fence is wire alone and not
+  wire with fixings. A recipe that wants a pair is a shape change and goes to the owner first.
+- **Walls are not singletons.** `can_build` is the barricade's ground rule without its window-side
+  rule, and more than one wall may stand. The scrap barricade's one-of-a-kind check stays as it was.
+- **A wall waits for an empty tile.** `can_build` also refuses a tile holding a body, a loose item,
+  a water source, a bed, furniture or a container, in the predicate and again when the channel
+  ends. The first cut asked about the ground only and would have walled a survivor, a well or a
+  dropped rifle into a solid tile.
+
+**How to apply:** a new raised wall is a `RECIPES` row, a `BUILD_TICKS` row, a `BLOCKERS` row, a
+`STAGE_COST` row, and one answer in each of `SimTileMap.is_solid`, `opacity_at`,
+`shadowcast._overlay_opacity` and the presentation's overlay arm. WALLS in `godot:m2:fortify` is the
+lane that proves the answers agree, and it must go red when any one of them is sabotaged.
+
+## The tourniquet, and the limb it costs, 2026-10-26
+
+docs/05 names three ways to stop a bleed -- pressure, tourniquet, bandage -- and two existed. The
+tourniquet is built as a fourth thing the pressure channel does, not as a dressing grade (docs/23).
+The rule is the smallest honest one, taken without a tuned curve:
+
+- **It holds the whole limb for a window, and then the limb goes.** A tie on an arm or a leg holds
+  every open wound on that part shut for `SimWounds.TOURNIQUET_TICKS`, 2400 ticks: two minutes of
+  a one-hour day. When the window runs out the part goes to `DESTROYED`, the floor an amputation
+  leaves, and the lasting word `tourniquet` says why.
+- **The clock is the time on, not the state of the wound.** A wound a hand has already clotted still
+  spends the window. The limb is what is being starved, and a hand on the wound does not feed it.
+- **No new number.** The cost is a limb docs/05 already has, not a graded ischaemia with a movement
+  or swing penalty. A penalty curve nobody has measured is a balance claim this piece does not get
+  to make, and whether a tie should ever be survivable at all is the owner's call, not a default.
+- **Loosening in time is free.** It is a channel of `TOURNIQUET_LOOSEN_TICKS` (20). Once the window
+  has closed there is nothing left to loosen and the verb is refused `not-tied`. The bleed resumes
+  on any wound still open.
+- **A lost limb is closed with its wounds (the default taken).** When the window runs out the
+  part goes to `DESTROYED` and every wound on it is dropped with it, so a stump does not bleed: a
+  forgotten tie costs the limb and nothing more. The first cut left the wounds `bleeding: true`,
+  which let the bleed come back on a limb that no longer existed. Whether the bleed should come
+  back is the owner's call (docs/33, card 17); the lane for either answer is one line.
+- **The item is spent on the tie.** A tourniquet is used up on the leg it goes on; a loosen does not
+  give it back. A reusable one would be a second spend path and a return to the pack, and is not
+  built.
+- **Arms and legs only.** A hand or a foot is refused `not-a-limb`. That is the sided-limb set
+  `SimWounds._is_limb` already keeps for fractures and sprains, and the brief's own words.
+
+**Not in this piece, on purpose:** the self-aid context offers pressure and dressing only, so a
+colonist does not tie one on themselves. The player has two ways to the verb: the care pane, and the
+item's strip key, whose `supply_plan` picks the bleeding limb when a torso bleeds beside it
+(`godot:m2:treatment` TOURNIQUET OFFERED). The loot line came later, in "The tourniquet is
+findable".
+
+**How to apply:** a tie that a hand has already clotted is still a limb on the clock. Do not end the
+window when the wound does, and do not make a tie survivable without an owner decision. The
+TOURNIQUET lanes of `godot:m2:treatment` hold the rule.
+
+## The tourniquet is findable, 2026-10-26
+
+The tourniquet shipped with no loot table naming it, and `godot:m2:gear` CATALOGUE did not notice:
+its `READ_KEYS` lacked `tourniquet`, `bandageTier`, `attachment` and `recipe`, so a base carrying
+only one of them was never judged. The keys are in, and the lane now sees the tourniquet.
+
+- **One line in `loot.medical`, weight 8, no count.** That is the sterile dressing's weight (8 of
+  274 before, 8 of 282 now), taken as a default so the lane could go green and the item could be
+  found at all. It is the table that already carries dressings, and no other table was touched.
+- **The ten-seed balance table was not re-run for this line.** A loot line moves campaign outcomes
+  and the claim of workflow step 5 is a measurement, not a guess. The weight is a placeholder with
+  a name on it; docs/33 card 18 puts it to the owner.
+- **A made part is exempt from findability, narrowly.** The 25 improvised attachments carry a
+  `recipe.kinds` block and are built by `item.improvise`, never rolled. CATALOGUE exempts a base
+  with that block and no other attachment, and counts them in its line so the exemption stays
+  visible.
+
+**How to apply:** a new key that makes a base do something goes into `READ_KEYS` in the same slice
+as the key, or the dead-socket check cannot see it.
+
+## The hand-cut rule, as changed, 2026-10-26
+
+The melee frames piece shipped Glass Shards with a `handCut` flag: a glass blade on a bare grip
+cut the hand that held it. The first cut opened a new Laceration on the right hand on every
+swing, hit or miss, even on a hand that was already destroyed, and a Laceration never clots on
+its own. A survivor swinging a glass-studded bat at a crowd bled out of the weapon, and a miss
+cost as much as a kill.
+
+- **One Scratch per swing that connects.** The wound is kind `cut`, severity Scratch, so it clots
+  on its own (`CLOT_TICKS`). It is written after the strike has found a body, beside the
+  `attack.connected` event, and a swing that finds nobody costs the hand nothing.
+- **A hand that is gone is not cut.** The wound is skipped when `hand_right` is absent from the
+  body or already at `DESTROYED`.
+- **A wrap still stops it, and nails never cut.** Both are unchanged; only glass declares
+  `handCut`.
+
+**How to apply:** a self-inflicted cost on a swing belongs where the swing connects, and is a
+wound that closes by itself unless the design wants the player to treat it. `godot:m2:attach` CUT
+holds the rule: a connecting swing scratches, and a miss, a wrapped grip, a destroyed hand and a
+nailed bat do not.
+
+## The wooden bat is found in industrial yards, 2026-10-26
+
+The melee frames piece added `item.bat.wood`, so that the bat the nails need exists. A bat nobody
+can find is a dead socket, so it needed a loot line, and the line is a balance claim.
+
+- **One line, `loot.industrial`, weight 5.** The first cut put the same line in `loot.residential`.
+  That moved the ten-day balance campaigns: seed 90210 lost its colony in the fast tier and
+  `godot:m2:balance` refused it (`M2_BALANCE_FAIL`). The same line in `loot.industrial` passes
+  (`M2_BALANCE_OK`).
+- **The ten-seed table was not re-run for it.** The balance gate's own seeds judged the line, which
+  is a floor and not a table of outcomes. A weight of 5 of 434 is a placeholder with a name on it,
+  and the bat's yard is a default taken because residential was refused, not a measured best home.
+- **No card was opened.** The weight is a first cut under the standing rule for tuning numbers
+  (docs/38: agents decide numbers that come out of a measurement); a bat is a club that does what
+  the aluminium bat does, and it adds a way to reach nails, not a stronger weapon.
+
+**How to apply:** a loot line for a new base is judged by `godot:m2:balance` before the commit, and
+the record says which gate saw it and which table did not.
+
+## Melee frames, and parts that are made, 2026-10-26
+
+The first stage of the melee arc (docs/38, "The content arcs"; docs/23's record). The calls taken
+inside it, none of which rebalances a shipped weapon:
+
+- **Every melee base declares a `family`.** Club: steel pipe, aluminium bat, wooden bat, demolition
+  sledge, claw hammer, police baton, golf club, and the Siren's Bell and Tetanus Special. Blade:
+  kitchen knife, rusted machete, fire axe, camp hatchet, butcher's cleaver, splitting axe, ice pick
+  and the cavalry sabre. Polearm: the improvised spear, the barn pitchfork and the Long Argument.
+  Tool: crowbar, pipe wrench and sharpened shovel. A family is a word on the base and nothing else;
+  it moves no number.
+- **`appliesTo` names who a part is for, beside `fits` for the slot.** Absent or empty means any
+  base. Otherwise the host's `family` or its own id has to be named, and both tests hold before a
+  part goes in (`SimAttachments.plausible`, asked by every offer, so a refused part is never put
+  on the bench as a choice). A ranged base carries no family, so a part naming only families goes
+  on nothing ranged. The nails name `item.bat.wood` alone; screws, bolts and glass name the wooden
+  hosts (the bat and the claw hammer, whose haft is wood), so a steel pipe and a baton refuse them
+  although both have a stud slot.
+- **Fitted parts are made, which departs from docs/10's "found, not crafted".** The melee arc is
+  the one exception, by the owner's brief ("a baseball bat, but you can put nails in it"): a part
+  is built from what the survivor carries, one unit of each material kind its recipe names, by
+  `item.improvise`, which checks every refusal before it spends anything. Bench work unless the
+  part is `fieldSwap`. docs/10 now says so, and the gear gate's CATALOGUE exempts exactly a base
+  with a `recipe.kinds` block from the findability rule, and says how many it exempted.
+- **Three slots widen the melee bases: `stud`, `guard` and `weight`,** each declared only where it
+  is plausible. The aluminium bat takes weight and no stud; the pipe takes stud and weight; the
+  sabre takes a guard. `weight` and `connectNoise` became multipliers because they already had
+  readers; no stat was authored without one.
+- **Glass cuts the hand that holds it, and the rule changed in review.** See "The hand-cut rule,
+  as changed": one Scratch per swing that connects, not a Laceration per swing.
+- **The wooden bat is a twentieth base,** so the bat the nails need exists. Where it is found is
+  "The wooden bat is found in industrial yards".
+
+**How to apply:** a new melee base declares a `family` and its slots; a new part declares `fits` and
+`appliesTo`, and a part made from materials declares `recipe.kinds`. A part without a reader for
+its stats is not authored.
+
+## The dead stat readers, 2026-10-26
+
+The first piece of the firearms arc (readers before content, docs/38). `noise_emission`,
+`condition_loss` and `repair_cost` were declared stats that resolved against nothing, so the ranged
+affixes that named them moved no number a gun reads.
+
+- **Each stat is read in the item's own scope.** The way every affix is scoped, so a quiet hand on
+  one pistol does not quiet the next one holstered. `SimItems.noise_emission_of` scales the noise
+  a shot or a melee connect publishes, and `condition_loss_of` scales the wear a host or a fitted
+  part takes, both by the profile's `source`. A bare hand or a zombie's body has no source and
+  reads 1.0, so everything not carrying one of these affixes is byte-identical to before.
+- **`repair_cost` was already read** (by the repair verb, since 2026-09-13). The piece added the
+  ranged proof that an item's own factor reaches it, and no code on that path.
+- **`long_nights` is left inert on a ranged weapon, on purpose.** Its stat, `swing_stamina`, is read
+  only by the melee profile. What stamina a shot should cost is a design call and not a reader, so
+  the piece names it and does not fix it. `ruin` is half live for the same reason: its
+  `condition_loss` half is read, its `melee_damage` half only by melee.
+- **Not measured.** Affixes are rolled into loot, so a campaign that rolls them sees different wear
+  and noise. The ten-seed table was not re-run and no campaign claim is made.
+
+**How to apply:** a stat authored on a part is read in item scope in the slice that authors it, or
+the web gate's READERS lane names it as awaiting a reader. `godot:m2:ranged` QUIET-SHOT and
+RUIN-SHOT, and `godot:m2:attach` SWING, WEAR and REPAIR, hold the readers.
+
 ## How pieces reach main, and who reviews the art, 2026-10-27
 
 A review of the playbook (docs/38) and of how threads are spawned, with three calls the owner took

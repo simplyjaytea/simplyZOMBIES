@@ -141,7 +141,9 @@ const ALLOWED: Dictionary = {
 	"settings": ["escape"],
 	# The three screens about people share one navigation bar (ui/nav_bar.gd), so each one's row
 	# lets the other two's keys through: Tab, J and K switch between them in one press (main.gd's
-	# `_show_screen`), which is the bar's whole promise.
+	# `_show_screen`), which is the bar's whole promise. Under Colony the arrows and Enter answer
+	# the roster and the Focus chips (`ui/work_panel.gd`'s `key`), the way the bench takes its own:
+	# the walking keys are swallowed with the body stopped at the screen, never accumulated behind it.
 	"web": ["web", "escape", "legend", "inventory", "work"],
 	# The bench is the sim's own screen -- `benchFocus` on the survivor opens it and
 	# `bench.close` shuts it. Escape is the router's (it pushes the close); the arrows, which
@@ -149,7 +151,7 @@ const ALLOWED: Dictionary = {
 	# it below the way the shell takes its keys.
 	"bench": ["escape", "move", "dismiss"],
 	"sheet": ["inventory", "escape", "reload", "strip", "sheets", "legend", "work", "web"],
-	"work": ["work", "escape", "inventory", "web"],
+	"work": ["work", "escape", "inventory", "web", "move", "dismiss"],
 	# Marking keeps the body under the player's feet -- walking, the stance ladder, the sprint latch --
 	# and the clock: pause and the two speed keys, because laying out a stockpile is something you do
 	# with the world stopped. Z and Escape put the brush down; F1 still shows the keys. Nothing that
@@ -283,6 +285,16 @@ func _input(event: InputEvent) -> void:
 			if main._bench_panel != null and main._bench_panel.has_method("key"):
 				main._bench_panel.call("key", ke)
 				main.queue_redraw()
+			return
+		# The Colony screen's roster and Focus chips move on the arrows and press on Enter, the
+		# bench's same handover. Only the two actions those keys answer reach it ("move" and
+		# "dismiss", the allow row above); the bar's Tab, J and K answer before this, and the
+		# panel swallows a walking key without meaning, so nothing accumulates in the held set
+		# behind the screen.
+		if focus == "work" and (action == "move" or action == "dismiss"):
+			if main._work_panel != null and main._work_panel.has_method("key"):
+				main._work_panel.call("key", ke)
+			main.queue_redraw()
 			return
 		# The one interact key, named once (INTERACT_KEY) rather than as a literal in the match
 		# below, because a match arm binds an identifier instead of comparing against it. It

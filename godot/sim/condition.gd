@@ -46,14 +46,15 @@ const PART_ORDER: Array[String] = SimCombat.SURVIVOR_BODY_PARTS
 # slice, because a field with only one possible value is a gate that cannot fail.
 #
 # `lasting` joined with the splint slice (2026-09-06): the word for what a healed injury left
-# behind on this part -- "none", or "limp" for a leg whose fracture set without a splint. A word
+# behind on this part -- "none", or "limp" for a leg whose fracture set without a splint, or
+# "tourniquet" for a limb a tourniquet was left on too long (wounds.gd). A word
 # from LASTING_WORDS, never how much slower the leg is; and, like `bandage`, it arrived only once
 # there were two values it could take.
 const PART_KEYS: Array[String] = ["part", "state", "prose", "wounded", "infected", "armored", "bleeding", "bandage", "lasting"]
 
 # Every word `lasting` may carry. The gate asserts membership, so a new lasting condition is an
 # entry here and a reader in SimWounds, never a number.
-const LASTING_WORDS: Array[String] = ["none", "limp"]
+const LASTING_WORDS: Array[String] = ["none", "limp", "tourniquet"]
 
 # Humanized display for the sided parts. Head and torso need no entry -- the raw key is
 # already the word. Without this, "arm_left" would be the literal text a screen shows,

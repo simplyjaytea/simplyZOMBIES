@@ -143,6 +143,109 @@ const CONCUSSION_SOURCE: String = "wound.concussion"
 const LASTING_SOURCE: String = "injury.limp"
 const LIMP_MOVE_MUL: float = 0.90
 
+# --- the tourniquet (docs/05's first step: "pressure, tourniquet, bandage") ----------------------
+#
+# A tourniquet is not a dressing grade (docs/23): it acts on a whole limb rather than on one wound,
+# and it is the one first-aid answer that trades a limb for a life. The smallest honest rule, and
+# the call is recorded in docs/30:
+#
+#   * tied on an arm or a leg (`_is_limb`), it holds the bleed of every open wound on that part shut
+#     for TOURNIQUET_TICKS -- outright, not a partial suppression the way a hand is;
+#   * the clock runs on the time it stays on, not on the state of the wound: a wound a hand has
+#     already clotted still spends the window, because the limb is what is being starved;
+#   * when the window runs out the limb is lost. The part goes to DESTROYED, the same floor an
+#     amputation leaves (infection.gd's `amputate`), and the lasting word `tourniquet` records why.
+#     No new number is introduced: the cost is the one docs/05 already has for a lost limb. The
+#     wounds on the part are closed with it (a stump does not bleed), the default taken in docs/30;
+#   * loosening before the window clears the record and costs nothing; the bleed then resumes on
+#     any wound still open. Once the window has passed the limb is gone and there is nothing left
+#     to loosen.
+#
+# The record lives on the `injuries` component as an Array of {bodyPart, sinceTick} records, not a
+# Dictionary keyed by part -- the JSON-key trap CLAUDE.md records. At most one per part.
+const TOURNIQUET_TICKS: int = 2400
+const TOURNIQUET_LOST_WORD: String = "tourniquet"
+
+
+# Whether a tourniquet may be tied on this part at all: an arm or a leg, never a hand, foot, torso or
+# head. docs/05's sided limbs are the only ones a tourniquet has a meaning for.
+static func can_tourniquet(part: String) -> bool:
+	return _is_limb(part)
+
+
+static func _tourniquets(world: Variant, entity: int) -> Array:
+	var inj: Variant = world.components.get_component(entity, "injuries")
+	if not (inj is Dictionary):
+		return []
+	return (inj as Dictionary).get("tourniquets", []) as Array
+
+
+# Whether a tourniquet is on the part, whether or not its window has run out yet. The expiry system
+# removes a spent record at the top of the tick, so after that the two readings agree.
+static func tourniquet_on(world: Variant, entity: int, part: String) -> bool:
+	for r in _tourniquets(world, entity):
+		if String((r as Dictionary).get("bodyPart", "")) == part:
+			return true
+	return false
+
+
+# The parts a tourniquet is holding shut this tick. Read by wounds.bleed.
+static func _tied_parts(world: Variant, entity: int) -> Array:
+	var out: Array = []
+	for r in _tourniquets(world, entity):
+		var rd: Dictionary = r as Dictionary
+		if int(world.tick) - int(rd.get("sinceTick", 0)) < TOURNIQUET_TICKS:
+			out.append(String(rd.get("bodyPart", "")))
+	return out
+
+
+# Ties a tourniquet on a limb, starting its window now. Returns false, and changes nothing, when the
+# part is not a limb or already has one. The caller has already spent the item.
+static func tie_tourniquet(world: Variant, entity: int, part: String) -> bool:
+	if not can_tourniquet(part) or tourniquet_on(world, entity, part):
+		return false
+	var inj: Variant = world.components.get_component(entity, "injuries")
+	if not (inj is Dictionary):
+		return false
+	var d: Dictionary = inj as Dictionary
+	var records: Array = d.get("tourniquets", []) as Array
+	records.append({"bodyPart": part, "sinceTick": int(world.tick)})
+	d["tourniquets"] = records
+	return true
+
+
+# Takes a tourniquet off a limb. Returns false when there was none to take off.
+static func untie_tourniquet(world: Variant, entity: int, part: String) -> bool:
+	var inj: Variant = world.components.get_component(entity, "injuries")
+	if not (inj is Dictionary):
+		return false
+	var d: Dictionary = inj as Dictionary
+	var records: Array = d.get("tourniquets", []) as Array
+	for i in records.size():
+		if String((records[i] as Dictionary).get("bodyPart", "")) == part:
+			records.remove_at(i)
+			d["tourniquets"] = records
+			return true
+	return false
+
+
+# The limb a tourniquet's window has run out on: the DESTROYED floor, and the lasting word.
+static func _lose_limb(world: Variant, entity: int, part: String) -> void:
+	var body: Variant = world.components.get_component(entity, "body")
+	if body is Dictionary and (body as Dictionary).has(part):
+		(body as Dictionary)[part] = DESTROYED
+	# A lost limb is closed with its wounds: the stump does not bleed. The owner's call is open (docs/33),
+	# and this is the default taken, so a forgotten tie costs the limb and nothing more. The list is
+	# rebuilt rather than erased from, because Array.erase matches Dictionaries by value (docs/37).
+	var inj: Variant = world.components.get_component(entity, "injuries")
+	if inj is Dictionary:
+		var kept: Array = []
+		for wound in ((inj as Dictionary).get("wounds", []) as Array):
+			if String((wound as Dictionary).get("bodyPart", "")) != part:
+				kept.append(wound)
+		(inj as Dictionary)["wounds"] = kept
+	add_lasting(world, entity, TOURNIQUET_LOST_WORD, part)
+
 
 # The kind's closer, or "" for an injury nothing closes.
 static func close_kind_of(wound: Dictionary) -> String:
@@ -1161,6 +1264,30 @@ static func register_module(world: Variant) -> void:
 			_apply_lasting(w, int(entity))
 	)
 
+	# A tourniquet that has held its window is spent: the limb it was on is lost. Order 0, ahead of
+	# wounds.bleed, so a window that runs out on this tick costs the limb before the bleed is summed.
+	world.systems.register("wounds.tourniquet", "health", 0, func(w: Variant) -> void:
+		for entity in w.components.query(["injuries"]):
+			var e: int = int(entity)
+			if w.components.has_component(e, "corpse"):
+				continue
+			var inj: Variant = w.components.get_component(e, "injuries")
+			if not (inj is Dictionary):
+				continue
+			var d: Dictionary = inj as Dictionary
+			var records: Array = d.get("tourniquets", []) as Array
+			if records.is_empty():
+				continue
+			var kept: Array = []
+			for r in records:
+				var rd: Dictionary = r as Dictionary
+				if int(w.tick) - int(rd.get("sinceTick", 0)) < TOURNIQUET_TICKS:
+					kept.append(rd)
+				else:
+					_lose_limb(w, e, String(rd.get("bodyPart", "")))
+			d["tourniquets"] = kept
+	)
+
 	world.systems.register("wounds.bleed", "health", 1, func(w: Variant) -> void:
 		for entity in w.components.query(["injuries"]):
 			var inj: Variant = w.components.get_component(int(entity), "injuries")
@@ -1188,6 +1315,11 @@ static func register_module(world: Variant) -> void:
 			if treated is Dictionary and String((treated as Dictionary).get("verb", "")) == "pressure":
 				under_pressure = String((treated as Dictionary).get("part", ""))
 
+			# The parts a tourniquet is holding shut. Unlike a hand, a tie is not partial: every open
+			# wound on a tied limb is skipped outright for the window, and stays `bleeding` so the
+			# wound still reads as open to the rungs that need it that way.
+			var tied: Array = _tied_parts(w, int(entity))
+
 			var bleed_sum: float = 0.0
 			for wound in wounds:
 				var wd: Dictionary = wound as Dictionary
@@ -1201,6 +1333,8 @@ static func register_module(world: Variant) -> void:
 				# Suppressed, not stopped: the wound is still bleeding: true and resumes on
 				# the very next tick if the hold breaks. Only a completed hold clots it.
 				if under_pressure != "" and String(wd.get("bodyPart", "")) == under_pressure:
+					continue
+				if tied.has(String(wd.get("bodyPart", ""))):
 					continue
 				bleed_sum += float(BLEED_PER_TICK.get(int(wd.get("severity", Severity.Scratch)), 0.0))
 

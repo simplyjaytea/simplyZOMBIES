@@ -137,7 +137,13 @@ var _show_stores: bool = false
 var _stores: Array[Dictionary] = []
 var _stores_key: Array = []
 # The pick the roster last scrolled to, so the wheel is the player's until the pick changes.
+# Cleared when the panel hides, so it cannot outlive the screen: a colonist wheeled off screen,
+# picked again in the street after another and reopened scrolled to nobody instead of to them.
 var _scrolled_for: int = -1
+# Which Focus chip the keyboard points at, as an index into FOCUS_CYCLE; -1 for none. The keys
+# come from input_map.gd's work focus (`key`, the bench's precedent); the rim and the pointed-at
+# sentence follow it the way they follow the pointer.
+var _key_chip: int = -1
 # The size the column heads were drawn at, for the gate (25, or 20 where 25 does not fit).
 var head_size: int = TEXT_SIZE
 # What the last draw put on screen, for the gates: {entity: {"now": String}} per drawn row, and the
@@ -239,8 +245,9 @@ static func row_is_preset(row: Dictionary) -> bool:
 # The drawer's Focus line: the pointed-at chip's sentence, else the row's own focus -- by its preset
 # when the row is that preset, and plainly as a row of their own when it is not.
 func focus_line() -> String:
-	if not _hover_focus.is_empty():
-		return focus_sentence(_hover_focus)
+	var pointed: String = _pointed_focus()
+	if not pointed.is_empty():
+		return focus_sentence(pointed)
 	var sel: int = _row_of(_selected)
 	if sel < 0:
 		return ""
@@ -277,11 +284,68 @@ func set_world(world: Variant, who: int = -1) -> void:
 	if _selected != _scrolled_for:
 		_scrolled_for = _selected
 		_show_stores = false
+		_key_chip = -1
 		_scroll_to(_selected)
 
 
 func selected() -> int:
 	return _selected
+
+
+# The keyboard, handed over by input_map.gd under the work focus (the bench screen's precedent):
+# Up and Down move the pick along the roster, Left and Right move among the picked colonist's Focus
+# chips, Enter presses the chip pointed at. The bar's keys -- Tab, J and K -- answer before this is
+# reached, so navigation between the screens is never stolen; a walking key (W and the rest of
+# MOVE_KEYS) answers "move" under this screen, is swallowed here, and moves nobody, the body being
+# stopped at the screen already.
+func key(ke: InputEventKey) -> void:
+	if _world == null:
+		return
+	var picked_row: int = _row_of(_selected)
+	if ke.keycode == KEY_UP or ke.keycode == KEY_DOWN:
+		var dir: int = -1 if ke.keycode == KEY_UP else 1
+		if picked_row < 0:
+			# Nobody picked yet: Down starts the roster at its first row, like a click on it.
+			if dir == 1 and not _rows.is_empty():
+				_pick_row(0)
+			return
+		if picked_row + dir >= 0 and picked_row + dir < _rows.size():
+			_pick_row(picked_row + dir)
+		return
+	var step: int = -1 if ke.keycode == KEY_LEFT else (1 if ke.keycode == KEY_RIGHT else 0)
+	if step != 0:
+		# The chips exist only for a picked colonist while the drawer shows them, not the stockpile.
+		if picked_row >= 0 and not stores_shown():
+			_key_chip = clampi(_key_chip + step, 0, FOCUS_CYCLE.size() - 1) if _key_chip >= 0 else (0 if step == 1 else FOCUS_CYCLE.size() - 1)
+			queue_redraw()
+		return
+	if ke.keycode == KEY_ENTER or ke.keycode == KEY_KP_ENTER:
+		# Activate what the keys point at, and nothing else: without a chip pointed Enter queues
+		# no command, the same as a click on the empty steel.
+		if _key_chip >= 0 and picked_row >= 0 and not stores_shown():
+			_world.commands.push({"type": "job.focus", "entity": _selected, "focus": FOCUS_CYCLE[_key_chip]})
+		return
+
+
+# The act one keyboard step on a roster row takes, the same as a click on that row: the colonist
+# becomes the game's pick, their drawer opens and their row is scrolled to be drawn.
+func _pick_row(i: int) -> void:
+	var ent: int = int(_rows[i].get("entity", -1))
+	_selected = ent
+	_show_stores = false
+	_key_chip = -1
+	_scroll_to(ent)
+	picked.emit(ent)
+	queue_redraw()
+
+
+# Which Focus the drawer's pointed-at sentence and rim follow: the pointer's, then the keyboard's.
+func _pointed_focus() -> String:
+	if not _hover_focus.is_empty():
+		return _hover_focus
+	if _key_chip >= 0 and _key_chip < FOCUS_CYCLE.size() and _row_of(_selected) >= 0 and not stores_shown():
+		return FOCUS_CYCLE[_key_chip]
+	return ""
 
 
 # Scroll the roster just far enough that `entity`'s row is drawn: a colonist picked in the street
@@ -646,6 +710,10 @@ func _layout_stores(out: Dictionary, font: Font, y: float) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_VISIBILITY_CHANGED:
 		_stores_key = []
+		# The scroll memory dies with the screen: reopen scrolls to the game's pick afresh, so a
+		# colonist the wheel left off screen is found again. The wheel is untouched while the
+		# screen stays up -- this fires only when it hides or shows, never on a frame.
+		_scrolled_for = -1
 
 
 func _summary() -> Array[Dictionary]:
@@ -891,11 +959,12 @@ func _draw_drawer(font: Font, laid: Dictionary, a: float) -> void:
 	draw_string(font, laid["who_label_at"] as Vector2, "who", HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, Locker.TEXT_DIM)
 	draw_string(font, laid["learn_label_at"] as Vector2, "knows", HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, Locker.TEXT_DIM)
 	var now: String = String(laid["focus_now"])
+	var pointed: String = _pointed_focus()
 	for chip in laid["chips"] as Array:
 		var cd: Dictionary = chip as Dictionary
 		var f: String = String(cd["focus"])
 		Locker.chip(self, cd["rect"] as Rect2, f.to_lower(), f == now, a, TEXT_SIZE)
-		if f == _hover_focus and f != now:
+		if f == pointed and f != now:
 			Locker.rim(self, cd["rect"] as Rect2, Locker.TEXT_DIM)
 	var at: Vector2 = laid["focus_at"] as Vector2
 	for line in laid["focus_lines"] as Array:

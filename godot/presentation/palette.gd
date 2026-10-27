@@ -76,6 +76,10 @@ const COLOURS: Dictionary = {
 	"windowRim": Color("#5f7480"),
 	"screen": Color("#454a37"),
 	"low": Color("#524d47"),
+	# A wire fence: the strand and the posts, drawn over the floor it stands on. Lighter than the wall
+	# and than every ground it can touch, so a fence reads as a thin bright line you can see through
+	# rather than as a block of masonry, which is what the sim says it is (solid, and clear to the eye).
+	"fence": Color("#a3a095"),
 	"player": Color("#e8d7a0"),
 	"survivor": Color("#b9a97f"),
 	# The floor under a raider archetype that declares no appearance. Content overrides it -- both
