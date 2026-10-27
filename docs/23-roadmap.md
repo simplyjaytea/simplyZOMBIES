@@ -2532,6 +2532,33 @@ not a to-do list:
   and the gate reads it; a screen row is the next step), and the wear of studs and edges is the arc's
   next piece.
 
+- **Art review of the 2026-10-26 integration, round 1 fixes, 2026-10-27.** The review shot every
+  scene on main and on the integrated head at both windows and found three things, each fixed with
+  the assertion that would have caught it:
+  - **The quick strip drew no item names.** The wrap added the slot's y to a baseline that already
+    held it, so every filled slot's name landed off screen at both windows while STRIP passed on
+    the wrap alone. `QuickStrip.name_baselines` is now the one placement the draw and the gate
+    share; `godot:check:hud` STRIP holds every line of a one- and a two-line name inside the slot
+    box and refuses the doubled y.
+  - **The care pane squeezed the list to no row at 1280x720,** and the list then said "nothing in
+    reach" over an Empty Bottle that was. The list's floor is measured from where its chips really
+    end (`_rows_offset`), and the empty note is drawn only when there are no rows, not when none
+    fits. `godot:check:inventory` CARE ROOM proves the squeeze happens at 1280 and a row survives
+    it (it fails on the old floor). "And more besides" moved from `TEXT_FAINT` (2.6:1) to
+    `TEXT_DIM` (5.8:1), since the tourniquet's refusal now brings it on screen at 1280.
+  - **The wire fence read as a ladder.** Every tile drew two posts and two horizontal strands
+    whatever stood beside it. `presentation/fence_look.gd` lays the strands along the run from the
+    four neighbours, one post per tile at the centre, and mitres an L whose square post caps both
+    joints. A run's open end stops at its post and a run that ends at a wall reaches it (a side is
+    open, fence, or an anchor: anything solid). `godot:check:topdown` FENCE judges both runs, both
+    ends, a run against a wall, a lone tile, a tee and both corners against extents written from
+    the rules, and that `_draw_fence_wire` lays its pieces from the neighbours. Round 2 of the
+    review caught the open end's loose wire and a corner post that touched no strand; both lanes
+    fail on that version. A new review scene, `raised_walls`
+    (`godot:check:shots`), stands an L of fence, two timber walls and two stone courses on the day
+    street. Still open, as before: timber and stone draw as a building's wall until they have
+    pictures.
+
 - **UI overhaul, slice 2: the Colony screen in one survivor context, 2026-10-23.** The second
   bullet of [the UI overhaul group](#ui-overhaul), its Colony half, against docs/32's roster row.
   The calls taken are in docs/30, "The Colony screen". What changed:
