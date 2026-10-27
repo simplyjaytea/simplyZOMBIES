@@ -160,7 +160,22 @@ func _the_strip_names_survive_1280() -> bool:
 	if " ".join(PackedStringArray(short_lines)) != "Tin of soup":
 		push_error("STRIP: a short name was cut: %s" % str(short_lines))
 		return false
-	print("STRIP OK slot 1 at 1280x720 wraps %s whole in %d px, the one line it replaces cuts it, a name twice as long is still cut, and a first word wider than the room is cut inside it" % [bottle, int(room)])
+	# Where the words land: every line of a one- and a two-line name, as the draw places it
+	# (`name_baselines`), keeps its ascent and descent inside the slot box. The negative is the y the
+	# draw once used, the box's y added to a baseline that already held it: the same lane must refuse
+	# it, or it is not judging where the words are drawn.
+	var asc: float = Chrome.ascent(name_size)
+	var desc: float = Chrome.line_height(name_size) - asc
+	for count in [1, 2]:
+		for base in strip.call("name_baselines", boxes[0], count) as Array:
+			if float(base) - asc < boxes[0].position.y or float(base) + desc > boxes[0].end.y:
+				push_error("STRIP: a %d-line name's baseline %d draws outside slot 1 (%d to %d)" % [count, int(base), int(boxes[0].position.y), int(boxes[0].end.y)])
+				return false
+	var doubled: float = boxes[0].position.y + float((strip.call("name_baselines", boxes[0], 1) as Array)[0])
+	if doubled - asc >= boxes[0].position.y and doubled + desc <= boxes[0].end.y:
+		push_error("STRIP: the box's y added twice still lands inside slot 1, so the placement was not judged")
+		return false
+	print("STRIP OK slot 1 at 1280x720 wraps %s whole in %d px, the one line it replaces cuts it, a name twice as long is still cut, a first word wider than the room is cut inside it, and every line is drawn inside the slot" % [bottle, int(room)])
 	return true
 
 

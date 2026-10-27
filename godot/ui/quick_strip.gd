@@ -96,9 +96,9 @@ static func draw_strip(ci: CanvasItem, rect: Rect2, rows: Array, alpha: float, s
 			# The name wrapped to what the room keeps, the block centred in the slot's height, so a
 			# long name gives up a line before it gives up a letter.
 			var lines: Array[String] = name_lines(font, text, wide, NAME_LINES)
-			var first_y: float = floorf(box.position.y + (SLOT_H - Chrome.line_height(NAME_SIZE) * float(lines.size())) / 2.0 + Chrome.ascent(NAME_SIZE))
+			var baselines: Array[float] = name_baselines(box, lines.size())
 			for j in lines.size():
-				ci.draw_string(font, box.position + Vector2(name_x, first_y + Chrome.line_height(NAME_SIZE) * float(j)), lines[j], HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, Locker._a(Locker.TEXT, alpha))
+				ci.draw_string(font, Vector2(box.position.x + name_x, baselines[j]), lines[j], HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, Locker._a(Locker.TEXT, alpha))
 		else:
 			# An unheld slot is words alone, at the room the whole box keeps: no picture stands in
 			# it even when the strip draws pictures for the slots that are filled.
@@ -147,6 +147,19 @@ static func text_room(font: Font, box: Rect2, with_picture: bool, count: int) ->
 		out -= (PICTURE if keeps_picture(box) else PICTURE / 2.0) + PICTURE_GAP
 	if count > 1:
 		out -= font.get_string_size("x%d" % count, HORIZONTAL_ALIGNMENT_LEFT, -1, KEY_SIZE).x + Locker.PX * 2.0
+	return out
+
+
+# The screen y of each name line's baseline in a slot: the block of `count` lines centred in the
+# slot's height (SLOT_H). Absolute, so the draw adds nothing to it. Pure, so the gate asks where the
+# draw puts the words: STRIP once passed with every line wrapped right and drawn off screen, because
+# the draw added the box's y to a y that already held it.
+static func name_baselines(box: Rect2, count: int) -> Array[float]:
+	var out: Array[float] = []
+	var lh: float = Chrome.line_height(NAME_SIZE)
+	var first: float = floorf(box.position.y + (SLOT_H - lh * float(count)) / 2.0 + Chrome.ascent(NAME_SIZE))
+	for j in count:
+		out.append(first + lh * float(j))
 	return out
 
 

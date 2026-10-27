@@ -271,7 +271,7 @@ static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: floa
 		# The sheet sizes the pane from `height_for`, so this only bites on a window too short for
 		# even that; the last line that fits then says there is more rather than stopping mid-list.
 		if line_y + LINE > rect.end.y - PAD / 2.0 and i < lines.size() - 1:
-			ci.draw_string(font, Vector2(x, line_y), "and more besides", HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_TEXT, Locker._a(Locker.TEXT_FAINT, alpha))
+			ci.draw_string(font, Vector2(x, line_y), "and more besides", HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_TEXT, Locker._a(Locker.TEXT_DIM, alpha))
 			break
 		ci.draw_string(font, Vector2(x, line_y), UiText.fit(font, lines[i], BODY_TEXT, wide), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_TEXT, Locker._a(Locker.TEXT_DIM, alpha))
 		line_y += LINE
