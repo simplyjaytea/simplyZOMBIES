@@ -594,6 +594,7 @@ const ROSTER: Array[Dictionary] = [
 	{"id": "zombie.runner", "kind": "zombie", "probe": {"ztype": "zombie.runner"}, "tinted": false},
 	{"id": "zombie.armored", "kind": "zombie", "probe": {"ztype": "zombie.armored"}, "tinted": false},
 	{"id": "zombie.heavy", "kind": "zombie", "probe": {"ztype": "zombie.heavy"}, "tinted": false},
+	{"id": "zombie.bloodhound", "kind": "zombie", "probe": {"ztype": "zombie.bloodhound"}, "tinted": false},
 	{"id": "raider.scav", "kind": "raider", "probe": {"raider": true, "cid": "raider.scav"}, "tinted": true},
 	{"id": "raider.gunhand", "kind": "raider", "probe": {"raider": true, "cid": "raider.gunhand"}, "tinted": true},
 	# The two role archetypes (the roles slice). Same body as the other two, and that is the
@@ -633,6 +634,11 @@ const ROSTER_DIRS: Array[String] = ["players/", "zombies/", "survivors/uniques/"
 # (check_m2_raiders.gd asserts the same thing from the content side).
 #
 const ROSTER_SHARED: Array = [
+	# The bloodhound (zombie kind eight, 2026-10-27) wears the shambler's workwear body and corpses
+	# with its own tint palette, which arrives on the draw item. Its own picture is a gap, not a
+	# decision: the art is a stage behind the content arc (docs/38), so it shares the shambler's
+	# file until a bloodhound body is drawn.
+	["zombie.shambler", "zombie.bloodhound"],
 	[
 		"player.body", "survivor.unique.mara", "survivor.unique.ellis",
 		"colony.look.01", "colony.look.02", "colony.look.03", "colony.look.04", "colony.look.05", "colony.look.06",
