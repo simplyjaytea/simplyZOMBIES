@@ -2318,7 +2318,7 @@ func _draw_solid_tile(rect: Rect2, col: Color, tx: int, ty: int) -> void:
 # raised beside this one rebakes it. The floor is drawn first, by the tile's own arm; this is only
 # what stands on it.
 func _draw_fence_wire(rect: Rect2, col: Color, tx: int, ty: int) -> void:
-	var laid: Dictionary = FenceLook.pieces(rect, _fence_at(tx + 1, ty), _fence_at(tx - 1, ty), _fence_at(tx, ty - 1), _fence_at(tx, ty + 1))
+	var laid: Dictionary = FenceLook.pieces(rect, _fence_side(tx + 1, ty), _fence_side(tx - 1, ty), _fence_side(tx, ty - 1), _fence_side(tx, ty + 1))
 	var t: float = FenceLook.thickness(rect.size.x)
 	var shade: Color = Color(0.0, 0.0, 0.0, 0.35 * col.a)
 	var all: Array = (laid["strands"] as Array).duplicate()
@@ -2329,11 +2329,15 @@ func _draw_fence_wire(rect: Rect2, col: Color, tx: int, ty: int) -> void:
 		_pen.draw_rect(r as Rect2, col)
 
 
-func _fence_at(tx: int, ty: int) -> bool:
+# What stands on one side of a fence tile, for FenceLook: another fence, something solid a strand
+# can be fixed to (a raised wall, a building's wall, a barricade, a shut door), or open ground.
+func _fence_side(tx: int, ty: int) -> int:
 	if world.tilemap == null:
-		return false
+		return FenceLook.NONE
 	var ov: Variant = SimTileMap.overlay_at(world.tilemap, tx, ty)
-	return ov is Dictionary and String((ov as Dictionary).get("kind", "")) == "fence"
+	if ov is Dictionary and String((ov as Dictionary).get("kind", "")) == "fence":
+		return FenceLook.FENCE
+	return FenceLook.ANCHOR if SimTileMap.is_solid(world.tilemap, tx, ty) else FenceLook.NONE
 
 
 # Windows: a bright glass pane + rim so they read against masonry. Orientation
