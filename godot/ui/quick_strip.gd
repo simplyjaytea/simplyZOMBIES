@@ -35,6 +35,9 @@ const PICTURE_GAP: float = 6.0
 const KEY_W: float = 22.0
 # The least room a name keeps beside a picture at 2x; under it the picture drops to the art's size.
 const NAME_ROOM: float = 120.0
+# The most lines a slot's name wraps to, the draw centring the block in the slot's height
+# (SLOT_H). A name longer than the lines keep is cut with the ellipsis, marked, never silent.
+const NAME_LINES: int = 2
 # The strip's own inset from the rect's left and right, and around its lead.
 const SIDE: float = 24.0
 
@@ -70,11 +73,12 @@ static func draw_strip(ci: CanvasItem, rect: Rect2, rows: Array, alpha: float, s
 		# The key's numeral, small and amber in the well's corner: a key name, not a measurement.
 		ci.draw_string(font, box.position + Vector2(Locker.PX * 3.0, Locker.PX * 2.0 + Chrome.ascent(KEY_SIZE)), str(i + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, KEY_SIZE, Locker._a(Locker.ACCENT, alpha))
 		var name_x: float = KEY_W
-		var wide: float = box.size.x - KEY_W - Locker.PX * 4.0
 		if i < rows.size():
 			var d: Dictionary = rows[i] as Dictionary
 			var text: String = String(d.get("name", ""))
 			var count: int = int(d.get("count", 1))
+			var big: bool = keeps_picture(box)
+			var pw: float = PICTURE if big else PICTURE / 2.0
 			if world != null:
 				# The same picture the bag plate draws, at the same 2x, wherever the slot is wide
 				# enough to keep a few letters of the name beside it.
@@ -82,19 +86,24 @@ static func draw_strip(ci: CanvasItem, rect: Rect2, rows: Array, alpha: float, s
 				# where it does not: a narrow strip (1280) keeps "Kitchen Knife" readable rather than
 				# trading it for a bigger knife. Never turned -- a strip slot is not a footprint.
 				var look: Dictionary = Appearance.item_look(world, ItemPicture.base_of(world, int(d.get("item", -1))))
-				var big: bool = wide - PICTURE - PICTURE_GAP >= NAME_ROOM
-				var pw: float = PICTURE if big else PICTURE / 2.0
 				ItemPicture.draw(ci, Rect2(box.position + Vector2(name_x, Locker.PX * 2.0), Vector2(pw, SLOT_H - Locker.PX * 4.0)), look, alpha, 2 if big else 1, false)
 				name_x += pw + PICTURE_GAP
-				wide -= pw + PICTURE_GAP
+			var wide: float = text_room(font, box, world != null, count)
 			if count > 1:
 				var tally: String = "x%d" % count
 				var tw: float = font.get_string_size(tally, HORIZONTAL_ALIGNMENT_LEFT, -1, KEY_SIZE).x
 				Locker.text_shadowed(ci, box.end - Vector2(tw + Locker.PX * 3.0, Locker.PX * 3.0), tally, KEY_SIZE, Locker.ACCENT, alpha)
-				wide -= tw + Locker.PX * 2.0
-			ci.draw_string(font, box.position + Vector2(name_x, mid), UiText.fit(font, text, NAME_SIZE, maxf(wide, 1.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, Locker._a(Locker.TEXT, alpha))
+			# The name wrapped to what the room keeps, the block centred in the slot's height, so a
+			# long name gives up a line before it gives up a letter.
+			var lines: Array[String] = name_lines(font, text, wide, NAME_LINES)
+			var baselines: Array[float] = name_baselines(box, lines.size())
+			for j in lines.size():
+				ci.draw_string(font, Vector2(box.position.x + name_x, baselines[j]), lines[j], HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, Locker._a(Locker.TEXT, alpha))
 		else:
-			ci.draw_string(font, box.position + Vector2(name_x, mid), UiText.fit(font, "empty", NAME_SIZE, maxf(wide, 1.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, Locker._a(Locker.TEXT_FAINT, alpha))
+			# An unheld slot is words alone, at the room the whole box keeps: no picture stands in
+			# it even when the strip draws pictures for the slots that are filled.
+			var empty_room: float = text_room(font, box, false, 1)
+			ci.draw_string(font, box.position + Vector2(name_x, mid), UiText.fit(font, "empty", NAME_SIZE, maxf(empty_room, 1.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, Locker._a(Locker.TEXT_FAINT, alpha))
 		if picked:
 			Locker.selected(ci, box, alpha)
 		if i == ping_slot:
@@ -120,6 +129,67 @@ static func slot_boxes(font: Font, rect: Rect2) -> Array[Rect2]:
 	for i in SLOTS:
 		out.append(Rect2(Vector2(x0 + (w + GAP) * float(i), y), Vector2(w, SLOT_H)))
 	return out
+
+
+# Whether a filled slot keeps the 2x picture beside its name: one decision, read by the draw and
+# by `text_room`'s subtraction, so the name cannot disagree with the picture about the slot's width.
+# Pure, so the gate asks the same.
+static func keeps_picture(box: Rect2) -> bool:
+	return box.size.x - KEY_W - Locker.PX * 4.0 - PICTURE - PICTURE_GAP >= NAME_ROOM
+
+
+# The room a slot's name keeps: past the key's numeral, the picture it draws (when one is drawn,
+# at the 2x where `keeps_picture` holds) and a stack tally in the corner (a stack of more than one).
+# Pure, so the gate asks the same room the draw fills.
+static func text_room(font: Font, box: Rect2, with_picture: bool, count: int) -> float:
+	var out: float = box.size.x - KEY_W - Locker.PX * 4.0
+	if with_picture:
+		out -= (PICTURE if keeps_picture(box) else PICTURE / 2.0) + PICTURE_GAP
+	if count > 1:
+		out -= font.get_string_size("x%d" % count, HORIZONTAL_ALIGNMENT_LEFT, -1, KEY_SIZE).x + Locker.PX * 2.0
+	return out
+
+
+# The screen y of each name line's baseline in a slot: the block of `count` lines centred in the
+# slot's height (SLOT_H). Absolute, so the draw adds nothing to it. Pure, so the gate asks where the
+# draw puts the words: STRIP once passed with every line wrapped right and drawn off screen, because
+# the draw added the box's y to a y that already held it.
+static func name_baselines(box: Rect2, count: int) -> Array[float]:
+	var out: Array[float] = []
+	var lh: float = Chrome.line_height(NAME_SIZE)
+	var first: float = floorf(box.position.y + (SLOT_H - lh * float(count)) / 2.0 + Chrome.ascent(NAME_SIZE))
+	for j in count:
+		out.append(first + lh * float(j))
+	return out
+
+
+# The lines a slot's name is drawn as: wrapped at spaces into at most `max_lines` lines that fit
+# `room` whole, each one fitted with the ellipsis when a word or the words run out first, so a cut is
+# marked, never silent (`UiText.fit`). Pure, so the gate asks the same lines the draw lays.
+static func name_lines(font: Font, text: String, room: float, max_lines: int) -> Array[String]:
+	var lines: Array[String] = []
+	if text.is_empty() or room <= 0.0:
+		lines.append(UiText.fit(font, text, NAME_SIZE, maxf(room, 1.0)))
+		return lines
+	var line: String = ""
+	var words: PackedStringArray = text.split(" ", false)
+	var i: int = 0
+	while i < words.size():
+		var next: String = words[i] if line.is_empty() else line + " " + words[i]
+		if line.is_empty() or font.get_string_size(next, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE).x <= room:
+			line = next
+			i += 1
+			continue
+		if lines.size() == max_lines - 1:
+			break
+		# Every appended line is fitted, not only the last: one word wider than `room` is accepted
+		# onto an empty line above, and appended bare it would draw past the slot.
+		lines.append(UiText.fit(font, line, NAME_SIZE, maxf(room, 1.0)))
+		line = ""
+	if i < words.size():
+		line = line + " " + " ".join(words.slice(i))
+	lines.append(UiText.fit(font, line, NAME_SIZE, maxf(room, 1.0)))
+	return lines
 
 
 # Which of the strip's slots holds the pinged item: -1 for no ping, or for an item not on the

@@ -2031,6 +2031,10 @@
         }
       },
       {
+        "item": "item.medical.tourniquet",
+        "weight": 8
+      },
+      {
         "item": "item.peroxide.bottle",
         "weight": 6,
         "count": {
@@ -2966,6 +2970,10 @@
       "modified": 40
     },
     "entries": [
+      {
+        "item": "item.bat.wood",
+        "weight": 5
+      },
       {
         "item": "item.scrap.metal",
         "weight": 16,
