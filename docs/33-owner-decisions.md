@@ -350,6 +350,13 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
     sharp; commoner makes the tie a routine tool. Which table, and how often, is the call.
 
 
+20. **Can the bloodhound see?** (2026-10-27, the bloodhound piece, docs/30's "The bloodhound,
+    2026-10-27"). It follows the scent field and is deaf to noise. The default is that it sees only
+    at contact range: its eyes are off, so it finds a body by walking into it, or by the scent it
+    follows, and noise and light draw nothing. That is built with `sensory.light` 0. The
+    alternatives are normal zombie sight, or fully blind (the same, with contact removed too). One
+    value in `godot/content/zombies/bloodhound.json` changes the answer, and the SCENT-ONLY lane in
+    `godot:m2:district` holds the default.
 21. **Does a shed stud leave the world, and does a lashed head land at the feet?** (2026-10-27,
     docs/30's "Melee wear, 2026-10-27"). The default is as built: a stud that comes out is gone,
     and a lashed head is its own item lying at the swinger's feet. The alternative is that a shed
