@@ -5,7 +5,7 @@ the rules of the repository. This file is about how the project around it runs: 
 what, how a piece of work gets from a request onto `main`, where the shared material lives, and
 what is open right now. It links rather than repeats. Where it states a fact about the build, it
 names the file or gate that proves it. Where it says how the owner works, it records the owner's
-standing instructions as of 2026-10-23.
+standing instructions as of 2026-10-27.
 
 Read `CLAUDE.md` first, top to bottom. Come back here before you pick up a piece.
 
@@ -72,39 +72,70 @@ per piece of work. The rules below hold for any agent. [docs/34](34-agents-and-e
 covers branch naming and worktrees for agents working outside a project.
 
 1. **One piece, one branch, one pull request.** Branch off `main`, base the pull request on
-   `main`, and push only your own branch. Fill in `.github/pull_request_template.md`. For stacked
-   work, every pull request still bases on `main` and names the ones it follows. Stacked pull
-   requests that conflict go through one integration pull request.
-2. **Drive it green** by `.claude/skills/steward/SKILL.md`. Never skip, disable or loosen a gate.
-3. **Claude merges, with a merge commit.** The owner authorized this. Re-check the head commit and
-   CI right before you merge. Merge in dependency order. After a merge, tell the open threads the
-   new `main`.
-4. **Follow-ups start fresh.** A merged pull request is finished. New work goes on a fresh branch
+   `main`, and push only your own branch. Fill in `.github/pull_request_template.md`. In a Claude
+   project the rule is enforced: a thread's git proxy refuses (403) a push to any ref but the
+   thread's own branch.
+2. **A fix to someone else's open pull request is a pull request onto its branch.** Branch off
+   that pull request's head, push your own branch, and open a pull request whose base is its
+   branch. CI runs on it, because `ci.yml` runs on every pull request whatever its base. It merges
+   into that branch under the same rules as a merge into `main` (step 4). #230 onto #228's branch
+   was the first.
+3. **Drive it green** by `.claude/skills/steward/SKILL.md`. Never skip, disable or loosen a gate.
+4. **Claude merges, with a merge commit, and never the thread that wrote it.** The owner
+   authorized merging. The coordinator, or a thread it names on the strongest tier, does it; the
+   thread that wrote a pull request does not merge its own. Re-check the head commit and CI right
+   before you merge. After a merge, tell the open threads the new `main`.
+5. **Pieces built side by side merge one by one, each as it goes green** (the owner's call,
+   2026-10-27). Merge the first green one. The next one then merges `main` in, waits for CI on
+   its new head, and merges in turn. Conflicts in the tails of docs/23 and docs/30 are settled in
+   that merge of `main`, by keeping both entries. A bundle of pieces in one integration pull
+   request is only for two pieces that conflict in code, and it names the pull requests it
+   closes. A piece that waits on another names it in its body and merges after it.
+6. **Follow-ups start fresh.** A merged pull request is finished. New work goes on a fresh branch
    from `main` with a new pull request, never on top of merged history.
-5. **Cloud sessions cannot delete remote branches.** The git proxy returns 403 for every ref but
+7. **Cloud sessions cannot delete remote branches.** The git proxy returns 403 for every ref but
    the session's own. Name the branches that should go, and the owner deletes them. Merged head
    branches come back after each merge unless "Automatically delete head branches" is on in the
    repository settings.
-6. **Usage limits and restarts.** Containers restart, and sessions pause at usage limits. Push
+8. **Usage limits and restarts.** Containers restart, and sessions pause at usage limits. Push
    at a clean point before a long run. A thread revived after days can wake with stale context:
    brief it on the current `main` before it acts.
 
+**Briefing a thread.** docs/23 and docs/30 are far too large to read whole at the start of a
+piece; "read in order" in `CLAUDE.md` means the parts that bear on it. A brief that opens a thread
+names them: the piece's entry in docs/23's what's left, its row in `CLAUDE.md`'s routing table,
+the record entries of the systems it touches, and the docs/30 entries for those systems (search
+by the system's name). The thread reads `CLAUDE.md`, docs/37, and those parts. A thread that finds
+it needs more reads more; the brief is a floor, not a fence.
+
 **Art and placement review.** Before an art or placement pull request merges, an independent
-read-only reviewer checks the thread's exports. The reviewer is told the folder, the export time,
-the previous report and the decisions so far, and verifies every claim against the pixels instead
-of trusting the thread. Findings land as commits on the same pull request, and the review repeats
-until it is clear. Round 3 is the last full round, and later passes only confirm fixes. Minor
-findings in a clear round go into docs/23. Docs-only, gate-only and 1 to 2 px gate-verified
-follow-ups need no review.
+read-only reviewer checks it (the owner's call, 2026-10-27):
+
+- **The coordinator spawns the reviewer, never the thread that made the art.** Its brief is
+  fixed: the pull request, its head commit, its base commit, and the shared folder for the
+  report. A confirmation pass also gets the previous report. It is not told the thread's account
+  of what changed or the decisions so far: those are what it checks.
+- **The reviewer makes its own shots.** It runs `godot:shots` on the base and on the head commit
+  and compares them, and it does not judge from the thread's exports. It measures the noise
+  floor (base against base) before calling a difference. The report names both commits; a push
+  after the verdict voids it.
+- **Rounds.** Findings land as commits on the same pull request, and the review repeats until it
+  is clear. Round 3 is the last full round. A later pass is a confirmation pass: it checks only
+  the previous findings and raises only blockers. Minor findings in a clear round go into
+  docs/23.
+- Docs-only, gate-only and 1 to 2 px gate-verified follow-ups need no review.
 
 **Model routing.** The owner assigns models by role. Nothing pushed names a model (`CLAUDE.md`,
 Pushing and pull requests), so the current model names live in the project's memory and the
 owner's project-chat instruction, not here. The roles:
 
-- The coordinator.
+- The coordinator, and the end review of a feature, on the coordinator's model.
 - Working threads, on the fast tier at high effort.
-- Planning threads, anything that cannot be undone (merges, deletes), and all art, design and
-  visual placement from the start, on the strongest tier at high effort.
+- On the strongest tier at high effort, from the start: planning threads; anything that cannot
+  be undone (merges, deletes); all art, design and visual placement, and the art reviewers; and
+  any piece that touches a shared sim module (`godot/sim/modules/jobs.gd`,
+  `godot/sim/modules/stockpile.gd`, `godot/sim/modules/needs.gd` and the like) or the save format
+  (the owner's call, 2026-10-27).
 
 ## Verifying a change
 

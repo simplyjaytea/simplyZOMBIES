@@ -24,12 +24,14 @@ Then read, in order:
 1. This file, top to bottom.
 2. [What's left in Milestone 2](docs/23-roadmap.md#whats-left-in-milestone-2), the open work, and
    [the record, by system](docs/23-roadmap.md#the-record-by-system) for how the neighbouring
-   systems landed.
+   systems landed. Both are far too large to read whole: read your piece's entry and the record
+   of the systems it touches ([briefing a thread](docs/38-playbook.md#how-work-flows)).
 3. [Waiting on the owner](docs/33-owner-decisions.md#waiting-on-the-owner): decisions that are
    not yours to make.
 4. [docs/37, the traps](docs/37-traps.md), before touching the sim.
 5. [docs/30, the decisions](docs/30-decisions.md), before changing anything that looks
-   arbitrary. It usually is not.
+   arbitrary. It usually is not. Read the entries for the system you touch (search by its name),
+   not the whole file.
 
 ## What the project is
 
@@ -186,14 +188,17 @@ The commands, timings and CI jobs are in [the gate list](docs/35-gates.md).
 ## Pushing and pull requests
 
 - **One piece, one branch, one pull request,** opened from a fresh branch off `main` and based
-  on `main`. A session pushes only its own branch. Never push to `main`.
+  on `main`. A session pushes only its own branch. Never push to `main`. A fix to another open
+  pull request is a pull request based on that one's branch (docs/38, How work flows).
 - **No model identifiers in anything pushed.** Commit messages, PR titles and bodies, code
   comments and docs never name the model that wrote them. That includes a `Co-Authored-By`
   trailer naming a model: leave it out and keep the session link (`Claude-Session:`).
 - **Fill in the PR template** (`.github/pull_request_template.md`): the piece, the gate, the
   measurement, the record, what was verified.
 - **Drive it green** by the steward skill. Never skip, disable or loosen a gate to get there.
-- **Merge with a merge commit,** after re-checking the head and CI right before merging.
+- **Merge with a merge commit,** after re-checking the head and CI right before merging. Pieces
+  built side by side merge one by one as each goes green, and the thread that wrote a pull
+  request never merges it (docs/38, How work flows).
 - **Cloud sessions cannot delete remote branches** (the git proxy returns 403 for any ref but
   the session's own). Name the branches that should go and let the owner delete them.
 
