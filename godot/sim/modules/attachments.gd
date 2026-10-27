@@ -195,6 +195,24 @@ static func _fortify() -> GDScript:
 ## Spawned at the "scavenged" tier, which draws no randomness, so improvising a part cannot shift the
 ## loot stream -- the same rule `assemble` keeps.
 static func improvise(world: Variant, actor: int, host: int, slot: String, recipe_id: String) -> String:
+	var why: String = improvise_refusal(world, actor, host, slot, recipe_id)
+	if why != "":
+		return why
+	for kind in recipe_kinds(world, recipe_id):
+		_fortify().call("consume_material", world, actor, String(kind))
+	var part: int = SimItemsRes.spawn_item(world, recipe_id, {"tier": "scavenged"})
+	if not attach(world, host, part, slot):
+		world.despawn(part)
+		return "not-plausible"
+	world.events.publish({"type": "attachment.improvised", "host": host, "item": part, "slot": slot, "recipe": recipe_id})
+	return ""
+
+
+## Why `improvise` would refuse, or "" when it would make the part: every check it makes, in its
+## order, and nothing spent. The bench view asks this for each row it offers, so the screen can
+## never offer a recipe the command turns down, and the command asks it first, so the two cannot
+## drift.
+static func improvise_refusal(world: Variant, actor: int, host: int, slot: String, recipe_id: String) -> String:
 	var recipe_base: Variant = SimItemsRes.base_by_id(world, recipe_id)
 	if not recipe_base is Dictionary or not ((recipe_base as Dictionary).get("attachment") is Dictionary):
 		return "no-recipe"
@@ -209,18 +227,40 @@ static func improvise(world: Variant, actor: int, host: int, slot: String, recip
 		return "not-plausible"
 	if not bool(_gunsmith().call("may_work_spec", world, actor, spec)):
 		return "no-bench"
-	var kinds: Array = (recipe as Dictionary)["kinds"] as Array
-	for kind in kinds:
+	for kind in (recipe as Dictionary)["kinds"] as Array:
 		if int(_fortify().call("material_count", world, actor, String(kind))) < 1:
 			return "no-material:%s" % String(kind)
-	for kind in kinds:
-		_fortify().call("consume_material", world, actor, String(kind))
-	var part: int = SimItemsRes.spawn_item(world, recipe_id, {"tier": "scavenged"})
-	if not attach(world, host, part, slot):
-		world.despawn(part)
-		return "not-plausible"
-	world.events.publish({"type": "attachment.improvised", "host": host, "item": part, "slot": slot, "recipe": recipe_id})
 	return ""
+
+
+## The material kinds a recipe spends, one unit each, in its content's order. Empty for an id that
+## is not a recipe.
+static func recipe_kinds(world: Variant, recipe_id: String) -> Array:
+	var base: Variant = SimItemsRes.base_by_id(world, recipe_id)
+	if not base is Dictionary or not ((base as Dictionary).get("attachment") is Dictionary):
+		return []
+	var recipe: Variant = ((base as Dictionary)["attachment"] as Dictionary).get("recipe")
+	if not recipe is Dictionary or not ((recipe as Dictionary).get("kinds") is Array):
+		return []
+	return ((recipe as Dictionary)["kinds"] as Array).duplicate()
+
+
+## An `improvise_refusal` reason as the words the bench's make row says under the part's name, or
+## "" when there is nothing to say. Missing material names every kind the survivor lacks, not only
+## the first the command stopped at, so a row that wants two things says both. A read model like
+## `refusal_clause`: built here, no digits, and the screen only prints it.
+static func improvise_needs(world: Variant, actor: int, recipe_id: String, reason: String) -> String:
+	if reason == "":
+		return ""
+	if reason == "no-bench":
+		return "needs a bench"
+	if reason.begins_with("no-material:"):
+		var lacking: Array = []
+		for kind in recipe_kinds(world, recipe_id):
+			if int(_fortify().call("material_count", world, actor, String(kind))) < 1:
+				lacking.append(String(kind))
+		return "needs %s" % String(_fortify().call("material_words", lacking))
+	return "will not go on this"
 
 
 ## Whether a swing with this weapon opens the hand that holds it. A fitted part that declares `handCut`
