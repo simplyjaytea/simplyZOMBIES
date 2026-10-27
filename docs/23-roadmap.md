@@ -291,15 +291,13 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
 - (Already named above and part of this arc: choosing which round to fire, the magazine that
   remembers its load, the hand-loaded round, the five ranged affixes.)
 
-*Melee, frames and recipes (stage 1): finished, 2026-10-27.* Every piece has landed; the arc's
-record is "Melee frames and the widened slots, and the improvised recipe table, 2026-10-26",
-"Specific melee wear", "The bench offers improvised parts", "Hone on the pack" and "A weapon you
-named, 2026-10-27". What it still owes is pictures, a stage behind: the art group's "Pictures for
-the melee arc".
+*Melee, frames and recipes (stage 1):*
 
-- **Specific melee wear.** Studs fall out on hits through the `struck` wear word (shared with the
-  plate piece), an edge dulls and a whetstone restores it, a lashed head flies off one swing in N
-  from its own RNG stream. Gate: `godot:m2:swipe` WEAR.
+- **The bench and the pack offer hone.** `item.hone` (`godot/sim/modules/items.gd`) is built and
+  gated (`godot:m2:attach` HONE), but no screen offers it. The inspect pane and the context menu
+  need a row for it: sim-side in `SimInventory.verbs_for` and `SimContext.verbs_at`, and the
+  screen code in `godot/ui/`. The screen half of "Specific melee wear", named as the improvise row
+  was in #227.
 
 *Zombies, seven to fourteen (stage 2 for the first four, stage 4 for the rest):*
 
@@ -2684,6 +2682,22 @@ not a to-do list:
     `attachment` and `recipe`; now it judges all four, and exempts only a part carrying a
     `recipe.kinds` block, made by `item.improvise` and never looted). The ten-seed balance table
     was not re-run for that line; docs/30, "The tourniquet is findable".
+- **Specific melee wear, 2026-10-27.** A connecting swing now wears the weapon three ways, and the
+  whetstone undoes one. A stud with a `shedChance` (the five metal and fixing studs) comes out on
+  a roll and is gone. A head declaring `lashed` (the knife, spike and pitchfork heads held on with
+  cordage) flies off at the swinger's feet as its own item, one swing in forty
+  (`SimAttachments.LASH_SHED_CHANCE`). A blade's edge is a separate `edge` component: every
+  connect dulls it by 0.025 scaled by the item's condition loss, and damage keeps 0.8 of itself at
+  fully dull (`SimItems.edge_factor`). `item.hone` spends a whetstone to put the edge at its
+  ceiling, and the ceiling drops 0.02 a hone, floor 0.5. Refusals are `not-a-blade`, `keen` and
+  `no-whetstone`, checked in that order, and each spends nothing. Every roll draws from the
+  `meleeWear` stream and nothing else. Gate: `godot:m2:attach` STUD, LASH, EDGE, HONE, CONNECT (a
+  real swing through the tick loop, which goes red with the connect subscriber broken) and
+  STREAM. The gate is `godot:m2:attach` rather than `godot:m2:swipe`, which is the zombie claw
+  gate. The screen half is the next bullet's. The first-cut numbers and the `hit` word are in
+  docs/30's "Melee wear, 2026-10-27". The ten-seed table was not re-run; owed by the post-arc
+  re-baseline.
+
 - **The barrel governs, 2026-10-27.** A barrel declares three words, `length`, `quality` and
   `material`, and every number it contributes is their product: muzzle speed, noise, reach, cone,
   handling and wear (quality and material both multiply the wear; the match barrel wears 1.4 as a
