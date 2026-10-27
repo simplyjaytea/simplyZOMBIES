@@ -167,8 +167,9 @@ const LOOT_TAKE: int = 3
 #   body to the band; a light raid that gives up on the first blow.
 # - `raid`: today's band, unchanged tick for tick. Walks at the gate and fights until the clock or
 #   half its number takes it home.
-# - `siege`: stops at a ring of ground outside the walls box (`_siege_site`), holds there, fights
-#   whatever comes within reach, and goes home at the first dawn after the night it came.
+# - `siege`: stops at a ring of ground outside the walls box (`_siege_site`), holds there for
+#   SIEGE_WAIT_TICKS fighting whatever comes within reach, then storms the wall and gate exactly as
+#   a raid does (JT's pick, 2026-10-27, docs/33 item 19).
 #
 # `trade` is named in docs/33 item 16 as not built (the owner's default was no), so it is not in
 # this list and no draw can produce it. Roaming bands keep no doctrine: a dawn crossing is not a
@@ -183,6 +184,11 @@ const DOCTRINES: Array[String] = [DOCTRINE_PROBE, DOCTRINE_RAID, DOCTRINE_SIEGE]
 # outside the box so the band never walks in. First cut.
 const SIEGE_RING_MIN: int = 2
 const SIEGE_RING_MAX: int = 4
+
+# How long a siege holds on its ring before it storms the wall, counted from the tick it arrives.
+# Two in-game hours: a day is `Clock.DAY_TICKS` (72,000) and 24 in-game hours, so an hour is 3,000
+# ticks. First cut, JT's pick (docs/33 item 19, 2026-10-27).
+const SIEGE_WAIT_TICKS: int = 6000
 
 # --- a band passing through --------------------------------------------------------------------
 #
@@ -593,12 +599,6 @@ static func _approach(world: Variant, ent: int) -> void:
 		_begin_withdrawal(r)
 		_still(vel as Dictionary)
 		return
-	# A siege goes home at the first dawn after the night it came, whatever else has happened. The
-	# dawn was stamped on the body when the band was drawn, so nothing here reads the clock.
-	if doctrine == DOCTRINE_SIEGE and r.has("dawnTick") and int(world.tick) >= int(r["dawnTick"]):
-		_begin_withdrawal(r)
-		_still(vel as Dictionary)
-		return
 	# The lookout's job, and the only thing about a raid that one body decides for everybody: at
 	# the *first* loss it turns the band for home, rather than at the half strength the clause
 	# above waits for. docs/18's "retreat when losses outweigh the haul" -- a band that brought a
@@ -656,12 +656,30 @@ static func _approach(world: Variant, ent: int) -> void:
 		return
 	_walk(world, ent, r, goal)
 	# At the objective with nobody to fight: the clock runs, and when it is out the band goes. A
-	# siege does not run it: it holds at its ring until the dawn check above sends it home.
+	# siege that has not stormed yet waits on its own clock instead, which ends in the storm.
 	if (r.get("path", []) as Array).is_empty():
-		if doctrine != DOCTRINE_SIEGE:
+		if doctrine == DOCTRINE_SIEGE and not bool(r.get("storming", false)):
+			_siege_wait(world, r)
+		else:
 			_arrival_clock(world, r)
 	else:
 		r["arrivedAtTick"] = -1
+
+
+# A siege's wait on its ring. SIEGE_WAIT_TICKS from the tick it arrives, then the band storms: it is
+# marked `storming` and its cached objective is cleared, so `_objective` answers with the gate and
+# from then on every rule is the raid's -- the walk, the fight, the half-strength withdrawal and the
+# arrival clock. A wait that is interrupted by a fight does not count the fight's ticks: `_approach`
+# returns through the halt before it reaches this, so the clock only runs while the band is standing
+# on its ring with nobody to fight.
+static func _siege_wait(world: Variant, r: Dictionary) -> void:
+	if int(r.get("arrivedAtTick", -1)) < 0:
+		r["arrivedAtTick"] = int(world.tick)
+	elif int(world.tick) - int(r.get("arrivedAtTick", -1)) >= SIEGE_WAIT_TICKS:
+		r["storming"] = true
+		r["arrivedAtTick"] = -1
+		r["goalX"] = -1
+		r["goalY"] = -1
 
 
 # The one withdrawal clock, shared by every role: WITHDRAW_AFTER_TICKS standing at whatever this
@@ -878,18 +896,14 @@ static func doctrine_of(r: Dictionary) -> String:
 	return d if DOCTRINES.has(d) else DOCTRINE_RAID
 
 
-# Stamped by `SimDirector._draw_raid` right after `_emit_band` places a band. A siege also takes
-# `dawn_tick`: the tick it goes home, read by `_approach` and nothing else. The other two doctrines
-# have no use for a dawn and are stamped without one.
-static func stamp_doctrine(world: Variant, members: Array, doctrine: String, dawn_tick: int) -> void:
+# Stamped by `SimDirector._draw_raid` right after `_emit_band` places a band. Every body of the band
+# carries the word; nothing else is written here, so a siege's wait and storm are read off the
+# record as the band walks, never off a clock the stamp fixed in advance.
+static func stamp_doctrine(world: Variant, members: Array, doctrine: String) -> void:
 	for ent in members:
 		var r: Variant = world.components.get_component(int(ent), "raider")
-		if not (r is Dictionary):
-			continue
-		var rec: Dictionary = r as Dictionary
-		rec["doctrine"] = doctrine
-		if doctrine == DOCTRINE_SIEGE:
-			rec["dawnTick"] = dawn_tick
+		if r is Dictionary:
+			(r as Dictionary)["doctrine"] = doctrine
 
 
 # Where a siege band holds: the legal floor tile, between SIEGE_RING_MIN and SIEGE_RING_MAX tiles
@@ -971,10 +985,10 @@ static func _objective(world: Variant, r: Dictionary, role: String = ROLE_FIGHTE
 			r["goalX"] = site.x
 			r["goalY"] = site.y
 			return site
-	# A siege holds at the ring outside the walls box, whatever its role: the ring replaces the gate
-	# as the thing it walks at, so a siege never walks in. No ring means no goal, which is the
-	# stand-still answer `_approach` already gives a body with nowhere to go.
-	if doctrine_of(r) == DOCTRINE_SIEGE:
+	# A siege holds at the ring outside the walls box, whatever its role, until it storms: the ring
+	# replaces the gate as the thing it walks at, so a waiting siege never walks in. No ring means no
+	# goal, which is the stand-still answer `_approach` already gives a body with nowhere to go.
+	if doctrine_of(r) == DOCTRINE_SIEGE and not bool(r.get("storming", false)):
 		var ring: Vector2i = _siege_site(world, r)
 		if ring.x >= 0 and ring.y >= 0:
 			r["goalX"] = ring.x
