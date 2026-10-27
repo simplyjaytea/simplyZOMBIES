@@ -2861,7 +2861,6 @@ records its own numbers here as a bullet under this entry when it lands.
   because the `panel: true` prose it returned was one sentence longer than the HUD glimpse and
   said nothing the glimpse did not.
 
-
 ## Overcast or torchlight, 2026-09-08
 
 Decided by the owner, 2026-09-08, from a design brief built on the shipped renderer's own
@@ -3805,7 +3804,6 @@ one structural change the slice did make is in the tier, not the style: `kind` i
 renderer-side `Appearance.authored_rig_keys()` as well as by the gate, because three gates need
 "which authored keys are bodies" and one parse with three readers beats three parses.
 
-
 ## The decoupled paperdoll, 2026-09-11
 
 Decided by the owner, 2026-09-11, from a supplied "Visual Architecture & 2D Sprite Engine
@@ -3919,7 +3917,6 @@ sim slice and gains the aim pivot as the origin its cone was always going to nee
 the weight-shifted walk and the four views — *"until it is known whether commissioned bodies
 are coming"*. One came, and these decisions answer the question that hold was waiting on, so
 the hold lifts. The four-views piece is absorbed outright: a rotating torso is every view.
-
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·
 **Next:** [31 — Godot Rebuild Roadmap](31-godot-rebuild-roadmap.md) ·
@@ -4189,7 +4186,6 @@ points earlier than before. A fixture that hand-writes points and owns nothing i
 **One re-baseline, at the close.** As the roster arc did: every piece moves a number a campaign
 can feel, and four seeds before and after each of nine pieces is an overnight job apiece.
 
-
 ## The pause lifted: procedural people, raiders and zombies, 2026-09-14
 
 On 2026-09-01 the owner grew the boot colony to three and paused new NPCs and roster growth so
@@ -4395,7 +4391,6 @@ holds, because the player has no field. Three gates that had granted the player 
 expected the sim to spend them were re-fixtured onto a colonist or onto the command, which is the
 honest shape anyway: a lane that proves a modifier applies "when the node is owned" should own it
 the way a player does.
-
 
 ## Each dead body differs, 2026-09-15
 
@@ -5354,7 +5349,6 @@ retires the generator code that used to draw the same thing held for the two con
 commit (`props.py`'s crate functions were already gone, from the first authored art in 2026-09-10)
 and applies again to every generated key a later slice in this arc replaces.
 
-
 ## The UI Field Kit, live, 2026-09-25
 
 On 2026-09-25, with the UI Field Kit delivered and sitting unused since 2026-09-20 (docs/23's "UI
@@ -5485,7 +5479,6 @@ Timber and block keep their generated faces either way.
 interaction hand over something the player can see and act on — never over something unseen,
 which would be information through a wall. Over any panel or menu: the UI kit's four pointers.
 Both live in `ui/cursors.gd`'s one table, as "The UI Field Kit, live" already said.
-
 
 ## Zombies turn, walk and fall, 2026-10-02
 
@@ -5725,7 +5718,6 @@ number an existing rule already had.
   undone: a need that can wait no longer ends it, and a wash with nothing to wash in no longer
   claims the tick.
 
-
 ## Water at the well, 2026-10-21
 
 **The owner's water question, answered by the card's default.** docs/33 asked where a colony's
@@ -5777,7 +5769,6 @@ a day-6 death of thirst.
 Gated by `godot:m2:needs` BOTTLE: three colonists, one bottle each, both readers offered it, and
 both offers gone once every empty is taken away; the lane was run red against main first.
 
-
 ## The playbook, and AGENTS.md as a pointer, 2026-10-23
 
 **The owner asked for a playbook "for ALL other agents to access and know what's going on".**
@@ -5805,7 +5796,6 @@ while giving the project around it a home:
 **How to apply:** a fact about the build goes in the doc that owns it (docs/23 for status, docs/30
 for a call, docs/33 for an open owner question). A fact about how the project works goes in
 docs/38. Neither file is copied into the other.
-
 
 ## The Colony screen, 2026-10-23
 
@@ -5969,7 +5959,6 @@ The drop on a weapon is the fit and nothing more (C3). Calls taken without the o
 - **The hands rule holds for a drop too.** A part the survivor cannot change by hand is not fitted
   by a drop away from a bench, even into an empty slot. `SimGunsmith.drop_slot` asks `may_work`,
   the question the open command and the attach command already ask.
-
 
 ## The assembly screen is a screen, 2026-10-24
 
@@ -6626,6 +6615,51 @@ affixes that named them moved no number a gun reads.
 the web gate's READERS lane names it as awaiting a reader. `godot:m2:ranged` QUIET-SHOT and
 RUIN-SHOT, and `godot:m2:attach` SWING, WEAR and REPAIR, hold the readers.
 
+## Raider doctrine, 2026-10-27
+
+The first of the four pieces in the 2026-10-27 batch (docs/23's "Raider doctrine" record entry
+has the gate lanes). Four calls were taken while it was built.
+
+- **The draw has its own stream, `raidDoctrine`.** The content-arc bullet said "off the raid
+  stream". It is not. The `raid` stream's sequences after `_emit_band` are pinned in
+  `check_m2_raiders.gd`'s STREAMS lane, and every campaign measured on it depends on them; a
+  doctrine draw on that stream would move every band's size and side on every seed. The draw runs
+  after the band is placed, so a band that never arrives spends nothing.
+- **First-cut weights.** Days 8 and 9: probe 50, raid 50, siege 0. From day 10: probe 30, raid 45,
+  siege 25. Days 8 and 9 never draw a siege; a ten-day campaign sees doctrine on three nights at
+  most. These are first cuts, not measured, and the ten-seed table is owed the re-baseline.
+- **The siege, as the owner picked it (docs/33 item 19, 2026-10-27: "Wait, then storm the wall").**
+  A siege band holds at a ring of legal floor 2 to 4 tiles outside the walls box, strikes whatever
+  comes within its reach while it waits, and then storms the wall and gate exactly as a raid band
+  does. The ring is the nearest legal tile to the band's entry, deterministic and draws nothing.
+  The wait is `SimRaiders.SIEGE_WAIT_TICKS`, 6,000 ticks: two in-game hours, a day being 72,000
+  ticks and 24 in-game hours. It is a first cut. It is counted from the tick the band reaches its
+  ring, the way the withdrawal clock is counted from arrival: a fight within reach halts the body
+  before the storm is checked, so the storm never lands mid-fight, but the ticks still count, and
+  a fight that outlasts the wait is followed by the storm on the first quiet tick. After the storm
+  the usual withdrawal rules apply: the half-strength clause and the arrival clock. The first pick
+  drafted for this item (goes home at dawn) was replaced before merge and is not built. The camp by
+  the water is not built.
+- **No ring means a raid, not a band at the edge forever.** The first draft had a siege with no
+  walls box to hold outside stand where it came in. That band would never run a clock, never
+  withdraw, and count against `RAID_LIVE_CAP` for the rest of the run, which is a district whose
+  raids quietly stop. The end review changed it: a siege whose `_siege_site` finds no ring is
+  marked storming on its first read and is a raid from then on. For the same reason a lookout in
+  a siege holds on the ring with the band rather than standing off twelve metres from it; its
+  stand-off is from the gate, after the storm.
+- **Probe widens the lookout's rule, it does not add one.** The first loss turns every body of a
+  probe. The lookout's own rule is unchanged and still reads the role.
+- **Trade is not built.** docs/33 item 16 is still the owner's, default no. `trade` is not in the
+  doctrine list, so a record that names it reads as a raid.
+- **The night shapes share three words.** `probe` and `siege` are also the names of director
+  night shapes (`SimDirector.NIGHT_NAMES`). A night shape and a band's doctrine are drawn on
+  different streams and mean different things: a night is the packet of zombies, a doctrine is how
+  one band of people moves. Read the constant's module before you read the word.
+
+**How to apply:** a new doctrine is a word in `SimRaiders.DOCTRINES`, a branch in `_approach`, a
+weight row in `SimDirector`, and a lane in `godot:m2:raiders` that breaks it on purpose. A draw
+that moves a pinned stream is a bug, however small the change looks.
+
 ## The barrel governs, 2026-10-27
 
 The barrel's numbers come from three words, not from a multiplier typed onto each barrel. Calls
@@ -6671,7 +6705,7 @@ Zombie kind eight, content only: `godot/content/zombies/bloodhound.json`, with n
 
 - **`sensory.noise` 0.** A sense of 0 is the deaf case, and `shambler.gd` already reads it as
   hearing nothing (`noise_sense > 0.0`). No sim line was needed.
-- **`sensory.light` 0, which is docs/33 item 20's default.** `sight_reach` is the observer's range
+- **`sensory.light` 0, which is the owner's 2026-10-27 call.** `sight_reach` is the observer's range
   times the square root of the light weight, so 0 gives a reach of 0, and `_seen_target` returns
   null at a zero reach. The lean toward a lamp (`_lean_to_light`) is weighted by the same number, so
   it is off too. Contact pursuit (`_contact_target`, `CONTACT_METRES`) is not sight and still
@@ -6692,8 +6726,9 @@ Zombie kind eight, content only: `godot/content/zombies/bloodhound.json`, with n
   waits for its own piece ("The bloodhound's nose as a seek", docs/23's what's left). The
   SCENT-ONLY lane holds what was built; it does not claim the kind out-hunts the shambler.
 - **docs/14's table against the content.** The tracker row reads noise Low, light Low, scent
-  Extreme. The content is 0, 0, 1.0: deaf by the what's-left bullet's own words, blind by docs/33
-  item 20's default. The table row is a stage behind the content until the sight card is taken.
+  Extreme. The content is 0, 0, 1.0: deaf by the what's-left bullet's own words, blind by the
+  owner's 2026-10-27 call. The table row is a stage behind the content until the sight card is
+  taken.
 - **Locomotion: speed 1.0, wander 0.35, mill 0.25, crawl 0.25.** Speed is the stalker's 1.0, a
   little above the shambler's 0.8. The rest are the shambler's, so the difference is what it
   follows, not how it walks.
@@ -6726,6 +6761,10 @@ this head. Every line matches except seed 404's grabs (163 on head, 160 on main)
 Deaths, survivors, kills, raids and breaches are unchanged on all four seeds.
 
 The ten-seed table was not re-run. It is owed by the post-arc re-baseline.
+
+- **The owner confirmed it on 2026-10-27.** Docs/33 item 20 was answered on its card: the bloodhound
+  sees only at contact range, which is what this piece shipped with `sensory.light` 0. Normal sight and
+  fully blind were the alternatives and are not built.
 
 ## How pieces reach main, and who reviews the art, 2026-10-27
 
