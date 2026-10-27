@@ -59,6 +59,7 @@ const WorldLayersRes = preload("res://presentation/world_layers.gd")
 const LightMapRes = preload("res://presentation/light_map.gd")
 const DayGradeRes = preload("res://presentation/day_grade.gd")
 const StockpileLook = preload("res://presentation/stockpile_look.gd")
+const FenceLook = preload("res://presentation/fence_look.gd")
 const SimStockpile = preload("res://sim/modules/stockpile.gd")
 
 const TICK_HZ: int = 20
@@ -1620,6 +1621,7 @@ func _draw_district(region: Rect2i, bake_pass: int) -> void:
 			if world.tilemap == null or not SimTileMap.is_indoors(world.tilemap, tx, ty):
 				ground = Appearance.ground_with_snow(ground, snow_cover)
 			var col: Color = ground
+			var fence_wire: bool = false
 			if world.tilemap != null:
 				tile = int(SimTileMap.tile_at(world.tilemap, tx, ty))
 				match tile:
@@ -1652,6 +1654,16 @@ func _draw_district(region: Rect2i, bake_pass: int) -> void:
 					elif kind == "scrap":
 						col = Palette.COLOURS["rubble"]
 						tile = SimTileMap.Tile.Wall
+					# The timber wall and the stone course stand as walls until they have pictures (the
+					# art thread's open item): a blocked tile must not draw as floor.
+					elif kind == "timber" or kind == "stone":
+						col = Palette.COLOURS["wall"]
+						tile = SimTileMap.Tile.Wall
+					# A wire fence blocks walking and not the eye, so it is not a wall: the floor it
+					# stands on draws as it would, and the strand is drawn over it in the fence's own
+					# palette colour after the tile (_draw_fence_wire).
+					elif kind == "fence":
+						fence_wire = true
 			elif world.is_blocked_tile(tx, ty):
 				col = Palette.COLOURS["wall"]
 				tile = SimTileMap.Tile.Wall
@@ -1786,6 +1798,8 @@ func _draw_district(region: Rect2i, bake_pass: int) -> void:
 						# pavement. Cosmetic, hash-picked, and drawn over the paint rather than
 						# under it, because litter blows onto a road marking and not beneath one.
 						_draw_scatter(rect, dress, tx, ty)
+			if fence_wire:
+				_draw_fence_wire(rect, Palette.remembered(Palette.COLOURS["fence"]) if remembered else Palette.COLOURS["fence"], tx, ty)
 
 # The world under the bodies, every frame: the baked layers brought up to date and moved with the
 # camera, then the dressing and the props drawn fresh on top of them. What is baked is everything
@@ -2297,6 +2311,34 @@ func _draw_solid_tile(rect: Rect2, col: Color, tx: int, ty: int) -> void:
 		_pen.draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - b), Vector2(rect.size.x, b)), dim)
 	if not _is_solid_at(tx + 1, ty):
 		_pen.draw_rect(Rect2(rect.position + Vector2(rect.size.x - b, 0.0), Vector2(b, rect.size.y)), dim)
+
+# A wire fence: the strands and the post `FenceLook.pieces` lays for this tile and its four
+# neighbours, in the fence's palette colour over the floor, each with a soft shadow down and right
+# so the wire stands off the ground. The bake's signature already reads a one-tile ring, so a fence
+# raised beside this one rebakes it. The floor is drawn first, by the tile's own arm; this is only
+# what stands on it.
+func _draw_fence_wire(rect: Rect2, col: Color, tx: int, ty: int) -> void:
+	var laid: Dictionary = FenceLook.pieces(rect, _fence_side(tx + 1, ty), _fence_side(tx - 1, ty), _fence_side(tx, ty - 1), _fence_side(tx, ty + 1))
+	var t: float = FenceLook.thickness(rect.size.x)
+	var shade: Color = Color(0.0, 0.0, 0.0, 0.35 * col.a)
+	var all: Array = (laid["strands"] as Array).duplicate()
+	all.append(laid["post"])
+	for r in all:
+		_pen.draw_rect(Rect2((r as Rect2).position + Vector2(t, t), (r as Rect2).size), shade)
+	for r in all:
+		_pen.draw_rect(r as Rect2, col)
+
+
+# What stands on one side of a fence tile, for FenceLook: another fence, something solid a strand
+# can be fixed to (a raised wall, a building's wall, a barricade, a shut door), or open ground.
+func _fence_side(tx: int, ty: int) -> int:
+	if world.tilemap == null:
+		return FenceLook.NONE
+	var ov: Variant = SimTileMap.overlay_at(world.tilemap, tx, ty)
+	if ov is Dictionary and String((ov as Dictionary).get("kind", "")) == "fence":
+		return FenceLook.FENCE
+	return FenceLook.ANCHOR if SimTileMap.is_solid(world.tilemap, tx, ty) else FenceLook.NONE
+
 
 # Windows: a bright glass pane + rim so they read against masonry. Orientation
 # follows the neighbouring walls; a corner window falls back to a square pane.

@@ -19,6 +19,7 @@ const SimSurface = preload("res://sim/map/surface.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const AnimClock = preload("res://presentation/anim_clock.gd")
 const Dressing = preload("res://presentation/dressing.gd")
+const FenceLook = preload("res://presentation/fence_look.gd")
 
 const ZOOMS: Array[float] = [16.0, 32.0, 64.0, 128.0]
 const EPS: float = 0.000001
@@ -48,12 +49,13 @@ func _run() -> void:
 	ok = _props_reach_the_draw_path() and ok
 	ok = _built_mass_is_thin_and_still_solid() and ok
 	ok = _windows_are_glass_art() and ok
+	ok = _the_fence_is_a_fence_and_not_a_wall() and ok
 	ok = _bodies_face_by_flipping() and ok
 	ok = _bodies_turn_and_walk() and ok
 	ok = _bodies_scale_with_the_zoom() and ok
 	ok = _a_still_body_is_not_glimpsed() and ok
 	if ok:
-		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced, windows drawn as tinted glass pictures, nobody rotates and a face-on body flips, the pack's bodies turn four ways and walk on the render clock, bodies scale with the zoom, a still body is not glimpsed")
+		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced, windows drawn as tinted glass pictures, a wire fence drawn as strand over its floor, nobody rotates and a face-on body flips, the pack's bodies turn four ways and walk on the render clock, bodies scale with the zoom, a still body is not glimpsed")
 		quit(0)
 	else:
 		push_error("TOPDOWN_FAIL")
@@ -467,6 +469,180 @@ func _built_mass_is_thin_and_still_solid() -> bool:
 		return false
 	print("WALL OK cap -%.2f, faces +%.2f/+%.2f over a %.2f-tile band, lit margin +%.3f (>= %.2f), dim margin +%.3f (>= %.2f), brightest generator ground %.3f; against the pack's ground (brightest %.3f) the lit face clears by %+.3f and the shaded by %+.3f, the walls slice's to answer" % [Palette.WALL_CAP_DARKEN, Palette.WALL_FACE_LIT, Palette.WALL_FACE_DIM, Palette.WALL_FACE_SHARE, _luma(lit) - brightest, FACE_LIT_MARGIN, _luma(dim) - brightest, FACE_DIM_MARGIN, brightest, pack_brightest, _luma(lit) - pack_brightest, _luma(dim) - pack_brightest])
 	return true
+
+
+# FENCE: the wire fence stops a body and not the eye (the sim says so: solid, and clear), so it must
+# not draw as masonry. It has its own palette token, brighter than the wall's, the district draw
+# hands the overlay to `_draw_fence_wire` over the floor and does not set the wall tile for it, and
+# the timber and stone arm beside it does -- which is the scanner's true negative, proof that the
+# lines read are the arms they name. Textual, as the lanes above are, because a draw pass cannot be
+# run headless.
+func _the_fence_is_a_fence_and_not_a_wall() -> bool:
+	if not Palette.COLOURS.has("fence"):
+		push_error("FENCE: Palette.COLOURS has no 'fence' token, so the fence has no colour of its own")
+		return false
+	var fence: Color = Palette.COLOURS["fence"]
+	var wall: Color = Palette.COLOURS["wall"]
+	if _luma(fence) <= _luma(wall):
+		push_error("FENCE: the fence token (luma %.3f) is no brighter than the wall's (%.3f), so a strand would sink into masonry" % [_luma(fence), _luma(wall)])
+		return false
+	var district: String = _code_only(_function_body(MAIN_GD, "_draw_district"))
+	if district.is_empty():
+		push_error("FENCE: could not read _draw_district out of %s" % MAIN_GD)
+		return false
+	var fence_arm: String = _arm_after(district, "elif kind == \"fence\":")
+	var wall_arm: String = _arm_after(district, "elif kind == \"timber\" or kind == \"stone\":")
+	if fence_arm.is_empty() or wall_arm.is_empty():
+		push_error("FENCE: the fence arm (%d chars) or the timber-and-stone arm (%d chars) was not found in _draw_district" % [fence_arm.length(), wall_arm.length()])
+		return false
+	if not wall_arm.contains("Tile.Wall"):
+		push_error("FENCE: the timber-and-stone arm no longer sets the wall tile, so the scanner is not reading the arm it thinks it is")
+		return false
+	if fence_arm.contains("Tile.Wall") or fence_arm.contains("COLOURS[\"wall\"]"):
+		push_error("FENCE: the fence arm draws a wall; the eye goes through a fence and the tile has to say so")
+		return false
+	if not district.contains("_draw_fence_wire(") or not district.contains("Palette.COLOURS[\"fence\"]"):
+		push_error("FENCE: _draw_district never draws the fence's strand in its own token")
+		return false
+	var wire: String = _code_only(_function_body(MAIN_GD, "_draw_fence_wire"))
+	if wire.is_empty() or not wire.contains("draw_rect"):
+		push_error("FENCE: _draw_fence_wire is missing or draws nothing")
+		return false
+	# The draw reaches the geometry below (the dead-socket rule): it lays FenceLook.pieces from the
+	# tile's four neighbours, not a fixed picture.
+	if not wire.contains("FenceLook.pieces(") or not wire.contains("_fence_side(tx + 1, ty)") or not wire.contains("_fence_side(tx, ty + 1)"):
+		push_error("FENCE: _draw_fence_wire does not lay FenceLook.pieces from the tile's neighbours")
+		return false
+	if not _fence_runs_its_way():
+		return false
+	print("FENCE OK a wire fence has its own token (luma %.3f over the wall's %.3f), draws its strand over the floor it stands on, is not set as a wall tile where timber and stone are, and its strands run the way the fence runs with one post per tile" % [_luma(fence), _luma(wall)])
+	return true
+
+
+# The fence's geometry (FenceLook.pieces), at the boot zoom's 64 px tile, against extents written
+# down from the rules in fence_look.gd's header, not from its expressions. Each case names what
+# stands east, west, north and south (- open, F fence, A anchor) and the span every strand must
+# cover, as fractions of the tile along the run. A north-south run draws no horizontal strand (the
+# per-tile picture this replaced drew rungs there, a ladder); a run's open end stops at its post
+# (round 2 of the art review found loose wire hanging past it); a run that ends at a wall reaches
+# it; and the post stands at the centre, clear of every edge, so no join draws a doubled post.
+func _fence_runs_its_way() -> bool:
+	var tile := Rect2(Vector2(64.0, 64.0), Vector2(64.0, 64.0))
+	var c: Vector2 = tile.get_center()
+	var N: int = FenceLook.NONE
+	var F: int = FenceLook.FENCE
+	var A: int = FenceLook.ANCHOR
+	# [label, e, w, n, s, horizontal span or [], vertical span or []]
+	var cases: Array = [
+		["an east-west run", F, F, N, N, [0.0, 1.0], []],
+		["a north-south run", N, N, F, F, [], [0.0, 1.0]],
+		["the west end of an east-west run", F, N, N, N, [0.5, 1.0], []],
+		["the north end of a north-south run", N, N, N, F, [], [0.5, 1.0]],
+		["an east-west run ending at a wall", F, A, N, N, [0.0, 1.0], []],
+		["a north-south run ending at a wall", N, N, A, F, [], [0.0, 1.0]],
+		["a lone fence", N, N, N, N, [0.0, 1.0], []],
+		["a lone fence off a wall to the north", N, N, A, N, [], [0.0, 0.5]],
+		["a tee off an east-west run", F, F, N, F, [0.0, 1.0], [0.5, 1.0]],
+	]
+	for k in cases:
+		var label: String = String(k[0])
+		var laid: Dictionary = FenceLook.pieces(tile, int(k[1]), int(k[2]), int(k[3]), int(k[4]))
+		var want_h: Array = k[5] as Array
+		var want_v: Array = k[6] as Array
+		var across: Array = []
+		var down: Array = []
+		for r in laid["strands"] as Array:
+			if (r as Rect2).size.x > (r as Rect2).size.y:
+				across.append(r)
+			else:
+				down.append(r)
+		if across.size() != (2 if not want_h.is_empty() else 0) or down.size() != (2 if not want_v.is_empty() else 0):
+			push_error("FENCE: %s lays %d horizontal and %d vertical strands, not %d and %d" % [label, across.size(), down.size(), 2 if not want_h.is_empty() else 0, 2 if not want_v.is_empty() else 0])
+			return false
+		for r in across:
+			var x0: float = tile.position.x + tile.size.x * float(want_h[0])
+			var x1: float = tile.position.x + tile.size.x * float(want_h[1])
+			if not is_equal_approx((r as Rect2).position.x, x0) or not is_equal_approx((r as Rect2).end.x, x1):
+				push_error("FENCE: %s runs a horizontal strand from %d to %d, not %d to %d" % [label, int((r as Rect2).position.x), int((r as Rect2).end.x), int(x0), int(x1)])
+				return false
+		for r in down:
+			var y0: float = tile.position.y + tile.size.y * float(want_v[0])
+			var y1: float = tile.position.y + tile.size.y * float(want_v[1])
+			if not is_equal_approx((r as Rect2).position.y, y0) or not is_equal_approx((r as Rect2).end.y, y1):
+				push_error("FENCE: %s runs a vertical strand from %d to %d, not %d to %d" % [label, int((r as Rect2).position.y), int((r as Rect2).end.y), int(y0), int(y1)])
+				return false
+		if not _fence_post_centred(label, laid["post"] as Rect2, tile, c):
+			return false
+	# The L, both ways round: mitred, so the outer pair and the inner pair each meet square, every
+	# strand still reaches the edge the run leaves by, and the square post touches all four strands.
+	var t: float = FenceLook.thickness(tile.size.x)
+	for k2 in [["a corner east and south", F, N, N, F], ["a corner west and north", N, F, F, N]]:
+		var label2: String = String(k2[0])
+		var e2: bool = int(k2[1]) == F
+		var s2: bool = int(k2[4]) == F
+		var laid2: Dictionary = FenceLook.pieces(tile, int(k2[1]), int(k2[2]), int(k2[3]), int(k2[4]))
+		var across2: Array = []
+		var down2: Array = []
+		for r in laid2["strands"] as Array:
+			if (r as Rect2).size.x > (r as Rect2).size.y:
+				across2.append(r)
+			else:
+				down2.append(r)
+		if across2.size() != 2 or down2.size() != 2:
+			push_error("FENCE: %s lays %d horizontal and %d vertical strands, not 2 and 2" % [label2, across2.size(), down2.size()])
+			return false
+		var joints: int = 0
+		for a in across2:
+			if not ((a as Rect2).end.x >= tile.end.x - EPS if e2 else (a as Rect2).position.x <= tile.position.x + EPS):
+				push_error("FENCE: %s's horizontal strand %s does not reach the edge its run leaves by" % [label2, str(a)])
+				return false
+			for d in down2:
+				var square := Rect2((d as Rect2).position.x, (a as Rect2).position.y, t, t)
+				if (a as Rect2).grow(0.01).encloses(square) and (d as Rect2).grow(0.01).encloses(square):
+					joints += 1
+		for d2 in down2:
+			if not ((d2 as Rect2).end.y >= tile.end.y - EPS if s2 else (d2 as Rect2).position.y <= tile.position.y + EPS):
+				push_error("FENCE: %s's vertical strand %s does not reach the edge its run leaves by" % [label2, str(d2)])
+				return false
+		if joints != 2:
+			push_error("FENCE: %s joins %d strand pairs square at the turn, not 2" % [label2, joints])
+			return false
+		var post2: Rect2 = laid2["post"] as Rect2
+		for r2 in laid2["strands"] as Array:
+			if not post2.grow(0.01).intersects(r2 as Rect2):
+				push_error("FENCE: %s's post %s floats clear of the strand %s" % [label2, str(post2), str(r2)])
+				return false
+		if not _fence_post_centred(label2, post2, tile, c):
+			return false
+	return true
+
+
+func _fence_post_centred(label: String, post: Rect2, tile: Rect2, c: Vector2) -> bool:
+	if not post.has_point(c) or post.position.x <= tile.position.x or post.end.x >= tile.end.x or post.position.y <= tile.position.y or post.end.y >= tile.end.y:
+		push_error("FENCE: %s stands its post at %s, not at the centre clear of every edge" % [label, str(post)])
+		return false
+	return true
+
+
+# The code lines under an `elif` arm, up to the next arm at the same indentation or a shallower one.
+func _arm_after(body: String, header: String) -> String:
+	var lines: PackedStringArray = body.split("\n")
+	var out: String = ""
+	var at: int = -1
+	var indent: int = 0
+	for i in lines.size():
+		if at < 0:
+			if lines[i].strip_edges() == header:
+				at = i
+				indent = lines[i].length() - lines[i].lstrip("\t").length()
+			continue
+		var depth: int = lines[i].length() - lines[i].lstrip("\t").length()
+		if lines[i].strip_edges().is_empty():
+			continue
+		if depth <= indent:
+			break
+		out += lines[i] + "\n"
+	return out
 
 
 # GLASS: a window's pane and rim are pictures since 2026-10-19 (docs/23, "Window glass as art"),

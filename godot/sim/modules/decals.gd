@@ -302,6 +302,13 @@ static func surface_of(world: Variant, tx: int, ty: int) -> String:
 		return "chips"
 	if ov_kind == "scrap":
 		return "dent"
+	# The raised walls take the round themselves, so the mark is on them and not on what is behind:
+	# timber chips like a board, a stone course is holed like a wall. A wire fence is not here, the
+	# same as glass: it stops a body and a round goes through it.
+	if ov_kind == "timber":
+		return "chips"
+	if ov_kind == "stone":
+		return "hole"
 	match tile:
 		SimTileMap.Tile.Wall:
 			return "hole"

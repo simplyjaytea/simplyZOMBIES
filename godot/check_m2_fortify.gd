@@ -15,6 +15,7 @@ const Clock = preload("res://sim/time/clock.gd")
 const SimPath = preload("res://sim/path.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
+const SimShadowcast = preload("res://sim/vision/shadowcast.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -30,8 +31,10 @@ func _run() -> void:
 	ok = _a_door_opens_closes_and_breaks() and ok
 	ok = _the_district_has_doors_and_the_boot_shuts_them() and ok
 	ok = _a_crowd_gets_through() and ok
+	ok = _raised_walls() and ok
+	ok = _e_orders_the_walls_above_the_free_placements() and ok
 	if ok:
-		print("M2_FORTIFY_OK board scrap alarm bait v18, doors that open, close and break, and a crowd that presses through")
+		print("M2_FORTIFY_OK board scrap alarm bait v18, doors that open, close and break, a crowd that presses through, the three raised walls, and the E ladder that puts them above the alarm")
 		quit(0)
 	else:
 		push_error("M2_FORTIFY_FAIL")
@@ -490,3 +493,193 @@ func _a_crowd_gets_through() -> bool:
 		return false
 	print("PRESS OK one shambler broke the door in %d ticks, three in %d; the breach says 'door' and starts a lull; an idle shambler and a pushing survivor press nothing (the kernel recorded the survivor's push, fortify ignored it)" % [one, three])
 	return true
+
+
+# The three raised buildables: a timber wall, a stone course and a wire fence. Each is solid in
+# the walk test and opaque or clear in the sight test as its kind says, is spent off its own
+# substance, and a breach is judged by the press it has to take -- the fence is the one that
+# comes down first. Every lane has its negative in the same world.
+func _raised_walls() -> bool:
+	var lane: String = "WALLS"
+	# Timber: plank in hand, a full channel, a solid opaque wall, one unit spent.
+	var w: Variant = _world()
+	var plank: int = SimItems.spawn_item(w, "item.plank.sawn", {"tier": "scavenged", "count": 2})
+	if not SimInventory.stow(w, w.player, plank):
+		push_error("%s: could not stow a plank" % lane)
+		return false
+	_channel_build(w, {"type": "barricade.timber", "tx": 10, "ty": 12}, "timber")
+	if (w.components.query(["timberWall"]) as Array).size() != 1:
+		push_error("%s: a timber wall did not stand after a full channel with planks in hand" % lane)
+		return false
+	if not SimTileMap.is_solid(w.tilemap, 10, 12) or not w.is_blocked_tile(10, 12):
+		push_error("%s: the timber wall did not block walking" % lane)
+		return false
+	if not SimTileMap.blocks_sight(w.tilemap, 10, 12):
+		push_error("%s: the timber wall did not block sight" % lane)
+		return false
+	if SimFortify.material_count(w, w.player, "plank") != 1:
+		push_error("%s: the timber wall cost %d planks, not one" % [lane, 2 - SimFortify.material_count(w, w.player, "plank")])
+		return false
+	# The second wall on the same tile is refused, and its plank is not spent.
+	_channel_build(w, {"type": "barricade.timber", "tx": 10, "ty": 12}, "timber")
+	if (w.components.query(["timberWall"]) as Array).size() != 1:
+		push_error("%s: a second timber wall stood on a tile already walled" % lane)
+		return false
+	if SimFortify.material_count(w, w.player, "plank") != 1:
+		push_error("%s: a refused second wall spent a plank" % lane)
+		return false
+
+	# Occupied ground: the same tile, the same plank, and something standing on it. A body or a loose
+	# item on the tile refuses the wall at the predicate and again at the end of the channel, and the
+	# plank is not spent. The clear tile above is the control: it took the wall.
+	for occupant in ["body", "item"]:
+		var occ_w: Variant = _world()
+		var occ_plank: int = SimItems.spawn_item(occ_w, "item.plank.sawn", {"tier": "scavenged", "count": 1})
+		if not SimInventory.stow(occ_w, occ_w.player, occ_plank):
+			push_error("%s: could not stow a plank for the %s case" % [lane, occupant])
+			return false
+		if not SimFortify.can_build(occ_w, 10, 12):
+			push_error("%s: the %s control tile was refused with nothing on it" % [lane, occupant])
+			return false
+		if occupant == "body":
+			var sitter: int = int(occ_w.entities.spawn())
+			occ_w.components.set_component(sitter, "position", {"x": 10.5, "y": 12.5})
+			SimHealth.make_survivor_body(occ_w, sitter)
+		else:
+			var loose: int = SimItems.spawn_item(occ_w, "item.scrap.metal", {"tier": "scavenged", "count": 1})
+			occ_w.components.set_component(loose, "position", {"x": 10.4, "y": 12.6})
+		if SimFortify.can_build(occ_w, 10, 12):
+			push_error("%s: can_build said yes to a tile with a %s on it" % [lane, occupant])
+			return false
+		_channel_build(occ_w, {"type": "barricade.timber", "tx": 10, "ty": 12}, "timber")
+		if not (occ_w.components.query(["timberWall"]) as Array).is_empty():
+			push_error("%s: a timber wall was raised on a tile holding a %s" % [lane, occupant])
+			return false
+		if SimFortify.material_count(occ_w, occ_w.player, "plank") != 1:
+			push_error("%s: the refused wall over a %s spent the plank" % [lane, occupant])
+			return false
+
+	# Stone: rubble-grade stone, opaque, the longest channel of the three.
+	var w2: Variant = _world(10.5, 13.5)
+	var stone: int = SimItems.spawn_item(w2, "item.stone.block", {"tier": "scavenged", "count": 1})
+	if not SimInventory.stow(w2, w2.player, stone):
+		push_error("%s: could not stow a stone block" % lane)
+		return false
+	_channel_build(w2, {"type": "wall.stone", "tx": 10, "ty": 12}, "stone")
+	if (w2.components.query(["stoneWall"]) as Array).size() != 1:
+		push_error("%s: a stone course did not stand after a full channel" % lane)
+		return false
+	if not SimTileMap.blocks_sight(w2.tilemap, 10, 12):
+		push_error("%s: the stone course did not block sight" % lane)
+		return false
+
+	# Fence: wire, solid to the body and clear to the eye. The one raised buildable that is not
+	# opaque, which is what the sim's own opacity table is asked to say here.
+	var w3: Variant = _world()
+	var wire: int = SimItems.spawn_item(w3, "item.wire.steel", {"tier": "scavenged", "count": 1})
+	if not SimInventory.stow(w3, w3.player, wire):
+		push_error("%s: could not stow wire" % lane)
+		return false
+	_channel_build(w3, {"type": "fence.wire", "tx": 10, "ty": 12}, "fence")
+	if (w3.components.query(["wireFence"]) as Array).size() != 1:
+		push_error("%s: a wire fence did not stand after a full channel" % lane)
+		return false
+	if not w3.is_blocked_tile(10, 12):
+		push_error("%s: the wire fence did not block walking" % lane)
+		return false
+	if SimTileMap.blocks_sight(w3.tilemap, 10, 12):
+		push_error("%s: the wire fence blocked sight -- it is the one raised buildable the eye goes through" % lane)
+		return false
+	if int(SimTileMap.opacity_at(w3.tilemap, 10, 12)) != int(SimTileMap.Opacity.Clear):
+		push_error("%s: the fence's opacity is %d, not clear" % [lane, int(SimTileMap.opacity_at(w3.tilemap, 10, 12))])
+		return false
+	# The eye as the shadowcast answers it, not only the opacity table: the tile beyond the fence
+	# is seen through it, and the tile beyond the timber wall is not. The player stands on (10, 13).
+	var through_fence := SimShadowcast.VisibleTiles.new()
+	SimShadowcast.shadowcast(w3.tilemap, 10, 13, 6, through_fence)
+	if not through_fence.has_tile(10, 11):
+		push_error("%s: the shadowcast hid the tile behind a wire fence" % lane)
+		return false
+	var through_timber := SimShadowcast.VisibleTiles.new()
+	SimShadowcast.shadowcast(w.tilemap, 10, 13, 6, through_timber)
+	if through_timber.has_tile(10, 11):
+		push_error("%s: the shadowcast saw through a timber wall" % lane)
+		return false
+
+	# Breach: a crowd presses each wall in turn from the east. The fence costs 60 a stage and the
+	# stone course 180, so over the same press the fence falls and the stone course stands.
+	var breach: Dictionary = {}
+	var lulled: Dictionary = {}
+	for kind in ["fence", "stone"]:
+		var press_w: Variant = _world()
+		_set_tile(press_w, 10, 12, SimTileMap.Tile.Floor)
+		SimDirector.register_module(press_w)
+		var mat: String = "item.wire.steel" if kind == "fence" else "item.stone.block"
+		var cmd_row: String = "fence.wire" if kind == "fence" else "wall.stone"
+		var item: int = SimItems.spawn_item(press_w, mat, {"tier": "scavenged", "count": 1})
+		if not SimInventory.stow(press_w, press_w.player, item):
+			push_error("%s: could not stow the %s material" % [lane, kind])
+			return false
+		_channel_build(press_w, {"type": cmd_row, "tx": 10, "ty": 12}, kind)
+		var z: int = int(press_w.entities.spawn())
+		press_w.components.set_component(z, "position", {"x": 11.5, "y": 12.5})
+		press_w.components.set_component(z, "velocity", {"dx": 0.0, "dy": 0.0})
+		press_w.components.set_component(z, "shambler", {})
+		for _i in 260:
+			(press_w.components.get_component(z, "velocity") as Dictionary)["dx"] = -2.0
+			press_w.step()
+		breach[kind] = SimTileMap.overlay_at(press_w.tilemap, 10, 12) == null
+		lulled[kind] = int((press_w.director as Dictionary).get("lullUntilTick", 0)) > 0
+	if not bool(breach["fence"]):
+		push_error("%s: a wire fence held 260 ticks of one presser -- its 60-a-stage cost did not bite" % lane)
+		return false
+	if bool(breach["stone"]):
+		push_error("%s: a stone course fell inside 260 ticks of one presser -- it should take 720" % lane)
+		return false
+	# The true negative for the director: the fence fell, and a wall the colony raised itself buys no
+	# quiet night. The true positive is PRESS, where a door breach still starts a lull.
+	if bool(lulled["fence"]):
+		push_error("%s: a wire fence breach started a director lull -- only board, door and scrap count" % lane)
+		return false
+	print("  WALLS: timber and fence block walking, timber blocks sight and the fence does not; each spends one unit and a second on the same tile is refused, as is a tile holding a body or a loose item; the fence breaches in 260 ticks of one presser, starts no lull, and the stone course does not breach")
+	return true
+
+
+
+# The ladder's order, pinned: the raised walls sit above the alarm and the noisemaker, by design
+# (docs/30, "Three walls"), so E on open floor with a plank in the pack raises a timber wall, and
+# with nothing to build from falls through to the free alarm. Both the read (`rung_of`) and the key
+# (`use.context`) are asked, because they are two functions that must name the same rung.
+func _e_orders_the_walls_above_the_free_placements() -> bool:
+	var lane: String = "E-LADDER"
+	var bare: Variant = _world()
+	var bare_rung: Dictionary = SimFortify.rung_of(bare, bare.player)
+	if String(bare_rung.get("verb", "")) != "alarm":
+		push_error("%s: E on open floor with no material names '%s', not the alarm" % [lane, str(bare_rung.get("verb", ""))])
+		return false
+	_channel(bare, {"type": "use.context"})
+	if (bare.components.query(["alarmLine"]) as Array).is_empty() or not (bare.components.query(["timberWall"]) as Array).is_empty():
+		push_error("%s: E with no material did not lay the alarm" % lane)
+		return false
+
+	var armed: Variant = _world()
+	var plank: int = SimItems.spawn_item(armed, "item.plank.sawn", {"tier": "scavenged", "count": 1})
+	if not SimInventory.stow(armed, armed.player, plank):
+		push_error("%s: could not stow a plank" % lane)
+		return false
+	var rung: Dictionary = SimFortify.rung_of(armed, armed.player)
+	if String(rung.get("verb", "")) != "timber":
+		push_error("%s: E on open floor with a plank names '%s', not the timber wall" % [lane, str(rung.get("verb", ""))])
+		return false
+	_channel_build(armed, {"type": "use.context"}, "timber")
+	if (armed.components.query(["timberWall"]) as Array).size() != 1 or not (armed.components.query(["alarmLine"]) as Array).is_empty():
+		push_error("%s: E with a plank did not raise the wall in place of the alarm" % lane)
+		return false
+	print("  E-LADDER: E on open floor lays the alarm with no material and raises a timber wall, not the alarm, with a plank in the pack")
+	return true
+
+
+func _channel_build(w: Variant, cmd: Dictionary, verb: String) -> void:
+	w.commands.push(cmd)
+	for _i in int(SimFortify.BUILD_TICKS[verb]) + 2:
+		w.step()

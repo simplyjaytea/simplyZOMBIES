@@ -787,10 +787,13 @@ func _list_rect() -> Rect2:
 		return Rect2()
 	var tall: float = roundf(right.size.y * LIST_SHARE / Locker.PX) * Locker.PX
 	# A picked part's care can need more than the inspect half: the list gives up rows to it, down to
-	# its header, the chips and a row, so every refusal reads instead of being cut off at 1280x720.
+	# its header, the chips and one row, so every refusal it can reads instead of being cut off at
+	# 1280x720. The floor is measured from where the chips really end (they wrap to two lines in the
+	# narrow column): a floor of two bare rows once left the list no row at all under its chips, and
+	# it said "nothing in reach" over an item that was.
 	if _showing_part():
 		var need: float = CarePane.height_for(_care_view(), right.size.x - CarePane.PAD * 2.0)
-		var floor_h: float = Locker.HEAD_H + LIST_ROW * 2.0
+		var floor_h: float = _rows_offset(right.size.x) + LIST_ROW + Locker.PX * 4.0
 		tall = maxf(floor_h, minf(tall, right.size.y - GAP - need))
 		tall = floorf(tall / Locker.PX) * Locker.PX
 	return Rect2(right.position, Vector2(right.size.x, tall))
@@ -977,28 +980,44 @@ func _matches(d: Dictionary) -> bool:
 # The chips, laid left to right under the list's header and wrapped when the column is narrow:
 # [{rect, index}].
 func _chip_rects() -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
 	var list: Rect2 = _list_rect()
 	if not list.has_area():
-		return out
-	var x: float = list.position.x + Locker.PX * 4.0
-	var y: float = list.position.y + Locker.HEAD_H + Locker.PX * 2.0
+		return []
+	return _chips_at(list.position, list.size.x)
+
+
+# The filter chips laid from a list's top-left corner across its width, wrapping to a new line when
+# a chip would pass the right edge. Width only, never the list's height, so `_list_rect` can ask how
+# tall the chips stand before it has decided its own height.
+func _chips_at(at: Vector2, wide: float) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var x: float = at.x + Locker.PX * 4.0
+	var y: float = at.y + Locker.HEAD_H + Locker.PX * 2.0
 	var h: float = 24.0
 	for i in FILTERS.size():
 		var w: float = Locker.label_width(String((FILTERS[i] as Array)[0]), Locker.SMALL_SIZE)
-		if x + w > list.end.x - Locker.PX * 4.0:
-			x = list.position.x + Locker.PX * 4.0
+		if x + w > at.x + wide - Locker.PX * 4.0:
+			x = at.x + Locker.PX * 4.0
 			y += h + Locker.PX * 2.0
 		out.append({"rect": Rect2(Vector2(x, y), Vector2(w, h)), "index": i})
 		x += w + Locker.PX * 3.0
 	return out
 
 
-func _list_rows_top() -> float:
-	var chips: Array[Dictionary] = _chip_rects()
+# How far below the list's top its first row starts, for a list `wide` across: under the header and
+# the chips, however many lines they wrap to.
+func _rows_offset(wide: float) -> float:
+	var chips: Array[Dictionary] = _chips_at(Vector2.ZERO, wide)
 	if chips.is_empty():
-		return _list_rect().position.y + Locker.HEAD_H
+		return Locker.HEAD_H
 	return (chips[chips.size() - 1]["rect"] as Rect2).end.y + Locker.PX * 4.0
+
+
+func _list_rows_top() -> float:
+	var list: Rect2 = _list_rect()
+	if not list.has_area():
+		return list.position.y + Locker.HEAD_H
+	return list.position.y + _rows_offset(list.size.x)
 
 
 func _list_capacity() -> int:
@@ -1837,7 +1856,8 @@ func _draw_list(font: Font, alpha: float) -> void:
 		var i: int = int(chip["index"])
 		Locker.chip(self, chip["rect"] as Rect2, String((FILTERS[i] as Array)[0]), i == _filter, alpha)
 	var hits: Array[Dictionary] = _list_hits()
-	if hits.is_empty():
+	# "Nothing in reach" only when nothing is: a list with no room for a row is not an empty list.
+	if rows.is_empty():
 		draw_string(font, Vector2(list.position.x + Locker.PX * 6.0, _list_rows_top() + 28.0), "nothing of that kind in reach" if _filter != 0 else "nothing in reach", HORIZONTAL_ALIGNMENT_LEFT, -1, LIST_NOTE_SIZE, Locker.TEXT_FAINT)
 	for n in hits.size():
 		var r: Rect2 = hits[n]["rect"] as Rect2

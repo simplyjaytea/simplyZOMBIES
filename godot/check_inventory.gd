@@ -1617,6 +1617,7 @@ func _pending_has(w: Variant, kind: String, item: int) -> bool:
 #   SUPPLY    with a cloth bandage in the pockets, "dress it" becomes a button.
 #   WORDS     every word the pane draws for the part is digit-free.
 #   FIT       a refusal wraps to fit a narrow pane and keeps its whole reason; a wide pane keeps it on one line.
+#   ROOM      at 1280x720 the arm's care squeezes the list, and the list still keeps a row.
 #   ESCAPE    Escape's first press puts the part down and leaves the sheet open.
 func _a_picked_part_offers_only_legal_care() -> bool:
 	var w: Variant = _world(4242)
@@ -1768,6 +1769,34 @@ func _a_picked_part_offers_only_legal_care() -> bool:
 		push_error("CARE: SUPPLY a cloth bandage in the pocket did not make the arm dressable: %s" % str(CarePane.verbs_of(panel.call("_care_view"))))
 		ok = false
 
+	# ROOM: at 1280x720 the cut arm's care squeezes the list (the true positive that the squeeze is
+	# exercised: the list stands shorter than its share of the column), and the list still keeps a
+	# row under its wrapped chips. With none, it once said "nothing in reach" over an item in reach.
+	var was_part: String = String(panel.get("_part"))
+	var px: float = float((load("res://ui/locker.gd") as GDScript).get_script_constant_map()["PX"])
+	viewport.size = Vector2i(1280, 720)
+	await process_frame
+	panel.set("_part", "arm_left")
+	panel.call("set_world", w, actor)
+	await process_frame
+	if not bool(panel.call("_showing_part")):
+		push_error("CARE: ROOM the arm is not shown at 1280x720, so the squeeze was not judged")
+		ok = false
+	else:
+		var right: Rect2 = panel.call("_right_rect") as Rect2
+		var share: float = roundf(right.size.y * float(panel.get_script().get_script_constant_map()["LIST_SHARE"]) / px) * px
+		var list_h: float = (panel.call("_list_rect") as Rect2).size.y
+		if list_h >= share:
+			push_error("CARE: ROOM the arm's care did not squeeze the list at 1280x720 (%d px of %d), so the floor was not judged" % [int(list_h), int(share)])
+			ok = false
+		if int(panel.call("_list_capacity")) < 1:
+			push_error("CARE: ROOM the list keeps no row under its chips at 1280x720 (%d px tall)" % int(list_h))
+			ok = false
+	viewport.size = Vector2i(1920, 1080)
+	await process_frame
+	panel.set("_part", was_part)
+	panel.call("set_world", w, actor)
+
 	# ESCAPE
 	if not bool(panel.call("escape")) or not String(panel.get("_part")).is_empty() or not bool(panel.call("is_open")):
 		push_error("CARE: ESCAPE the first press did not put the part down and leave the sheet open")
@@ -1776,7 +1805,7 @@ func _a_picked_part_offers_only_legal_care() -> bool:
 		push_error("CARE: ESCAPE with nothing picked, held or open the sheet still claimed the press")
 		ok = false
 	if ok:
-		print("CARE OK a press on the drawn arm picks it and one off the figure puts it down; the arm's buttons are options_for's (%s) and the head's are none, dressing is refused in words and nothing-to-do is absent; the button pushes treat.begin and starts the channel, stop cancels it, a header press pushes nothing; a bandage makes it dressable; every word is digit-free; Escape puts the part down first" % ", ".join(CarePane.verbs_of(words)))
+		print("CARE OK a press on the drawn arm picks it and one off the figure puts it down; the arm's buttons are options_for's (%s) and the head's are none, dressing is refused in words and nothing-to-do is absent; the button pushes treat.begin and starts the channel, stop cancels it, a header press pushes nothing; a bandage makes it dressable; every word is digit-free; at 1280 the care squeezes the list and a row remains; Escape puts the part down first" % ", ".join(CarePane.verbs_of(words)))
 	viewport.queue_free()
 	return ok
 

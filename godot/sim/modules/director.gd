@@ -29,6 +29,8 @@ static var GRACE_NIGHTS: int = 7
 # statement about how many bodies a district of that size holds, and at 256 with 80 booted a flat
 # 32 would read "cap" on night one and every night after -- the same loop, reached at once.
 const LIVE_CAP_PER_64: int = 32
+# The breach kinds a lull answers (see register_module). The raised walls are not on the list.
+const LULL_BREACH_KINDS: Array = ["board", "door", "scrap"]
 const BASE_SIZE: int = 3
 const FLOOR_SIZE: int = 3
 const FLOOR_QUIET_NIGHTS: int = 3
@@ -289,8 +291,12 @@ static func register_module(world: Variant) -> void:
 		elif phase == Clock.Phase.Dawn and before != Clock.Phase.Dawn:
 			_on_dawn(w)
 	)
-	world.events.subscribe({"id": "director.breach-lull", "type": "fortify.breached", "handler": func(_event: Dictionary) -> void:
-		_begin_lull(world, 1)
+	# Only the barriers the colony counts on answer: a board, a door and the scrap barricade. A raised
+	# wall (timber, stone, wire fence) is the colony's own work and docs/23 says the director does not
+	# count it, so a one-wire fence that falls in seconds buys no quiet night.
+	world.events.subscribe({"id": "director.breach-lull", "type": "fortify.breached", "handler": func(event: Dictionary) -> void:
+		if LULL_BREACH_KINDS.has(String(event.get("kind", ""))):
+			_begin_lull(world, 1)
 	})
 	world.events.subscribe({"id": "director.mara-lull", "type": "entity.killed", "handler": func(event: Dictionary) -> void:
 		var ident: Variant = world.components.get_component(int(event.get("entity", -1)), "identity")

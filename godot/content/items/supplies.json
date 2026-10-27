@@ -32,6 +32,19 @@
     "stack": 5
   },
   {
+    "id": "item.medical.tourniquet",
+    "name": "Tourniquet",
+    "description": "A strap and a windlass for an arm or a leg. It stops the bleed below it, and a limb left in one too long does not come back.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.15,
+    "stack": 2,
+    "tourniquet": true
+  },
+  {
     "id": "item.painkillers.blister",
     "name": "Painkillers",
     "description": "A blister of painkillers. The hurt goes quiet; the injury does not.",

@@ -113,12 +113,16 @@ The mechanism that lets a build survive an upgrade — PoE's "your gems come wit
 |---|---|
 | Firearm | optic · barrel · muzzle · magazine · furniture · internal · underbarrel |
 | Bow / crossbow | sight · limb · string |
-| Melee | head/edge · haft · wrap |
+| Melee | head/edge · haft · wrap · stud · guard · weight |
 | Body armor | plate · lining · pocket |
 | Headgear | face · light mount |
 | [Vehicle](25-vehicles.md) | engine · exhaust · tires · plating · storage · lights · winch · hitch |
 
-Attachments are **found, not crafted**, and **move freely between compatible bases**. Finding a better
+Attachments are **found, not crafted**, and **move freely between compatible bases**. Melee is the
+one exception, by the melee arc's design: an improvised part is **made** from materials, one unit of
+each kind its recipe names, and fitted by `item.improvise`. A melee base declares a `family` (club,
+blade, polearm or tool), and a part declares `appliesTo` beside `fits`, naming families or base ids,
+so a wooden bat takes nails and an aluminium bat does not. Both must hold to fit. Finding a better
 rifle upgrades your numbers without discarding the suppressor, optic, and extended magazine you spent
 two months assembling.
 

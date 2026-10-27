@@ -34,6 +34,11 @@ const SimBoot = preload("res://sim/boot.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
+const SimJobs = preload("res://sim/modules/jobs.gd")
+const SimTileMap = preload("res://sim/map/tilemap.gd")
+const WorkRead = preload("res://sim/work_read.gd")
+const SimWeather = preload("res://sim/modules/weather.gd")
+const SimStockpile = preload("res://sim/modules/stockpile.gd")
 
 # --- what shipped before this slice, and must still ship ----------------------------------------
 #
@@ -96,8 +101,10 @@ func _run() -> void:
 	ok = _every_comfort_is_findable_and_the_key_is_read() and ok
 	ok = _the_menu_and_the_intake_are_one_function() and ok
 	ok = _a_half_block_is_refused_rather_than_taken_for_free() and ok
+	ok = _a_low_colonist_takes_the_comfort_on_their_own() and ok
+	ok = _a_storm_makes_no_comfort_job_for_an_outdoor_pile() and ok
 	if ok:
-		print("M2_COMFORT_OK pinned cap clock reach menu block")
+		print("M2_COMFORT_OK pinned cap clock reach menu block autonomy storm")
 		quit(0)
 	else:
 		push_error("M2_COMFORT_FAIL")
@@ -646,3 +653,376 @@ func _a_half_block_is_refused_rather_than_taken_for_free() -> bool:
 
 	print("BLOCK: %d malformed comfort blocks are each refused outright by the real reader, while an otherwise identical whole one on the same injected file is worth its declared 9.00" % cases.size())
 	return true
+
+
+# --- AUTONOMY ----------------------------------------------------------------------------------
+#
+# The limitation the slice itself recorded: comfort was a player verb, and "a colonist whose mood
+# band has dropped will not go and find the cigarettes". The tick now has a Comfort job for it,
+# and this lane proves the autonomy over the same mechanic, not a second comfort:
+#
+#   PACK   -- a low-mood colonist with a comfort in their own pack takes it where they stand,
+#             through the same `take_comfort` the intake calls, with no job and no walk.
+#   PILE   -- a low-mood colonist with a comfort on the stockpile walks to it, claims it for the
+#             Comfort job (`reserved`), the Colony screen's now line says the new words, and the
+#             item is spent through the same function.
+#   MOOD   -- the true negative: a colonist in a good mood does not take the identical item,
+#             which stays on the pile with nothing standing against it.
+#
+# All three phases do this through `SimJobs._tick_one`, the tick itself, never a private copy of
+# its gate. The mood half is the band `SimNeeds.mood_band` already exposes, forced to "low" --
+# deliberately not to "miserable", where the sulk below the comfort block could idle the fixture
+# on a die roll that is nobody's business here.
+func _a_low_colonist_takes_the_comfort_on_their_own() -> bool:
+	# The dress block sits above the comfort block in the tick. Pinned off for the lane and put
+	# back, the WEAR_FOUND_ARMOR convention: a lane that pins it restores the value it found.
+	var was_armor: bool = SimJobs.WEAR_FOUND_ARMOR
+	SimJobs.WEAR_FOUND_ARMOR = false
+	var ok: bool = _a_low_colonist_takes_the_comfort_on_their_own_body()
+	SimJobs.WEAR_FOUND_ARMOR = was_armor
+	return ok
+
+
+func _a_low_colonist_takes_the_comfort_on_their_own_body() -> bool:
+	# The pack: taken where they stand, no job handed out at all.
+	var w: Variant = _world()
+	var ellis: int = _ellis(w)
+	if ellis < 0 or not _colonist_ready_for_the_tick(w, ellis):
+		push_error("AUTONOMY: no Ellis, or the pack fixture would not settle, so the low-mood autonomy has nothing to judge")
+		return false
+	_force_mood(w, ellis, -30.0)
+	if SimNeeds.mood_band(w, ellis) != "low":
+		push_error("AUTONOMY: Ellis's band reads %s with the fixture's mood on him -- the lane is not standing on the band the tick reads" % SimNeeds.mood_band(w, ellis))
+		return false
+	var in_pack: int = _commodity_on_the_pile_or_pack(w, ellis, CIGARETTES, true)
+	if in_pack < 0:
+		push_error("AUTONOMY: the pack fixture would not hold the cigarettes, so the pack half was not judged")
+		return false
+	SimJobs._tick_one(w, ellis)
+	var packed_job: Variant = w.components.get_component(ellis, "job")
+	if packed_job is Dictionary and String((packed_job as Dictionary).get("kind", "")) == "Comfort":
+		push_error("AUTONOMY: a comfort in the pack was walked to as a Comfort job -- the pack is taken where they stand, the Dress rule")
+		return false
+	if absf(SimNeeds.comfort_of(w, ellis) - 6.0) > 0.001:
+		push_error("AUTONOMY: the low-mood colonist left %.3f of standing comfort after a pack of cigarettes beside him" % SimNeeds.comfort_of(w, ellis))
+		return false
+	if w.entities.is_alive(in_pack):
+		push_error("AUTONOMY: the pack of cigarettes was not spent")
+		return false
+
+	# The pile: walked to, claimed, said on the now line, and spent through the same function.
+	var w2: Variant = _world()
+	var ellis2: int = _ellis(w2)
+	if ellis2 < 0 or not _colonist_ready_for_the_tick(w2, ellis2):
+		push_error("AUTONOMY: the pile fixture would not settle, so the walk half was not judged")
+		return false
+	_force_mood(w2, ellis2, -30.0)
+	var on_pile: int = _commodity_on_the_pile_or_pack(w2, ellis2, CIGARETTES, false)
+	if on_pile < 0:
+		push_error("AUTONOMY: the pile fixture would not place the cigarettes on a stockpile tile")
+		return false
+	SimJobs._tick_one(w2, ellis2)
+	var walked: Variant = w2.components.get_component(ellis2, "job")
+	if not walked is Dictionary or String((walked as Dictionary).get("kind", "")) != "Comfort":
+		push_error("AUTONOMY: a low-mood colonist beside comforting stock took %s instead of a Comfort job" % str(walked))
+		return false
+	var claim: Variant = w2.components.get_component(on_pile, "reserved")
+	if not claim is Dictionary or int((claim as Dictionary).get("by", -1)) != ellis2 or String((claim as Dictionary).get("job", "")) != "Comfort":
+		push_error("AUTONOMY: the cigarettes on the pile went unclaimed: %s" % str(claim))
+		return false
+	if WorkRead.doing(w2, ellis2) != String(WorkRead.JOB_WORDS["Comfort"]):
+		push_error("AUTONOMY: the Colony screen's now line says %s while Ellis is on a Comfort job" % WorkRead.doing(w2, ellis2))
+		return false
+	var comforted: Array = []
+	w2.events.subscribe({"id": "gate.comfort.autonomy", "type": "mood.comforted", "handler": func(e: Dictionary) -> void:
+		comforted.append(int(e.get("entity", -1)))
+	})
+	var spins: int = 0
+	while spins < 600 and not comforted.has(ellis2):
+		w2.step()
+		spins += 1
+	if not comforted.has(ellis2):
+		push_error("AUTONOMY: %d ticks and mood.comforted never fired for Ellis -- the walk or the spend never completed" % spins)
+		return false
+	if w2.entities.is_alive(on_pile):
+		push_error("AUTONOMY: the cigarettes on the pile survived having been spent")
+		return false
+	if absf(SimNeeds.comfort_of(w2, ellis2) - 6.0) > 0.001:
+		push_error("AUTONOMY: the walked-to comfort left %.3f standing against the declared 6.00" % SimNeeds.comfort_of(w2, ellis2))
+		return false
+
+	# The true negative: a colonist in a good mood does not take the identical item.
+	var w3: Variant = _world()
+	var ellis3: int = _ellis(w3)
+	if ellis3 < 0 or not _colonist_ready_for_the_tick(w3, ellis3):
+		push_error("AUTONOMY: the good-mood fixture would not settle, so the negative was not judged")
+		return false
+	if SimNeeds.mood_band(w3, ellis3) == "low":
+		push_error("AUTONOMY: Ellis boots in the low band, so the negative below would judge a low-mood fixture")
+		return false
+	var untouched: int = _commodity_on_the_pile_or_pack(w3, ellis3, CIGARETTES, false)
+	if untouched < 0:
+		push_error("AUTONOMY: the good-mood fixture would not place the cigarettes on a stockpile tile")
+		return false
+	SimJobs._tick_one(w3, ellis3)
+	var taken: Variant = w3.components.get_component(ellis3, "job")
+	if taken is Dictionary and String((taken as Dictionary).get("kind", "")) == "Comfort":
+		push_error("AUTONOMY: a colonist in a good mood took comfort anyway")
+		return false
+	if not w3.entities.is_alive(untouched):
+		push_error("AUTONOMY: the good-mood fixture spent the cigarettes anyway")
+		return false
+	if absf(SimNeeds.comfort_of(w3, ellis3)) > 0.0001 or SimNeeds.mood_band(w3, ellis3) != "content":
+		push_error("AUTONOMY: the good-mood fixture moved comfort %.3f / band %s without a job" % [
+			SimNeeds.comfort_of(w3, ellis3), SimNeeds.mood_band(w3, ellis3)])
+		return false
+
+	if not _a_pile_survives_one_colonists_comfort():
+		return false
+
+	print("AUTONOMY: a low-mood colonist takes the pack's comfort where he stands, walks to the pile's, claims it and spends it through the same take_comfort with the now line saying the words; a content colonist leaves the identical item alone; a stacked pile loses one unit, a reusable comfort loses none, and the next colonist can find what is left")
+	return true
+
+
+# The pile after one colonist's Comfort job. A stack of three packs loses exactly one and the rest
+# is still on the pile, unclaimed, with a position, and a second colonist is handed it as a Comfort
+# job. A reusable comfort (cards, `spends` false) is used and left whole. The negative is the one
+# unit: the pile is not gone, and the first colonist did not carry the stack off.
+func _a_pile_survives_one_colonists_comfort() -> bool:
+	var w: Variant = _world()
+	var ellis: int = _ellis(w)
+	if ellis < 0 or not _colonist_ready_for_the_tick(w, ellis):
+		push_error("PILE-STACK: no Ellis, or the fixture would not settle, so the stack was not judged")
+		return false
+	_force_mood(w, ellis, -30.0)
+	var pile: int = _commodity_on_the_pile_or_pack(w, ellis, CIGARETTES, false, 3)
+	if pile < 0:
+		push_error("PILE-STACK: the fixture would not place three packs on a stockpile tile")
+		return false
+	if int((w.components.get_component(pile, "stack") as Dictionary).get("count", 0)) != 3:
+		push_error("PILE-STACK: the fixture's pile does not hold three packs, so the lane cannot tell one spent from all")
+		return false
+	SimJobs._tick_one(w, ellis)
+	var comforted: Array = []
+	w.events.subscribe({"id": "gate.comfort.stack", "type": "mood.comforted", "handler": func(e: Dictionary) -> void:
+		comforted.append(int(e.get("entity", -1)))
+	})
+	var spins: int = 0
+	while spins < 600 and not comforted.has(ellis):
+		w.step()
+		spins += 1
+	if not comforted.has(ellis):
+		push_error("PILE-STACK: %d ticks and Ellis never took his comfort off the stack" % spins)
+		return false
+	if not w.entities.is_alive(pile) or not w.components.has_component(pile, "position"):
+		push_error("PILE-STACK: the stack left the pile with one colonist's comfort")
+		return false
+	var left: int = int((w.components.get_component(pile, "stack") as Dictionary).get("count", 0))
+	if left != 2:
+		push_error("PILE-STACK: the pile holds %d packs after one colonist's comfort, not 2" % left)
+		return false
+	for carried in SimInventory.carried_items(w, ellis):
+		var cb: Variant = w.components.get_component(int(carried), "itemBase")
+		if cb is Dictionary and String((cb as Dictionary).get("baseId", "")) == CIGARETTES:
+			push_error("PILE-STACK: Ellis carried a pack off the pile")
+			return false
+	if w.components.get_component(pile, "reserved") != null:
+		push_error("PILE-STACK: the finished job left its claim on the pile")
+		return false
+	var mara: int = -1
+	for e in w.components.query(["identity"]):
+		var ident: Variant = w.components.get_component(int(e), "identity")
+		if ident is Dictionary and String((ident as Dictionary).get("id", "")) == "survivor.unique.mara":
+			mara = int(e)
+	if mara < 0:
+		push_error("PILE-STACK: no Mara, so a second colonist finding the pile was not judged")
+		return false
+	var offered: Dictionary = SimJobs._comfort_job(w, mara)
+	if String(offered.get("kind", "")) != "Comfort" or int(offered.get("target", -1)) != pile:
+		push_error("PILE-STACK: a second colonist is not handed what is left on the pile: %s" % str(offered))
+		return false
+
+	# A reusable comfort is used in place and the item stays whole on the pile.
+	var w2: Variant = _world()
+	var ellis2: int = _ellis(w2)
+	if ellis2 < 0 or not _colonist_ready_for_the_tick(w2, ellis2):
+		push_error("PILE-STACK: the reusable fixture would not settle")
+		return false
+	_force_mood(w2, ellis2, -30.0)
+	var cards: int = _commodity_on_the_pile_or_pack(w2, ellis2, "item.cards.deck", false)
+	if cards < 0:
+		push_error("PILE-STACK: the fixture would not place the deck on a stockpile tile")
+		return false
+	SimJobs._tick_one(w2, ellis2)
+	var played: Array = []
+	w2.events.subscribe({"id": "gate.comfort.reuse", "type": "mood.comforted", "handler": func(e: Dictionary) -> void:
+		played.append(int(e.get("entity", -1)))
+	})
+	spins = 0
+	while spins < 600 and not played.has(ellis2):
+		w2.step()
+		spins += 1
+	if not played.has(ellis2):
+		push_error("PILE-STACK: Ellis never played the deck on the pile")
+		return false
+	if not w2.entities.is_alive(cards) or not w2.components.has_component(cards, "position"):
+		push_error("PILE-STACK: a reusable comfort left the pile after one use")
+		return false
+	return true
+
+
+# --- AUTONOMY fixtures --------------------------------------------------------------------------
+
+func _ellis(w: Variant) -> int:
+	for e in w.components.query(["identity"]):
+		var ident: Variant = w.components.get_component(int(e), "identity")
+		if ident is Dictionary and String((ident as Dictionary).get("id", "")) == "survivor.unique.ellis":
+			return int(e)
+	return -1
+
+
+# Ellis alone on a still street with full pools and an empty job row, so the one thing the tick
+# can hand him is the thing under test. Anything this rests on is asserted by the caller.
+func _colonist_ready_for_the_tick(w: Variant, ellis: int) -> bool:
+	for z in w.components.query(["shambler"]):
+		if w.entities.is_alive(int(z)):
+			w.despawn(int(z))
+	for z2 in w.components.query(["zombieType"]):
+		if w.entities.is_alive(int(z2)):
+			w.despawn(int(z2))
+	var n: Dictionary = SimNeeds.of(w, ellis)
+	n["hunger"] = 100.0
+	n["thirst"] = 100.0
+	n["rest"] = 100.0
+	n["relief"] = 100.0
+	n["temperature"] = "comfortable"
+	n["hygiene"] = "clean"
+	n["crisis"] = "none"
+	n["comfort"] = 0.0
+	n["comfortUntilTick"] = -1
+	# A cleared Manual row: no column to beat the autonomy with, no watch calling him to the post.
+	SimJobs.attach(w, ellis, "Manual", SimJobs.empty_row())
+	w.components.remove_component(ellis, "job")
+	w.components.remove_component(ellis, "sleeping")
+	return true
+
+
+func _force_mood(w: Variant, ent: int, value: float) -> void:
+	w.modifiers.call("add", {"stat": "mood", "op": "add", "value": value, "source": "gate.comfort"}, ent)
+
+
+# The cigarettes into the pack (`in_pack`) or onto a default-zoned stockpile tile of the annex.
+# The pack is emptied but for the pipe his content equips, so the fixture's stow is a fact and
+# not a hope about pocket space.
+func _commodity_on_the_pile_or_pack(w: Variant, ellis: int, base_id: String, in_pack: bool, count: int = 1) -> int:
+	for carried in SimInventory.carried_items(w, ellis).duplicate():
+		var b: Variant = w.components.get_component(int(carried), "itemBase")
+		var bid: String = String((b as Dictionary).get("baseId", "")) if b is Dictionary else ""
+		if bid == "item.pipe.steel":
+			continue
+		SimInventory.remove_from_container(w, int(carried))
+		w.despawn(int(carried))
+	var item: int = SimItems.spawn_item(w, base_id, {"tier": "scavenged", "count": count})
+	if item < 0:
+		return -1
+	if in_pack:
+		if not SimInventory.stow(w, ellis, item):
+			w.despawn(item)
+			return -1
+		return item
+	var tile: Vector2i = _first_stockpile_tile(w)
+	if tile.x < 0:
+		w.despawn(item)
+		return -1
+	w.components.set_component(item, "position", {"x": float(tile.x) + 0.5, "y": float(tile.y) + 0.5})
+	return item
+
+
+func _first_stockpile_tile(w: Variant) -> Vector2i:
+	var annex: Rect2i = SimTileMap.annex_rect(w.tilemap)
+	for j in range(annex.position.y, annex.position.y + annex.size.y):
+		for i in range(annex.position.x, annex.position.x + annex.size.x):
+			if SimNeeds.is_stockpile_tile(w, i, j):
+				return Vector2i(i, j)
+	return Vector2i(-1, -1)
+
+
+# --- STORM -------------------------------------------------------------------------------------
+#
+# A storm sends everybody in: `_refused_outdoors` drops a job whose tile is outdoors on the tick
+# after it is made. Before the builders asked the same question, a low-mood colonist beside an
+# outdoor pile was handed a Comfort job each tick and had it taken away the next, for as long as
+# the storm lasted. The positive: the identical outdoor pile under a clear sky is handed over. The
+# negatives: the storm hands nothing over for it, and a pile on the annex's floor, under a roof, is
+# still handed over under the same storm, so the lane is judging the roof and not refusing every
+# job in a storm.
+func _a_storm_makes_no_comfort_job_for_an_outdoor_pile() -> bool:
+	var handed: Dictionary = {}
+	for sky in ["clear", "storm"]:
+		var w: Variant = _world()
+		var ellis: int = _ellis(w)
+		if ellis < 0 or not _colonist_ready_for_the_tick(w, ellis):
+			push_error("STORM: no Ellis, or the fixture would not settle")
+			return false
+		_force_mood(w, ellis, -30.0)
+		var pile: int = _commodity_on_the_pile_or_pack(w, ellis, CIGARETTES, false)
+		var outdoor: Vector2i = _mark_outdoor_tile_near_the_annex(w)
+		if pile < 0 or outdoor.x < 0:
+			push_error("STORM: the fixture would not place the cigarettes on an outdoor stockpile tile")
+			return false
+		w.components.set_component(pile, "position", {"x": float(outdoor.x) + 0.5, "y": float(outdoor.y) + 0.5})
+		SimWeather.set_kind(w, sky, 1 << 40)
+		handed[sky] = SimJobs._comfort_job(w, ellis)
+		if sky == "storm" and w.components.get_component(pile, "reserved") != null:
+			push_error("STORM: an outdoor pile was claimed under a storm")
+			return false
+	if String((handed["clear"] as Dictionary).get("kind", "")) != "Comfort":
+		push_error("STORM: the clear sky handed over %s, so the outdoor pile is out of the lane's reach and the storm half proves nothing" % str(handed["clear"]))
+		return false
+	if not (handed["storm"] as Dictionary).is_empty():
+		push_error("STORM: a storm made a Comfort job for a pile outdoors: %s" % str(handed["storm"]))
+		return false
+	var w2: Variant = _world()
+	var ellis2: int = _ellis(w2)
+	if ellis2 < 0 or not _colonist_ready_for_the_tick(w2, ellis2):
+		push_error("STORM: the indoor fixture would not settle")
+		return false
+	_force_mood(w2, ellis2, -30.0)
+	var roofed: int = _commodity_on_the_pile_or_pack(w2, ellis2, CIGARETTES, false)
+	var floor_tile: Vector2i = _first_stockpile_tile(w2)
+	if roofed < 0 or floor_tile.x < 0 or not SimTileMap.is_indoors(w2.tilemap, floor_tile.x, floor_tile.y):
+		push_error("STORM: the annex's stockpile tile is not under a roof, so the indoor negative is not one")
+		return false
+	SimWeather.set_kind(w2, "storm", 1 << 40)
+	if String(SimJobs._comfort_job(w2, ellis2).get("kind", "")) != "Comfort":
+		push_error("STORM: a storm refused a pile under a roof")
+		return false
+	print("STORM: under a clear sky the outdoor pile is handed over; under a storm it is not, and a pile under a roof still is")
+	return true
+
+
+# The open-air floor tile nearest the annex that the stockpile will take, marked as the zone and
+# returned, or (-1, -1). The player has seen the whole map first, because the zone only takes ground
+# the player has seen.
+func _mark_outdoor_tile_near_the_annex(w: Variant) -> Vector2i:
+	var bytes: PackedByteArray = PackedByteArray()
+	bytes.resize(int((w.tilemap.w * w.tilemap.h + 7) / 8))
+	bytes.fill(255)
+	w.components.set_component(w.player, "explored", {"w": int(w.tilemap.w), "h": int(w.tilemap.h), "bits": Marshalls.raw_to_base64(bytes)})
+	var annex: Rect2i = SimTileMap.annex_rect(w.tilemap)
+	var centre: Vector2 = Vector2(annex.position) + Vector2(annex.size) * 0.5
+	var best: Vector2i = Vector2i(-1, -1)
+	var best_d: float = INF
+	for j in int(w.tilemap.h):
+		for i in int(w.tilemap.w):
+			if annex.has_point(Vector2i(i, j)) or SimTileMap.is_indoors(w.tilemap, i, j):
+				continue
+			if not SimStockpile.markable(w, i, j):
+				continue
+			var d: float = centre.distance_to(Vector2(i, j))
+			if d < best_d:
+				best_d = d
+				best = Vector2i(i, j)
+	if best.x >= 0:
+		SimStockpile.mark(w, {"x0": best.x, "y0": best.y, "x1": best.x, "y1": best.y, "on": true})
+	return best
