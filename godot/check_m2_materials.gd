@@ -61,6 +61,16 @@ const FREE_VERBS: Array[String] = ["window", "alarm", "noisemaker", "wind", "cam
 # answer to either.
 const NO_KIND: String = "gate.nokind"
 
+# The three raised buildables' right substance, each a shipped base of that kind, and the wrong one
+# for the true negative: a plank for the stone course and a length of scrap for the timber wall
+# would both be the old bug with a different name. Keyed by the verb each recipe is spent on, with
+# the intake row the menu sends and the channel the row starts.
+const BUILD_CASES: Array[Dictionary] = [
+	{"verb": "timber", "row": "barricade.timber", "good": "item.plank.sawn", "wrong": "item.metal.pipe"},
+	{"verb": "stone", "row": "wall.stone", "good": "item.stone.block", "wrong": "item.plank.sawn"},
+	{"verb": "fence", "row": "fence.wire", "good": "item.wire.steel", "wrong": "item.wood.branch"},
+]
+
 
 func _init() -> void:
 	call_deferred("_run")
@@ -74,8 +84,9 @@ func _run() -> void:
 	ok = _every_material_can_be_found() and ok
 	ok = _the_scan_reaches_every_kind_and_only_the_one_asked_for() and ok
 	ok = _every_recipe_names_something_a_survivor_could_hold() and ok
+	ok = _the_raised_buildables_spend_their_own_material() and ok
 	if ok:
-		print("M2_MATERIALS_OK pinned kind kinds findable reach recipes")
+		print("M2_MATERIALS_OK pinned kind kinds findable reach recipes builds")
 		quit(0)
 	else:
 		push_error("M2_MATERIALS_FAIL")
@@ -124,6 +135,14 @@ func _give(w: Variant, id: String, count: int = 1) -> int:
 func _channel(w: Variant, cmd: Dictionary) -> void:
 	w.commands.push(cmd)
 	for _i in SimFortify.CHANNEL_TICKS + 2:
+		w.step()
+
+
+# The raised buildables take BUILD_TICKS, not CHANNEL_TICKS, so the stone course's 160 ticks need
+# their own run; a channel cut short would look like a refusal.
+func _channel_build(w: Variant, cmd: Dictionary, verb: String) -> void:
+	w.commands.push(cmd)
+	for _i in int(SimFortify.BUILD_TICKS[verb]) + 2:
 		w.step()
 
 
@@ -467,13 +486,82 @@ func _the_scan_reaches_every_kind_and_only_the_one_asked_for() -> bool:
 	return true
 
 
+# --- BUILDS -----------------------------------------------------------------------------------
+#
+# The three recipes the slice added are spent, not merely named: the right substance raises the
+# buildable and costs one unit, the wrong one raises nothing and is not spent, and the same
+# `_material_for` the Repair job reads finds the substance a survivor is carrying. Each walls the
+# same tile in a fresh world, so a wall one case raised cannot answer for the next.
+func _the_raised_buildables_spend_their_own_material() -> bool:
+	var lane: String = "BUILDS"
+	var seed_val: int = 110
+	for case_v in BUILD_CASES:
+		var case: Dictionary = case_v as Dictionary
+		var verb: String = String(case["verb"])
+		var kind: String = SimFortify.recipe_kind(verb)
+		var component: String = String(SimFortify.BLOCKERS[verb])
+
+		# TP: two of the right substance, a full channel, one wall and one unit spent.
+		var w: Variant = _world(seed_val)
+		seed_val += 1
+		if _give(w, String(case["good"]), 2) < 0:
+			return false
+		if SimFortify.material_count(w, w.player, kind) != 2:
+			push_error("%s: two '%s' in the pack count as %d '%s'" % [lane, String(case["good"]), SimFortify.material_count(w, w.player, kind), kind])
+			return false
+		if SimJobs._material_for(w, w.player, kind) < 0:
+			push_error("%s: the Construct and Repair reach cannot find '%s' in a pack carrying it" % [lane, kind])
+			return false
+		_channel_build(w, {"type": String(case["row"]), "tx": 10, "ty": 12}, verb)
+		if (w.components.query([component]) as Array).size() != 1:
+			push_error("%s: '%s' with '%s' in hand stood %d walls after a full channel" % [lane, verb, kind, (w.components.query([component]) as Array).size()])
+			return false
+		var overlay: Variant = SimTileMap.overlay_at(w.tilemap, 10, 12)
+		if not overlay is Dictionary or String((overlay as Dictionary).get("kind", "")) != verb:
+			push_error("%s: the '%s' wall's tile reads %s, not its own kind" % [lane, verb, str(overlay)])
+			return false
+		if not SimTileMap.is_solid(w.tilemap, 10, 12) or not w.is_blocked_tile(10, 12):
+			push_error("%s: the '%s' wall did not stop a body walking" % [lane, verb])
+			return false
+		if SimFortify.material_count(w, w.player, kind) != 1:
+			push_error("%s: the '%s' wall cost %d units, not one" % [lane, verb, 2 - SimFortify.material_count(w, w.player, kind)])
+			return false
+
+		# TN: the wrong substance is refused, the channel spends nothing and nothing stands.
+		var w2: Variant = _world(seed_val)
+		seed_val += 1
+		var wrong_item: int = _give(w2, String(case["wrong"]), 2)
+		if wrong_item < 0:
+			return false
+		if SimFortify.material_of(w2, wrong_item) == kind:
+			push_error("%s: the true negative for '%s' carries '%s', which is the right kind" % [lane, verb, String(case["wrong"])])
+			return false
+		_channel_build(w2, {"type": String(case["row"]), "tx": 10, "ty": 12}, verb)
+		if (w2.components.query([component]) as Array).size() != 0:
+			push_error("%s: '%s' raised a wall out of '%s'" % [lane, verb, String(case["wrong"])])
+			return false
+		if SimTileMap.is_solid(w2.tilemap, 10, 12):
+			push_error("%s: the refused '%s' channel made its tile solid" % [lane, verb])
+			return false
+		# Asked of the item itself, as KIND does: a refused channel leaves the pack as it was.
+		if not SimInventory.carried_items(w2, w2.player).has(wrong_item):
+			push_error("%s: the refused '%s' channel took '%s' out of the pack" % [lane, verb, String(case["wrong"])])
+			return false
+		if SimFortify.material_count(w2, w2.player, SimFortify.material_of(w2, wrong_item)) != 2:
+			push_error("%s: the refused '%s' channel spent '%s' anyway" % [lane, verb, String(case["wrong"])])
+			return false
+	print("  BUILDS: timber off a plank, stone off a stone block, fence off steel wire; each spends one unit and stands one wall, and each refuses the wrong substance and spends nothing")
+	return true
+
+
 # --- RECIPES ----------------------------------------------------------------------------------
 #
 # The recipe table's own reachability: a verb that asks for a substance nothing is made of, or
 # that no table can hand you, is a buildable nobody can build. The print line names the kinds no
 # recipe wants yet, because that is the honest half of this slice -- the vocabulary and the
-# content shipped, the recipes that spend eleven of the twelve kinds did not, and a number in the
-# build log is how that stays visible instead of being quietly forgotten.
+# content shipped, and the recipes that spend only some of the kinds have not spent the rest, and a
+# number in the build log is how that stays visible instead of being quietly forgotten. The lane
+# also pins the four kinds the recipe table spends today, so a recipe removed by accident is red.
 func _every_recipe_names_something_a_survivor_could_hold() -> bool:
 	var lane: String = "RECIPES"
 	var w: Variant = _world(95)
@@ -506,6 +594,10 @@ func _every_recipe_names_something_a_survivor_could_hold() -> bool:
 	if caught != ["gate.verb"]:
 		push_error("%s: the predicate cannot say no -- a fabricated recipe produced %s" % [lane, str(caught)])
 		return false
+	for spent in ["metal", "plank", "stone", "wire"]:
+		if not wanted.has(spent):
+			push_error("%s: no recipe spends '%s' -- the slice that spends it did not land" % [lane, spent])
+			return false
 	var unspent: Array[String] = []
 	for kind2 in SimFortify.MATERIAL_KINDS:
 		if not wanted.has(String(kind2)):

@@ -259,12 +259,12 @@ func _surplus_lane(w: Variant) -> bool:
 # eleven times over, and the web is the content most likely to point at one: four of its fifteen
 # shipped nodes did (docs/30, "Readers first for the web"). Two lists, both meant to shrink:
 # AWAITING_READER is what the wider-web arc will wire, one slice each; EXCUSED_DEAD is what no
-# slice reaches and the owner chose to keep in the registry rather than strike -- two of them are
-# still written by shipped affixes, and striking them is its own decision. Adding a name to
+# slice reaches and the owner chose to keep in the registry rather than strike -- bleed_on_hit is
+# still written by shipped affixes, and striking it is its own decision. Adding a name to
 # either list is a decision, which is why they are here and not in the registry.
 const SIM_DIR: String = "res://sim"
-const AWAITING_READER: Array[String] = ["noise_emission"]
-const EXCUSED_DEAD: Array[String] = ["noise_propagation", "structure_decay", "temperature", "condition_loss", "bleed_on_hit"]
+const AWAITING_READER: Array[String] = []
+const EXCUSED_DEAD: Array[String] = ["noise_propagation", "structure_decay", "temperature", "bleed_on_hit"]
 
 
 func _readers_lane(w: Variant) -> bool:

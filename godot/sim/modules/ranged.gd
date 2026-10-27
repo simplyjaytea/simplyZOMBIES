@@ -617,7 +617,9 @@ static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: V
 			best = int(entity)
 			impact_x = float((there as Dictionary)["x"])
 			impact_y = float((there as Dictionary)["y"])
-	var mag: float = _with_ammo(scale, "noise", float(weapon.get("noise", 4)))
+	# The weapon's own `noise_emission` (the affix "of the Quiet Hand" and its kin) scales the shot
+	# that leaves it; `source` is the item this profile was built from, -1 for anything else.
+	var mag: float = _with_ammo(scale, "noise", float(weapon.get("noise", 4))) * SimItemsRes.noise_emission_of(world, int(weapon.get("source", -1)))
 	world.events.publish({"type": "noise.emitted", "x": fx, "y": fy, "magnitude": mag, "source": attacker})
 	# A round left the weapon. Published here rather than at the trigger because everything above
 	# this line can still refuse -- no ammo, no position, no facing -- and a shot that did not

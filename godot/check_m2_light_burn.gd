@@ -48,6 +48,8 @@ const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimVehicles = preload("res://sim/modules/vehicles.gd")
 const SimAttention = preload("res://sim/modules/attention_emitter.gd")
 const SimLightIndex = preload("res://sim/vision/light.gd")
+const SimContext = preload("res://sim/context.gd")
+const SimPath = preload("res://sim/path.gd")
 const Clock = preload("res://sim/time/clock.gd")
 
 # The four bases that shipped before this slice. Fixtures, not welds -- the sim names none of them
@@ -105,10 +107,11 @@ func _run() -> void:
 	ok = _a_headlamp_lights_the_district_from_the_head() and ok
 	ok = _a_cell_refills_the_lamp_and_is_gone() and ok
 	ok = _the_floodlight_can_at_last_be_stood_up() and ok
+	ok = _a_planted_floodlight_can_be_taken_back_down() and ok
 	ok = _an_empty_can_can_at_last_be_filled() and ok
 	ok = _the_shipped_burn_times_are_measured_against_the_dark() and ok
 	if ok:
-		print("M2_LIGHT_BURN_OK pinned content slots burn headlamp feed plant siphon night")
+		print("M2_LIGHT_BURN_OK pinned content slots burn headlamp feed plant unplant siphon night")
 		quit(0)
 	else:
 		push_error("M2_LIGHT_BURN_FAIL")
@@ -925,6 +928,195 @@ func _the_floodlight_can_at_last_be_stood_up() -> bool:
 	if _give(full, PROPANE) < 0:
 		return false
 	print("  PLANT: 'use' stands a floodlight on the tile in front over %d ticks, it leaves the pack, lights at 90, is not loot, burns where it stands, goes dark and takes a bottle of gas; an empty hand and a walled tile both refuse" % SimFortify.CHANNEL_TICKS)
+	return true
+
+
+# --- UNPLANT -----------------------------------------------------------------------------------
+#
+# The plant verb's trip was one-way for six weeks. `light.unplant` is the way back: the same reach
+# the plant used, the same pack refusal any full grid answers false with, and the fuel the yard was
+# burning carried back in the same entity that stood there.
+func _row_of(rows: Array[Dictionary], prefix: String) -> Dictionary:
+	for r in rows:
+		if String((r as Dictionary).get("text", "")).begins_with(prefix):
+			return r as Dictionary
+	return {}
+
+
+func _a_planted_floodlight_can_be_taken_back_down() -> bool:
+	var w: Variant = _world()
+	var flood: int = _give(w, FLOODLIGHT)
+	if flood < 0:
+		return false
+	# Through the plant verb's own door, channel and all, so the round trip is the player's whole
+	# journey and not a fixture's convenience.
+	w.commands.push({"type": "item.use", "item": flood})
+	w.step()
+	for _i in SimFortify.CHANNEL_TICKS + 2:
+		w.step()
+	if not w.components.has_component(flood, "placedLight"):
+		push_error("UNPLANT: the floodlight this lane means to take down was never planted")
+		return false
+	var planted: Dictionary = w.components.get_component(flood, "placedLight") as Dictionary
+	var tx: int = int(planted["tx"])
+	var ty: int = int(planted["ty"])
+
+	# The right-click row is the dead-socket read: offered on the lamp in reach, absent from the
+	# bare ground beside it, else the command behind it is a socket nothing reaches.
+	var take: Dictionary = _row_of(SimContext.verbs_at(w, w.player, {"kind": "prop", "entity": flood, "tile": Vector2i(tx, ty)}), "take down")
+	if take.is_empty():
+		push_error("UNPLANT: the word menu offers nothing to take a planted floodlight down with")
+		return false
+	if String(((take as Dictionary).get("command", {}) as Dictionary).get("type", "")) != "light.unplant":
+		push_error("UNPLANT: the take-down row does not carry light.unplant: %s" % str(take))
+		return false
+	if not _row_of(SimContext.verbs_at(w, w.player, {"kind": "ground", "entity": -1, "tile": Vector2i(tx, ty)}), "take down").is_empty():
+		push_error("UNPLANT: bare ground beside the lamp was offered the take-down row")
+		return false
+
+	# It burns where it stands right up to the moment somebody takes it.
+	var stood: int = SimLightMod.fuel_left(w, flood)
+	for _s in 10:
+		w.step()
+	if SimLightMod.fuel_left(w, flood) != stood - 10:
+		push_error("UNPLANT: ten more ticks of the yard's burn cost %d of the floodlight's fuel, not 10" % (stood - SimLightMod.fuel_left(w, flood)))
+		return false
+	var carried: int = SimLightMod.fuel_left(w, flood)
+
+	# The true negatives first, as the record's convention keeps asking. Out of reach: beyond the
+	# 1.5 metres (fortify's REACH) the plant's own `_start` refuses beyond, with nobody nearer standing.
+	var far: Variant = _world()
+	var far_flood: int = _give(far, FLOODLIGHT)
+	if far_flood < 0:
+		return false
+	far.commands.push({"type": "item.use", "item": far_flood})
+	far.step()
+	for _i in SimFortify.CHANNEL_TICKS + 2:
+		far.step()
+	if not far.components.has_component(far_flood, "placedLight"):
+		push_error("UNPLANT: the far world never planted its floodlight")
+		return false
+	var far_before: int = SimLightMod.fuel_left(far, far_flood)
+	far.components.set_component(far.player, "position", {"x": 20.5, "y": 12.5})
+	if SimLightMod.planted_in_reach(far, far.player) != -1:
+		push_error("UNPLANT: twelve metres away still reads as in reach")
+		return false
+	var far_planted: Dictionary = far.components.get_component(far_flood, "placedLight") as Dictionary
+	var far_tile: Vector2i = Vector2i(int(far_planted["tx"]), int(far_planted["ty"]))
+	if not _row_of(SimContext.verbs_at(far, far.player, {"kind": "prop", "entity": far_flood, "tile": far_tile}), "take down").is_empty():
+		push_error("UNPLANT: a lamp out of reach still offers the take-down row")
+		return false
+	if SimLightMod.unplant(far, far.player):
+		push_error("UNPLANT: a body out of reach took the lamp down")
+		return false
+	if not far.components.has_component(far_flood, "placedLight") or not far.components.has_component(far_flood, "position"):
+		push_error("UNPLANT: the out-of-reach refusal moved the lamp somewhere")
+		return false
+	if SimInventory.owns(far, far.player, far_flood):
+		push_error("UNPLANT: the out-of-reach refusal put the floodlight in the pack")
+		return false
+	for _s in 5:
+		far.step()
+	if SimLightMod.fuel_left(far, far_flood) != far_before - 5:
+		push_error("UNPLANT: the refused lamp stopped burning where it stands" )
+		return false
+
+	# A full pack: every grid a stow could reach is sealed cell by cell, one deck of cards at a time.
+	# The deck is 1x1 with no stack, so a stow cannot merge into a stack that has room, and the
+	# refusal comes off the inventory's own answer rather than a copied rule. The seal is proved on
+	# data first -- a gate whose premise is that the pack is full owes a byte proving it.
+	var sealed_world: Variant = _world()
+	var sealed_flood: int = _give(sealed_world, FLOODLIGHT)
+	if sealed_flood < 0:
+		return false
+	sealed_world.commands.push({"type": "item.use", "item": sealed_flood})
+	sealed_world.step()
+	for _i in SimFortify.CHANNEL_TICKS + 2:
+		sealed_world.step()
+	if not sealed_world.components.has_component(sealed_flood, "placedLight"):
+		push_error("UNPLANT: the sealed-pack world never planted its floodlight")
+		return false
+	for box_v in SimInventory.reachable_containers(sealed_world, sealed_world.player):
+		var box: Dictionary = sealed_world.components.get_component(int(box_v), "container") as Dictionary
+		for by in int(box["h"]):
+			for bx in int(box["w"]):
+				var lid: int = SimItems.spawn_item(sealed_world, "item.cards.deck", {"tier": "scavenged"})
+				if not bool((SimInventory.place_at(sealed_world, lid, int(box_v), bx, by, false) as Dictionary).get("ok", false)):
+					push_error("UNPLANT: the pack seal could not lay a tin at cell (%d,%d)" % [bx, by])
+					return false
+	var probe: int = SimItems.spawn_item(sealed_world, "item.cards.deck", {"tier": "scavenged"})
+	if SimInventory.stow(sealed_world, sealed_world.player, probe):
+		push_error("UNPLANT: the seal left room for a tin, so the refusal below is not about room")
+		return false
+	sealed_world.despawn(probe)
+	if SimLightMod.unplant(sealed_world, sealed_world.player):
+		push_error("UNPLANT: a sealed pack took the lamp in anyway")
+		return false
+	if not sealed_world.components.has_component(sealed_flood, "placedLight") \
+			or not sealed_world.components.has_component(sealed_flood, "position") \
+			or not sealed_world.components.has_component(sealed_flood, "light_source"):
+		push_error("UNPLANT: the full-pack refusal disturbed the lamp standing there")
+		return false
+	var still_self: Variant = sealed_world.components.get_component(sealed_flood, "stored")
+	if not (still_self is Dictionary) or int((still_self as Dictionary).get("container", -1)) != sealed_flood:
+		push_error("UNPLANT: the refused lift did not put the lamp's own store back: %s" % str(still_self))
+		return false
+	if SimInventory.owns(sealed_world, sealed_world.player, sealed_flood):
+		push_error("UNPLANT: the full-pack refusal left the floodlight on the carried list")
+		return false
+	var sealed: int = SimLightMod.fuel_left(sealed_world, sealed_flood)
+	for _s in 5:
+		sealed_world.step()
+	if SimLightMod.fuel_left(sealed_world, sealed_flood) != sealed - 5:
+		push_error("UNPLANT: the refused lamp stopped burning where it stands")
+		return false
+
+	# The true positive, through the row's own command dictionary exactly as
+	# `main._context_pick` dispatches it -- a row the gate made up differently is a row the menu
+	# does not send.
+	var take_cmd: Dictionary = (take as Dictionary).get("command", {}) as Dictionary
+	var unplanted: Array = []
+	w.events.subscribe({"id": "gate.unplanted", "type": "light.unplanted", "handler": func(e: Dictionary) -> void: unplanted.append(e)})
+	w.commands.push(take_cmd)
+	w.step()
+	if unplanted.size() != 1 or int((unplanted[0] as Dictionary).get("entity", -1)) != flood:
+		push_error("UNPLANT: the take-down command finished and published %s" % str(unplanted))
+		return false
+	if w.components.has_component(flood, "placedLight"):
+		push_error("UNPLANT: the lamp is back in the pack and still standing in the yard")
+		return false
+	if w.components.has_component(flood, "position"):
+		push_error("UNPLANT: the pocketed floodlight kept a position")
+		return false
+	if w.components.has_component(flood, "light_source"):
+		push_error("UNPLANT: the pocketed floodlight is still lit")
+		return false
+	if not SimInventory.owns(w, w.player, flood):
+		push_error("UNPLANT: the floodlight did not come back into the pack")
+		return false
+	if SimLightMod.fuel_left(w, flood) != carried:
+		push_error("UNPLANT: the pocketed floodlight reads %d ticks of fuel, not the %d the yard left it" % [SimLightMod.fuel_left(w, flood), carried])
+		return false
+	if not _row_of(SimContext.verbs_at(w, w.player, {"kind": "prop", "entity": flood, "tile": Vector2i(tx, ty)}), "take down").is_empty():
+		push_error("UNPLANT: the packed floodlight is still offered the take-down row")
+		return false
+
+	# The patch it stood on: the plant wrote nothing to the map -- furniture, not a barricade --
+	# so the yard it lit is walkable again, and the predicate is proved on data first so this is
+	# a scanner with an opinion about a wall and not an affirmation.
+	for oy in range(-1, 2):
+		for ox in range(-1, 2):
+			if not SimPath.walkable(w, tx + ox, ty + oy):
+				push_error("UNPLANT: the yard the stand stood in is not walkable again at (%d,%d)" % [tx + ox, ty + oy])
+				return false
+	var yard: Variant = _world()
+	yard.tilemap.tiles[15 * MAP + 15] = SimTileMap.Tile.Wall
+	SimFortify.sync_map(yard)
+	if SimPath.walkable(yard, 15, 15) or not SimPath.walkable(yard, 8, 12):
+		push_error("UNPLANT: the walkable scan cannot tell a wall from a yard")
+		return false
+
+	print("  UNPLANT: the row appears on the lamp in reach and nowhere else, the row's own command takes a half-burnt lamp down with its %d ticks of fuel still in it, out of reach and a sealed pack both refuse and leave it standing lit, and the patch it stood on is walkable" % carried)
 	return true
 
 
