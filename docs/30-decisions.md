@@ -6638,7 +6638,10 @@ taken:
 - **Wear goes through `wearRate`, not `condition_loss`.** The plan said material should feed the
   `condition_loss` stat. `wearRate` is the part's own wear knob and the path `wear_parts` already
   reads, so the material word multiplies it and the wear path is untouched. `condition_loss` stays
-  the affix stat it was built as.
+  the affix stat it was built as. Quality multiplies the same knob (`QUALITY_WEAR`, `match` 1.4):
+  the shipped match barrel keeps its authored 1.4 wear as a match bore on plain steel, not as a
+  barrel of soft metal, so `mild` keeps meaning what the vocabulary says it means. No shipped
+  barrel is `mild`.
 - **Conversions keep the caliber's share.** The rimfire and .45 barrels change the round as well as
   the bore, so their damage, noise and wear stay as a share the words multiply. Moving that share
   into a word would have needed a fourth axis for the caliber, and the plan did not name one.

@@ -2388,8 +2388,9 @@ func _a_glass_blade_cuts_the_hand_that_holds_it_until_it_is_wrapped() -> bool:
 #
 # A barrel declares three words (sim/barrel.gd) and the shot reads their product. Six lanes, each
 # with a true negative: the vocabulary refuses a typo out loud, the six shipped barrels keep the
-# numbers they were authored with, length and quality move the shot they name, material moves the
-# wear it names, and a slow round loses damage at range where a plain one does not.
+# numbers they were authored with, length and quality move the shot they name, material and
+# quality move the wear they name, and a slow round loses damage at range where a plain one does
+# not.
 
 const BARREL_STD: String = "item.part.barrel.standard"
 const BARREL_RIMFIRE: String = "item.part.barrel.rimfire"
@@ -2555,22 +2556,42 @@ func _quality_moves_the_cone_it_names() -> bool:
 	if not (float((rough["ranged"] as Dictionary)["cone"]) > 1.1) or (service["ranged"] as Dictionary).has("cone"):
 		push_error("%s: rough resolves to %s and service to %s" % [lane, str(rough["ranged"]), str(service["ranged"])])
 		return false
-	print("  BARREL QUALITY OK match cone %.4f against standard %.4f; rough widens, service is the identity" % [match_cone, std_cone])
+	# A true bore is also the one that goes off true soonest: `match` wears 1.4 times `service` on
+	# the same steel, so the shipped match barrel's wear is its quality's and not a softer metal's.
+	# TN: service on steel is the identity.
+	var match_steel: Dictionary = SimBarrel.resolve({"barrel": {"length": "full", "quality": "match", "material": "steel"}})
+	if not _within_five(float(match_steel["wearRate"]), 1.4) or float(service["wearRate"]) != 1.0:
+		push_error("%s: match on steel wears at %.3f and service at %.3f, not 1.4 and 1.0" % [lane, float(match_steel["wearRate"]), float(service["wearRate"])])
+		return false
+	print("  BARREL QUALITY OK match cone %.4f against standard %.4f; rough widens, service is the identity; match wears %.1f on the same steel" % [match_cone, std_cone, float(match_steel["wearRate"])])
 	return true
 
 
 func _material_moves_the_wear_it_names() -> bool:
 	var lane: String = "BARREL MATERIAL"
+	# The same short barrel in two worlds, one of them re-declared `mild` in memory for the length
+	# of its twenty shots and restored before the steel world fires, so no other lane and not the
+	# steel world sees the patch. No shipped barrel is mild: the one that wears 1.4 is match on
+	# steel, and that is QUALITY's to hold.
 	var mild_world: Variant = _world()
 	var mild_pistol: int = _armed_pistol(mild_world)
-	_swap(mild_world, mild_pistol, "barrel", _spawn(mild_world, BARREL_MATCH))
+	var short_base: Dictionary = SimItems.base_by_id(mild_world, BARREL_SHORT) as Dictionary
+	var short_words: Dictionary = (short_base["attachment"] as Dictionary)["barrel"] as Dictionary
+	var keep_material: String = String(short_words["material"])
+	if keep_material != "steel":
+		push_error("%s: the shipped short barrel is %s, this lane assumes steel" % [lane, keep_material])
+		return false
+	short_words["material"] = "mild"
+	_swap(mild_world, mild_pistol, "barrel", _spawn(mild_world, BARREL_SHORT))
+	for i in 20:
+		SimAttachments.wear_parts(mild_world, mild_pistol, "shot")
+	var mild_loss: float = 1.0 - _condition_of(mild_world, SimAttachments.in_slot(mild_world, mild_pistol, "barrel"))
+	short_words["material"] = keep_material
 	var steel_world: Variant = _world()
 	var steel_pistol: int = _armed_pistol(steel_world)
 	_swap(steel_world, steel_pistol, "barrel", _spawn(steel_world, BARREL_SHORT))
 	for i in 20:
-		SimAttachments.wear_parts(mild_world, mild_pistol, "shot")
 		SimAttachments.wear_parts(steel_world, steel_pistol, "shot")
-	var mild_loss: float = 1.0 - _condition_of(mild_world, SimAttachments.in_slot(mild_world, mild_pistol, "barrel"))
 	var steel_loss: float = 1.0 - _condition_of(steel_world, SimAttachments.in_slot(steel_world, steel_pistol, "barrel"))
 	if not (mild_loss > 0.0 and steel_loss > 0.0):
 		push_error("%s: a shot wore nothing (mild %.5f, steel %.5f)" % [lane, mild_loss, steel_loss])
