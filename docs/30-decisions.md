@@ -6911,12 +6911,18 @@ are a blow on a vest. One consequence, accepted: `infection.record-bite` runs af
 coverage that bite left. The difference is one blow's wear, at most 0.024 of a ceramic plate's
 condition, which moves the plate's multiplier by about a thousandth.
 
-**What wears.** A garment wears if it covered the struck part for this blow: its coverage *as
-fitted* above zero, so an empty carrier, which `blocked_reason` already makes worth nothing,
-wears nothing. Inside it, only the parts whose own `armor` names the struck part wear (a
-`covering` argument on `wear_parts`; the weapon channels pass none and are unchanged). Without
-that filter a blow to the arm would wear the chest plate, which never stood in its way. The
-garment's own condition does not wear: nothing reads it (`armor_coverage` reads the parts'
+**What wears.** The garment that stopped the blow: the one with the most coverage of the struck
+part *as fitted*, the way `armor_coverage_of` composes the same walk (max, never sum, the
+2026-09-12 call), and it wears only when that coverage is above zero, so an empty carrier, which
+`blocked_reason` already makes worth nothing, wears nothing. A lined jacket under a carrier does
+not wear on a torso blow, because the carrier stopped it and the jacket never stood in its way;
+pull the carrier's plate and the jacket is what stops the next one, so its lining wears. Two
+garments at the same coverage both wear. The end review caught the first cut wearing every
+covering garment, so a jacket's lining paid for blows it never met; the COVERS lane now holds the
+layered case both ways. Inside the garment, only the parts whose own `armor` names the struck part
+wear (a `covering` argument on `wear_parts`; the weapon channels pass none and are unchanged).
+Without that filter a blow to the arm would wear the chest plate, which never stood in its way.
+The garment's own condition does not wear: nothing reads it (`armor_coverage` reads the parts'
 condition through `effect_scale`, not the host's), so wearing it would be a dead socket.
 
 **The numbers.** On top of `PART_WEAR_PER_EVENT` 0.002 a blow: the ceramic plate `wearRate` 12
