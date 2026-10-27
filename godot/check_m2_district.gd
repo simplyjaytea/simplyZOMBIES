@@ -30,7 +30,11 @@ extends SceneTree
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimTemplates = preload("res://sim/map/templates.gd")
 const SimWorldgen = preload("res://sim/map/worldgen.gd")
+const World = preload("res://sim/world.gd")
+const Clock = preload("res://sim/time/clock.gd")
 const SimBoot = preload("res://sim/boot.gd")
+const SimRoster = preload("res://sim/modules/roster.gd")
+const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
 const SimAttentionField = preload("res://sim/field/attention.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
@@ -98,8 +102,9 @@ func _run() -> void:
 	ok = _the_survivability_pass_can_fail() and ok
 	ok = _a_refused_candidate_moves_the_colony_to_the_next_one() and ok
 	ok = _the_boot_population_scales_with_the_district() and ok
+	ok = _the_bloodhound_follows_scent_alone() and ok
 	if ok:
-		print("M2_DISTRICT_OK validate blit annex anchors boot isolation walls generator roads enterable determinism district-data reserve siting survivability re-site density")
+		print("M2_DISTRICT_OK validate blit annex anchors boot isolation walls generator roads enterable determinism district-data reserve siting survivability re-site density scent-only")
 		quit(0)
 	else:
 		push_error("M2_DISTRICT_FAIL")
@@ -1516,3 +1521,75 @@ func _the_boot_population_scales_with_the_district() -> bool:
 	print("BOOT DENSITY OK wanderers_for 20 / 40 / 80 at 64 / 128 / 256; a 256 boot stands 80 scattered plus %d asleep indoors, none in the annex" % asleep_256)
 	return true
 
+
+# SCENT-ONLY -- the bloodhound follows the scent field and is deaf to noise. Each run is one body on
+# a blank 24 m map for SCENT_TICKS ticks, its velocity set west and its wander held off, with the
+# one thing under test laid where it can act. The shambler's ear and the bloodhound's are both read
+# from the content, so the lane judges what the JSON says and not a constant it might share.
+const SCENT_TICKS: int = 120
+const TYPE_BLOODHOUND: String = "zombie.bloodhound"
+# The scent source is 8 m east of the body and the noise 2 m west. The noise magnitude is a
+# fixture choice, not a shipped one: it is loud enough that the shambler's ear (0.2) hears it at
+# 2 m, which the `hears` run asserts, so a bloodhound that ignores it is judged against a sound
+# that did reach something.
+const SCENT_AT: float = 20.5
+const NOISE_AT: float = 10.5
+const NOISE_PROBE: float = 400.0
+
+func _the_bloodhound_follows_scent_alone() -> bool:
+	var follow: Dictionary = _run_body(TYPE_BLOODHOUND, SCENT_AT, -1.0)
+	var bare: Dictionary = _run_body(TYPE_BLOODHOUND, -1.0, -1.0)
+	var deaf: Dictionary = _run_body(TYPE_BLOODHOUND, -1.0, NOISE_AT)
+	var hears: Dictionary = _run_body(SimRoster.TYPE_SHAMBLER, -1.0, NOISE_AT)
+	# The content's numbers reach the body: deaf to noise, scent at the top of the range.
+	if float(follow["noise"]) != 0.0 or float(follow["scent"]) != 1.0:
+		push_error("SCENT-ONLY: the bloodhound's senses are not its content's (noise %s, scent %s)" % [str(follow["noise"]), str(follow["scent"])])
+		return false
+	# TRUE POSITIVE: walking west with a scent source east, the bloodhound turns east; the same body
+	# with no source keeps west, so the turn is the scent's and not the wander's.
+	if float(follow["dx"]) <= 0.0 or float(bare["dx"]) >= 0.0:
+		push_error("SCENT-ONLY: the bloodhound did not turn to the scent 8 m east (with %s, without %s)" % [str(follow), str(bare)])
+		return false
+	# CONTROL: the noise is real. The shambler, two metres from it, goes to Seek.
+	if int(hears["seeks"]) == 0:
+		push_error("SCENT-ONLY: the shambler did not hear the fixture noise at 2 m, so the deaf lane judges nothing (%s)" % str(hears))
+		return false
+	# TRUE NEGATIVE: the same noise, the same body, no scent. The bloodhound never seeks and walks
+	# exactly the path it walked without the noise.
+	if int(deaf["seeks"]) != 0 or float(deaf["dx"]) != float(bare["dx"]):
+		push_error("SCENT-ONLY: the bloodhound heard a noise its content makes it deaf to (deaf %s, bare %s)" % [str(deaf), str(bare)])
+		return false
+	print("SCENT-ONLY OK bloodhound turns to scent 8 m east (dx %.2f against %.2f without it); deaf to a noise 2 m west the shambler seeks %d ticks to (its path unchanged at dx %.2f)" % [float(follow["dx"]), float(bare["dx"]), int(hears["seeks"]), float(deaf["dx"])])
+	return true
+
+func _run_body(type_id: String, scent_x: float, noise_x: float) -> Dictionary:
+	var world: Variant = World.new({
+		"seed": 53,
+		"tick_hz": 20,
+		"map": {"width": 24, "height": 24, "walls": []},
+		"player": {"id": 0, "x": 1.5, "y": 22.5, "stance": 2},
+		"rng_probe": {"stream": "test", "samples": 0},
+	})
+	world.tick = Clock.tick_at_time_of_day(Clock.DAY_BEGINS)
+	var map: Variant = SimTileMap.blank_map(24, 24)
+	SimBoot.attach_kernel(world, map)
+	SimShambler.register_module(world, map)
+	world.components.set_component(world.player, "position", {"x": 1.5, "y": 22.5})
+	var zed: int = SimRoster.spawn_zombie(world, 12.5, 12.5, type_id, world.rng.stream("shambler"))
+	var sd: Dictionary = world.components.get_component(zed, "shambler") as Dictionary
+	var vel: Dictionary = world.components.get_component(zed, "velocity") as Dictionary
+	var pos: Dictionary = world.components.get_component(zed, "position") as Dictionary
+	sd["state"] = SimShambler.ShamblerState["Wander"]
+	sd["ticksToTurn"] = 100000
+	vel["dx"] = -0.05
+	vel["dy"] = 0.0
+	if scent_x >= 0.0:
+		world.field.add_scent(scent_x, 12.5, 500.0)
+	if noise_x >= 0.0:
+		world.field.emit_noise(noise_x, 12.5, float(world.field.calibration["floor"]) * NOISE_PROBE)
+	var seeks: int = 0
+	for i in SCENT_TICKS:
+		world.step()
+		if int(sd["state"]) == SimShambler.ShamblerState["Seek"]:
+			seeks += 1
+	return {"dx": snappedf(float(pos["x"]) - 12.5, 0.01), "seeks": seeks, "noise": sd.get("noiseSense"), "scent": sd.get("scentSense")}

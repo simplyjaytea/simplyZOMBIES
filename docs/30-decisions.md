@@ -6626,3 +6626,48 @@ affixes that named them moved no number a gun reads.
 the web gate's READERS lane names it as awaiting a reader. `godot:m2:ranged` QUIET-SHOT and
 RUIN-SHOT, and `godot:m2:attach` SWING, WEAR and REPAIR, hold the readers.
 
+
+## The bloodhound, 2026-10-27
+
+Zombie kind eight, content only: `godot/content/zombies/bloodhound.json`, with no line under
+`godot/sim/`. Where each number came from:
+
+- **`sensory.noise` 0.** A sense of 0 is the deaf case, and `shambler.gd` already reads it as
+  hearing nothing (`noise_sense > 0.0`). No sim line was needed.
+- **`sensory.light` 0, which is docs/33 item 20's default.** `sight_reach` is the observer's range
+  times the square root of the light weight, so 0 gives a reach of 0, and `_seen_target` returns
+  null at a zero reach. The lean toward a lamp (`_lean_to_light`) is weighted by the same number, so
+  it is off too. Contact pursuit (`_contact_target`, `CONTACT_METRES`) is not sight and still
+  catches a body that walks into it.
+- **`sensory.scent` 1.0.** docs/14's tracker row reads "Extreme". The shipped top is the shambler's
+  0.9, "High", and the schema's range is 0 to 1, so 1.0 is the first value above 0.9 the schema
+  allows. The first cut is the ceiling, not a tuned number.
+- **Locomotion: speed 1.0, wander 0.35, mill 0.25, crawl 0.25.** Speed is the stalker's 1.0, a
+  little above the shambler's 0.8. The rest are the shambler's, so the difference is what it
+  follows, not how it walks.
+- **Wave 3, weight 6.** docs/14 puts the tracker late, and wave 3 is day 7. The weight is the
+  runner's, the kind most likely to change a night. Both are first cuts.
+- **Look.** It reuses `body_zombie_workwear` and its corpses with its own tints. No picture is
+  drawn, so it is a gap until the art arrives (docs/38's rule: pictures a stage behind).
+
+Gates:
+
+- `godot:m2:district` SCENT-ONLY. One body on a blank 24 m map, walking west, 120 ticks. A scent
+  source 8 m east turns it east (dx +0.19 against -0.30 with no source). A noise 2 m west, with no
+  scent, leaves it on exactly the path it walks without the noise, and the shambler control hears
+  that same noise and seeks for 10 ticks. The lane also reads the spawned body's `noiseSense` and
+  `scentSense` against the content. Broken on purpose: a content `noise` of 0.9 turns READ red.
+- `godot:m2:roster`. MIX re-pinned on purpose. The day-7 sequence now covers eight kinds, so the
+  pinned literal moved. The shipped-tree floor for shambler draws moved from 110 to 100 of 200: the
+  shambler's share falls from 80 of 128 to 80 of 134, which takes its expected count from 125 to
+  about 120, and a fixed 110 would fail a mix that is still what the content asked for. The HEAVY
+  fixture now flattens the bloodhound to 1 as it does the other kinds. SHARES: 84 drawn against 90
+  expected, inside the band. KINDS resolves it and its senses reach the component.
+- `godot:check:appearance`. The bloodhound joins ROSTER, and ROSTER_SHARED puts it in a group with
+  the shambler, since it draws the same file.
+- Ran green: `godot:check:zombie_art`, `godot:check:worn`, `godot:check:authored`, `godot:validate`,
+  `godot:smoke`, `npm test`, `format:check`, `check:routing`.
+
+Balance, same machine, FAST band, seed 20260805: BALANCE_HEAD_PLACEHOLDER
+
+The ten-seed table was not re-run. It is owed by the post-arc re-baseline.
