@@ -2456,6 +2456,12 @@ not a to-do list:
     negative) and its letter fixtures; `godot:check:play` NAME (the emptied field's plain name,
     a click in the field at each edge, a click outside). Each new assertion was broken on
     purpose and went red. Review scene `name_field_long` (the cap, the caret in the middle).
+  - **Art review, round 2.** The field keeps how far it has scrolled (`_name_start`, threaded
+    through `InspectPane.field_layout`), so a click or an arrow inside the letters on show moves
+    the caret and not the text; FIELD clicks before every letter of every scrolled layout and holds
+    the start, red with the scroll forgotten. The field asks for no pointer of its own: the kit
+    dresses no I-beam, and an unmapped shape is the system's. The accent rim is snapped to the art
+    grid as the well is. Typing the plain name back over a given one clears it.
   - **Save.** `givenName` round-trips through the generic component store; a save without it loads
     unnamed. `SAVE_VERSION` stays 33.
   - **Gates.** `godot:check:inventory` NAME: a wooden bat counts 0, 1, 2, 3 as nails, a sandbag and
