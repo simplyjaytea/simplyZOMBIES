@@ -644,7 +644,7 @@ static func inspect_view(world: Variant, actor: int, item: int) -> Dictionary:
 		"worn": worn,
 		"attachments": fitted,
 		"fits": fits,
-		# How much is left in a lamp, as a **word**: "burning steadily", "burning low",
+		# How much is left in a lamp, as a **word**: "burning well", "burning low",
 		# "guttering", "dark", and "" for the overwhelming majority of items, which are not lamps.
 		# Never a fraction and never a count, for the reason `condition` is a band rather than an
 		# integrity: docs/01 clause 4, and the gate above serialises this whole view and refuses a
