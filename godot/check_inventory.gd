@@ -44,6 +44,7 @@ const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimStockpile = preload("res://sim/modules/stockpile.gd")
+const SimLightMod = preload("res://sim/modules/light.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const InspectPane = preload("res://ui/inspect_pane.gd")
@@ -2167,7 +2168,7 @@ func _the_pane_draws_one_state_line() -> bool:
 # at 1280x720 when the line first landed.
 func _every_state_word_fits_the_narrow_pane(w: Variant, lamp: int) -> bool:
 	var lane: String = "STATE FIT"
-	var cap: int = SimLightModule.capacity_of(w, lamp)
+	var cap: int = SimLightMod.capacity_of(w, lamp)
 	if cap <= 0:
 		push_error("%s: the lantern has no tank to walk down" % lane)
 		return false
@@ -2177,7 +2178,7 @@ func _every_state_word_fits_the_narrow_pane(w: Variant, lamp: int) -> bool:
 	var fuel_words: Dictionary = {}
 	for left in [cap, floori(cap / 3.0), floori(cap / 8.0), 0]:
 		w.components.set_component(lamp, "lightFuel", {"ticksLeft": int(left)})
-		var word: String = SimLightModule.fuel_clause(w, lamp)
+		var word: String = SimLightMod.fuel_clause(w, lamp)
 		fuel_words[word] = true
 		lines.append(["fuel", word])
 	w.components.set_component(lamp, "lightFuel", {"ticksLeft": cap})
