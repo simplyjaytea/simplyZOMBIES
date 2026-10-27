@@ -357,3 +357,11 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
     alternatives are normal zombie sight, or fully blind (the same, with contact removed too). One
     value in `godot/content/zombies/bloodhound.json` changes the answer, and the SCENT-ONLY lane in
     `godot:m2:district` holds the default.
+
+22. **Does the bench list recipes you cannot make yet?** (2026-10-27, the melee arc's bench piece,
+    docs/30's "The bench makes parts, 2026-10-27"). The default is yes: an empty slot lists every
+    recipe that fits this weapon, and one you lack materials for (or that needs a bench you are
+    not at) is dimmed, says what it needs in words ("needs cordage"), and cannot be pressed. The
+    alternative is to list only what you can make now, the pack menu's "absent, never greyed"
+    rule. One filter in `SimGunsmith._recipe_rows` changes the answer, and `godot:m2:bench`
+    RECIPES and `godot:check:play` BENCH MAKE hold the default.

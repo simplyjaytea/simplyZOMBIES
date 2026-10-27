@@ -251,7 +251,76 @@ static func bench_view(world: Variant, actor: int, host: int) -> Dictionary:
 		"refusal": SimAttachments.refusal_clause(world, actor),
 		"slots": rows,
 		"offers": offers,
+		"recipes": _recipe_rows(world, actor, host, base as Dictionary, slots, fitted),
 	}
+
+
+## The parts the survivor could make for this weapon's empty slots (docs/33 item 22's default: the
+## bench lists what it cannot make yet, and says why). One row per recipe whose spec fits the slot
+## and that this host takes -- `spec_fits` and `takes`, the pair `improvise` asks -- so a part the
+## command would call implausible is never a row. A filled slot offers none: the bench makes into
+## an empty slot and swaps only what you carry. Whether a row can be made now is
+## `SimAttachments.improvise_refusal`, the command's own check, asked without spending.
+##
+## Each row: `recipe`, the base id that goes back out on `item.improvise` and is never drawn; the
+## slot and its noun; the part's name; `spends`, the materials as words; `makeable`; and `needs`,
+## the refusal in words, "" when it can be made. Makeable rows first, then by name.
+static func _recipe_rows(world: Variant, actor: int, host: int, base: Dictionary, slots: Array, fitted: Dictionary) -> Array:
+	var out: Array = []
+	var recipes: Array = _recipes(world)
+	for slot_v in slots:
+		var slot: String = String(slot_v)
+		if int(fitted.get(slot, -1)) >= 0:
+			continue
+		var rows: Array = []
+		for entry_v in recipes:
+			var entry: Dictionary = entry_v as Dictionary
+			var spec: Dictionary = entry["attachment"] as Dictionary
+			if not SimAttachments.spec_fits(spec, slot) or not SimAttachments.takes(base, spec):
+				continue
+			var id: String = String(entry.get("id", ""))
+			var why: String = SimAttachments.improvise_refusal(world, actor, host, slot, id)
+			if why == "not-plausible" or why == "no-recipe":
+				continue
+			rows.append({
+				"slot": slot,
+				"noun": String(SimAttachments.SLOT_NOUN.get(slot, slot)),
+				"recipe": id,
+				"name": String(entry.get("name", "part")),
+				"spends": String(_fortify().call("material_words", SimAttachments.recipe_kinds(world, id))),
+				"makeable": why == "",
+				"needs": SimAttachments.improvise_needs(world, actor, id, why),
+			})
+		rows.sort_custom(func(a: Variant, b: Variant) -> bool:
+			var am: bool = bool((a as Dictionary)["makeable"])
+			var bm: bool = bool((b as Dictionary)["makeable"])
+			if am != bm:
+				return am
+			return String((a as Dictionary)["name"]) < String((b as Dictionary)["name"])
+		)
+		out.append_array(rows)
+	return out
+
+
+## Every loaded item base that is made rather than found: an attachment carrying `recipe.kinds`.
+static func _recipes(world: Variant) -> Array:
+	var out: Array = []
+	for entry_v in SimItems.content_entries(world, "item"):
+		if not entry_v is Dictionary:
+			continue
+		var spec: Variant = (entry_v as Dictionary).get("attachment")
+		if not spec is Dictionary:
+			continue
+		var recipe: Variant = (spec as Dictionary).get("recipe")
+		if recipe is Dictionary and (recipe as Dictionary).get("kinds") is Array:
+			out.append(entry_v)
+	return out
+
+
+# Loaded lazily, as attachments.gd does: fortify.gd loads this file to build a bench, and a preload
+# cycle is a parse error.
+static func _fortify() -> GDScript:
+	return load("res://sim/modules/fortify.gd") as GDScript
 
 
 static func _name_of(world: Variant, item: int) -> String:

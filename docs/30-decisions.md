@@ -6756,3 +6756,31 @@ can be read whole at the start of a piece.
 
 **How to apply:** follow docs/38's steps 2, 4 and 5 and its art review paragraph. Model names stay
 in the project's memory, never here.
+
+## The bench makes parts, 2026-10-27
+
+The melee arc's M1 piece (docs/23's record, "The bench offers improvised parts"). Calls taken
+without the owner, all inside the screen the bench already had:
+
+- **Only an empty slot lists recipes.** The bench makes into an empty slot and swaps only what you
+  carry, the rule `improvise` already enforces (`not-plausible` on a filled slot). Offering a make
+  on a filled slot would mean the screen deciding to take the old part off first, which is a
+  second command the sim never asked for.
+- **The rows the survivor cannot make are listed** (docs/33 item 22's default), dimmed, with what
+  they need in words and no lit button. A recipe the host could never take is not a row at all:
+  that is the plausibility rule, not a missing material, and listing it would teach nothing.
+- **Missing material names every kind that is missing.** The command still stops at the first
+  (`no-material:<kind>`, which gates and events read), but a row that says "needs an ingot" and,
+  once the ingot is found, "needs cordage" is a screen hiding half the answer.
+- **The material words are a code-owned table, `SimFortify.MATERIAL_NOUN`,** beside the
+  vocabulary, for the reason `SLOT_NOUN` is: content cannot see the kind list. Each noun reads
+  after "needs" on its own ("scrap metal", "timber", "an ingot", "electronics").
+- **Makeable rows first, then by name,** so at 1280x720 the column opens on what can be done now
+  and scrolls to the rest.
+- **The amber corner was left meaning "something you carry fits".** A makeable recipe does not
+  raise it. Whether the corner should also mean "something can be made here" is a discoverability
+  question for the art review or the owner, not a silent change of a settled mark.
+
+**How to apply:** a new improvised part is a content entry with `recipe.kinds`, `fits` and
+`appliesTo`, and the bench offers it with no screen change. A new material kind needs a noun in
+`MATERIAL_NOUN`, or `godot:m2:bench` RECIPES goes red.
