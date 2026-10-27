@@ -925,14 +925,29 @@ static func generated_description(base: Dictionary) -> String:
 
 
 static func item_name(world: Variant, item: int) -> String:
-	var base: Variant = item_base_of(world, item)
-	if base == null:
+	if item_base_of(world, item) == null:
 		return "something"
 	# A name the player gave it is the whole name: no base noun and no affix words around it. That
 	# is the point of naming a thing you rebuilt -- "Old Faithful", not "Sturdy Old Faithful".
-	var given: Variant = world.components.get_component(item, GIVEN_NAME)
-	if given is Dictionary and not String((given as Dictionary).get("name", "")).is_empty():
-		return String((given as Dictionary)["name"])
+	var given: String = given_name(world, item)
+	return given if not given.is_empty() else plain_name(world, item)
+
+
+## How a sentence names this item: "the hunting rifle" for a thing, or the name the player gave it,
+## as typed. A given name is a proper noun -- "pick up Old Faithful", never "pick up the old
+## faithful" -- so every line that puts an item in a sentence asks here rather than lowering
+## `item_name` and putting "the" in front of it.
+static func the_item(world: Variant, item: int) -> String:
+	var given: String = given_name(world, item)
+	return given if not given.is_empty() else "the %s" % item_name(world, item).to_lower()
+
+
+## The name the item would have with no name given: the base's noun with its affix words. What the
+## name field offers back when it is emptied, since an empty name gives this name back.
+static func plain_name(world: Variant, item: int) -> String:
+	var base: Variant = item_base_of(world, item)
+	if base == null:
+		return "something"
 	var plain: String = String((base as Dictionary).get("name", (base as Dictionary).get("id", "something")))
 	var aff: Variant = world.components.get_component(item, "affixes")
 	if aff == null:
@@ -1012,6 +1027,21 @@ static func name_is_allowed(text: String) -> bool:
 	return false
 
 
+## Whether a typed character may stand in a name: printable Latin (Basic, Latin-1 and Extended-A,
+## which is what the screens' pixel face draws) and the few marks it carries beyond them -- the euro,
+## the dashes, the curly quotes and the ellipsis. No control, no invisible space or soft hyphen, no
+## direction mark, and nothing the face would hand to a smooth fallback or draw as a box on the web
+## build, where there are no system fonts. A fixed list rather than a font question: the sim reads
+## no fonts, and a command or a save is held to the same rule as the field.
+const NAME_MARKS: Array[int] = [0x20AC, 0x2013, 0x2014, 0x2018, 0x2019, 0x201C, 0x201D, 0x2026]
+static func name_char_allowed(code: int) -> bool:
+	if code >= 0x20 and code <= 0x7E:
+		return true
+	if code >= 0xA1 and code <= 0x17E and code != 0xAD:
+		return true
+	return NAME_MARKS.has(code)
+
+
 ## Why this survivor may not give this item this name, or "" when they may. An empty name is
 ## allowed: it gives back the plain name. Asked by the command and by the screen before it sends,
 ## so the field can say what is wrong and stay open.
@@ -1027,9 +1057,8 @@ static func name_refusal(world: Variant, actor: int, item: int, text: String) ->
 	if trimmed.length() > NAME_MAX:
 		return "too-long"
 	for ch in trimmed:
-		var code: int = ch.unicode_at(0)
-		if code < 32 or code == 127:
-			return "not-a-name"
+		if not name_char_allowed(ch.unicode_at(0)):
+			return "not-a-letter"
 	if not name_is_allowed(trimmed):
 		return "not-a-name"
 	return ""
@@ -1046,6 +1075,8 @@ static func name_refusal_words(reason: String) -> String:
 			return "that name is too long"
 		"not-a-name":
 			return "a name needs a word in it"
+		"not-a-letter":
+			return "it will not take a letter like that"
 		_:
 			return "it will not take that name"
 
