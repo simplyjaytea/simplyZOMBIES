@@ -2479,7 +2479,31 @@ func _a_lashed_head_flies_off_at_the_swingers_feet() -> bool:
 	if SimAttachments.in_slot(w, plain, "head") < 0:
 		push_error("%s: a standard head flew off a spear" % lane)
 		return false
-	print("  LASH OK %d of %d blows threw a lashed head to the feet (band %s); a standard head never flew" % [flown, WEAR_TRIALS, str(LASH_BAND)])
+	# FOOTLESS: a swinger with no position has no feet to land the head at, and the spear here is
+	# carried by nobody, lies nowhere and sits in no container, so the ladder refuses too. The head
+	# must stay fitted rather than be unlinked and homed nowhere. Two thousand rolls at 0.025 miss
+	# every one with odds under 1e-20, so a head still on is the ladder's refusal, not the seed's.
+	var footless: int = _spawn(w, SPEAR)
+	if not _swap(w, footless, "head", _spawn(w, LASHED_SPIKE)):
+		push_error("%s: a lashed spike was refused the footless spear's head slot" % lane)
+		return false
+	var lashed_head: int = SimAttachments.in_slot(w, footless, "head")
+	# `_swap` lent the spear a tile so the standard head could detach onto it; take it back, or the
+	# ladder's second rung lands the head beside the spear and the refusal is never reached.
+	w.components.remove(footless, "position")
+	var nobody: int = int(w.entities.spawn())
+	for i in WEAR_TRIALS:
+		SimAttachments.shed_on_connect(w, footless, nobody)
+	if SimAttachments.in_slot(w, footless, "head") != lashed_head:
+		push_error("%s: a head flew off for a swinger with no feet; the ladder should have refused and left it on" % lane)
+		return false
+	if w.components.has_component(lashed_head, "position"):
+		push_error("%s: a head with nowhere to land was given a position anyway" % lane)
+		return false
+	if not w.components.has_component(lashed_head, "attachedTo"):
+		push_error("%s: a head that stayed in its slot lost its attachedTo link" % lane)
+		return false
+	print("  LASH OK %d of %d blows threw a lashed head to the feet (band %s); a standard head never flew; a footless swinger's head stayed on through %d rolls" % [flown, WEAR_TRIALS, str(LASH_BAND), WEAR_TRIALS])
 	return true
 
 
