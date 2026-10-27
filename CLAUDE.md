@@ -84,11 +84,15 @@ The parts that take several files to see. [docs/19](docs/19-architecture.md) and
 
 Milestone 2, the vertical slice: one district, a handful of survivors, enough of every system to
 find out whether the loop is fun. Its exit criterion is ten in-game days, permanent loss,
-succession, and still wanting another run. The alpha plan's pieces (A0 to A24) have all landed;
-what remains is the post-alpha balance wall (docs/23's "Balance after the alpha"), the UI
-overhaul's later slices, and the rest of [what's left](docs/23-roadmap.md#whats-left-in-milestone-2).
-[docs/23](docs/23-roadmap.md) is the authority on what is built and what remains. Facts that
-matter every session:
+succession, and still wanting another run. The alpha plan's pieces (A0 to A24) have all landed.
+What comes next is set by [the release plan](docs/38-playbook.md#the-release-plan), the owner's
+five stages of 2026-10-26: stage 1, alpha closed, lands what is in flight, the sim pieces that
+need no owner call, the UI overhaul's next bullets and the first pieces of
+[the content arcs](docs/38-playbook.md#the-content-arcs) (readers before content, pictures a
+stage behind); stage 2 is the post-alpha balance wall (docs/23's "Balance after the alpha").
+[docs/23](docs/23-roadmap.md) is the authority on what is built and what remains, piece by piece
+under [what's left](docs/23-roadmap.md#whats-left-in-milestone-2). Facts that matter every
+session:
 
 - **The survival loop is built, gated and on.** `SimShambler.GRABS_ENABLED` ships `true`. Any
   gate that pins the flag restores the previous value.
@@ -114,6 +118,7 @@ The longer state notes, the art history and the full dead-socket list are in
 |---|---|
 | How the project runs: the owner, threads, merging, the shared folder, open calls | [docs/38, the playbook](docs/38-playbook.md) |
 | What is open, what landed, with evidence | [docs/23, the roadmap](docs/23-roadmap.md) |
+| Which release stage a piece belongs to, and the four content arcs | [docs/38's release plan](docs/38-playbook.md#the-release-plan) |
 | Why something is shaped the way it is | [docs/30, the decisions](docs/30-decisions.md), oldest first |
 | Decisions waiting on the owner | [docs/33](docs/33-owner-decisions.md) |
 | Other agents, the two containers, MCP servers, running the game, screenshots | [docs/34](docs/34-agents-and-environment.md) |
