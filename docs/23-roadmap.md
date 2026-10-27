@@ -2427,7 +2427,7 @@ not a to-do list:
     outside (no annex) stands where it came in; it does not fall back to walking at the gate.
     The siege reads the annex rect, not a camp footprint, so a camp's siege has no ring of its
     own yet.
-  - **Measured.** `godot:m2:balance` before and after, same machine: __BALANCE__. The ten-seed
+  - **Measured.** `godot:m2:balance` before and after, same machine: `godot:m2:balance` on main (d942876d) and on head, back to back on this machine: the four FAST seed lines are identical (raids 0, 1, 0, 0 on both arms; seed 404 is the one seed with a raid, two in and none down). FAST compresses the campaign, so it shows no doctrine effect either way. The siege wait and the probe turn are not measured by it. The ten-seed
     table was not re-run: owed by the post-arc re-baseline. No HUD change; the player is not told
     the doctrine.
 
