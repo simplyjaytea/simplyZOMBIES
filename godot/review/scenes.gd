@@ -44,7 +44,7 @@ const SIZES: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(1920, 1080)]
 const NAMES: Array[String] = [
 	"day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing",
 	"colony_picked", "colony_crowd", "colony_scrolled", "bench_drop",
-	"bench", "bench_field",
+	"bench", "bench_field", "bench_make",
 	"context_menu",
 	"night_torch",
 	"stockpile_mark",
@@ -112,6 +112,13 @@ const BENCH_PACK: String = "item.pack.hiking"
 # The same rifle and parts by hand (C1's field work), out on the street with no bench in reach, and
 # the magazine picked: a slot hands can change, so the screen says "by hand" over a real job.
 const BENCH_FIELD_SLOT: String = "magazine"
+# The bench making a part (docs/23, "The bench offers improvised parts"): a wooden bat on the bench
+# with a handful of nails in the pack, its empty stud picked and the keys crossed to the column, so
+# the shot shows the make group with rows it can make (the fixings ones, "make it" lit on the first)
+# and rows it cannot, each saying what it needs.
+const MAKE_WEAPON: String = "item.bat.wood"
+const MAKE_MATERIALS: Array[String] = ["item.fixings.nails"]
+const MAKE_SLOT: String = "stud"
 
 # The stockpile window's shot (slice S4): a mixed stack hauled into the annex, food, water, care,
 # ammunition, a tool, a weapon and a pack, so the grid shows small and large plates together.
@@ -472,6 +479,28 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 				# The plate keeps the keys: the column beside it already lists what fits, and the footer
 				# shows "take off" lit, the hands' own job on a fitted magazine.
 				field_panel.call("pick_slot", BENCH_FIELD_SLOT)
+		"bench_make":
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			var me_m: int = int(world.player)
+			var at_m: Dictionary = world.components.get_component(me_m, "position") as Dictionary
+			SimGunsmith.make_bench(world, float(at_m["x"]), float(at_m["y"]))
+			var bat: int = SimItems.spawn_item(world, MAKE_WEAPON, {"tier": "scavenged"})
+			if not SimInventory.equip(world, me_m, bat):
+				return "the survivor could not take up the %s" % MAKE_WEAPON
+			var make_pack: int = SimItems.spawn_item(world, BENCH_PACK, {"tier": "scavenged"})
+			if not SimInventory.equip(world, me_m, make_pack):
+				return "the survivor could not shoulder the %s" % BENCH_PACK
+			for mat_id in MAKE_MATERIALS:
+				if not SimInventory.stow(world, me_m, SimItems.spawn_item(world, mat_id, {"tier": "scavenged"})):
+					return "the pack had no room for %s" % mat_id
+			world.commands.push({"type": "bench.open", "item": bat})
+			main.call("_process", TICK_SECONDS)
+			await tree.process_frame
+			var make_panel: Variant = main.get("_bench_panel")
+			if make_panel != null and make_panel.has_method("pick_slot"):
+				make_panel.call("pick_slot", MAKE_SLOT)
+				# Enter on the empty stud crosses to the column, through the router as a key would.
+				press(tree, KEY_ENTER)
 		"context_menu":
 			world.tick = Clock.tick_on_day(DAY, NOON)
 			var street_m: Vector2 = _street_spot(world)
@@ -830,6 +859,28 @@ static func verify(main: Node, scene: String) -> String:
 				return "the %s is not picked" % BENCH_FIELD_SLOT
 			if String(field_v.call("side")) != "slots":
 				return "the keys are not on the %s plate" % BENCH_FIELD_SLOT
+			return ""
+		"bench_make":
+			var made_on: int = SimGunsmith.focus_of(world, int(world.player))
+			var made_base: Variant = world.components.get_component(made_on, "itemBase") if made_on >= 0 else null
+			if not made_base is Dictionary or String((made_base as Dictionary).get("baseId", "")) != MAKE_WEAPON:
+				return "the bench is not open on the %s" % MAKE_WEAPON
+			var mk: Variant = main.get("_bench_panel")
+			if mk == null or not bool((mk as CanvasItem).visible):
+				return "the assembly screen is not up"
+			if String(mk.call("picked_slot")) != MAKE_SLOT or String(mk.call("side")) != "offers":
+				return "the keys are not in the %s's column" % MAKE_SLOT
+			var makeable: int = 0
+			var wanting: int = 0
+			for r_v in (mk.get("_view") as Dictionary).get("recipes", []) as Array:
+				if String((r_v as Dictionary).get("slot", "")) != MAKE_SLOT:
+					continue
+				if bool((r_v as Dictionary).get("makeable", false)):
+					makeable += 1
+				else:
+					wanting += 1
+			if makeable == 0 or wanting == 0:
+				return "the %s lists %d it can make and %d it cannot; the shot wants both" % [MAKE_SLOT, makeable, wanting]
 			return ""
 		"night_torch":
 			if Clock.phase_of(int(world.tick)) != Clock.Phase.Night:
