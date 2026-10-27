@@ -693,7 +693,7 @@ func _the_panel_pushes_what_the_sim_answers() -> bool:
 #
 # The bench offers the parts that are made (docs/23, "The bench offers improvised parts"): an empty
 # slot lists a row per recipe whose spec fits it and that the host takes, what the row uses, and --
-# docs/33 item 22's default -- a row the survivor cannot make yet, which says what it needs in words
+# the owner's call of 2026-10-27 -- a row the survivor cannot make yet, which says what it needs in words
 # and is not makeable. `item.improvise` had only ever been sent by gates; this lane holds the view
 # to the command it feeds, and check_play's BENCH MAKE step holds the panel to the key that sends it.
 const WOOD_BAT: String = "item.bat.wood"

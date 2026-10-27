@@ -31,7 +31,7 @@ extends Control
 # make the picked part.
 #
 # **Making a part.** Under what you carry, an empty slot lists the parts that can be made for it
-# (the view's `recipes`, docs/33 item 22's default): each says what it uses, or what it still
+# (the view's `recipes`, the owner's call of 2026-10-27): each says what it uses, or what it still
 # needs, and only a row the sim says is `makeable` lights "make it". The arrows walk the candidates
 # and the make rows as one column, and a click on a makeable row makes it at once, as a click on a
 # candidate fits it.
