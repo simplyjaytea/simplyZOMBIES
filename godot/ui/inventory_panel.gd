@@ -1768,7 +1768,7 @@ func _draw() -> void:
 		if _showing_part():
 			CarePane.draw_pane(self, _inspect_rect(), _care_view(), alpha)
 		else:
-			InspectPane.draw_pane(self, _inspect_rect(), _inspect_view(), alpha, _pane_verbs(), _world, name_field())
+			InspectPane.draw_pane(self, _inspect_rect(), _inspect_view(), alpha, _pane_verbs(), name_field(), _world)
 	QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor) if _world != null else [], alpha, _selected, _ping_view(), _world)
 	ItemMenu.draw_menu(self, _menu_at, _menu_verbs, alpha)
 

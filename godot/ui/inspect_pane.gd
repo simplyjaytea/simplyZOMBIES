@@ -75,8 +75,9 @@ static func button_rects(rect: Rect2, verbs: Array) -> Array[Dictionary]:
 # `verbs` are the buttons along its foot, from `button_rects`; the first is drawn as the obvious one.
 # `field` is the name field while it is open on this item ({item, text, caret}, the panel's own
 # typing state): it is drawn in the title's place, so the name you are typing sits where the name
-# will be.
-static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: float, verbs: Array = [], world: Variant = null, field: Dictionary = {}) -> void:
+# will be. It comes before `world`, which stays last: `godot:check:appearance` PICTURES reads the
+# sheet's call for the world as its final argument.
+static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: float, verbs: Array = [], field: Dictionary = {}, world: Variant = null) -> void:
 	Locker.panel(ci, rect, alpha)
 	var top: float = Locker.header(ci, rect, "inspect", alpha, "", Chrome.GLYPH_SMALL + Locker.PX * 3.0)
 	Chrome.glyph(ci, "inspect", Vector2(rect.end.x - Chrome.GLYPH_SMALL - Locker.PX * 5.0, rect.position.y + Locker.PX * 2.0 + floorf((Locker.TAPE_H - Chrome.GLYPH_SMALL) / 2.0)), true, alpha * 0.7)
