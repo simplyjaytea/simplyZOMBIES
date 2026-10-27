@@ -1,0 +1,34 @@
+{
+  "id": "zombie.bloodhound",
+  "extends": "zombie.base",
+  "name": "Bloodhound",
+  "introducedInWave": 3,
+  "weight": 6,
+  "appearance": {
+    "sprite": "body_zombie_workwear",
+    "hitFx": "fx_blood_hit",
+    "corpseSprites": [
+      "corpse_zombie_workwear_supine",
+      "corpse_zombie_workwear_prone"
+    ]
+  },
+  "sensory": {
+    "noise": 0,
+    "light": 0,
+    "scent": 1.0
+  },
+  "locomotion": {
+    "speed": 1.0,
+    "wander": 0.35,
+    "mill": 0.25,
+    "crawl": 0.25
+  },
+  "variance": {
+    "tints": [
+      "#c9b49a",
+      "#bfa88c",
+      "#d4bfa6",
+      "#b39c84"
+    ]
+  }
+}
