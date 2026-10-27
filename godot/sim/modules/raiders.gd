@@ -650,7 +650,13 @@ static func _approach(world: Variant, ent: int) -> void:
 	# arithmetic rather than about the colony, and it is exactly docs/18's "retreat when losses
 	# outweigh the haul" applied to a crossing. So a lookout in a passing band walks with it and
 	# decides when it breaks off.
-	if role == ROLE_LOOKOUT and not is_crossing(r) and _within_metres(world, ent, goal, LOOKOUT_METRES):
+	#
+	# **Not while a siege holds** either, for the same reason read the other way: the ring is the
+	# band's stand-off from the colony already, and a lookout standing off twelve metres from the
+	# ring would be the one body of the band not on it, running the withdrawal clock while the rest
+	# ran the wait. It holds on the ring with the band; once the band storms, the goal is the gate
+	# and the lookout stands off from that as it always did.
+	if role == ROLE_LOOKOUT and not is_crossing(r) and not _siege_holding(r) and _within_metres(world, ent, goal, LOOKOUT_METRES):
 		_still(vel as Dictionary)
 		_arrival_clock(world, r)
 		return
@@ -658,7 +664,7 @@ static func _approach(world: Variant, ent: int) -> void:
 	# At the objective with nobody to fight: the clock runs, and when it is out the band goes. A
 	# siege that has not stormed yet waits on its own clock instead, which ends in the storm.
 	if (r.get("path", []) as Array).is_empty():
-		if doctrine == DOCTRINE_SIEGE and not bool(r.get("storming", false)):
+		if _siege_holding(r):
 			_siege_wait(world, r)
 		else:
 			_arrival_clock(world, r)
@@ -669,9 +675,10 @@ static func _approach(world: Variant, ent: int) -> void:
 # A siege's wait on its ring. SIEGE_WAIT_TICKS from the tick it arrives, then the band storms: it is
 # marked `storming` and its cached objective is cleared, so `_objective` answers with the gate and
 # from then on every rule is the raid's -- the walk, the fight, the half-strength withdrawal and the
-# arrival clock. A wait that is interrupted by a fight does not count the fight's ticks: `_approach`
-# returns through the halt before it reaches this, so the clock only runs while the band is standing
-# on its ring with nobody to fight.
+# arrival clock. The wait is measured from the arrival tick, the same way `_arrival_clock` measures
+# the withdrawal: a fight within reach halts the body before `_approach` reaches this, so the storm
+# is not *checked* while the band fights, but the ticks still count, and a fight that outlasts the
+# wait is followed by the storm on the first quiet tick.
 static func _siege_wait(world: Variant, r: Dictionary) -> void:
 	if int(r.get("arrivedAtTick", -1)) < 0:
 		r["arrivedAtTick"] = int(world.tick)
@@ -889,6 +896,11 @@ static func is_crossing(r: Dictionary) -> bool:
 	return o is Dictionary and String((o as Dictionary).get("kind", "")) == OBJECTIVE_SITE
 
 
+# Is this body a siege that has not stormed yet: on its way to its ring, or holding there?
+static func _siege_holding(r: Dictionary) -> bool:
+	return doctrine_of(r) == DOCTRINE_SIEGE and not bool(r.get("storming", false))
+
+
 # The doctrine a band was drawn with, read as `raid` when the record has none -- which is every
 # band a save from before this piece holds, and every roaming band, by design.
 static func doctrine_of(r: Dictionary) -> String:
@@ -909,8 +921,9 @@ static func stamp_doctrine(world: Variant, members: Array, doctrine: String) -> 
 # Where a siege band holds: the legal floor tile, between SIEGE_RING_MIN and SIEGE_RING_MAX tiles
 # outside the walls box, nearest its entry tile. Deterministic by design -- no draw is spent on
 # it -- and scanned in a fixed order so the tie-break is the scan order. (-1, -1) when the district
-# has no walls box or no legal ring tile: the band then stands where it came in, which is the
-# honest reading of "no site to hold at", and it never falls back to walking at the gate.
+# has no walls box or no legal ring tile; `_objective` then marks the band storming at once, so a
+# siege with nothing to hold outside is a raid from its first tick rather than a band standing at
+# the edge forever, counting against RAID_LIVE_CAP and scanning for a ring it will never find.
 static func _siege_site(world: Variant, r: Dictionary) -> Vector2i:
 	var map: Variant = world.tilemap
 	var box: Rect2i = SimTileMapRes.annex_rect(map)
@@ -986,14 +999,17 @@ static func _objective(world: Variant, r: Dictionary, role: String = ROLE_FIGHTE
 			r["goalY"] = site.y
 			return site
 	# A siege holds at the ring outside the walls box, whatever its role, until it storms: the ring
-	# replaces the gate as the thing it walks at, so a waiting siege never walks in. No ring means no
-	# goal, which is the stand-still answer `_approach` already gives a body with nowhere to go.
+	# replaces the gate as the thing it walks at, so a waiting siege never walks in. No ring (no
+	# walls box, or no legal floor around it) means there is nothing to hold outside: the band is
+	# marked storming here and now and falls through to the raid's ladder, which is also what keeps
+	# the ring scan from running again every tick for a body that stands still.
 	if doctrine_of(r) == DOCTRINE_SIEGE and not bool(r.get("storming", false)):
 		var ring: Vector2i = _siege_site(world, r)
 		if ring.x >= 0 and ring.y >= 0:
 			r["goalX"] = ring.x
 			r["goalY"] = ring.y
-		return ring
+			return ring
+		r["storming"] = true
 	# A looter is walking at your stores rather than at your gate, which is the whole of docs/18's
 	# "target stores first, people second". A district with no stores in it -- no annex, a camp, an
 	# unstamped fixture -- gives a looter the same answer it gives everybody else, so a looter
