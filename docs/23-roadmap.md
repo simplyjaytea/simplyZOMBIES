@@ -323,10 +323,6 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
 
 *Raiders, doctrine and archetypes (doctrine stage 2, archetypes stage 4):*
 
-- **A doctrine on the band.** `doctrine` in {probe, raid, siege, trade}, drawn by the director by
-  day off the `raid` stream. Probe turns for home at first loss (the lookout already does);
-  siege camps outside the wall and waits; trade approaches unarmed with a flag and offers barter
-  (owner's card: before factions exist?). Gate: `godot:m2:raiders` DOCTRINE, one lane each.
 - **Five archetypes.** Breacher (sledge, goes for the door), marksman (hunting rifle, holds
   range), medic (bandages the band, retreats with the wounded), arsonist (waits on fire), dog
   handler (a hound as a scent sensor). Each is a content file in `godot/content/raiders/` and one
@@ -2401,6 +2397,39 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Raider doctrine, 2026-10-27.** A raid band is drawn `probe`, `raid` or `siege` once it is
+  placed, and every body carries the word. `trade` is not built (docs/33 item 16) and no draw
+  produces it.
+  - **The draw** is `SimDirector._draw_doctrine`, on its own stream `raidDoctrine`, one draw a band.
+    The stream is not `raid`: the pinned `raid` sequences are the campaigns already measured, and
+    the STREAMS lane holds them. First-cut weights: days 8 and 9 probe 50 / raid 50; day 10 on
+    probe 30 / raid 45 / siege 25. `godot:m2:raiders` DOCTRINE-DRAW: 2,000 draws a day on days 8,
+    9 and 10, every share inside 25% of its weight, no siege on days 8 and 9, and the `raid`
+    stream never created by the draw.
+  - **Probe** turns every body home on the first loss, the lookout's rule widened to the band.
+    PROBE: a probe band of three turns both survivors home on the first loss; the same loss under
+    `raid` holds.
+  - **Raid** is today's band. RAID-SAME: a band stamped `raid` walks the same path tick for tick
+    as an unstamped band over 300 ticks.
+  - **Siege** holds at a ring of legal floor 2 to 4 tiles outside the walls box (the annex rect),
+    the tile nearest its entry, found with no draw. It never walks into the box, does not run the
+    withdrawal clock while it holds, and goes home at the first dawn after its night (the start of
+    the next day, stamped on each body). SIEGE-HOLD: the band stands on its ring for 1,200 ticks,
+    never inside the box. SIEGE-REACH: a colonist 1.2 m from the ring takes wounds; one inside the
+    box takes none. SIEGE-HALF: a siege holds through the first loss and turns when one of three
+    is left.
+  - **Load.** A record with no `doctrine` key, or with a word nothing draws, reads as `raid`.
+    LOAD also strips a probe's key and checks it then holds like a raid.
+  - **Dead socket.** PLAYABLE: 120 nights from day 10 on the shipped district. Each band's bodies
+    carry the doctrine the director announced, and a siege body's cached objective is the ring
+    `_siege_site` finds, with its dawn at the start of the next day.
+  - **Not built.** Trade. Roaming bands keep no doctrine. A siege with no walls box to hold
+    outside (no annex) stands where it came in; it does not fall back to walking at the gate.
+    The siege reads the annex rect, not a camp footprint, so a camp's siege has no ring of its
+    own yet.
+  - **Measured.** `godot:m2:balance` before and after, same machine: __BALANCE__. The ten-seed
+    table was not re-run: owed by the post-arc re-baseline. No HUD change; the player is not told
+    the doctrine.
 - **Colony screen follow-ups, 2026-10-26.** Three nits the Colony and HUD bullets named, one piece.
   - **Reopen scrolls to the pick.** `work_panel.gd` clears `_scrolled_for` on
     `NOTIFICATION_VISIBILITY_CHANGED`, so a reopened screen scrolls to the game's pick afresh.

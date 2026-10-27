@@ -6626,3 +6626,34 @@ affixes that named them moved no number a gun reads.
 the web gate's READERS lane names it as awaiting a reader. `godot:m2:ranged` QUIET-SHOT and
 RUIN-SHOT, and `godot:m2:attach` SWING, WEAR and REPAIR, hold the readers.
 
+## Raider doctrine, 2026-10-27
+
+The first of the four pieces in the 2026-10-27 batch (docs/23's "Raider doctrine" record entry
+has the gate lanes). Four calls were taken while it was built.
+
+- **The draw has its own stream, `raidDoctrine`.** The content-arc bullet said "off the raid
+  stream". It is not. The `raid` stream's sequences after `_emit_band` are pinned in
+  `check_m2_raiders.gd`'s STREAMS lane, and every campaign measured on it depends on them; a
+  doctrine draw on that stream would move every band's size and side on every seed. The draw runs
+  after the band is placed, so a band that never arrives spends nothing.
+- **First-cut weights.** Days 8 and 9: probe 50, raid 50, siege 0. From day 10: probe 30, raid 45,
+  siege 25. Days 8 and 9 never draw a siege; a ten-day campaign sees doctrine on three nights at
+  most. These are first cuts, not measured, and the ten-seed table is owed the re-baseline.
+- **The siege default (docs/33 item 19).** A siege band holds at a ring of legal floor 2 to 4 tiles
+  outside the walls box, goes home at the first dawn, strikes whatever comes within reach, and
+  goes home early when half the band is down. The ring is the nearest legal tile to the band's
+  entry, so the choice is deterministic and draws nothing. The alternatives, a storm after a wait
+  and a camp by the water, are not built.
+- **Probe widens the lookout's rule, it does not add one.** The first loss turns every body of a
+  probe. The lookout's own rule is unchanged and still reads the role.
+- **Trade is not built.** docs/33 item 16 is still the owner's, default no. `trade` is not in the
+  doctrine list, so a record that names it reads as a raid.
+- **The night shapes share three words.** `probe` and `siege` are also the names of director
+  night shapes (`SimDirector.NIGHT_NAMES`). A night shape and a band's doctrine are drawn on
+  different streams and mean different things: a night is the packet of zombies, a doctrine is how
+  one band of people moves. Read the constant's module before you read the word.
+
+**How to apply:** a new doctrine is a word in `SimRaiders.DOCTRINES`, a branch in `_approach`, a
+weight row in `SimDirector`, and a lane in `godot:m2:raiders` that breaks it on purpose. A draw
+that moves a pinned stream is a bug, however small the change looks.
+

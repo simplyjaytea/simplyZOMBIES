@@ -349,3 +349,10 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
     ten-seed balance table was not re-run for the line. Rarer keeps the limb-for-a-life choice
     sharp; commoner makes the tie a routine tool. Which table, and how often, is the call.
 
+19. **What a siege band does outside the wall** (2026-10-27, docs/30's "Raider doctrine,
+    2026-10-27"). A siege band holds at a ring of ground outside the walls box until dawn, strikes
+    whoever comes within its reach, and walks home at dawn or when half the band is down. The
+    default is that, and it is built. The alternatives are a storm on the wall after a set wait,
+    and a camp beside the colony's water and stores instead of the wall. The trade doctrine stays
+    item 16's call, default no.
+
