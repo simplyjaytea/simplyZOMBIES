@@ -357,3 +357,16 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
     alternatives are normal zombie sight, or fully blind (the same, with contact removed too). One
     value in `godot/content/zombies/bloodhound.json` changes the answer, and the SCENT-ONLY lane in
     `godot:m2:district` holds the default.
+
+23. **What makes a weapon bespoke enough to name?** -- decided by the owner 2026-10-27: **three or
+    more** of its slots holding a part it did not come with, on any weapon with slots, melee and
+    firearms alike (docs/30's "A weapon you named, 2026-10-27"). The plan's first default was more
+    than three; the piece found that only the steel pipe among the twenty melee frames has four
+    slots, so the wooden bat, the arc's own example, could never be named, and the card was put
+    again with that fact. A factory part and a part swapped back to it count nothing. One constant,
+    `SimItems.BESPOKE_PARTS`, holds the answer, and `godot:check:inventory` NAME holds it.
+
+24. **A typed name, or a name the game offers?** -- decided by the owner 2026-10-27: **typed**. A
+    one-line field on the inspect pane, up to 24 characters, Enter keeps it, Escape leaves it as it
+    was, and an empty name gives the plain name back (docs/30's "A weapon you named, 2026-10-27").
+    `godot:check:play` NAME holds the field.

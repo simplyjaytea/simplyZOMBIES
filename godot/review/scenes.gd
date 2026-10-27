@@ -31,6 +31,10 @@ const SimStockpile = preload("res://sim/modules/stockpile.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
 
 const SCENE_PATH: String = "res://presentation/main.tscn"
+const InspectPaneRes = preload("res://ui/inspect_pane.gd")
+# The name field's shot: what the bat is rebuilt with, and the name typed into it.
+const NAMED_BAT: Array = [["item.attach.stud.nails", "stud"], ["item.attach.weight.sandbag", "weight"], ["item.attach.wrap.cord", "wrap"]]
+const NAMED_AS: String = "Old Faithful"
 # The two windows the game supports: check_play's WORK-LAYOUT lane lays out at both.
 const SIZES: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(1920, 1080)]
 const NAMES: Array[String] = [
@@ -47,6 +51,7 @@ const NAMES: Array[String] = [
 	"stockpile_window",
 	"dusk_street",
 	"raised_walls",
+	"name_field",
 ]
 # The Colony screen's two fuller shots (art QA, slice 2): Mara picked by a click on her name, her
 # row made manual by one changed number, the pointer resting on the medic chip; and a roster of
@@ -240,6 +245,18 @@ static func press(tree: SceneTree, code: Key) -> void:
 	up.physical_keycode = code
 	up.pressed = false
 	tree.root.push_input(up)
+
+
+## One typed character, down and up, carrying its `unicode` the way a keyboard's press does: the name
+## field reads the character, not the key.
+static func type_char(tree: SceneTree, ch: String) -> void:
+	for pressed in [true, false]:
+		var ev := InputEventKey.new()
+		ev.keycode = KEY_SPACE if ch == " " else OS.find_keycode_from_string(ch.to_upper())
+		ev.physical_keycode = ev.keycode
+		ev.unicode = ch.unicode_at(0)
+		ev.pressed = pressed
+		tree.root.push_input(ev)
 
 
 ## One real left click at `at` (window coordinates), down and up, through the viewport's dispatch.
@@ -595,6 +612,41 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 				world.components.set_component(ent, String(SimFortify.BLOCKERS[String(piece[2])]), {"kind": String(piece[2]), "stage": 0, "contactTicks": 0})
 			SimFortify.sync_map(world, true)
 			main.set_meta("raised_walls_at", Vector2i(px, py))
+		"name_field":
+			# The one text field in the game (docs/33 item 24): a bat rebuilt with nails, a weight and
+			# a cord wrap, its "name it" button clicked in the inspect pane, and a name typed into the
+			# field that stands where the title was.
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			var bat: int = SimItems.spawn_item(world, "item.bat.wood", {"tier": "scavenged"})
+			for pair in NAMED_BAT:
+				var part: int = SimItems.spawn_item(world, String(pair[0]), {"tier": "scavenged"})
+				if not SimAttachments.attach(world, bat, part, String(pair[1])):
+					return "the bat would not take %s" % String(pair[0])
+			if not SimInventory.stow(world, int(world.player), bat):
+				var pack: int = SimItems.spawn_item(world, "item.pack.frame", {"tier": "scavenged"})
+				if not SimInventory.equip(world, int(world.player), pack, "back") or not SimInventory.stow(world, int(world.player), bat):
+					return "the survivor has no room for the bat"
+			press(tree, KEY_TAB)
+			await _settle(tree, main)
+			var sheet_n: Variant = main.get("_inventory_panel")
+			if sheet_n == null:
+				return "there is no inventory sheet"
+			(sheet_n as Control).set("_selected", bat)
+			(sheet_n as Control).queue_redraw()
+			await tree.process_frame
+			var button: Variant = null
+			for b in InspectPaneRes.button_rects(sheet_n.call("_inspect_rect"), sheet_n.call("_pane_verbs")):
+				if String((b as Dictionary)["verb"]) == "name":
+					button = ((b as Dictionary)["rect"] as Rect2).get_center()
+			if button == null:
+				return "the inspect pane offers no name button for the rebuilt bat"
+			click(tree, (sheet_n as Control).global_position + (button as Vector2))
+			await tree.process_frame
+			for _i in SimItems.item_name(world, bat).length():
+				press(tree, KEY_BACKSPACE)
+			for ch in NAMED_AS:
+				type_char(tree, ch)
+			main.set_meta("name_field_bat", bat)
 		"dusk_street":
 			# The day street's spot at dusk: the day grade at weight 0.5, under a darkening sky.
 			world.tick = Clock.tick_on_day(DAY, DUSK)
@@ -867,6 +919,16 @@ static func verify(main: Node, scene: String) -> String:
 			if Clock.phase_of(int(world.tick)) != Clock.Phase.Dusk:
 				return "it is not dusk"
 			return "" if _outdoor_paved(world.tilemap, _tile_under_player(world)) else "the body is not on an open paved street tile"
+		"name_field":
+			var sheet_v: Variant = main.get("_inventory_panel")
+			if sheet_v == null or not bool(main.get("inventory_open")):
+				return "the inventory sheet is not open"
+			if not bool(sheet_v.call("naming")):
+				return "the name field is not open"
+			var field: Dictionary = sheet_v.call("name_field") as Dictionary
+			if int(field.get("item", -1)) != int(main.get_meta("name_field_bat", -2)):
+				return "the field is open on something other than the bat"
+			return "" if String(field.get("text", "")) == NAMED_AS else "the field holds '%s', not '%s'" % [String(field.get("text", "")), NAMED_AS]
 		"raised_walls":
 			var origin: Vector2i = main.get_meta("raised_walls_at", Vector2i(-1, -1)) as Vector2i
 			if origin.x < 0:

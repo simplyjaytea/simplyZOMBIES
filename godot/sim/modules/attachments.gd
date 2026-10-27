@@ -543,6 +543,23 @@ static func default_parts_of(world: Variant, host: int) -> Dictionary:
 	return (raw as Dictionary).duplicate() if raw is Dictionary else {}
 
 
+## How many of this host's slots hold a part it did not come with: a slot whose part is not the
+## base's `defaultParts` entry for it (made, or swapped in), or a slot filled where the base names
+## no default. A part swapped back to the original counts nothing, and an empty slot counts
+## nothing. Derived from what is fitted, so a save carries nothing for it. `SimItems.nameable` is
+## the reader: a weapon this rebuilt may be named (docs/33 item 23).
+static func modifications_of(world: Variant, host: int) -> int:
+	var defaults: Dictionary = default_parts_of(world, host)
+	var slots: Dictionary = attached(world, host)
+	var count: int = 0
+	for slot in slots.keys():
+		var b: Variant = world.components.get_component(int(slots[slot]), "itemBase")
+		var base_id: String = String((b as Dictionary).get("baseId", "")) if b is Dictionary else ""
+		if base_id != String(defaults.get(String(slot), "")):
+			count += 1
+	return count
+
+
 ## Fits this host's default parts, spawning each one. Called by `spawn_item` on the way out, so a
 ## weapon arrives in the world already an assembly -- the base template is the receiver and the
 ## parts are real items with their own condition.

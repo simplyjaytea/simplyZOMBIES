@@ -24,6 +24,7 @@ extends Control
 # its release are the same node's business and there is nothing to forward.
 
 const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimItems = preload("res://sim/modules/items.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimStockpile = preload("res://sim/modules/stockpile.gd")
 const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
@@ -181,6 +182,15 @@ var _ghost: Control = null
 # The body part picked on the figure, "" for none: while it is set and no item is, the inspect pane
 # is the part's care pane (ui/care_pane.gd). Presentation state only, like `_selected`.
 var _part: String = ""
+# The name field (docs/33 item 24): the item being named, -1 while the field is shut, what is typed
+# so far, and where the caret stands in it. Presentation state only: nothing reaches the sim until
+# Enter sends `item.name`. While it is open `input_map.gd` hands it every key (`name_key`), so W
+# types a letter and does not walk anybody.
+var _naming: int = -1
+var _name_text: String = ""
+var _name_caret: int = 0
+# What the title bar says while the field is open, in place of the sheet's own hint.
+const NAME_HINT: String = "type a name · Enter keeps it · Esc leaves it as it was"
 # Set by main.gd while Colony or Skills is up: the strip is field HUD, and the field HUD is put away
 # under every screen about people, not left lit under their wash.
 var strip_hidden: bool = false
@@ -325,6 +335,7 @@ func set_open(open: bool) -> void:
 	_open = open
 	mouse_filter = Control.MOUSE_FILTER_STOP if open else Control.MOUSE_FILTER_IGNORE
 	if not open:
+		_end_naming()
 		_cancel_drag()
 		_close_menu()
 		_notice = ""
@@ -1090,6 +1101,10 @@ func _redraw_columns() -> void:
 func _press_at(p: Vector2, ctrl: bool = false) -> void:
 	if _world == null or _view.is_empty():
 		return
+	# A press anywhere puts the field down unsent: the name is kept only by Enter, so a click
+	# elsewhere is the same as Escape, never a half-typed name sent by accident.
+	if _naming != -1:
+		_end_naming()
 	# The menu first: it is drawn over everything, so it has to be tested before everything.
 	if _menu_item != -1:
 		for row in ItemMenu.verb_rects(_menu_at, _menu_verbs):
@@ -1367,9 +1382,101 @@ func _act(verb: String, item: int) -> void:
 				_opened.append(item)
 		"inspect":
 			_selected = item
+		"name":
+			_begin_naming(item)
 		"take", "stash":
 			_quick_move(item)
 	_redraw_columns()
+
+
+# --- the name field ----------------------------------------------------------------------
+
+# Whether the name field is open: `input_map.gd` asks before anything else reads a key.
+func naming() -> bool:
+	return _open and _naming != -1
+
+
+# The field as the inspect pane draws it, {} while it is shut.
+func name_field() -> Dictionary:
+	if not naming():
+		return {}
+	return {"item": _naming, "text": _name_text, "caret": _name_caret}
+
+
+# Opens the field on `item`, prefilled with the name it has now. A name longer than the field takes
+# (a rolled weapon's prefixes and suffixes can run past it) starts the field empty rather than
+# starting it over the cap, where Enter could only be refused.
+func _begin_naming(item: int) -> void:
+	if _world == null or item < 0:
+		return
+	_close_menu()
+	_selected = item
+	_naming = item
+	var now: String = SimItems.item_name(_world, item)
+	_name_text = now if now.length() <= SimItems.NAME_MAX else ""
+	_name_caret = _name_text.length()
+	_notice = ""
+	queue_redraw()
+
+
+func _end_naming() -> void:
+	if _naming == -1:
+		return
+	_naming = -1
+	_name_text = ""
+	_name_caret = 0
+	queue_redraw()
+
+
+# Every key while the field is open, handed over by `input_map.gd` before its own table reads it.
+# Returns true for a key the field took, which is every key: a field that let one through would let
+# W walk the survivor mid-word. The cap shows itself by refusing the next character -- no counter,
+# because a counter is a digit on the sheet.
+func name_key(ke: InputEventKey) -> bool:
+	if not naming():
+		return false
+	match ke.keycode:
+		KEY_ESCAPE:
+			_end_naming()
+		KEY_ENTER, KEY_KP_ENTER:
+			_commit_name()
+		KEY_BACKSPACE:
+			if _name_caret > 0:
+				_name_text = _name_text.substr(0, _name_caret - 1) + _name_text.substr(_name_caret)
+				_name_caret -= 1
+		KEY_DELETE:
+			if _name_caret < _name_text.length():
+				_name_text = _name_text.substr(0, _name_caret) + _name_text.substr(_name_caret + 1)
+		KEY_LEFT:
+			_name_caret = maxi(0, _name_caret - 1)
+		KEY_RIGHT:
+			_name_caret = mini(_name_text.length(), _name_caret + 1)
+		KEY_HOME, KEY_UP:
+			_name_caret = 0
+		KEY_END, KEY_DOWN:
+			_name_caret = _name_text.length()
+		_:
+			var code: int = ke.unicode
+			if not ke.ctrl_pressed and not ke.alt_pressed and not ke.meta_pressed \
+					and code >= 32 and code != 127 and _name_text.length() < SimItems.NAME_MAX:
+				_name_text = _name_text.substr(0, _name_caret) + String.chr(code) + _name_text.substr(_name_caret)
+				_name_caret += 1
+	queue_redraw()
+	return true
+
+
+# Enter: the sim says whether it would take the name, in its own words. A refusal is said on the
+# title bar and the field stays open with the text in it, so the player fixes the name rather than
+# typing it again; a name it would take goes out as `item.name` and the field shuts.
+func _commit_name() -> void:
+	if _world == null or _naming == -1:
+		return
+	var reason: String = SimItems.name_refusal(_world, _actor, _naming, _name_text)
+	if reason != "":
+		_say(SimItems.name_refusal_words(reason), true)
+		return
+	_world.commands.push({"type": "item.name", "item": _naming, "name": _name_text})
+	_end_naming()
 
 
 func _slot_of(item: int) -> String:
@@ -1661,7 +1768,7 @@ func _draw() -> void:
 		if _showing_part():
 			CarePane.draw_pane(self, _inspect_rect(), _care_view(), alpha)
 		else:
-			InspectPane.draw_pane(self, _inspect_rect(), _inspect_view(), alpha, _pane_verbs(), _world)
+			InspectPane.draw_pane(self, _inspect_rect(), _inspect_view(), alpha, _pane_verbs(), _world, name_field())
 	QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor) if _world != null else [], alpha, _selected, _ping_view(), _world)
 	ItemMenu.draw_menu(self, _menu_at, _menu_verbs, alpha)
 
@@ -1683,6 +1790,9 @@ func _care_view() -> Dictionary:
 # lifted item, the word menu, a picked part -- and say so. False when there was nothing, and the
 # sheet itself is what goes.
 func escape() -> bool:
+	if _naming != -1:
+		_end_naming()
+		return true
 	if _drag_item != -1:
 		_cancel_drag()
 		_redraw_columns()
@@ -1715,7 +1825,10 @@ func _draw_top(font: Font, alpha: float) -> void:
 	# A notice, when one is up, takes the hint line's place: it is the thing to read right now.
 	var line: String = _notice
 	var col: Color = Locker.DANGER if _notice_bad else Locker.GOOD
-	if line.is_empty():
+	if line.is_empty() and _naming != -1:
+		line = NAME_HINT
+		col = Locker.TEXT_DIM
+	elif line.is_empty():
 		line = "drag to move · right-click for what you can do · ctrl-click sends · R turns it · click the body for care"
 		if _compact():
 			line = "drag · right-click · click the body for care · ctrl-click sends · R turns"
