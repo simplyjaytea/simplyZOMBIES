@@ -12,6 +12,7 @@
       "recipe": { "kinds": ["fixings"] },
       "fieldSwap": true,
       "melee": { "damage": 1.15, "staggerTicks": 1.1 },
+      "shedChance": 0.03,
       "wearsOn": ["hit"],
       "wearRate": 1.0
     }
@@ -28,6 +29,7 @@
       "appliesTo": ["club"],
       "recipe": { "kinds": ["wire"] },
       "melee": { "damage": 1.2, "speed": 0.92, "connectNoise": 1.3 },
+      "shedChance": 0.05,
       "wearsOn": ["hit"],
       "wearRate": 1.5
     }
@@ -45,6 +47,7 @@
       "recipe": { "kinds": ["cordage"] },
       "handCut": true,
       "melee": { "damage": 1.3, "speed": 0.95 },
+      "shedChance": 0.06,
       "wearsOn": ["hit"],
       "wearRate": 2.0
     }
@@ -62,6 +65,7 @@
       "recipe": { "kinds": ["fixings"] },
       "fieldSwap": true,
       "melee": { "damage": 1.08, "staggerTicks": 1.15 },
+      "shedChance": 0.01,
       "wearsOn": ["hit"],
       "wearRate": 1.0
     }
@@ -78,6 +82,7 @@
       "appliesTo": ["club"],
       "recipe": { "kinds": ["metal"] },
       "melee": { "damage": 1.25, "speed": 0.9 },
+      "shedChance": 0.02,
       "wearsOn": ["hit"],
       "wearRate": 1.0
     }
@@ -95,6 +100,7 @@
       "recipe": { "kinds": ["fixings"] },
       "fieldSwap": true,
       "melee": { "damage": 1.1, "staggerTicks": 1.1 },
+      "shedChance": 0.01,
       "wearsOn": ["hit"],
       "wearRate": 1.0
     }
@@ -245,6 +251,7 @@
       "fieldSwap": true,
       "structural": true,
       "melee": { "damage": 1.1, "staggerTicks": 0.9 },
+      "lashed": true,
       "wearsOn": ["hit"],
       "wearRate": 1.2
     }
@@ -279,6 +286,7 @@
       "recipe": { "kinds": ["cordage", "fixings"] },
       "structural": true,
       "melee": { "reachMetres": 1.35, "damage": 1.05 },
+      "lashed": true,
       "wearsOn": ["hit"],
       "wearRate": 1.0
     }
@@ -313,6 +321,7 @@
       "recipe": { "kinds": ["cordage", "metal"] },
       "structural": true,
       "melee": { "reachMetres": 1.15, "staggerTicks": 1.25 },
+      "lashed": true,
       "wearsOn": ["hit"],
       "wearRate": 1.0
     }

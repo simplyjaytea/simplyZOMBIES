@@ -348,6 +348,12 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
     ten-seed balance table was not re-run for the line. Rarer keeps the limb-for-a-life choice
     sharp; commoner makes the tie a routine tool. Which table, and how often, is the call.
 
+21. **Does hone spend a whetstone?** (2026-10-27, docs/30's "Melee wear, 2026-10-27"). The
+    default is first cut: one hone spends one whetstone from the pack, and a keen blade refuses
+    before any stone is spent. The alternative is free hone with a whetstone in the pack, and
+    the HONE lane's spend assertion changes with it. The owner's card on the stud and the
+    lashed head is answered (stud gone, head drops at the feet), so it is not asked here.
+
 23. **What makes a weapon bespoke enough to name?** -- decided by the owner 2026-10-27: **three or
     more** of its slots holding a part it did not come with, on any weapon with slots, melee and
     firearms alike (docs/30's "A weapon you named, 2026-10-27"). The plan's first default was more
