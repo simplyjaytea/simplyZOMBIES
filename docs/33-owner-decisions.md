@@ -357,10 +357,8 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
     alternatives are normal zombie sight, or fully blind (the same, with contact removed too). One
     value in `godot/content/zombies/bloodhound.json` changes the answer, and the SCENT-ONLY lane in
     `godot:m2:district` holds the default.
-21. **Does a shed stud leave the world, and does a lashed head land at the feet?** (2026-10-27,
-    docs/30's "Melee wear, 2026-10-27"). The default is as built: a stud that comes out is gone,
-    and a lashed head is its own item lying at the swinger's feet. The alternative is that a shed
-    stud lands at the feet too, so a survivor can pick it up and refit it at a bench, which is the
-    path a lashed head already has. The STUD lane asserts the default. The same call carries a
-    second one: hone spends one whetstone per hone (first cut). Free hone with a whetstone in the
-    pack is the alternative, and the HONE lane's spend assertion changes with it.
+21. **Does hone spend a whetstone?** (2026-10-27, docs/30's "Melee wear, 2026-10-27"). The
+    default is first cut: one hone spends one whetstone from the pack, and a keen blade refuses
+    before any stone is spent. The alternative is free hone with a whetstone in the pack, and
+    the HONE lane's spend assertion changes with it. The owner's card on the stud and the
+    lashed head is answered (stud gone, head drops at the feet), so it is not asked here.
