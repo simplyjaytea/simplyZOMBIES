@@ -90,23 +90,24 @@ func _fixture(seed_val: int, w: int = 24, h: int = 24) -> Dictionary:
 #    outside the shipped runner band while the shambler stays inside the shipped shambler band, so
 #    the band is narrow enough to notice a weight and wide enough not to be noise.
 #
-# The four ids the stalker-and-runner and armoured-and-heavy slices added are named **here** and
-# not in `sim/modules/roster.gd` beside `TYPE_SHAMBLER` and the rest, on purpose: the first
-# slice's whole claim is docs/14's "adding a zombie type is one JSON entry with zero code", and a
-# `const TYPE_STALKER` in the sim would have been the first line of code it cost. The second slice
+# The five ids the stalker-and-runner, armoured-and-heavy and bloodhound slices added are named
+# **here** and not in `sim/modules/roster.gd` beside `TYPE_SHAMBLER` and the rest, on purpose: the
+# first slice's whole claim is docs/14's "adding a zombie type is one JSON entry with zero code", and
+# a `const TYPE_STALKER` in the sim would have been the first line of code it cost. The second slice
 # did cost code -- a body may now wear a `worn` list -- but what that code reads is a *key*, never
-# an id, so the rule survives intact. Nothing under `godot/sim/` names any of these four; they
+# an id, so the rule survives intact. Nothing under `godot/sim/` names any of these five; they
 # exist only so the lanes below can spell them.
 const TYPE_STALKER: String = "zombie.stalker"
 const TYPE_RUNNER: String = "zombie.runner"
 const TYPE_ARMORED: String = "zombie.armored"
 const TYPE_HEAVY: String = "zombie.heavy"
+const TYPE_BLOODHOUND: String = "zombie.bloodhound"
 
 const PINNED_SEED: int = 20260805
 const PINNED_STREAM: String = "mixProbe"
-# h shambler, c screamer, b bloater, t stalker, r runner, a armored, y heavy -- the first fifty
-# draws on day 7, where all seven kinds are due.
-const PINNED_DRAWS: String = "hhhthaabhhbcrchhahchhhthhaayhhthhhhchhhthcrhhhhhhh"
+# h shambler, c screamer, b bloater, t stalker, r runner, a armored, y heavy, d bloodhound -- the
+# first fifty draws on day 7, where all eight kinds are due.
+const PINNED_DRAWS: String = "hhhthaabchbrychhahrhhhthhaadhhthhhhchhhthcrhhhhhhh"
 # The share each kind's 2000-draw count may stray from its content weight, either way.
 const SHARE_TOLERANCE: float = 0.25
 const SHARE_DRAWS: int = 2000
@@ -115,7 +116,7 @@ const SHARE_DRAWS: int = 2000
 func _mix() -> bool:
 	var day7: int = Clock.tick_on_day(7, 0.5)
 	var day1: int = Clock.tick_on_day(1, 0.5)
-	var code: Dictionary = {SimRoster.TYPE_SHAMBLER: "h", SimRoster.TYPE_SCREAMER: "c", SimRoster.TYPE_BLOATER: "b", TYPE_STALKER: "t", TYPE_RUNNER: "r", TYPE_ARMORED: "a", TYPE_HEAVY: "y"}
+	var code: Dictionary = {SimRoster.TYPE_SHAMBLER: "h", SimRoster.TYPE_SCREAMER: "c", SimRoster.TYPE_BLOATER: "b", TYPE_STALKER: "t", TYPE_RUNNER: "r", TYPE_ARMORED: "a", TYPE_HEAVY: "y", TYPE_BLOODHOUND: "d"}
 
 	# PINNED.
 	var world: Variant = World.new(_fixture(PINNED_SEED))
@@ -151,8 +152,11 @@ func _mix() -> bool:
 	# the one under test is flattened to 1, so the fixtures stay comparable as the roster grows.
 	var shipped: Dictionary = _draw_counts(null, day7, 200)
 	var silenced: Dictionary = _draw_counts(_tree_with_weights({SimRoster.TYPE_SHAMBLER: 0}), day7, 200)
-	var heavy: Dictionary = _draw_counts(_tree_with_weights({SimRoster.TYPE_BLOATER: 100, SimRoster.TYPE_SHAMBLER: 1, SimRoster.TYPE_SCREAMER: 1, TYPE_STALKER: 1, TYPE_RUNNER: 1, TYPE_ARMORED: 1, TYPE_HEAVY: 1}), day7, 200)
-	if int(shipped.get(SimRoster.TYPE_SHAMBLER, 0)) < 110:
+	var heavy: Dictionary = _draw_counts(_tree_with_weights({SimRoster.TYPE_BLOATER: 100, SimRoster.TYPE_SHAMBLER: 1, SimRoster.TYPE_SCREAMER: 1, TYPE_STALKER: 1, TYPE_RUNNER: 1, TYPE_ARMORED: 1, TYPE_HEAVY: 1, TYPE_BLOODHOUND: 1}), day7, 200)
+	# The floor is a majority of 200. It was 110 while the shambler held 80 of 128; the bloodhound
+	# (weight 6) takes the summed weight to 134, so the shambler's expected count falls from 125 to
+	# 120 and 110 would fail a mix that is still what content asked for.
+	if int(shipped.get(SimRoster.TYPE_SHAMBLER, 0)) < 100:
 		push_error("MIX: the shipped tree should still be mostly shamblers (%s)" % str(shipped))
 		return false
 	if int(silenced.get(SimRoster.TYPE_SHAMBLER, 0)) != 0:
@@ -912,6 +916,7 @@ const NEW_KIND_PROFILES: Dictionary = {
 	"zombie.runner": {"noise": 0.9, "light": 0.9, "scent": 0.4, "speed": 1.4, "wander": 0.3, "mill": 0.3},
 	"zombie.armored": {"noise": 0.5, "light": 0.15, "scent": 0.5, "speed": 0.8, "wander": 0.3, "mill": 0.25},
 	"zombie.heavy": {"noise": 0.9, "light": 0.1, "scent": 0.2, "speed": 0.6, "wander": 0.25, "mill": 0.2},
+	"zombie.bloodhound": {"noise": 0.0, "light": 0.0, "scent": 1.0, "speed": 1.0, "wander": 0.35, "mill": 0.25},
 }
 # The fixture profile the negative writes over each kind. Every number differs from both shipped
 # rows above, so a component built from a constant cannot match it by accident.
