@@ -6760,14 +6760,17 @@ in the project's memory, never here.
 ## The bench makes parts, 2026-10-27
 
 The melee arc's M1 piece (docs/23's record, "The bench offers improvised parts"). Calls taken
-without the owner, all inside the screen the bench already had:
+without the owner (the second was then the owner's, below), all inside the screen the bench already had:
 
 - **Only an empty slot lists recipes.** The bench makes into an empty slot and swaps only what you
   carry, the rule `improvise` already enforces (`not-plausible` on a filled slot). Offering a make
   on a filled slot would mean the screen deciding to take the old part off first, which is a
   second command the sim never asked for.
-- **The rows the survivor cannot make are listed** (docs/33 item 22's default), dimmed, with what
-  they need in words and no lit button. A recipe the host could never take is not a row at all:
+- **The rows the survivor cannot make are listed,** dimmed, with what they need in words and no
+  lit button. The owner decided this on 2026-10-27 (it was docs/33 item 22, put on a card with
+  this as the default, and the default was taken). The alternative, listing only what can be
+  made now (the pack menu's "absent, never greyed" rule), would be one filter in
+  `SimGunsmith._recipe_rows`. A recipe the host could never take is not a row at all:
   that is the plausibility rule, not a missing material, and listing it would teach nothing.
 - **Missing material names every kind that is missing.** The command still stops at the first
   (`no-material:<kind>`, which gates and events read), but a row that says "needs an ingot" and,

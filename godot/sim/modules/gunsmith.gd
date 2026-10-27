@@ -255,7 +255,7 @@ static func bench_view(world: Variant, actor: int, host: int) -> Dictionary:
 	}
 
 
-## The parts the survivor could make for this weapon's empty slots (docs/33 item 22's default: the
+## The parts the survivor could make for this weapon's empty slots (the owner's call of 2026-10-27: the
 ## bench lists what it cannot make yet, and says why). One row per recipe whose spec fits the slot
 ## and that this host takes -- `spec_fits` and `takes`, the pair `improvise` asks -- so a part the
 ## command would call implausible is never a row. A filled slot offers none: the bench makes into
