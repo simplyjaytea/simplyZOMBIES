@@ -109,7 +109,7 @@ static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: floa
 
 	var ty: float = y + Chrome.ascent(TITLE_SIZE)
 	if not field.is_empty() and int(field.get("item", -2)) == int(view.get("item", -1)):
-		draw_field(ci, field_rect(rect, world != null), String(field.get("text", "")), int(field.get("caret", 0)), alpha, String(field.get("plain", "")))
+		draw_field(ci, field_rect(rect, world != null), String(field.get("text", "")), int(field.get("caret", 0)), alpha, String(field.get("plain", "")), int(field.get("start", -1)))
 	else:
 		# The title takes the field's rule: its own rung while the name fits, a rung down when it does
 		# not, and only then the ellipsis. A name typed whole in the field stays whole once it is kept.
@@ -196,13 +196,14 @@ static func field_rect(rect: Rect2, with_picture: bool) -> Rect2:
 # the well, the text scrolls so the caret is always on show. Words only, and only what was typed --
 # except an empty field, which shows `plain` dimmed behind the caret: the name the item goes back to
 # if Enter keeps nothing.
-static func draw_field(ci: CanvasItem, box: Rect2, text: String, caret: int, alpha: float, plain: String = "") -> void:
+static func draw_field(ci: CanvasItem, box: Rect2, text: String, caret: int, alpha: float, plain: String = "", start: int = -1) -> void:
 	Locker.well(ci, box, alpha)
 	# One art pixel of the accent round the well: the picture's well is the same well, and this is
-	# what says the one on the right is live and taking keys.
-	Locker.rim(ci, box, Locker._a(Locker.ACCENT, alpha * 0.85))
+	# what says the one on the right is live and taking keys. Snapped as the well is, so the rim
+	# sits on the art grid at 1280 too.
+	Locker.rim(ci, Locker._snap(box), Locker._a(Locker.ACCENT, alpha * 0.85))
 	var font: Font = Chrome.font()
-	var lay: Dictionary = field_layout(font, box, text, caret)
+	var lay: Dictionary = field_layout(font, box, text, caret, start)
 	var size: int = int(lay["size"])
 	var at: Vector2 = lay["at"] as Vector2
 	if text.is_empty() and not plain.is_empty():
@@ -219,14 +220,16 @@ static func caret_rect(box: Rect2, x: float) -> Rect2:
 
 # How the field lays out `text` in `box` with the caret at `caret`: the size it is drawn at, the
 # first character shown, the part that fits, where the text's baseline starts and where the caret
-# stands. The draw reads it and so does a click placing the caret.
-static func field_layout(font: Font, box: Rect2, text: String, caret: int) -> Dictionary:
+# stands. The draw reads it and so does a click placing the caret. `start` is where the field was
+# scrolled to last (-1 for none): kept while the caret stays on show, so a click or an arrow inside
+# the visible letters moves the caret and not the text.
+static func field_layout(font: Font, box: Rect2, text: String, caret: int, start: int = -1) -> Dictionary:
 	var inner: float = box.size.x - FIELD_INSET * 2.0
 	var size: int = TITLE_SIZE
 	if font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > inner - CARET_W:
 		size = BODY_SIZE
 	caret = clampi(caret, 0, text.length())
-	var start: int = visible_start(font, text, caret, size, inner)
+	start = visible_start(font, text, caret, size, inner, start)
 	var shown: String = text.substr(start)
 	while not shown.is_empty() and font.get_string_size(shown, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > inner:
 		shown = shown.left(-1)
@@ -237,8 +240,8 @@ static func field_layout(font: Font, box: Rect2, text: String, caret: int) -> Di
 
 # Where a click at `x` puts the caret in a field laid out with the caret at `caret`: the gap between
 # two letters nearest the click, among the letters on show.
-static func caret_from_click(font: Font, box: Rect2, text: String, caret: int, x: float) -> int:
-	var lay: Dictionary = field_layout(font, box, text, caret)
+static func caret_from_click(font: Font, box: Rect2, text: String, caret: int, x: float, scrolled: int = -1) -> int:
+	var lay: Dictionary = field_layout(font, box, text, caret, scrolled)
 	var size: int = int(lay["size"])
 	var start: int = int(lay["start"])
 	var left: float = (lay["at"] as Vector2).x
@@ -252,12 +255,20 @@ static func caret_from_click(font: Font, box: Rect2, text: String, caret: int, x
 	return best
 
 
-# The first character the field shows: 0 while everything up to the caret fits, else as far along as
-# it takes for the caret to be inside the well.
-static func visible_start(font: Font, text: String, caret: int, size: int, inner: float) -> int:
-	var start: int = 0
-	while start < caret and font.get_string_size(text.substr(start, caret - start), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > inner - CARET_W:
+# The first character the field shows. With no earlier scroll, 0 while everything up to the caret
+# fits, else as far along as it takes for the caret to be inside the well. With one (`from`), that
+# start is kept while the caret is on show: back to the caret when it moved left of it, on as far
+# as the caret needs when it moved right of the well, and back as far as the letters allow when
+# deleting left room at the end.
+static func visible_start(font: Font, text: String, caret: int, size: int, inner: float, from: int = -1) -> int:
+	var room: float = inner - CARET_W
+	if font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x <= room:
+		return 0
+	var start: int = clampi(from, 0, caret)
+	while start < caret and font.get_string_size(text.substr(start, caret - start), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > room:
 		start += 1
+	while start > 0 and font.get_string_size(text.substr(start - 1), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x <= room:
+		start -= 1
 	return start
 
 

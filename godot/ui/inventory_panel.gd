@@ -189,6 +189,9 @@ var _part: String = ""
 var _naming: int = -1
 var _name_text: String = ""
 var _name_caret: int = 0
+# The first letter the field shows when the name is longer than the well: kept from key to key, so
+# a click or an arrow inside the letters on show moves the caret and leaves the text where it is.
+var _name_start: int = -1
 # A refusal on the title bar: the bench's warning ink, 5.6:1 on the bar where the kit's DANGER is
 # 3.6:1 -- DANGER is a fill colour, too dark to be read as words there.
 const DANGER_INK: Color = Color("#e07a4f")
@@ -1114,7 +1117,8 @@ func _press_at(p: Vector2, ctrl: bool = false) -> void:
 	if _naming != -1:
 		var box: Rect2 = _name_field_rect()
 		if box.has_point(p):
-			_name_caret = InspectPane.caret_from_click(Chrome.font(), box, _name_text, _name_caret, p.x)
+			_name_caret = InspectPane.caret_from_click(Chrome.font(), box, _name_text, _name_caret, p.x, _name_start)
+			_rescroll()
 			queue_redraw()
 			return
 		_end_naming()
@@ -1419,7 +1423,14 @@ func naming() -> bool:
 func name_field() -> Dictionary:
 	if not naming():
 		return {}
-	return {"item": _naming, "text": _name_text, "caret": _name_caret, "plain": SimItems.plain_name(_world, _naming) if _world != null else ""}
+	return {"item": _naming, "text": _name_text, "caret": _name_caret, "start": _name_start, "plain": SimItems.plain_name(_world, _naming) if _world != null else ""}
+
+
+# Where the field is scrolled to now the caret or the text moved: the pane's own layout, from the
+# start it had.
+func _rescroll() -> void:
+	var box: Rect2 = _name_field_rect()
+	_name_start = int(InspectPane.field_layout(Chrome.font(), box, _name_text, _name_caret, _name_start)["start"]) if box.has_area() else -1
 
 
 # Where the name field is on the sheet, Rect2() while it is shut: the pane's own `field_rect`.
@@ -1441,6 +1452,8 @@ func _begin_naming(item: int) -> void:
 	var now: String = SimItems.item_name(_world, item)
 	_name_text = now if now.length() <= SimItems.NAME_MAX else ""
 	_name_caret = _name_text.length()
+	_name_start = -1
+	_rescroll()
 	_notice = ""
 	queue_redraw()
 
@@ -1451,6 +1464,7 @@ func _end_naming() -> void:
 	_naming = -1
 	_name_text = ""
 	_name_caret = 0
+	_name_start = -1
 	queue_redraw()
 
 
@@ -1494,6 +1508,8 @@ func name_key(ke: InputEventKey) -> bool:
 			if not shortcut and SimItems.name_char_allowed(code) and _name_text.length() < SimItems.NAME_MAX:
 				_name_text = _name_text.substr(0, _name_caret) + String.chr(code) + _name_text.substr(_name_caret)
 				_name_caret += 1
+	if naming():
+		_rescroll()
 	queue_redraw()
 	return true
 
@@ -1514,7 +1530,11 @@ func _commit_name() -> void:
 	if kept == SimItems.item_name(_world, _naming) or (kept.is_empty() and SimItems.given_name(_world, _naming).is_empty()):
 		_end_naming()
 		return
-	_world.commands.push({"type": "item.name", "item": _naming, "name": _name_text})
+	# Typing the plain name back over a given one is asking for the plain name: it clears, rather
+	# than storing "Wooden Bat" as a name that would no longer follow the bat's own.
+	if kept == SimItems.plain_name(_world, _naming):
+		kept = ""
+	_world.commands.push({"type": "item.name", "item": _naming, "name": kept})
 	# Said at once, before the tick that takes it: under a pause the title still shows the old name
 	# until the clock runs, and this line is how the player knows Enter took.
 	_say("it is %s now" % kept if not kept.is_empty() else "it is %s again" % SimItems.plain_name(_world, _naming), false)
@@ -1609,8 +1629,6 @@ func cursor_at(p: Vector2) -> int:
 			if (row["rect"] as Rect2).has_point(p):
 				return Input.CURSOR_POINTING_HAND
 		return Input.CURSOR_ARROW
-	if _name_field_rect().has_point(p):
-		return Input.CURSOR_IBEAM
 	for h in _hit:
 		if (h["rect"] as Rect2).has_point(p):
 			return Input.CURSOR_POINTING_HAND
