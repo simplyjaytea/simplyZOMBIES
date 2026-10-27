@@ -156,6 +156,16 @@ const ROAM_STREAM: String = "raidRoam"
 # at dawn is a band the dusk draw cannot send.
 const ROAM_CHANCE_PERCENT: int = 15
 
+# What a drawn band sets out to do (`SimRaiders`' doctrine table). Its own stream, drawn only after
+# `_emit_band` has placed a band, so neither the `"raid"` sequence the gates pin nor the roaming
+# stream moves when a band is drawn with a doctrine. Weights are in the order of
+# `SimRaiders.DOCTRINES` (probe, raid, siege) and sum to 100 -- first cuts, recorded in docs/30.
+# Days 8 and 9 never draw a siege; from day 10 one band in four does.
+const DOCTRINE_STREAM: String = "raidDoctrine"
+const DOCTRINE_LATE_FROM_DAY: int = 10
+const DOCTRINE_WEIGHTS_EARLY: Array[int] = [50, 50, 0]
+const DOCTRINE_WEIGHTS_LATE: Array[int] = [30, 45, 25]
+
 # Sides, in the order _edges_by_side returns them.
 const SIDE_NAMES: Array[String] = ["north", "east", "south", "west"]
 # Every fourth edge tile is sampled when asking the field which way the noise points. The field is
@@ -418,6 +428,7 @@ static func _draw_raid(world: Variant, day: int, lull: bool) -> void:
 	var reason: String = "drawn"
 	var size: int = 0
 	var side: String = ""
+	var doctrine: String = ""
 	var live: int = SimRaiders.live_count(world)
 	if day < RAID_FIRST_DAY:
 		reason = "grace"
@@ -444,13 +455,36 @@ static func _draw_raid(world: Variant, day: int, lull: bool) -> void:
 				size = int(placed["placed"])
 				if size <= 0:
 					reason = "no-edge"
+				else:
+					# Drawn after the band is placed, so a band that never arrived spends nothing
+					# here. A siege's dawn is the start of the next day: the band holds through
+					# the night it came in and goes home when that night is over.
+					doctrine = _draw_doctrine(world, day)
+					var dawn_tick: int = Clock.tick_on_day(day + 1, 0.0)
+					SimRaiders.stamp_doctrine(world, placed["members"] as Array, doctrine, dawn_tick)
 	world.events.publish({
 		"type": "director.raid",
 		"day": day,
 		"size": size,
 		"side": side,
 		"reason": reason,
+		"doctrine": doctrine,
 	})
+
+
+# One doctrine for one band, off its own stream. One draw whatever the weights are, so how much
+# randomness a band costs does not depend on the table. A roll that falls through every row is
+# read as `raid`, the band every raid was before doctrines existed.
+static func _draw_doctrine(world: Variant, day: int) -> String:
+	var weights: Array[int] = DOCTRINE_WEIGHTS_LATE if day >= DOCTRINE_LATE_FROM_DAY else DOCTRINE_WEIGHTS_EARLY
+	var rng: Variant = world.rng.stream(DOCTRINE_STREAM)
+	var roll: int = int(rng.call("int_range", 0, 99))
+	var edge: int = 0
+	for i in SimRaiders.DOCTRINES.size():
+		edge += weights[i]
+		if roll < edge:
+			return SimRaiders.DOCTRINES[i]
+	return SimRaiders.DOCTRINE_RAID
 
 
 # One dawn's crossing decision. Deliberately the same shape as `_on_dusk`'s raid half and nothing
@@ -658,7 +692,7 @@ static func _emit_band(world: Variant, size: int, rng: Variant, objective: Varia
 	SimRaiders.stamp_band(world, members, int(world.tick))
 	if objective is Vector2i:
 		SimRaiders.stamp_crossing(world, members, objective as Vector2i, _far_edge(sides, side, objective as Vector2i))
-	return {"side": SIDE_NAMES[side], "placed": members.size()}
+	return {"side": SIDE_NAMES[side], "placed": members.size(), "members": members}
 
 
 # Returns the side it came from, for the `director.night` event. docs/17's migration lever says a

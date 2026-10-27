@@ -69,6 +69,7 @@ const SimItemsRes = preload("res://sim/modules/items.gd")
 const SimNeedsRes = preload("res://sim/modules/needs.gd")
 const SimPeopleRes = preload("res://sim/modules/people.gd")
 const SimStockpileRes = preload("res://sim/modules/stockpile.gd")
+const SimTileMapRes = preload("res://sim/map/tilemap.gd")
 const SimSightingsRes = preload("res://sim/modules/sightings.gd")
 const SimSkillsRes = preload("res://sim/modules/skills.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
@@ -154,6 +155,34 @@ const LOOKOUT_METRES: float = 12.0
 # the floor of your stores. Not three *stacks* and not a pack's worth -- three item entities, which
 # on a stockpile of tins and bottles is a night's meals rather than a pantry.
 const LOOT_TAKE: int = 3
+
+# --- a band's doctrine ------------------------------------------------------------------------
+#
+# What a raid band set out to do, drawn by `SimDirector._draw_raid` when it emits a band and
+# stamped on every body of it. Three words, a closed set, the same discipline as ROLES: a band
+# whose doctrine is not one of these reads as `raid`, which is what every band was before this
+# piece and what a save with no `doctrine` key restores as.
+#
+# - `probe`: the whole band turns for home at its first loss. The lookout's rule, widened from one
+#   body to the band; a light raid that gives up on the first blow.
+# - `raid`: today's band, unchanged tick for tick. Walks at the gate and fights until the clock or
+#   half its number takes it home.
+# - `siege`: stops at a ring of ground outside the walls box (`_siege_site`), holds there, fights
+#   whatever comes within reach, and goes home at the first dawn after the night it came.
+#
+# `trade` is named in docs/33 item 16 as not built (the owner's default was no), so it is not in
+# this list and no draw can produce it. Roaming bands keep no doctrine: a dawn crossing is not a
+# siege and is not drawn from this table.
+const DOCTRINE_PROBE: String = "probe"
+const DOCTRINE_RAID: String = "raid"
+const DOCTRINE_SIEGE: String = "siege"
+const DOCTRINES: Array[String] = [DOCTRINE_PROBE, DOCTRINE_RAID, DOCTRINE_SIEGE]
+
+# The ring a siege band holds at: legal ground between this many and this many tiles outside the
+# walls box, measured from its nearest edge. Close enough that a colonist at the wall is in reach,
+# outside the box so the band never walks in. First cut.
+const SIEGE_RING_MIN: int = 2
+const SIEGE_RING_MAX: int = 4
 
 # --- a band passing through --------------------------------------------------------------------
 #
@@ -548,6 +577,7 @@ static func _approach(world: Variant, ent: int) -> void:
 		return
 	var r: Dictionary = raider as Dictionary
 	var role: String = String(r.get("role", ROLE_FIGHTER))
+	var doctrine: String = doctrine_of(r)
 	# On the way out: a raid back to the tile it came in on, a crossing on to the far edge, then
 	# gone either way. Nothing stops a withdrawal.
 	if bool(r.get("withdrawing", false)):
@@ -563,11 +593,19 @@ static func _approach(world: Variant, ent: int) -> void:
 		_begin_withdrawal(r)
 		_still(vel as Dictionary)
 		return
+	# A siege goes home at the first dawn after the night it came, whatever else has happened. The
+	# dawn was stamped on the body when the band was drawn, so nothing here reads the clock.
+	if doctrine == DOCTRINE_SIEGE and r.has("dawnTick") and int(world.tick) >= int(r["dawnTick"]):
+		_begin_withdrawal(r)
+		_still(vel as Dictionary)
+		return
 	# The lookout's job, and the only thing about a raid that one body decides for everybody: at
 	# the *first* loss it turns the band for home, rather than at the half strength the clause
 	# above waits for. docs/18's "retreat when losses outweigh the haul" -- a band that brought a
-	# watcher retreats on a business's arithmetic rather than on a horde's.
-	if role == ROLE_LOOKOUT and int(r.get("bandSize", 0)) > 0 and _band_live(world, int(r.get("raidId", 0))) < int(r.get("bandSize", 0)):
+	# watcher retreats on a business's arithmetic rather than on a horde's. A probe is the same
+	# rule stamped on the whole band: every body of a probe carries it, so the first loss turns
+	# all of them, lookout or not.
+	if (role == ROLE_LOOKOUT or doctrine == DOCTRINE_PROBE) and int(r.get("bandSize", 0)) > 0 and _band_live(world, int(r.get("raidId", 0))) < int(r.get("bandSize", 0)):
 		_turn_band_home(world, int(r.get("raidId", 0)))
 		_still(vel as Dictionary)
 		return
@@ -617,9 +655,11 @@ static func _approach(world: Variant, ent: int) -> void:
 		_arrival_clock(world, r)
 		return
 	_walk(world, ent, r, goal)
-	# At the objective with nobody to fight: the clock runs, and when it is out the band goes.
+	# At the objective with nobody to fight: the clock runs, and when it is out the band goes. A
+	# siege does not run it: it holds at its ring until the dawn check above sends it home.
 	if (r.get("path", []) as Array).is_empty():
-		_arrival_clock(world, r)
+		if doctrine != DOCTRINE_SIEGE:
+			_arrival_clock(world, r)
 	else:
 		r["arrivedAtTick"] = -1
 
@@ -831,6 +871,60 @@ static func is_crossing(r: Dictionary) -> bool:
 	return o is Dictionary and String((o as Dictionary).get("kind", "")) == OBJECTIVE_SITE
 
 
+# The doctrine a band was drawn with, read as `raid` when the record has none -- which is every
+# band a save from before this piece holds, and every roaming band, by design.
+static func doctrine_of(r: Dictionary) -> String:
+	var d: String = String(r.get("doctrine", DOCTRINE_RAID))
+	return d if DOCTRINES.has(d) else DOCTRINE_RAID
+
+
+# Stamped by `SimDirector._draw_raid` right after `_emit_band` places a band. A siege also takes
+# `dawn_tick`: the tick it goes home, read by `_approach` and nothing else. The other two doctrines
+# have no use for a dawn and are stamped without one.
+static func stamp_doctrine(world: Variant, members: Array, doctrine: String, dawn_tick: int) -> void:
+	for ent in members:
+		var r: Variant = world.components.get_component(int(ent), "raider")
+		if not (r is Dictionary):
+			continue
+		var rec: Dictionary = r as Dictionary
+		rec["doctrine"] = doctrine
+		if doctrine == DOCTRINE_SIEGE:
+			rec["dawnTick"] = dawn_tick
+
+
+# Where a siege band holds: the legal floor tile, between SIEGE_RING_MIN and SIEGE_RING_MAX tiles
+# outside the walls box, nearest its entry tile. Deterministic by design -- no draw is spent on
+# it -- and scanned in a fixed order so the tie-break is the scan order. (-1, -1) when the district
+# has no walls box or no legal ring tile: the band then stands where it came in, which is the
+# honest reading of "no site to hold at", and it never falls back to walking at the gate.
+static func _siege_site(world: Variant, r: Dictionary) -> Vector2i:
+	var map: Variant = world.tilemap
+	var box: Rect2i = SimTileMapRes.annex_rect(map)
+	if box.size.x <= 0 or box.size.y <= 0:
+		return Vector2i(-1, -1)
+	var entry := Vector2i(int(r.get("entryX", -1)), int(r.get("entryY", -1)))
+	var from := Vector2(float(entry.x) + 0.5, float(entry.y) + 0.5)
+	var best := Vector2i(-1, -1)
+	var best_d: float = 1e12
+	for ty in range(box.position.y - SIEGE_RING_MAX, box.end.y + SIEGE_RING_MAX):
+		for tx in range(box.position.x - SIEGE_RING_MAX, box.end.x + SIEGE_RING_MAX):
+			if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
+				continue
+			var gap: int = maxi(
+				maxi(box.position.x - tx, tx - (box.end.x - 1)),
+				maxi(box.position.y - ty, ty - (box.end.y - 1))
+			)
+			if gap < SIEGE_RING_MIN or gap > SIEGE_RING_MAX:
+				continue
+			if SimTileMapRes.tile_at(map, tx, ty) != SimTileMapRes.Tile.Floor or SimTileMapRes.is_solid(map, tx, ty):
+				continue
+			var d: float = from.distance_squared_to(Vector2(float(tx) + 0.5, float(ty) + 0.5))
+			if d < best_d:
+				best_d = d
+				best = Vector2i(tx, ty)
+	return best
+
+
 # Where a band goes when it is done with whatever it came to do. A raid walks back to the tile it
 # came in on; a crossing keeps going and leaves by the far edge the director stamped on it. One
 # field decides which, and everything underneath -- the path, the arrival test, `_leave` and the
@@ -877,6 +971,15 @@ static func _objective(world: Variant, r: Dictionary, role: String = ROLE_FIGHTE
 			r["goalX"] = site.x
 			r["goalY"] = site.y
 			return site
+	# A siege holds at the ring outside the walls box, whatever its role: the ring replaces the gate
+	# as the thing it walks at, so a siege never walks in. No ring means no goal, which is the
+	# stand-still answer `_approach` already gives a body with nowhere to go.
+	if doctrine_of(r) == DOCTRINE_SIEGE:
+		var ring: Vector2i = _siege_site(world, r)
+		if ring.x >= 0 and ring.y >= 0:
+			r["goalX"] = ring.x
+			r["goalY"] = ring.y
+		return ring
 	# A looter is walking at your stores rather than at your gate, which is the whole of docs/18's
 	# "target stores first, people second". A district with no stores in it -- no annex, a camp, an
 	# unstamped fixture -- gives a looter the same answer it gives everybody else, so a looter

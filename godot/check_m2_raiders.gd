@@ -96,8 +96,16 @@ func _run() -> void:
 	ok = _the_roles_are_read_against_the_crossing() and ok
 	ok = _a_raider_fights_with_what_it_arrived_with() and ok
 	ok = _the_dev_menu_reaches_a_band() and ok
+	ok = _a_band_draws_a_doctrine_off_its_own_stream() and ok
+	ok = _a_probe_turns_the_whole_band_on_the_first_loss() and ok
+	ok = _a_raid_walks_the_path_it_always_walked() and ok
+	ok = _a_siege_holds_outside_the_walls_until_dawn() and ok
+	ok = _a_siege_strikes_what_comes_into_reach_and_not_what_is_inside() and ok
+	ok = _a_siege_turns_at_half_and_not_at_the_first_loss() and ok
+	ok = _a_band_without_a_doctrine_reads_as_a_raid() and ok
+	ok = _the_playable_district_draws_and_reads_a_doctrine() and ok
 	if ok:
-		print("M2_RAIDERS_OK archetypes draw grace approach blood prey seed death ledger withdraw pool looks distinct no-identity look-reader no-tell streams save chronicle looter lookout role-read fighter crosses engages roam-stream event cap roam-roles skilled debug-band")
+		print("M2_RAIDERS_OK archetypes draw grace approach blood prey seed death ledger withdraw pool looks distinct no-identity look-reader no-tell streams save chronicle looter lookout role-read fighter crosses engages roam-stream event cap roam-roles skilled debug-band doctrine-draw probe raid-same siege-hold siege-reach siege-half doctrine-load playable-doctrine")
 		quit(0)
 	else:
 		push_error("M2_RAIDERS_FAIL")
@@ -3027,3 +3035,387 @@ func _side_of(world: Variant, tile: Vector2i) -> String:
 	if tile.x <= 2:
 		return "west"
 	return "inland"
+
+
+# --- doctrine -----------------------------------------------------------------------------------
+
+# A band's doctrine: probe, raid or siege, drawn once per band off `raidDoctrine`. Five lanes and
+# one dead socket. The draw and the probe have true negatives on both sides of the table; the
+# siege lanes read the ring and the walls box on a fixture where both are known.
+
+const DOCTRINE_DRAWS: int = 2000
+const DOCTRINE_SLACK: float = 0.25
+const DOCTRINE_NIGHTS: int = 120
+const SIEGE_HOLD_TICKS: int = 1200
+const SIEGE_REACH_TICKS: int = 600
+const SIEGE_DAWN_TICKS: int = 2400
+
+
+# DRAW. The shares over DOCTRINE_DRAWS draws sit inside the first-cut weights on each side of the
+# table's first day, days 8 and 9 never draw a siege, and the draw lands on its own stream: the
+# `raid` stream is not created by it.
+func _a_band_draws_a_doctrine_off_its_own_stream() -> bool:
+	for weights in [SimDirector.DOCTRINE_WEIGHTS_EARLY, SimDirector.DOCTRINE_WEIGHTS_LATE]:
+		var total: int = 0
+		for x in weights:
+			total += int(x)
+		if total != 100:
+			push_error("DOCTRINE: a weight row sums to %d, not 100, so some rolls fall through the table" % total)
+			return false
+	var w: Variant = _arena()
+	for day in [SimDirector.RAID_FIRST_DAY, SimDirector.RAID_FIRST_DAY + 1, SimDirector.DOCTRINE_LATE_FROM_DAY]:
+		var weights: Array[int] = SimDirector.DOCTRINE_WEIGHTS_LATE if day >= SimDirector.DOCTRINE_LATE_FROM_DAY else SimDirector.DOCTRINE_WEIGHTS_EARLY
+		var counts: Dictionary = {}
+		for d in SimRaiders.DOCTRINES:
+			counts[d] = 0
+		for _i in DOCTRINE_DRAWS:
+			var got: String = SimDirector._draw_doctrine(w, day)
+			if not counts.has(got):
+				push_error("DOCTRINE: day %d drew '%s', which is not a doctrine" % [day, got])
+				return false
+			counts[got] = int(counts[got]) + 1
+		for i in SimRaiders.DOCTRINES.size():
+			var name: String = SimRaiders.DOCTRINES[i]
+			var share: float = float(counts[name]) / float(DOCTRINE_DRAWS)
+			var want: float = float(weights[i]) / 100.0
+			if want == 0.0:
+				if int(counts[name]) != 0:
+					push_error("DOCTRINE: day %d drew %d '%s' bands, and that doctrine has weight 0 on this day" % [day, int(counts[name]), name])
+					return false
+				continue
+			if absf(share - want) > want * DOCTRINE_SLACK:
+				push_error("DOCTRINE: day %d drew '%s' at %.3f over %d, outside %.3f +/- %.0f%%" % [day, name, share, DOCTRINE_DRAWS, want, DOCTRINE_SLACK * 100.0])
+				return false
+	if not w.rng.names.has(SimDirector.DOCTRINE_STREAM):
+		push_error("DOCTRINE: the draw never created the '%s' stream" % SimDirector.DOCTRINE_STREAM)
+		return false
+	if w.rng.names.has(SimDirector.RAID_STREAM):
+		push_error("DOCTRINE: drawing a doctrine created the '%s' stream, so it is spending the raid sequence" % SimDirector.RAID_STREAM)
+		return false
+	print("DOCTRINE-DRAW OK %d draws a day on day 8, 9 and 10: the shares sit inside the weights, day 8 and 9 never draw a siege, and '%s' is the only stream it touches" % [DOCTRINE_DRAWS, SimDirector.DOCTRINE_STREAM])
+	return true
+
+
+# A band of three scavengers on the stores arena, stamped with `doctrine` ("" leaves the record
+# the way a raid's always was). A siege's dawn is `SIEGE_DAWN_TICKS` from the tick it is stamped,
+# so a lane that is not about dawn never sees one. The first man is killed and the band is read
+# 200 ticks on.
+func _doctrine_band(doctrine: String) -> Dictionary:
+	var w: Variant = _stores_arena()
+	var band: Array = []
+	band.append(SimRaiders.spawn(w, 13.5, 3.5, "raider.scav"))
+	band.append(SimRaiders.spawn(w, 14.5, 3.5, "raider.scav"))
+	band.append(SimRaiders.spawn(w, 15.5, 3.5, "raider.scav"))
+	SimRaiders.stamp_band(w, band, 41)
+	if doctrine != "":
+		SimRaiders.stamp_doctrine(w, band, doctrine, int(w.tick) + SIEGE_DAWN_TICKS)
+	for _t in 60:
+		w.step()
+	(w.components.get_component(int(band[0]), "body") as Dictionary)["head"] = 0.0
+	SimHealth.finish_death(w, int(band[0]))
+	for _t in 200:
+		w.step()
+	var out: Dictionary = {"withdrawing": 0, "gone": 0}
+	for i in [1, 2]:
+		var r: Variant = w.components.get_component(int(band[i]), "raider")
+		if not (r is Dictionary):
+			out["gone"] = int(out["gone"]) + 1
+		elif bool((r as Dictionary).get("withdrawing", false)):
+			out["withdrawing"] = int(out["withdrawing"]) + 1
+	return out
+
+
+# PROBE. A probe turns every body on the first loss; a raid with the same loss keeps coming. The
+# negative is the same band, the same blow, stamped `raid`.
+func _a_probe_turns_the_whole_band_on_the_first_loss() -> bool:
+	var probe: Dictionary = _doctrine_band(SimRaiders.DOCTRINE_PROBE)
+	var raid: Dictionary = _doctrine_band(SimRaiders.DOCTRINE_RAID)
+	if int(probe["withdrawing"]) + int(probe["gone"]) != 2:
+		push_error("PROBE: a probe band did not turn for home on the first loss (%s)" % str(probe))
+		return false
+	if int(raid["withdrawing"]) != 0 or int(raid["gone"]) != 0:
+		push_error("PROBE: a raid band with the same loss turned for home, so the probe is not what turned it (%s)" % str(raid))
+		return false
+	print("PROBE OK a probe band of three turned both survivors for home on the first loss (%s); a raid band with the same loss held (%s)" % [str(probe), str(raid)])
+	return true
+
+
+# RAID-SAME. A band stamped `raid` walks the path an unstamped band walks, tick for tick. The
+# doctrine is a read, and a raid's walk must not be changed by reading it.
+func _a_raid_walks_the_path_it_always_walked() -> bool:
+	var plain: Array = _walk_trace("")
+	var stamped: Array = _walk_trace(SimRaiders.DOCTRINE_RAID)
+	if plain.size() != stamped.size():
+		push_error("RAID-SAME: the traces differ in length, %d against %d" % [plain.size(), stamped.size()])
+		return false
+	var travelled: float = 0.0
+	for t in plain.size():
+		var a: Array = plain[t]
+		var b: Array = stamped[t]
+		for i in a.size():
+			if (a[i] as Vector2).distance_to(b[i] as Vector2) > 0.0001:
+				push_error("RAID-SAME: tick %d body %d stood at %s stamped and %s unstamped" % [t, i, str(b[i]), str(a[i])])
+				return false
+		if t > 0:
+			travelled += (a[0] as Vector2).distance_to((plain[t - 1] as Array)[0] as Vector2)
+	if travelled < 5.0:
+		push_error("RAID-SAME: the band walked %.1f m, so 'the same path' was not shown against a walk" % travelled)
+		return false
+	print("RAID-SAME OK a band stamped raid walked the same path tick for tick as one unstamped, %.1f m" % travelled)
+	return true
+
+
+# Positions of a band of three over 300 ticks, one array per tick, '' for no doctrine.
+func _walk_trace(doctrine: String) -> Array:
+	var w: Variant = _stores_arena()
+	var band: Array = []
+	band.append(SimRaiders.spawn(w, 13.5, 3.5, "raider.scav"))
+	band.append(SimRaiders.spawn(w, 14.5, 3.5, "raider.scav"))
+	band.append(SimRaiders.spawn(w, 15.5, 3.5, "raider.scav"))
+	SimRaiders.stamp_band(w, band, 51)
+	if doctrine != "":
+		SimRaiders.stamp_doctrine(w, band, doctrine, 0)
+	var out: Array = []
+	for _t in 300:
+		w.step()
+		var row: Array = []
+		for ent in band:
+			var pos: Variant = w.components.get_component(int(ent), "position")
+			row.append(Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"])) if pos is Dictionary else Vector2(-1.0, -1.0))
+		out.append(row)
+	return out
+
+
+# SIEGE-HOLD. A siege stops on the ring outside the walls box, stays there, never sets foot in the
+# box, and does not walk off on the withdrawal clock while it waits for dawn. The ring is read off
+# the same `_siege_site` the band uses, so the lane is not asking the band to agree with itself.
+func _a_siege_holds_outside_the_walls_until_dawn() -> bool:
+	var w: Variant = _crossing_arena()
+	var band: Array = _cross_band(w, 3, "raider.scav")
+	var rec: Dictionary = w.components.get_component(int(band[0]), "raider") as Dictionary
+	var ring: Vector2i = SimRaiders._siege_site(w, rec)
+	if ring.x < 0 or ring.y < 0:
+		push_error("SIEGE-HOLD: the crossing arena has no ring tile to hold at, so the lane has nothing to judge")
+		return false
+	var ring_centre := Vector2(float(ring.x) + 0.5, float(ring.y) + 0.5)
+	SimRaiders.stamp_doctrine(w, band, SimRaiders.DOCTRINE_SIEGE, int(w.tick) + SIEGE_DAWN_TICKS)
+	var inside: int = 0
+	var last_at_ring: Array = [1e12]
+	for t in SIEGE_HOLD_TICKS:
+		w.step()
+		for ent in band:
+			var pos: Variant = w.components.get_component(int(ent), "position")
+			if not (pos is Dictionary):
+				continue
+			var p := Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
+			if CROSS_ANNEX.has_point(Vector2i(floori(p.x), floori(p.y))):
+				inside += 1
+			last_at_ring[0] = minf(last_at_ring[0], p.distance_to(ring_centre))
+	if inside > 0:
+		push_error("SIEGE-HOLD: a siege body stood inside the walls box on %d ticks, so it walked in" % inside)
+		return false
+	if float(last_at_ring[0]) > 2.0:
+		push_error("SIEGE-HOLD: the nearest the band got to its ring was %.2f m, so it never held there" % float(last_at_ring[0]))
+		return false
+	var drift: float = 0.0
+	for ent in band:
+		var pos2: Variant = w.components.get_component(int(ent), "position")
+		if not (pos2 is Dictionary):
+			push_error("SIEGE-HOLD: a siege body was gone before dawn, so it did not hold")
+			return false
+		drift = maxf(drift, Vector2(float((pos2 as Dictionary)["x"]), float((pos2 as Dictionary)["y"])).distance_to(ring_centre))
+	if drift > 2.5:
+		push_error("SIEGE-HOLD: a body ended %.2f m from the ring, so it was still walking when the hold was read" % drift)
+		return false
+	# The withdrawal clock is WITHDRAW_AFTER_TICKS (6000). The hold is read well inside that, so a
+	# band that had been standing for the clock would have gone by now; the siege must be
+	# standing still without it.
+	for ent in band:
+		var rr: Variant = w.components.get_component(int(ent), "raider")
+		if rr is Dictionary and bool((rr as Dictionary).get("withdrawing", false)):
+			push_error("SIEGE-HOLD: a siege withdrew before dawn")
+			return false
+	print("SIEGE-HOLD OK a siege of three held on its ring %.2f m out, never inside the box, and was still at dawn's door" % float(last_at_ring[0]))
+	return true
+
+
+# SIEGE-REACH. A colonist within reach of the ring is struck; a colonist inside the box is not
+# approached. Two arenas, so the inside colonist is the only thing the band could walk at.
+func _a_siege_strikes_what_comes_into_reach_and_not_what_is_inside() -> bool:
+	var near_w: Variant = _crossing_arena()
+	var near_band: Array = _cross_band(near_w, 3, "raider.scav")
+	var near_ring: Vector2i = SimRaiders._siege_site(near_w, near_w.components.get_component(int(near_band[0]), "raider") as Dictionary)
+	SimRaiders.stamp_doctrine(near_w, near_band, SimRaiders.DOCTRINE_SIEGE, int(near_w.tick) + SIEGE_DAWN_TICKS)
+	for _t in SIEGE_HOLD_TICKS:
+		near_w.step()
+	var outside: Variant = _colonist(near_w, float(near_ring.x) + 0.5 - 1.2, float(near_ring.y) + 0.5)
+	for _t in SIEGE_REACH_TICKS:
+		near_w.step()
+	var struck: int = _wound_count(near_w, int(outside))
+
+	var far_w: Variant = _crossing_arena()
+	var far_band: Array = _cross_band(far_w, 3, "raider.scav")
+	SimRaiders.stamp_doctrine(far_w, far_band, SimRaiders.DOCTRINE_SIEGE, int(far_w.tick) + SIEGE_DAWN_TICKS)
+	var inside_colonist: Variant = _colonist(far_w, 54.5, 54.5)
+	var entered: int = 0
+	for _t in SIEGE_HOLD_TICKS + SIEGE_REACH_TICKS:
+		far_w.step()
+		for ent in far_band:
+			var pos: Variant = far_w.components.get_component(int(ent), "position")
+			if pos is Dictionary and CROSS_ANNEX.has_point(Vector2i(floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))):
+				entered += 1
+	var hurt_inside: int = _wound_count(far_w, int(inside_colonist))
+	if struck <= 0:
+		push_error("SIEGE-REACH: a colonist 1.2 m from the ring took no wound, so a siege does not strike what comes into reach")
+		return false
+	if hurt_inside != 0:
+		push_error("SIEGE-REACH: a colonist inside the box took %d wounds, so a siege reached in" % hurt_inside)
+		return false
+	if entered > 0:
+		push_error("SIEGE-REACH: a siege walked into the box on %d ticks while a colonist waited inside it" % entered)
+		return false
+	print("SIEGE-REACH OK a colonist 1.2 m from the ring took %d wounds; a colonist inside the box took none and the band never entered it" % struck)
+	return true
+
+
+# SIEGE-HALF. A siege does not turn on the first loss (that is the probe's); it goes when half the
+# band is down, which is the clause every doctrine shares. Killing one of three leaves two standing
+# (4 is not below 3, so the band holds); killing the second leaves one (2 is below 3, so it goes).
+func _a_siege_turns_at_half_and_not_at_the_first_loss() -> bool:
+	var w: Variant = _stores_arena()
+	var band: Array = []
+	band.append(SimRaiders.spawn(w, 13.5, 3.5, "raider.scav"))
+	band.append(SimRaiders.spawn(w, 14.5, 3.5, "raider.scav"))
+	band.append(SimRaiders.spawn(w, 15.5, 3.5, "raider.scav"))
+	SimRaiders.stamp_band(w, band, 71)
+	SimRaiders.stamp_doctrine(w, band, SimRaiders.DOCTRINE_SIEGE, int(w.tick) + SIEGE_DAWN_TICKS)
+	for _t in 60:
+		w.step()
+	_kill(w, int(band[0]))
+	for _t in 200:
+		w.step()
+	if _withdrawing(w, band.slice(1)) != 0:
+		push_error("SIEGE-HALF: a siege turned on the first loss, which is the probe's rule")
+		return false
+	_kill(w, int(band[1]))
+	for _t in 200:
+		w.step()
+	# Gone counts as turned: a body that walks straight back to the tile it came in on leaves the
+	# district inside the same 200 ticks, and a lane that only counted standing bodies would call a
+	# band that went home a band that stayed.
+	if _withdrawing(w, [band[2]]) + _gone(w, [band[2]]) != 1:
+		push_error("SIEGE-HALF: a siege with one of three left standing did not turn for home (half rule)")
+		return false
+	print("SIEGE-HALF OK a siege held through the first loss and turned for home when one of three was left")
+	return true
+
+
+func _kill(w: Variant, ent: int) -> void:
+	(w.components.get_component(ent, "body") as Dictionary)["head"] = 0.0
+	SimHealth.finish_death(w, ent)
+
+
+func _gone(w: Variant, ents: Array) -> int:
+	var n: int = 0
+	for ent in ents:
+		if not (w.components.get_component(int(ent), "raider") is Dictionary):
+			n += 1
+	return n
+
+
+func _withdrawing(w: Variant, ents: Array) -> int:
+	var n: int = 0
+	for ent in ents:
+		var r: Variant = w.components.get_component(int(ent), "raider")
+		if r is Dictionary and bool((r as Dictionary).get("withdrawing", false)):
+			n += 1
+	return n
+
+
+# LOAD. A record with no `doctrine` key, which is every band a save from before this piece holds,
+# reads as a raid; so does a word nothing draws. The behaviour follows the read: a probe with its
+# key stripped holds through the first loss exactly as a raid does.
+func _a_band_without_a_doctrine_reads_as_a_raid() -> bool:
+	if SimRaiders.doctrine_of({}) != SimRaiders.DOCTRINE_RAID:
+		push_error("LOAD: a record with no doctrine key did not read as raid")
+		return false
+	if SimRaiders.doctrine_of({"doctrine": "trade"}) != SimRaiders.DOCTRINE_RAID:
+		push_error("LOAD: the unbuilt trade doctrine was read as something other than raid")
+		return false
+	if SimRaiders.doctrine_of({"doctrine": SimRaiders.DOCTRINE_SIEGE}) != SimRaiders.DOCTRINE_SIEGE:
+		push_error("LOAD: a siege record did not read as a siege")
+		return false
+	var w: Variant = _stores_arena()
+	var band: Array = []
+	band.append(SimRaiders.spawn(w, 13.5, 3.5, "raider.scav"))
+	band.append(SimRaiders.spawn(w, 14.5, 3.5, "raider.scav"))
+	band.append(SimRaiders.spawn(w, 15.5, 3.5, "raider.scav"))
+	SimRaiders.stamp_band(w, band, 61)
+	SimRaiders.stamp_doctrine(w, band, SimRaiders.DOCTRINE_PROBE, 0)
+	for ent in band:
+		(w.components.get_component(int(ent), "raider") as Dictionary).erase("doctrine")
+	for _t in 60:
+		w.step()
+	(w.components.get_component(int(band[0]), "body") as Dictionary)["head"] = 0.0
+	SimHealth.finish_death(w, int(band[0]))
+	for _t in 200:
+		w.step()
+	for i in [1, 2]:
+		var r: Variant = w.components.get_component(int(band[i]), "raider")
+		if r is Dictionary and bool((r as Dictionary).get("withdrawing", false)):
+			push_error("LOAD: a band with its doctrine key stripped turned on the first loss, so the read is not the default")
+			return false
+	print("LOAD OK a record with no doctrine key, a trade word and a stripped probe all read as a raid")
+	return true
+
+
+# PLAYABLE. The dead socket, on the shipped district: nights drawn from day 10 on the real stream,
+# every band's bodies carry the doctrine the director announced, and a siege's body has its cached
+# goal on the ring, which is the proof `_objective` reads the stamp. A window with no siege in it
+# says so and skips rather than passing quietly.
+func _the_playable_district_draws_and_reads_a_doctrine() -> bool:
+	var w: Variant = SimBoot.playable(SEED, MAP_TILES)["world"]
+	var bands: int = 0
+	var sieges: int = 0
+	for n in DOCTRINE_NIGHTS:
+		var day: int = SimDirector.DOCTRINE_LATE_FROM_DAY + n
+		var before: Array[int] = w.components.query(["raider"])
+		var raid: Variant = _run_night(w, day)
+		if not (raid is Dictionary) or int((raid as Dictionary)["size"]) <= 0:
+			_cull_raiders(w)
+			continue
+		# One more tick, so `_approach` has read the band's objective and cached it on the record.
+		w.step()
+		var doctrine: String = String((raid as Dictionary).get("doctrine", ""))
+		if not SimRaiders.DOCTRINES.has(doctrine):
+			push_error("PLAYABLE: day %d announced doctrine '%s', which is not one of the three" % [day, doctrine])
+			return false
+		bands += 1
+		for ent in w.components.query(["raider"]):
+			if before.has(int(ent)):
+				continue
+			var rec: Dictionary = w.components.get_component(int(ent), "raider") as Dictionary
+			if String(rec.get("doctrine", "")) != doctrine:
+				push_error("PLAYABLE: a body of a '%s' band carries '%s'" % [doctrine, String(rec.get("doctrine", ""))])
+				return false
+			if doctrine != SimRaiders.DOCTRINE_SIEGE:
+				continue
+			sieges += 1
+			var want_dawn: int = Clock.tick_on_day(day + 1, 0.0)
+			if int(rec.get("dawnTick", -1)) != want_dawn:
+				push_error("PLAYABLE: a siege stamped dawn %s, not the start of day %d at %d" % [str(rec.get("dawnTick", -1)), day + 1, want_dawn])
+				return false
+			var ring: Vector2i = SimRaiders._siege_site(w, rec)
+			var cached := Vector2i(int(rec.get("goalX", -1)), int(rec.get("goalY", -1)))
+			if ring.x < 0 or cached != ring:
+				push_error("PLAYABLE: a siege body's cached objective is %s, not the ring %s, so _approach did not read the stamp" % [str(cached), str(ring)])
+				return false
+			if SimTileMap.annex_rect(w.tilemap).has_point(ring):
+				push_error("PLAYABLE: the ring %s is inside the walls box" % str(ring))
+				return false
+		_cull_raiders(w)
+	if sieges == 0:
+		print("PLAYABLE SKIP %d bands in %d nights from day %d and none drew a siege, so the siege read has no data on this seed" % [bands, DOCTRINE_NIGHTS, SimDirector.DOCTRINE_LATE_FROM_DAY])
+		return true
+	print("PLAYABLE OK %d bands in %d nights from day %d, %d siege bodies read their ring and their dawn off the stamp" % [bands, DOCTRINE_NIGHTS, SimDirector.DOCTRINE_LATE_FROM_DAY, sieges])
+	return true
