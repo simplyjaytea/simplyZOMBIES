@@ -6891,3 +6891,45 @@ owner's own:
 **How to apply:** a new improvised part is a content entry with `recipe.kinds`, `fits` and
 `appliesTo`, and the bench offers it with no screen change. A new material kind needs a noun in
 `MATERIAL_NOUN`, or `godot:m2:bench` RECIPES goes red.
+
+## The plate wears, 2026-10-27
+
+"A plate that degrades as it stops blows" (docs/23's record). Armour parts used to declare no
+`wearsOn`, deliberately: `hit` fires on the swinger's weapon. "Melee wear, 2026-10-27" kept
+`struck` free for the target's side; this piece makes it real. Four calls, all first cuts.
+
+**Where the wear is called.** In `SimHealth.damage_part`, right after the integrity write, through
+`SimHealth.wear_struck_armor`. Every path that hurts a body arrives at that closure (a swing, a
+shot, a shambler's swipe on `attack.connected`; a bite on `bite.landed`), so the plate wears from
+all of them and there is one call per blow, never per tick. The blow is softened first, so it
+meets the plate at the condition it was in, and the next blow meets the plate this one left. A
+blow to a dead body or a part already at zero returns before it, so it wears nothing.
+
+**Bites wear the plate.** A bite comes through the same closure as a swipe, and teeth on a vest
+are a blow on a vest. One consequence, accepted: `infection.record-bite` runs after
+`health.take-bite` (same order, ids sorted), so the transmission roll for a bite reads the
+coverage that bite left. The difference is one blow's wear, at most 0.024 of a ceramic plate's
+condition, which moves the plate's multiplier by about a thousandth.
+
+**What wears.** A garment wears if it covered the struck part for this blow: its coverage *as
+fitted* above zero, so an empty carrier, which `blocked_reason` already makes worth nothing,
+wears nothing. Inside it, only the parts whose own `armor` names the struck part wear (a
+`covering` argument on `wear_parts`; the weapon channels pass none and are unchanged). Without
+that filter a blow to the arm would wear the chest plate, which never stood in its way. The
+garment's own condition does not wear: nothing reads it (`armor_coverage` reads the parts'
+condition through `effect_scale`, not the host's), so wearing it would be a dead socket.
+
+**The numbers.** On top of `PART_WEAR_PER_EVENT` 0.002 a blow: the ceramic plate `wearRate` 12
+(0.024 a blow, about 42 blows to broken: "it does not forgive a second hit"), the steel plate 4
+(125 blows), the riot visor 4 (125), the aramid lining 2 (250). The visor is included though the
+plan named plates and linings: it is the fourth part that carries armour, and leaving one
+armour part unworn would be a rule with an exception nobody could learn. A plate worn through
+comes off (`_wear_one` detaches at zero) and the carrier then stops nothing, which is the rule the
+carrier already had; the PLATE lane holds that half.
+
+**Measured.** BALANCE_LINES
+
+**How to apply:** a new armour part that adds coverage declares `wearsOn: ["struck"]` and a
+`wearRate`; `godot:m2:attach` WEARS holds the word to the vocabulary, `godot:m2:armor` STRUCK,
+COVERS and REACHED hold the call. The ten-seed table was not re-run; owed by the post-arc
+re-baseline.

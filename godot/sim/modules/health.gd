@@ -55,6 +55,58 @@ static func armor_damage_factor(world: Variant, target: int, part: String) -> fl
 	var cov: float = clampf(float(_Infection().call("armor_coverage_of", world, target, part)), 0.0, 1.0)
 	return 1.0 - ARMOR_STOPS_AT_FULL_COVERAGE * cov
 
+# All three loaded on demand for the reason `_Infection` is: inventory.gd, attachments.gd and items.gd sit on the
+# far side of the same preload knot.
+static func _Inventory() -> GDScript:
+	return load("res://sim/modules/inventory.gd") as GDScript
+
+
+static func _Attachments() -> GDScript:
+	return load("res://sim/modules/attachments.gd") as GDScript
+
+
+static func _Items() -> GDScript:
+	return load("res://sim/modules/items.gd") as GDScript
+
+
+## The plate wears as it stops blows (docs/30, "The plate wears, 2026-10-27"). Every worn garment
+## that covered this part for this blow -- its coverage *as fitted* above zero, so an empty carrier,
+## which stops nothing, wears nothing -- has its parts worn on `struck`, and only the parts whose
+## own `armor` names this body part. A blow to an uncovered part wears nothing.
+##
+## Called from `damage_part` once per blow that reached a living body, after the blow has been
+## softened by the coverage it met: the plate stops this blow at the condition it was in, and
+## the next blow meets the plate this one left. A bite arrives through the same closure and wears
+## the same way -- teeth on a vest are a blow on a vest. Returns how many garments it asked, for
+## check_m2_armor.gd's STRUCK lane; nothing in the sim reads the count.
+static func wear_struck_armor(world: Variant, target: int, part: String) -> int:
+	var asked: int = 0
+	var Attachments: GDScript = _Attachments()
+	for item in _Inventory().call("equipped_items", world, target) as Array:
+		var garment: int = int(item)
+		if (Attachments.call("attached", world, garment) as Dictionary).is_empty():
+			continue
+		var declared: float = _declared_cover(world, garment, part)
+		if declared <= 0.0:
+			continue
+		if float(Attachments.call("armor_coverage", world, garment, part, declared)) <= 0.0:
+			continue
+		Attachments.call("wear_parts", world, garment, "struck", part)
+		asked += 1
+	return asked
+
+
+# The base's own coverage of one part, before anything fitted has its say.
+static func _declared_cover(world: Variant, garment: int, part: String) -> float:
+	var base: Variant = _Items().call("item_base_of", world, garment)
+	if not base is Dictionary:
+		return 0.0
+	var m: Variant = (base as Dictionary).get("armor")
+	if not m is Dictionary:
+		return 0.0
+	return clampf(float((m as Dictionary).get(part, 0.0)), 0.0, 1.0)
+
+
 static func max_of(body: Dictionary, part: String) -> Variant:
 	for table in [SimCombat.SURVIVOR_BODY, SimCombat.ZOMBIE_BODY]:
 		var t: Dictionary = table as Dictionary
@@ -178,6 +230,9 @@ static func register_module(world: Variant) -> void:
 		# question about the same number, and multiplication does not care which goes first.
 		taken *= armor_damage_factor(world, target, named_part)
 		b[named_part] = maxf(0.0, before - taken)
+		# And what stopped it pays for stopping it: one wear per blow, after the blow has been
+		# softened, so the next one meets what this one left.
+		wear_struck_armor(world, target, named_part)
 		if named_part == "head" and int(b["head"]) <= 0:
 			killed.append(target)
 			var pos: Variant = world.components.get_component(target, "position")
