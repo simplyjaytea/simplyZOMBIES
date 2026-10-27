@@ -1399,6 +1399,11 @@ func _the_name_field_takes_every_key(main: Node) -> bool:
 	var from: Dictionary = _pos(main)
 	for _i in plain.length():
 		_tap(KEY_BACKSPACE)
+	# Emptied, the field shows the name Enter would give back, dimmed: the sim's plain name.
+	var emptied: Dictionary = (panel as Control).call("name_field") as Dictionary
+	if not String(emptied.get("text", "x")).is_empty() or String(emptied.get("plain", "")) != SimItems.plain_name(world, bat) or String(emptied.get("plain", "")).is_empty():
+		push_error("NAME: the emptied field offered '%s' behind the caret, not the plain name '%s'" % [String(emptied.get("plain", "")), SimItems.plain_name(world, bat)])
+		ok = false
 	_type("W")
 	_frames(main, 10)
 	var field: Dictionary = (panel as Control).call("name_field") as Dictionary
@@ -1417,6 +1422,18 @@ func _the_name_field_takes_every_key(main: Node) -> bool:
 	_tap(KEY_BACKSPACE)
 	for ch in "Old Faithful":
 		_type(ch)
+	# A click in the field moves the caret and keeps the field: at its left edge the caret goes to
+	# the start, at its right edge back to the end.
+	var box: Rect2 = (panel as Control).call("_name_field_rect") as Rect2
+	_click_at(Vector2(box.position.x + 2.0, box.get_center().y))
+	await process_frame
+	var at_start: int = int(((panel as Control).call("name_field") as Dictionary).get("caret", -1))
+	_click_at(Vector2(box.end.x - 2.0, box.get_center().y))
+	await process_frame
+	var at_end: int = int(((panel as Control).call("name_field") as Dictionary).get("caret", -1))
+	if not box.has_area() or not bool((panel as Control).call("naming")) or at_start != 0 or at_end != "Old Faithful".length():
+		push_error("NAME: a click in the field shut it or put the caret wrong (field %s, caret %d at the left, %d at the right)" % [str((panel as Control).call("naming")), at_start, at_end])
+		ok = false
 	_drain(main)
 	_tap(KEY_ENTER)
 	var sent: Variant = null
@@ -1430,7 +1447,27 @@ func _the_name_field_takes_every_key(main: Node) -> bool:
 	if SimItems.item_name(world, bat) != "Old Faithful" or bool((panel as Control).call("naming")):
 		push_error("NAME: after Enter the bat was called '%s' and the field was %s" % [SimItems.item_name(world, bat), "open" if bool((panel as Control).call("naming")) else "shut"])
 		ok = false
-	# Escape on a second opening: the field shuts unsent, the sheet stays, and the name stands.
+	# A click outside the field on a second opening shuts it unsent, the sheet still open.
+	await process_frame
+	at = _name_button(main, panel as Control)
+	if at != null:
+		_click_at(at as Vector2)
+		await process_frame
+	_type("Y")
+	_drain(main)
+	var outside: Rect2 = (panel as Control).call("_inspect_rect") as Rect2
+	_click_at(outside.position + Vector2(4.0, outside.size.y * 0.5))
+	await process_frame
+	for cmd_v in _pending(main):
+		if String((cmd_v as Dictionary).get("type", "")) == "item.name":
+			push_error("NAME: a click outside the field sent the half-typed name")
+			ok = false
+	if at == null or bool((panel as Control).call("naming")) or not bool(main.get("inventory_open")) or SimItems.item_name(world, bat) != "Old Faithful":
+		push_error("NAME: a click outside did not shut only the field (field %s, sheet %s)" % [str((panel as Control).call("naming")), str(main.get("inventory_open"))])
+		ok = false
+	# Escape on a third opening: the field shuts unsent, the sheet stays, and the name stands.
+	(panel as Control).set("_selected", bat)
+	(panel as Control).queue_redraw()
 	await process_frame
 	at = _name_button(main, panel as Control)
 	if at != null:
@@ -1460,7 +1497,7 @@ func _the_name_field_takes_every_key(main: Node) -> bool:
 		push_error("NAME: Tab did not close the sheet once the field was shut")
 		ok = false
 	if ok:
-		print("NAME OK the pane's button opens the field, W types and walks nobody, Tab types nothing and keeps the sheet, Enter sends item.name and the bat is Old Faithful, and Escape shuts only the field, unsent")
+		print("NAME OK the pane's button opens the field, emptied it shows the plain name dimmed, W types and walks nobody, Tab types nothing and keeps the sheet, a click in the field moves the caret and keeps it, Enter sends item.name and the bat is Old Faithful, a click outside and Escape each shut only the field, unsent")
 	return ok
 
 

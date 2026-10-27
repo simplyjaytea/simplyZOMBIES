@@ -6826,7 +6826,17 @@ taken inside the piece:
 - **The field takes every key while it is open.** `input_map.gd` hands it every press, echoes
   included, before its own table: W types, Tab and the number row type or do nothing, Escape shuts
   the field and not the sheet. Up and Home put the caret at the start, Down and End at the end.
-  A click anywhere puts the field down unsent, the same as Escape.
+  A click outside the field puts it down unsent, the same as Escape; a click in it moves the
+  caret. Ctrl alone and Cmd are shortcuts and type nothing; Alt types, because Option and AltGr
+  are how a Mac and a Polish or German keyboard type é, ł and €.
+- **Letters are what the face draws.** `SimItems.name_char_allowed` is a fixed list (Basic Latin,
+  Latin-1, Extended-A, the euro, the dashes, the curly quotes, the ellipsis), not a font query:
+  the sim reads no fonts, and a command or a save is held to the same rule as the field. Beyond
+  it the engine's fallback draws Cyrillic in a smooth face that breaks the pixel look, and on the
+  web build, which has no system fonts, an emoji is a box.
+- **A given name is a proper noun in a sentence.** `SimItems.the_item` hands a sentence "the
+  hunting rifle" or "Old Faithful", never "the old faithful", and every line that put an item in
+  a sentence by lowering `item_name` asks it instead.
 - **Enter asks first.** The field calls `SimItems.name_refusal` before it sends, says a refusal on
   the title bar in words, and stays open with the text in it. The command checks again.
 - **The cap shows by refusing.** 24 characters (`NAME_MAX`). No counter, because a counter is a
