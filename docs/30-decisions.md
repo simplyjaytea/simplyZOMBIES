@@ -6931,13 +6931,13 @@ carrier already had; the PLATE lane holds that half.
 machine: M2_BALANCE_OK both, and every FAST and ARMOUR line identical, digit for digit (seed
 20260805 2 deaths, 404 5, 31337 1, 90210 3; the dressed arm a 28.0% cut on both). Nothing moved
 because no scripted colonist in those campaigns wears a part that declares `struck`: the dressed
-arm's riot vest (`check_m2_balance.gd`'s kit) has no `defaultParts`, so nothing is fitted to it, and the plates and carriers are findable loot the scripted
-survivors do not fit. So the piece changes a run only once a player fits a plate, and REACHED is
-the lane that holds that the wear is reached when one is. `godot:bench:runtime`, six and six
-interleaved: shipped-tick mean median 13.89 ms base against 14.40 head, colony-tick 17.30
-against 18.63, both inside the 1 to 4 ms run-to-run spread on this machine (the base alone ran
-13.03 to 15.57 and 15.46 to 20.91). The wear is a few dictionary reads per blow, and blows are
-a few a second at most.
+arm's riot vest (`check_m2_balance.gd`'s kit) has no `defaultParts`, so nothing is fitted to it, and
+the plates and carriers are findable loot the scripted survivors do not fit. So the piece changes a
+run only once a player fits a plate, and REACHED is the lane that holds that the wear is reached
+when one is. `godot:bench:runtime`, six and six interleaved: shipped-tick mean median 13.89 ms base
+against 14.40 head, colony-tick 17.30 against 18.63, both inside the 1 to 4 ms run-to-run spread on
+this machine (the base alone ran 13.03 to 15.57 and 15.46 to 20.91). The wear is a few dictionary
+reads per blow, and blows are a few a second at most.
 
 **How to apply:** a new armour part that adds coverage declares `wearsOn: ["struck"]` and a
 `wearRate`; `godot:m2:attach` WEARS holds the word to the vocabulary, `godot:m2:armor` STRUCK,
