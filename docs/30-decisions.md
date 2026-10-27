@@ -6917,6 +6917,21 @@ keen a blade is, in a word.
   for the digit ban with no reader in `godot/ui/`. The STATE lane now asserts both.
 - **No context-menu row.** `SimContext.verbs_at` lists what can be done to the thing under the
   cursor in the street; it lists nothing for a held item, so hone has no place there.
+- **"burning steadily" became "burning well" (the art review).** At 1280x720 the lines beside the
+  picture have 180 px, and "fuel burning steadily" is 210, so the lantern's commonest state was
+  drawn as "burning stea..." the day the line landed. The word moved, not the layout: the picture
+  well cannot narrow without cropping a long gun, and the four fuel words now read "dark",
+  "guttering", "burning low", "burning well", every one inside the room with its label.
+  `InspectPane.side_width` is the one measure `draw_pane` lays the column out with, and the STATE
+  lane's FIT half holds every edge band and every fuel word (read off a real lantern walked down
+  its tank) to it at 1280x720, red on the old word.
+- **The warning words read at 4.5:1 (the art review).** "dull" and "dark" drew in `Locker.DANGER`,
+  the rim and hazard rust, at 3.4 to 1 on the pane's steel, and so did the condition's "broken"
+  and "barely holding" beside them. Both scales now draw their warnings in `Locker.DANGER_INK`
+  (#e07a4f, 5.2 to 1 on the lighter grain), the bench's word rust moved onto the Locker so the
+  two screens share one value; `DANGER` itself is unchanged for the rims. FIT measures every ink
+  on the condition and state scales, and the dim label, against `Locker.STEEL_GRAIN`, red on the
+  old colour.
 
 **How to apply:** a new verb on the pack gets a refusal function its command shares, never a copy
 of the checks. Retune the edge bands in `EDGE_BANDS` with the HONE and STATE lanes' fixtures.
