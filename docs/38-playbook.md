@@ -240,10 +240,11 @@ not authored; a kind, part or frame gets its picture in the stage after its sim 
   add stud (nails, screws, barbed wire, glass), guard and weight. About twenty-five physically
   plausible recipes, each with what the modification costs the frame: nails split an aluminium
   bat and want wood; a pitchfork head on a pipe wants cordage and a fixing; glass cuts the hand
-  without a wrap. Wear is specific: studs fall out on hits (the `struck` wear word), an edge
-  dulls and wants a whetstone, a lashed head flies off one swing in N. A weapon past three
-  modifications may be named by the player, which is how bespoke reads on a screen with no stat
-  line.
+  without a wrap. Wear is specific: studs fall out on hits (the `hit` wear word, the attacker's
+  side; `struck` is the target's, left to a plate), an edge dulls and wants a whetstone, a lashed
+  head flies off one swing in N. A weapon with three or more parts of the player's own may be
+  named by the player, which is how bespoke reads on a screen with no stat line. Finished
+  2026-10-27; its pictures are owed in stage 3.
 
 **Open owner calls from the arcs** (docs/33 carries them): the realism table for conversions
 (the coordinator writes it, the owner vetoes); whether fire becomes a sim fact in stage 1 or

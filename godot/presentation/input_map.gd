@@ -238,7 +238,22 @@ func _release_the_street() -> void:
 	pump()
 
 
+# Whether the inventory sheet's name field is open in front: then every key is the field's.
+func _naming() -> bool:
+	return main != null and _focus() == "sheet" and main._inventory_panel != null \
+			and main._inventory_panel.has_method("naming") and bool(main._inventory_panel.call("naming"))
+
+
 func _input(event: InputEvent) -> void:
+	# The name field takes every press before the table below reads it -- echoes too, so a held
+	# Backspace keeps deleting. W types a letter rather than walking, Tab and the number row type
+	# nothing rather than switching screens or spending the belt, and Escape shuts the field rather
+	# than the sheet. Nothing joins the held set, so nothing walks when the field closes.
+	if event is InputEventKey and event.pressed and _naming():
+		main._inventory_panel.call("name_key", event)
+		get_viewport().set_input_as_handled()
+		main.queue_redraw()
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		var ke: InputEventKey = event as InputEventKey
 		if main == null:

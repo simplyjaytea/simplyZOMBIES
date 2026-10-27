@@ -33,7 +33,9 @@ const PICTURE_GAP: float = 16.0
 const BUTTON_H: float = 36.0
 const BUTTON_GAP: float = 8.0
 # What a verb is called on a button, where the menu's bare word would be unclear out of context.
-const VERB_WORDS: Dictionary = {"stash": "put it here", "take": "take it", "unequip": "take off"}
+const VERB_WORDS: Dictionary = {"stash": "put it here", "take": "take it", "unequip": "take off", "name": "name it"}
+# The caret in the name field: one art pixel wide, the accent, as tall as the type.
+const CARET_W: float = 2.0
 
 
 static func verb_word(verb: String) -> String:
@@ -71,7 +73,10 @@ static func button_rects(rect: Rect2, verbs: Array) -> Array[Dictionary]:
 # and the floor draw for that base, through `Appearance.item_look` -- the pack's icon, or its class's
 # glyph where the pack has none. With no world the pane is words alone, as it was before the pictures.
 # `verbs` are the buttons along its foot, from `button_rects`; the first is drawn as the obvious one.
-static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: float, verbs: Array = [], world: Variant = null) -> void:
+# `field` is the name field while it is open on this item ({item, text, caret}, the panel's own
+# typing state): it is drawn in the title's place, so the name you are typing sits where the name
+# will be.
+static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: float, verbs: Array = [], world: Variant = null, field: Dictionary = {}) -> void:
 	Locker.panel(ci, rect, alpha)
 	var top: float = Locker.header(ci, rect, "inspect", alpha, "", Chrome.GLYPH_SMALL + Locker.PX * 3.0)
 	Chrome.glyph(ci, "inspect", Vector2(rect.end.x - Chrome.GLYPH_SMALL - Locker.PX * 5.0, rect.position.y + Locker.PX * 2.0 + floorf((Locker.TAPE_H - Chrome.GLYPH_SMALL) / 2.0)), true, alpha * 0.7)
@@ -99,7 +104,10 @@ static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: floa
 		text_wide = rect.end.x - PAD - text_x
 
 	var ty: float = y + Chrome.ascent(TITLE_SIZE)
-	ci.draw_string(font, Vector2(text_x, ty), UiText.fit(font, String(view.get("name", "")), TITLE_SIZE, text_wide), HORIZONTAL_ALIGNMENT_LEFT, -1, TITLE_SIZE, Locker._a(Locker.TEXT, alpha))
+	if not field.is_empty() and int(field.get("item", -2)) == int(view.get("item", -1)):
+		draw_field(ci, Rect2(Vector2(text_x - Locker.PX * 2.0, y - Locker.PX * 2.0), Vector2(text_wide + Locker.PX * 2.0, Chrome.line_height(TITLE_SIZE) + Locker.PX * 2.0)), String(field.get("text", "")), int(field.get("caret", 0)), alpha)
+	else:
+		ci.draw_string(font, Vector2(text_x, ty), UiText.fit(font, String(view.get("name", "")), TITLE_SIZE, text_wide), HORIZONTAL_ALIGNMENT_LEFT, -1, TITLE_SIZE, Locker._a(Locker.TEXT, alpha))
 	ty += LINE + 2.0
 
 	# The condition word, and the only place on this screen where a colour carries meaning about
@@ -159,6 +167,36 @@ static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: floa
 	for n in buttons.size():
 		var b: Dictionary = buttons[n]
 		Locker.button(ci, b["rect"] as Rect2, verb_word(String(b["verb"])), n == 0, alpha)
+
+
+# The name field: a well with the typed text in it and the caret where the next letter goes. The
+# title's ladder size while the name fits; a rung down when it does not; and if it still runs past
+# the well, the text scrolls so the caret is always on show. Words only, and only what was typed.
+static func draw_field(ci: CanvasItem, box: Rect2, text: String, caret: int, alpha: float) -> void:
+	Locker.well(ci, box, alpha)
+	var font: Font = Chrome.font()
+	var inner: float = box.size.x - Locker.PX * 4.0
+	var size: int = TITLE_SIZE
+	if font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > inner:
+		size = BODY_SIZE
+	caret = clampi(caret, 0, text.length())
+	var start: int = visible_start(font, text, caret, size, inner)
+	var shown: String = text.substr(start)
+	while not shown.is_empty() and font.get_string_size(shown, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > inner:
+		shown = shown.left(-1)
+	var at := Vector2(box.position.x + Locker.PX * 2.0, box.position.y + (box.size.y - Chrome.line_height(size)) / 2.0 + Chrome.ascent(size))
+	ci.draw_string(font, at, shown, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Locker._a(Locker.TEXT, alpha))
+	var cx: float = at.x + font.get_string_size(text.substr(start, caret - start), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	ci.draw_rect(Rect2(Vector2(cx, at.y - Chrome.ascent(size)), Vector2(CARET_W, Chrome.ascent(size) + Locker.PX)), Locker._a(Locker.ACCENT, alpha))
+
+
+# The first character the field shows: 0 while everything up to the caret fits, else as far along as
+# it takes for the caret to be inside the well.
+static func visible_start(font: Font, text: String, caret: int, size: int, inner: float) -> int:
+	var start: int = 0
+	while start < caret and font.get_string_size(text.substr(start, caret - start), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > inner - CARET_W:
+		start += 1
+	return start
 
 
 static func _band_colour(band: String) -> Color:

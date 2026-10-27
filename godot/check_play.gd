@@ -237,6 +237,8 @@ func _run() -> void:
 	ok = _x_drafts_the_colonist_picked(main) and ok
 	var focus_ok: bool = await _the_open_sheet_swallows_the_street(main)
 	ok = focus_ok and ok
+	var name_ok: bool = await _the_name_field_takes_every_key(main)
+	ok = name_ok and ok
 	var nav_ok: bool = await _one_bar_reaches_all_three_screens(main)
 	ok = nav_ok and ok
 	var menu_ok: bool = await _escape_closes_the_menu_first(main)
@@ -273,7 +275,7 @@ func _run() -> void:
 
 	if ok:
 		var skipped: String = "no lane skipped" if _skips.is_empty() else "skipped: %s" % ", ".join(PackedStringArray(_skips))
-		print("PLAY_OK the scene boots to a title over a still world, ticks, walks, opens its screens, saves and loads, camps on C and crouches on Ctrl+C, refuses the street's keys under an open sheet, pauses to a menu on Escape, moves the audio bus, names its speed and sleeps through the night unless something is near, writes the slot at dawn and on the window's close, ends on a screen that speaks the chronicle and starts again, keeps a dismissed legend dismissed, offers a first-day hint that a click clears and a save keeps seen, and draws by day and by night in %d ms (%s)" % [elapsed, skipped])
+		print("PLAY_OK the scene boots to a title over a still world, ticks, walks, opens its screens, saves and loads, camps on C and crouches on Ctrl+C, refuses the street's keys under an open sheet, gives the name field every key, pauses to a menu on Escape, moves the audio bus, names its speed and sleeps through the night unless something is near, writes the slot at dawn and on the window's close, ends on a screen that speaks the chronicle and starts again, keeps a dismissed legend dismissed, offers a first-day hint that a click clears and a save keeps seen, and draws by day and by night in %d ms (%s)" % [elapsed, skipped])
 		quit(0)
 	else:
 		push_error("PLAY_FAIL")
@@ -1317,6 +1319,147 @@ func _the_open_sheet_swallows_the_street(main: Node) -> bool:
 	var metres: String = "%.2f m of room to prove it" % room if room > 0.05 else "no room to walk into, so the metres half said so and judged nothing"
 	print("FOCUS OK the open sheet stops the body with one zero move, refuses a held W and an F, and gives the street back on Tab (%s)" % metres)
 	return true
+
+
+# --- NAME -------------------------------------------------------------------------------------
+#
+# The one text field in the game (docs/33 item 24). A rebuilt bat is carried, the sheet opens on
+# Tab, and the inspect pane's "name it" button is clicked where a player clicks it. Then the field
+# has every key: W types a "w" and walks nobody, Tab types nothing and does not shut the sheet,
+# Enter sends `item.name` and the name is the bat's (the dead socket: the key reaches the command),
+# and Escape on a second opening shuts the field unsent with the sheet still open.
+func _type(ch: String) -> void:
+	for pressed in [true, false]:
+		var ev := InputEventKey.new()
+		ev.keycode = KEY_SPACE if ch == " " else OS.find_keycode_from_string(ch.to_upper())
+		ev.physical_keycode = ev.keycode
+		ev.unicode = ch.unicode_at(0)
+		ev.pressed = pressed
+		root.push_input(ev)
+
+
+func _name_button(main: Node, panel: Control) -> Variant:
+	var pane: GDScript = load("res://ui/inspect_pane.gd") as GDScript
+	for b in pane.call("button_rects", panel.call("_inspect_rect"), panel.call("_pane_verbs")) as Array:
+		if String((b as Dictionary)["verb"]) == "name":
+			return ((b as Dictionary)["rect"] as Rect2).get_center()
+	return null
+
+
+func _the_name_field_takes_every_key(main: Node) -> bool:
+	var world: Variant = main.get("world")
+	var panel: Variant = main.get("_inventory_panel")
+	var router: Node = _router(main)
+	if world == null or panel == null or router == null:
+		return _skip("NAME", "the scene built no world, sheet or key router")
+	var actor: int = int(world.player)
+	var bat: int = SimItems.spawn_item(world, "item.bat.wood", {"tier": "scavenged"})
+	for pair in [["item.attach.stud.nails", "stud"], ["item.attach.weight.sandbag", "weight"], ["item.attach.wrap.cord", "wrap"]]:
+		var part: int = SimItems.spawn_item(world, String(pair[0]), {"tier": "scavenged"})
+		if not SimAttachments.attach(world, bat, part, String(pair[1])):
+			push_error("NAME: the fixture could not fit %s to the bat" % String(pair[0]))
+			return false
+	# The boot loadout's bags are full, so the bat gets a frame pack of its own when there is a
+	# back free to wear one on.
+	var pack: int = -1
+	if not SimInventory.stow(world, actor, bat):
+		pack = SimItems.spawn_item(world, "item.pack.frame", {"tier": "scavenged"})
+		if not SimInventory.equip(world, actor, pack, "back") or not SimInventory.stow(world, actor, bat):
+			push_error("NAME: the survivor had no room for the fixture bat, even with a frame pack")
+			return false
+	var plain: String = SimItems.item_name(world, bat)
+	var ok: bool = true
+	# The headless window is tiny; the pane and its buttons want the smallest window the game ships.
+	var old_size: Vector2i = root.size
+	root.size = Vector2i(1280, 720)
+	_tap(KEY_TAB)
+	await process_frame
+	if not bool(main.get("inventory_open")):
+		push_error("NAME: Tab did not open the sheet")
+		return false
+	(panel as Control).set("_selected", bat)
+	(panel as Control).queue_redraw()
+	await process_frame
+	var at: Variant = _name_button(main, panel as Control)
+	if at == null:
+		push_error("NAME: the inspect pane offered no \"name it\" button for a bat with nails, a weight and a wrap")
+		_tap(KEY_TAB)
+		await process_frame
+		root.size = old_size
+		return false
+	_click_at(at as Vector2)
+	await process_frame
+	if not bool((panel as Control).call("naming")):
+		push_error("NAME: clicking \"name it\" did not open the field")
+		ok = false
+	# Clear the prefill, one Backspace per character, and type a W first: it is a letter now.
+	_drain(main)
+	var from: Dictionary = _pos(main)
+	for _i in plain.length():
+		_tap(KEY_BACKSPACE)
+	_type("W")
+	_frames(main, 10)
+	var field: Dictionary = (panel as Control).call("name_field") as Dictionary
+	if String(field.get("text", "")) != "W":
+		push_error("NAME: after clearing the prefill and pressing W the field held '%s'" % String(field.get("text", "")))
+		ok = false
+	if not (router.get("_held") as Dictionary).is_empty() or _moved(from, _pos(main)) > 0.01:
+		push_error("NAME: W walked the body, or joined the held set, while the field was open")
+		ok = false
+	# Tab is a key the field takes too: the sheet stays open and nothing is typed.
+	_tap(KEY_TAB)
+	await process_frame
+	if not bool(main.get("inventory_open")) or not bool((panel as Control).call("naming")):
+		push_error("NAME: Tab shut the sheet or the field while the field was open")
+		ok = false
+	_tap(KEY_BACKSPACE)
+	for ch in "Old Faithful":
+		_type(ch)
+	_drain(main)
+	_tap(KEY_ENTER)
+	var sent: Variant = null
+	for cmd_v in _pending(main):
+		if String((cmd_v as Dictionary).get("type", "")) == "item.name":
+			sent = cmd_v
+	if sent == null or String((sent as Dictionary).get("name", "")) != "Old Faithful" or int((sent as Dictionary).get("item", -1)) != bat:
+		push_error("NAME: Enter pushed %s rather than item.name for the bat as Old Faithful" % str(sent))
+		ok = false
+	_frames(main, 2)
+	if SimItems.item_name(world, bat) != "Old Faithful" or bool((panel as Control).call("naming")):
+		push_error("NAME: after Enter the bat was called '%s' and the field was %s" % [SimItems.item_name(world, bat), "open" if bool((panel as Control).call("naming")) else "shut"])
+		ok = false
+	# Escape on a second opening: the field shuts unsent, the sheet stays, and the name stands.
+	await process_frame
+	at = _name_button(main, panel as Control)
+	if at != null:
+		_click_at(at as Vector2)
+		await process_frame
+	_type("X")
+	_drain(main)
+	_tap(KEY_ESCAPE)
+	await process_frame
+	for cmd_v in _pending(main):
+		if String((cmd_v as Dictionary).get("type", "")) == "item.name":
+			push_error("NAME: Escape sent the half-typed name")
+			ok = false
+	if at == null or bool((panel as Control).call("naming")) or not bool(main.get("inventory_open")) or SimItems.item_name(world, bat) != "Old Faithful":
+		push_error("NAME: Escape did not shut only the field (field %s, sheet %s, name '%s')" % [str((panel as Control).call("naming")), str(main.get("inventory_open")), SimItems.item_name(world, bat)])
+		ok = false
+	_tap(KEY_TAB)
+	await process_frame
+	SimInventory.remove_from_container(world, bat)
+	world.despawn(bat)
+	if pack >= 0:
+		SimInventory.unequip(world, actor, "back")
+		SimInventory.remove_from_container(world, pack)
+		world.despawn(pack)
+	root.size = old_size
+	if bool(main.get("inventory_open")):
+		push_error("NAME: Tab did not close the sheet once the field was shut")
+		ok = false
+	if ok:
+		print("NAME OK the pane's button opens the field, W types and walks nobody, Tab types nothing and keeps the sheet, Enter sends item.name and the bat is Old Faithful, and Escape shuts only the field, unsent")
+	return ok
 
 
 # --- LEGEND -----------------------------------------------------------------------------------

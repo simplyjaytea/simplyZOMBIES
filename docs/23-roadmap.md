@@ -291,7 +291,11 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
 - (Already named above and part of this arc: choosing which round to fire, the magazine that
   remembers its load, the hand-loaded round, the five ranged affixes.)
 
-*Melee, frames and recipes (stage 1):*
+*Melee, frames and recipes (stage 1): finished, 2026-10-27.* Every piece has landed; the arc's
+record is "Melee frames and the widened slots, and the improvised recipe table, 2026-10-26",
+"Specific melee wear", "The bench offers improvised parts", "Hone on the pack" and "A weapon you
+named, 2026-10-27". What it still owes is pictures, a stage behind: the art group's "Pictures for
+the melee arc".
 
 - **Specific melee wear.** Studs fall out on hits through the `struck` wear word (shared with the
   plate piece), an edge dulls and a whetstone restores it, a lashed head flies off one swing in N
@@ -302,8 +306,6 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
   materials it would spend, refusals in words, and sends the command. The half that shipped is the
   sim and its refusals; this is the half that did not. Gate: `godot:m2:bench`, and
   `godot:check:inventory` for the row's words.
-- **A bespoke weapon may be named.** Past three modifications the player may name the item; the
-  name follows the digit ban's item-name clause. Gate: `godot:check:inventory`.
 
 *Zombies, seven to fourteen (stage 2 for the first four, stage 4 for the rest):*
 
@@ -1211,6 +1213,11 @@ code: the frames slot into `build_motion.py` and every gate already judges them.
     foot end.
   - Buried outlines: the reviewer counts 245, the thread 68 (own colour only). Define one count
     in `godot:check:action` so the next review compares like with like.
+
+**Pictures for the melee arc (stage 3).** The arc landed its readers before its pictures, by the
+rule. Owed: a picture for each of the 25 improvised parts in `godot/content/items/improvised.json`
+and for the wooden bat, which today draw as their class's glyph in the bag, the strip and the
+inspect pane; and, beside them, a fitted part seen on the weapon in the hand.
 
 **The inventory sheet and the screens — decided by the owner (2026-09-08).** The inventory is
 mechanically complete and gated, and the screen reaches four of its commands: `item.move`,
@@ -2406,6 +2413,50 @@ What landed and what proved it, system by system (condensed from the retired bac
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **A weapon you named, 2026-10-27.** The last piece of the melee arc. A weapon with three or more
+  slots holding a part it did not come with may be named by the player (docs/33 items 23 and 24,
+  three or more by the owner's call of 2026-10-27; typed, the default). What landed:
+  - **What counts.** `SimAttachments.modifications_of` counts the filled slots whose part is not the
+    base's `defaultParts` entry for that slot. A factory part, a part swapped back to the factory
+    one and an empty slot count nothing. Derived from what is fitted, so nothing new is saved for
+    it. `SimItems.nameable` is three or more (`BESPOKE_PARTS`), on any item with slots, melee and
+    firearms alike.
+  - **The name.** `item.name {item, name}` (`SimItems.give_name`, an `items.intake` system) sets a
+    `givenName` component, and `SimItems.item_name` returns it whole in place of the base noun and
+    the affix words, so the inspect pane, the bench, the strip, the list and the chronicle all say
+    it. An empty name gives the plain one back. Refused in words (`name_refusal_words`): not
+    carried, not rebuilt enough, over 24 characters (`NAME_MAX`), a control character, no letter.
+    The bench's header says the given name too (`SimGunsmith.bench_view`).
+  - **One predicate.** The digit ban's item-name clause moved into the sim as
+    `SimItems.name_is_allowed`; `check_inventory.gd`'s `_name_is_allowed` calls it, and so does
+    `check_play.gd`'s bench scan through it. It now asks for a letter: "4 2" was a quantity the old
+    "not every character a digit" let through.
+  - **The field.** "name it" on the inspect pane opens a drawn field in the title's place,
+    prefilled, with a caret; the cap shows by refusing the next character. While it is open
+    `input_map.gd` hands it every key before its own table (`_naming`, the panel's `name_key`): W
+    types, Tab types nothing, Enter asks `name_refusal` and sends `item.name` or says the refusal
+    on the title bar with the field still open, Escape shuts it unsent, and a click anywhere puts
+    it down. The title bar's hint says how.
+  - **Save.** `givenName` round-trips through the generic component store; a save without it loads
+    unnamed. `SAVE_VERSION` stays 33.
+  - **Gates.** `godot:check:inventory` NAME: a wooden bat counts 0, 1, 2, 3 as nails, a sandbag and
+    a cord wrap go on, and is offered `name` only at three; a spear's factory head and haft count
+    nothing, a lashed spike counts one, a plain head put back counts nothing; a service pistol as
+    found and a strip of jerky are not offered one; the gate's predicate calls the sim's, by text
+    and by answer on eight strings; "42", "4 2", 25 characters and a control character are refused
+    in words, 24 are taken; "Old Faithful" reaches the inspect view and the bench, "Nailbat 2" is
+    taken and the serialised inspect view passes the ban while the same string in the description
+    fails it; a rebuilt pistol named "Quiet Mary" says so on the quick strip; spaces give the plain
+    name back. `godot:check:play` NAME: the pane's button, clicked, opens the field; W types and
+    walks nobody; Tab keeps the sheet; Enter pushes `item.name` and the bat is Old Faithful; Escape
+    shuts only the field, unsent. `godot:m2:save` NAMED: a named bat round-trips, a save without
+    `givenName` loads under the plain name and takes a name after, the version is unchanged.
+    Review scene `name_field` (`godot:check:shots`). Each lane was broken on purpose and went red:
+    `nameable` at more than three (NAME), the field's key route off (play NAME), `item_name`
+    ignoring the given name (NAMED).
+  - **Measured.** Off the tick path. `godot:m2:balance` on the head: see the PR; no NPC and no
+    scripted campaign sends `item.name`.
 
 - **The bloodhound, 2026-10-27.** Zombie kind eight, content only: `godot/content/zombies/bloodhound.json`,
   wave 3, weight 6, `sensory` noise 0, light 0, scent 1.0. It follows the scent field alone and is

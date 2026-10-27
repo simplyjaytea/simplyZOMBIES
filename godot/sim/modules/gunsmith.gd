@@ -246,7 +246,9 @@ static func bench_view(world: Variant, actor: int, host: int) -> Dictionary:
 		"bench": bench_in_reach(world, actor),
 		"at_bench": bench_in_reach(world, actor) >= 0,
 		"host": host,
-		"name": String((base as Dictionary).get("name", "weapon")),
+		# The name the player gave it when there is one (docs/33 item 24); the base's plain noun
+		# otherwise, as the bench has always said it.
+		"name": SimItems.given_name(world, host) if not SimItems.given_name(world, host).is_empty() else String((base as Dictionary).get("name", "weapon")),
 		"condition": SimItems.condition_band({"current": SimItems.assembly_condition(world, host)}),
 		"refusal": SimAttachments.refusal_clause(world, actor),
 		"slots": rows,

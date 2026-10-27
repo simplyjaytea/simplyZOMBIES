@@ -33,8 +33,9 @@ func _run() -> void:
 	ok = _a_cupboard_and_the_hand_on_it_survive() and ok
 	ok = _the_save_is_never_absent_from_disk() and ok
 	ok = _recording_is_opt_in() and ok
+	ok = _a_named_weapon_keeps_its_name() and ok
 	if ok:
-		print("M2_SAVE_OK v%d ticket10 needs-era despawn-clean container-grid atomic record-opt-in" % int(SimSerialize.SAVE_VERSION))
+		print("M2_SAVE_OK v%d ticket10 needs-era despawn-clean container-grid atomic record-opt-in named" % int(SimSerialize.SAVE_VERSION))
 		quit(0)
 	else:
 		push_error("M2_SAVE_FAIL")
@@ -486,3 +487,65 @@ func _function_body(path: String, name: String) -> String:
 		if inside:
 			out += line + "\n"
 	return out
+
+
+# --- NAMED -------------------------------------------------------------------------------------
+#
+# A name the player gave a weapon is the one new thing a save carries for it (`givenName`, docs/33
+# item 24), and it is new without a version bump: a save from before the piece simply has no
+# `givenName` anywhere, and has to load as a world of unnamed weapons rather than be refused. Both
+# halves, on the same rebuilt bat: named, it comes back named; saved before it was named (the
+# snapshot with the component taken out, which is exactly what an older build wrote), it comes back
+# under its plain name and can still be named after the load.
+func _a_named_weapon_keeps_its_name() -> bool:
+	var boot: Dictionary = SimBoot.playable(20260805, 64)
+	var w: Variant = boot["world"]
+	var actor: int = int(w.player)
+	var bat: int = SimItems.spawn_item(w, "item.bat.wood", {"tier": "scavenged"})
+	var Att: GDScript = load("res://sim/modules/attachments.gd") as GDScript
+	for pair in [["item.attach.stud.nails", "stud"], ["item.attach.weight.sandbag", "weight"], ["item.attach.wrap.cord", "wrap"]]:
+		var part: int = SimItems.spawn_item(w, String(pair[0]), {"tier": "scavenged"})
+		if not bool(Att.call("attach", w, bat, part, String(pair[1]))):
+			push_error("NAMED: the fixture could not fit %s" % String(pair[0]))
+			return false
+	if not SimInventory.stow(w, actor, bat):
+		var pack: int = SimItems.spawn_item(w, "item.pack.frame", {"tier": "scavenged"})
+		if not SimInventory.equip(w, actor, pack, "back") or not SimInventory.stow(w, actor, bat):
+			push_error("NAMED: the survivor could not carry the fixture bat")
+			return false
+	var plain: String = SimItems.item_name(w, bat)
+	var unnamed: Dictionary = w.snapshot()
+	if SimItems.give_name(w, actor, bat, "Old Faithful") != "":
+		push_error("NAMED: the rebuilt bat refused its name before the save")
+		return false
+	var named: Dictionary = w.snapshot()
+	var ok: bool = true
+
+	# The true positive: the name comes back, on the same entity.
+	var restored: Variant = _restore_bare(named, 20260805, 64)
+	if SimItems.item_name(restored, bat) != "Old Faithful":
+		push_error("NAMED: a named bat came back from a save as '%s'" % SimItems.item_name(restored, bat))
+		ok = false
+	# The snapshot actually carries the component, so the positive is not passing on some other
+	# path (a name cached on the base, say) that a load would lose the moment it was real.
+	if not JSON.stringify(named).contains("\"givenName\""):
+		push_error("NAMED: the save of a named bat carries no givenName component")
+		ok = false
+
+	# The older save: no `givenName` anywhere in it, same version, and it loads unnamed.
+	if JSON.stringify(unnamed).contains("\"givenName\""):
+		push_error("NAMED: the save taken before the bat was named already carries givenName, so it is not an older save")
+		ok = false
+	if int(unnamed.get("version", -1)) != int(SimSerialize.SAVE_VERSION) or int(named.get("version", -2)) != int(SimSerialize.SAVE_VERSION):
+		push_error("NAMED: naming a weapon changed the save version (%s, %s, want %d)" % [str(unnamed.get("version")), str(named.get("version")), int(SimSerialize.SAVE_VERSION)])
+		ok = false
+	var old: Variant = _restore_bare(unnamed, 20260805, 64)
+	if SimItems.item_name(old, bat) != plain or not SimItems.given_name(old, bat).is_empty():
+		push_error("NAMED: a save from before naming loaded as '%s', not the plain '%s'" % [SimItems.item_name(old, bat), plain])
+		ok = false
+	if SimItems.give_name(old, actor, bat, "Second Wind") != "" or SimItems.item_name(old, bat) != "Second Wind":
+		push_error("NAMED: a bat loaded from an older save could not be named after the load")
+		ok = false
+	if ok:
+		print("NAMED OK a named bat round-trips as Old Faithful, a save without givenName loads as %s and takes a name after, and the version stays %d" % [plain, int(SimSerialize.SAVE_VERSION)])
+	return ok

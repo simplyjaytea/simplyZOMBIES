@@ -232,12 +232,16 @@ gate ignores it.
 **The one amendment, and it is narrow.** Since the owner's decision of 2026-09-12
 ([docs/30](docs/30-decisions.md), "The cartridge on the label") an **item's `name`** may carry a
 digit, so a round can be called `.308 Winchester Match` rather than named around the ban. One
-predicate, `check_inventory.gd`'s `_name_is_allowed`, is called by both lanes that scan a name
-(STRIP and INSPECT) and still refuses a name that is *nothing but* a quantity. **Nothing else
-moved**: `description`, every other value in the inspect pane, and every line `check_hud.gd` reads
-are under the full ban, and the lane proves it by refusing the identical string the moment it is a
-description instead. Do not widen this to a second field without the owner — the whole reason it
-is written down here is that a ban amended once is a ban that gets amended again.
+predicate, `SimItems.name_is_allowed` (in the sim since 2026-10-27, so the `item.name` command and
+the gates ask the same question; `check_inventory.gd`'s `_name_is_allowed` calls it), is called by
+both lanes that scan a name (STRIP and INSPECT) and refuses a name with no letter in it, which is a
+quantity. A name the player gives a weapon they rebuilt (docs/33 items 23 and 24) is that same
+`name`, read through `SimItems.item_name`, under that same predicate: it is not a second field.
+**Nothing else moved**: `description`, every other value in the inspect pane, and every line
+`check_hud.gd` reads are under the full ban, and the lane proves it by refusing the identical string
+the moment it is a description instead. Do not widen this to a second field without the owner —
+the whole reason it is written down here is that a ban amended once is a ban that gets amended
+again.
 
 **Budgets are correctness.** [docs/00 pillar 6](docs/00-vision.md): a feature that breaks budget
 does not ship until it is fixed. Exceeding a budget fails the build at the same severity as a
