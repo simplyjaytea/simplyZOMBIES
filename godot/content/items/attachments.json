@@ -146,7 +146,7 @@
     "attachment": {
       "fits": ["barrel"],
       "structural": true,
-      "barrel": { "length": "full", "quality": "match", "material": "mild" },
+      "barrel": { "length": "full", "quality": "match", "material": "steel" },
       "wearsOn": ["shot"]
     }
   },
