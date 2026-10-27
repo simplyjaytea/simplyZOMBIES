@@ -2244,13 +2244,26 @@ func _the_name_field_holds_its_text() -> bool:
 				if InspectPane.caret_from_click(font, box, text, caret, float(lay["caret_x"]) + 1.0) != caret:
 					push_error("FIELD: a click on the caret moved it (width %d, %d letters, caret at %d)" % [wide, n, caret])
 					return false
+				# Scrolled, a click before any letter on show moves the caret there and leaves the text
+				# where it was: the start is kept, so nothing slides under the pointer. (The gap after
+				# the last letter on show may scroll one on: the caret needs its own width of room.)
+				var st: int = int(lay["start"])
+				if st > 0:
+					var left_x: float = (lay["at"] as Vector2).x
+					for k in range(0, String(lay["shown"]).length()):
+						var gx: float = left_x + font.get_string_size(text.substr(st, k), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+						var moved_to: int = InspectPane.caret_from_click(font, box, text, caret, gx, st)
+						var after: Dictionary = InspectPane.field_layout(font, box, text, moved_to, st)
+						if moved_to != st + k or int(after["start"]) != st:
+							push_error("FIELD: a click on letter gap %d of a scrolled field put the caret at %d and the start at %d (want %d and %d; width %d, %d letters)" % [k, moved_to, int(after["start"]), st + k, st, wide, n])
+							return false
 	# The negative: in the narrowest well a full-length name does scroll, so the lane above judged
 	# the scrolling branch and not only names that fit.
 	if scrolled == 0:
 		push_error("FIELD: no case scrolled, so the scrolling layout was never judged")
 		ok = false
 	if ok:
-		print("FIELD OK %d layouts: the caret stays in the well, the text never runs past it, a name that fits starts at its first letter, and a click on the caret leaves it there (%d scrolled)" % [cases, scrolled])
+		print("FIELD OK %d layouts: the caret stays in the well, the text never runs past it, a name that fits starts at its first letter, a click on the caret leaves it there, and a click on a scrolled field's letters moves the caret and not the text (%d scrolled)" % [cases, scrolled])
 	return ok
 
 
