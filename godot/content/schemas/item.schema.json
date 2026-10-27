@@ -92,6 +92,10 @@
       ],
       "description": "What grade of dressing this item makes when it is used to bandage a wound, per docs/05-health-injury.md. Absent means the item cannot dress a wound at all. A flat scalar, not a nested block: the content validator is shallow, so a nested object would get an is-it-an-object check and nothing more -- this way the enum is actually enforced."
     },
+    "tourniquet": {
+      "type": "boolean",
+      "description": "Whether this item is a tourniquet, per docs/05-health-injury.md's first step. Read by sim/modules/treatment.gd's verb_of_supply, which answers it with the `tourniquet` verb: it holds the bleed on an arm or a leg for SimWounds.TOURNIQUET_TICKS and then costs the limb. A boolean and not a grade, because a tourniquet is not a dressing grade (docs/23): there is one kind, so there is no pick order to rank. Absent means no, which is every item but one. A flat top-level scalar for the reason bandageTier is one: the content validator is shallow, and a type declared up here is actually enforced."
+    },
     "cleanTier": {
       "enum": [
         "water",
@@ -249,12 +253,16 @@
         }
       }
     },
+    "family": {
+      "enum": ["club", "blade", "polearm", "tool"],
+      "description": "The melee family a base belongs to, per docs/23's melee arc: what it is, not how it is held. Attachments name a family in `attachment.appliesTo` to say which bases they go on. Present on every melee base; check_m2_attach.gd's FAMILY lane asserts it, because the shallow validator has no notion of which bases are melee."
+    },
     "slots": {
       "type": "array",
       "items": {
         "type": "string"
       },
-      "description": "Attachment slot names, per docs/10-items.md#attachment-slots. Attachments move freely between compatible bases."
+      "description": "Attachment slot names, per docs/10-items.md#attachment-slots. Attachments move freely between compatible bases. Melee bases may declare stud, guard and weight as well as head, edge, haft and wrap."
     },
     "requiredSlots": {
       "type": "array",
@@ -292,7 +300,7 @@
             "type": "number",
             "exclusiveMinimum": 0
           },
-          "description": "Multipliers over the melee profile, keyed by field: damage, reachMetres, staggerTicks, speed."
+          "description": "Multipliers over the melee profile, keyed by field: damage, reachMetres, staggerTicks, speed, weight (how heavy the swing is, which sets its recovery), connectNoise (how loud a landed swing is)."
         },
         "ranged": {
           "type": "object",
@@ -338,6 +346,34 @@
           "type": "number",
           "exclusiveMinimum": 0,
           "description": "Multiplies SimAttachments.PART_WEAR_PER_EVENT for this part. Above 1 is docs/10's \"suppressors wear out fast\"; below 1 is a part that outlives the weapon."
+        },
+        "appliesTo": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "description": "Which bases this part may go on, by melee family (club, blade, polearm, tool) or by base id (item.bat.wood). Absent means any base whose slot it fits. Compatibility is `fits` AND `appliesTo`: SimAttachments.plausible asks both. Every name must be a family or a shipped base id, which check_m2_attach.gd's MELEE lane asserts, because the validator will not look inside this object."
+        },
+        "recipe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kinds"],
+          "description": "Present on a part that is improvised rather than found, per docs/10. Fitting it (`item.improvise`) spends one unit of each kind listed, from what the survivor carries, and spawns the part into the slot. The kinds are the same vocabulary as a base's `buildMaterial`. A recipe part is exempt from the findability lane, because it is made and never looted; check_m2_attach.gd's MELEE lane holds it to being improvisable instead.",
+          "properties": {
+            "kinds": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["metal", "wood", "plank", "stone", "fiber", "cordage", "fixings", "ingot", "charcoal", "clay", "wire", "circuit"]
+              }
+            }
+          }
+        },
+        "handCut": {
+          "type": "boolean",
+          "description": "A part that opens the hand holding the weapon on every swing, unless something is wrapped round the grip (the wrap slot filled). Read by SimAttachments.cuts_hand from melee.gd's _resolve_strike, which publishes the cut through the wound path a bad exposure uses. Glass is the one shipped case."
         },
         "armor": {
           "type": "object",

@@ -10,7 +10,7 @@ extends RefCounted
 #   what is wrong   `SimCondition.view`'s entry for the part: a state word and a handful of words and
 #                   booleans. No integrity, no maximum, no fraction (`godot:ban:healthbar`) -- the
 #                   pane has nothing to draw a fill from, so it draws none.
-#   what to do      `SimTreatment.options_for(world, actor, patient, part)`: the four channel verbs
+#   what to do      `SimTreatment.options_for(world, actor, patient, part)`: the channel verbs
 #                   the T key and the street menu already offer, each dry-run through the same
 #                   `_can_begin` and `_plan` the command takes. A verb the sim would allow is a
 #                   button; a verb refused for a reason the survivor can act on (no dressing, the
@@ -42,12 +42,14 @@ const BUTTON_GAP: float = 8.0
 
 const STATE_WORDS: Array[String] = ["unhurt", "hurt", "badly hurt", "unusable"]
 
-# The four verbs in words a person would say, on a button.
+# The verbs in words a person would say, on a button.
 const VERB_WORDS: Dictionary = {
 	"pressure": "hold pressure",
 	"bandage": "dress it",
 	"clean": "clean it",
 	"close": "close it",
+	"tourniquet": "tie a tourniquet",
+	"loosen": "loosen the tourniquet",
 }
 # The same verbs as what is going on, for the line that says a channel is under way.
 const DOING_WORDS: Dictionary = {
@@ -55,6 +57,8 @@ const DOING_WORDS: Dictionary = {
 	"bandage": "dressing it",
 	"clean": "cleaning it",
 	"close": "closing it",
+	"tourniquet": "tying a tourniquet on it",
+	"loosen": "loosening the tourniquet",
 }
 # Refusals the survivor can do something about, in their words. A reason missing from this table is
 # one that only says there is nothing to do ("not-bleeding", "nothing-to-do"), and its verb is left
@@ -63,6 +67,7 @@ const REASON_WORDS: Dictionary = {
 	"no-bandage": "no dressing on you",
 	"no-supply": "nothing to clean it with",
 	"no-kit": "nothing to close it with",
+	"no-tourniquet": "no tourniquet on you",
 	"still-bleeding": "stop the bleeding first",
 	"unskilled": "too deep for your hands",
 	"cannot-channel": "not while you are moving like this",
@@ -266,7 +271,7 @@ static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: floa
 		# The sheet sizes the pane from `height_for`, so this only bites on a window too short for
 		# even that; the last line that fits then says there is more rather than stopping mid-list.
 		if line_y + LINE > rect.end.y - PAD / 2.0 and i < lines.size() - 1:
-			ci.draw_string(font, Vector2(x, line_y), "and more besides", HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_TEXT, Locker._a(Locker.TEXT_FAINT, alpha))
+			ci.draw_string(font, Vector2(x, line_y), "and more besides", HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_TEXT, Locker._a(Locker.TEXT_DIM, alpha))
 			break
 		ci.draw_string(font, Vector2(x, line_y), UiText.fit(font, lines[i], BODY_TEXT, wide), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_TEXT, Locker._a(Locker.TEXT_DIM, alpha))
 		line_y += LINE

@@ -20,6 +20,7 @@ const SimContext = preload("res://sim/context.gd")
 const SimRecruitsRes = preload("res://sim/modules/recruits.gd")
 const SimCamp = preload("res://sim/modules/camp.gd")
 const SimPath = preload("res://sim/path.gd")
+const SimLightMod = preload("res://sim/modules/light.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const TopDownProjection = preload("res://presentation/projection.gd")
 const SimItems = preload("res://sim/modules/items.gd")
@@ -41,6 +42,7 @@ func _init() -> void:
 func _run() -> void:
 	var ok: bool = true
 	ok = _verbs() and ok
+	ok = _raised_rows() and ok
 	ok = _decline() and ok
 	ok = _dispatch() and ok
 	ok = _speed() and ok
@@ -49,7 +51,7 @@ func _run() -> void:
 	var right_click_ok: bool = await _right_click()
 	ok = right_click_ok and ok
 	if ok:
-		print("CONTEXT_OK the street menu offers only what the sim would accept, every row moves the sim, a click walks at the stick's own speed, its header names what was clicked, the bar's E words are its first row's, and the scene opens, dispatches, closes it and answers its keys")
+		print("CONTEXT_OK the street menu offers only what the sim would accept, every row moves the sim, a click walks at the stick's own speed, its header names what was clicked, the bar's E words are its first row's, the raised walls are offered only where their material is carried and the ground takes them, and the scene opens, dispatches, closes it and answers its keys")
 		quit(0)
 	else:
 		push_error("CONTEXT_FAIL")
@@ -151,6 +153,52 @@ func _verbs() -> bool:
 		push_error("VERBS: a door out of reach still offers to toggle")
 		ok = false
 
+	# A planted floodlight: a planted lamp in reach offers "take down", through the sim's own
+	# `light.unplant`, and dispatching the row's own command takes the lamp down into the pack.
+	# The bare ground beside it and the same lamp out of reach offer none, and neither does the
+	# lamp once it is back in the pack. The fixture pack is on purpose: a 3x3 stand has somewhere
+	# to come home to only if the refusal is about reach, not about room.
+	var wfl: Variant = _world()
+	var pack_fixture: int = SimItems.spawn_item(wfl, "item.pack.hiking", {"tier": "scavenged"})
+	if not SimInventory.equip(wfl, wfl.player, pack_fixture):
+		push_error("VERBS: the take-down fixture pack would not go on")
+		ok = false
+	SimLightMod.register_module(wfl)
+	var flood_ent: int = int(wfl.entities.spawn())
+	wfl.components.set_component(flood_ent, "itemBase", {"baseId": "item.floodlight.rigged"})
+	wfl.components.set_component(flood_ent, "placedLight", {"baseId": "item.floodlight.rigged", "tx": 11, "ty": 10})
+	wfl.components.set_component(flood_ent, "position", {"x": 11.5, "y": 10.5})
+	wfl.components.set_component(flood_ent, "stored", {"container": flood_ent, "x": 0, "y": 0, "rotated": false})
+	var hit_lamp: Dictionary = {"kind": "prop", "entity": flood_ent, "tile": Vector2i(11, 10)}
+	var rows_lamp: Array[Dictionary] = SimContext.verbs_at(wfl, wfl.player, hit_lamp)
+	if not _has_row(rows_lamp, "take down the"):
+		push_error("VERBS: a planted floodlight in reach offers no take-down row")
+		ok = false
+	_collect(all_texts, rows_lamp)
+	var lamp_row: Dictionary = {}
+	for r in rows_lamp:
+		if String((r as Dictionary).get("text", "")).begins_with("take down the"):
+			lamp_row = r as Dictionary
+	wfl.commands.push((lamp_row as Dictionary).get("command", {}) as Dictionary)
+	wfl.step()
+	if wfl.components.has_component(flood_ent, "placedLight") or not SimInventory.owns(wfl, wfl.player, flood_ent):
+		push_error("VERBS: dispatching the take-down row did not take the lamp down into the pack")
+		ok = false
+	if _has_row(SimContext.verbs_at(wfl, wfl.player, {"kind": "ground", "entity": -1, "tile": Vector2i(11, 10)}), "take down"):
+		push_error("VERBS: bare ground beside the lamp was offered the take-down")
+		ok = false
+	if _has_row(SimContext.verbs_at(wfl, wfl.player, {"kind": "prop", "entity": flood_ent, "tile": Vector2i(11, 10)}), "take down"):
+		push_error("VERBS: the packed floodlight still offers the take-down row")
+		ok = false
+	var flood_far: int = int(wfl.entities.spawn())
+	wfl.components.set_component(flood_far, "itemBase", {"baseId": "item.floodlight.rigged"})
+	wfl.components.set_component(flood_far, "placedLight", {"baseId": "item.floodlight.rigged", "tx": 20, "ty": 2})
+	wfl.components.set_component(flood_far, "position", {"x": 20.5, "y": 2.5})
+	wfl.components.set_component(flood_far, "stored", {"container": flood_far, "x": 0, "y": 0, "rotated": false})
+	if _has_row(SimContext.verbs_at(wfl, wfl.player, {"kind": "prop", "entity": flood_far, "tile": Vector2i(20, 2)}), "take down"):
+		push_error("VERBS: a lamp out of reach still offers the take-down")
+		ok = false
+
 	# A colonist offers "pull ... free" only while grabbed.
 	var wc: Variant = _world()
 	var colonist: int = int(wc.entities.spawn())
@@ -228,7 +276,7 @@ func _verbs() -> bool:
 			ok = false
 
 	if ok:
-		print("VERBS OK reach, doors, a grabbed colonist, a shambler, your own tile and a wall, every row digit-free")
+		print("VERBS OK reach, doors, a planted lamp's take-down, a grabbed colonist, a shambler, your own tile and a wall, every row digit-free")
 	return ok
 
 
@@ -295,6 +343,49 @@ func _collect(into: Array, rows: Array[Dictionary]) -> void:
 # fixture picks a base that was never going to collide with it.
 func _spawn_test_item(w: Variant) -> int:
 	return SimItems.spawn_item(w, "item.food.canned", {"tier": "scavenged"})
+
+
+# The three raised walls: a row for each, offered on the tile in front only while the survivor
+# carries its one substance and the ground takes a wall. Each row's `use.context` starts that
+# wall's own channel, which is read back off the actor's construct component.
+func _raised_rows() -> bool:
+	var ok: bool = true
+	var cases: Array[Dictionary] = [
+		{"item": "item.plank.sawn", "row": "raise a timber wall", "verb": "timber"},
+		{"item": "item.stone.block", "row": "raise a stone course", "verb": "stone"},
+		{"item": "item.wire.steel", "row": "string a wire fence", "verb": "fence"},
+	]
+	var hit: Dictionary = {"kind": "ground", "entity": -1, "tile": Vector2i(11, 10)}
+	for case in cases:
+		var w: Variant = _world(10.5, 10.5, 0.0)
+		var bare_rows: Array[Dictionary] = SimContext.verbs_at(w, w.player, hit)
+		if _has_row(bare_rows, String(case["row"])):
+			push_error("RAISED: '%s' offered with nothing carried" % String(case["row"]))
+			ok = false
+		var item: int = SimItems.spawn_item(w, String(case["item"]), {"tier": "scavenged", "count": 1})
+		if not SimInventory.stow(w, w.player, item):
+			push_error("RAISED: could not stow '%s'" % String(case["item"]))
+			return false
+		var rows: Array[Dictionary] = SimContext.verbs_at(w, w.player, hit)
+		if not _has_row(rows, String(case["row"])):
+			push_error("RAISED: '%s' not offered on open ground with its material carried" % String(case["row"]))
+			ok = false
+		SimFortify._use_context(w, w.player)
+		var channel: Variant = w.components.get_component(w.player, "construct")
+		if not channel is Dictionary or String((channel as Dictionary).get("verb", "")) != String(case["verb"]):
+			push_error("RAISED: the row's use.context did not start the '%s' channel" % String(case["verb"]))
+			ok = false
+
+	# A window in front is not ground a wall takes: the scrap barricade's window rule is the
+	# barricade's, and the raised walls ask only for open floor, so this refusal is the window's own.
+	var wn: Variant = _world(10.5, 10.5, 0.0)
+	_set_tile(wn, 11, 10, SimTileMap.Tile.Window)
+	var plank: int = SimItems.spawn_item(wn, "item.plank.sawn", {"tier": "scavenged", "count": 1})
+	SimInventory.stow(wn, wn.player, plank)
+	if _has_row(SimContext.verbs_at(wn, wn.player, hit), "raise a timber wall"):
+		push_error("RAISED: a timber wall offered on a window tile")
+		ok = false
+	return ok
 
 
 # --- HEADER and BAR ----------------------------------------------------------------------------

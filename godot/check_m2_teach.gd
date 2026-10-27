@@ -22,6 +22,10 @@ extends SceneTree
 #             payment as behaviour before it uses it as a ceiling. A book worth more than doing
 #             the thing once would make doing the thing pointless, and docs/08's web is a record
 #             of what somebody has done.
+#   READ   -- the idle fallback. A colonist with nothing else to do reads a book in the pack where
+#             they stand, or walks to one on the pile, through the same `read_book` the verb runs;
+#             and a colonist with Water work pending takes the Water job and leaves the book
+#             unread. Read is ranked under every column, so it can only ever fill an empty day.
 #
 # PINNED is the additive claim: the XP the game already paid out is exactly the XP it pays out
 # now. Every region, every job kind, and the kill path, measured rather than asserted about -- so
@@ -38,6 +42,8 @@ const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimSkills = preload("res://sim/modules/skills.gd")
+const SimJobs = preload("res://sim/modules/jobs.gd")
+const WorkRead = preload("res://sim/work_read.gd")
 const Clock = preload("res://sim/time/clock.gd")
 
 # The ten bases this slice ships: a field manual for each of the six regions, and four rarer
@@ -98,8 +104,9 @@ func _run() -> void:
 	ok = _a_book_teaches_once_and_a_second_copy_teaches_nothing() and ok
 	ok = _a_book_never_out_teaches_doing_the_work() and ok
 	ok = _what_has_been_read_survives_a_save() and ok
+	ok = _an_idle_colonist_reads_on_their_own() and ok
 	if ok:
-		print("M2_TEACH_OK pinned content reach twice bound save")
+		print("M2_TEACH_OK pinned content reach twice bound save read")
 		quit(0)
 	else:
 		push_error("M2_TEACH_FAIL")
@@ -623,3 +630,206 @@ func _what_has_been_read_survives_a_save() -> bool:
 		return false
 	print("%s OK the ledger came back through JSON and still refuses what it should" % lane)
 	return true
+
+
+# --- READ: the idle fallback -------------------------------------------------------------------
+#
+# The autonomy half of the books slice. `jobs.gd`'s `_pick` reaches `_read_job` only after every
+# ranked column has come back empty, so a book is read on the tick nothing else wanted the colonist.
+# Three phases, all through `SimJobs._tick_one`, the tick itself:
+#
+#   PACK   -- an idle colonist with a manual in the pack reads it where they stand: the book is
+#             spent, the title lands in the ledger, the web gains points in the manual's region,
+#             and no job is handed out.
+#   PILE   -- the same colonist with the manual on the stockpile instead walks to it as a Read job,
+#             claims it, says "reading a book" on the Colony screen's now line, and the reading
+#             lands through the `book.read` event.
+#   WATER  -- the true negative: a colonist with Water work pending and the same manual in the pack
+#             takes the Water job, and the book stays shut. The precondition is asserted first, so
+#             a fixture with no Water work to find cannot pass this quietly.
+#
+# Ellis, from the real playable district, is the body. The world is the one the comfort lane's
+# AUTONOMY lane stands on, with the same pinned Dress block and the same cleared pool.
+
+func _an_idle_colonist_reads_on_their_own() -> bool:
+	var was_armor: bool = SimJobs.WEAR_FOUND_ARMOR
+	SimJobs.WEAR_FOUND_ARMOR = false
+	var ok: bool = _reads_from_the_pack()
+	ok = _reads_from_the_pile() and ok
+	ok = _water_beats_the_book() and ok
+	SimJobs.WEAR_FOUND_ARMOR = was_armor
+	return ok
+
+
+func _reads_from_the_pack() -> bool:
+	var lane: String = "READ PACK"
+	var w: Variant = _colony()
+	var ellis: int = _idle_ellis(w)
+	if ellis < 0:
+		push_error("%s: no Ellis, so the idle fallback has nobody to judge" % lane)
+		return false
+	var book: int = SimItems.spawn_item(w, MANUAL_SURVIVAL, {"tier": "scavenged"})
+	if not SimInventory.stow(w, ellis, book):
+		push_error("%s: the book would not go in Ellis's pack" % lane)
+		return false
+	var before: Dictionary = _earned_all(w, ellis)
+	SimJobs._tick_one(w, ellis)
+	var job: Variant = w.components.get_component(ellis, "job")
+	if job is Dictionary and String((job as Dictionary).get("kind", "")) == "Read":
+		push_error("%s: a book in the pack was walked to as a Read job instead of read where he stands" % lane)
+		return false
+	if w.entities.is_alive(book):
+		push_error("%s: the book in the pack was not spent" % lane)
+		return false
+	if not SimNeeds.has_read(w, ellis, MANUAL_SURVIVAL):
+		push_error("%s: the title is not in Ellis's ledger after the reading" % lane)
+		return false
+	var gained: Dictionary = _delta(before, _earned_all(w, ellis))
+	if int(gained.get("Survival", 0)) <= 0:
+		push_error("%s: the reading moved the web by %s, not a Survival point" % [lane, str(gained)])
+		return false
+	print("READ PACK OK an idle Ellis with a field manual in his pack reads it where he stands, the book is spent, the title is in his ledger and the web gains %s" % str(gained))
+	return true
+
+
+func _reads_from_the_pile() -> bool:
+	var lane: String = "READ PILE"
+	var w: Variant = _colony()
+	var ellis: int = _idle_ellis(w)
+	if ellis < 0:
+		push_error("%s: no Ellis, so the walk has nobody to judge" % lane)
+		return false
+	var tile: Vector2i = _first_stockpile_tile(w)
+	if tile.x < 0:
+		push_error("%s: the district has no stockpile tile to lay the book on" % lane)
+		return false
+	var book: int = SimItems.spawn_item(w, MANUAL_SURVIVAL, {"tier": "scavenged"})
+	w.components.set_component(book, "position", {"x": float(tile.x) + 0.5, "y": float(tile.y) + 0.5})
+	var before: Dictionary = _earned_all(w, ellis)
+	SimJobs._tick_one(w, ellis)
+	var job: Variant = w.components.get_component(ellis, "job")
+	if not job is Dictionary or String((job as Dictionary).get("kind", "")) != "Read":
+		push_error("%s: an idle Ellis with a manual on the pile took %s instead of a Read job" % [lane, str(job)])
+		return false
+	var claim: Variant = w.components.get_component(book, "reserved")
+	if not claim is Dictionary or int((claim as Dictionary).get("by", -1)) != ellis or String((claim as Dictionary).get("job", "")) != "Read":
+		push_error("%s: the manual on the pile went unclaimed: %s" % [lane, str(claim)])
+		return false
+	if WorkRead.doing(w, ellis) != String(WorkRead.JOB_WORDS["Read"]):
+		push_error("%s: the Colony screen's now line says %s while Ellis is on a Read job" % [lane, WorkRead.doing(w, ellis)])
+		return false
+	var reads: Array = []
+	w.events.subscribe({"id": "gate.teach.read", "type": "book.read", "handler": func(e: Dictionary) -> void:
+		reads.append(int(e.get("entity", -1)))
+	})
+	var spins: int = 0
+	while spins < 1200 and not reads.has(ellis):
+		w.step()
+		spins += 1
+	if not reads.has(ellis):
+		push_error("%s: %d ticks and book.read never fired for Ellis -- the walk or the reading never completed" % [lane, spins])
+		return false
+	if w.entities.is_alive(book):
+		push_error("%s: the manual survived having been read" % lane)
+		return false
+	var gained: Dictionary = _delta(before, _earned_all(w, ellis))
+	if int(gained.get("Survival", 0)) <= 0:
+		push_error("%s: the walked-to reading moved the web by %s, not a Survival point" % [lane, str(gained)])
+		return false
+	print("READ PILE OK an idle Ellis walks to a manual on the pile, claims it, says reading a book on the now line, and the reading lands after %d ticks as %s" % [spins, str(gained)])
+	return true
+
+
+func _water_beats_the_book() -> bool:
+	var lane: String = "READ WATER"
+	var w: Variant = _colony()
+	var ellis: int = _idle_ellis(w)
+	if ellis < 0:
+		push_error("%s: no Ellis, so the true negative has nobody to judge" % lane)
+		return false
+	var row: Dictionary = SimJobs.empty_row()
+	row["Water"] = 1
+	SimJobs.attach(w, ellis, "Manual", row)
+	var tile: Vector2i = _first_stockpile_tile(w)
+	if tile.x < 0:
+		push_error("%s: the district has no stockpile tile to lay the empty bottle on" % lane)
+		return false
+	var bottle: int = SimItems.spawn_item(w, "item.water.bottle.empty", {"tier": "scavenged"})
+	w.components.set_component(bottle, "position", {"x": float(tile.x) + 0.5, "y": float(tile.y) + 0.5})
+	var book: int = SimItems.spawn_item(w, MANUAL_SURVIVAL, {"tier": "scavenged"})
+	if not SimInventory.stow(w, ellis, book):
+		push_error("%s: the book would not go in Ellis's pack" % lane)
+		return false
+	# The precondition: the Water column has work to find, so the job below is a real refusal of
+	# the book and not a colonist with nothing to do.
+	var water: Dictionary = SimJobs._work_for(w, ellis, "Water")
+	if water.is_empty() or int(water.get("target", -1)) != bottle:
+		push_error("%s: Water work is %s, not the empty bottle, so there is nothing for the book to lose to" % [lane, str(water)])
+		return false
+	SimJobs._tick_one(w, ellis)
+	var job: Variant = w.components.get_component(ellis, "job")
+	if not job is Dictionary or String((job as Dictionary).get("kind", "")) != "Water":
+		push_error("%s: a colonist with Water work pending took %s instead of the Water job" % [lane, str(job)])
+		return false
+	if SimNeeds.has_read(w, ellis, MANUAL_SURVIVAL) or not w.entities.is_alive(book):
+		push_error("%s: a colonist with Water work pending read the book" % lane)
+		return false
+	print("READ WATER OK an idle Ellis with the empty bottle on the pile and a manual in his pack takes the Water job and leaves the book shut")
+	return true
+
+
+# The district a colonist is judged in: the playable boot, the same world the comfort lane's
+# AUTONOMY lane stands on, so the tick, the stockpile and the pack are the shipped ones.
+func _colony() -> Variant:
+	return SimBoot.playable(20260805, 64)["world"]
+
+
+func _ellis(w: Variant) -> int:
+	for e in w.components.query(["identity"]):
+		var ident: Variant = w.components.get_component(int(e), "identity")
+		if ident is Dictionary and String((ident as Dictionary).get("id", "")) == "survivor.unique.ellis":
+			return int(e)
+	return -1
+
+
+# Ellis alone on a still street with full pools, an empty pack but his pipe, and an empty job row,
+# so the one thing the tick can hand him is the thing under test. The pipe stays because an unarmed
+# colonist re-arms before anything else, and that would be the job under test here.
+func _idle_ellis(w: Variant) -> int:
+	var ellis: int = _ellis(w)
+	if ellis < 0:
+		return -1
+	for z in w.components.query(["shambler"]):
+		if w.entities.is_alive(int(z)):
+			w.despawn(int(z))
+	for z2 in w.components.query(["zombieType"]):
+		if w.entities.is_alive(int(z2)):
+			w.despawn(int(z2))
+	var n: Dictionary = SimNeeds.of(w, ellis)
+	n["hunger"] = 100.0
+	n["thirst"] = 100.0
+	n["rest"] = 100.0
+	n["relief"] = 100.0
+	n["temperature"] = "comfortable"
+	n["hygiene"] = "clean"
+	n["crisis"] = "none"
+	for carried in SimInventory.carried_items(w, ellis).duplicate():
+		var b: Variant = w.components.get_component(int(carried), "itemBase")
+		var bid: String = String((b as Dictionary).get("baseId", "")) if b is Dictionary else ""
+		if bid == "item.pipe.steel":
+			continue
+		SimInventory.remove_from_container(w, int(carried))
+		w.despawn(int(carried))
+	SimJobs.attach(w, ellis, "Manual", SimJobs.empty_row())
+	w.components.remove_component(ellis, "job")
+	w.components.remove_component(ellis, "sleeping")
+	return ellis
+
+
+func _first_stockpile_tile(w: Variant) -> Vector2i:
+	var annex: Rect2i = SimTileMap.annex_rect(w.tilemap)
+	for j in range(annex.position.y, annex.position.y + annex.size.y):
+		for i in range(annex.position.x, annex.position.x + annex.size.x):
+			if SimNeeds.is_stockpile_tile(w, i, j):
+				return Vector2i(i, j)
+	return Vector2i(-1, -1)

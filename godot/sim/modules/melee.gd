@@ -5,6 +5,8 @@ const SimCombat = preload("res://sim/combat.gd")
 const SimAimRes = preload("res://sim/aim.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
+const SimAttachmentsRes = preload("res://sim/modules/attachments.gd")
+const SimWoundsRes = preload("res://sim/modules/wounds.gd")
 
 enum SwingState { Idle = 0, WindUp = 1, Recover = 2 }
 
@@ -246,6 +248,24 @@ static func _capable_of(world: Variant, entity: int, cap: String) -> bool:
 		return stance != 0
 	return true
 
+# A blade with glass in its head and nothing on its grip scratches the hand that holds it, once for
+# each swing that connects. A swing that finds nobody costs nothing, and neither does a hand that is
+# gone. The wound is a Scratch, which clots on its own: a Laceration never does, and one opened on
+# every swing, hit or miss, bled a survivor out of a weapon he was winning with. It goes through the
+# same append-and-publish a bad exposure does (needs.gd's _exposure_wound), and takes no integrity,
+# because the hand is cut, not crushed. docs/30, "The hand-cut rule, as changed".
+static func _scratch_the_gripping_hand(world: Variant, attacker: int, weapon: Dictionary) -> void:
+	if not SimAttachmentsRes.cuts_hand(world, int(weapon.get("source", -1))):
+		return
+	var body: Variant = world.components.get_component(attacker, "body")
+	if not body is Dictionary or not (body as Dictionary).has("hand_right"):
+		return
+	if float((body as Dictionary)["hand_right"]) <= SimWoundsRes.DESTROYED:
+		return
+	SimWoundsRes.append_wound(world, attacker, "cut", "hand_right", -1, 0.0, "", SimWoundsRes.Severity.Scratch)
+	world.events.publish({"type": "injury.sustained", "entity": attacker, "injury": "cut", "bodyPart": "hand_right"})
+
+
 static func _resolve_strike(world: Variant, attacker: int, weapon: Dictionary, rng: Variant, candidates: Array[int]) -> void:
 	var from: Variant = world.components.get_component(attacker, "position")
 	var facing_v: Variant = world.components.get_component(attacker, "facing")
@@ -301,10 +321,13 @@ static func _resolve_strike(world: Variant, attacker: int, weapon: Dictionary, r
 	# is still the number every ordinary weapon publishes -- SimItems.melee_profile_of defaults
 	# `connectNoise` to it -- but docs/10's Siren's Bell pays for its damage by being heard across
 	# the map, and a literal here made that undeclarable. The fallback covers the profiles that do
-	# not come from a base at all: a zombie's body, and make_melee_armed's bare default.
-	world.events.publish({"type": "noise.emitted", "x": fx, "y": fy, "magnitude": float(weapon.get("connectNoise", float(SimCombat.MELEE_CONNECT_NOISE))), "source": attacker})
+	# not come from a base at all: a zombie's body, and make_melee_armed's bare default. The
+	# weapon's own `noise_emission` scales it last, for the same reason the shot's does.
+	var connect_noise: float = float(weapon.get("connectNoise", float(SimCombat.MELEE_CONNECT_NOISE))) * SimItemsRes.noise_emission_of(world, int(weapon.get("source", -1)))
+	world.events.publish({"type": "noise.emitted", "x": fx, "y": fy, "magnitude": connect_noise, "source": attacker})
 	# `item` is the weapon that swung, from the profile's own `source`. Without it the wear
 	# handler has to guess which hand acted, and the guess it used to make was wrong -- see
 	# SimItems.register_module. A publisher with no weapon (a zombie's bite) sends -1.
 	world.events.publish({"type": "attack.connected", "attacker": attacker, "target": target, "bodyPart": body_part, "damage": damage, "item": int(weapon.get("source", -1))})
 	world.events.publish({"type": "entity.staggered", "entity": target, "ticks": int(weapon.get("staggerTicks", 8))})
+	_scratch_the_gripping_hand(world, attacker, weapon)
