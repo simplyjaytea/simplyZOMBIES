@@ -39,6 +39,7 @@ extends RefCounted
 
 const SimItemsRes = preload("res://sim/modules/items.gd")
 const SimInventoryRes = preload("res://sim/modules/inventory.gd")
+const SimBarrelRes = preload("res://sim/barrel.gd")
 
 # Profile fields an attachment is allowed to scale, per kind. A table rather than "multiply
 # anything present in both dictionaries", because that would let a typo -- `magsize`, `range` --
@@ -69,7 +70,7 @@ const SCALABLE: Dictionary = {
 	# of a landed swing, which `_resolve_strike` publishes. Both were already on the profile and both
 	# have a reader; the melee frames arc (docs/23) is what finally wanted them scaled.
 	"melee": ["damage", "reachMetres", "staggerTicks", "speed", "weight", "connectNoise"],
-	"ranged": ["damage", "noise", "flash", "magSize", "reloadTicks", "rangeMetres", "cone", "handling"],
+	"ranged": ["damage", "noise", "flash", "magSize", "reloadTicks", "rangeMetres", "cone", "handling", "muzzle"],
 	"armor": ["head", "torso", "arm_left", "arm_right"],
 }
 
@@ -256,7 +257,9 @@ static func spec_of(world: Variant, item: int) -> Variant:
 	if not base is Dictionary:
 		return null
 	var spec: Variant = (base as Dictionary).get("attachment")
-	return spec if spec is Dictionary else null
+	# A barrel's numbers are its words' product (sim/barrel.gd). Every reader goes through here, so
+	# the fold, the wear and the inspect pane all see the same derived spec.
+	return SimBarrelRes.resolve(spec as Dictionary) if spec is Dictionary else null
 
 
 ## Whether this attachment is compatible with a slot name. Compatibility is the attachment's
@@ -622,7 +625,7 @@ const POLARITY: Dictionary = {
 	"melee": {"damage": 1, "reachMetres": 1, "staggerTicks": 1, "speed": 1, "weight": -1, "connectNoise": -1},
 	"ranged": {
 		"damage": 1, "noise": -1, "flash": -1, "magSize": 1, "reloadTicks": -1, "rangeMetres": 1,
-		"cone": -1, "handling": 1,
+		"cone": -1, "handling": 1, "muzzle": 1,
 	},
 	# Coverage is the one table where every field points the same way, and that is a statement
 	# about coverage rather than an omission: there is no part of a body you would rather have
@@ -643,7 +646,7 @@ const FIELD_WORD: Dictionary = {
 	"ranged": {
 		"damage": "stopping power", "noise": "how far it is heard", "flash": "muzzle flash",
 		"magSize": "rounds it holds", "reloadTicks": "reload time", "rangeMetres": "reach",
-		"cone": "steadiness", "handling": "how fast it comes up",
+		"cone": "steadiness", "handling": "how fast it comes up", "muzzle": "how hard it still hits far off",
 		"ammo": "the round it prefers", "caliber": "what it chambers", "jams": "how it feeds",
 	},
 	# Coverage named the way a person wearing it would name it. Not "torso coverage", which is the
@@ -815,6 +818,9 @@ static func blocked_reason(world: Variant, host: int) -> String:
 	if not missing.is_empty():
 		missing.sort()
 		return "missing:%s" % String(missing[0])
+	for rec in parts_of(world, host):
+		if (rec as Dictionary)["spec"].has("barrelError"):
+			return "barrel:%s" % String((rec as Dictionary)["spec"]["barrelError"])
 	var clash: Array[String] = override_conflicts(world, host)
 	if not clash.is_empty():
 		return "mismatch:%s" % clash[0]
@@ -841,6 +847,8 @@ static func refusal_clause(world: Variant, entity: int) -> String:
 			continue
 		if reason.begins_with("mismatch:"):
 			return "Nothing in it will chamber the same round."
+		if reason.begins_with("barrel:"):
+			return "The barrel in it is not a barrel the bench knows how to bore."
 		if not reason.begins_with("missing:"):
 			continue
 		var slot: String = reason.substr("missing:".length())

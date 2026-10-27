@@ -331,6 +331,23 @@
             }
           }
         },
+        "barrel": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["length", "quality", "material"],
+          "properties": {
+            "length": {
+              "type": "string"
+            },
+            "quality": {
+              "type": "string"
+            },
+            "material": {
+              "type": "string"
+            }
+          },
+          "description": "A barrel's three words, each a key of sim/barrel.gd's LENGTH, QUALITY and MATERIAL_WEAR tables. The numbers a barrel contributes are the product of its words (plus a conversion's caliber share in `ranged`). A word the tables do not know is not read as a plain barrel: SimBarrel.error_of names it, and the weapon refuses to fire. The words are a code-owned registry rather than an enum here, as with `wearsOn`; check_m2_attach.gd's BARREL VOCAB lane holds the refusal."
+        },
         "structural": {
           "type": "boolean",
           "description": "Whether the host is made of this part rather than merely carrying it. A structural part's own condition drags the whole assembly down -- SimItems.assembly_condition takes the worst of the host and its structural parts -- which is what makes swapping a worn barrel for a good one a repair. An optic or a suppressor is not structural: as it wears it simply does less, per effect_scale. A part may be structural and still declare multipliers; a long barrel is both."

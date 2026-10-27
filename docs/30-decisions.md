@@ -6646,6 +6646,44 @@ has the gate lanes). Four calls were taken while it was built.
 weight row in `SimDirector`, and a lane in `godot:m2:raiders` that breaks it on purpose. A draw
 that moves a pinned stream is a bug, however small the change looks.
 
+## The barrel governs, 2026-10-27
+
+The barrel's numbers come from three words, not from a multiplier typed onto each barrel. Calls
+taken:
+
+- **Vocabulary.** `length` is `stub`, `short`, `carbine`, `full`, `long`; `quality` is `rough`,
+  `service`, `match`; `material` is `mild`, `steel`, `chromed`. Each word's row is a first cut,
+  in `godot/sim/barrel.gd`. An unknown word is refused and the weapon will not fire, because a typo
+  must not be indistinguishable from a plain barrel.
+- **Wear goes through `wearRate`, not `condition_loss`.** The plan said material should feed the
+  `condition_loss` stat. `wearRate` is the part's own wear knob and the path `wear_parts` already
+  reads, so the material word multiplies it and the wear path is untouched. `condition_loss` stays
+  the affix stat it was built as. Quality multiplies the same knob (`QUALITY_WEAR`, `match` 1.4):
+  the shipped match barrel keeps its authored 1.4 wear as a match bore on plain steel, not as a
+  barrel of soft metal, so `mild` keeps meaning what the vocabulary says it means. No shipped
+  barrel is `mild`.
+- **Conversions keep the caliber's share.** The rimfire and .45 barrels change the round as well as
+  the bore, so their damage, noise and wear stay as a share the words multiply. Moving that share
+  into a word would have needed a fourth axis for the caliber, and the plan did not name one.
+- **Six barrels, not five.** The plan named five shipped barrels. `item.attach.barrel.long` is the
+  sixth, and it is rewritten to words with the rest.
+- **Long is louder, not quieter.** The plan's LENGTH lane said the long barrel is quieter. The shipped
+  long barrel is 1.12 times the noise of standard, and the 5% rule holds the shipped numbers. The
+  lane asserts the shipped ordering: short above long above standard.
+- **Mass stays a literal.** The plan asked for length to drive `massKg`. Nothing folds mass on a
+  part today, and `_an_assembled_weapon_weighs_what_it_always_weighed` pins the authored masses. Length
+  drives `handling` through the existing fold, which is where "swings like nothing" lives.
+- **The falloff's first cut.** A slow round keeps its muzzle fraction of damage at full reach,
+  starting from 60% of reach. Only a barrel under 1 changes anything, so a standard weapon's shot is
+  byte-identical to before.
+
+**Not measured.** The balance numbers are in the PR's Measured section. The ten-seed table was not
+re-run and no campaign claim is made.
+
+**How to apply:** a barrel's numbers are its words' product, so a new barrel is a new word or a new
+row, not a new multiplier. Any change to a row moves every barrel that uses that word, and
+`godot:m2:attach` BARREL SHIPPED says which shipped barrel moved and by how much.
+
 ## The bloodhound, 2026-10-27
 
 Zombie kind eight, content only: `godot/content/zombies/bloodhound.json`, with no line under

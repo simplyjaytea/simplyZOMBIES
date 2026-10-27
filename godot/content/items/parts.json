@@ -9,6 +9,7 @@
     "attachment": {
       "fits": ["barrel"],
       "structural": true,
+      "barrel": { "length": "full", "quality": "service", "material": "steel" },
       "wearsOn": ["shot"],
       "wearRate": 1.0
     }
@@ -169,6 +170,7 @@
     "attachment": {
       "fits": ["barrel"],
       "structural": true,
+      "barrel": { "length": "full", "quality": "service", "material": "steel" },
       "overrides": { "ranged": { "ammo": "item.ammo.22", "caliber": "22" } },
       "ranged": { "damage": 0.6, "noise": 0.7 },
       "wearsOn": ["shot"],
@@ -202,6 +204,7 @@
     "attachment": {
       "fits": ["barrel"],
       "structural": true,
+      "barrel": { "length": "full", "quality": "service", "material": "steel" },
       "overrides": { "ranged": { "ammo": "item.ammo.45", "caliber": "45" } },
       "ranged": { "damage": 1.2, "rangeMetres": 0.85, "noise": 1.05 },
       "wearsOn": ["shot"],
