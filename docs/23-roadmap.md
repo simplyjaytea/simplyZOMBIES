@@ -308,6 +308,13 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
 
 - **The crawler.** Legless, slow, below sightline height, grabs ankles. Reader: a prone-height
   check in `sightings.gd`. Gate: `godot:m2:sight` LOW and `godot:m2:contact`.
+- **The bloodhound's nose as a seek.** The bloodhound shipped as content (the record, 2026-10-27),
+  and content can only widen its nose: `scentSense` moves the smell threshold, the turn toward
+  scent is the constant `SCENT_BIAS` in `shambler.gd`, and it acts only in Wander, at wander
+  speed. Seek is entered through `heard` or a seen target, and the bloodhound has neither, so it
+  never walks a trail at `seekSpeed`. Reader: a scent-led Seek, or a per-type scent bias, in
+  `shambler.gd`'s think loop (a shared sim module: strongest tier). Gate: `godot:m2:district`
+  SCENT-ONLY gains a lane where the bloodhound reaches a scent source the shambler does not.
 - **The gassed bloater.** Its burst leaves a tile cloud that lingers and hurts. Reader: a tile
   status field with a decay. Gate: `godot:m2:filter` (the mask already reads it) and a CLOUD lane.
 - **The lurker.** Dormant indoors, wakes on indoor noise. Reuses the dormant placement seam from
@@ -2409,7 +2416,10 @@ not a to-do list:
   the shambler seeks to leaves its path unchanged; its senses read from content); `godot:m2:roster`
   MIX re-pinned on purpose over eight kinds, its floor a majority of 200 (110 to 100), SHARES
   (84 of 90 expected), KINDS; `godot:check:appearance` ROSTER and ROSTER_SHARED. Balance numbers and
-  the ten-seed table: see docs/30's "The bloodhound, 2026-10-27".
+  the ten-seed table: see docs/30's "The bloodhound, 2026-10-27". What content could not say: its
+  scent 1.0 widens the nose a tenth over the shambler's and nothing more, because the turn toward
+  scent is a constant and runs only in Wander, so it never Seeks; that is the open bullet "The
+  bloodhound's nose as a seek" under what's left, and docs/30's entry has the arithmetic.
 - **Colony screen follow-ups, 2026-10-26.** Three nits the Colony and HUD bullets named, one piece.
   - **Reopen scrolls to the pick.** `work_panel.gd` clears `_scrolled_for` on
     `NOTIFICATION_VISIBILITY_CHANGED`, so a reopened screen scrolls to the game's pick afresh.
