@@ -6760,7 +6760,8 @@ in the project's memory, never here.
 ## The bench makes parts, 2026-10-27
 
 The melee arc's M1 piece (docs/23's record, "The bench offers improvised parts"). Calls taken
-without the owner (the second was then the owner's, below), all inside the screen the bench already had:
+without the owner, all inside the screen the bench already had; the second then became the
+owner's own:
 
 - **Only an empty slot lists recipes.** The bench makes into an empty slot and swaps only what you
   carry, the rule `improvise` already enforces (`not-plausible` on a filled slot). Offering a make
