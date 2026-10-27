@@ -2548,9 +2548,13 @@ not a to-do list:
     `TEXT_DIM` (5.8:1), since the tourniquet's refusal now brings it on screen at 1280.
   - **The wire fence read as a ladder.** Every tile drew two posts and two horizontal strands
     whatever stood beside it. `presentation/fence_look.gd` lays the strands along the run from the
-    four neighbours, one post per tile at the centre, and mitres an L; `godot:check:topdown` FENCE
-    judges east-west, north-south, a run's end, both corners and a lone tile, and that
-    `_draw_fence_wire` lays its pieces from the neighbours. A new review scene, `raised_walls`
+    four neighbours, one post per tile at the centre, and mitres an L whose square post caps both
+    joints. A run's open end stops at its post and a run that ends at a wall reaches it (a side is
+    open, fence, or an anchor: anything solid). `godot:check:topdown` FENCE judges both runs, both
+    ends, a run against a wall, a lone tile, a tee and both corners against extents written from
+    the rules, and that `_draw_fence_wire` lays its pieces from the neighbours. Round 2 of the
+    review caught the open end's loose wire and a corner post that touched no strand; both lanes
+    fail on that version. A new review scene, `raised_walls`
     (`godot:check:shots`), stands an L of fence, two timber walls and two stone courses on the day
     street. Still open, as before: timber and stone draw as a building's wall until they have
     pictures.

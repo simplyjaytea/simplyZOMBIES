@@ -510,7 +510,7 @@ func _the_fence_is_a_fence_and_not_a_wall() -> bool:
 		return false
 	# The draw reaches the geometry below (the dead-socket rule): it lays FenceLook.pieces from the
 	# tile's four neighbours, not a fixed picture.
-	if not wire.contains("FenceLook.pieces(") or not wire.contains("_fence_at(tx + 1, ty)") or not wire.contains("_fence_at(tx, ty + 1)"):
+	if not wire.contains("FenceLook.pieces(") or not wire.contains("_fence_side(tx + 1, ty)") or not wire.contains("_fence_side(tx, ty + 1)"):
 		push_error("FENCE: _draw_fence_wire does not lay FenceLook.pieces from the tile's neighbours")
 		return false
 	if not _fence_runs_its_way():
@@ -519,74 +519,108 @@ func _the_fence_is_a_fence_and_not_a_wall() -> bool:
 	return true
 
 
-# The fence's geometry (FenceLook.pieces), at the boot zoom's 64 px tile. A north-south run draws
-# vertical strands and no horizontal one (the negative: the per-tile picture this replaced drew
-# horizontal rungs there, a ladder); an east-west run the reverse; a strand reaches an edge only
-# toward a neighbour, so a run's end stops at its post and a corner turns; and the post stands at
-# the centre, clear of both edges, so two tiles side by side never draw a doubled post at the join.
+# The fence's geometry (FenceLook.pieces), at the boot zoom's 64 px tile, against extents written
+# down from the rules in fence_look.gd's header, not from its expressions. Each case names what
+# stands east, west, north and south (- open, F fence, A anchor) and the span every strand must
+# cover, as fractions of the tile along the run. A north-south run draws no horizontal strand (the
+# per-tile picture this replaced drew rungs there, a ladder); a run's open end stops at its post
+# (round 2 of the art review found loose wire hanging past it); a run that ends at a wall reaches
+# it; and the post stands at the centre, clear of every edge, so no join draws a doubled post.
 func _fence_runs_its_way() -> bool:
 	var tile := Rect2(Vector2(64.0, 64.0), Vector2(64.0, 64.0))
 	var c: Vector2 = tile.get_center()
+	var N: int = FenceLook.NONE
+	var F: int = FenceLook.FENCE
+	var A: int = FenceLook.ANCHOR
+	# [label, e, w, n, s, horizontal span or [], vertical span or []]
 	var cases: Array = [
-		["east-west", true, true, false, false],
-		["north-south", false, false, true, true],
-		["end of an east-west run", true, false, false, false],
-		["corner east and south", true, false, false, true],
-		["corner west and north", false, true, true, false],
-		["alone", false, false, false, false],
+		["an east-west run", F, F, N, N, [0.0, 1.0], []],
+		["a north-south run", N, N, F, F, [], [0.0, 1.0]],
+		["the west end of an east-west run", F, N, N, N, [0.5, 1.0], []],
+		["the north end of a north-south run", N, N, N, F, [], [0.5, 1.0]],
+		["an east-west run ending at a wall", F, A, N, N, [0.0, 1.0], []],
+		["a north-south run ending at a wall", N, N, A, F, [], [0.0, 1.0]],
+		["a lone fence", N, N, N, N, [0.0, 1.0], []],
+		["a lone fence off a wall to the north", N, N, A, N, [], [0.0, 0.5]],
+		["a tee off an east-west run", F, F, N, F, [0.0, 1.0], [0.5, 1.0]],
 	]
 	for k in cases:
 		var label: String = String(k[0])
-		var e: bool = bool(k[1])
-		var w: bool = bool(k[2])
-		var n: bool = bool(k[3])
-		var sth: bool = bool(k[4])
-		var laid: Dictionary = FenceLook.pieces(tile, e, w, n, sth)
-		var strands: Array = laid["strands"] as Array
+		var laid: Dictionary = FenceLook.pieces(tile, int(k[1]), int(k[2]), int(k[3]), int(k[4]))
+		var want_h: Array = k[5] as Array
+		var want_v: Array = k[6] as Array
 		var across: Array = []
 		var down: Array = []
-		for r in strands:
+		for r in laid["strands"] as Array:
 			if (r as Rect2).size.x > (r as Rect2).size.y:
 				across.append(r)
 			else:
 				down.append(r)
-		var want_across: int = 2 if (e or w or not (n or sth)) else 0
-		var want_down: int = 2 if (n or sth) else 0
-		if across.size() != want_across or down.size() != want_down:
-			push_error("FENCE: %s lays %d horizontal and %d vertical strands, not %d and %d" % [label, across.size(), down.size(), want_across, want_down])
+		if across.size() != (2 if not want_h.is_empty() else 0) or down.size() != (2 if not want_v.is_empty() else 0):
+			push_error("FENCE: %s lays %d horizontal and %d vertical strands, not %d and %d" % [label, across.size(), down.size(), 2 if not want_h.is_empty() else 0, 2 if not want_v.is_empty() else 0])
 			return false
-		var corner: bool = (e != w) and (n != sth)
-		if corner:
-			# The L is mitred: each strand reaches its partner across the turn, so the outer pair
-			# shares a corner and the inner pair another, and every strand still reaches its open edge.
-			var t: float = FenceLook.thickness(tile.size.x)
-			var joints: int = 0
-			for a in across:
-				if not ((a as Rect2).end.x >= tile.end.x - EPS if e else (a as Rect2).position.x <= tile.position.x + EPS):
-					push_error("FENCE: %s's horizontal strand %s does not reach its open edge" % [label, str(a)])
-					return false
-				for d in down:
-					if (a as Rect2).grow(0.01).encloses(Rect2((d as Rect2).position.x, (a as Rect2).position.y, t, t)) and (d as Rect2).grow(0.01).encloses(Rect2((d as Rect2).position.x, (a as Rect2).position.y, t, t)):
-						joints += 1
-			if joints != 2:
-				push_error("FENCE: %s joins %d strand pairs square at the turn, not 2" % [label, joints])
-				return false
-		for r in ([] if corner else across):
-			var x0: float = tile.position.x if (w or not (n or sth)) else c.x
-			var x1: float = tile.end.x if (e or not (n or sth)) else c.x
+		for r in across:
+			var x0: float = tile.position.x + tile.size.x * float(want_h[0])
+			var x1: float = tile.position.x + tile.size.x * float(want_h[1])
 			if not is_equal_approx((r as Rect2).position.x, x0) or not is_equal_approx((r as Rect2).end.x, x1):
 				push_error("FENCE: %s runs a horizontal strand from %d to %d, not %d to %d" % [label, int((r as Rect2).position.x), int((r as Rect2).end.x), int(x0), int(x1)])
 				return false
-		for r in ([] if corner else down):
-			var y0: float = tile.position.y if n else c.y
-			var y1: float = tile.end.y if sth else c.y
+		for r in down:
+			var y0: float = tile.position.y + tile.size.y * float(want_v[0])
+			var y1: float = tile.position.y + tile.size.y * float(want_v[1])
 			if not is_equal_approx((r as Rect2).position.y, y0) or not is_equal_approx((r as Rect2).end.y, y1):
 				push_error("FENCE: %s runs a vertical strand from %d to %d, not %d to %d" % [label, int((r as Rect2).position.y), int((r as Rect2).end.y), int(y0), int(y1)])
 				return false
-		var post: Rect2 = laid["post"] as Rect2
-		if not post.has_point(c) or post.position.x <= tile.position.x or post.end.x >= tile.end.x or post.position.y <= tile.position.y or post.end.y >= tile.end.y:
-			push_error("FENCE: %s stands its post at %s, not at the centre clear of every edge" % [label, str(post)])
+		if not _fence_post_centred(label, laid["post"] as Rect2, tile, c):
 			return false
+	# The L, both ways round: mitred, so the outer pair and the inner pair each meet square, every
+	# strand still reaches the edge the run leaves by, and the square post touches all four strands.
+	var t: float = FenceLook.thickness(tile.size.x)
+	for k2 in [["a corner east and south", F, N, N, F], ["a corner west and north", N, F, F, N]]:
+		var label2: String = String(k2[0])
+		var e2: bool = int(k2[1]) == F
+		var s2: bool = int(k2[4]) == F
+		var laid2: Dictionary = FenceLook.pieces(tile, int(k2[1]), int(k2[2]), int(k2[3]), int(k2[4]))
+		var across2: Array = []
+		var down2: Array = []
+		for r in laid2["strands"] as Array:
+			if (r as Rect2).size.x > (r as Rect2).size.y:
+				across2.append(r)
+			else:
+				down2.append(r)
+		if across2.size() != 2 or down2.size() != 2:
+			push_error("FENCE: %s lays %d horizontal and %d vertical strands, not 2 and 2" % [label2, across2.size(), down2.size()])
+			return false
+		var joints: int = 0
+		for a in across2:
+			if not ((a as Rect2).end.x >= tile.end.x - EPS if e2 else (a as Rect2).position.x <= tile.position.x + EPS):
+				push_error("FENCE: %s's horizontal strand %s does not reach the edge its run leaves by" % [label2, str(a)])
+				return false
+			for d in down2:
+				var square := Rect2((d as Rect2).position.x, (a as Rect2).position.y, t, t)
+				if (a as Rect2).grow(0.01).encloses(square) and (d as Rect2).grow(0.01).encloses(square):
+					joints += 1
+		for d2 in down2:
+			if not ((d2 as Rect2).end.y >= tile.end.y - EPS if s2 else (d2 as Rect2).position.y <= tile.position.y + EPS):
+				push_error("FENCE: %s's vertical strand %s does not reach the edge its run leaves by" % [label2, str(d2)])
+				return false
+		if joints != 2:
+			push_error("FENCE: %s joins %d strand pairs square at the turn, not 2" % [label2, joints])
+			return false
+		var post2: Rect2 = laid2["post"] as Rect2
+		for r2 in laid2["strands"] as Array:
+			if not post2.grow(0.01).intersects(r2 as Rect2):
+				push_error("FENCE: %s's post %s floats clear of the strand %s" % [label2, str(post2), str(r2)])
+				return false
+		if not _fence_post_centred(label2, post2, tile, c):
+			return false
+	return true
+
+
+func _fence_post_centred(label: String, post: Rect2, tile: Rect2, c: Vector2) -> bool:
+	if not post.has_point(c) or post.position.x <= tile.position.x or post.end.x >= tile.end.x or post.position.y <= tile.position.y or post.end.y >= tile.end.y:
+		push_error("FENCE: %s stands its post at %s, not at the centre clear of every edge" % [label, str(post)])
+		return false
 	return true
 
 
