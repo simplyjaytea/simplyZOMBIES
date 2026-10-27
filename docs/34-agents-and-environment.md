@@ -25,9 +25,10 @@ own wrapper exists it is named as a wrapper around the plain command, never as t
   across worktrees; dependencies may share an unchanged `node_modules`. Each checkout keeps its
   own `godot/.godot` imports. Give workers separate `XDG_DATA_HOME` and `XDG_CACHE_HOME` directories
   and separate displays so captures and save/load checks cannot overwrite another worker's
-  state. Reserve quiet machine time for performance measurements. One coordinator owns shared
-  roadmap/README/handoff edits and integrates disjoint code patches before final verification;
-  worker evidence is a handoff to that coordinator, not a second status ledger.
+  state. Reserve quiet machine time for performance measurements. Each piece writes its own
+  record into docs/23 in its own commit (`CLAUDE.md`'s workflow, step 7). One coordinator owns
+  the README and the order pieces merge in, one by one as each goes green (docs/38, How work
+  flows); worker evidence is a handoff to that coordinator, not a second status ledger.
 - **Stay on disjoint files.** Pick a piece whose *files* line (each entry in the alpha-shell
   group names its files; other groups name their system, and the routing table names the system's
   files) does not overlap a branch already pushed. Some tracks are serial by construction — the
