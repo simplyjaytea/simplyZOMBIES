@@ -6704,6 +6704,11 @@ a part that declares `shedChance` or `lashed` draws from it, so a weapon with ne
 STREAM holds that: a run of wear rolls moves `meleeWear` and leaves melee, swipe, ranged and test
 where they were. CONNECT is the dead-socket lane: a real swing through the tick loop reaches the
 roll. Broken on purpose, with the connect subscriber replaced by a pass, it goes red with "no nail
+
+**The owner's pick, 2026-10-27.** JT answered the card on what a shed stud and a lashed
+head do: the stud is gone, and the head drops at the swinger's feet as its own item. That is
+the default this entry built, so no code changed for it. The whetstone's spend is still open
+under docs/33 item 21.
 came out".
 
 ## The bloodhound, 2026-10-27
