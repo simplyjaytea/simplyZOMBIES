@@ -111,6 +111,11 @@ const WEAR_EVENTS: Array[String] = ["shot", "reload", "hit", "jam"]
 # rounds where the pistol carrying it takes 333, which is docs/10's "wear out fast" as a number.
 const PART_WEAR_PER_EVENT: float = 0.002
 
+# The chance one connecting swing throws a lashed head off the weapon. A part that declares
+# `shedChance` sheds on its own number instead, because a nail and a screw do not come loose alike;
+# a lashing has one number, since the cordage is what holds it. First cut, docs/30's "Melee wear".
+const LASH_SHED_CHANCE: float = 0.025
+
 # How deep `assemble` will follow `defaultParts`. Parts declare none, so one level is all any
 # shipped content needs; two is the belt to the CYCLE lane's braces. Passed through `options`
 # rather than held in a static var, because a static is shared between the two worlds a gate
@@ -155,6 +160,9 @@ static func register_module(world: Variant) -> void:
 	})
 	world.events.subscribe({"id": "attachments.wear-on-hit", "type": "attack.connected", "handler": func(event: Dictionary) -> void:
 		wear_parts(world, int(event.get("item", -1)), "hit")
+	})
+	world.events.subscribe({"id": "attachments.shed-on-hit", "type": "attack.connected", "handler": func(event: Dictionary) -> void:
+		shed_on_connect(world, int(event.get("item", -1)), int(event.get("attacker", -1)))
 	})
 	world.events.subscribe({"id": "attachments.wear-on-jam", "type": "weapon.jammed", "handler": func(event: Dictionary) -> void:
 		wear_parts(world, int(event.get("item", -1)), "jam")
@@ -449,6 +457,64 @@ static func _wear_one(world: Variant, host: int, part: int, amount: float) -> vo
 		slot = String((link as Dictionary).get("slot", ""))
 	if detach(world, part):
 		world.events.publish({"type": "attachment.broke", "host": host, "item": part, "slot": slot})
+
+
+## A connecting swing can pull a stud out or throw a lashed head. Only a part that declares
+## `shedChance` or `lashed` rolls, and it rolls on the `meleeWear` stream, so a weapon with neither
+## draws nothing and every other stream keeps its place. Parts are walked in slot order, so the
+## draws land the same way every run.
+static func shed_on_connect(world: Variant, host: int, swinger: int) -> void:
+	if host < 0:
+		return
+	for rec in parts_of(world, host):
+		var part: int = int((rec as Dictionary)["item"])
+		var spec: Dictionary = (rec as Dictionary)["spec"] as Dictionary
+		var lashed: bool = bool(spec.get("lashed", false))
+		var chance: float = float(spec.get("shedChance", LASH_SHED_CHANCE if lashed else 0.0))
+		if chance <= 0.0:
+			continue
+		if float(world.rng.stream("meleeWear").call("next")) >= chance:
+			continue
+		if lashed:
+			_fly_off(world, host, part, swinger)
+		else:
+			_shed(world, host, part)
+
+
+# A stud that comes out is gone. Nobody picks a nail up off the ground after it has pulled out.
+static func _shed(world: Variant, host: int, part: int) -> void:
+	var slot: String = _unlink(world, host, part)
+	world.despawn(part)
+	_refresh(world, host)
+	world.events.publish({"type": "attachment.shed", "host": host, "item": part, "slot": slot})
+
+
+# A lashed head comes off as its own item, at the swinger's feet. The cordage goes; the head does not.
+static func _fly_off(world: Variant, host: int, part: int, swinger: int) -> void:
+	var slot: String = _unlink(world, host, part)
+	var pos: Variant = world.components.get_component(swinger, "position")
+	if pos is Dictionary:
+		world.components.set_component(part, "position", {
+			"x": float((pos as Dictionary)["x"]), "y": float((pos as Dictionary)["y"]),
+		})
+	else:
+		_rehome(world, host, part)
+	_refresh(world, host)
+	world.events.publish({"type": "attachment.flew_off", "host": host, "item": part, "slot": slot})
+
+
+# Takes a part off its host and leaves it nowhere: the caller decides where it goes. Returns the slot
+# it came from, so the event can say so.
+static func _unlink(world: Variant, host: int, part: int) -> String:
+	var link: Variant = world.components.get_component(part, "attachedTo")
+	var slot: String = String((link as Dictionary).get("slot", "")) if link is Dictionary else ""
+	var comp: Variant = world.components.get_component(host, "attachments")
+	if comp is Dictionary:
+		var slots: Dictionary = (comp as Dictionary)["slots"] as Dictionary
+		if slots.has(slot) and int(slots[slot]) == part:
+			slots.erase(slot)
+	world.components.remove(part, "attachedTo")
+	return slot
 
 
 ## Everything fitted to this host, in slot order, as {slot, item, spec}. Sorted so two hosts with

@@ -26,6 +26,15 @@ const WEAR_PER_RELOAD: float = 0.0005
 const REPAIR_GAIN: float = 0.25
 const REPAIR_CEILING_DROP: float = 0.05
 const REPAIR_CEILING_FLOOR: float = 0.2
+# A blade's edge is its own number, apart from the item's condition. A connecting blow takes a little
+# off it, and a club has no edge to take. Damage reads it through EDGE_DAMAGE_FLOOR, so a fully dull
+# blade hits for at most a fifth less. First cut, docs/30's "Melee wear, 2026-10-27".
+const EDGE_DULL_PER_HIT: float = 0.025
+const EDGE_DAMAGE_FLOOR: float = 0.8
+# Honing takes the edge back to its ceiling and costs the ceiling a little, as repair does.
+const HONE_CEILING_DROP: float = 0.02
+const HONE_CEILING_FLOOR: float = 0.5
+const WHETSTONE: String = "item.whetstone"
 const CONDITION_BANDS: Array[Dictionary] = [
 	{"atLeast": 0.8, "name": "sound"},
 	{"atLeast": 0.5, "name": "worn"},
@@ -484,6 +493,66 @@ static func repair_item(world: Variant, item: int, repairer: int = -1) -> bool:
 	return true
 
 
+# Whether this item is a blade: an edge a blow can dull and a whetstone can bring back. A club
+# or a zombie's body is not, and neither has an edge to lose.
+static func _is_blade(world: Variant, item: int) -> bool:
+	if not is_melee_item(world, item):
+		return false
+	return String((item_base_of(world, item) as Dictionary).get("family", "")) == "blade"
+
+
+# The edge a blade carries, as {current, ceiling}. A blade that has never been dulled has no `edge`
+# component, so the missing one reads as keen, and a save from before this piece loads unchanged.
+static func edge_of(world: Variant, item: int) -> Dictionary:
+	var e: Variant = world.components.get_component(item, "edge")
+	if e is Dictionary:
+		return (e as Dictionary).duplicate()
+	return {"current": FULL_CONDITION, "ceiling": FULL_CONDITION}
+
+
+# What share of its damage a blade's edge keeps: 1.0 keen, EDGE_DAMAGE_FLOOR fully dull. Anything
+# with no edge keeps all of it.
+static func edge_factor(world: Variant, item: int) -> float:
+	if item < 0 or not _is_blade(world, item):
+		return 1.0
+	var cur: float = clampf(float(edge_of(world, item)["current"]), 0.0, 1.0)
+	return EDGE_DAMAGE_FLOOR + (1.0 - EDGE_DAMAGE_FLOOR) * cur
+
+
+# A connecting blow takes a little off a blade's edge, by the same condition loss the item wears by.
+static func dull_edge(world: Variant, item: int) -> void:
+	if not _is_blade(world, item):
+		return
+	var e: Dictionary = edge_of(world, item)
+	e["current"] = maxf(0.0, float(e["current"]) - EDGE_DULL_PER_HIT * condition_loss_of(world, item))
+	world.components.set_component(item, "edge", e)
+	refresh_armed(world, item)
+
+
+# Hones a blade's edge back to its ceiling, spending a whetstone the actor carries. Returns why it
+# refused, or "" when it honed: "not-a-blade", "keen" (already at its ceiling), "no-whetstone". Each
+# refusal is checked before anything is spent, so a refused hone costs nothing.
+static func hone(world: Variant, actor: int, item: int) -> String:
+	if item < 0 or not _is_blade(world, item):
+		return "not-a-blade"
+	var e: Dictionary = edge_of(world, item)
+	if float(e["current"]) >= float(e["ceiling"]):
+		return "keen"
+	if not bool(_Needs().call("consume_base", world, actor, WHETSTONE)):
+		return "no-whetstone"
+	e["ceiling"] = maxf(HONE_CEILING_FLOOR, float(e["ceiling"]) - HONE_CEILING_DROP)
+	e["current"] = float(e["ceiling"])
+	world.components.set_component(item, "edge", e)
+	refresh_armed(world, item)
+	world.events.publish({"type": "item.honed", "actor": actor, "item": item})
+	return ""
+
+
+# Loaded lazily, as attachments.gd loads its own reach-outs: needs.gd's graph leads back here.
+static func _Needs() -> GDScript:
+	return load("res://sim/modules/needs.gd") as GDScript
+
+
 # Rebuilds the weapon profile of anybody holding this item, after something about the item has
 # changed -- wear, a repair, an affix edit, an attachment fitted or taken off. Public because
 # attachments.gd is the fourth caller and a fourth private-by-convention reach-in would be worse
@@ -534,6 +603,16 @@ static func is_melee_item(world: Variant, item: int) -> bool:
 # with a profile, so a survivor carrying a knife and a pistol wore the knife on every gunshot and
 # the pistol never degraded at all, which meant its jam chance never rose off zero.
 static func register_module(world: Variant) -> void:
+	world.systems.register("items.intake", "input", 10, func(w: Variant) -> void:
+		for cmd in w.commands.current as Array:
+			var c: Dictionary = cmd as Dictionary
+			if String(c.get("type", "")) != "item.hone":
+				continue
+			var item: int = int(c.get("item", -1))
+			var reason: String = hone(w, int(c.get("actor", w.player)), item)
+			if reason != "":
+				w.events.publish({"type": "item.hone_refused", "item": item, "reason": reason})
+	)
 	world.events.subscribe({"id": "items.wear-on-hit", "type": "attack.connected", "handler": func(event: Dictionary) -> void:
 		# A melee weapon wears where it lands. A firearm does not wear here -- it wore when it
 		# fired, on the channel below -- and a zombie's bite publishes this event carrying no item
@@ -541,6 +620,7 @@ static func register_module(world: Variant) -> void:
 		var weapon: int = int(event.get("item", -1))
 		if is_melee_item(world, weapon):
 			apply_wear(world, weapon, WEAR_PER_HIT)
+			dull_edge(world, weapon)
 	})
 	world.events.subscribe({"id": "items.wear-on-shot", "type": "weapon.fired", "handler": func(event: Dictionary) -> void:
 		apply_wear(world, int(event.get("item", -1)), WEAR_PER_SHOT)
@@ -571,7 +651,7 @@ static func melee_profile_of(world: Variant, item: int) -> Variant:
 	var profile: Dictionary = {
 		"reachMetres": float(m.get("reachMetres", 1.4)) * resolve.call("melee_reach"),
 		"weight": float(m.get("weight", 1.0)),
-		"damage": float(m.get("damage", 11)) * resolve.call("melee_damage") * wear,
+		"damage": float(m.get("damage", 11)) * resolve.call("melee_damage") * wear * edge_factor(world, item),
 		"staggerTicks": maxi(0, int(round(float(m.get("staggerTicks", 8)) * resolve.call("melee_stagger")))),
 		"speed": resolve.call("swing_speed") * wear,
 		"recovery": resolve.call("swing_recovery"),

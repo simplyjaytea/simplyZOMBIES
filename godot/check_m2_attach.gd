@@ -94,8 +94,14 @@ func _run() -> void:
 	ok = _a_part_goes_on_where_its_slot_and_its_family_say_and_nowhere_else() and ok
 	ok = _an_improvised_part_is_made_from_what_is_carried_and_fitted() and ok
 	ok = _a_glass_blade_cuts_the_hand_that_holds_it_until_it_is_wrapped() and ok
+	ok = _studs_come_out_at_their_rate_and_the_swing_after_is_bare() and ok
+	ok = _a_lashed_head_flies_off_at_the_swingers_feet() and ok
+	ok = _a_blade_dulls_on_each_connect_and_a_club_takes_no_edge() and ok
+	ok = _a_whetstone_hones_a_blade_and_each_refusal_says_why() and ok
+	ok = _a_real_connect_sheds_a_stud_through_the_swing_command() and ok
+	ok = _wear_rolls_draw_only_the_melee_wear_stream() and ok
 	if ok:
-		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair required headless override mismatch names light armor swing wear salvage family applies plausible improvise cut")
+		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair required headless override mismatch names light armor swing wear salvage family applies plausible improvise cut stud lash edge hone connect stream")
 		quit(0)
 	else:
 		push_error("M2_ATTACH_FAIL")
@@ -2372,4 +2378,275 @@ func _a_glass_blade_cuts_the_hand_that_holds_it_until_it_is_wrapped() -> bool:
 		return false
 	print("  CUT OK glass on a bare grip scratches the right hand once per connecting swing (a clotting scratch); a miss, a cord wrap and a destroyed hand cost nothing; nails never cut")
 	return true
+
+
+# --- MELEE WEAR -------------------------------------------------------------------------------
+# Studs come out, a blade's edge dulls and a whetstone brings it back, a lashed head flies off at
+# the swinger's feet. Every roll is on the `meleeWear` stream, and a weapon with nothing that
+# declares a roll draws nothing. The first-cut numbers are docs/30's "Melee wear, 2026-10-27".
+
+const SPEAR: String = "item.spear.improvised"
+const LASHED_SPIKE: String = "item.attach.head.lashed_spike"
+const WHETSTONE: String = "item.whetstone"
+const WEAR_TRIALS: int = 2000
+const STUD_BAND: Array[int] = [40, 80]
+const LASH_BAND: Array[int] = [30, 72]
+
+
+# A nail that comes out is gone, and the next roll is a fresh nail's. Over WEAR_TRIALS rolls at 0.03
+# a nailed bat should lose about 60 nails, and the band holds the seed inside it. The first nail
+# out is also where the swing after it is judged: the bat must hit for exactly what a bare bat hits
+# for.
+func _studs_come_out_at_their_rate_and_the_swing_after_is_bare() -> bool:
+	var lane: String = "STUD"
+	var w: Variant = _world()
+	var bat: int = _spawn(w, WOOD_BAT)
+	var bare_damage: float = float((SimItems.melee_profile_of(w, bat) as Dictionary)["damage"])
+	var sheds: int = 0
+	var checked_first: bool = false
+	for i in WEAR_TRIALS:
+		if SimAttachments.in_slot(w, bat, "stud") < 0 and not SimAttachments.attach(w, bat, _spawn(w, NAILS), "stud"):
+			push_error("%s: a nail was refused the bat's stud slot on roll %d" % [lane, i])
+			return false
+		SimAttachments.shed_on_connect(w, bat, w.player)
+		if SimAttachments.in_slot(w, bat, "stud") >= 0:
+			continue
+		sheds += 1
+		if not checked_first:
+			checked_first = true
+			var after: float = float((SimItems.melee_profile_of(w, bat) as Dictionary)["damage"])
+			if absf(after - bare_damage) > 0.0001:
+				push_error("%s: the swing after a nail came out hits for %.4f, not a bare bat's %.4f" % [lane, after, bare_damage])
+				return false
+	if sheds < STUD_BAND[0] or sheds > STUD_BAND[1]:
+		push_error("%s: %d nails came out of %d rolls at 0.03, outside the band %s" % [lane, sheds, WEAR_TRIALS, str(STUD_BAND)])
+		return false
+	# True negative: a bat with no stud has no roll to make, so it never sheds and never grows a part.
+	var bare: int = _spawn(w, WOOD_BAT)
+	for i in WEAR_TRIALS:
+		SimAttachments.shed_on_connect(w, bare, w.player)
+	if SimAttachments.parts_of(w, bare).size() != 0:
+		push_error("%s: a bare bat grew a part" % lane)
+		return false
+	print("  STUD OK %d of %d nail rolls came out (band %s); the swing after one hits for a bare bat's %.2f; a bare bat rolls for nothing" % [sheds, WEAR_TRIALS, str(STUD_BAND), bare_damage])
+	return true
+
+
+# A lashed head comes off at the swinger's feet as its own item, and is no longer attached. Same
+# story as the nail at 0.025 over the same trials. A head fitted without a lashing never flies,
+# however many blows land on it.
+func _a_lashed_head_flies_off_at_the_swingers_feet() -> bool:
+	var lane: String = "LASH"
+	var w: Variant = _world()
+	var spear: int = _spawn(w, SPEAR)
+	if not _swap(w, spear, "head", _spawn(w, LASHED_SPIKE)):
+		push_error("%s: a lashed spike was refused the spear's head slot" % lane)
+		return false
+	var feet: Dictionary = (w.components.get_component(w.player, "position") as Dictionary).duplicate()
+	var flown: int = 0
+	for i in WEAR_TRIALS:
+		if SimAttachments.in_slot(w, spear, "head") < 0 and not SimAttachments.attach(w, spear, _spawn(w, LASHED_SPIKE), "head"):
+			push_error("%s: a lashed spike was refused the spear's head slot on blow %d" % [lane, i])
+			return false
+		var head: int = SimAttachments.in_slot(w, spear, "head")
+		SimAttachments.shed_on_connect(w, spear, w.player)
+		if SimAttachments.in_slot(w, spear, "head") >= 0:
+			continue
+		flown += 1
+		var landed: Variant = w.components.get_component(head, "position")
+		if not landed is Dictionary or absf(float((landed as Dictionary)["x"]) - float(feet["x"])) > 0.0001 or absf(float((landed as Dictionary)["y"]) - float(feet["y"])) > 0.0001:
+			push_error("%s: a head that flew off did not land at the swinger's feet" % lane)
+			return false
+		if w.components.has_component(head, "attachedTo"):
+			push_error("%s: a head that flew off still says it is attached" % lane)
+			return false
+	if flown < LASH_BAND[0] or flown > LASH_BAND[1]:
+		push_error("%s: %d heads flew off in %d blows at 0.025, outside the band %s" % [lane, flown, WEAR_TRIALS, str(LASH_BAND)])
+		return false
+	# True negative: a standard head carries no lashing, so the same blows never move it.
+	var plain: int = _spawn(w, SPEAR)
+	for i in WEAR_TRIALS:
+		SimAttachments.shed_on_connect(w, plain, w.player)
+	if SimAttachments.in_slot(w, plain, "head") < 0:
+		push_error("%s: a standard head flew off a spear" % lane)
+		return false
+	print("  LASH OK %d of %d blows threw a lashed head to the feet (band %s); a standard head never flew" % [flown, WEAR_TRIALS, str(LASH_BAND)])
+	return true
+
+
+# A blade's edge dulls on every connect and its damage follows; a club has no edge and takes none.
+# Driven through the connect path, so each blow is the one a swing makes.
+func _a_blade_dulls_on_each_connect_and_a_club_takes_no_edge() -> bool:
+	var lane: String = "EDGE"
+	var w: Variant = _world()
+	var axe: int = _spawn(w, AXE)
+	var keen: float = float((SimItems.melee_profile_of(w, axe) as Dictionary)["damage"])
+	_dull_by_connects(w, axe, 20)
+	var dull: float = float((SimItems.melee_profile_of(w, axe) as Dictionary)["damage"])
+	var edge: Dictionary = SimItems.edge_of(w, axe)
+	if float(edge["current"]) >= 1.0:
+		push_error("%s: an axe that connected twenty times is still keen (edge %.3f)" % [lane, float(edge["current"])])
+		return false
+	if dull >= keen:
+		push_error("%s: a dull axe hits for %.4f, no less than a keen one's %.4f" % [lane, dull, keen])
+		return false
+	var club: int = _spawn(w, WOOD_BAT)
+	_dull_by_connects(w, club, 20)
+	var club_condition: Dictionary = w.components.get_component(club, "condition") as Dictionary
+	if float(club_condition["current"]) >= 1.0:
+		push_error("%s: the club never connected, so its missing edge proves nothing" % lane)
+		return false
+	if w.components.has_component(club, "edge"):
+		push_error("%s: a club grew an edge" % lane)
+		return false
+	print("  EDGE OK an axe's edge fell to %.3f on twenty connects and its damage %.2f -> %.2f; a club connected twenty times and has no edge" % [float(edge["current"]), keen, dull])
+	return true
+
+
+# Hone brings a dull edge back to its ceiling and spends one whetstone. Each refusal -- not a blade,
+# already keen, no whetstone -- comes back as a reason and spends nothing. Keen is checked before the
+# stone, so a keen blade keeps the stone in the pack.
+func _a_whetstone_hones_a_blade_and_each_refusal_says_why() -> bool:
+	var lane: String = "HONE"
+	var w: Variant = _world()
+	var axe: int = _spawn(w, AXE)
+	var bat: int = _spawn(w, WOOD_BAT)
+	_dull_by_connects(w, axe, 20)
+	var said: String = _hone_attempt(w, bat)
+	if said != "not-a-blade":
+		push_error("%s: honing a bat said '%s', not 'not-a-blade'" % [lane, said])
+		return false
+	said = _hone_attempt(w, axe)
+	if said != "no-whetstone":
+		push_error("%s: honing with nothing in the pack said '%s', not 'no-whetstone'" % [lane, said])
+		return false
+	var stone: int = _spawn(w, WHETSTONE)
+	SimInventory.stow(w, w.player, stone)
+	var dull: float = float((SimItems.melee_profile_of(w, axe) as Dictionary)["damage"])
+	said = _hone_attempt(w, axe)
+	if said != "honed":
+		push_error("%s: honing a dull axe with a whetstone said '%s', not 'honed'" % [lane, said])
+		return false
+	var edge: Dictionary = SimItems.edge_of(w, axe)
+	if float(edge["current"]) != float(edge["ceiling"]) or float(edge["ceiling"]) >= 1.0:
+		push_error("%s: honing did not bring the edge to a lowered ceiling (edge %s)" % [lane, str(edge)])
+		return false
+	if float((SimItems.melee_profile_of(w, axe) as Dictionary)["damage"]) <= dull:
+		push_error("%s: honing did not restore any damage" % lane)
+		return false
+	if SimInventory.carried_items(w, w.player).has(stone):
+		push_error("%s: the whetstone was not spent" % lane)
+		return false
+	# True negative: a keen blade refuses, and the stone it would have cost stays in the pack.
+	var stone2: int = _spawn(w, WHETSTONE)
+	SimInventory.stow(w, w.player, stone2)
+	said = _hone_attempt(w, axe)
+	if said != "keen":
+		push_error("%s: honing a keen axe said '%s', not 'keen'" % [lane, said])
+		return false
+	if not SimInventory.carried_items(w, w.player).has(stone2):
+		push_error("%s: a keen axe spent a whetstone" % lane)
+		return false
+	print("  HONE OK a dull axe honed on one whetstone to a ceiling of %.2f; not-a-blade, no-whetstone and keen each refuse in words and spend nothing" % float(edge["ceiling"]))
+	return true
+
+
+# Dead socket: the real swing command, stepped through the tick loop, reaches the stud roll. A nailed
+# bat swings at a fresh body in front of the player until a nail comes out, up to 600 swings. Not
+# every swing connects (the recovery eats some of the commands), and the seed is fixed, so a red
+# lane means the shipped path stopped reading the stud, not that the seed was unlucky. Broken on
+# purpose once -- the connect subscriber replaced by a pass -- and the lane went red with
+# "no nail came out".
+func _a_real_connect_sheds_a_stud_through_the_swing_command() -> bool:
+	var lane: String = "CONNECT"
+	var w: Variant = _world()
+	var bat: int = _spawn(w, WOOD_BAT)
+	SimInventory.equip(w, w.player, bat)
+	if not SimAttachments.attach(w, bat, _spawn(w, NAILS), "stud"):
+		push_error("%s: a nail was refused the bat's stud slot" % lane)
+		return false
+	var connects: int = 0
+	var shed: bool = false
+	var body: int = -1
+	for i in 600:
+		if body >= 0:
+			w.despawn(body)
+		body = int(w.entities.spawn())
+		w.components.set_component(body, "position", {"x": 9.3, "y": 12.5})
+		w.components.set_component(body, "velocity", {"dx": 0.0, "dy": 0.0})
+		w.components.set_component(body, "body", SimCombat.ZOMBIE_BODY.duplicate())
+		w.commands.push({"type": "swing"})
+		for t in 60:
+			w.step()
+			for e in w.events.drained:
+				var ev: Dictionary = e as Dictionary
+				if String(ev.get("type", "")) == "attack.connected" and int(ev.get("item", -1)) == bat:
+					connects += 1
+				if String(ev.get("type", "")) == "attachment.shed" and int(ev.get("host", -1)) == bat:
+					shed = true
+			if shed:
+				break
+		if shed:
+			break
+	if connects < 1:
+		push_error("%s: no swing connected in 600 tries, so the stud roll was never reached" % lane)
+		return false
+	if not shed:
+		push_error("%s: %d connects through the swing command and no nail came out" % [lane, connects])
+		return false
+	print("  CONNECT OK a nail came out on connect %d through the real swing command" % connects)
+	return true
+
+
+# The stud and the lashing roll on their own stream. Two identically seeded worlds: one rolls a few
+# hundred times, the other does not. Every other stream reads the same next draw in both, and the
+# wear stream does not, which is what shows the rolls happened on it.
+func _wear_rolls_draw_only_the_melee_wear_stream() -> bool:
+	var lane: String = "STREAM"
+	var rolled: Variant = _world()
+	var quiet: Variant = _world()
+	var bat: int = _spawn(rolled, WOOD_BAT)
+	for i in 300:
+		if SimAttachments.in_slot(rolled, bat, "stud") < 0:
+			SimAttachments.attach(rolled, bat, _spawn(rolled, NAILS), "stud")
+		SimAttachments.shed_on_connect(rolled, bat, rolled.player)
+	for stream in ["melee", "swipe", "ranged", "test"]:
+		var a: float = float(rolled.rng.stream(stream).call("next"))
+		var b: float = float(quiet.rng.stream(stream).call("next"))
+		if a != b:
+			push_error("%s: the '%s' stream moved under a run of wear rolls (%f vs %f)" % [lane, stream, a, b])
+			return false
+	var moved: float = float(rolled.rng.stream("meleeWear").call("next"))
+	var untouched: float = float(quiet.rng.stream("meleeWear").call("next"))
+	if moved == untouched:
+		push_error("%s: the meleeWear stream did not move under 300 rolls" % lane)
+		return false
+	print("  STREAM OK 300 wear rolls moved meleeWear and left melee, swipe, ranged and test where they were")
+	return true
+
+
+# Dulls an edge the way a connect does: a fresh body in front, then a swing through the same resolver
+# every lane in this file uses. The drain is what dispatches `attack.connected` to the wear handlers;
+# `_swing_once` only queues it.
+func _dull_by_connects(w: Variant, weapon: int, blows: int) -> void:
+	for i in blows:
+		_victim(w)
+		_swing_once(w, weapon)
+		w.events.drain()
+
+
+# Pushes one hone command, steps the tick, and reads what came back: "honed", a refusal's reason, or
+# "none" when nothing answered.
+func _hone_attempt(w: Variant, item: int) -> String:
+	w.commands.push({"type": "item.hone", "actor": w.player, "item": item})
+	w.step()
+	for e in w.events.drained:
+		var ev: Dictionary = e as Dictionary
+		if int(ev.get("item", -1)) != item:
+			continue
+		if String(ev.get("type", "")) == "item.honed":
+			return "honed"
+		if String(ev.get("type", "")) == "item.hone_refused":
+			return String(ev.get("reason", ""))
+	return "none"
 

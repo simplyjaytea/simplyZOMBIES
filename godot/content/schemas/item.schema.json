@@ -347,6 +347,16 @@
           "exclusiveMinimum": 0,
           "description": "Multiplies SimAttachments.PART_WEAR_PER_EVENT for this part. Above 1 is docs/10's \"suppressors wear out fast\"; below 1 is a part that outlives the weapon."
         },
+        "shedChance": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "The chance one connecting swing pulls this stud out of the weapon, rolled on the meleeWear stream by SimAttachments.shed_on_connect. A shed stud is gone. A part declaring none never sheds this way."
+        },
+        "lashed": {
+          "type": "boolean",
+          "description": "Whether this head is held on by cordage. A lashed head comes off at the swinger's feet on a connecting swing, at SimAttachments.LASH_SHED_CHANCE, and is its own item again. The lashing is declared here and nowhere else."
+        },
         "appliesTo": {
           "type": "array",
           "minItems": 1,
