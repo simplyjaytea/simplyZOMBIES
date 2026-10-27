@@ -2417,8 +2417,13 @@ not a to-do list:
   lights nothing. On screen
   (`godot/ui/bench_panel.gd`), picking an empty plate lists a "make one" group under what you carry
   that fits; the arrows walk the candidates and the make rows as one column, the footer's lit
-  button reads "make it" on a makeable row, and Enter or a click sends `item.improvise` with
-  `{host, slot, recipe}`. The column scrolls when the stud's six rows do not fit. A `fieldSwap`
+  button reads "make it" on a makeable row, and Enter sends `item.improvise` with
+  `{host, slot, recipe}`. A click on a make row only picks it and a second click makes it, since
+  making spends materials for good while a fitted part comes off again (a carried part still fits
+  on one click). The column scrolls when the stud's six rows do not fit, and the "make one" label
+  rides over the top drawn row once the column has scrolled into the group. The label stands a
+  line over its rows as the carried label does, and the footer hint adds "or make one" when the
+  slot has recipes. A `fieldSwap`
   recipe is makeable by hand. Gates: `godot:m2:bench` RECIPES (the wooden bat's empty stud lists
   six rows with the makeable ones first; nails makeable with fixings in the pack and glass listed
   as "needs cordage"; tape and lead names both missing kinds; every row's `makeable` is the
@@ -2430,8 +2435,11 @@ not a to-do list:
   them), PANEL (the panel names `item.improvise`); `godot:check:play` BENCH MAKE at both windows
   (a click picks the bat's empty stud, every drawn row and the group's label sit inside the frame
   above the footer, Enter on a row that cannot be made sends nothing and lights no "make it",
-  Enter on the nails sends one `item.improvise` and the `attachment.improvised` event fires and
-  the plate shows the nails; red when the panel's make push is cut); `godot:check:shots` with the
+  scrolled to the last row the make label still sits over the top drawn row, one click on the
+  nails sends nothing and picks them, then Enter (1280x720) or a second click (1920x1080) sends
+  one `item.improvise` and the `attachment.improvised` event fires and the plate shows the nails;
+  red when the panel's make push is cut, and red on the scroll and the first click against the
+  panel before the art review); `godot:check:shots` with the
   new `bench_make` scene. Off the tick path, so no bench bar; `godot:m2:balance` ran once on the
   head (only a player-commanded path changed). Not in this piece: the amber corner still means a
   carried part fits and is not raised by a makeable recipe, and a weapon with nothing
