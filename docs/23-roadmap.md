@@ -271,9 +271,10 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
 
 *Firearms, readers first (stage 1):*
 
-- **The barrel governs.** Length, quality and material on a barrel part read into velocity (damage
-  falloff and noise), accuracy and wear. The short barrel is louder and wanders; the match barrel
-  is heavier and steadier. Gate: `godot:m2:attach` BARREL, a lane per axis.
+- **The barrel's words on the bench.** The barrel's length, quality and material reach the inspect
+  pane only as the numbers it already prints; no word line names them yet. That half needs
+  `godot/ui/` code and is the screen's to build (the sim already has the words; see the record,
+  "The barrel governs").
 - **Conversions are kits.** A caliber conversion is barrel plus bolt-or-cylinder plus magazine;
   two of three jams. The allowed table is content keyed by receiver family, written to a realism
   table in docs/10 (the owner vetoes rows; docs/33). About twelve across the twelve receivers.
@@ -2535,6 +2536,20 @@ not a to-do list:
   gate. The screen half is the next bullet's. The first-cut numbers and the `hit` word are in
   docs/30's "Melee wear, 2026-10-27". The ten-seed table was not re-run; owed by the post-arc
   re-baseline.
+
+- **The barrel governs, 2026-10-27.** A barrel declares three words, `length`, `quality` and
+  `material`, and every number it contributes is their product: muzzle speed, noise, reach, cone,
+  handling and wear (quality and material both multiply the wear; the match barrel wears 1.4 as a
+  match bore on steel). The tables are code-owned in `godot/sim/barrel.gd`, and `SimAttachments.spec_of`
+  resolves a barrel through them, so the fold, the wear and the inspect pane read one derived spec.
+  A slow round (muzzle under 1) loses damage past 60% of its reach, down to its muzzle at full reach;
+  a full-speed round loses nothing at any range. The six shipped barrels were rewritten to words, and
+  each axis they already had lands within 5% of its authored total. Conversion barrels (rimfire, .45)
+  keep their caliber's damage and noise, and a literal wear rate, as a share the words multiply: a
+  sleeve changes the round as well as the bore. A word the tables do not know is refused out loud
+  (`barrel:` reason; the pistol will not fire and says so). Gate: `godot:m2:attach` BARREL, six lanes,
+  each with a true negative: VOCAB, SHIPPED, LENGTH, QUALITY, MATERIAL, FALLOFF. The screen half is
+  named in what's left. The ten-seed table was not re-run.
 - **Melee frames and the widened slots, and the improvised recipe table, 2026-10-26.** The first
   stage of the melee arc (docs/38). Every melee item declares a `family` (club, blade, polearm or
   tool): the nineteen melee bases, a new `item.bat.wood` (a twentieth base, so the wooden bat the

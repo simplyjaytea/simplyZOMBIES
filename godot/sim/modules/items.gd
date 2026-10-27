@@ -696,6 +696,9 @@ static func ranged_profile_of(world: Variant, item: int) -> Variant:
 		"jams": jams,
 		"jamChance": jam_chance(world, item) if jams else 0.0,
 		"noise": float(r.get("noise", 4)),
+		# Muzzle speed, the barrel's to set (sim/barrel.gd). A base leaves its round at full speed; a
+		# barrel that slows it folds a number under 1 through the fold like every other multiplier.
+		"muzzle": 1.0,
 		"flash": float(r.get("flash", 0)),
 		"ammo": String(r.get("ammo", "")),
 		# What else will chamber. `ammo` is the round the weapon prefers and this is the set it
