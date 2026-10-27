@@ -157,8 +157,8 @@ is refused, not read as the plain barrel. The tables live in `godot/sim/barrel.g
 | Word | Values | What it does |
 |---|---|---|
 | `length` | `stub`, `short`, `carbine`, `full`, `long` | Muzzle speed (`muzzle`, below 1 for the short ones), noise, reach, handling and cone. `full` is the identity. |
-| `quality` | `rough`, `service`, `match` | Accuracy (cone); `match` also carries damage, reach and handling. `service` is the identity. |
-| `material` | `mild`, `steel`, `chromed` | Wear per shot: `mild` 1.4, `steel` 1.0, `chromed` 0.7. |
+| `quality` | `rough`, `service`, `match` | Accuracy (cone); `match` also carries damage, reach and handling, and wears 1.4 times as fast, because a true bore is the first to go off true. `service` is the identity. |
+| `material` | `mild`, `steel`, `chromed` | Wear per shot: `mild` 1.4, `steel` 1.0, `chromed` 0.7. Multiplies beside the quality's wear. |
 
 A slow round (muzzle under 1) keeps less of its damage past 60% of its reach, down to its muzzle at
 full reach. A full-speed round keeps all of it, at any range.

@@ -2521,7 +2521,8 @@ not a to-do list:
     was not re-run for that line; docs/30, "The tourniquet is findable".
 - **The barrel governs, 2026-10-27.** A barrel declares three words, `length`, `quality` and
   `material`, and every number it contributes is their product: muzzle speed, noise, reach, cone,
-  handling and wear. The tables are code-owned in `godot/sim/barrel.gd`, and `SimAttachments.spec_of`
+  handling and wear (quality and material both multiply the wear; the match barrel wears 1.4 as a
+  match bore on steel). The tables are code-owned in `godot/sim/barrel.gd`, and `SimAttachments.spec_of`
   resolves a barrel through them, so the fold, the wear and the inspect pane read one derived spec.
   A slow round (muzzle under 1) loses damage past 60% of its reach, down to its muzzle at full reach;
   a full-speed round loses nothing at any range. The six shipped barrels were rewritten to words, and
