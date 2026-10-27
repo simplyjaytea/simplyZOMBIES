@@ -74,6 +74,11 @@ extends SceneTree
 #              a right click opens no menu; the frame paints the zone on explored tiles only; the bar
 #              says what the brush does; Escape puts it down and a second Escape is the menu; with
 #              the brush down the same drag pushes no `stockpile.mark`
+#   REOPEN     reopen scrolls back to a colonist the wheel left off screen, and no frame scrolls
+#              while the screen stays up
+#   ROSTER-KEYS the Colony screen's keyboard: Up and Down move the pick, Left and Right point the
+#              Focus chips, Enter presses one, a walking key and a chipless Enter move and queue
+#              nothing, J still puts the screen away
 #   BUDGET     the whole gate under a minute
 #
 # A lane with no data says so and skips; it never passes quietly.
@@ -215,6 +220,10 @@ func _run() -> void:
 	ok = await _the_body_card_clears_the_you_card(main) and ok
 	ok = await _the_work_grid_fits_and_keeps_its_clicks(main) and ok
 	ok = await _the_work_grid_draws_only_what_something_does(main) and ok
+	# The reopen and keys lanes want the boot's own two-row roster, so they run before the survivor
+	# context lane, which spawns and despawns recruits whose rows it leaves behind in `work_view`.
+	ok = await _a_reopen_scrolls_back_to_the_pick(main) and ok
+	ok = await _the_colony_roster_answers_the_keys(main) and ok
 	ok = await _the_colony_screen_is_one_survivor_context(main) and ok
 	ok = await _the_colony_screen_reads_the_stockpile(main) and ok
 	var sheet_ok: bool = await _tab_opens_the_sheet(main)
@@ -3026,6 +3035,194 @@ func _the_colony_screen_reads_the_stockpile(main: Node) -> bool:
 	await process_frame
 	if ok:
 		print("STOCKPILE OK at 1280x720 and 1920x1080 nobody picked shows the pile, each word the read model's and each name one of its names in order; an emptied pile reads none, dim, naming nothing; no digit but an allowed item name, where an amount of 12 is refused; every row inside the drawer, which holds still between the pile and a person; the stockpile button shows the pile without moving the pick or queueing, a right click does nothing, a chip's place queues nothing, back to Mara shows her; both inks read 4.5:1 on the steel")
+	return ok
+
+
+# The scroll-to-the-pick nit (docs/23's Colony bullet, named there by the slice 2 record):
+# `work_panel.gd` remembered which pick it had last scrolled to across a close, so a colonist
+# wheeled off screen, picked again in the street after another and reopened stood off screen.
+# The fix clears the memory when the
+# panel hides (`NOTIFICATION_VISIBILITY_CHANGED`), so reopen scrolls to the game's pick afresh.
+# True positive: the pick wheeled off the top, screen closed and reopened, the row is drawn again.
+# True negative: with the screen open and the pick unchanged, no frame scrolls on its own -- the
+# wheel stays the player's until the pick changes, which a fix that scrolls every frame would break.
+func _a_reopen_scrolls_back_to_the_pick(main: Node) -> bool:
+	var panel: Control = main.get("_work_panel") as Control
+	var world: Variant = main.get("world")
+	if panel == null or world == null:
+		return _skip("REOPEN", "the scene built no Colony screen")
+	var old_size: Vector2i = root.size
+	root.size = Vector2i(1280, 720)
+	var was_paused: bool = bool(main.get("paused"))
+	var ok: bool = true
+	# The boot's two-row roster fits the screen whole, so a wheel step cannot take the picked row
+	# off it -- the wheeled-off state could never be judged. Spawn recruits until the roster
+	# overflows at 1280x720 (as a click-accept on the bench would); the lane despawns them again,
+	# their "jobPriorities" dropped with them, so `work_view` stays the boot's own afterwards.
+	var jobs: GDScript = load("res://sim/modules/jobs.gd") as GDScript
+	var view: Array = jobs.call("work_view", world) as Array
+	if view.is_empty():
+		return _skip("REOPEN", "the boot colony has nobody to manage")
+	var first: int = int((view[0] as Dictionary)["entity"])
+	main.set("paused", true)
+	main.set("_selected", first)
+	# The lane spawns from the player's row.
+	var at: Dictionary = world.components.get_component(int(world.player), "position") as Dictionary
+	var born: Array[int] = []
+	while born.size() < 12 and (jobs.call("work_view", world) as Array).size() < 7:
+		born.append(int(SimRecruits.spawn_generated(world, SimRecruits.roll(world, world.rng.stream("recruit")), float(at["x"]) + 2.0 + float(born.size()), float(at["y"]) + 1.0)))
+	_tap(KEY_J)
+	main.call("_process", 0.0)
+	await process_frame
+	# The pick is the roster's first row, so one wheel step down would hide it were the wheel
+	# answered; wheeling in a capped loop and asserting the row gone, the wheeled-off state is
+	# judged, not assumed.
+	var grid_y: float = float(panel.get_script().get("GRID_Y"))
+	var off: int = 0
+	var drawn: Dictionary = (panel.get("drawn") as Dictionary).get("rows", {}) as Dictionary
+	for wheel in 5:
+		off = int(panel.get("_row_scroll"))
+		drawn = (panel.get("drawn") as Dictionary).get("rows", {}) as Dictionary
+		if not drawn.has(first) and off > 0:
+			break
+		_mouse(panel.position + Vector2(panel.size.x / 2.0, grid_y + 20.0), MOUSE_BUTTON_WHEEL_DOWN)
+		main.call("_process", 0.0)
+		await process_frame
+	drawn = (panel.get("drawn") as Dictionary).get("rows", {}) as Dictionary
+	if drawn.has(first) or int(panel.get("_row_scroll")) < 1:
+		push_error("REOPEN: the wheel left the picked first row drawn (scroll %d), so the wheeled-off state was not judged" % int(panel.get("_row_scroll")))
+		ok = false
+	main.call("_show_screen", "")
+	await process_frame
+	_tap(KEY_J)
+	main.call("_process", 0.0)
+	await process_frame
+	drawn = (panel.get("drawn") as Dictionary).get("rows", {}) as Dictionary
+	if not drawn.has(first) or int(panel.call("selected")) != first:
+		push_error("REOPEN: the screen reopened with %d picked and the first row %s" % [int(panel.call("selected")), "off screen again" if not drawn.has(first) else "drawn"])
+		ok = false
+	# The wheel keeps being the player's while the screen is up and the pick is unchanged: the same
+	# wheeled-off state, frames passing, no scroll of its own.
+	var held_off: int = -1
+	for wheel in 5:
+		_mouse(panel.position + Vector2(panel.size.x / 2.0, grid_y + 20.0), MOUSE_BUTTON_WHEEL_DOWN)
+		main.call("_process", 0.0)
+		await process_frame
+		held_off = int(panel.get("_row_scroll"))
+		drawn = (panel.get("drawn") as Dictionary).get("rows", {}) as Dictionary
+		if not drawn.has(first):
+			break
+	for i in 3:
+		main.call("_process", 0.0)
+		await process_frame
+	drawn = (panel.get("drawn") as Dictionary).get("rows", {}) as Dictionary
+	if int(panel.get("_row_scroll")) != held_off or drawn.has(first):
+		push_error("REOPEN: a frame scrolled the roster on its own to %d while %d picked" % [int(panel.get("_row_scroll")), first])
+		ok = false
+	main.call("_show_screen", "")
+	main.set("_selected", -1)
+	for e in born:
+		world.components.remove_component(e, "jobPriorities")
+		world.despawn(e)
+	main.set("paused", was_paused)
+	root.size = old_size
+	await process_frame
+	if ok:
+		print("REOPEN OK a colonist wheeled off screen is scrolled to again when the screen reopens on the same pick, and no frame scrolls while the screen stays up")
+	return ok
+
+
+# The Colony screen answers the keys (`work_panel.gd`'s `key`, handed over by input_map.gd's work
+# focus the way the bench's is): Up and Down move the pick along the roster, Left and Right move
+# among the Focus chips, Enter presses the chip pointed at. The bar's keys answer first (Tab, J and
+# K are the screens'), a walking key under the screen moves nobody, and the keyboard never queues
+# without a chip pointed.
+func _the_colony_roster_answers_the_keys(main: Node) -> bool:
+	var panel: Control = main.get("_work_panel") as Control
+	var world: Variant = main.get("world")
+	if panel == null or world == null:
+		return _skip("ROSTER-KEYS", "the scene built no Colony screen")
+	var old_size: Vector2i = root.size
+	root.size = Vector2i(1280, 720)
+	var was_paused: bool = bool(main.get("paused"))
+	main.set("paused", true)
+	main.call("_show_screen", "")
+	var ok: bool = true
+	var jobs: GDScript = load("res://sim/modules/jobs.gd") as GDScript
+	var script: GDScript = panel.get_script() as GDScript
+	var order: Array[int] = []
+	for row in jobs.call("work_view", world) as Array:
+		order.append(int((row as Dictionary)["entity"]))
+	if order.size() < 2:
+		main.set("paused", was_paused)
+		root.size = old_size
+		return _skip("ROSTER-KEYS", "the boot colony has no two rows to move between")
+	# The pick starts on the roster's first row, and Down moves it to the second.
+	var top: int = order[0]
+	var next: int = order[1]
+	main.set("_selected", top)
+	_tap(KEY_J)
+	main.call("_process", 0.0)
+	await process_frame
+	# True positive: Down moves the pick to the next row, for the whole game (a click would).
+	_tap(KEY_DOWN)
+	main.call("_process", 0.0)
+	await process_frame
+	if int(panel.call("selected")) != next or int(main.get("_selected")) != next:
+		push_error("ROSTER-KEYS: Down left the pick at %d (panel %d), not %d" % [int(main.get("_selected")), int(panel.call("selected")), next])
+		ok = false
+	# True positive: Right points the first chip, Auto, and the drawer says what it puts first;
+	# another Right points Fighter; Enter presses it -- one focus command for the picked colonist.
+	_tap(KEY_RIGHT)
+	main.call("_process", 0.0)
+	await process_frame
+	if int(panel.get("_key_chip")) != 0 or String(panel.call("focus_line")) != String(script.call("focus_sentence", "Auto")):
+		push_error("ROSTER-KEYS: Right pointed chip %s, the drawer saying %s, not the Auto sentence" % [str(panel.get("_key_chip")), String(panel.call("focus_line"))])
+		ok = false
+	_tap(KEY_RIGHT)
+	_tap(KEY_ENTER)
+	main.call("_process", 0.0)
+	await process_frame
+	var focus_cmds: Array = _drain(main).filter(func(c: Variant) -> bool: return String((c as Dictionary).get("type", "")) == "job.focus")
+	if focus_cmds.size() != 1 or int((focus_cmds[0] as Dictionary).get("entity", -1)) != next or String((focus_cmds[0] as Dictionary).get("focus", "")) != "Fighter":
+		push_error("ROSTER-KEYS: Enter on the Fighter chip queued %s, not one Fighter focus for %d" % [str(focus_cmds), next])
+		ok = false
+	# True negative: a key that must not move the pick. A walking key answers "move" under this
+	# screen, is swallowed with the body stopped at it, and moves nothing -- no new pick, no queue.
+	_drain(main)
+	_tap(KEY_W)
+	main.call("_process", 0.0)
+	await process_frame
+	if int(panel.call("selected")) != next or int(main.get("_selected")) != next or not _pending(main).is_empty():
+		push_error("ROSTER-KEYS: W under the screen left the pick at %d (panel %d) and queued %s" % [int(main.get("_selected")), int(panel.call("selected")), str(_pending(main))])
+		ok = false
+	# True negative: Enter with no chip pointed queues nothing.
+	panel.set("_key_chip", -1)
+	_drain(main)
+	_tap(KEY_ENTER)
+	if not _drain(main).filter(func(c: Variant) -> bool: return String((c as Dictionary).get("type", "")) == "job.focus").is_empty():
+		push_error("ROSTER-KEYS: Enter with no chip pointed queued a focus")
+		ok = false
+	# True positive: Up moves the pick back to the first row, and a move clears the pointed chip.
+	_tap(KEY_UP)
+	main.call("_process", 0.0)
+	await process_frame
+	if int(panel.call("selected")) != top or int(main.get("_selected")) != top or int(panel.get("_key_chip")) != -1:
+		push_error("ROSTER-KEYS: Up left the pick at %d (panel %d), chip %s" % [int(main.get("_selected")), int(panel.call("selected")), str(panel.get("_key_chip"))])
+		ok = false
+	# The bar is not stolen from: J again puts the screen away, as it answers before this does.
+	_tap(KEY_J)
+	main.call("_process", 0.0)
+	await process_frame
+	if bool(main.get("work_open")):
+		push_error("ROSTER-KEYS: J no longer puts the Colony screen away")
+		ok = false
+	main.set("_selected", -1)
+	main.set("paused", was_paused)
+	root.size = old_size
+	await process_frame
+	if ok:
+		print("ROSTER-KEYS OK the arrows move the pick among the roster rows, Left and Right point the Focus chips and Enter presses one, the pointed chip's sentence follows the keys, a walking key moves nobody and queues nothing, Enter with no chip pointed queues nothing, and J still puts the screen away")
 	return ok
 
 

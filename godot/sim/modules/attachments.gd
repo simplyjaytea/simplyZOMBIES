@@ -65,7 +65,10 @@ const SimInventoryRes = preload("res://sim/modules/inventory.gd")
 # be scaled by something shipped or check_m2_attach.gd's SCALES lane calls it a dead socket, and a
 # foot plate is not a thing anybody asked for.
 const SCALABLE: Dictionary = {
-	"melee": ["damage", "reachMetres", "staggerTicks", "speed"],
+	# `weight` is the swing's own weight, which `recover_ticks` reads, and `connectNoise` is the loudness
+	# of a landed swing, which `_resolve_strike` publishes. Both were already on the profile and both
+	# have a reader; the melee frames arc (docs/23) is what finally wanted them scaled.
+	"melee": ["damage", "reachMetres", "staggerTicks", "speed", "weight", "connectNoise"],
 	"ranged": ["damage", "noise", "flash", "magSize", "reloadTicks", "rangeMetres", "cone", "handling"],
 	"armor": ["head", "torso", "arm_left", "arm_right"],
 }
@@ -134,6 +137,11 @@ static func register_module(world: Variant) -> void:
 					w.events.publish({"type": "attachment.refused", "item": int(c.get("item", -1)), "slot": "", "reason": "no-bench"})
 				elif not detach(w, int(c.get("item", -1))):
 					w.events.publish({"type": "attachment.refused", "item": int(c.get("item", -1)), "slot": ""})
+			elif kind == "item.improvise":
+				var actor: int = int(_gunsmith().call("acting", w))
+				var reason: String = improvise(w, actor, int(c.get("host", -1)), String(c.get("slot", "")), String(c.get("recipe", "")))
+				if reason != "":
+					w.events.publish({"type": "attachment.refused", "item": -1, "slot": String(c.get("slot", "")), "reason": reason})
 	)
 
 	# The same three channels SimItems wears the weapon on, plus the jam -- a stovepipe is hard on
@@ -167,6 +175,67 @@ static func _may(world: Variant, part: int) -> bool:
 	return bool(Gunsmith.call("may_work", world, int(Gunsmith.call("acting", world)), part))
 
 
+static func _gunsmith() -> GDScript:
+	return load("res://sim/modules/gunsmith.gd") as GDScript
+
+
+static func _fortify() -> GDScript:
+	return load("res://sim/modules/fortify.gd") as GDScript
+
+
+## Makes an improvised part and fits it. The recipe is a content entry: a melee part whose
+## `attachment.recipe` names the kinds it costs, one unit each, the uniform cost the owner set in
+## 2026-09-12. Everything that can refuse is checked before anything is spent, in the order a player
+## would hit it: is there a recipe, may the survivor work on it here, is the slot the host's and free,
+## does the base take it, do they carry the materials. Then the materials go and the part is spawned
+## and fitted, which cannot fail once the checks above passed. Returns the refusal reason, or "" on
+## success.
+##
+## Spawned at the "scavenged" tier, which draws no randomness, so improvising a part cannot shift the
+## loot stream -- the same rule `assemble` keeps.
+static func improvise(world: Variant, actor: int, host: int, slot: String, recipe_id: String) -> String:
+	var recipe_base: Variant = SimItemsRes.base_by_id(world, recipe_id)
+	if not recipe_base is Dictionary or not ((recipe_base as Dictionary).get("attachment") is Dictionary):
+		return "no-recipe"
+	var spec: Dictionary = (recipe_base as Dictionary)["attachment"] as Dictionary
+	var recipe: Variant = spec.get("recipe")
+	if not recipe is Dictionary or not ((recipe as Dictionary).get("kinds") is Array):
+		return "no-recipe"
+	var host_base: Variant = SimItemsRes.item_base_of(world, host)
+	if not host_base is Dictionary or not slots_of(world, host).has(slot) or in_slot(world, host, slot) >= 0:
+		return "not-plausible"
+	if not spec_fits(spec, slot) or not takes(host_base as Dictionary, spec):
+		return "not-plausible"
+	if not bool(_gunsmith().call("may_work_spec", world, actor, spec)):
+		return "no-bench"
+	var kinds: Array = (recipe as Dictionary)["kinds"] as Array
+	for kind in kinds:
+		if int(_fortify().call("material_count", world, actor, String(kind))) < 1:
+			return "no-material:%s" % String(kind)
+	for kind in kinds:
+		_fortify().call("consume_material", world, actor, String(kind))
+	var part: int = SimItemsRes.spawn_item(world, recipe_id, {"tier": "scavenged"})
+	if not attach(world, host, part, slot):
+		world.despawn(part)
+		return "not-plausible"
+	world.events.publish({"type": "attachment.improvised", "host": host, "item": part, "slot": slot, "recipe": recipe_id})
+	return ""
+
+
+## Whether a swing with this weapon opens the hand that holds it. A fitted part that declares `handCut`
+## does, on every swing, hit or miss -- and a wrap on the grip stops it, because the wrap slot filled is
+## the glove. Asked by melee.gd's `_resolve_strike` before it looks for anything to hit.
+static func cuts_hand(world: Variant, host: int) -> bool:
+	if host < 0:
+		return false
+	if int(attached(world, host).get("wrap", -1)) >= 0:
+		return false
+	for rec in parts_of(world, host):
+		if bool(((rec as Dictionary)["spec"] as Dictionary).get("handCut", false)):
+			return true
+	return false
+
+
 ## The slot names this host declares, from its base. Empty for anything that takes no attachments.
 static func slots_of(world: Variant, host: int) -> Array:
 	var base: Variant = SimItemsRes.item_base_of(world, host)
@@ -194,13 +263,38 @@ static func spec_of(world: Variant, item: int) -> Variant:
 ## business, not the host's: `fits` lists slot names and any base that declares one takes it,
 ## which is what "move freely between compatible bases" means mechanically.
 static func fits(world: Variant, attachment: int, slot: String) -> bool:
-	var spec: Variant = spec_of(world, attachment)
+	return spec_fits(spec_of(world, attachment), slot)
+
+
+static func spec_fits(spec: Variant, slot: String) -> bool:
 	if not spec is Dictionary:
 		return false
 	for s in (spec as Dictionary).get("fits", []) as Array:
 		if String(s) == slot:
 			return true
 	return false
+
+
+## Whether this part may go into this slot of this host. `fits` says the part is the right shape for
+## the slot; `appliesTo` says the host is the right kind of thing for the part. Both have to hold, and
+## every offer to a slot asks this rather than `fits` alone, so a part the sim would refuse is never
+## put on the bench as a choice.
+static func plausible(world: Variant, host: int, attachment: int, slot: String) -> bool:
+	var spec: Variant = spec_of(world, attachment)
+	if not spec_fits(spec, slot):
+		return false
+	var base: Variant = SimItemsRes.item_base_of(world, host)
+	return base is Dictionary and takes(base as Dictionary, spec as Dictionary)
+
+
+## Whether a base takes a part by its `appliesTo`. Absent or empty means any base; otherwise the base's
+## melee family or its own id has to be named. A ranged base has no family, so a part naming only
+## families goes on nothing ranged, which is what it should do.
+static func takes(base: Dictionary, spec: Dictionary) -> bool:
+	var names: Variant = spec.get("appliesTo")
+	if not names is Array or (names as Array).is_empty():
+		return true
+	return (names as Array).has(String(base.get("family", ""))) or (names as Array).has(String(base.get("id", "")))
 
 
 ## What is in each of this host's filled slots, as {slot_name: item}. A copy.
@@ -225,7 +319,7 @@ static func attach(world: Variant, host: int, attachment: int, slot: String) -> 
 		return false
 	if not slots_of(world, host).has(slot):
 		return false
-	if not fits(world, attachment, slot):
+	if not plausible(world, host, attachment, slot):
 		return false
 	if world.components.has_component(attachment, "attachedTo"):
 		return false
@@ -341,7 +435,7 @@ static func _wear_one(world: Variant, host: int, part: int, amount: float) -> vo
 	var before: float = float((c as Dictionary).get("current", 1.0))
 	if before <= 0.0:
 		return
-	var after: float = maxf(0.0, before - amount)
+	var after: float = maxf(0.0, before - amount * SimItemsRes.condition_loss_of(world, part))
 	(c as Dictionary)["current"] = after
 	if after > 0.0:
 		_refresh(world, host)
@@ -525,7 +619,7 @@ static func required_slots_of(world: Variant, host: int) -> Array:
 # ever asking whether it was a gain or a cost, and keeping polarity out of that is what makes the
 # decay symmetric.
 const POLARITY: Dictionary = {
-	"melee": {"damage": 1, "reachMetres": 1, "staggerTicks": 1, "speed": 1},
+	"melee": {"damage": 1, "reachMetres": 1, "staggerTicks": 1, "speed": 1, "weight": -1, "connectNoise": -1},
 	"ranged": {
 		"damage": 1, "noise": -1, "flash": -1, "magSize": 1, "reloadTicks": -1, "rangeMetres": 1,
 		"cone": -1, "handling": 1,
@@ -544,6 +638,7 @@ const FIELD_WORD: Dictionary = {
 	"melee": {
 		"damage": "stopping power", "reachMetres": "reach",
 		"staggerTicks": "how hard it rocks them", "speed": "swing speed",
+		"weight": "how heavy the swing is", "connectNoise": "how far it is heard",
 	},
 	"ranged": {
 		"damage": "stopping power", "noise": "how far it is heard", "flash": "muzzle flash",
@@ -656,7 +751,7 @@ const SLOT_NOUN: Dictionary = {
 	"barrel": "barrel", "internal": "action", "magazine": "magazine", "furniture": "stock",
 	"muzzle": "muzzle device", "optic": "sight", "sight": "sight",
 	"limb": "limbs", "string": "string", "head": "head", "edge": "edge", "haft": "haft",
-	"wrap": "grip wrap", "underbarrel": "underbarrel",
+	"wrap": "grip wrap", "underbarrel": "underbarrel", "stud": "stud", "guard": "guard", "weight": "weight",
 	"plate": "plate", "lining": "lining", "pocket": "pouch", "face": "visor",
 }
 

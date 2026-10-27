@@ -28,6 +28,7 @@ const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
 const SimStockpile = preload("res://sim/modules/stockpile.gd")
+const SimFortify = preload("res://sim/modules/fortify.gd")
 
 const SCENE_PATH: String = "res://presentation/main.tscn"
 # The two windows the game supports: check_play's WORK-LAYOUT lane lays out at both.
@@ -45,12 +46,21 @@ const NAMES: Array[String] = [
 	"colony_stockpile_picked",
 	"stockpile_window",
 	"dusk_street",
+	"raised_walls",
 ]
 # The Colony screen's two fuller shots (art QA, slice 2): Mara picked by a click on her name, her
 # row made manual by one changed number, the pointer resting on the medic chip; and a roster of
 # CROWD colonists with a generated one picked, so a backstory not authored by hand is shown whole;
 # and the same roster with its last colonist picked in the game, as a click on their body in the
 # street would, so the screen opens scrolled to a row past the fold.
+# The raised-walls shot (the integration's art review): what fortify raises, standing on the day
+# street at noon, offset from the body by tile -- an L of wire fence turning at its corner (so the
+# shot shows a run each way and the turn), then two timber walls and two stone courses beside it.
+const RAISED: Array = [
+	[-3, -2, "fence"], [-2, -2, "fence"], [-1, -2, "fence"], [0, -2, "fence"], [1, -2, "fence"],
+	[-3, -1, "fence"], [-3, 0, "fence"], [-3, 1, "fence"],
+	[2, -2, "timber"], [3, -2, "timber"], [4, -2, "stone"], [5, -2, "stone"],
+]
 const HOVER_FOCUS: String = "Medic"
 const CROWD: int = 7
 # The scrolled shot's roster: more than the 1920x1080 window draws, so both windows scroll.
@@ -567,6 +577,24 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 			# One tick so the sight the window lists by is the sight from here, then E.
 			main.call("_process", TICK_SECONDS)
 			press(tree, KEY_E)
+		"raised_walls":
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			var at: Vector2 = _street_spot(world)
+			if at.x < 0.0:
+				return "no open paved street within %d tiles" % SEARCH_TILES
+			world.components.set_component(world.player, "position", {"x": at.x, "y": at.y})
+			var px: int = floori(at.x)
+			var py: int = floori(at.y)
+			for piece in RAISED:
+				var tx: int = px + int(piece[0])
+				var ty: int = py + int(piece[1])
+				if not SimFortify.can_build(world, tx, ty):
+					continue
+				var ent: int = int(world.entities.spawn())
+				world.components.set_component(ent, "position", {"x": float(tx) + 0.5, "y": float(ty) + 0.5})
+				world.components.set_component(ent, String(SimFortify.BLOCKERS[String(piece[2])]), {"kind": String(piece[2]), "stage": 0, "contactTicks": 0})
+			SimFortify.sync_map(world, true)
+			main.set_meta("raised_walls_at", Vector2i(px, py))
 		"dusk_street":
 			# The day street's spot at dusk: the day grade at weight 0.5, under a darkening sky.
 			world.tick = Clock.tick_on_day(DAY, DUSK)
@@ -839,6 +867,15 @@ static func verify(main: Node, scene: String) -> String:
 			if Clock.phase_of(int(world.tick)) != Clock.Phase.Dusk:
 				return "it is not dusk"
 			return "" if _outdoor_paved(world.tilemap, _tile_under_player(world)) else "the body is not on an open paved street tile"
+		"raised_walls":
+			var origin: Vector2i = main.get_meta("raised_walls_at", Vector2i(-1, -1)) as Vector2i
+			if origin.x < 0:
+				return "the walls were never raised"
+			for piece in RAISED:
+				var ov: Variant = SimTileMap.overlay_at(world.tilemap, origin.x + int(piece[0]), origin.y + int(piece[1]))
+				if not ov is Dictionary or String((ov as Dictionary).get("kind", "")) != String(piece[2]):
+					return "no %s stands at %d,%d from the body" % [String(piece[2]), int(piece[0]), int(piece[1])]
+			return ""
 		_:
 			return "unknown scene %s" % scene
 

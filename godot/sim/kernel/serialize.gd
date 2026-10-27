@@ -155,6 +155,15 @@ extends RefCounted
 # it, set when the hold ends and cleared when a window is taken. A v33 save has none of the three:
 # each walk starts its count at zero and a colonist is not shaken, which is how they were before.
 # No version bump.
+# The tourniquet adds an optional `tourniquets` key to the `injuries` component, an Array of
+# {bodyPart, sinceTick} records, and the raised walls add three components, `timberWall`,
+# `stoneWall` and `wireFence`, each {kind, stage, contactTicks} beside a `position`. All four are new
+# keys on shapes a v33 save already carries, so none needs a bump. A v33 save has no `tourniquets`
+# and reads as nobody tied; it has no wall components and restores with none standing. The wall
+# overlays are not saved: `SimFortify.sync_map` rebuilds them from the components when the world
+# is restored (`world.gd`), so a save carrying a wall comes back with its tile solid and its
+# opacity as the kind says.
+# No version bump.
 const SAVE_VERSION: int = 33
 
 

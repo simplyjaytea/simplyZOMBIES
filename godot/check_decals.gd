@@ -408,6 +408,12 @@ func _a_stray_round_marks_what_stops_it() -> bool:
 		["open door", SimTileMap.Tile.Door, {"kind": "door", "open": true}, "hole"],
 		["window", SimTileMap.Tile.Window, null, "hole"],
 		["boarded window", SimTileMap.Tile.Window, {"kind": "board", "stage": 1}, "chips"],
+		# The raised walls: a timber wall takes chips on its own tile and a stone course a hole on its
+		# own (column 15, past the default where a hole means the wall behind); a wire fence is the
+		# negative, the round goes through it to the wall at column 20.
+		["timber wall", SimTileMap.Tile.Floor, {"kind": "timber", "stage": 0}, "chips"],
+		["stone course", SimTileMap.Tile.Floor, {"kind": "stone", "stage": 0}, "hole", 15],
+		["wire fence", SimTileMap.Tile.Floor, {"kind": "fence", "stage": 0}, "hole"],
 	]
 	for c in cases:
 		var tile_kind: int = int(c[1])
@@ -421,7 +427,7 @@ func _a_stray_round_marks_what_stops_it() -> bool:
 		)
 		_publish_and_step(w3, [{"type": "weapon.fired", "entity": w3.player, "item": -1, "x": 8.5, "y": 12.5, "dx": 1.0, "dy": 0.0, "reach": 30.0, "hit": -1}])
 		var marks: Array = _all(w3)
-		var want_x: int = 20 if String(c[3]) == "hole" else 15
+		var want_x: int = int(c[4]) if c.size() > 4 else (20 if String(c[3]) == "hole" else 15)
 		if marks.size() != 1 or String((marks[0] as Dictionary)["k"]) != String(c[3]) or floori(_at_m(marks[0] as Dictionary).x) != want_x:
 			push_error("ROUND: a round into a %s left %s; it should leave %s at column %d" % [String(c[0]), str(marks), String(c[3]), want_x])
 			return false
@@ -442,7 +448,7 @@ func _a_stray_round_marks_what_stops_it() -> bool:
 	if not _all(w5).is_empty():
 		push_error("ROUND: a round with an empty street in its reach left %s" % str(_all(w5)))
 		return false
-	print("ROUND OK a real pistol miss holed the wall inside its column at %s, a hit marked no wall, a tree and a shut door took chips, an open door and glass let the round through to the wall, a car took a dent, and an empty reach left nothing" % str(hp))
+	print("ROUND OK a real pistol miss holed the wall inside its column at %s, a hit marked no wall, a tree, a shut door and a timber wall took chips, a stone course was holed itself, an open door, glass and a wire fence let the round through to the wall, a car took a dent, and an empty reach left nothing" % str(hp))
 	return true
 
 

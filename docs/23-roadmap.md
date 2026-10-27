@@ -205,14 +205,11 @@ first:
   (roster entry point, job groups, explicit priority and Focus, the six stubs named, a truthful
   "now" line, the drawer and its Skills button). Still open: reflow the skill web itself rather
   than shrinking it to fit (slice 1's stopgap), with the selected node's detail and learn action
-  separate from the web; keyboard navigation of the roster and the chips; and a roster layout
-  for a large colony (review shot `colony_crowd`: at 1280×720 seven colonists show three rows and
-  scroll the rest, because the drawer keeps the room the longest clause needs). One known nit in
-  the scroll to the pick: `work_panel.gd`'s `_scrolled_for` is not cleared when the screen
-  closes, so a colonist wheeled off screen, then picked again in the street after another,
-  can open off screen; clear it when the panel hides, or scroll from main.gd's `_set_work_open`. **Files:** `godot/ui/web_panel.gd`, `godot/ui/web_layout.gd`,
+  separate from the web; and a roster layout for a large colony (review shot `colony_crowd`: at
+  1280×720 seven colonists show three rows and scroll the rest, because the drawer keeps the room
+  the longest clause needs). **Files:** `godot/ui/web_panel.gd`, `godot/ui/web_layout.gd`,
   `godot/ui/work_panel.gd`, and the coordinator's input routing. **Proof:** the web gate's
-  layout lanes and a play lane that drives the roster from the keyboard.
+  layout lanes.
 - **Weapon assembly and contextual actions.** Rework the bench around actual installed
   slots, eligible carried parts and categorical comparisons. Slice 3 (2026-10-24) landed the
   by-hand half of this bullet, field work on a fitted part (C1), the assembly screen with the
@@ -225,8 +222,7 @@ first:
 - **Field HUD and every vehicle instrument layout.** Finish compact prose, six quick slots,
   colony access, interaction hints, speech and event/feedback treatment. Reserve space for
   car, handlebar and board instruments; retain their existing information semantics.
-  One known nit, seen in C4's review shots: at 1280×720 a quick slot cuts a longer name short
-  ("Empty Bo…" for the empty bottle in slot 1); it predates C4. **Files:** HUD, dashboard,
+  **Files:** HUD, dashboard,
   quick strip, motion/cursors and coordinator-owned world UI composition. **Proof:** HUD,
   vehicles, speech, play and skin gates; long prose and all three mounting/driving/exit layouts
   without covering active controls.
@@ -275,11 +271,6 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
 
 *Firearms, readers first (stage 1):*
 
-- **The three dead stats get readers.** `noise_emission`, `condition_loss` and `repair_cost` are
-  declared in `sim/modifiers/stats.gd` and resolved by nothing. The shot reads the first, the
-  wear event the second, the repair verb the third, each on the item. Gate: `godot:m2:ranged`
-  and `godot:m2:attach` lanes that move a stat and watch the reader move; the inert ranged
-  suffixes (`quiet_hand`, `long_nights`, `salvage`, `ruin`) become the true positive.
 - **The barrel governs.** Length, quality and material on a barrel part read into velocity (damage
   falloff and noise), accuracy and wear. The short barrel is louder and wanders; the match barrel
   is heavier and steadier. Gate: `godot:m2:attach` BARREL, a lane per axis.
@@ -301,17 +292,15 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
 
 *Melee, frames and recipes (stage 1):*
 
-- **Melee frames and the widened slots.** The nineteen melee bases gain a `family` (club, blade,
-  polearm, tool) and three new slots: `stud`, `guard`, `weight`, each with `appliesTo` by family.
-  A part in a slot nothing reads is refused by the gate. Gate: `godot:m2:attach` MELEE.
-- **The improvised recipe table.** About twenty-five plausible combinations as content: a knife
-  lashed to a hockey stick, nails in a wooden bat (and the aluminium bat that splits), a blade
-  head on a long haft, a pitchfork head on a pipe with cordage and a fixing. Each names its
-  materials and what it costs the frame. Gate: `godot:m2:bench` RECIPES, with a refused
-  implausible pairing.
 - **Specific melee wear.** Studs fall out on hits through the `struck` wear word (shared with the
   plate piece), an edge dulls and a whetstone restores it, a lashed head flies off one swing in N
   from its own RNG stream. Gate: `godot:m2:swipe` WEAR.
+- **The bench offers improvised parts.** `item.improvise` (`godot/sim/modules/attachments.gd`) makes
+  a part from what the survivor carries and fits it, and only gates send it: no screen does, so a
+  player cannot reach the 25 improvised parts. The bench view lists a recipe row per slot with the
+  materials it would spend, refusals in words, and sends the command. The half that shipped is the
+  sim and its refusals; this is the half that did not. Gate: `godot:m2:bench`, and
+  `godot:check:inventory` for the row's words.
 - **A bespoke weapon may be named.** Past three modifications the player may name the item; the
   name follows the digit ban's item-name clause. Gate: `godot:check:inventory`.
 
@@ -523,12 +512,9 @@ system.
 
 - ~~**Ammo types: the caliber and the round**~~ — **landed** 2026-09-12, see the record.
 - ~~**Food, drink, and the medical quality tiers**~~ — **landed** 2026-09-12, see the record.
-- **The tourniquet, and pressure as a supply.** docs/05's first step is *"pressure, tourniquet,
-  bandage"* and only two of the three exist. A tourniquet is not a dressing grade — it is a fourth
-  thing the `pressure` channel could spend — so it was deliberately **not** authored beside the
-  medical grades: an item with no reader is the dead socket this whole arc exists to stop, and
-  shipping one inside the slice that removed three welds would have been the joke writing itself.
-  Wants a reader on the pressure channel and its own lane.
+- ~~**A tourniquet in a loot table.**~~ **Landed** 2026-10-26 as a default, see the record: one line
+  in `loot.medical` at weight 8, beside the sterile dressing. A loot line moves the ten-seed table
+  and that table was not re-run; the weight is the owner's call (docs/33, card 18).
 - ~~**Clothing, weather gear and bags**~~ — **landed** 2026-09-12, see the record.
 - **Does a coat make you hotter?** Found by the warmth slice and left exactly as it was, because
   changing it is a rule change rather than a bug fix. Positive warmth goes through `_shift_temp`,
@@ -539,17 +525,21 @@ system.
   heat is the owner's call and it breaks that pin.
 - ~~**Cooking and water: the transform keys**~~ — **landed** 2026-09-12, see the record.
 - ~~**Build materials: the substance that is not scrap**~~ — **landed** 2026-09-12, see the record.
-- **Buildables for the other eleven kinds.** The materials slice landed the vocabulary, the content
-  and the loot; what it could not land is an economy. Three recipes exist and **all three want
-  metal**, so wood, planks, stone, fibre, cordage, fixings, ingots, charcoal, clay, wire and
-  circuits are declared, findable, read end to end — and unspent. `check_m2_materials.gd`'s RECIPES
-  lane prints the count and the names on every run rather than letting it go quiet. What closes it
-  is docs/12's own list: a timber wall, a stone course, a wire fence.
+- **Buildables for the other eight kinds.** The materials slice landed the vocabulary, the content
+  and the loot, and the three raised walls of docs/12's own list have landed since (the record
+  says which half). Eight kinds still spend on nothing: wood, fibre, cordage, fixings, ingots,
+  charcoal, clay and circuits. Each needs a verb of its own, with its own decision about what it
+  makes, and its own gate lane. `check_m2_materials.gd`'s RECIPES lane prints the eight names on
+  every run. The pictures of the three new walls are open and belong to the art thread.
+- **Colonists raise no walls.** `SimJobs._construct_work` takes annex windows and beds and nothing
+  else, and the scrap barricade never was colonist work. The three raised walls are built by the
+  survivor on E or by the right-click menu. Whether a colonist should work a marked wall is a
+  Construct decision, not a `_material_for` one: the material already resolves for any kind.
+- **The director does not count the raised walls.** `SimDirector._power` reads the window board and
+  the scrap barricade as the colony's defence, and not the timber wall, the stone course or the wire
+  fence. Adding them changes the director's pressure, which is a balance call and needs the
+  before-and-after run that a rebalance owes.
 - ~~**Light that burns down, and what feeds it**~~ — **landed** 2026-09-12, see the record.
-- **A planted floodlight cannot be picked back up.** The light slice stands one up as furniture,
-  deliberately matching `_place_bench`, and there is no verb to take it down again. That is a real
-  restriction on a thing that came out of the player's own pack, and not obviously what anyone would
-  expect; named rather than left to be discovered.
 - ~~**Noise that is an item**~~ — **landed** 2026-09-12, see the record. Half of it: the eight new
   devices are real, and the alarm and the noisemaker are **still free world singletons**, by the
   owner's decision of 2026-09-12. Repricing them is below.
@@ -565,11 +555,6 @@ system.
   game is strictly a countdown. A refill recipe is the obvious close, and it wants the buildables
   economy above rather than a key of its own.
 - ~~**Comfort that is not food**~~ — **landed** 2026-09-12, see the record.
-- **Nobody seeks comfort, or reads, on their own.** Both the comfort slice and the books slice ship
-  a player verb on the inventory sheet and no autonomy job behind it. A colonist whose mood band has
-  dropped will not go and find the cigarettes, and nobody ever picks up a field manual unaided, so
-  both categories help a colony exactly as much as the player remembers to spend them. The re-arm
-  path in `jobs.gd` is the shape either would copy.
 - ~~**The mask that filters**~~ — **landed** 2026-09-12, see the record.
 - **The explosives docs/09 says already exist.** docs/09's cut list asserted *"they exist as rare
   loot"* and docs/12's military yield lists them, and **no explosive item has ever existed** — zero
@@ -2415,6 +2400,164 @@ What landed and what proved it, system by system (condensed from the retired bac
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **Colony screen follow-ups, 2026-10-26.** Three nits the Colony and HUD bullets named, one piece.
+  - **Reopen scrolls to the pick.** `work_panel.gd` clears `_scrolled_for` on
+    `NOTIFICATION_VISIBILITY_CHANGED`, so a reopened screen scrolls to the game's pick afresh.
+    `godot:check:play`'s REOPEN lane: the wheel takes the picked first row off the roster, the
+    screen closes and reopens, and the row is drawn again (the positive); with the screen up and
+    the pick unchanged, five frames pass without a scroll of their own (the negative).
+  - **The roster and the Focus chips from the keyboard.** Up and Down, which answer "move" under
+    the work focus, move the pick; Left and Right point the chips; Enter ("dismiss") presses the
+    pointed chip. Tab, J and K still answer first (`input_map.gd`, `work_panel.gd`'s `key`).
+    `godot:check:play`'s ROSTER-KEYS lane: Down moves the pick, Right points Auto and again Fighter,
+    Enter queues one `job.focus` for the picked colonist (the positive); W moves nobody and queues
+    nothing, Enter with no chip pointed queues nothing, and J still puts the screen away (the
+    negatives).
+  - **Quick slot names at 1280×720.** `quick_strip.gd` wraps a name into at most two lines in the
+    slot's height (`name_lines`, with `text_room` and `keeps_picture` as the one room the draw and
+    the gate share), marking a cut with the ellipsis only when two lines run out. The empty bottle
+    in slot 1 reads whole in 92 px. `godot:check:hud`'s STRIP lane: the positive is the bottle's
+    whole name; the negatives are that it does not fit the one line the strip drew before, and
+    that a name twice as long is still cut. Review follow-up: `name_lines` fitted only the last
+    line, so one word wider than the room drew past the slot; every appended line is fitted now,
+    and STRIP holds an overlong first word cut with the ellipsis inside the room (red on the old
+    code) beside a short name left whole.
+  - Also run green: `godot:smoke`, `godot:check:inventory`, `godot:check:ui_skin`,
+    `godot:check:respond`, `godot:check:web_look`, `godot:check:context`, `check:routing`.
+- **Items — the three dead stats get readers, 2026-10-26.** The first piece of the firearms arc
+  (readers before content). `noise_emission`, `condition_loss` and `repair_cost` were declared in
+  `sim/modifiers/stats.gd` and two of them resolved by nothing, so the ranged affixes that name
+  `noise_emission` and `condition_loss` moved no number a gun reads. `repair_cost` was read, by
+  the repair verb, for any item. Each is read through the **item's own scope**, the way every
+  affix is scoped, so a quiet hand on one pistol does not quiet the next one holstered:
+  - **The shot and the connect.** `SimItems.noise_emission_of` scales the `noise.emitted` a shot
+    publishes (`ranged.gd`'s `_fire_shot`) and the one a melee connect publishes
+    (`melee.gd`'s `_resolve_strike`), by the profile's `source`. A bare hand and a zombie's body
+    carry no source and read 1.0, so every swing and shot that is not carrying a noise affix is
+    byte-identical to before. A melee swing emits noise only on a connect, so that is the one
+    melee place it is read.
+  - **The wear.** `SimItems.condition_loss_of` scales the amount `SimItems.apply_wear` takes (the
+    host's shot, reload and hit) and the amount `SimAttachments._wear_one` takes off a fitted part.
+    Gun oil and the failed-modification loss in `modification.gd` are not `WEAR_EVENTS` and are not
+    touched.
+  - **The repair.** Read honestly: `repair_cost` has been read since 2026-09-13, by
+    `SimItems.repair_item` lowering the ceiling by `REPAIR_CEILING_DROP` times the repairer's and
+    the item's own factor (the "repair cost is read" entry above). The scrap is still one whole
+    unit. This piece added no code on that path; it adds the ranged proof that an item's own
+    `repair_cost` reaches it.
+  - **What is live on a ranged weapon now.** `quiet_hand`, `salvage`, `ruin` (its `condition_loss`
+    half; its `melee_damage` half is read only by melee) and the `reinforced` prefix, whose
+    `condition_loss` was authored on `weapon.ranged` and was inert. **Still inert on a ranged
+    weapon: `long_nights`.** Its stat, `swing_stamina`, is read only by the melee profile, and what
+    stamina a shot should cost is a design call, not a reader. Named here, not fixed.
+  - **Gates.** `godot:m2:ranged` lane QUIET-SHOT (a real shot: bare 180.0, quiet hand 153.00 at
+    tier zero and 108.00 at tier two, of Salvage 180.0) and lane RUIN-SHOT (one shot leaves a bare
+    pistol at 0.99850 and an of Ruin one at 0.99700, a quiet-handed one at the bare 0.99850).
+    `godot:m2:attach` lanes SWING (an axe connect at 8.00 bare, 6.80 quiet hand, 4.80 at tier
+    two, 8.00 of Salvage), WEAR (a part with `condition_loss` x2 loses exactly twice what it loses
+    plain, and one with `ranged_accuracy` x2 loses the plain amount; a ruined pistol loses
+    0.00300 to one wear event, 0.00150 bare) and REPAIR (a plain pistol's ceiling goes to 0.9500,
+    of Salvage to 0.9600 and 0.9775, a quiet-handed one to 0.9500). `godot:m2:web`'s READERS lane
+    now empties `AWAITING_READER` and drops `condition_loss` and `noise_emission` from the excuses;
+    `EXCUSED_DEAD` is down to four, and `bleed_on_hit` is the only one a shipped affix still writes.
+  - **A global entry is not the item's own.** `noise_emission_of` and `condition_loss_of` resolved
+    the item's scope alone, and a scoped resolve includes the global entries, so a global modifier
+    on either stat would have been read as the item's. They now divide the unscoped value out, the
+    way `repair_cost_factor` does. `godot:m2:attach` WEAR holds it: a global x3 reads 1.0 for a
+    bare item, and an item's own x2 under that global x3 still reads 2.0.
+  - **Not measured.** Affixes are rolled into loot, so a campaign that rolls them will see
+    different wear and noise. No campaign claim is made here and the ten-seed table was not re-run.
+- **Medicine — the tourniquet, and the limb it costs, 2026-10-26.** docs/05's first stop on a bleed
+  is three verbs now, not two. A tourniquet is a fourth thing the pressure channel does, not a
+  dressing grade. The rule and the calls taken are in docs/30, "The tourniquet, and the limb it
+  costs". Gated in `godot:m2:treatment`, lanes TOURNIQUET STOPS, TOURNIQUET COST, LOOSEN, TOURNIQUET
+  REFUSALS and TOURNIQUET OFFERED:
+  - **It stops the limb.** A tie on a bleeding arm or leg holds every open wound on that part shut
+    for `SimWounds.TOURNIQUET_TICKS` (2400); `wounds.bleed` skips a tied part outright, where a hand
+    only suppresses. A tied leg lost 0.0000 blood over 200 ticks against 4.8200 for the untied
+    control, the wound stayed open, and the tie spent the item.
+  - **It costs the limb after the window.** The leg goes to `DESTROYED` and the condition view reads
+    the lasting word `tourniquet` on it (`LASTING_WORDS` gained the one word). The wounds on the
+    lost part are closed with it, so the bleed does not come back (the default taken; docs/33, card
+    17). TOURNIQUET COST asserts the blood stays where it was; LOOSEN holds the negative, that a
+    loosened-in-time leg keeps its open wound. The untied control keeps its integrity and reads
+    `none`.
+  - **Loosening in time is free.** A leg loosened at 300 ticks keeps its integrity and its
+    word-free condition, and the window it left behind costs nothing.
+  - **Refused by name.** A torso, a head and a hand are `not-a-limb`; a clotted leg is
+    `not-bleeding`; a second tie is `already-tied`; a pack with no tourniquet is `no-tourniquet`;
+    loosening an untied limb is `not-tied`.
+  - **Offered and reached.** `options_for` lists both verbs with their reasons, `supply_plan` picks
+    the leg when a torso bleeds beside it, and the item's strip key reaches the same verb. The
+    care pane needed three word-table rows in `godot/ui/care_pane.gd` (a verb it has no words for is
+    skipped), the one UI change.
+  - **Content.** `item.medical.tourniquet` in `godot/content/items/supplies.json`, with a boolean
+    `tourniquet` key declared in `godot/content/schemas/item.schema.json`. `godot:validate` and
+    `npm test` both pass on it. In `loot.medical` at weight 8 since the review that found
+    `godot:m2:gear` CATALOGUE blind to it (its `READ_KEYS` lacked `tourniquet`, `bandageTier`,
+    `attachment` and `recipe`; now it judges all four, and exempts only a part carrying a
+    `recipe.kinds` block, made by `item.improvise` and never looted). The ten-seed balance table
+    was not re-run for that line; docs/30, "The tourniquet is findable".
+- **Melee frames and the widened slots, and the improvised recipe table, 2026-10-26.** The first
+  stage of the melee arc (docs/38). Every melee item declares a `family` (club, blade, polearm or
+  tool): the nineteen melee bases, a new `item.bat.wood` (a twentieth base, so the wooden bat the
+  nails need exists), and the three named melee items. The wooden bat is findable only in
+  `loot.industrial` (weight 5): the same entry in `loot.residential` moved the ten-day balance
+  campaigns, seed 90210 lost its colony in the fast tier, and `godot:m2:balance` refused it
+  (M2_BALANCE_FAIL); in `loot.industrial` the gate passes (M2_BALANCE_OK, 228 s), and `godot:m2:gear`
+  CATALOGUE needs a loot table or kit for every base that does something. Three slots
+  widen the melee bases: `stud`, `guard` and `weight`, each declared only where it is plausible
+  (`item.pipe.steel` takes stud and weight, `item.sabre.cavalry` takes guard, and the aluminium bat
+  takes weight but no stud; Screw Studs, Bolt Studs and Glass Shards name only the wooden hosts,
+  `item.bat.wood` and `item.hammer.claw`, so a steel pipe or a police baton refuses them although
+  both have a stud slot, and PLAUSIBLE holds that refusal by host and not by slot). An attachment
+  declares `appliesTo` beside `fits`, a list of families or base ids, and
+  `SimAttachments.plausible` asks both. Every offer to a slot (the bench view, the
+  field drop, the field-work verb) asks it too, so a refused part is never offered. Twenty-five
+  improvised parts are content in `godot/content/items/improvised.json`. Each carries
+  `attachment.recipe.kinds`, one unit of each material kind spent per part, and `item.improvise`
+  makes the part from what the survivor carries and fits it, checking every refusal before anything
+  is spent. Bench work unless the part is `fieldSwap`. Glass Shards carry `handCut`: a swing on a
+  bare grip that connects scratches the right hand through the wound path a bad exposure uses (kind
+  `cut`, a Scratch that clots on its own; docs/30, "The hand-cut rule, as changed"), and a wrap in
+  the wrap slot stops it. Two profile fields that already had readers became multipliers:
+  `weight` (what `recover_ticks` reads) and `connectNoise` (the loudness of a landed swing). No
+  stat without a reader was authored. Gate: `godot:m2:attach` FAMILY, APPLIES, PLAUSIBLE, RECIPE
+  and CUT; CONTENT exempts a recipe from findability, since it is made and never looted, and APPLIES
+  holds it to being improvisable. Also `godot:m2:bench`, `godot:m2:swipe`, `godot:check:inventory`,
+  `godot:validate`, `npm test` and the full `godot:m2` chain. No pictures: the new parts and the
+  wooden bat have no sprite and fall back through `presentation/appearance.gd` to role colours. Not
+  in this piece: the bench screen does not offer improvised parts yet (the command is sim-reachable
+  and the gate reads it; a screen row is the next step), and the wear of studs and edges is the arc's
+  next piece.
+
+- **Art review of the 2026-10-26 integration, round 1 fixes, 2026-10-27.** The review shot every
+  scene on main and on the integrated head at both windows and found three things, each fixed with
+  the assertion that would have caught it:
+  - **The quick strip drew no item names.** The wrap added the slot's y to a baseline that already
+    held it, so every filled slot's name landed off screen at both windows while STRIP passed on
+    the wrap alone. `QuickStrip.name_baselines` is now the one placement the draw and the gate
+    share; `godot:check:hud` STRIP holds every line of a one- and a two-line name inside the slot
+    box and refuses the doubled y.
+  - **The care pane squeezed the list to no row at 1280x720,** and the list then said "nothing in
+    reach" over an Empty Bottle that was. The list's floor is measured from where its chips really
+    end (`_rows_offset`), and the empty note is drawn only when there are no rows, not when none
+    fits. `godot:check:inventory` CARE ROOM proves the squeeze happens at 1280 and a row survives
+    it (it fails on the old floor). "And more besides" moved from `TEXT_FAINT` (2.6:1) to
+    `TEXT_DIM` (5.8:1), since the tourniquet's refusal now brings it on screen at 1280.
+  - **The wire fence read as a ladder.** Every tile drew two posts and two horizontal strands
+    whatever stood beside it. `presentation/fence_look.gd` lays the strands along the run from the
+    four neighbours, one post per tile at the centre, and mitres an L whose square post caps both
+    joints. A run's open end stops at its post and a run that ends at a wall reaches it (a side is
+    open, fence, or an anchor: anything solid). `godot:check:topdown` FENCE judges both runs, both
+    ends, a run against a wall, a lone tile, a tee and both corners against extents written from
+    the rules, and that `_draw_fence_wire` lays its pieces from the neighbours. Round 2 of the
+    review caught the open end's loose wire and a corner post that touched no strand; both lanes
+    fail on that version. A new review scene, `raised_walls`
+    (`godot:check:shots`), stands an L of fence, two timber walls and two stone courses on the day
+    street. Still open, as before: timber and stone draw as a building's wall until they have
+    pictures.
 
 - **UI overhaul, slice 2: the Colony screen in one survivor context, 2026-10-23.** The second
   bullet of [the UI overhaul group](#ui-overhaul), its Colony half, against docs/32's roster row.
@@ -13470,6 +13613,31 @@ not a to-do list:
   **The screen's half is one word.** `fuel_clause` gives the inspect pane "burning steadily",
   "burning low", "guttering" or "dark" and nothing at all for something that is not a lamp — never a
   fraction, never a count — and `check_inventory.gd`'s digit ban judges it with the rest of the pane.
+- **Items** — ~~a planted floodlight cannot be picked back up~~ **landed** 2026-10-26
+  (`npm run godot:m2:light_burn` → **`M2_LIGHT_BURN_OK pinned content slots burn headlamp feed plant
+  unplant siphon night`**, the UNPLANT lane added to the existing gate; `godot:check:context`'s VERBS
+  lane for the menu row; `godot:m2:torch` and `godot:check:light` held), the **take-down verb for
+  the furniture the light slice stood up**.
+
+  **The way back is the plant's own reach.** `light.unplant` takes the nearest planted lamp within
+  fortify's `REACH` of the actor, the distance `_start` enforced before the channel opened, and puts
+  it into the pack. The `lightFuel` record goes with it, so the same entity stands up again half
+  burnt. The pack is asked first: a full grid refuses through the inventory's own answer, the
+  self-store and position come back, and the lamp keeps burning where it stands.
+
+  **The menu row is the sim's own predicate.** `SimContext.verbs_at` offers "take down the
+  floodlight" on a planted lamp only when `planted_in_reach` names that lamp, and the row carries
+  `light.unplant` as its command, dispatched as every row is. Bare ground beside it offers nothing.
+
+  **What the yard check proves, and what it cannot.** The plant writes nothing to the map, so the
+  3x3 was never blocked and there is no tile to restore. The lane checks that the patch is walkable
+  after the take-down and that the walkable scan can tell a wall from open ground. It does not show a
+  restored tile, because there was no tile to restore.
+
+  **It reverses a recorded call.** docs/30's "Two placeable items, two opposite answers" (2026-09-12)
+  made the floodlight one-way on purpose. The owner taking the piece up supersedes that call; see
+  docs/30's "The floodlight comes back down" (2026-10-26).
+
 - **Items** — ~~clothing: warmth, wet and cooling~~ **landed** 2026-09-12
   (`npm run godot:m2:warmth` → **`M2_WARMTH_OK pinned content compose bands cool wet rain armour
   art`**, a new gate with nine lanes, every one run red; `godot:m2:cold`, `godot:m2:heat`,
@@ -13761,8 +13929,8 @@ not a to-do list:
   `until % 20 != 0`, so the offset cannot silently stop working. Found by sabotage, not by review.
 
   **Shipped whole, with one limitation recorded rather than hidden:** comfort is a player and NPC
-  *verb*, and no autonomy job makes a colonist seek it out when their mood drops. Named in what's
-  left, shared with the books slice.
+  *verb*, and no autonomy job makes a colonist seek it out when their mood drops. The autonomy half
+  landed 2026-10-26, in the record below.
 - **Items** — ~~books that teach~~ **landed** 2026-09-12
   (`npm run godot:m2:teach` → **`M2_TEACH_OK pinned content reach twice bound save`**, a new gate of
   six lanes, all six broken and watched go red; `godot:m2:web`, `godot:m2:gear`, `godot:m2:needs`,
@@ -13795,7 +13963,43 @@ not a to-do list:
   `godot/content/items/books.json`, nineteen loot rows, additive and verified.
 
   **Shipped whole**, with the same limitation as comfort: reading is a player verb and no NPC ever
-  chooses to read.
+  chooses to read. The autonomy half landed 2026-10-26, in the record below.
+- **Items** — ~~nobody seeks comfort, or reads, on their own~~ **landed** 2026-10-26
+  (`npm run godot:m2:comfort` → **`M2_COMFORT_OK ... autonomy`**, its AUTONOMY lane; `npm run
+  godot:m2:teach` → **`M2_TEACH_OK ... read`**, its READ lane; `godot:m2:jobs` DOING holds both new
+  kinds to their words; `godot:m2:autonomy`, `godot:m2:needs` and `godot:m2:gear` held), the autonomy
+  half of the comfort and books slices.
+
+  **Both kinds are the re-arm and dress shape, and both spend through the player verb's own
+  functions.** Comfort is a between-jobs claim beside Dress: a colonist below `content` takes the
+  comfort in his pack where he stands, or walks to one on the pile, claims it with `_claim_live`,
+  and spends it through `SimNeeds.take_comfort`. Read is the idle fallback in `_pick`, reached only
+  after every ranked column has come back empty, and spends through `SimNeeds.read_book`. Both are
+  in `JOB_KINDS`, `DANGER_KINDS` and `WorkRead.JOB_WORDS` ("taking a moment", "reading a book").
+
+  **The COMFORT lane's true negative is a content colonist who leaves the identical pack of
+  cigarettes on the pile**, and the READ lane's is a colonist with Water work pending who takes the
+  Water job and leaves the book shut. The READ precondition (the Water work exists) is asserted
+  first, so the negative cannot pass on a fixture with nothing to lose to.
+
+  **A storm makes no job it would take back.** `_refused_outdoors` drops a Comfort or Dress job to an
+  outdoor item on the tick after it is made, so a low-mood colonist beside an outdoor pile was handed
+  the job and had it taken away every tick of a storm. `_comfort_job`, `_read_job` and `_dress_job`
+  now skip an outdoor item while the sky refuses outdoor work (`_storm_keeps_off`). The COMFORT
+  lane's STORM section holds it: the same outdoor pile is handed over under a clear sky and not
+  under a storm, and a pile on the annex floor, under a roof, is still handed over in the storm.
+
+  **The pile survives one colonist's comfort.** The first cut stowed the whole pile stack in the
+  colonist's pack before spending one unit of it, so a stack of three packs vanished from the
+  stockpile at one colonist's first smoke. `_do_comfort` now spends where the item lies: one unit
+  comes off a stack and the rest stays on the pile unclaimed, and a reusable comfort (cards, a
+  rosary) is used and left whole. The COMFORT lane's PILE-STACK section holds it: a pile of three
+  holds two afterwards, nothing was carried off, no claim is left, a second colonist is handed what
+  is left, and a deck is still on the pile after it is played. It failed on the stowing version.
+
+  **The READ lane found a silent drop.** `_do_read` looked the book up through the content entry,
+  not the `itemBase` component, so `can_learn_from` saw an empty base id and the colonist stopped at
+  the shelf with nothing read and no event. The pile lane failed on it before the fix.
 - **Items** — ~~cooking and water: the transform keys~~ **landed** 2026-09-12
   (`npm run godot:m2:transform` → **`M2_TRANSFORM_OK pinned content cook order boil purify rank
   reach`**, a new gate of eight lanes; `godot:m2:jobs`, `godot:m2:needs`, `godot:m2:gear`,
@@ -13908,6 +14112,75 @@ not a to-do list:
   findable and wired end to end; **three recipes exist and all three want metal**, so eleven kinds
   have nothing to spend them on yet. The RECIPES lane prints that count and those names every time
   rather than letting it go quiet, and the remainder is named as its own piece in what's-left.
+- **Items** — **the three raised walls** landed 2026-10-26, **half of the eleven-kind bullet**
+  (`npm run godot:m2:materials` → **`M2_MATERIALS_OK pinned kind kinds findable reach recipes builds`**,
+  with the RECIPES lane now printing eight unspent kinds where it printed eleven; `godot:m2:fortify`
+  → **`M2_FORTIFY_OK ... the three raised walls, and the E ladder that puts them above the alarm`**, its
+  WALLS and E-LADDER lanes; `godot:check:context`
+  → **`CONTEXT_OK`**, its RAISED lane; the full `godot:m2` chain before the commit). Each lane was
+  broken on purpose and watched go red: a timber recipe pointed at metal, a fence made opaque in the
+  tile map alone, a fence made opaque in the shadowcast alone, and the press loop switched off.
+
+  **Three recipes, one substance each.** A timber wall wants a plank, a stone course a stone block,
+  a wire fence a steel wire, and each is a row of `SimFortify.RECIPES` beside `scrap`, `bench` and
+  `repair`. The table maps a verb to one kind, so a recipe that wanted a pair (fixings to hand,
+  cordage to lash) would be a shape change, not a row, and none was taken. Each raises its own
+  component (`timberWall`, `stoneWall`, `wireFence`) carrying its own `kind`, which `sync_map` reads
+  back into the map overlay, so the tile map, the kernel and vision all see one shape. A wall is for
+  the middle of the yard: `can_build` is the barricade's ground rule without the window-side rule,
+  and more than one may stand.
+
+  **The sim distinguishes the two blocking halves, and the fence uses it.** A timber wall and a
+  stone course are solid and opaque, as the barricade is. **A wire fence is solid and clear**:
+  `SimTileMap.is_solid`, `opacity_at` and the shadowcast's `_overlay_opacity` all answer for it, so
+  it stops a body and the eye goes through it. WALLS asserts all of it through `blocks_sight`,
+  `is_blocked_tile` and the shadowcast's own sightline.
+
+  **Channel and press numbers are a first cut and unmeasured.** The channels are 80 ticks for the
+  timber wall, 160 for the stone course and 30 for the fence. Under crowd pressure a stage costs 120,
+  180 and 60. Nothing here is a balance claim: WALLS holds the one ordering the design needs, that a
+  fence falls to one presser inside 260 ticks and a stone course does not, and the number is the
+  owner's to re-measure.
+
+  **Colonists build none of them, and the record says so rather than leaving it to be found.**
+  `_construct_work` takes annex windows and beds, and `_material_for` already resolves any
+  `MATERIAL_KINDS` kind, so it needed no change; a marked wall a colonist could work is a separate
+  piece, named above.
+
+  **A raised wall's breach buys no quiet night.** `fortify.breached` says the wall's kind, and the
+  director's `director.breach-lull` answers only `board`, `door` and `scrap` (`LULL_BREACH_KINDS`).
+  Without that read a one-wire fence that falls in seconds would have bought a lull every day,
+  against the line above that the director does not count the raised walls. WALLS holds the
+  negative (a fence breach starts no lull, with the director registered in the world); PRESS holds
+  the positive (a door breach still does).
+
+  **The E ladder is pinned.** The walls sit above the alarm and the noisemaker, so E on open floor
+  with a plank raises a timber wall and, with no material, lays the alarm. E-LADDER asks both
+  `rung_of` and the key itself, so the read and the act cannot name different rungs.
+
+  **A round marks the wall it hits.** `SimDecals.surface_of` knew only the scrap barricade among
+  the overlays, so a round into a raised wall marked what stood behind it. A timber wall takes
+  chips and a stone course a hole on its own tile; the wire fence is left out on purpose, as glass
+  is, because a round goes through it. `godot:check:decals` ROUND holds the two marks and the fence
+  as the negative.
+
+  **A wall is not raised on top of anything.** `can_build` takes the world and, past the ground
+  rule, refuses a tile holding a body, a loose item, a water source, a bed, a workbench, a placed
+  light, a campfire, a latrine or a container, and `_place_wall` re-asks it when the channel ends,
+  so a body that stepped onto the tile mid-channel spends the channel and the plank stays in the
+  pack. WALLS holds a body and a loose item as true negatives against the clear tile that took the
+  wall, each broken on purpose and watched go red.
+
+  **Pictures are open.** The timber wall and the stone course draw as the procedural wall tile in
+  `presentation/main.gd`, which is what keeps a blocked tile from drawing as floor. The wire fence
+  does not: it draws the floor it stands on with two posts and two strands over it in its own
+  palette token (`Palette.COLOURS["fence"]`, `_draw_fence_wire`), because the eye goes through it.
+  `godot:check:topdown` FENCE holds it (token brighter than the wall's; the fence arm sets no wall
+  tile and the timber-and-stone arm beside it does; red when the fence arm is made a wall). No
+  `prop.*` sibling was added to `stations.json`: the scrap barricade's picture is read only through `PROP_KINDS` in
+  `appearance.gd`, and wiring the walls to it would stand a barricade picture over every wall, so
+  it waits for the art thread's own pictures.
+
 - **Items** — ~~the mask that filters~~ **landed** 2026-09-12
   (`npm run godot:m2:filter` → **`M2_FILTER_OK content worn max bloom cloud notsafe pinned`**, a new
   gate whose seven lanes were each broken and watched go red before they were trusted;

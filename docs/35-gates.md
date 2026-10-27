@@ -33,7 +33,7 @@ npm run godot:m2:attach  # attachment slots          → M2_ATTACH_OK
 npm run godot:m2:ammo    # calibers, and what a round changes → M2_AMMO_OK
 npm run godot:m2:hands   # bare hands, never actually empty  → M2_HANDS_OK
 npm run godot:m2:wounds  # severity, the bleed clock  → M2_WOUNDS_OK
-npm run godot:m2:treatment # pressure and bandaging   → M2_TREATMENT_OK
+npm run godot:m2:treatment # pressure, bandaging, tourniquet → M2_TREATMENT_OK
 npm run godot:m2:medicine  # supply grades: antibiotics, painkillers, a cure for illness → M2_MEDICINE_OK
 npm run godot:m2:filter    # what a mask keeps out of a bloater's cloud → M2_FILTER_OK
 npm run godot:m2:materials # what a recipe is made of, by kind → M2_MATERIALS_OK

@@ -183,8 +183,10 @@ static func shadowcast(map: Variant, origin_x: int, origin_y: int, range_tiles: 
 # `SimTileMap.opacity_at`'s overlay half: -1 where the overlay says nothing and the class decides.
 static func _overlay_opacity(ov: Dictionary) -> int:
 	var kind: String = String(ov.get("kind", ""))
-	if kind == "scrap":
+	if kind == "scrap" or kind == "timber" or kind == "stone":
 		return SimTileMapRes.Opacity.Opaque
+	if kind == "fence":
+		return SimTileMapRes.Opacity.Clear
 	if kind == "board":
 		if int(ov.get("stage", 0)) >= 3:
 			return SimTileMapRes.Opacity.Low
