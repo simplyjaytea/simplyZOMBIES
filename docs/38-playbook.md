@@ -252,11 +252,10 @@ trade before factions exist.
 
 ## Open owner calls
 
-[docs/33](33-owner-decisions.md#waiting-on-the-owner) is the list. The two newest, from the
-balance work after the alpha:
-
-- **Antibiotic loot weight.** Should a course stay rare, or become easier to find? Item 11.
-- **A held colonist striking its holder.** The default is no, and nothing is built. Item 12.
+[docs/33](33-owner-decisions.md#waiting-on-the-owner) is the list, and the only one. This file
+names no card on purpose: a list copied here is out of date after the next card, the same reason
+it carries no commit hash. Every card has a default that is already built, so none of them blocks
+a piece.
 
 ## The shared folder
 
@@ -266,8 +265,9 @@ instructions.
 
 | Folder | What is in it |
 |---|---|
-| `planning/` | Plans, one subfolder per topic. The 2026-10-19 alpha plan sits at the top. |
-| `planning/balance/` | Playtest reports (`report.md`, `report-noise.md`) and raw runs |
+| `planning/` | Plans, one subfolder per topic. Dated plans (the 2026-10-19 alpha plan, the 2026-10-24 feature plans) sit at the top. |
+| `planning/balance/` | Playtest reports (`report.md`, `report-noise.md`, `report-ten-seed.md`), raw runs, and `ten-seed/`, one file per commit and seed |
+| `planning/<topic>/` | One per feature or slice (`stockpile/`, `night-torch/`, `ui-slice-N/` and so on): its review, its before and after shots, its QA rounds |
 | `planning/repo-cleanup/` | The branch audit and the 2026-10-23 cleanup plan |
 | `a7-animation/` | Walk exports |
 | `a8-actions/` | Action strips (`clothed/`, `clothed/falls-roundN/`, `zombies/roundN/`), each round with its QA report `qa-roundN.md` |
