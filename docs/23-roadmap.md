@@ -2423,13 +2423,27 @@ not a to-do list:
   - **Dead socket.** PLAYABLE: 120 nights from day 10 on the shipped district. Each band's bodies
     carry the doctrine the director announced, and a siege body's cached objective is the ring
     `_siege_site` finds, with no storm before its wait.
-  - **Not built.** Trade (docs/33 item 16). Roaming bands keep no doctrine. A siege with no walls box to hold
-    outside (no annex) stands where it came in; it does not fall back to walking at the gate.
-    The siege reads the annex rect, not a camp footprint, so a camp's siege has no ring of its
-    own yet.
-  - **Measured.** `godot:m2:balance` before and after, same machine: `godot:m2:balance` on main (d942876d) and on head, back to back on this machine: the four FAST seed lines are identical (raids 0, 1, 0, 0 on both arms; seed 404 is the one seed with a raid, two in and none down). FAST compresses the campaign, so it shows no doctrine effect either way. The siege wait and the probe turn are not measured by it. The ten-seed
-    table was not re-run: owed by the post-arc re-baseline. No HUD change; the player is not told
-    the doctrine.
+  - **No ring, and the lookout.** A siege with no walls box to hold outside (no annex anchor, or
+    no legal floor 2 to 4 tiles around it) is marked storming on its first read and walks at the
+    gate as a raid does, rather than standing at the edge for the rest of the run, never
+    withdrawing and counting against `RAID_LIVE_CAP`. A lookout in a siege holds on the ring with
+    the band; its twelve-metre stand-off applies to the gate once the band storms, not to the
+    ring. SIEGE-NO-RING: three bodies with a lookout among them all within 2.5 m of the ring
+    after 1,200 ticks and none storming; the same band with the annex anchor erased is storming on
+    its first read, caches the gate, and closes more than 5 m on it in 300 ticks. The lookout's
+    first-loss rule is unchanged: a siege with a lookout in it still turns home at the first loss.
+  - **Not built.** Trade (docs/33 item 16). Roaming bands keep no doctrine. The siege reads the
+    annex rect, not a camp footprint, so a camp's siege has no ring of its own yet.
+  - **Measured.** `godot:m2:balance` on main (d942876d) and on head, back to back on the same
+    machine: the four FAST seed lines are identical (raids 0, 1, 0, 0 on both arms; seed 404 is
+    the one seed with a raid, two in and none down). FAST compresses the campaign, so it shows no
+    doctrine effect either way. The siege wait and the probe turn are not measured by it. The
+    ten-seed table was not re-run: owed by the post-arc re-baseline. `godot:bench:runtime`, main
+    (d942876d) against the reviewed head, three runs each interleaved on a loaded review
+    container: shipped-tick median mean 15.47 ms against 14.27 ms, colony-tick 18.26 ms against
+    20.31 ms, both inside that box's 1 to 4 ms run-to-run noise; the bench window holds no
+    raider, so the one added per-raider read (`doctrine_of`) is not in it either way. No HUD
+    change; the player is not told the doctrine.
 
 - **The bench offers improvised parts, 2026-10-27.** The melee arc's way in: `item.improvise` had
   only ever been sent by gates, and now the assembly screen sends it. `SimGunsmith.bench_view`

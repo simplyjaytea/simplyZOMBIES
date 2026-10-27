@@ -103,10 +103,11 @@ func _run() -> void:
 	ok = _a_siege_storms_the_wall_after_its_wait() and ok
 	ok = _a_siege_strikes_what_comes_into_reach_and_not_what_is_inside() and ok
 	ok = _a_siege_turns_at_half_and_not_at_the_first_loss() and ok
+	ok = _a_siege_with_no_ring_storms_at_once_and_a_lookout_holds_on_the_ring() and ok
 	ok = _a_band_without_a_doctrine_reads_as_a_raid() and ok
 	ok = _the_playable_district_draws_and_reads_a_doctrine() and ok
 	if ok:
-		print("M2_RAIDERS_OK archetypes draw grace approach blood prey seed death ledger withdraw pool looks distinct no-identity look-reader no-tell streams save chronicle looter lookout role-read fighter crosses engages roam-stream event cap roam-roles skilled debug-band doctrine-draw probe raid-same siege-hold siege-storm siege-reach siege-half doctrine-load playable-doctrine")
+		print("M2_RAIDERS_OK archetypes draw grace approach blood prey seed death ledger withdraw pool looks distinct no-identity look-reader no-tell streams save chronicle looter lookout role-read fighter crosses engages roam-stream event cap roam-roles skilled debug-band doctrine-draw probe raid-same siege-hold siege-storm siege-reach siege-half siege-no-ring doctrine-load playable-doctrine")
 		quit(0)
 	else:
 		push_error("M2_RAIDERS_FAIL")
@@ -3378,6 +3379,77 @@ func _a_siege_turns_at_half_and_not_at_the_first_loss() -> bool:
 		return false
 	print("SIEGE-HALF OK a siege held through the first loss and turned for home when one of three was left")
 	return true
+
+
+# SIEGE-NO-RING. Two things the ring decides. With a walls box, every body of a siege holds on the
+# ring, the lookout included: the ring is the band's stand-off, so the lookout does not stand off
+# twelve metres from it and run the withdrawal clock while the rest run the wait. With no walls
+# box there is no ring and nothing to hold outside: the band is marked storming on its first read
+# and walks at the gate as a raid does, rather than standing at the edge forever, never
+# withdrawing and counting against the live cap. The same band, the same arena, the annex anchor
+# erased, is the one change between the two arms.
+func _a_siege_with_no_ring_storms_at_once_and_a_lookout_holds_on_the_ring() -> bool:
+	var gate_centre := Vector2(16.5, 20.5)
+	# The arm with a ring: three bodies, one of them a lookout, all on the ring after the walk.
+	var ring_w: Variant = _stores_arena()
+	var ring_band: Array = _no_ring_band(ring_w)
+	var ring: Vector2i = SimRaiders._siege_site(ring_w, ring_w.components.get_component(int(ring_band[0]), "raider") as Dictionary)
+	if ring.x < 0 or ring.y < 0:
+		push_error("SIEGE-NO-RING: the stores arena has no ring tile, so the arm with a ring has nothing to judge")
+		return false
+	for _t in SIEGE_HOLD_TICKS:
+		ring_w.step()
+	var ring_centre := Vector2(float(ring.x) + 0.5, float(ring.y) + 0.5)
+	var worst: float = 0.0
+	for ent in ring_band:
+		var r: Dictionary = ring_w.components.get_component(int(ent), "raider") as Dictionary
+		if bool(r.get("storming", false)):
+			push_error("SIEGE-NO-RING: a siege with a ring to hold stormed inside %d ticks" % SIEGE_HOLD_TICKS)
+			return false
+		var pos: Dictionary = ring_w.components.get_component(int(ent), "position") as Dictionary
+		worst = maxf(worst, Vector2(float(pos["x"]), float(pos["y"])).distance_to(ring_centre))
+	if worst > 2.5:
+		push_error("SIEGE-NO-RING: a body of a siege with a ring stood %.2f m from it after %d ticks (the lookout standing off the ring?)" % [worst, SIEGE_HOLD_TICKS])
+		return false
+	# The arm without: the annex anchor erased, so `_siege_site` has no box. Storming from the first
+	# read, the gate as the goal, and the band walking at it.
+	var bare_w: Variant = _stores_arena()
+	bare_w.tilemap.anchors.erase("annex")
+	var bare_band: Array = _no_ring_band(bare_w)
+	if SimRaiders._siege_site(bare_w, bare_w.components.get_component(int(bare_band[0]), "raider") as Dictionary) != Vector2i(-1, -1):
+		push_error("SIEGE-NO-RING: the arena with its annex erased still has a ring, so the arm proves nothing")
+		return false
+	var start: Dictionary = bare_w.components.get_component(int(bare_band[0]), "position") as Dictionary
+	var far: float = Vector2(float(start["x"]), float(start["y"])).distance_to(gate_centre)
+	bare_w.step()
+	for ent in bare_band:
+		var r: Dictionary = bare_w.components.get_component(int(ent), "raider") as Dictionary
+		if not bool(r.get("storming", false)):
+			push_error("SIEGE-NO-RING: a siege with no ring was not marked storming on its first read")
+			return false
+		if Vector2i(int(r.get("goalX", -1)), int(r.get("goalY", -1))) != SimHome.approach(bare_w):
+			push_error("SIEGE-NO-RING: a siege with no ring cached %s, not the gate %s" % [str(Vector2i(int(r.get("goalX", -1)), int(r.get("goalY", -1)))), str(SimHome.approach(bare_w))])
+			return false
+	for _t in 300:
+		bare_w.step()
+	var end: Dictionary = bare_w.components.get_component(int(bare_band[0]), "position") as Dictionary
+	var near: float = Vector2(float(end["x"]), float(end["y"])).distance_to(gate_centre)
+	if far - near < 5.0:
+		push_error("SIEGE-NO-RING: a siege with no ring closed only %.1f m on the gate in 300 ticks, so it stood where it came in" % (far - near))
+		return false
+	print("SIEGE-NO-RING OK with a ring, three bodies (a lookout among them) held within %.2f m of it for %d ticks and none stormed; with the annex erased the band was storming on its first read, cached the gate, and closed %.1f m on it in 300 ticks" % [worst, SIEGE_HOLD_TICKS, far - near])
+	return true
+
+
+# Two scavengers and a lookout on the stores arena, stamped a siege.
+func _no_ring_band(w: Variant) -> Array:
+	var band: Array = []
+	band.append(SimRaiders.spawn(w, 13.5, 3.5, "raider.scav"))
+	band.append(SimRaiders.spawn(w, 14.5, 3.5, "raider.scav"))
+	band.append(SimRaiders.spawn(w, 15.5, 3.5, "raider.lookout"))
+	SimRaiders.stamp_band(w, band, 81)
+	SimRaiders.stamp_doctrine(w, band, SimRaiders.DOCTRINE_SIEGE)
+	return band
 
 
 func _kill(w: Variant, ent: int) -> void:

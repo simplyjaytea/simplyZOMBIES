@@ -6634,10 +6634,19 @@ has the gate lanes). Four calls were taken while it was built.
   does. The ring is the nearest legal tile to the band's entry, deterministic and draws nothing.
   The wait is `SimRaiders.SIEGE_WAIT_TICKS`, 6,000 ticks: two in-game hours, a day being 72,000
   ticks and 24 in-game hours. It is a first cut. It is counted from the tick the band reaches its
-  ring, and a fight pauses it, since a halted band does not run the arrival clock. After the storm
+  ring, the way the withdrawal clock is counted from arrival: a fight within reach halts the body
+  before the storm is checked, so the storm never lands mid-fight, but the ticks still count, and
+  a fight that outlasts the wait is followed by the storm on the first quiet tick. After the storm
   the usual withdrawal rules apply: the half-strength clause and the arrival clock. The first pick
   drafted for this item (goes home at dawn) was replaced before merge and is not built. The camp by
   the water is not built.
+- **No ring means a raid, not a band at the edge forever.** The first draft had a siege with no
+  walls box to hold outside stand where it came in. That band would never run a clock, never
+  withdraw, and count against `RAID_LIVE_CAP` for the rest of the run, which is a district whose
+  raids quietly stop. The end review changed it: a siege whose `_siege_site` finds no ring is
+  marked storming on its first read and is a raid from then on. For the same reason a lookout in
+  a siege holds on the ring with the band rather than standing off twelve metres from it; its
+  stand-off is from the gate, after the storm.
 - **Probe widens the lookout's rule, it does not add one.** The first loss turns every body of a
   probe. The lookout's own rule is unchanged and still reads the role.
 - **Trade is not built.** docs/33 item 16 is still the owner's, default no. `trade` is not in the
@@ -6717,8 +6726,9 @@ Zombie kind eight, content only: `godot/content/zombies/bloodhound.json`, with n
   waits for its own piece ("The bloodhound's nose as a seek", docs/23's what's left). The
   SCENT-ONLY lane holds what was built; it does not claim the kind out-hunts the shambler.
 - **docs/14's table against the content.** The tracker row reads noise Low, light Low, scent
-  Extreme. The content is 0, 0, 1.0: deaf by the what's-left bullet's own words, blind by docs/33
-  the owner's 2026-10-27 call. The table row is a stage behind the content until the sight card is taken.
+  Extreme. The content is 0, 0, 1.0: deaf by the what's-left bullet's own words, blind by the
+  owner's 2026-10-27 call. The table row is a stage behind the content until the sight card is
+  taken.
 - **Locomotion: speed 1.0, wander 0.35, mill 0.25, crawl 0.25.** Speed is the stalker's 1.0, a
   little above the shambler's 0.8. The rest are the shambler's, so the difference is what it
   follows, not how it walks.
