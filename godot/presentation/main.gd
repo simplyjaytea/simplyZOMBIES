@@ -59,6 +59,7 @@ const WorldLayersRes = preload("res://presentation/world_layers.gd")
 const LightMapRes = preload("res://presentation/light_map.gd")
 const DayGradeRes = preload("res://presentation/day_grade.gd")
 const StockpileLook = preload("res://presentation/stockpile_look.gd")
+const FenceLook = preload("res://presentation/fence_look.gd")
 const SimStockpile = preload("res://sim/modules/stockpile.gd")
 
 const TICK_HZ: int = 20
@@ -1798,7 +1799,7 @@ func _draw_district(region: Rect2i, bake_pass: int) -> void:
 						# under it, because litter blows onto a road marking and not beneath one.
 						_draw_scatter(rect, dress, tx, ty)
 			if fence_wire:
-				_draw_fence_wire(rect, Palette.remembered(Palette.COLOURS["fence"]) if remembered else Palette.COLOURS["fence"])
+				_draw_fence_wire(rect, Palette.remembered(Palette.COLOURS["fence"]) if remembered else Palette.COLOURS["fence"], tx, ty)
 
 # The world under the bodies, every frame: the baked layers brought up to date and moved with the
 # camera, then the dressing and the props drawn fresh on top of them. What is baked is everything
@@ -2311,15 +2312,28 @@ func _draw_solid_tile(rect: Rect2, col: Color, tx: int, ty: int) -> void:
 	if not _is_solid_at(tx + 1, ty):
 		_pen.draw_rect(Rect2(rect.position + Vector2(rect.size.x - b, 0.0), Vector2(b, rect.size.y)), dim)
 
-# A wire fence: two posts and two strands in the fence's palette colour over the floor, so the tile
-# reads as something that stops a body and that the eye goes through. The floor is drawn first, by
-# the tile's own arm; this is only what stands on it.
-func _draw_fence_wire(rect: Rect2, col: Color) -> void:
-	var t: float = maxf(1.0, roundf(rect.size.x * 0.045))
-	for f in [0.1, 0.9]:
-		_pen.draw_rect(Rect2(rect.position + Vector2(rect.size.x * float(f) - t, 0.0), Vector2(t * 2.0, rect.size.y)), col)
-	for f in [0.35, 0.65]:
-		_pen.draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y * float(f) - t * 0.5), Vector2(rect.size.x, t)), col)
+# A wire fence: the strands and the post `FenceLook.pieces` lays for this tile and its four
+# neighbours, in the fence's palette colour over the floor, each with a soft shadow down and right
+# so the wire stands off the ground. The bake's signature already reads a one-tile ring, so a fence
+# raised beside this one rebakes it. The floor is drawn first, by the tile's own arm; this is only
+# what stands on it.
+func _draw_fence_wire(rect: Rect2, col: Color, tx: int, ty: int) -> void:
+	var laid: Dictionary = FenceLook.pieces(rect, _fence_at(tx + 1, ty), _fence_at(tx - 1, ty), _fence_at(tx, ty - 1), _fence_at(tx, ty + 1))
+	var t: float = FenceLook.thickness(rect.size.x)
+	var shade: Color = Color(0.0, 0.0, 0.0, 0.35 * col.a)
+	var all: Array = (laid["strands"] as Array).duplicate()
+	all.append(laid["post"])
+	for r in all:
+		_pen.draw_rect(Rect2((r as Rect2).position + Vector2(t, t), (r as Rect2).size), shade)
+	for r in all:
+		_pen.draw_rect(r as Rect2, col)
+
+
+func _fence_at(tx: int, ty: int) -> bool:
+	if world.tilemap == null:
+		return false
+	var ov: Variant = SimTileMap.overlay_at(world.tilemap, tx, ty)
+	return ov is Dictionary and String((ov as Dictionary).get("kind", "")) == "fence"
 
 
 # Windows: a bright glass pane + rim so they read against masonry. Orientation
