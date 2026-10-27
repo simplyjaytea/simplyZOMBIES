@@ -49,8 +49,9 @@ func _run() -> void:
 	ok = _every_field_has_a_direction_and_the_direction_is_read() and ok
 	ok = _the_screen_is_handed_words_and_handles_and_nothing_else() and ok
 	ok = _the_panel_pushes_what_the_sim_answers() and ok
+	ok = _an_empty_slot_lists_what_could_be_made_for_it() and ok
 	if ok:
-		print("M2_BENCH_OK build channel exclusive refuse field modify save polarity view panel")
+		print("M2_BENCH_OK build channel exclusive refuse field modify save polarity view panel recipes")
 		quit(0)
 	else:
 		push_error("M2_BENCH_FAIL")
@@ -531,7 +532,7 @@ func _every_field_has_a_direction_and_the_direction_is_read() -> bool:
 # command. There is no magnitude in this view at all, which is what makes "no digits on the bench"
 # structural rather than something somebody has to remember.
 const HANDLE_KEYS: Array[String] = ["bench", "host", "part", "item"]
-const VIEW_KEYS: Array[String] = ["bench", "at_bench", "host", "name", "condition", "refusal", "slots", "offers"]
+const VIEW_KEYS: Array[String] = ["bench", "at_bench", "host", "name", "condition", "refusal", "slots", "offers", "recipes"]
 
 func _the_screen_is_handed_words_and_handles_and_nothing_else() -> bool:
 	var lane: String = "VIEW"
@@ -673,7 +674,7 @@ func _the_panel_pushes_what_the_sim_answers() -> bool:
 	if src.is_empty():
 		push_error("%s: ui/bench_panel.gd could not be read" % lane)
 		return false
-	for needle in ["bench_view", "item.detach", "item.attach"]:
+	for needle in ["bench_view", "item.detach", "item.attach", "item.improvise"]:
 		if not src.contains(needle):
 			push_error("%s: ui/bench_panel.gd never mentions %s" % [lane, needle])
 			return false
@@ -686,3 +687,172 @@ func _the_panel_pushes_what_the_sim_answers() -> bool:
 
 	print("  PANEL OK E opens it, a strip and a fit both move the world, and walking away closes it")
 	return true
+
+
+# --- RECIPES ----------------------------------------------------------------------------------
+#
+# The bench offers the parts that are made (docs/23, "The bench offers improvised parts"): an empty
+# slot lists a row per recipe whose spec fits it and that the host takes, what the row uses, and --
+# the owner's call of 2026-10-27 -- a row the survivor cannot make yet, which says what it needs in words
+# and is not makeable. `item.improvise` had only ever been sent by gates; this lane holds the view
+# to the command it feeds, and check_play's BENCH MAKE step holds the panel to the key that sends it.
+const WOOD_BAT: String = "item.bat.wood"
+const STEEL_PIPE: String = "item.pipe.steel"
+const NAILS: String = "item.attach.stud.nails"
+const SCREWS: String = "item.attach.stud.screws"
+const GLASS: String = "item.attach.stud.glass"
+const BARBED: String = "item.attach.stud.barbed"
+const TAPE_LEAD: String = "item.attach.weight.tape_lead"
+
+
+func _recipe_rows(view: Dictionary, slot: String) -> Array:
+	var out: Array = []
+	for r_v in view.get("recipes", []) as Array:
+		if String((r_v as Dictionary).get("slot", "")) == slot:
+			out.append(r_v)
+	return out
+
+
+func _recipe_row(view: Dictionary, slot: String, recipe: String) -> Dictionary:
+	for r_v in _recipe_rows(view, slot):
+		if String((r_v as Dictionary).get("recipe", "")) == recipe:
+			return r_v as Dictionary
+	return {}
+
+
+func _stow_new(w: Variant, base_id: String) -> int:
+	var item: int = SimItems.spawn_item(w, base_id, {"tier": "scavenged"})
+	if not SimInventory.stow(w, w.player, item):
+		w.components.set_component(item, "stored", {"container": w.player})
+	return item
+
+
+func _an_empty_slot_lists_what_could_be_made_for_it() -> bool:
+	var lane: String = "RECIPES"
+	var ok: bool = true
+
+	# The noun table is total against the material vocabulary, both directions, and every noun is a
+	# word: a kind without one would read "needs " on the bench.
+	for kind in SimFortify.MATERIAL_KINDS:
+		var noun: String = String(SimFortify.MATERIAL_NOUN.get(kind, ""))
+		if noun.is_empty() or not _view_faults(noun, "noun").is_empty():
+			push_error("%s: material kind '%s' has no noun the bench can say ('%s')" % [lane, kind, noun])
+			ok = false
+	for kind_v in SimFortify.MATERIAL_NOUN.keys():
+		if not SimFortify.MATERIAL_KINDS.has(String(kind_v)):
+			push_error("%s: MATERIAL_NOUN names '%s', which is not a material kind" % [lane, String(kind_v)])
+			ok = false
+	if SimFortify.material_words(["fiber", "stone", "clay"]) != "cloth, stone and clay" or SimFortify.material_words(["fixings"]) != "fixings":
+		push_error("%s: material_words joins a list as '%s'" % [lane, SimFortify.material_words(["fiber", "stone", "clay"])])
+		ok = false
+
+	# A wooden bat on the bench, one unit of fixings in the pack and no cordage.
+	var w: Variant = _world()
+	SimGunsmith.make_bench(w, 8.5, 12.5)
+	var bat: int = SimItems.spawn_item(w, WOOD_BAT, {"tier": "scavenged"})
+	SimInventory.equip(w, w.player, bat)
+	_stow_new(w, "item.fixings.nails")
+	w.events.drain()
+	var view: Dictionary = SimGunsmith.bench_view(w, w.player, bat)
+	if not view.has("recipes"):
+		push_error("%s: the bench view carries no recipes" % lane)
+		return false
+	var faults: Array = _view_faults(view, "")
+	if not faults.is_empty():
+		push_error("%s: %s" % [lane, ", ".join(PackedStringArray(faults))])
+		ok = false
+	var studs: Array = _recipe_rows(view, "stud")
+	# The fixture is asserted before it is judged: the stud slot has rows to judge at all.
+	if studs.size() < 5:
+		push_error("%s: the wooden bat's empty stud slot lists %d recipes, so the fit below judges little" % [lane, studs.size()])
+		ok = false
+	var nails: Dictionary = _recipe_row(view, "stud", NAILS)
+	var screws: Dictionary = _recipe_row(view, "stud", SCREWS)
+	var glass: Dictionary = _recipe_row(view, "stud", GLASS)
+	if nails.is_empty() or screws.is_empty() or glass.is_empty():
+		push_error("%s: the wooden bat's stud slot does not list nails, screw studs and glass (%s)" % [lane, str(studs.map(func(r: Variant) -> String: return String((r as Dictionary)["recipe"])))])
+		return false
+	# TP: makeable, with what it uses in words and nothing said against it.
+	if not bool(nails.get("makeable", false)) or String(nails.get("needs", "x")) != "" or String(nails.get("spends", "")) != "fixings" or String(nails.get("noun", "")) != "stud":
+		push_error("%s: nails with fixings in the pack read %s" % [lane, str(nails)])
+		ok = false
+	# TN: listed though it cannot be made, saying what is missing, and not makeable.
+	if bool(glass.get("makeable", true)) or String(glass.get("needs", "")) != "needs cordage":
+		push_error("%s: glass with no cordage reads %s" % [lane, str(glass)])
+		ok = false
+	# Makeable rows come first.
+	var seen_unmakeable: bool = false
+	for r_v in studs:
+		if not bool((r_v as Dictionary)["makeable"]):
+			seen_unmakeable = true
+		elif seen_unmakeable:
+			push_error("%s: a makeable row is listed after one that cannot be made" % lane)
+			ok = false
+	# A recipe that wants two things says both: the bat's weight slot, nothing for tape and lead.
+	var tape: Dictionary = _recipe_row(view, "weight", TAPE_LEAD)
+	if String(tape.get("needs", "")) != "needs an ingot and cordage" or String(tape.get("spends", "")) != "an ingot and cordage":
+		push_error("%s: tape and lead with neither reads %s" % [lane, str(tape)])
+		ok = false
+	# The row's verdict is the command's: every row's `makeable` is `improvise_refusal` == "".
+	for r_v in view["recipes"] as Array:
+		var r: Dictionary = r_v as Dictionary
+		var why: String = SimAttachments.improvise_refusal(w, w.player, bat, String(r["slot"]), String(r["recipe"]))
+		if (why == "") != bool(r["makeable"]):
+			push_error("%s: the view says %s is makeable=%s and the command answers '%s'" % [lane, String(r["recipe"]), str(r["makeable"]), why])
+			ok = false
+
+	# PLAUSIBLE, by host and through the view: a steel pipe has a stud slot too, and the wooden-host
+	# parts are not offered for it, while the club parts are.
+	var pipe: int = SimItems.spawn_item(w, STEEL_PIPE, {"tier": "scavenged"})
+	SimInventory.stow(w, w.player, pipe)
+	var pview: Dictionary = SimGunsmith.bench_view(w, w.player, pipe)
+	if _recipe_row(pview, "stud", BARBED).is_empty():
+		push_error("%s: a steel pipe's stud slot does not list barbed wire, so the refusal below judges nothing" % lane)
+		ok = false
+	if not _recipe_row(pview, "stud", SCREWS).is_empty() or not _recipe_row(pview, "stud", NAILS).is_empty():
+		push_error("%s: a steel pipe's stud slot lists a part only a wooden host takes" % lane)
+		ok = false
+
+	# The panel's way in, through the queue: the handle on a row that cannot be made is refused and
+	# spends nothing, and the handle on the nails makes them, spends the fixings and fills the slot.
+	w.commands.push({"type": "item.improvise", "host": bat, "slot": String(glass["slot"]), "recipe": String(glass["recipe"])})
+	w.step()
+	if SimAttachments.in_slot(w, bat, "stud") >= 0 or SimFortify.material_count(w, w.player, "fixings") != 1:
+		push_error("%s: the glass row's handle, which the view called unmakeable, made something or spent the fixings" % lane)
+		ok = false
+	w.events.drain()
+	w.commands.push({"type": "item.improvise", "host": bat, "slot": String(nails["slot"]), "recipe": String(nails["recipe"])})
+	w.step()
+	var made: int = SimAttachments.in_slot(w, bat, "stud")
+	if made < 0 or String((SimItems.item_base_of(w, made) as Dictionary).get("id", "")) != NAILS or SimFortify.material_count(w, w.player, "fixings") != 0:
+		push_error("%s: the nails row's handle did not make the nails and spend the fixings" % lane)
+		ok = false
+	# A filled slot offers none, and the view says what is in it; the empty slots still list theirs.
+	var after: Dictionary = SimGunsmith.bench_view(w, w.player, bat)
+	if not _recipe_rows(after, "stud").is_empty():
+		push_error("%s: the filled stud slot still lists %d recipes" % [lane, _recipe_rows(after, "stud").size()])
+		ok = false
+	if String(_row(after, "stud").get("name", "")) != "Nails" or _recipe_rows(after, "weight").is_empty():
+		push_error("%s: after the make the stud reads '%s' and the weight lists %d recipes" % [lane, String(_row(after, "stud").get("name", "")), _recipe_rows(after, "weight").size()])
+		ok = false
+
+	# Field work: the bench taken away. A `fieldSwap` recipe is still makeable where the survivor
+	# stands; a bench recipe says it needs one, before it says anything about materials.
+	var f: Variant = _world()
+	var fbat: int = SimItems.spawn_item(f, WOOD_BAT, {"tier": "scavenged"})
+	SimInventory.equip(f, f.player, fbat)
+	_stow_new(f, "item.fixings.screws")
+	var fview: Dictionary = SimGunsmith.bench_view(f, f.player, fbat)
+	if bool(fview.get("at_bench", true)):
+		push_error("%s: the field world has a bench in reach" % lane)
+		ok = false
+	if not bool(_recipe_row(fview, "stud", SCREWS).get("makeable", false)):
+		push_error("%s: screw studs are field work and are not makeable by hand with screws in the pack" % lane)
+		ok = false
+	if String(_recipe_row(fview, "stud", BARBED).get("needs", "")) != "needs a bench" or bool(_recipe_row(fview, "stud", BARBED).get("makeable", true)):
+		push_error("%s: barbed wire away from a bench reads %s" % [lane, str(_recipe_row(fview, "stud", BARBED))])
+		ok = false
+
+	if ok:
+		print("  RECIPES OK a wooden bat's empty stud lists %d rows, makeable first; nails makeable and glass listed needing cordage; tape and lead names both missing kinds; a pipe's stud refuses the wooden-host parts; the glass handle is refused and spends nothing, the nails handle makes and spends; a filled slot lists none; by hand screws are makeable and barbed wire needs a bench; the noun table is total" % studs.size())
+	return ok
