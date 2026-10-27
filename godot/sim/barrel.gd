@@ -3,6 +3,7 @@ extends RefCounted
 # A barrel part declares three words, and the shot reads what they add up to. docs/30's "The
 # barrel governs, 2026-10-27": every number a barrel contributes to a weapon is the product of its
 # length, its quality and its material, so no barrel carries a hand-picked multiplier of its own.
+# Wear is the product of two of them: the material (MATERIAL_WEAR) and the quality (QUALITY_WEAR).
 #
 # A word the tables do not know is refused, not read as `full`. The same rule WEAR_EVENTS keeps for
 # wear words: a typo must not be indistinguishable from a plain barrel. `error_of` names the
@@ -36,6 +37,16 @@ const MATERIAL_WEAR: Dictionary = {
 	"mild": 1.4,
 	"steel": 1.0,
 	"chromed": 0.7,
+}
+
+# What the bore's tolerance does to the same wear. A match bore is cut true to a few thousandths,
+# and the first thousandths of throat erosion take it off true, so it wears fastest of the three
+# whatever it is made of. Rough and service are the identity in this first cut. Multiplies the
+# part's `wearRate` beside the material.
+const QUALITY_WEAR: Dictionary = {
+	"rough": 1.0,
+	"service": 1.0,
+	"match": 1.4,
 }
 
 # Past this fraction of its reach a slow round starts to lose its damage (docs/30's first cut).
@@ -85,7 +96,11 @@ static func resolve(spec: Dictionary) -> Dictionary:
 		for field in (table as Dictionary).keys():
 			ranged[field] = float(ranged.get(field, 1.0)) * float((table as Dictionary)[field])
 	out["ranged"] = ranged
-	out["wearRate"] = float(spec.get("wearRate", 1.0)) * float(MATERIAL_WEAR[String(words["material"])])
+	out["wearRate"] = (
+		float(spec.get("wearRate", 1.0))
+		* float(MATERIAL_WEAR[String(words["material"])])
+		* float(QUALITY_WEAR[String(words["quality"])])
+	)
 	return out
 
 
