@@ -2861,7 +2861,6 @@ records its own numbers here as a bullet under this entry when it lands.
   because the `panel: true` prose it returned was one sentence longer than the HUD glimpse and
   said nothing the glimpse did not.
 
-
 ## Overcast or torchlight, 2026-09-08
 
 Decided by the owner, 2026-09-08, from a design brief built on the shipped renderer's own
@@ -3805,7 +3804,6 @@ one structural change the slice did make is in the tier, not the style: `kind` i
 renderer-side `Appearance.authored_rig_keys()` as well as by the gate, because three gates need
 "which authored keys are bodies" and one parse with three readers beats three parses.
 
-
 ## The decoupled paperdoll, 2026-09-11
 
 Decided by the owner, 2026-09-11, from a supplied "Visual Architecture & 2D Sprite Engine
@@ -3919,7 +3917,6 @@ sim slice and gains the aim pivot as the origin its cone was always going to nee
 the weight-shifted walk and the four views — *"until it is known whether commissioned bodies
 are coming"*. One came, and these decisions answer the question that hold was waiting on, so
 the hold lifts. The four-views piece is absorbed outright: a rotating torso is every view.
-
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·
 **Next:** [31 — Godot Rebuild Roadmap](31-godot-rebuild-roadmap.md) ·
@@ -4189,7 +4186,6 @@ points earlier than before. A fixture that hand-writes points and owns nothing i
 **One re-baseline, at the close.** As the roster arc did: every piece moves a number a campaign
 can feel, and four seeds before and after each of nine pieces is an overnight job apiece.
 
-
 ## The pause lifted: procedural people, raiders and zombies, 2026-09-14
 
 On 2026-09-01 the owner grew the boot colony to three and paused new NPCs and roster growth so
@@ -4395,7 +4391,6 @@ holds, because the player has no field. Three gates that had granted the player 
 expected the sim to spend them were re-fixtured onto a colonist or onto the command, which is the
 honest shape anyway: a lane that proves a modifier applies "when the node is owned" should own it
 the way a player does.
-
 
 ## Each dead body differs, 2026-09-15
 
@@ -5354,7 +5349,6 @@ retires the generator code that used to draw the same thing held for the two con
 commit (`props.py`'s crate functions were already gone, from the first authored art in 2026-09-10)
 and applies again to every generated key a later slice in this arc replaces.
 
-
 ## The UI Field Kit, live, 2026-09-25
 
 On 2026-09-25, with the UI Field Kit delivered and sitting unused since 2026-09-20 (docs/23's "UI
@@ -5485,7 +5479,6 @@ Timber and block keep their generated faces either way.
 interaction hand over something the player can see and act on — never over something unseen,
 which would be information through a wall. Over any panel or menu: the UI kit's four pointers.
 Both live in `ui/cursors.gd`'s one table, as "The UI Field Kit, live" already said.
-
 
 ## Zombies turn, walk and fall, 2026-10-02
 
@@ -5725,7 +5718,6 @@ number an existing rule already had.
   undone: a need that can wait no longer ends it, and a wash with nothing to wash in no longer
   claims the tick.
 
-
 ## Water at the well, 2026-10-21
 
 **The owner's water question, answered by the card's default.** docs/33 asked where a colony's
@@ -5777,7 +5769,6 @@ a day-6 death of thirst.
 Gated by `godot:m2:needs` BOTTLE: three colonists, one bottle each, both readers offered it, and
 both offers gone once every empty is taken away; the lane was run red against main first.
 
-
 ## The playbook, and AGENTS.md as a pointer, 2026-10-23
 
 **The owner asked for a playbook "for ALL other agents to access and know what's going on".**
@@ -5805,7 +5796,6 @@ while giving the project around it a home:
 **How to apply:** a fact about the build goes in the doc that owns it (docs/23 for status, docs/30
 for a call, docs/33 for an open owner question). A fact about how the project works goes in
 docs/38. Neither file is copied into the other.
-
 
 ## The Colony screen, 2026-10-23
 
@@ -5969,7 +5959,6 @@ The drop on a weapon is the fit and nothing more (C3). Calls taken without the o
 - **The hands rule holds for a drop too.** A part the survivor cannot change by hand is not fitted
   by a drop away from a bench, even into an empty slot. `SimGunsmith.drop_slot` asks `may_work`,
   the question the open command and the attach command already ask.
-
 
 ## The assembly screen is a screen, 2026-10-24
 
@@ -6657,6 +6646,68 @@ has the gate lanes). Four calls were taken while it was built.
 weight row in `SimDirector`, and a lane in `godot:m2:raiders` that breaks it on purpose. A draw
 that moves a pinned stream is a bug, however small the change looks.
 
+## The bloodhound, 2026-10-27
+
+Zombie kind eight, content only: `godot/content/zombies/bloodhound.json`, with no line under
+`godot/sim/`. Where each number came from:
+
+- **`sensory.noise` 0.** A sense of 0 is the deaf case, and `shambler.gd` already reads it as
+  hearing nothing (`noise_sense > 0.0`). No sim line was needed.
+- **`sensory.light` 0, which is docs/33 item 20's default.** `sight_reach` is the observer's range
+  times the square root of the light weight, so 0 gives a reach of 0, and `_seen_target` returns
+  null at a zero reach. The lean toward a lamp (`_lean_to_light`) is weighted by the same number, so
+  it is off too. Contact pursuit (`_contact_target`, `CONTACT_METRES`) is not sight and still
+  catches a body that walks into it.
+- **`sensory.scent` 1.0.** docs/14's tracker row reads "Extreme". The shipped top is the shambler's
+  0.9, "High", and the schema's range is 0 to 1, so 1.0 is the first value above 0.9 the schema
+  allows. The first cut is the ceiling, not a tuned number.
+- **What 1.0 buys, and what it cannot (the review's finding).** `scentSense` is read in one place:
+  the smell threshold, `scentFloor / scentSense`, which is 0.005 at 1.0 against the shambler's
+  0.00556 at 0.9, a nose a tenth wider. The turn toward scent is `_drift_upscent`, weighted by the
+  constant `SCENT_BIAS` (0.35) and never by the sense, and it runs only in the Wander arm, at
+  wander speed. Seek is entered only through `heard` or a seen target; with noise 0 and light 0
+  the bloodhound has neither, so it never Seeks and its `speed` 1.0 is used only in Pursue, after
+  contact. So the kind that ships is a shambler without ears or eyes, a tenth keener in the nose
+  and a quarter faster once it has you, not a body that walks a trail home (docs/14's tracker).
+  That is the composing key the brief said to name if one was missing: a scent-led Seek, or a
+  per-type scent bias, in `shambler.gd`'s think loop, which is sim work on a shared module and
+  waits for its own piece ("The bloodhound's nose as a seek", docs/23's what's left). The
+  SCENT-ONLY lane holds what was built; it does not claim the kind out-hunts the shambler.
+- **docs/14's table against the content.** The tracker row reads noise Low, light Low, scent
+  Extreme. The content is 0, 0, 1.0: deaf by the what's-left bullet's own words, blind by docs/33
+  item 20's default. The table row is a stage behind the content until the sight card is taken.
+- **Locomotion: speed 1.0, wander 0.35, mill 0.25, crawl 0.25.** Speed is the stalker's 1.0, a
+  little above the shambler's 0.8. The rest are the shambler's, so the difference is what it
+  follows, not how it walks.
+- **Wave 3, weight 6.** docs/14 puts the tracker late, and wave 3 is day 7. The weight is the
+  runner's, the kind most likely to change a night. Both are first cuts.
+- **Look.** It reuses `body_zombie_workwear` and its corpses with its own tints. No picture is
+  drawn, so it is a gap until the art arrives (docs/38's rule: pictures a stage behind).
+
+Gates:
+
+- `godot:m2:district` SCENT-ONLY. One body on a blank 24 m map, walking west, 120 ticks. A scent
+  source 8 m east turns it east (dx +0.19 against -0.30 with no source). A noise 2 m west, with no
+  scent, leaves it on exactly the path it walks without the noise, and the shambler control hears
+  that same noise and seeks for 10 ticks. The lane also reads the spawned body's `noiseSense` and
+  `scentSense` against the content. Broken on purpose: a content `noise` of 0.9 turns READ red.
+- `godot:m2:roster`. MIX re-pinned on purpose. The day-7 sequence now covers eight kinds, so the
+  pinned literal moved. The shipped-tree floor for shambler draws moved from 110 to 100 of 200: the
+  shambler's share falls from 80 of 128 to 80 of 134, which takes its expected count from 125 to
+  about 120, and a fixed 110 would fail a mix that is still what the content asked for. The HEAVY
+  fixture now flattens the bloodhound to 1 as it does the other kinds. SHARES: 84 drawn against 90
+  expected, inside the band. KINDS resolves it and its senses reach the component.
+- `godot:check:appearance`. The bloodhound joins ROSTER, and ROSTER_SHARED puts it in a group with
+  the shambler, since it draws the same file.
+- Ran green: `godot:check:zombie_art`, `godot:check:worn`, `godot:check:authored`, `godot:validate`,
+  `godot:smoke`, `npm test`, `format:check`, `check:routing`.
+
+Balance, same machine, FAST band (four seeds, ten days): `M2_BALANCE_OK` on main (4fc24469) and on
+this head. Every line matches except seed 404's grabs (163 on head, 160 on main) and the GRABS total
+(360 against 357): the bloodhound arrives from day 7, and on that seed its grabs are the difference.
+Deaths, survivors, kills, raids and breaches are unchanged on all four seeds.
+
+The ten-seed table was not re-run. It is owed by the post-arc re-baseline.
 
 ## How pieces reach main, and who reviews the art, 2026-10-27
 
