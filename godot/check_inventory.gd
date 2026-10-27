@@ -44,9 +44,12 @@ const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimStockpile = preload("res://sim/modules/stockpile.gd")
+const SimLightMod = preload("res://sim/modules/light.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const InspectPane = preload("res://ui/inspect_pane.gd")
+const Chrome = preload("res://ui/chrome.gd")
+const Locker = preload("res://ui/locker.gd")
 const CarePane = preload("res://ui/care_pane.gd")
 
 # The pane's whole vocabulary. Adding a key here is a decision about what the player is told, so
@@ -89,7 +92,7 @@ func _run() -> void:
 	ok = await _a_part_dropped_on_a_weapon_fits_it_or_lands_in_the_grid() and ok
 	ok = await _the_stockpile_is_the_window_where_you_stand() and ok
 	ok = await _a_dull_blade_offers_hone_and_the_button_hones_it() and ok
-	ok = _the_pane_draws_one_state_line() and ok
+	ok = await _the_pane_draws_one_state_line() and ok
 	if ok:
 		print("INVENTORY_OK a picked body part offers the care the sim would take and nothing else, descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, a cupboard is a column and a window, a stack that cannot merge is not reported as stored, the list, a ctrl-click and the pane's buttons each move the world, a part dropped on a weapon fits an empty slot and lands in the grid otherwise, and standing in the stockpile the window is the stockpile, a ctrl-click takes and a drag puts back, a dull blade with a whetstone offers hone and the pane's button hones it, and the pane draws a blade's edge or a lamp's fuel as one state line")
 		quit(0)
@@ -2152,5 +2155,94 @@ func _the_pane_draws_one_state_line() -> bool:
 	if body < 0 or src.find("state_line(view)", body) < 0:
 		push_error("%s: %s never asks state_line while drawing -- the edge and fuel words are a dead socket" % [lane, INSPECT_PANE_GD])
 		return false
-	print("STATE OK a half-dull knife draws edge dulling, a lantern draws fuel %s, a club draws no state line, and draw_pane asks state_line" % String(light["word"]))
+	if not await _every_state_word_fits_the_narrow_pane(w, lamp):
+		return false
+	print("STATE OK a half-dull knife draws edge dulling, a lantern draws fuel %s, a club draws no state line, draw_pane asks state_line, and every edge and fuel word fits beside the picture at 1280x720" % String(light["word"]))
 	return true
+
+
+# FIT (the art review of the state line): every word the line can carry, with its label, fits the
+# lines beside the picture at the narrowest window, so none is cut to an ellipsis. The fuel words
+# are read off a real lamp walked down its tank, not copied here, so a new or longer word in
+# `fuel_clause` is judged the day it is written. "burning steadily" was cut to "burning stea..."
+# at 1280x720 when the line first landed.
+func _every_state_word_fits_the_narrow_pane(w: Variant, lamp: int) -> bool:
+	var lane: String = "STATE FIT"
+	var cap: int = SimLightMod.capacity_of(w, lamp)
+	if cap <= 0:
+		push_error("%s: the lantern has no tank to walk down" % lane)
+		return false
+	var lines: Array = []
+	for band in SimItems.EDGE_BANDS:
+		lines.append(["edge", String((band as Dictionary)["name"])])
+	var fuel_words: Dictionary = {}
+	for left in [cap, floori(cap / 3.0), floori(cap / 8.0), 0]:
+		w.components.set_component(lamp, "lightFuel", {"ticksLeft": int(left)})
+		var word: String = SimLightMod.fuel_clause(w, lamp)
+		fuel_words[word] = true
+		lines.append(["fuel", word])
+	w.components.set_component(lamp, "lightFuel", {"ticksLeft": cap})
+	# Data to judge: four tank levels that read as four different words, or the walk proved one.
+	if fuel_words.size() != 4 or fuel_words.has(""):
+		push_error("%s: walking the lantern down its tank read %s, not four fuel words" % [lane, str(fuel_words.keys())])
+		return false
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(1280, 720)
+	root.add_child(viewport)
+	var panel: Control = (load(PANEL_GD) as GDScript).new() as Control
+	viewport.add_child(panel)
+	await process_frame
+	panel.call("set_world", w, w.player)
+	panel.call("set_open", true)
+	await process_frame
+	var pane: Rect2 = panel.call("_inspect_rect")
+	viewport.queue_free()
+	if not pane.has_area():
+		push_error("%s: the inventory sheet at 1280x720 has no inspect pane to measure" % lane)
+		return false
+	var room: float = InspectPane.side_width(pane)
+	var font: Font = Chrome.font()
+	var size: int = InspectPane.BODY_SIZE
+	# True negative: a word one character wider than the room is refused by the same measure.
+	var too_long: String = "m".repeat(int(ceilf(room / maxf(1.0, font.get_string_size("m", HORIZONTAL_ALIGNMENT_LEFT, -1, size).x))) + 1)
+	if font.get_string_size(too_long, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x <= room:
+		push_error("%s: the measure passed a word wider than the room beside the picture" % lane)
+		return false
+	for row in lines:
+		var label: String = String(row[0]) + " "
+		var word: String = String(row[1])
+		var wide: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		if wide > room:
+			push_error("%s: \"%s%s\" is %d px beside a picture that leaves %d at 1280x720, so the pane cuts it to an ellipsis" % [lane, label, word, int(wide), int(room)])
+			return false
+	# And every word on the pane's colour scale reads at 4.5:1 on the steel's lighter grain, the
+	# condition's bands with the state words: "dull" and "broken" drew in the rim rust at 3.4 to 1.
+	if _contrast(Locker.STEEL, Locker.STEEL_GRAIN) >= 4.5:
+		push_error("%s: the contrast measure passed steel on steel" % lane)
+		return false
+	var inks: Array = [["label", Locker.TEXT_DIM]]
+	for row in lines:
+		inks.append([String(row[1]), InspectPane._state_colour(String(row[1]))])
+	for band in SimItems.CONDITION_BANDS:
+		inks.append([String((band as Dictionary)["name"]), InspectPane._band_colour(String((band as Dictionary)["name"]))])
+	for ink in inks:
+		var ratio: float = _contrast(ink[1] as Color, Locker.STEEL_GRAIN)
+		if ratio < 4.5:
+			push_error("%s: \"%s\" draws at %.2f:1 on the pane's steel, under 4.5:1" % [lane, String(ink[0]), ratio])
+			return false
+	print("  STATE FIT %d state words with their labels fit the %d px beside the picture at 1280x720, and %d inks read at 4.5:1 on the steel" % [lines.size(), int(room), inks.size()])
+	return true
+
+
+# WCAG contrast of two opaque colours (`check_play.gd`'s measure).
+func _contrast(a: Color, b: Color) -> float:
+	var la: float = _luminance(a)
+	var lb: float = _luminance(b)
+	return (maxf(la, lb) + 0.05) / (minf(la, lb) + 0.05)
+
+
+func _luminance(c: Color) -> float:
+	var ch: Array[float] = []
+	for v in [c.r, c.g, c.b]:
+		ch.append(float(v) / 12.92 if float(v) <= 0.03928 else pow((float(v) + 0.055) / 1.055, 2.4))
+	return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]

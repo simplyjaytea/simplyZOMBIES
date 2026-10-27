@@ -50,6 +50,15 @@ static func state_line(view: Dictionary) -> Dictionary:
 	return {}
 
 
+# How wide the lines beside the picture may run in a pane of this rect: the name, the condition,
+# the state line and the slot line. `draw_pane` lays them out with it, and the STATE lane holds
+# every state word to it at the narrowest window, so a word that would be cut to an ellipsis turns
+# the gate red instead of reaching the screen.
+static func side_width(rect: Rect2) -> float:
+	var wide: float = rect.size.x - PAD * 2.0
+	return wide - minf(PICTURE_W, wide * 0.4) - PICTURE_GAP
+
+
 static func verb_word(verb: String) -> String:
 	return String(VERB_WORDS.get(verb, verb))
 
@@ -110,7 +119,7 @@ static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: floa
 		# the close look, and a whole multiple keeps every pixel square.
 		ItemPicture.draw(ci, well.grow(-Locker.PX * 3.0), look, alpha, 3)
 		text_x = well.end.x + PICTURE_GAP
-		text_wide = rect.end.x - PAD - text_x
+		text_wide = side_width(rect)
 
 	var ty: float = y + Chrome.ascent(TITLE_SIZE)
 	ci.draw_string(font, Vector2(text_x, ty), UiText.fit(font, String(view.get("name", "")), TITLE_SIZE, text_wide), HORIZONTAL_ALIGNMENT_LEFT, -1, TITLE_SIZE, Locker._a(Locker.TEXT, alpha))
@@ -190,7 +199,7 @@ static func _band_colour(band: String) -> Color:
 		"sound":
 			return Locker.GOOD
 		"broken", "barely holding":
-			return Locker.DANGER
+			return Locker.DANGER_INK
 		_:
 			return Locker.ACCENT
 
@@ -199,10 +208,10 @@ static func _band_colour(band: String) -> Color:
 # warning it is, and everything between is the accent.
 static func _state_colour(word: String) -> Color:
 	match word:
-		"keen", "burning steadily":
+		"keen", "burning well":
 			return Locker.GOOD
 		"dull", "dark":
-			return Locker.DANGER
+			return Locker.DANGER_INK
 		_:
 			return Locker.ACCENT
 
