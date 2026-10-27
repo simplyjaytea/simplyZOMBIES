@@ -6671,3 +6671,33 @@ Gates:
 Balance, same machine, FAST band, seed 20260805: BALANCE_HEAD_PLACEHOLDER
 
 The ten-seed table was not re-run. It is owed by the post-arc re-baseline.
+
+## How pieces reach main, and who reviews the art, 2026-10-27
+
+A review of the playbook (docs/38) and of how threads are spawned, with three calls the owner took
+on cards the same day. The changes are in docs/38's "How work flows".
+
+- **Pieces built side by side merge one by one, each as it goes green.** The alternative that had
+  been running was every piece on `main` and, once they conflicted, one integration pull request
+  carrying all of them (#221 to #227, then #228 with 34 commits). That ran CI and the art review
+  twice for the same work, and one blocker in the bundle held seven pieces. Most of the
+  conflicts were the tails of docs/23 and docs/30, which a merge of `main` settles. An
+  integration pull request stays for two pieces that conflict in code.
+- **The coordinator spawns the art reviewer, from a fixed brief, and the reviewer makes its own
+  shots.** The playbook had the reviewer check the thread's exports, briefed by the thread that
+  made them, with the decisions so far: a brief that can steer what it is meant to check. #228's
+  first round already shot the base and the head itself, which is what is now required. The
+  report names both commits, and a push after the verdict voids it. A different model for the
+  reviewer was offered and not taken: the independence is in the brief and the shots.
+- **A piece that touches a shared sim module or the save format is built on the strongest tier.**
+  Those pieces have broken at runtime after a clean merge (#205); they are few, and the full
+  local chain was already the rule for them.
+
+Taken without a card, as engineering: the thread that wrote a pull request never merges it; a
+fix to someone else's open pull request is a pull request onto its branch, since a thread's git
+proxy refuses any other ref (#230 onto #228); a confirmation pass after round 3 raises only
+blockers; a thread's brief names the parts of docs/23 and docs/30 it needs, because neither file
+can be read whole at the start of a piece.
+
+**How to apply:** follow docs/38's steps 2, 4 and 5 and its art review paragraph. Model names stay
+in the project's memory, never here.
