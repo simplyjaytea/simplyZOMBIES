@@ -8,7 +8,9 @@
     "massKg": 3.2,
     "attachment": {
       "fits": ["plate"],
-      "armor": { "torso": 1.25 }
+      "armor": { "torso": 1.25 },
+      "wearsOn": ["struck"],
+      "wearRate": 4.0
     }
   },
   {
@@ -20,7 +22,9 @@
     "massKg": 1.8,
     "attachment": {
       "fits": ["plate"],
-      "armor": { "torso": 1.2 }
+      "armor": { "torso": 1.2 },
+      "wearsOn": ["struck"],
+      "wearRate": 12.0
     }
   },
   {
@@ -33,7 +37,9 @@
     "attachment": {
       "fits": ["lining"],
       "fieldSwap": true,
-      "armor": { "arm_left": 1.35, "arm_right": 1.35, "torso": 1.05 }
+      "armor": { "arm_left": 1.35, "arm_right": 1.35, "torso": 1.05 },
+      "wearsOn": ["struck"],
+      "wearRate": 2.0
     }
   },
   {
@@ -59,7 +65,9 @@
     "attachment": {
       "fits": ["face"],
       "fieldSwap": true,
-      "armor": { "head": 1.3 }
+      "armor": { "head": 1.3 },
+      "wearsOn": ["struck"],
+      "wearRate": 4.0
     }
   }
 ]
