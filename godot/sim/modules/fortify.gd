@@ -46,6 +46,28 @@ const MATERIAL_KINDS: Array[String] = [
 	"fixings", "ingot", "charcoal", "clay", "wire", "circuit",
 ]
 
+# What each kind is called when a sentence has to name it: the bench's improvise row says what a
+# part spends and what it still needs ("needs cordage") in these words. Code-owned beside the
+# vocabulary for the same reason SimAttachments.SLOT_NOUN is, and asserted total against
+# MATERIAL_KINDS by `godot:m2:bench` RECIPES -- a kind with no noun would read as "needs ", which
+# is worse than saying nothing. Each reads after "needs" on its own.
+const MATERIAL_NOUN: Dictionary = {
+	"metal": "scrap metal", "wood": "timber", "plank": "planks", "stone": "stone",
+	"fiber": "cloth", "cordage": "cordage", "fixings": "fixings", "ingot": "an ingot",
+	"charcoal": "charcoal", "clay": "clay", "wire": "wire", "circuit": "electronics",
+}
+
+
+## A list of material kinds as one phrase: "fixings", "scrap metal and fixings", "cloth, stone and
+## clay". The screen prints it; the words are MATERIAL_NOUN's.
+static func material_words(kinds: Array) -> String:
+	var nouns: Array[String] = []
+	for kind in kinds:
+		nouns.append(String(MATERIAL_NOUN.get(String(kind), String(kind))))
+	if nouns.size() <= 1:
+		return nouns[0] if nouns.size() == 1 else ""
+	return "%s and %s" % [", ".join(PackedStringArray(nouns.slice(0, nouns.size() - 1))), nouns[nouns.size() - 1]]
+
 # What each recipe is made of, keyed by the verb `_complete` dispatches on -- plus `repair`,
 # which is SimJobs' Repair job rather than a channel here, and which was the second home of the
 # deleted weld. One table, so a recipe's substance is written down once.
