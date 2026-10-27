@@ -1394,6 +1394,16 @@ tables and day lines are report-noise.md in the project's planning/balance folde
 - ~~**The skill web screen**~~ — **landed** 2026-09-13, see the record (`godot:check:web_look`).
 - **Prose that names its modifier sources.** "Slow because the leg is splinted", generated from
   the modifier pipeline rather than hand-authored per case.
+- **The inspect pane at 1280x720** (minor, from the hone art review, 2026-10-27). The pane cuts a
+  description silently, mid-sentence and with no ellipsis, where the buttons start. Before the
+  state line it drew two lines of a knife's sentence at 1280x720; the fourth line beside the
+  picture pushes the groove down 14 px, and a blade or a lamp now shows one ("A kitchen knife. It
+  goes in"). The slot line beside the picture is cut there too ("goes on the prima..."). The fix
+  is the pane's, not the state line's: say that the sentence goes on, or give it room.
+- **"edge" names two things on a blade's pane** (minor, same review). The state line reads "edge
+  dull" and the fitted list below it "edge — empty", the melee slot that takes a ground or
+  fire-hardened edge. Each is labelled where it sits, but a player can read the second as the
+  first. A different word for one of them is a vocabulary call.
 
 **Proof — what closes the milestone, in this order:**
 
@@ -2420,7 +2430,14 @@ not a to-do list:
   (a half-dull knife draws "edge dulling", a lantern its fuel, a club nothing, and `draw_pane` asks
   `state_line`), and INSPECT, whose scanned views now include a dulled knife's `edge` word under the
   digit ban. `godot:m2:attach` HONE stays green on the refactored `hone`. Off the tick path. The
-  first-cut bands are in docs/30's "Hone on the pack, 2026-10-27".
+  first-cut bands are in docs/30's "Hone on the pack, 2026-10-27". The art review (base bd4807cb
+  against the head, its own shots of a dull, dulling and keen knife, a lantern, a club and a rifle
+  at both windows; the pane rectangle unchanged, the club and rifle pixel-identical) found the
+  lantern's "burning steadily" cut to an ellipsis at 1280x720, and "dull" (with the condition's
+  "broken") at 3.4 to 1. The word is now "burning well", the warnings draw in `Locker.DANGER_INK`
+  (the bench's word rust, moved onto the Locker), and STATE's FIT half holds every state word to
+  `InspectPane.side_width` at that window and every ink on the pane's two scales to 4.5:1 on the
+  steel, red on either old value. Its two minor findings are in what's left, under UI.
 - **Raider doctrine, 2026-10-27.** A raid band is drawn `probe`, `raid` or `siege` once it is
   placed, and every body carries the word. `trade` is not built (docs/33 item 16) and no draw
   produces it.
