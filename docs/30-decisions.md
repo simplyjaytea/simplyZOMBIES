@@ -6752,6 +6752,16 @@ head do: the stud is gone, and the head drops at the swinger's feet as its own i
 the default this entry built, so no code changed for it. The whetstone's spend is still open
 under docs/33 item 21.
 
+**Measurement, 2026-10-27.** The full local `godot:m2` chain did not finish on 35cd8703.
+Shard 1 of 4 passed. Shard 2 was killed three times by container restarts, at gates 16, 12 and
+16, with no FAIL printed before any kill, so it was not re-run. CI's four-shard `godot-m2` run on
+35cd8703 is green and stands in for it. `godot:m2:balance` printed its three FAST seed lines on
+both trees but no `M2_BALANCE_OK`, for the same reason. Seeds 404 and 31337 match main exactly;
+seed 20260805 moves by one grab and one staggered, which the shed studs and dulled edges explain.
+Bench `--runtime-tick`, three interleaved runs per tree: shipped-tick mean 11.30 ms on main
+against 11.34 ms on head, colony-tick mean 14.33 ms against 14.13 ms. Both fail the budget lines
+the same way (docs/22's recorded debt), and head is within run noise of main.
+
 ## The bloodhound, 2026-10-27
 
 Zombie kind eight, content only: `godot/content/zombies/bloodhound.json`, with no line under
