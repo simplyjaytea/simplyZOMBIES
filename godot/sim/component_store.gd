@@ -103,6 +103,14 @@ func remove_all(entity: int) -> void:
 	removeAll(entity)
 
 
+## How many times `component`'s table has gained or lost a member, the count the query memo keys
+## on. It never goes down, so a reader that saw the same number twice saw no entity gain or lose
+## the component in between (a value replaced in place does not move it). `SimNeeds.stockpile_items`
+## keys its memo on it.
+func changes(component: String) -> int:
+	return int(_members.get(component, 0))
+
+
 func count(component: String) -> int:
 	var tv: Variant = _tables.get(component)
 	if tv == null:

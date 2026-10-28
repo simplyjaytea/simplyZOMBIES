@@ -78,8 +78,10 @@ func _run() -> void:
 	ok = _the_players_cast_lands_on_the_next_tick() and ok
 	ok = _the_haul_walk_runs_on_the_nearest_clear_item() and ok
 	ok = _the_drop_lands_where_the_string_keys_landed_it() and ok
+	ok = _the_stockpile_memo_is_the_fresh_list() and ok
+	ok = _the_walls_box_is_read_once_and_kept_while_the_tiles_hold() and ok
 	if ok:
-		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square query care claw sky observe ambient seek far-think spread impair dress scent arcs table recall swing near-ties player-cast order drop")
+		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square query care claw sky observe ambient seek far-think spread impair dress scent arcs table recall swing near-ties player-cast order drop stock-memo walls-box")
 		quit(0)
 	else:
 		push_error("M2_TICK_FAIL")
@@ -2364,3 +2366,190 @@ func _ground_item_at(w: Variant, at: Vector2) -> int:
 	w.components.set_component(item, "position", {"x": at.x, "y": at.y})
 	return item
 
+
+# STOCK-MEMO. `SimNeeds.stockpile_items` hands back a kept list while nothing it read has changed.
+# Held to `stockpile_items_fresh` (the slow answer, kept whole) on the boot colony, then through
+# every way the list can change under it: an item spawned on the pile, an item moved onto the pile
+# by a replaced position (no membership change), one moved off by its position edited in place, one
+# stored, one picked up, the zone marked wider and its record edited in place, a pile tile walled
+# over and one boarded straight on the map arrays (no generation bump), a tick stepped, and a save
+# restored. Each change must move the fresh answer (or the step proves nothing) and the memo must
+# move with it. The positive: asked twice with nothing changed, the second answer is a hit. The
+# dead-socket question: a stepped colony's own readers reach the memo.
+func _the_stockpile_memo_is_the_fresh_list() -> bool:
+	var w: Variant = SimBoot.playable()["world"]
+	var zone: Array[Vector2i] = SimStockpile.tiles(w)
+	var o: Vector2 = SimHome.centre(w)
+	var outdoor: Array[Vector2i] = _outdoor_floor_around(w, o, 14)
+	if zone.size() < 3 or outdoor.size() < 2:
+		return _fail("STOCK-MEMO", "the boot colony has %d zone tiles and %d outdoor tiles; the lane has nothing to judge" % [zone.size(), outdoor.size()])
+	var was: bool = SimNeeds.STOCKPILE_MEMO
+	SimNeeds.STOCKPILE_MEMO = true
+	var ok: bool = true
+	var prev: Array[int] = SimNeeds.stockpile_items_fresh(w)
+	var check: Callable = func(step: String, must_move: bool) -> bool:
+		var fresh: Array[int] = SimNeeds.stockpile_items_fresh(w)
+		var fast: Array[int] = SimNeeds.stockpile_items(w)
+		if fast != fresh:
+			return _fail("STOCK-MEMO", "after %s the memo answers %s, the fresh list %s" % [step, fast, fresh])
+		if must_move and fresh == prev:
+			return _fail("STOCK-MEMO", "%s did not change the fresh list; the step judges nothing" % step)
+		prev.assign(fresh)
+		return true
+	# Warm, then the positive.
+	SimNeeds.stockpile_items(w)
+	var hits: int = SimNeeds.stockpile_memo_hits
+	ok = check.call("nothing at all", false) and ok
+	if SimNeeds.stockpile_memo_hits != hits + 1:
+		ok = _fail("STOCK-MEMO", "asked twice with nothing changed, the second answer was not a hit") and ok
+	var on_pile: int = _ground_item_at(w, _tile_centre(zone[0]))
+	ok = check.call("an item spawned on the pile", true) and ok
+	var outside: int = _ground_item_at(w, _tile_centre(outdoor[0]))
+	ok = check.call("an item spawned outdoors", false) and ok
+	w.components.set_component(outside, "position", {"x": float(zone[1].x) + 0.5, "y": float(zone[1].y) + 0.5})
+	ok = check.call("a position replaced onto the pile", true) and ok
+	var pos: Dictionary = w.components.get_component(outside, "position") as Dictionary
+	pos["x"] = float(outdoor[1].x) + 0.5
+	pos["y"] = float(outdoor[1].y) + 0.5
+	ok = check.call("a position edited in place off the pile", true) and ok
+	w.components.set_component(on_pile, "stored", {"in": -1})
+	ok = check.call("an item stored", true) and ok
+	w.components.remove(on_pile, "stored")
+	ok = check.call("an item taken out of store", true) and ok
+	w.components.remove(on_pile, "position")
+	ok = check.call("an item picked up", true) and ok
+	var rec: Dictionary = {"tiles": {}}
+	for t in zone:
+		rec["tiles"]["%d,%d" % [t.x, t.y]] = true
+	rec["tiles"]["%d,%d" % [outdoor[1].x, outdoor[1].y]] = true
+	w.components.set_component(w.player, SimStockpile.COMPONENT, rec)
+	ok = check.call("the zone marked over the outdoor item", true) and ok
+	(rec["tiles"] as Dictionary).erase("%d,%d" % [outdoor[1].x, outdoor[1].y])
+	ok = check.call("the zone record edited in place", true) and ok
+	var walled: int = _ground_item_at(w, _tile_centre(zone[2]))
+	ok = check.call("an item on a third pile tile", true) and ok
+	var idx: int = zone[2].y * int(w.tilemap.w) + zone[2].x
+	var old_tile: int = int(w.tilemap.tiles[idx])
+	w.tilemap.tiles[idx] = SimTileMap.Tile.Wall
+	ok = check.call("a pile tile walled over on the map array", true) and ok
+	w.tilemap.tiles[idx] = old_tile
+	ok = check.call("the wall taken back off", true) and ok
+	w.tilemap.overlays[idx] = {"kind": "timber"}
+	ok = check.call("a pile tile boarded on the overlay table", true) and ok
+	w.tilemap.overlays.erase(idx)
+	ok = check.call("the board taken back off", true) and ok
+	var saved: Dictionary = w.snapshot()
+	w.components.remove(walled, "position")
+	ok = check.call("an item picked up before a restore", true) and ok
+	w.restore(saved)
+	ok = check.call("the save restored", true) and ok
+	for i in 5:
+		w.step()
+	ok = check.call("five ticks stepped", false) and ok
+	# The colony's own readers reach the memo: a stepped colony asks, and some asks are hits.
+	var before: int = SimNeeds.stockpile_memo_hits
+	for i in 200:
+		w.step()
+	if SimNeeds.stockpile_memo_hits <= before:
+		ok = _fail("STOCK-MEMO", "200 colony ticks never reached the stockpile memo") and ok
+	SimNeeds.STOCKPILE_MEMO = was
+	return ok
+
+
+# WALLS-BOX. The box the house's walls draw is found once per call, not once per tile it is asked
+# about, and kept on the world while the map, its tiles and the lot are the same. Held to the slow
+# reading (`_walls_box`, every tile of the lot) on the boot map; asked twice, the second is the kept
+# box (a forged row comes back: the positive); then a wall drawn out in the yard on the map array, a different lot, and
+# a different map, each of which must move the box (the negatives). The Retreat re-plan, which asked
+# the slow reading once per tile of the lot, must still choose the tile the per-tile reading chose
+# (`_reference_retreat_tiles`). The dead-socket question: the danger rule `_outside_in_danger` reaches
+# the kept box.
+func _the_walls_box_is_read_once_and_kept_while_the_tiles_hold() -> bool:
+	var w: Variant = SimBoot.playable()["world"]
+	var annex: Rect2i = SimTileMap.annex_rect(w.tilemap)
+	if annex.size.x <= 0:
+		return _fail("WALLS-BOX", "the boot map has no lot; the lane has nothing to judge")
+	var slow: PackedInt32Array = SimJobs._walls_box(w.tilemap, annex)
+	var a: PackedInt32Array = SimJobs._walls_box_of(w, annex)
+	if a != slow:
+		return _fail("WALLS-BOX", "the kept box %s is not the slow reading %s" % [a, slow])
+	if slow[0] > slow[2]:
+		return _fail("WALLS-BOX", "the boot lot has no walls; the lane has nothing to judge")
+	var forged := PackedInt32Array([-7, -7, -7, -7])
+	w.walls_memo[3] = forged
+	if SimJobs._walls_box_of(w, annex) != forged:
+		return _fail("WALLS-BOX", "asked twice with nothing changed, the box was found again")
+	w.walls_memo[3] = a
+	for j in range(annex.position.y, annex.end.y):
+		for i in range(annex.position.x, annex.end.x):
+			if SimJobs._inside_walls(w.tilemap, annex, i, j) != SimJobs._in_walls_box(a, i, j):
+				return _fail("WALLS-BOX", "tile %d,%d reads differently through the box" % [i, j])
+	# The Retreat re-plan, from three points round the lot.
+	var colonist: int = -1
+	for e in w.components.query(["jobPriorities", "position"]):
+		if int(e) != int(w.player):
+			colonist = int(e)
+			break
+	if colonist < 0:
+		return _fail("WALLS-BOX", "the boot colony has no colonist to walk home")
+	for at in [Vector2i(annex.position.x - 3, annex.position.y - 3), Vector2i(annex.end.x + 2, annex.get_center().y), Vector2i(annex.get_center().x, annex.end.y + 3)]:
+		if SimTileMap.is_solid(w.tilemap, at.x, at.y):
+			continue
+		w.components.set_component(colonist, "position", {"x": float(at.x) + 0.5, "y": float(at.y) + 0.5})
+		var job: Dictionary = {"kind": "Retreat", "tx": -1, "ty": -1, "ticksLeft": 0, "path": [], "pathGen": -1}
+		var placed: bool = SimJobs._retreat_inside(w, colonist, job)
+		var want: Vector2i = _reference_retreat_tile(w, annex, at)
+		var got: Vector2i = Vector2i(int(job.get("tx", -1)), int(job.get("ty", -1))) if placed else Vector2i(-1, -1)
+		if got != want:
+			return _fail("WALLS-BOX", "a walk home from %s re-planned to %s; the per-tile reading chose %s" % [at, got, want])
+	# Negatives: the box must move with the map.
+	var yard: Vector2i = Vector2i(-1, -1)
+	for i in range(annex.position.x, annex.end.x):
+		if i < slow[0] or i > slow[2]:
+			yard = Vector2i(i, annex.position.y + annex.size.y / 2)
+			break
+	if yard.x < 0:
+		print("WALLS-BOX yard case skipped: the walls fill the lot's width")
+	else:
+		var idx: int = yard.y * int(w.tilemap.w) + yard.x
+		var old_tile: int = int(w.tilemap.tiles[idx])
+		w.tilemap.tiles[idx] = SimTileMap.Tile.Wall
+		var grown: PackedInt32Array = SimJobs._walls_box_of(w, annex)
+		if grown != SimJobs._walls_box(w.tilemap, annex) or grown == slow:
+			return _fail("WALLS-BOX", "a wall drawn in the yard left the kept box at %s" % grown)
+		w.tilemap.tiles[idx] = old_tile
+		if SimJobs._walls_box_of(w, annex) != slow:
+			return _fail("WALLS-BOX", "the yard wall taken off left the box grown")
+	var smaller: Rect2i = Rect2i(annex.position, Vector2i(maxi(1, slow[2] - annex.position.x), annex.size.y))
+	if SimJobs._walls_box_of(w, smaller) != SimJobs._walls_box(w.tilemap, smaller):
+		return _fail("WALLS-BOX", "a different lot was answered from the kept box")
+	var other: Variant = SimBoot.playable(7)["world"]
+	var other_annex: Rect2i = SimTileMap.annex_rect(other.tilemap)
+	w.tilemap = other.tilemap
+	if SimJobs._walls_box_of(w, other_annex) != SimJobs._walls_box(other.tilemap, other_annex):
+		return _fail("WALLS-BOX", "a different map was answered from the kept box")
+	# The danger rule reaches it.
+	var w2: Variant = SimBoot.playable()["world"]
+	var inside: Vector2i = Vector2i((slow[0] + slow[2]) / 2, (slow[1] + slow[3]) / 2)
+	w2.components.set_component(colonist, "position", {"x": float(inside.x) + 0.5, "y": float(inside.y) + 0.5})
+	w2.walls_memo = []
+	SimJobs._outside_in_danger(w2, colonist)
+	if w2.walls_memo.size() != 4:
+		return _fail("WALLS-BOX", "the danger rule for a colonist inside the walls never reached the kept box")
+	return true
+
+
+# The re-plan's first reachable tile as the per-tile reading found it: every lot tile inside the
+# walls (asked of `_inside_walls` one tile at a time) and open, nearest first, and the first of the
+# nearest RETREAT_INSIDE_TRIES with a path.
+func _reference_retreat_tile(w: Variant, annex: Rect2i, here: Vector2i) -> Vector2i:
+	var inside: Array[Vector2i] = []
+	for j in range(annex.position.y, annex.position.y + annex.size.y):
+		for i in range(annex.position.x, annex.position.x + annex.size.x):
+			if SimJobs._inside_walls(w.tilemap, annex, i, j) and not SimTileMap.is_solid(w.tilemap, i, j):
+				inside.append(Vector2i(i, j))
+	inside.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return (a - here).length_squared() < (b - here).length_squared())
+	for n in mini(inside.size(), SimJobs.RETREAT_INSIDE_TRIES):
+		if not SimPath.find(w, here, inside[n]).is_empty():
+			return inside[n]
+	return Vector2i(-1, -1)
