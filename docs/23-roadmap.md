@@ -2456,6 +2456,9 @@ not a to-do list:
     1280x720.
   - **Not measured here.** No balance claim. The loot tables do not move, and the balance trees
     are compared in the chain, not in this entry.
+  - **Card 27.** The hand-load's cost is built as the default (one ingot and one charcoal at the
+    bench). The owner chose spent brass, option B, on 2026-10-28; the brass is piece B3, not this
+    record.
 - **A weapon you named, 2026-10-27.** The last piece of the melee arc. A weapon with three or more
   slots holding a part it did not come with may be named by the player (docs/33 items 23 and 24,
   three or more by the owner's call of 2026-10-27; typed, the default). What landed:

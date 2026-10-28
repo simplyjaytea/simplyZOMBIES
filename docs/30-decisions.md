@@ -7354,9 +7354,9 @@ is a reload.
 
 Piece B2 of the 2026-10-28 batch: docs/09's "late-game hand-loading is possible and produces worse
 ammunition: reduced power, higher jam chance", the one ammunition promise the slice could not
-express. Card 27 (what a hand-load costs and where it is made) was posted with its default built,
-and the owner has not picked. The calls taken here, each recorded because each one could have gone
-the other way:
+express. Card 27 (what a hand-load costs and where it is made) was posted with its default built;
+JT then picked option B, spent brass, which piece B3 carries (docs/33, card 27). The calls taken here,
+each recorded because each one could have gone the other way:
 
 - **The misfire is added to the band, never multiplied.** `ammo.misfire` is a chance a round adds to
   the weapon's jam chance in `SimRanged._jammed`. A multiplier on a sound gun's band of 0.0 is still
