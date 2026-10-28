@@ -76,6 +76,12 @@ static func _scaled(clock: int, share: float) -> int:
 	return maxi(1, int(round(float(clock) * share)))
 
 
+# Loaded, not preloaded, the way items.gd reaches it: attachments.gd preloads items.gd, and a preload
+# here would close that ring.
+static func _Attachments() -> GDScript:
+	return load("res://sim/modules/attachments.gd") as GDScript
+
+
 static func make_ranged_armed(world: Variant, entity: int, profile: Dictionary) -> void:
 	var p: Dictionary = profile.duplicate()
 	if not p.has("mag"):
@@ -317,7 +323,7 @@ static func try_begin_fire(world: Variant, entity: int) -> bool:
 	if int(r.get("magSize", 0)) > 0 and int(r.get("mag", 0)) <= 0:
 		return _begin_reload(world, entity, r)
 	# A seat refuses the shot, not the reload: a body in a car can still change its magazine.
-	var seat: String = SimStancesRes.seat_refusal(world.components, entity, bool(r.get("fromVehicle", false)))
+	var seat: String = SimStancesRes.seat_refusal(world.components, entity, bool(_Attachments().call("from_vehicle_of", world, r)))
 	if seat != "":
 		world.events.publish({"type": "weapon.refused", "entity": entity, "reason": seat})
 		return false

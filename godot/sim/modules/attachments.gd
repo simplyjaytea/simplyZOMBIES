@@ -610,6 +610,20 @@ static func fires_from_vehicle(world: Variant, host: int) -> bool:
 	return false
 
 
+## The built profile's `fromVehicle`, or the parts' answer when the profile has none. A weapon restored
+## from a save written before the key existed carries no `fromVehicle`, and nothing rebuilds its
+## profile until an equip or a wear event -- which a refused trigger never raises -- so a folding
+## stock would be refused its seat for the rest of the run. Asked once and written back, so the
+## profile then reads the way a freshly built one does. The two readers of the seat, the trigger
+## (ranged.gd try_begin_fire) and the sentence (`refusal_clause`), both come through here.
+static func from_vehicle_of(world: Variant, weapon: Dictionary) -> bool:
+	if weapon.has("fromVehicle"):
+		return bool(weapon["fromVehicle"])
+	var allowed: bool = fires_from_vehicle(world, int(weapon.get("source", -1)))
+	weapon["fromVehicle"] = allowed
+	return allowed
+
+
 ## One declared multiplier, softened by the state the part is actually in.
 ##
 ##     effective = 1.0 + (declared - 1.0) * k,  k = SimItems.condition_factor(part)
@@ -997,7 +1011,7 @@ static func refusal_clause(world: Variant, entity: int) -> String:
 		var reason: String = String((w as Dictionary).get("blocked", ""))
 		# A working gun that will not fire from where its owner sits. Only a trigger pull is refused
 		# for it (ranged.gd try_begin_fire), so this is the sentence that says why nothing happens.
-		if reason == "" and comp == "rangedWeapon" and SimStancesRes.seat_refusal(world.components, entity, bool((w as Dictionary).get("fromVehicle", false))) != "":
+		if reason == "" and comp == "rangedWeapon" and SimStancesRes.seat_refusal(world.components, entity, from_vehicle_of(world, w as Dictionary)) != "":
 			return "It will not fire from a car seat. Get out to shoot it."
 		if reason == "":
 			continue
