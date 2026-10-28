@@ -24,6 +24,7 @@ const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
+const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
 const SimLightModule = preload("res://sim/modules/light.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 const Clock = preload("res://sim/time/clock.gd")
@@ -58,13 +59,14 @@ func _run() -> void:
 	ok = _a_weapon_with_no_caliber_still_fires_its_own_round() and ok
 	ok = _a_conversion_moves_the_round_and_the_set_together() and ok
 	ok = _what_is_recovered_is_what_was_fired() and ok
+	ok = _a_worn_internal_jams_the_gun() and ok
 	ok = _the_debug_spawned_round_holds_the_count_asked_for() and ok
 	ok = _the_round_you_choose_is_the_round_you_fire() and ok
 	ok = _the_magazine_remembers_what_you_loaded() and ok
 	ok = _every_load_reads_in_words() and ok
 	ok = _a_round_comes_back_as_it_went_in() and ok
 	if ok:
-		print("M2_AMMO_OK content reach scaled default pick refuse fold drops legacy convert recover debug-stack round mag word tier")
+		print("M2_AMMO_OK content reach scaled default pick refuse fold drops legacy convert recover jam debug-stack round mag word tier")
 		quit(0)
 	else:
 		push_error("M2_AMMO_FAIL")
@@ -882,6 +884,167 @@ func _debug_spawned_stack(round_id: String, extra: Dictionary) -> int:
 		return 1
 	return -1
 
+
+# JAM. A jam is read off the worst internal, so a worn sear jams a pistol that its own receiver
+# does not explain. Three things to prove, each against the same pistol: a sound gun never jams
+# and draws nothing; a worn sear jams at its band's rate and the inspect view says the band in
+# words; a sear worn through stays fitted (a part that fell off would take itself out of the
+# assembly and leave the gun jamming less for losing it), reads "broken", and blocks the weapon
+# as `broken:sear` -- refused before a pull, named on the HUD, and no envelope for npc_combat,
+# the way a gun with no action is. Then the same on the revolver, the one base whose content says
+# it never jams: a worn-through extractor stops it all the same, so `jams: false` is not a way
+# round a broken part.
+#
+# The roll is SimRanged._jammed, the function a trigger pull calls, fed a seeded stand-in for the
+# stream. A real trigger pull is one draw of this function, and four thousand draws are what makes
+# a one-in-eight chance measurable without firing four thousand rounds.
+class SeededRoll:
+	extends RefCounted
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+
+	func _init(seed_val: int) -> void:
+		rng.seed = seed_val
+
+	func float_range(lo: float, hi: float) -> float:
+		return rng.randf_range(lo, hi)
+
+
+func _jams_in(w: Variant, gun: int, draws: int) -> int:
+	var profile: Dictionary = SimItems.ranged_profile_of(w, gun) as Dictionary
+	var roll: SeededRoll = SeededRoll.new(7)
+	var jams: int = 0
+	for i in draws:
+		if SimRanged._jammed(w, profile, roll):
+			jams += 1
+	return jams
+
+
+func _a_worn_internal_jams_the_gun() -> bool:
+	var lane: String = "JAM"
+	var w: Variant = _world()
+	var gun: int = _armed(w, "item.pistol.service", [])
+	if gun < 0:
+		return false
+	# One step so `make_ranged_armed` has run and the player holds a live `rangedWeapon` for the
+	# refusal below to land on (the LEGACY lane's note on `item.equipped`).
+	w.step()
+	var sear: int = SimAttachments.in_slot(w, gun, "sear")
+	if sear < 0:
+		push_error("%s: a shipped pistol spawned with no sear fitted, so there is nothing to wear" % lane)
+		return false
+	var sear_cond: Dictionary = w.components.get_component(sear, "condition") as Dictionary
+
+	# Sound: the table's 0.0, and not one draw of the stand-in is a jam.
+	SimItems.refresh_armed(w, gun)
+	var sound_chance: float = SimItems.jam_chance(w, gun)
+	if sound_chance != 0.0 or _jams_in(w, gun, 4000) != 0:
+		push_error("%s: a sound pistol has jam chance %.3f and jammed on a 4000-pull sample" % [lane, sound_chance])
+		return false
+
+	# Worn to "failing" (0.2 up to 0.5): the table's 0.12, and the inspect view says "failing" for
+	# the pistol, which reads its own condition as "sound" unless the internals count.
+	sear_cond["current"] = 0.35
+	SimItems.refresh_armed(w, gun)
+	var worn_chance: float = SimItems.jam_chance(w, gun)
+	var band: String = String(SimInventory.inspect_view(w, w.player, gun).get("condition", ""))
+	if not is_equal_approx(worn_chance, float(SimItems.JAM_CHANCE_BY_BAND["failing"])):
+		push_error("%s: a sear at 0.35 gives jam chance %.3f, not the failing band's %.2f" % [lane, worn_chance, float(SimItems.JAM_CHANCE_BY_BAND["failing"])])
+		return false
+	if band != "failing":
+		push_error("%s: the inspect view says the pistol is '%s' with a failing sear in it -- the screen would call a jamming gun sound" % [lane, band])
+		return false
+	var jams: int = _jams_in(w, gun, 4000)
+	var rate: float = float(jams) / 4000.0
+	if rate < 0.10 or rate > 0.14:
+		push_error("%s: a failing sear jammed %d of 4000 pulls (%.3f), not near 0.12" % [lane, jams, rate])
+		return false
+
+	# TN for the block below: a failing sear is a gun that still fires. It has an envelope and no
+	# refusal, or the refusal that follows proves nothing.
+	if not SimRanged.can_fire(w, w.player) or SimNpcCombat._ranged_range(w, w.player) <= 0.0:
+		push_error("%s: a pistol with a failing sear is refused ('%s') or has no envelope, so the broken case below would not be the sear's doing" % [lane, SimRanged.refusal_of(w, w.player)])
+		return false
+
+	# Worn through: the sear stays where it is, reads "broken", the table reads 1.0 so it stays
+	# total, and the weapon is refused as broken:sear -- before a pull, in a sentence that names the
+	# sear, and with no envelope for an NPC to walk into.
+	sear_cond["current"] = 0.001
+	SimAttachments.wear_parts(w, gun, "shot")
+	SimItems.refresh_armed(w, gun)
+	var dead_chance: float = SimItems.jam_chance(w, gun)
+	if SimAttachments.in_slot(w, gun, "sear") != sear:
+		push_error("%s: a sear worn through came off the gun -- a part that falls off makes the gun jam less" % lane)
+		return false
+	if dead_chance != 1.0 or String(SimInventory.inspect_view(w, w.player, gun).get("condition", "")) != "broken":
+		push_error("%s: a worn-through sear gives jam chance %.3f, not 1.0" % [lane, dead_chance])
+		return false
+	if not _refused_as(w, gun, "broken:sear", "sear", lane):
+		return false
+
+	# The revolver never jams by its content (`jams: false`), and a worn-through extractor stops it
+	# anyway: a stoppage is not the only way a dead part shows, and a gun firing for nothing would
+	# be the silent dud this lane exists to refuse.
+	var w2: Variant = _world()
+	var revolver: int = _armed(w2, "item.revolver.snub", [])
+	if revolver < 0:
+		return false
+	w2.step()
+	var extractor: int = SimAttachments.in_slot(w2, revolver, "extractor")
+	if extractor < 0:
+		push_error("%s: the revolver spawned with no extractor fitted" % lane)
+		return false
+	SimItems.refresh_armed(w2, revolver)
+	if not SimRanged.can_fire(w2, w2.player) or SimItems.jam_chance(w2, revolver) != 0.0:
+		push_error("%s: a sound revolver is refused ('%s') or has a jam chance" % [lane, SimRanged.refusal_of(w2, w2.player)])
+		return false
+	(w2.components.get_component(extractor, "condition") as Dictionary)["current"] = 0.001
+	SimAttachments.wear_parts(w2, revolver, "shot")
+	SimItems.refresh_armed(w2, revolver)
+	if SimAttachments.in_slot(w2, revolver, "extractor") != extractor:
+		push_error("%s: the revolver's extractor came off when worn through" % lane)
+		return false
+	if not _refused_as(w2, revolver, "broken:extractor", "extractor", lane):
+		return false
+
+	print("  JAM OK a sound pistol never jams; a sear at 0.35 jams %.3f of pulls (table 0.12) and reads 'failing'; a sear worn through stays fitted, reads 'broken' and refuses as broken:sear with no NPC envelope; the never-jamming revolver refuses the same on a worn-through extractor" % rate)
+	return true
+
+
+# The three faces of one refusal, for the weapon in the player's hands: `can_fire` false and the
+# reason id on it; a trigger pull that publishes `weapon.refused` with that id and fires nothing;
+# the HUD's sentence naming the part; and npc_combat's envelope at zero, which is what keeps an NPC
+# from walking into range of a gun that cannot shoot.
+func _refused_as(w: Variant, gun: int, reason: String, noun: String, lane: String) -> bool:
+	if SimRanged.can_fire(w, w.player) or SimRanged.refusal_of(w, w.player) != reason:
+		push_error("%s: the weapon is refused as '%s', not %s" % [lane, SimRanged.refusal_of(w, w.player), reason])
+		return false
+	var mag_before: int = int((w.components.get_component(w.player, "rangedWeapon") as Dictionary).get("mag", -1))
+	w.events.drain()
+	if SimRanged.try_begin_fire(w, w.player):
+		push_error("%s: a trigger pull on a weapon refused as %s began a fire" % [lane, reason])
+		return false
+	w.events.drain()
+	var refused: String = ""
+	for e in w.events.drained:
+		if String((e as Dictionary).get("type", "")) == "weapon.refused" and int((e as Dictionary).get("entity", -1)) == w.player:
+			refused = String((e as Dictionary).get("reason", ""))
+	if refused != reason:
+		push_error("%s: the trigger pull published '%s', not weapon.refused %s" % [lane, refused, reason])
+		return false
+	if int((w.components.get_component(w.player, "rangedWeapon") as Dictionary).get("mag", -1)) != mag_before:
+		push_error("%s: a refused pull spent a round" % lane)
+		return false
+	var said: String = SimAttachments.refusal_clause(w, w.player)
+	if said.is_empty() or not said.contains(noun) or not said.contains("worn through"):
+		push_error("%s: the HUD's sentence for %s reads '%s'" % [lane, reason, said])
+		return false
+	if SimNpcCombat._ranged_range(w, w.player) != 0.0:
+		push_error("%s: npc_combat gives a weapon refused as %s an envelope of %.1f m" % [lane, reason, SimNpcCombat._ranged_range(w, w.player)])
+		return false
+	if SimItems.jam_chance(w, gun) != 1.0:
+		push_error("%s: the table reads %.3f for a broken assembly, not 1.0" % [lane, SimItems.jam_chance(w, gun)])
+		return false
+	return true
 
 
 # --- ROUND --------------------------------------------------------------------------------------
