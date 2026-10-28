@@ -86,7 +86,8 @@ exhaustion, pain, injured arms, and being hit.
 ### The two costs
 
 **Ammo** is finite. Late-game hand-loading is possible and produces *worse* ammunition — reduced
-power, higher jam chance. There is no point at which ammo stops being precious.
+power, higher jam chance. There is no point at which ammo stops being precious. A hand-load also spends the spent cases your own shots leave on the ground, one case per round made
+(docs/30, "Spent brass, 2026-10-28").
 
 **Attention** is the big one. An unsuppressed shot is 180 noise, an order of magnitude above anything
 else you do routinely, plus a 60-magnitude muzzle flash at night. **Firing a gun is a decision about

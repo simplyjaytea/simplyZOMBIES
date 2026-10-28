@@ -2456,9 +2456,30 @@ not a to-do list:
     1280x720.
   - **Not measured here.** No balance claim. The loot tables do not move, and the balance trees
     are compared in the chain, not in this entry.
-  - **Card 27.** The hand-load's cost is built as the default (one ingot and one charcoal at the
-    bench). The owner chose spent brass, option B, on 2026-10-28; the brass is piece B3, not this
-    record.
+  - **Card 27.** The hand-load's cost was built as the default (one ingot and one charcoal at the
+    bench). The owner chose spent brass, option B, on 2026-10-28; the brass is the record below,
+    "Spent brass".
+- **Spent brass, 2026-10-28.** Card 27's option B, and the second half of the hand-load's cost. A
+  centrefire shot leaves its spent case where the shooter stands, from every shooter, one case per
+  round fired and never for a jam, a bow or a .22.
+  - **The cases.** `item.brass.9mm`, `.38`, `.45`, `.rifle` and `.12g` (a shotshell hull), in
+    `godot/content/items/materials.json`, each with a `brass: {caliber}` block that `SimItems.brass_of`
+    reads. Not in any loot table.
+  - **The ground.** Cases of one caliber on one tile are one stack, up to the case's stack limit
+    (`SimRanged._scatter_cases`): a firefight makes one ground item per tile per caliber.
+  - **The revolver.** A cylinder gun (`cylinder: true`, the snub revolver) keeps its cases in the
+    cylinder, counted on its magazine record (`spent`), and drops them when its next reload begins. A
+    refused reload drops nothing.
+  - **The recipe.** Each hand-load block carries `brass: true`: one case per round made, the yield the
+    lesser of `yield` and the cases carried (`SimRanged.rounds_made`), and `needs:brass` refused after
+    the materials and before `no-room`.
+  - **The gates.** `godot:m2:ammo` BRASS lanes: EJECT, REVOLVER, MERGE, EVERY SHOOTER, and BRASS RECIPE;
+    `godot:check:inventory` HANDLOAD spends its cases. `godot:m2:save`, `godot:m2:jobs`,
+    `godot:m2:tick`, `godot:check:loot` and `godot:m2:gear` are green on the branch.
+  - **Haul.** A loose case is hauled under the same errand radius as any loose item (`jobs.gd`'s
+    `ERRAND_RADIUS_TILES`); no job was added and `jobs.gd` is untouched.
+  - **Not measured here.** Balance: the loot tables do not move, but raiders and Guards fire, so more
+    items lie about; the chain compares the trees. The tick cost is in docs/30 "Spent brass, 2026-10-28".
 - **A weapon you named, 2026-10-27.** The last piece of the melee arc. A weapon with three or more
   slots holding a part it did not come with may be named by the player (docs/33 items 23 and 24,
   three or more by the owner's call of 2026-10-27; typed, the default). What landed:
