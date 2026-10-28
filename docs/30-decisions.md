@@ -7498,6 +7498,12 @@ case, the dead-socket lane). BRASS RECIPE holds three cases to three hand-loads 
 `godot:check:inventory` HANDLOAD now carries four 12g cases and spends them. `godot:m2:save`,
 `godot:m2:jobs`, `godot:m2:tick`, `godot:check:loot` and `godot:m2:gear` are green on the branch.
 
+**Tick cost.** `godot:bench:runtime` (`colony-tick` and `shipped-tick`), three interleaved rounds on this
+machine, branch against main e6c0d21b: colony-tick mean 10.04, 9.52, 10.05 ms on the branch against 9.80,
+10.02, 9.93 ms on main (medians 10.04 and 9.93); shipped-tick mean medians 8.37 and 9.16 ms. The spread
+is the same 1 to 4 ms noise as before, and both trees already sit over the 8 ms mean target. Not measured:
+a throwaway run with a firefight's worth of cases on the ground (twenty shots round the annex).
+
 **Not in this piece.** Haul walks to a loose case by the same errand rule it uses for any loose item
 (`ERRAND_RADIUS_TILES`, the danger rules); `jobs.gd` is untouched and no job was added. The pictures are
 the class glyph: a case has no sprite of its own yet, and no review scene was added for it.

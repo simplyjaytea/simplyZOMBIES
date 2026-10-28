@@ -2496,7 +2496,8 @@ not a to-do list:
   - **Haul.** A loose case is hauled under the same errand radius as any loose item (`jobs.gd`'s
     `ERRAND_RADIUS_TILES`); no job was added and `jobs.gd` is untouched.
   - **Not measured here.** Balance: the loot tables do not move, but raiders and Guards fire, so more
-    items lie about; the chain compares the trees. The tick cost is in docs/30 "Spent brass, 2026-10-28".
+    items lie about; the chain compares the trees. The tick cost is inside the noise of main (docs/30
+    "Spent brass, 2026-10-28", "Tick cost").
 - **A weapon you named, 2026-10-27.** The last piece of the melee arc. A weapon with three or more
   slots holding a part it did not come with may be named by the player (docs/33 items 23 and 24,
   three or more by the owner's call of 2026-10-27; typed, the default). What landed:
