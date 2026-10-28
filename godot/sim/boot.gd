@@ -66,6 +66,13 @@ const WANDERERS_PER_64: int = 20
 # How many times a boot wanderer's tile is re-rolled to land outside the colony before it is placed
 # wherever it fell. See the scatter loop in `playable`.
 const SCATTER_TRIES: int = 8
+# The clear ring round the annex: no boot wanderer starts within this many metres of the colony's
+# walls. P1 (`planning/balance/2026-10-28-dayone-causes.md`) found the two run-ending player bites
+# came from a wanderer the boot placed 2.5 m and 4.5 m from the lot. A first cut from that table,
+# not a tuned number. Applied only where the ring fits (`_boot_ring`), so 64 boots byte-identical.
+const BOOT_CLEAR_METRES: int = 10
+# The gate switches the ring off to prove it is what keeps the dead out, and restores it after.
+static var boot_clear_ring: bool = true
 
 
 static func wanderers_for(tiles: int) -> int:
@@ -589,21 +596,50 @@ static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.D
 	# a roll that never lands outside places anyway rather than looping, which at these odds
 	# (a 26x26 rect inside a 48x48 box, eight times over) is a case nothing has reached.
 	var annex: Rect2i = SimTileMap.annex_rect(map)
+	var ring: Rect2i = _boot_ring(map, annex)
 	# `wanderers_for_map` rather than `wanderers_for(map.w)`: identical on every district (it falls
 	# through to the side reading) and the sum of the cells on a region, where a side would count
 	# the seams between districts as if people lived on them.
 	for i in wanderers_for_map(map):
 		var type_id: String = SimRoster.pick_type(world, place_rng)
 		var tile: Dictionary = {}
+		# The first roll outside the annex, kept for the case where every try lands in the ring.
+		var outside: Dictionary = {}
+		var placed: bool = false
 		for _try in SCATTER_TRIES:
 			var tx: int = int(place_rng.call("int_range", 8, int(map.w) - 9))
 			var ty: int = int(place_rng.call("int_range", 8, int(map.h) - 9))
 			tile = SimTileMap.find_open_tile(map, tx, ty)
-			if annex.size.x <= 0 or not annex.has_point(Vector2i(int(tile["x"]), int(tile["y"]))):
-				break
+			var at: Vector2i = Vector2i(int(tile["x"]), int(tile["y"]))
+			if annex.size.x > 0 and annex.has_point(at):
+				continue
+			if outside.is_empty():
+				outside = tile
+			if ring.size.x > 0 and ring.has_point(at):
+				continue
+			placed = true
+			break
+		if not placed and not outside.is_empty():
+			tile = outside
 		SimRoster.spawn_zombie(world, float(tile["x"]) + 0.5, float(tile["y"]) + 0.5, type_id, place_rng)
 	world.events.drain()
 	return {"world": world, "map": map}
+
+
+# The rect no boot wanderer may start in: the annex grown by BOOT_CLEAR_METRES on every side, or an
+# empty rect where the ring does not fit. It fits only when the grown rect covers at most half the
+# scatter box (the box `playable` rolls from). At 64 the grown rect is 92% of the box, so the ring
+# would re-roll nearly every draw; at 256 it is under 4%. Empty at 64 is what keeps that size's
+# draws, and so its wanderers, byte-identical to main.
+static func _boot_ring(map: Variant, annex: Rect2i) -> Rect2i:
+	if not boot_clear_ring or annex.size.x <= 0:
+		return Rect2i(0, 0, 0, 0)
+	var grown: Rect2i = annex.grow(BOOT_CLEAR_METRES)
+	# The scatter box: rolls run from 8 to the far side less 9, inclusive on both ends.
+	var box_area: int = (int(map.w) - 16) * (int(map.h) - 16)
+	if grown.size.x * grown.size.y * 2 > box_area:
+		return Rect2i(0, 0, 0, 0)
+	return grown
 
 
 # A world on a region rather than a district. Everything after the map is identical -- the same
