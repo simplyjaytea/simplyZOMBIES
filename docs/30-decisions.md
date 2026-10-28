@@ -7055,3 +7055,40 @@ table was not re-run.
 **How to apply:** a screen that shows an item's name reads `SimItems.item_name`, never the base's
 `name`, so a given name reaches it. A new check of the item-name clause calls
 `SimItems.name_is_allowed`, never its own copy.
+
+## Internals wear, and the jam derives from them, 2026-10-28
+
+The firearms arc's F3 piece (`planning/2026-10-28-firearms-readers.md`, section F3). Calls taken in
+the piece, so a later reader can see why they are shaped this way:
+
+- **Three slots, not one.** A slot holds one item, so the spring, the sear and the extractor each
+  got a slot name (`spring`, `sear`, `extractor`). Every firearm base that defaults an action
+  defaults all three, and the action keeps the name `internal`.
+- **A worn-through internal stays fitted.** A barrel or an action at zero detaches, and a gun
+  without its action stops, because `internal` is a required slot. A spring, sear or extractor
+  cannot follow that rule: it is not required, so a detached one would leave `assembly_condition`
+  and the gun would jam *less* for losing its sear. These three declare `staysWhenWornOut`, sit at
+  zero, read "broken" and jam on every pull. `detach` still takes one out.
+- **The mass is split, not added.** The old action weighed 0.20 kg with its springs and sear inside
+  it. The action is now 0.12 kg, the three parts make the other 0.08 kg, and the tuned action, match
+  action and magnum cylinder (which replace the action in `internal`) drop by the same 0.08 kg. An
+  assembled firearm weighs what it weighed; `godot:m2:attach` MASS holds that number.
+- **The parts are findable.** They sit in the `tables.json` parts bin beside the action, at weights
+  4, 3 and 3. Findability is a gate rule (`godot:m2:attach` CONTENT), not a choice.
+- **The band words read the assembly.** The inspect view and the grid view band an item by its
+  assembly condition, as the jam already did, so a gun with a failing sear says "failing" and jams
+  at the failing rate. Before this, the screen read the receiver alone and called a jamming gun
+  sound.
+- **Not done here.** The named break-action (`item.named.deer_rifle`) has never had an action
+  defaulted, so it gets none of the three; giving it internals is a content decision for the owner
+  of that base, and it is not in F3's list.
+
+**Why:** the owner's arc rule is that every number is a sum of the gun's parts, and a jam that
+follows a part the player can see worn is the readable half of that rule. A jam chance that did not
+move with the internals would be the dead-socket pattern docs/37 warns about.
+
+**How to apply:** a new internal part declares `structural` and `staysWhenWornOut` and a `wearsOn`
+list, and its slot goes on every base that defaults an action. A new internal that replaces the
+action declares its own mass against the 0.12 kg action so an assembly keeps its weight.
+
+**Measured:** see the PR's Measured section and the balance row for this piece in docs/23.
