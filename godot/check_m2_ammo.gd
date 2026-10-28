@@ -26,6 +26,7 @@ const SimItems = preload("res://sim/modules/items.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
 const SimLightModule = preload("res://sim/modules/light.gd")
+const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 const Clock = preload("res://sim/time/clock.gd")
 
@@ -62,11 +63,15 @@ func _run() -> void:
 	ok = _a_worn_internal_jams_the_gun() and ok
 	ok = _the_debug_spawned_round_holds_the_count_asked_for() and ok
 	ok = _the_round_you_choose_is_the_round_you_fire() and ok
+	ok = _a_hand_load_misfires_on_top_of_the_band() and ok
+	ok = _a_hand_load_hits_for_less() and ok
+	ok = _the_hand_load_recipe_refuses_in_order_and_spends_nothing_until_it_works() and ok
+	ok = _a_factory_round_is_reached_for_before_a_hand_load() and ok
 	ok = _the_magazine_remembers_what_you_loaded() and ok
 	ok = _every_load_reads_in_words() and ok
 	ok = _a_round_comes_back_as_it_went_in() and ok
 	if ok:
-		print("M2_AMMO_OK content reach scaled default pick refuse fold drops legacy convert recover jam debug-stack round mag word tier")
+		print("M2_AMMO_OK content reach scaled default pick refuse fold drops legacy convert recover jam debug-stack round mag word tier handload")
 		quit(0)
 	else:
 		push_error("M2_AMMO_FAIL")
@@ -261,6 +266,7 @@ func _every_round_and_every_gun_is_well_formed() -> bool:
 	if droppable.is_empty():
 		push_error("%s: no loot tables loaded, so the findability half has nothing to judge" % lane)
 		return false
+	var chambered: Dictionary = _chambered_calibers(items)
 	var guns: int = 0
 	var rounds: int = 0
 	for entry in items:
@@ -282,11 +288,27 @@ func _every_round_and_every_gun_is_well_formed() -> bool:
 		for fault in _table_faults((spec as Dictionary).get("ranged")):
 			push_error("%s: %s %s" % [lane, id, fault])
 			return false
-		if not droppable.has(id):
-			push_error("%s: %s is in no loot table -- a round nobody can find" % [lane, id])
+		if not _findable(e, droppable, chambered):
+			push_error("%s: %s is in no loot table and is no hand-load a shipped gun chambers -- a round nobody can find" % [lane, id])
 			return false
 	if guns == 0 or rounds == 0:
 		push_error("%s: %d guns and %d rounds -- the scan has nothing to judge" % [lane, guns, rounds])
+		return false
+
+	# Prove the findability predicate can fail before the walk above is trusted: a fabricated round
+	# in no loot table with no recipe is still nobody's to find, and a fabricated hand-load whose
+	# caliber nothing chambers is still unfindable. A shipped hand-load's caliber must read as chambered.
+	var fabricated: Dictionary = {"id": "item.ammo.fabricated", "ammo": {"caliber": "9mm"}}
+	if _findable(fabricated, droppable, chambered):
+		push_error("%s: a fabricated round in no loot table and with no recipe was found" % lane)
+		return false
+	var orphan: Dictionary = {"id": "item.ammo.orphan.handload", "ammo": {"caliber": "fabricated", "handload": {"kinds": ["ingot"], "yield": 1}}}
+	if _findable(orphan, droppable, chambered):
+		push_error("%s: a hand-load for a caliber nothing chambers was found" % lane)
+		return false
+	var recipe: Dictionary = {"id": "item.ammo.fabricated.handload", "ammo": {"caliber": "9mm", "handload": {"kinds": ["ingot"], "yield": 1}}}
+	if not _findable(recipe, droppable, chambered):
+		push_error("%s: a hand-load for a chambered caliber was not found -- the recipe is not a way to be found" % lane)
 		return false
 
 	# Prove the multiplier predicate can fail before the walk above is trusted, on a fabricated
@@ -410,6 +432,18 @@ func _chambered_calibers(items: Array) -> Dictionary:
 		if ranged is Dictionary and String((ranged as Dictionary).get("caliber", "")) != "":
 			out[String((ranged as Dictionary)["caliber"])] = id
 	return out
+
+
+# A round a survivor can find: one a loot table drops, or a hand-load whose caliber a shipped gun
+# chambers. A hand-load is made at a bench, so the recipe is what finds it, and a recipe for a
+# caliber no gun takes is a round nobody can use either.
+func _findable(e: Dictionary, droppable: Dictionary, chambered: Dictionary) -> bool:
+	if droppable.has(String(e.get("id", ""))):
+		return true
+	var spec: Variant = e.get("ammo")
+	if not spec is Dictionary or not (spec as Dictionary).has("handload"):
+		return false
+	return chambered.has(String((spec as Dictionary).get("caliber", "")))
 
 
 func _round_calibers(items: Array) -> Dictionary:
@@ -914,7 +948,7 @@ func _jams_in(w: Variant, gun: int, draws: int) -> int:
 	var roll: SeededRoll = SeededRoll.new(7)
 	var jams: int = 0
 	for i in draws:
-		if SimRanged._jammed(w, profile, roll):
+		if SimRanged._jammed(w, gun, profile, roll):
 			jams += 1
 	return jams
 
@@ -1301,6 +1335,283 @@ func _a_round_comes_back_as_it_went_in() -> bool:
 		push_error("%s: the slugs in the gun carry tiers %s" % [lane, str((rec as Dictionary).get("tiers") if rec is Dictionary else null)])
 		return false
 	print("  TIER OK modified buckshot swapped out for slugs comes back to the pack modified, and the slugs in the gun keep their own tier")
+	return true
+
+
+# --- HANDLOAD -----------------------------------------------------------------------------------
+#
+# A hand-load is a round a survivor makes at a bench from what they carry (docs/09). Its misfire is
+# added to the band, so a sound gun misfires on it and a worn one misfires at its band plus the
+# round's share; it hits for less; its recipe is refused in order with nothing spent; and a factory
+# round is reached for first. Every lane here measures what the trigger or the shot does, never the
+# profile or the content table.
+
+const HAND_NINE: String = "item.ammo.9mm.handload"
+const HAND_BUCK: String = "item.ammo.12g.handload"
+const INGOT: String = "item.ingot.lead"
+const CHARCOAL: String = "item.charcoal.lump"
+const RIMFIRE_GUN: String = "item.revolver.snub"
+
+
+# Counts every draw a trigger pull takes on the ranged stream and answers the same value each time,
+# so the count is the number of draws and nothing else.
+class CountingRoll:
+	var draws: int = 0
+
+	func float_range(_lo: float, _hi: float) -> float:
+		draws += 1
+		return 0.5
+
+
+func _draws_in(w: Variant, gun: int, pulls: int) -> int:
+	var profile: Dictionary = SimItems.ranged_profile_of(w, gun) as Dictionary
+	var roll: CountingRoll = CountingRoll.new()
+	for i in pulls:
+		SimRanged._jammed(w, gun, profile, roll)
+	return roll.draws
+
+
+func _a_hand_load_misfires_on_top_of_the_band() -> bool:
+	var lane: String = "MISFIRE"
+	# A sound pistol on hand-loads: the band's 0.0 and the round's 0.03. Two thousand pulls put the
+	# sample rate's standard deviation near 0.0038, so 2.5 of them either side is 0.0205 to 0.0395.
+	var w: Variant = _world()
+	var gun: int = _armed(w, PISTOL, [[HAND_NINE, 12]])
+	if gun < 0:
+		return false
+	w.step()
+	if SimRanged.rounds_in(w, gun).is_empty() or String(SimRanged.rounds_in(w, gun)[0]) != HAND_NINE:
+		push_error("%s: the pistol's magazine does not hold the hand-loads it was given" % lane)
+		return false
+	if SimItems.jam_chance(w, gun) != 0.0:
+		push_error("%s: a sound pistol's band is %.3f, not 0.0 -- the lane would be measuring the band" % [lane, SimItems.jam_chance(w, gun)])
+		return false
+	var rate: float = float(_jams_in(w, gun, 2000)) / 2000.0
+	if rate < 0.0205 or rate > 0.0395:
+		push_error("%s: a sound pistol on hand-loads jammed at %.4f, not near the round's 0.03" % [lane, rate])
+		return false
+
+	# The same pistol on factory ball: the band is 0.0 and the round adds nothing, so no pull draws
+	# from the stream and none jams. A draw here would make every sound gun's sequence depend on the
+	# round in it.
+	var w2: Variant = _world()
+	var factory_gun: int = _armed(w2, PISTOL, [[NINE, 12]])
+	if factory_gun < 0:
+		return false
+	w2.step()
+	if _draws_in(w2, factory_gun, 2000) != 0:
+		push_error("%s: a sound pistol on factory ball drew from the ranged stream" % lane)
+		return false
+	if _jams_in(w2, factory_gun, 2000) != 0:
+		push_error("%s: a sound pistol on factory ball jammed" % lane)
+		return false
+	# The hand-loads in the first pistol do draw: the round is what turns the draw on.
+	if _draws_in(w, gun, 2000) != 2000:
+		push_error("%s: the hand-loaded pistol drew %d times in 2000 pulls" % [lane, _draws_in(w, gun, 2000)])
+		return false
+
+	# A worn pistol on hand-loads: "failing" is 0.12 and the round adds 0.03, so 0.15. Four thousand
+	# pulls put the deviation near 0.0056, so the band is 0.13 to 0.17.
+	var w3: Variant = _world()
+	var worn_gun: int = _armed(w3, PISTOL, [[HAND_NINE, 12]])
+	if worn_gun < 0:
+		return false
+	w3.step()
+	var sear: int = SimAttachments.in_slot(w3, worn_gun, "sear")
+	if sear < 0:
+		push_error("%s: the pistol spawned with no sear fitted" % lane)
+		return false
+	(w3.components.get_component(sear, "condition") as Dictionary)["current"] = 0.35
+	SimItems.refresh_armed(w3, worn_gun)
+	if not is_equal_approx(SimItems.jam_chance(w3, worn_gun), float(SimItems.JAM_CHANCE_BY_BAND["failing"])):
+		push_error("%s: a sear at 0.35 gives band %.3f, not the failing band" % [lane, SimItems.jam_chance(w3, worn_gun)])
+		return false
+	var worn_rate: float = float(_jams_in(w3, worn_gun, 4000)) / 4000.0
+	if worn_rate < 0.13 or worn_rate > 0.17:
+		push_error("%s: a failing pistol on hand-loads jammed at %.4f, not near 0.15" % [lane, worn_rate])
+		return false
+	print("  MISFIRE OK a sound pistol jams at the round's 0.03 on hand-loads and draws nothing on factory ball; a failing one jams at its band plus 0.03")
+	return true
+
+
+func _a_hand_load_hits_for_less() -> bool:
+	var lane: String = "WORSE"
+	# The same pistol, the same seed and the same target two metres off: the only difference is the
+	# round, so the ratio of the two hits is the round's damage multiplier and nothing else.
+	var wf: Variant = _world()
+	if _armed(wf, PISTOL, [[NINE, 12]]) < 0:
+		return false
+	wf.step()
+	var factory_hit: Dictionary = _hit_at(wf, wf.player, 2.0)
+	var wh: Variant = _world()
+	if _armed(wh, PISTOL, [[HAND_NINE, 12]]) < 0:
+		return false
+	wh.step()
+	var hand_hit: Dictionary = _hit_at(wh, wh.player, 2.0)
+	# A hand-load's jam draw takes a number from the ranged stream on every pull, so the two worlds
+	# do not roll the same body part. Divide a head shot back to the torso's three-to-one before
+	# comparing, so the ratio is the round's and nothing else.
+	var factory_damage: float = float(factory_hit["damage"]) / (3.0 if String(factory_hit["part"]) == "head" else 1.0)
+	var hand_damage: float = float(hand_hit["damage"]) / (3.0 if String(hand_hit["part"]) == "head" else 1.0)
+	if factory_damage <= 0.0 or hand_damage <= 0.0:
+		push_error("%s: nothing connected (factory %.4f, hand-load %.4f)" % [lane, factory_damage, hand_damage])
+		return false
+	if hand_damage >= factory_damage:
+		push_error("%s: a hand-load hit for %.4f against the factory round's %.4f" % [lane, hand_damage, factory_damage])
+		return false
+	if absf(hand_damage / factory_damage - 0.85) > 0.005:
+		push_error("%s: the hand-load's damage ratio is %.4f, not the declared 0.85" % [lane, hand_damage / factory_damage])
+		return false
+	print("  WORSE OK a hand-load hits for 0.85 of the factory round from the same gun at the same range")
+	return true
+
+
+# Fire once at a body `metres` away and report the damage and the body part it landed on.
+func _hit_at(w: Variant, shooter: int, metres: float) -> Dictionary:
+	var target: int = w.entities.spawn()
+	w.components.set_component(target, "position", {"x": 8.5 + metres, "y": 12.5})
+	SimHealth.make_survivor_body(w, target)
+	_load_first(w, shooter)
+	var hit: Dictionary = {"damage": 0.0, "part": ""}
+	for i in 40:
+		var rw0: Variant = w.components.get_component(shooter, "rangedWeapon")
+		if rw0 is Dictionary and int((rw0 as Dictionary)["state"]) == SimRanged.FireState.Idle:
+			break
+		w.step()
+	w.commands.push({"type": "fire"})
+	for i in 60:
+		w.step()
+		for e in w.events.drained:
+			var d: Dictionary = e as Dictionary
+			if String(d.get("type", "")) == "attack.connected" and int(d.get("attacker", -1)) == shooter and int(d.get("target", -1)) == target:
+				hit = {"damage": float(d.get("damage", 0)), "part": String(d.get("bodyPart", ""))}
+		if float(hit["damage"]) > 0.0:
+			break
+	return hit
+
+
+func _the_hand_load_recipe_refuses_in_order_and_spends_nothing_until_it_works() -> bool:
+	var lane: String = "RECIPE"
+	# The .22 and the bow have no hand-load. Both are checked before anything else is, so the
+	# answer is the same with or without a bench in reach. The bow is refused before its bench too.
+	var wb: Variant = _world()
+	var bow: int = _armed(wb, BOW, [])
+	if bow < 0:
+		return false
+	wb.step()
+	if SimRanged.handload_refusal(wb, wb.player, bow) != "no-handload":
+		push_error("%s: a bow was offered a hand-load (%s)" % [lane, SimRanged.handload_refusal(wb, wb.player, bow)])
+		return false
+	if not SimRanged.handload_of(wb, "22").is_empty():
+		push_error("%s: the .22 has a hand-load recipe -- rimfire cannot be reloaded" % lane)
+		return false
+
+	var w: Variant = _world()
+	var gun: int = _armed(w, PISTOL, [])
+	if gun < 0:
+		return false
+	w.step()
+	var spare: int = SimItems.spawn_item(w, PISTOL, {"tier": "scavenged"})
+	if SimRanged.handload_refusal(w, w.player, spare) != "not-carried":
+		push_error("%s: a pistol the survivor does not carry said %s, not not-carried" % [lane, SimRanged.handload_refusal(w, w.player, spare)])
+		return false
+	if SimRanged.handload_refusal(w, w.player, gun) != "no-bench":
+		push_error("%s: a pistol with no bench in reach said %s" % [lane, SimRanged.handload_refusal(w, w.player, gun)])
+		return false
+	if SimInventory.verbs_for(w, w.player, gun).has("handload"):
+		push_error("%s: the menu offers hand-load with no bench in reach" % lane)
+		return false
+
+	var ingot: int = SimItems.spawn_item(w, INGOT, {"tier": "scavenged"})
+	if not SimInventory.store_anywhere(w, ingot, w.player):
+		push_error("%s: the ingot would not go in a pocket" % lane)
+		return false
+	SimGunsmith.make_bench(w, 8.5, 12.5)
+	if SimRanged.handload_refusal(w, w.player, gun) != "needs:charcoal":
+		push_error("%s: an ingot but no charcoal said %s" % [lane, SimRanged.handload_refusal(w, w.player, gun)])
+		return false
+	w.commands.push({"type": "item.handload", "actor": w.player, "item": gun})
+	w.step()
+	if _stack_of(w, w.player, INGOT) < 0 or _in_pack(w, w.player, HAND_NINE) != 0:
+		push_error("%s: a refused hand-load spent the ingot or made rounds" % lane)
+		return false
+
+	var charcoal: int = SimItems.spawn_item(w, CHARCOAL, {"tier": "scavenged"})
+	if not SimInventory.store_anywhere(w, charcoal, w.player):
+		push_error("%s: the charcoal would not go in a pocket" % lane)
+		return false
+	if SimRanged.handload_refusal(w, w.player, gun) != "":
+		push_error("%s: a bench, an ingot and charcoal still refused (%s)" % [lane, SimRanged.handload_refusal(w, w.player, gun)])
+		return false
+	if not SimInventory.verbs_for(w, w.player, gun).has("handload"):
+		push_error("%s: the menu does not offer hand-load with everything the recipe needs" % lane)
+		return false
+	w.commands.push({"type": "item.handload", "actor": w.player, "item": gun})
+	w.step()
+	if _in_pack(w, w.player, HAND_NINE) != 6:
+		push_error("%s: one hand-load made %d rounds, not the declared 6" % [lane, _in_pack(w, w.player, HAND_NINE)])
+		return false
+	if _stack_of(w, w.player, INGOT) >= 0 or _stack_of(w, w.player, CHARCOAL) >= 0:
+		push_error("%s: the hand-load did not spend one ingot and one charcoal" % lane)
+		return false
+	if SimRanged.handload_refusal(w, w.player, gun) != "needs:ingot":
+		push_error("%s: with the materials gone the refusal is %s, not needs:ingot" % [lane, SimRanged.handload_refusal(w, w.player, gun)])
+		return false
+
+	# A full pack: the rounds have nowhere to go, so the refusal is `no-room` and the materials stay.
+	var wf: Variant = _world()
+	var full_gun: int = _armed(wf, PISTOL, [])
+	if full_gun < 0:
+		return false
+	wf.step()
+	SimGunsmith.make_bench(wf, 8.5, 12.5)
+	for id in [INGOT, CHARCOAL]:
+		if not SimInventory.store_anywhere(wf, SimItems.spawn_item(wf, id, {"tier": "scavenged"}), wf.player):
+			push_error("%s: %s would not go in a pocket before the pack filled" % [lane, id])
+			return false
+	var junk: Array = [ "item.ammo.arrow", "item.ammo.bolt", "item.ammo.22", "item.ammo.38", "item.ammo.45", "item.ammo.12g.slug", "item.ammo.12g.bird", "item.ammo.rifle.match", "item.ammo.rifle.surplus", "item.ammo.9mm.sub", "item.ammo.9mm.hollow", "item.ammo.12g" ]
+	for id in junk:
+		if not SimInventory.store_anywhere(wf, SimItems.spawn_item(wf, String(id), {"tier": "scavenged"}), wf.player):
+			break
+	if SimRanged.handload_refusal(wf, wf.player, full_gun) != "no-room":
+		push_error("%s: a full pack said %s, not no-room" % [lane, SimRanged.handload_refusal(wf, wf.player, full_gun)])
+		return false
+	wf.commands.push({"type": "item.handload", "actor": wf.player, "item": full_gun})
+	wf.step()
+	if _stack_of(wf, wf.player, INGOT) < 0 or _stack_of(wf, wf.player, CHARCOAL) < 0 or _in_pack(wf, wf.player, HAND_NINE) != 0:
+		push_error("%s: a hand-load refused for room spent its materials" % lane)
+		return false
+	print("  RECIPE OK no-handload for a bow and the .22; no-bench, then needs:charcoal, refused with nothing spent; one ingot and one charcoal make six 9mm hand-loads; a full pack says no-room and spends nothing")
+	return true
+
+
+func _a_factory_round_is_reached_for_before_a_hand_load() -> bool:
+	var lane: String = "ORDER"
+	# A shotgun with hand-loads and slugs carried, and no choice made. The magazine is filled from
+	# the factory round first, not from the one that sorts first by id ("item.ammo.12g.handload"
+	# sorts before "item.ammo.12g.slug").
+	var w: Variant = _world()
+	var gun: int = _armed(w, SHOTGUN, [[HAND_BUCK, 5], [SLUG, 5]])
+	if gun < 0:
+		return false
+	w.step()
+	var rounds: Array = SimRanged.rounds_in(w, gun)
+	if rounds.is_empty() or String(rounds[0]) != SLUG:
+		push_error("%s: with no choice the magazine opens on %s, not the factory slug" % [lane, str(rounds)])
+		return false
+	# The hand-load chosen, with the verb: it goes first.
+	var hand: int = _stack_of(w, w.player, HAND_BUCK)
+	if hand < 0:
+		push_error("%s: the hand-loads did not reach the pack" % lane)
+		return false
+	w.commands.push({"type": "item.load", "actor": w.player, "item": hand})
+	w.step()
+	_load_first(w, w.player)
+	rounds = SimRanged.rounds_in(w, gun)
+	if rounds.size() != 5 or String(rounds[0]) != HAND_BUCK:
+		push_error("%s: with the hand-load chosen the magazine holds %s" % [lane, str(rounds)])
+		return false
+	print("  ORDER OK with no choice a factory slug is loaded and fired before a hand-load of its caliber; with the hand-load chosen, the hand-load is")
 	return true
 
 
