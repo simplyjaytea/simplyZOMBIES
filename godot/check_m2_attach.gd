@@ -91,6 +91,7 @@ func _run() -> void:
 	ok = _an_affix_reaches_the_wear_it_names() and ok
 	ok = _an_affix_reaches_the_repair_it_names() and ok
 	ok = _the_ranged_prefixes_reach_what_they_name() and ok
+	ok = _the_ranged_clocks_and_accuracy_reach_the_gun_they_name() and ok
 	ok = _every_melee_base_has_a_family_and_the_new_slots_have_hosts() and ok
 	ok = _every_applies_to_names_a_real_family_or_base_and_every_recipe_has_a_host() and ok
 	ok = _a_part_goes_on_where_its_slot_and_its_family_say_and_nowhere_else() and ok
@@ -1892,7 +1893,10 @@ func _armour_slots_carry_armour() -> bool:
 func _carrying(w: Variant, id: String, affix_id: String, tier: int) -> int:
 	var item: int = _spawn(w, id)
 	if affix_id != "":
-		w.components.set_component(item, "affixes", {"prefixes": [], "suffixes": [{"id": affix_id, "tier": tier}]})
+		# A prefix goes in the prefixes list, as a roll puts it; a suffix in the suffixes list.
+		var rolled: Array = [{"id": affix_id, "tier": tier}]
+		var prefix: bool = affix_id.begins_with("affix.prefix.")
+		w.components.set_component(item, "affixes", {"prefixes": rolled if prefix else [], "suffixes": [] if prefix else rolled})
 		SimItems.reapply_affix_modifiers(w, item)
 	return item
 
@@ -2095,8 +2099,9 @@ func _the_ranged_prefixes_reach_what_they_name() -> bool:
 				if not SimItems.reads_through_item(stat):
 					push_error("%s: %s moves %s, which no reader resolves through the item" % [lane, String((affix as Dictionary)["id"]), stat])
 					return false
-	if SimItems.reads_through_item("reload_speed") or not SimItems.reads_through_item("ranged_accuracy"):
-		push_error("%s: the item-scoped list refuses a stat nothing reads, or refuses ranged_accuracy" % lane)
+	# A stat that is declared and that no reader resolves through the item (mood) is refused.
+	if SimItems.reads_through_item("mood") or not SimItems.reads_through_item("ranged_accuracy"):
+		push_error("%s: the item-scoped list admits mood, which nothing reads through an item, or refuses ranged_accuracy" % lane)
 		return false
 
 	# Trued, TP: the barrel's own accuracy is 1.1 at tier zero and 1.3 at tier two, and the cone the
@@ -2134,6 +2139,79 @@ func _the_ranged_prefixes_reach_what_they_name() -> bool:
 
 	print("  RANGED OK trued cone %.4f at tier zero and %.4f at tier two over bare %.4f; blued wear %.6f against plain %.6f; the pool refuses no stat it rolls" % [trued_low, trued_high, bare, blued_loss, plain_loss])
 	return true
+
+
+# Ported (the recovery clock and the noise), Chambered (the reload clock) and Heavy-barrelled (the
+# accuracy and the settle clock). The clocks are F4's item-scoped readers (`steady_share_of`,
+# `recover_share_of`, `reload_share_of`), read live by ranged.gd, so each lane reads the clock the
+# shot itself reads. Plain numbers are the rung's own: a bare gun's clock is the base's, and an
+# affixed one is that clock times the tier's share, rounded the way `_scaled` rounds it.
+func _the_ranged_clocks_and_accuracy_reach_the_gun_they_name() -> bool:
+	var lane: String = "RANGED"
+	var w: Variant = _world()
+	var bare_gun: int = _carrying(w, PISTOL, "", 0)
+	var ported: int = _carrying(w, PISTOL, "affix.prefix.ported", 0)
+	var ported_top: int = _carrying(w, PISTOL, "affix.prefix.ported", 2)
+	var chambered: int = _carrying(w, PISTOL, "affix.prefix.chambered", 0)
+	var chambered_top: int = _carrying(w, PISTOL, "affix.prefix.chambered", 2)
+	var heavy: int = _carrying(w, PISTOL, "affix.prefix.heavy_barrelled", 0)
+	var heavy_top: int = _carrying(w, PISTOL, "affix.prefix.heavy_barrelled", 2)
+
+	# A rung's clock from the same reader the shot uses: a plain record of the pistol's heft, with its
+	# own item as the source. -1 is the bare clock.
+	var recover_base: int = SimCombat.shot_recover_ticks(1.0, 1.0)
+	var steady_base: int = SimCombat.steady_ticks(1.0, 1.0)
+	var reload_base: int = 24
+
+	# Ported, TP: recovery is 0.85 at tier zero and 0.55 at tier two, and the noise is 1.15 and 1.5.
+	var recover_low: int = SimRanged._recover_of(w, {"weight": 1.0, "handling": 1.0, "source": ported})
+	var recover_high: int = SimRanged._recover_of(w, {"weight": 1.0, "handling": 1.0, "source": ported_top})
+	if recover_low != maxi(1, int(round(float(recover_base) * 0.85))) or recover_high != maxi(1, int(round(float(recover_base) * 0.55))):
+		push_error("%s: a ported gun recovers in %d and %d ticks, not the bare %d times 0.85 and 0.55" % [lane, recover_low, recover_high, recover_base])
+		return false
+	if absf(SimItems.noise_emission_of(w, ported) - 1.15) > 0.000001 or absf(SimItems.noise_emission_of(w, ported_top) - 1.5) > 0.000001:
+		push_error("%s: a ported barrel reads noise %.6f and %.6f, not 1.15 and 1.5" % [lane, SimItems.noise_emission_of(w, ported), SimItems.noise_emission_of(w, ported_top)])
+		return false
+	# Ported, TN: it names recovery and noise, not the settle or the reload, so those clocks are the base's.
+	if SimRanged._steady_of(w, {"weight": 1.0, "handling": 1.0, "source": ported}) != steady_base:
+		push_error("%s: a ported gun moved its settle clock" % lane)
+		return false
+
+	# Chambered, TP: the reload is 0.8 at tier zero and 0.5 at tier two of the base's 24 ticks.
+	var reload_low: int = _reload_ticks(w, chambered)
+	var reload_high: int = _reload_ticks(w, chambered_top)
+	if reload_low != maxi(1, int(round(float(reload_base) * 0.8))) or reload_high != maxi(1, int(round(float(reload_base) * 0.5))):
+		push_error("%s: a chambered gun reloads in %d and %d ticks, not 24 times 0.8 and 0.5" % [lane, reload_low, reload_high])
+		return false
+	# Chambered, TN: it names reload only, so the bare gun reloads on the base clock.
+	if _reload_ticks(w, bare_gun) != reload_base:
+		push_error("%s: a bare gun reloads in %d ticks, not the base %d" % [lane, _reload_ticks(w, bare_gun), reload_base])
+		return false
+
+	# Heavy-barrelled, TP: accuracy 1.08 and 1.22 over bare, and the settle clock 1.15 and 1.45 times the base.
+	var settle_low: int = SimRanged._steady_of(w, {"weight": 1.0, "handling": 1.0, "source": heavy})
+	var settle_high: int = SimRanged._steady_of(w, {"weight": 1.0, "handling": 1.0, "source": heavy_top})
+	if settle_low != maxi(1, int(round(float(steady_base) * 1.15))) or settle_high != maxi(1, int(round(float(steady_base) * 1.45))):
+		push_error("%s: a heavy-barrelled gun settles in %d and %d ticks, not the base %d times 1.15 and 1.45" % [lane, settle_low, settle_high, steady_base])
+		return false
+	if absf(SimItems.accuracy_of(w, heavy) - 1.08) > 0.000001 or absf(SimItems.accuracy_of(w, heavy_top) - 1.22) > 0.000001:
+		push_error("%s: a heavy-barrelled barrel reads accuracy %.6f and %.6f, not 1.08 and 1.22" % [lane, SimItems.accuracy_of(w, heavy), SimItems.accuracy_of(w, heavy_top)])
+		return false
+	# Heavy-barrelled, TN: it names accuracy and the settle, not the recovery, so the recovery is the base's.
+	if SimRanged._recover_of(w, {"weight": 1.0, "handling": 1.0, "source": heavy}) != recover_base:
+		push_error("%s: a heavy-barrelled gun moved its recovery clock" % lane)
+		return false
+
+	print("  RANGED OK ported recovers in %d ticks at tier zero (bare %d) and reads noise 1.15; chambered reloads in %d (bare %d); heavy-barrelled settles in %d (base %d) at accuracy 1.08" % [recover_low, recover_base, reload_low, reload_base, settle_low, steady_base])
+	return true
+
+
+# The reload a rung starts with, from the reader `_begin_reload` calls on a magazine-less record, so
+# no ammunition is needed to read the clock.
+func _reload_ticks(w: Variant, gun: int) -> int:
+	var rw: Dictionary = {"reloadTicks": 24, "magSize": 0, "source": gun}
+	SimRanged._begin_reload(w, w.player, rw)
+	return int(rw["ticksLeft"])
 
 
 # --- MELEE FRAMES -----------------------------------------------------------------------------

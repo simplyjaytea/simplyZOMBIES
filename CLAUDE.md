@@ -47,7 +47,10 @@ the pressure the dead put on the colony. [docs/00](docs/00-vision.md) is the vis
 **The TypeScript oracle is frozen, not gone.** `src/`, `test/`, `bench/` and the Vite and vitest
 configs are on `main`, and CI's `check` job runs `npm test`, `typecheck`, `lint`, `format:check`
 and `bench` against them. It is a reference, not a second product: add no features to it, port
-no Godot change into it, and do not delete it or let it go red. Its frozen parity fixtures under
+no Godot change into it, and do not delete it or let it go red. The one exception is the stat
+registry: a stat id that shared content names is registered in `src/sim/modifiers/stats.ts`, ids
+and base/min only, so the oracle's content check can judge the file (docs/30, "The oracle stat
+registry mirrors content stat ids"). No behaviour is ported with it. Its frozen parity fixtures under
 `godot/parity/` are what `npm run godot:test` compares against; tag `ts-oracle-final` is the
 rollback point.
 
