@@ -2675,9 +2675,13 @@ not a to-do list:
   fires; a sear worn through stays fitted, reads "broken", refuses as `broken:sear` on the pull, the
   HUD line and the NPC envelope, spending no round; the revolver refuses the same on a worn-through
   extractor), `godot:m2:attach` INTERNALS (all nine bases
-  spawn with the three fitted, each structural and each staying fitted). Not in this piece: a
-  hand-loaded round, which needs a reader of its own on the jam, and the named break-action, which
-  has never had an action and so carries none of the three. Measured in the PR's Measured section.
+  spawn with the three fitted, each structural and each staying fitted). The bench's key to the
+  amber corner, which the second row of plates pushed off the panel at 1280x720, moves to the top
+  row's free left cell on any weapon with a sight or optic (`godot/ui/bench_panel.gd`'s `layout`;
+  docs/30), and `godot:check:play` BENCH holds it inside the frame and clear of every plate at both
+  windows. Not in this piece: a hand-loaded round, which needs a reader of its own on the jam, and
+  the named break-action, which has never had an action and so carries none of the three. Measured
+  in the PR's Measured section.
 - **Items — the three dead stats get readers, 2026-10-26.** The first piece of the firearms arc
   (readers before content). `noise_emission`, `condition_loss` and `repair_cost` were declared in
   `sim/modifiers/stats.gd` and two of them resolved by nothing, so the ranged affixes that name
