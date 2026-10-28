@@ -2547,6 +2547,18 @@
         "weight": 6
       },
       {
+        "item": "item.part.spring.standard",
+        "weight": 4
+      },
+      {
+        "item": "item.part.sear.standard",
+        "weight": 3
+      },
+      {
+        "item": "item.part.extractor.standard",
+        "weight": 3
+      },
+      {
         "item": "item.part.magazine.standard",
         "weight": 8
       },
