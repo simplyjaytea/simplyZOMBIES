@@ -384,3 +384,10 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
     its usual round at the stack default tier, rolled on its own `foundRounds` stream so no other
     shelf's draw moves (docs/30's "The round you load"). A raider still arrives loaded from their
     own kit, and a gun a gate spawns by hand is still empty. `godot:check:loot` FOUND holds it.
+27. **What does a hand-load cost, and where is it made?** -- posted 2026-10-28 with the built
+    default (A), **not yet decided by the owner**. A hand-load is made at the gunsmith's bench (the
+    bench every weapon already opens on) from one ingot of any metal and one lump of charcoal, for a
+    handful of rounds of the weapon's caliber. Other options: (B) also needs the spent brass your own
+    shots leave, a new item and a pick-up rule; (C) a separate reloading bench built first (docs/11
+    lists one). The default is built (docs/30, "The hand-loaded round, 2026-10-28"); (B) and (C) are
+    follow-ups where the recipe's inputs are content and the station check is one predicate.

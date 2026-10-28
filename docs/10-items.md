@@ -193,8 +193,9 @@ size, reload time and how fast the weapon comes up are properties of the weapon 
 decided before a round is ever chosen — a round that claimed one would be a number nothing could
 read. Jamming is the same kind of exclusion for a different reason: the chance is derived from the
 weapon's condition band rather than authored, so that a weapon the screen calls "failing" cannot be
-one that never jams, and docs/09's hand-loaded round wants its own mechanism rather than a
-multiplier that breaks that coupling.
+one that never jams. docs/09's hand-loaded round is the exception that proves the rule: its
+`misfire` is added to the band rather than multiplied into it, so a sound gun still misfires on it
+and no round lowers the chance (docs/30, "The hand-loaded round, 2026-10-28").
 
 A **conversion part** moves both fields together — the round the weapon prefers and the set it
 takes. One without the other is a gun that prefers something it cannot chamber.

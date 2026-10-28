@@ -7348,3 +7348,55 @@ named is handed to the balance thread, after the run already going on main.
 `rangedWeapon.mag`. A body that should arrive with a loaded gun calls `SimRanged.load_held` after
 its kit. A gate that fires a gun it has just armed loads it first (`load_held`), or its first pull
 is a reload.
+
+
+## The hand-loaded round, 2026-10-28
+
+Piece B2 of the 2026-10-28 batch: docs/09's "late-game hand-loading is possible and produces worse
+ammunition: reduced power, higher jam chance", the one ammunition promise the slice could not
+express. Card 27 (what a hand-load costs and where it is made) was posted with its default built,
+and the owner has not picked. The calls taken here, each recorded because each one could have gone
+the other way:
+
+- **The misfire is added to the band, never multiplied.** `ammo.misfire` is a chance a round adds to
+  the weapon's jam chance in `SimRanged._jammed`. A multiplier on a sound gun's band of 0.0 is still
+  0.0, and a hand-load has to bite a sound gun, so a round's misfire is the one adder in the ammo
+  block. A round never lowers the chance, so the coupling from "The round you load" holds: a weapon
+  the screen calls "failing" jams at least at that band's rate. A factory round has no misfire, so a
+  sound gun on factory rounds draws nothing from the `ranged` stream, as before.
+- **`jams: false` holds.** The .38 revolver never jams, so a hand-load in it never misfires. The
+  .38 hand-load is shipped anyway, because the caliber is chambered and the recipe is content; its
+  misfire is simply not read by a gun that does not feed.
+- **No rimfire hand-load.** Rimfire cannot be reloaded: its priming sits in the rim, so the case is
+  spent once. The .22 has no recipe and `handload_refusal` answers `no-handload`. No arrow or bolt
+  hand-load: the brief covers centrefire firearms only.
+- **First-cut numbers.** Each hand-load is `damage` 0.85 and `cone` 1.15 over the factory round and
+  `misfire` 0.03. The recipe is one ingot and one charcoal for a yield of 6 for 9mm, .38 and .45, 5
+  for rifle and 4 for 12g. These are first cuts that no balance run has measured.
+- **Last in the fallback order.** With no choice, a weapon reaches for every factory round of its
+  caliber before any hand-load of it, in `SimRanged._fallback_order`, which `_pick_round` and
+  `planned_load` both use. A player who chose the hand-load gets it. A content round with no recipe
+  sorts as it did, so no existing magazine or pick moves.
+- **The predicate, in order, and nothing spent on a refusal.** `handload_refusal` answers
+  `not-a-firearm`, `not-carried`, `no-handload`, `no-bench`, `needs:<kind>` and `no-room`, and the
+  menu's verb and the command both ask it. `no-room` is asked of the pack without moving anything: a
+  stack fits a carried stack of the same round with room, or a free cell in a container the actor
+  reaches. The command stows the rounds before it consumes any material, so an answer that was
+  wrong costs nothing but a refusal.
+- **The menu and the command can disagree about room.** `no-room` is a predicate, not the stow
+  itself. If the two ever disagree, the command refuses with nothing spent, but the menu may have
+  offered the verb. The gate does not exercise that disagreement; it is named here so a later
+  reader does not take the predicate for a guarantee.
+- **The gates.** `godot:m2:ammo` holds MISFIRE, WORSE, RECIPE and ORDER, and the CONTENT lane's
+  findability rule, which accepts a hand-load a shipped gun chambers and still refuses a fabricated
+  round with no recipe and a hand-load for a caliber nothing chambers. `godot:check:inventory` holds
+  HANDLOAD: the verb is offered only with a bench and the materials, and the pane's button makes four
+  12g hand-loads and spends the ingot and the charcoal. Every verb button sits inside the pane at
+  1280x720.
+- **No `SAVE_VERSION` bump, and no new component.** A hand-load is a stack of an existing kind of
+  item; the magazine record is unchanged. `godot:m2:save` is in the chain and unchanged by it.
+- **No new stat id.** Neither `misfire` nor `handload` is a stat, so the oracle's registry in
+  `src/sim/modifiers/stats.ts` is not touched.
+- **Refusals are published, not worded.** `item.handload_refused` carries the reason; the panel does
+  not yet say it in words, the same as `item.load_refused`. Naming the refusal on the screen is a
+  follow-up, not this piece.
