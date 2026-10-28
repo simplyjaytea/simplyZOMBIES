@@ -7065,6 +7065,10 @@ The five ranged prefixes docs/10 names were planned as one data edit. Two of the
   stat carries, and Blued's "resists wet" has no stat either. Authoring them would need a new stat,
   and the batch plan said no new stat. So they wait for the owner's or the coordinator's call on
   adding stats, and docs/23 names them.
+- **The split, coordinator call 2026-10-28.** No stat is added in #250. F4 (furniture as ergonomics)
+  adds aim time, recoil recovery and firing stances now, so recoil and steady time become F4's stats.
+  After F4 merges, a second PR off main adds Ported, Chambered and Heavy-barrelled on F4's stats, plus
+  a reload-time stat if F4 did not add one. Blued's "resists wet" stays an open line in docs/23.
 - **The gun's own accuracy is read through the item.** `ranged_accuracy` resolves on the shooter, so a
   barrel's Trued could not move the cone. `SimItems.accuracy_of` is the item's share of it, the same
   division `noise_emission_of` and `condition_loss_of` already do, and `_refresh_cone` multiplies it
