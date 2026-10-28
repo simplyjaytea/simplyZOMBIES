@@ -361,7 +361,7 @@
         },
         "staysWhenWornOut": {
           "type": "boolean",
-          "description": "A structural part that stays fitted at zero condition instead of falling off. A worn-through action detaches and the gun stops for want of one; a worn-through spring, sear or extractor would take itself out of assembly_condition and the gun would jam less for losing it. Held at zero it reads broken and jams on every pull, and detach still takes it out. SimAttachments._wear_one reads it; check_m2_ammo.gd's JAM lane and check_m2_attach.gd's INTERNALS lane hold the three shipped parts to it."
+          "description": "A structural part that stays fitted at zero condition instead of falling off. A worn-through action detaches and the gun stops for want of one; a worn-through spring, sear or extractor would take itself out of assembly_condition and the gun would jam less for losing it. Held at zero it reads broken and SimAttachments.blocked_reason refuses the weapon as `broken:<slot>`, the way a missing required part refuses it, and detach still takes it out. SimAttachments._wear_one and blocked_reason read it; check_m2_ammo.gd's JAM lane and check_m2_attach.gd's INTERNALS lane hold the three shipped parts to it."
         },
         "wearRate": {
           "type": "number",

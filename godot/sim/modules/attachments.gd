@@ -503,7 +503,8 @@ static func _wear_one(world: Variant, host: int, part: int, amount: float) -> vo
 	(c as Dictionary)["current"] = after
 	# A worn-out internal stays where it is. Detaching it would take it out of `assembly_condition`
 	# and the gun would jam less for losing its sear, which is backwards. Held at zero, it reads
-	# "broken" and the gun jams on every pull, and `detach` is still how a player takes it out.
+	# "broken" and `blocked_reason` refuses the weapon as `broken:<slot>`, the way a missing action
+	# refuses it; `detach` is still how a player takes it out.
 	if after > 0.0 or _stays_when_worn_out(world, part):
 		_refresh(world, host)
 		return
@@ -967,6 +968,21 @@ static func blocked_reason(world: Variant, host: int) -> String:
 	if not missing.is_empty():
 		missing.sort()
 		return "missing:%s" % String(missing[0])
+	# A part that stays fitted when worn through (`staysWhenWornOut`: a spring, a sear, an
+	# extractor) is held at zero so the assembly still counts it. At zero it is not a part that
+	# works, so the weapon stops the way one with no action stops: refused, with the slot named,
+	# which is the one field `SimRanged.can_fire`, the HUD's sentence and npc_combat's envelope all
+	# read. Before this a worn-through sear made a jamming gun jam on every pull and a non-jamming
+	# one (a revolver, or anything with a match action) fire for nothing at all, and an NPC walked
+	# into range of either and stood there. Walked in slot order, so the first broken slot named is
+	# the same every run.
+	for rec in parts_of(world, host):
+		var spec: Dictionary = (rec as Dictionary)["spec"] as Dictionary
+		if not bool(spec.get("staysWhenWornOut", false)):
+			continue
+		var c: Variant = world.components.get_component(int((rec as Dictionary)["item"]), "condition")
+		if c is Dictionary and float((c as Dictionary).get("current", 1.0)) <= 0.0:
+			return "broken:%s" % String((rec as Dictionary)["slot"])
 	for rec in parts_of(world, host):
 		if (rec as Dictionary)["spec"].has("barrelError"):
 			return "barrel:%s" % String((rec as Dictionary)["spec"]["barrelError"])
@@ -998,9 +1014,10 @@ static func refusal_clause(world: Variant, entity: int) -> String:
 			return "Nothing in it will chamber the same round."
 		if reason.begins_with("barrel:"):
 			return "The barrel in it is not a barrel the bench knows how to bore."
-		if not reason.begins_with("missing:"):
+		var broken: bool = reason.begins_with("broken:")
+		if not (broken or reason.begins_with("missing:")):
 			continue
-		var slot: String = reason.substr("missing:".length())
+		var slot: String = reason.substr(("broken:" if broken else "missing:").length())
 		var noun: String = String(SLOT_NOUN.get(slot, ""))
 		if noun == "":
 			continue
@@ -1008,6 +1025,8 @@ static func refusal_clause(world: Variant, entity: int) -> String:
 		var base: Variant = SimItemsRes.item_base_of(world, int((w as Dictionary).get("source", -1)))
 		if base is Dictionary:
 			name = String((base as Dictionary).get("name", "weapon")).to_lower()
+		if broken:
+			return "The %s's %s is worn through." % [name, noun]
 		return "The %s has no %s." % [name, noun]
 	# The same sentence for the thing you are *wearing*, and the only way a player learns that an
 	# empty carrier is a nylon bib. A weapon caches its reason on the built profile, because
