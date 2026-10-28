@@ -199,7 +199,7 @@ static func fuel_clause(world: Variant, entity: int) -> String:
 		return "guttering"
 	if left * 3 <= cap:
 		return "burning low"
-	return "burning steadily"
+	return "burning well"
 
 
 ## One tick off whatever is actually alight. Only the thing that is *lighting* somebody burns:
