@@ -653,7 +653,7 @@ func _draw_candidates(lay: Dictionary, font: Font) -> void:
 			_say(Vector2(cur.end.x - PX * 4.0 - cond_w, line2), cond, SMALL_SIZE, _band_colour(cond))
 		var words: String = String(row.get("barrel", ""))
 		if not words.is_empty():
-			_say(Vector2(tx, _baseline(cur.position.y + 36.0 + LINE, SMALL_SIZE)), UiText.fit(font, words, SMALL_SIZE, room), SMALL_SIZE, Locker.TEXT_DIM)
+			_say(Vector2(tx, _baseline(cur.position.y + 36.0 + LINE, SMALL_SIZE)), UiText.fit(font, words, SMALL_SIZE, room), SMALL_SIZE, Locker.TEXT)
 	else:
 		Locker.rim(self, thumb, Locker.WELL_LIP)
 		_say(Vector2(tx, _baseline(cur.position.y + 36.0, NAME_SIZE)), "nothing", NAME_SIZE, Locker.TEXT_DIM)
@@ -705,7 +705,7 @@ func _draw_offer(offer: Dictionary, r: Rect2, focused: bool, font: Font) -> void
 	var cy: float = r.position.y + 10.0 + LINE + 4.0
 	var words: String = String(offer.get("barrel", ""))
 	if not words.is_empty():
-		_say(Vector2(tx, _baseline(cy, SMALL_SIZE)), UiText.fit(font, words, SMALL_SIZE, r.end.x - PX * 4.0 - tx), SMALL_SIZE, Locker.TEXT_DIM)
+		_say(Vector2(tx, _baseline(cy, SMALL_SIZE)), UiText.fit(font, words, SMALL_SIZE, r.end.x - PX * 4.0 - tx), SMALL_SIZE, Locker.TEXT)
 		cy += LINE
 	for change_v in offer.get("changes", []) as Array:
 		var change: Dictionary = change_v as Dictionary
