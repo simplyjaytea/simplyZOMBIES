@@ -7099,7 +7099,9 @@ the piece, so a later reader can see why they are shaped this way:
   column was the other way out and was turned down: at 1280x720 it leaves the candidates column a
   hundred-odd pixels wide. The BENCH lane now also holds the key inside the frame and clear of every
   plate (with the tape that hangs over its top edge), the picture, the column and the footer, its
-  judge proved first on a rect laid over the sight's plate.
+  judge proved first on rects laid over the sight's plate, its tape's reach and the picture; and the
+  same rifle with its sight taken away draws the key clear under the assembly, so the other branch
+  has a reader too.
 - **Not done here.** The named break-action (`item.named.deer_rifle`) has never had an action
   defaulted, so it gets none of the three; giving it internals is a content decision for the owner
   of that base, and it is not in F3's list.

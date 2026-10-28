@@ -335,6 +335,7 @@ func layout() -> Dictionary:
 	# spring, sear and extractor filled a second row beneath and left no room there at 1280x720.
 	var legend_w: float = LEGEND + LEGEND_TEXT_GAP + ceilf(Chrome.font().get_string_size(LEGEND_SAYS, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE).x)
 	var legend_at: Vector2 = Vector2(-1.0, -1.0)
+	# No slot anchors at (0, 0) today; the test keeps the key off a plate if one ever does.
 	if has_top and not anchored.values().has(Vector2i(0, 0)) and legend_w <= PLATE.x:
 		var top_row: Vector2 = row_y[0] as Vector2
 		legend_at = Vector2(left, top_row.x + floorf((top_row.y - LEGEND) / 2.0 / PX) * PX)
