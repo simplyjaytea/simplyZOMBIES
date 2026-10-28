@@ -1340,7 +1340,7 @@ static func _street_spot(world: Variant) -> Vector2:
 					if not _outdoor_paved(world.tilemap, t + d):
 						open = false
 						break
-				if not open:
+				if not open or not _raised_fits(world, t):
 					continue
 				if not Dressing.clear_around(occ, t.x, t.y, SPOT_CLEAR, false) or not _held_free(occ, t):
 					continue
@@ -1357,6 +1357,17 @@ static func _street_spot(world: Variant) -> Vector2:
 					best_count = count
 					best = centre
 	return street if street.x >= 0.0 else best
+
+
+# Every piece of the raised walls can stand on the footprint from `at`. The picker used to ignore the footprint, so
+# a spot whose stone tile was a Low tile passed as the street, and the setup then skipped the piece and
+# the verify failed. Filtering here cannot change a spot that already fits: the best spot among fitting candidates
+# is the best among all of them when it fits.
+static func _raised_fits(world: Variant, at: Vector2i) -> bool:
+	for piece in RAISED:
+		if not SimFortify.can_build(world, at.x + int(piece[0]), at.y + int(piece[1])):
+			return false
+	return true
 
 
 ## How many outdoor paved tiles lie in the STREET_WINDOW box centred on `at`: the share of the
