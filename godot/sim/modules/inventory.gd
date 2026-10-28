@@ -668,7 +668,7 @@ static func inspect_view(world: Variant, actor: int, item: int) -> Dictionary:
 # nothing here re-implements either. That is the dead-socket rule applied to a menu: a verb whose
 # availability is computed in the UI is a verb that will one day be offered for a command the sim
 # drops on the floor.
-const MENU_ORDER: Array[String] = ["equip", "unequip", "use", "hone", "modify", "open", "inspect", "split", "drop"]
+const MENU_ORDER: Array[String] = ["equip", "unequip", "use", "hone", "modify", "name", "open", "inspect", "split", "drop"]
 static func verbs_for(world: Variant, actor: int, item: int) -> Array[String]:
 	var out: Array[String] = []
 	if item < 0 or not (SimItems.item_base_of(world, item) is Dictionary):
@@ -695,6 +695,11 @@ static func verbs_for(world: Variant, actor: int, item: int) -> Array[String]:
 	# as one in the pack.
 	if SimItems.hone_refusal(world, actor, item) == "":
 		offered["hone"] = true
+	# A weapon rebuilt enough to be the survivor's own may be named, worn or carried. The sim's
+	# `nameable` is the whole question, so the menu never offers a name the command would refuse
+	# for being ordinary.
+	if SimItems.nameable(world, item):
+		offered["name"] = true
 	if worn:
 		offered["unequip"] = true
 	elif equip_slot_for(world, item) != null:

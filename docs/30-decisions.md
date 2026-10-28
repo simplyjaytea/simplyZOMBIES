@@ -6994,3 +6994,64 @@ and blows are a few a second at most.
 `wearRate`; `godot:m2:attach` WEARS holds the word to the vocabulary, `godot:m2:armor` STRUCK,
 COVERS and REACHED hold the call. The ten-seed table was not re-run; owed by the post-arc
 re-baseline.
+
+## A weapon you named, 2026-10-27
+
+The last piece of the melee arc (docs/38, "The content arcs"; docs/23's record). The owner took
+both cards: three or more rebuilt parts (docs/33 item 23) and a typed name (item 24). The calls
+taken inside the piece:
+
+- **The count is derived, never stored.** `SimAttachments.modifications_of` counts filled slots
+  whose part is not the base's `defaultParts` entry. A factory part, a part swapped back to the
+  factory one and an empty slot count nothing, so taking the nails out and putting a second set
+  in is still one change, and stripping a rifle to the receiver is none. Nothing is saved for it.
+- **Three, not four, and why the card went back.** The plan's default read docs/38's "past three
+  modifications" literally. The wooden bat has three slots and only the steel pipe among the
+  twenty melee frames has four, so under four the nail bat could never be named. The card was put
+  to the owner again with that fact, and the owner took three. A knife has two slots and stays
+  unnameable; that is the answer's consequence, not an oversight.
+- **A name stays when the parts come off.** Once given, the name is the item's until the player
+  clears it, even if the weapon is stripped below three. A name is not a status the parts confer
+  and lose; `nameable` decides only whether the field is offered.
+- **The component is `givenName`, not `named`.** "Named" already means docs/10's hand-authored
+  tier (`SimItems.is_named`, `NAMED_TIER`, the base's `named` block). A second meaning on the same
+  word is how a check ends up asking the wrong question.
+- **The given name is the whole name.** `item_name` returns it in place of the base noun and the
+  affix words: "Old Faithful", not "Sturdy Old Faithful". The bench header, which said the plain
+  base noun, says the given name when there is one.
+- **The predicate moved into the sim, and asks for a letter.** `SimItems.name_is_allowed` is the
+  item-name clause's one predicate, and the gate's `_name_is_allowed` calls it. It used to read
+  "not every character a digit", which let "4 2" through; a name needs a letter now. This narrows
+  the clause, and no shipped name changed (the DESCRIPTION, STRIP and INSPECT lanes are green).
+- **The field is drawn, not a `LineEdit`.** The sheet is one drawn Control, the router reads keys
+  in `_input` before any GUI focus could, and a themed `LineEdit` would have needed its own
+  styleboxes and font override outside `Chrome`. So the field is the panel's own state (text,
+  caret), drawn by `InspectPane.draw_field` in the chrome font at the title's ladder size (a rung
+  down when the name is wide, scrolled so the caret shows), fed by `InputEventKey.unicode`, which
+  the web build delivers too. No IME composition: a typed name is plain keys.
+- **The field takes every key while it is open.** `input_map.gd` hands it every press, echoes
+  included, before its own table: W types, Tab and the number row type or do nothing, Escape shuts
+  the field and not the sheet. Up and Home put the caret at the start, Down and End at the end.
+  A click outside the field puts it down unsent, the same as Escape; a click in it moves the
+  caret. Ctrl alone and Cmd are shortcuts and type nothing; Alt types, because Option and AltGr
+  are how a Mac and a Polish or German keyboard type é, ł and €.
+- **Letters are what the face draws.** `SimItems.name_char_allowed` is a fixed list (Basic Latin,
+  Latin-1, Extended-A, the euro, the dashes, the curly quotes, the ellipsis), not a font query:
+  the sim reads no fonts, and a command or a save is held to the same rule as the field. Beyond
+  it the engine's fallback draws Cyrillic in a smooth face that breaks the pixel look, and on the
+  web build, which has no system fonts, an emoji is a box.
+- **A given name is a proper noun in a sentence.** `SimItems.the_item` hands a sentence "the
+  hunting rifle" or "Old Faithful", never "the old faithful", and every line that put an item in
+  a sentence by lowering `item_name` asks it instead.
+- **Enter asks first.** The field calls `SimItems.name_refusal` before it sends, says a refusal on
+  the title bar in words, and stays open with the text in it. The command checks again.
+- **The cap shows by refusing.** 24 characters (`NAME_MAX`). No counter, because a counter is a
+  digit on the sheet. A name prefilled over the cap (a rolled weapon's affix words) starts the
+  field empty rather than starting it already refused.
+
+**Not measured.** Off the tick path; no NPC and no scripted campaign names anything. The ten-seed
+table was not re-run.
+
+**How to apply:** a screen that shows an item's name reads `SimItems.item_name`, never the base's
+`name`, so a given name reaches it. A new check of the item-name clause calls
+`SimItems.name_is_allowed`, never its own copy.

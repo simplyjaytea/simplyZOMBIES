@@ -49,7 +49,9 @@ func _names() -> void:
 			"colony_stockpile_picked",
 			"stockpile_window",
 			"dusk_street",
-			"raised_walls"]:
+			"raised_walls",
+			"name_field",
+			"name_field_long"]:
 		_fail("NAMES: the scene list is %s" % str(Scenes.NAMES))
 	var sizes: Array[Vector2i] = Scenes.SIZES
 	if not sizes.has(Vector2i(1280, 720)) or not sizes.has(Vector2i(1920, 1080)):

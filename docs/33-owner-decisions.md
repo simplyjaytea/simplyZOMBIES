@@ -348,17 +348,32 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
     ten-seed balance table was not re-run for the line. Rarer keeps the limb-for-a-life choice
     sharp; commoner makes the tie a routine tool. Which table, and how often, is the call.
 
-
-
-20. **Can the bloodhound see?** (2026-10-27, the bloodhound piece, docs/30's "The bloodhound,
-    2026-10-27"). It follows the scent field and is deaf to noise. The default is that it sees only
-    at contact range: its eyes are off, so it finds a body by walking into it, or by the scent it
-    follows, and noise and light draw nothing. That is built with `sensory.light` 0. The
-    alternatives are normal zombie sight, or fully blind (the same, with contact removed too). One
-    value in `godot/content/zombies/bloodhound.json` changes the answer, and the SCENT-ONLY lane in
-    `godot:m2:district` holds the default.
 21. **Does hone spend a whetstone?** (2026-10-27, docs/30's "Melee wear, 2026-10-27"). The
     default is first cut: one hone spends one whetstone from the pack, and a keen blade refuses
     before any stone is spent. The alternative is free hone with a whetstone in the pack, and
     the HONE lane's spend assertion changes with it. The owner's card on the stud and the
     lashed head is answered (stud gone, head drops at the feet), so it is not asked here.
+
+23. **What makes a weapon bespoke enough to name?** -- decided by the owner 2026-10-27: **three or
+    more** of its slots holding a part it did not come with, on any weapon with slots, melee and
+    firearms alike (docs/30's "A weapon you named, 2026-10-27"). The plan's first default was more
+    than three; the piece found that only the steel pipe among the twenty melee frames has four
+    slots, so the wooden bat, the arc's own example, could never be named, and the card was put
+    again with that fact. A factory part and a part swapped back to it count nothing. One constant,
+    `SimItems.BESPOKE_PARTS`, holds the answer, and `godot:check:inventory` NAME holds it.
+
+24. **A typed name, or a name the game offers?** -- decided by the owner 2026-10-27: **typed**. A
+    one-line field on the inspect pane, up to 24 characters, Enter keeps it, Escape leaves it as it
+    was, and an empty name gives the plain name back (docs/30's "A weapon you named, 2026-10-27").
+    `godot:check:play` NAME holds the field.
+
+25. **May a name the player types carry a digit?** (2026-10-27, the named-weapon art review). A
+    typed name rides the item-name clause of the digit ban, the same one that lets an authored
+    round be `.308 Winchester Match`, so "Nailbat 2" is accepted, and when a colonist hauls it
+    `SimOrders.hud_clause` reads "Hauling Nailbat 2 to the stockpile.": a digit the player typed,
+    on a HUD line. Superscripts and fractions pass too; a name with no letter is still refused, and
+    descriptions and every other HUD line stay under the full ban. Built default: **digits
+    allowed**, since authored names already put digits on the same lines. The alternatives are
+    letters only in a typed name (one change to `SimItems.name_char_allowed`), or a typed name kept
+    off the HUD (the order line says the plain weapon name). `godot:check:inventory` NAME holds the
+    default.

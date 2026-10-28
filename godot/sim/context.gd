@@ -139,8 +139,7 @@ static func _order_rows(world: Variant, colonist: int, kind: String, entity: int
 	if kind == "item" and entity >= 0:
 		var haul: Dictionary = {"entity": colonist, "kind": "haul", "target": entity}
 		if SimOrdersRes.accepts(world, colonist, haul):
-			var item_text: String = SimItemsRes.item_name(world, entity).to_lower()
-			out.append({"text": "have %s haul the %s" % [who, item_text], "command": _as_command(haul), "target": colonist})
+			out.append({"text": "have %s haul %s" % [who, SimItemsRes.the_item(world, entity)], "command": _as_command(haul), "target": colonist})
 	if (kind == "zombie" or kind == "raider") and entity >= 0:
 		var attack: Dictionary = {"entity": colonist, "kind": "attack", "target": entity}
 		if SimOrdersRes.accepts(world, colonist, attack):
@@ -190,8 +189,7 @@ static func verbs_at(world: Variant, actor: int, hit: Dictionary, selected: int 
 		rows.append(stores_row)
 
 	if kind == "item" and entity >= 0 and _within(world, actor, entity, SimInventoryRes.PICKUP_REACH):
-		var name: String = SimItemsRes.item_name(world, entity).to_lower()
-		rows.append({"text": "pick up the %s" % name, "command": {"type": "item.pickup", "item": entity}, "target": entity})
+		rows.append({"text": "pick up %s" % SimItemsRes.the_item(world, entity), "command": {"type": "item.pickup", "item": entity}, "target": entity})
 
 	if kind == "container" and entity >= 0:
 		if int(SimContainersRes.nearest(world, actor, false, SimContainersRes.Want.Openable)) == entity:
@@ -227,7 +225,7 @@ static func verbs_at(world: Variant, actor: int, hit: Dictionary, selected: int 
 	if kind == "prop" and entity >= 0 and world.components.has_component(entity, "placedLight"):
 		if int(SimLightRes.planted_in_reach(world, actor)) == entity:
 			rows.append({
-				"text": "take down the %s" % SimItemsRes.item_name(world, entity).to_lower(),
+				"text": "take down %s" % SimItemsRes.the_item(world, entity),
 				"command": {"type": "light.unplant"},
 				"target": entity,
 			})
@@ -300,7 +298,7 @@ static func target_label(world: Variant, hit: Dictionary) -> String:
 		"raider":
 			return "a raider"
 		"item":
-			return "the %s" % SimItemsRes.item_name(world, entity).to_lower()
+			return SimItemsRes.the_item(world, entity)
 		"container":
 			var s: Variant = world.components.get_component(entity, "searchable")
 			return "the %s" % (String((s as Dictionary).get("kind", SimContainersRes.DEFAULT_KIND)) if s is Dictionary else SimContainersRes.DEFAULT_KIND)
@@ -339,7 +337,7 @@ static func reach_words(world: Variant, actor: int) -> String:
 	if SimStockpileRes.e_opens(world, actor, item, box >= 0):
 		return SimStockpileRes.OPEN_WORDS
 	if item != null:
-		return "pick up the %s" % SimItemsRes.item_name(world, int(item)).to_lower()
+		return "pick up %s" % SimItemsRes.the_item(world, int(item))
 	if box >= 0:
 		var s: Variant = world.components.get_component(box, "searchable")
 		return "open the %s" % (String((s as Dictionary).get("kind", SimContainersRes.DEFAULT_KIND)) if s is Dictionary else SimContainersRes.DEFAULT_KIND)
