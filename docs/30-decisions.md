@@ -7375,3 +7375,109 @@ causes in `planning/balance/2026-10-28-dayone-causes.md`, sections 2 and 6. The 
 **How to apply:** a rule that asks a fact of a job's target asks it of the target's position on
 every walk tick, not only at the pick. A far-side target is planned once, marked `rerouted`, and not
 re-planned by the walk-too-long bound.
+
+## A closed house at dawn, 2026-10-28
+
+**The call.** The day-one wipe is the alpha blocker, and P1's diagnosis put 125 of 130 colonist
+bites on days 1 to 3 inside the house, from the south gap, plus two run-ending player bites from a
+boot wanderer placed 2.5 m and 4.5 m from the lot. Two fixes, no owner card: the gap is closed, and
+the boot keeps the dead out of a ring round the annex.
+
+**The correction to P1.** The annex's south gap was not doorless. `_write_doors` doored both gate
+anchors and left the third tile of the gap (local x 14 on row 19 of `district_alpha.json`) as
+floor, so the gap was two doors and one open tile. Probed on 87750e3a at 256 on seeds 2024, 404 and
+99: the wall row reads Window, Door, Door, Floor, Window on all three. The fix is a bug against the
+Doors decision of 2026-09-07 (the gate is a door, and the dead never open one), not a new rule.
+
+**Why it is in `_write_doors`, not content.** The generator stamps the annex from a template, and a
+content edit would fix one template and leave the next. `SimWorldgen.gate_gap` walks the row from
+`gate_a` towards `gate_b` through floor and door tiles, and returns the run only when wall-line tiles
+(Wall, Window, Screen) close both ends. An open end, a road or a run with nothing to close it is left
+alone. The gap stays three tiles wide, all doors, so no one-tile doorway is made and the deadlock of
+two walkers in one (2026-09-07's note on the doorway) does not return.
+
+**Why the gap is doored after the dressing, not in `_write_doors`.** The first cut doored it with
+the gate anchors, before the dressing, and the review's side-by-side boot of main and the branch
+found every map's trees, thickets and grass moved, at 64 as much as at 256, on every seed sampled
+(about fifty tiles at 64 and two to three hundred at 256; on seed 8080 at 64 a tree landed under a
+wanderer's roll and moved the wanderer too). The cause is `_dress_terrain`'s grass pass, which
+draws one jitter from the `terrain` stream per outdoor Floor tile and warns in its own comment that
+a tile taken out of that walk shifts every tile decided after it: the gap's third tile was one such
+Floor, and a Door written before the dressing took its draw away. `_door_the_gap` now runs at the
+end of `generate`, after the dressing, where the tile is still the Floor main dressed around (the
+annex's reserve is protected, so nothing is ever planted on it). Checked by hashing `map.tiles` and
+every positioned entity on main and on the branch at 64 and 256 on seeds 20260805, 8080 and 2024:
+the one tile that differs on any of the six maps is the gap's third, Floor to Door.
+
+**Why `BOOT_CLEAR_METRES` is 10.** A first cut from P1's table: the two bites came from boots within
+5 m of the lot, and 10 m is twice that, which clears the rolls P1 measured without tuning to any
+seed. It is a number to measure against, not a balance claim. The ten-seed table on the merged main
+is the test.
+
+**Why the ring applies only where it fits.** The scatter draws from a 48x48 box at 64 and a 240x240
+box at 256. The grown annex is 46x46. At 64 that is 92% of the box, so the ring would re-roll nearly
+every draw and the 64 boot would stop being the one every gate measures. The ring applies only when
+the grown rect covers at most half the box: at 256 it covers under 4%, at 64 it does not apply, and
+the 64 wanderers stand where they stood (checked by hash of their positions on main and on this
+branch, ten seeds; entity ids move, positions do not, because the door entities spawn before the
+scatter).
+The annex refusal stays hard: a try inside the annex is never placed. When every try lands in the
+ring, the first try outside the annex is placed, and the try count stays fixed so the campaign is a
+function of its seed.
+
+**What moved.** The wanderers of every 256 world: the re-rolls change the `placement` stream's
+draw count. Nothing else: every map's tiles but the gap's third, every colonist, station, item and
+dormant body, and every 64 wanderer are where main put them (the hashes above). The ten-seed table
+re-runs on the new main once P2 and P3 have both merged, and the 87750e3a row is the "before".
+
+
+## The hand-loaded round, 2026-10-28
+
+Piece B2 of the 2026-10-28 batch: docs/09's "late-game hand-loading is possible and produces worse
+ammunition: reduced power, higher jam chance", the one ammunition promise the slice could not
+express. Card 27 (what a hand-load costs and where it is made) was posted with its default built;
+JT then picked option B, spent brass, which piece B3 carries (docs/33, card 27). The calls taken here,
+each recorded because each one could have gone the other way:
+
+- **The misfire is added to the band, never multiplied.** `ammo.misfire` is a chance a round adds to
+  the weapon's jam chance in `SimRanged._jammed`. A multiplier on a sound gun's band of 0.0 is still
+  0.0, and a hand-load has to bite a sound gun, so a round's misfire is the one adder in the ammo
+  block. A round never lowers the chance, so the coupling from "The round you load" holds: a weapon
+  the screen calls "failing" jams at least at that band's rate. A factory round has no misfire, so a
+  sound gun on factory rounds draws nothing from the `ranged` stream, as before.
+- **`jams: false` holds.** The .38 revolver never jams, so a hand-load in it never misfires. The
+  .38 hand-load is shipped anyway, because the caliber is chambered and the recipe is content; its
+  misfire is simply not read by a gun that does not feed.
+- **No rimfire hand-load.** Rimfire cannot be reloaded: its priming sits in the rim, so the case is
+  spent once. The .22 has no recipe and `handload_refusal` answers `no-handload`. No arrow or bolt
+  hand-load: the brief covers centrefire firearms only.
+- **First-cut numbers.** Each hand-load is `damage` 0.85 and `cone` 1.15 over the factory round and
+  `misfire` 0.03. The recipe is one ingot and one charcoal for a yield of 6 for 9mm, .38 and .45, 5
+  for rifle and 4 for 12g. These are first cuts that no balance run has measured.
+- **Last in the fallback order.** With no choice, a weapon reaches for every factory round of its
+  caliber before any hand-load of it, in `SimRanged._fallback_order`, which `_pick_round` and
+  `planned_load` both use. A player who chose the hand-load gets it. A content round with no recipe
+  sorts as it did, so no existing magazine or pick moves.
+- **The predicate, in order, and nothing spent on a refusal.** `handload_refusal` answers
+  `not-a-firearm`, `not-carried`, `no-handload`, `no-bench`, `needs:<kind>` and `no-room`, and the
+  menu's verb and the command both ask it. `no-room` is asked of the pack without moving anything: a
+  stack fits a carried stack of the same round with room, or a free cell in a container the actor
+  reaches. The command stows the rounds before it consumes any material, so an answer that was
+  wrong costs nothing but a refusal.
+- **The menu and the command can disagree about room.** `no-room` is a predicate, not the stow
+  itself. If the two ever disagree, the command refuses with nothing spent, but the menu may have
+  offered the verb. The gate does not exercise that disagreement; it is named here so a later
+  reader does not take the predicate for a guarantee.
+- **The gates.** `godot:m2:ammo` holds MISFIRE, WORSE, RECIPE and ORDER, and the CONTENT lane's
+  findability rule, which accepts a hand-load a shipped gun chambers and still refuses a fabricated
+  round with no recipe and a hand-load for a caliber nothing chambers. `godot:check:inventory` holds
+  HANDLOAD: the verb is offered only with a bench and the materials, and the pane's button makes four
+  12g hand-loads and spends the ingot and the charcoal. Every verb button sits inside the pane at
+  1280x720.
+- **No `SAVE_VERSION` bump, and no new component.** A hand-load is a stack of an existing kind of
+  item; the magazine record is unchanged. `godot:m2:save` is in the chain and unchanged by it.
+- **No new stat id.** Neither `misfire` nor `handload` is a stat, so the oracle's registry in
+  `src/sim/modifiers/stats.ts` is not touched.
+- **Refusals are published, not worded.** `item.handload_refused` carries the reason; the panel does
+  not yet say it in words, the same as `item.load_refused`. Naming the refusal on the screen is a
+  follow-up, not this piece.
