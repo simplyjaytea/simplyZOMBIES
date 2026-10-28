@@ -2091,6 +2091,58 @@ static func _write_doors(map: Variant, placed: Array) -> void:
 			_set_door(map, int((door as Dictionary).get("x", -1)), int((door as Dictionary).get("y", -1)))
 	for gate in [SimTileMapRes.gate_a(map), SimTileMapRes.gate_b(map)]:
 		_set_door(map, (gate as Vector2i).x, (gate as Vector2i).y)
+	_door_the_gap(map)
+
+
+# The gate's whole gap, not just its two anchors. The annex's south gap is three floor-or-door tiles
+# wide and the anchors cover only two: the third was left open, and a wanderer walked in through it
+# (planning/balance/2026-10-28-dayone-causes.md). Walk the wall row from `gate_a` towards `gate_b`
+# and out past both ends; if the run of floor and door tiles is bounded by wall-line tiles (Wall,
+# Window, Screen) on both sides, it is a gap, and every floor tile in it becomes a door. Anything
+# else -- an open end, a road, a run with no wall to close it -- is left as it was.
+static func _door_the_gap(map: Variant) -> void:
+	for tile in gate_gap(map):
+		_set_door(map, tile.x, tile.y)
+
+
+# The tiles of the gate's gap, from one end to the other, or none when the anchors do not bound one.
+# Public because the district gate asserts every one of them is a door, so the test reads the same
+# run the generator doors.
+static func gate_gap(map: Variant) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var a: Vector2i = SimTileMapRes.gate_a(map)
+	var b: Vector2i = SimTileMapRes.gate_b(map)
+	# The two anchors name one gap only when they sit side by side in one wall row or column.
+	if a.x < 0 or b.x < 0 or a == b or (a.x != b.x and a.y != b.y):
+		return out
+	var step: Vector2i = Vector2i(signi(b.x - a.x), 0) if a.y == b.y else Vector2i(0, signi(b.y - a.y))
+	var lo: Vector2i = a
+	while _gap_passable(map, lo - step):
+		lo -= step
+	var hi: Vector2i = b
+	while _gap_passable(map, hi + step):
+		hi += step
+	if not (_wall_line(map, lo - step) and _wall_line(map, hi + step)):
+		return out
+	var run: Vector2i = lo
+	while run != hi + step:
+		out.append(run)
+		run += step
+	return out
+
+
+static func _gap_passable(map: Variant, tile: Vector2i) -> bool:
+	if tile.x < 0 or tile.y < 0 or tile.x >= int(map.w) or tile.y >= int(map.h):
+		return false
+	var t: int = SimTileMapRes.tile_at(map, tile.x, tile.y)
+	return t == SimTileMapRes.Tile.Floor or t == SimTileMapRes.Tile.Door
+
+
+static func _wall_line(map: Variant, tile: Vector2i) -> bool:
+	if tile.x < 0 or tile.y < 0 or tile.x >= int(map.w) or tile.y >= int(map.h):
+		return false
+	var t: int = SimTileMapRes.tile_at(map, tile.x, tile.y)
+	return t == SimTileMapRes.Tile.Wall or t == SimTileMapRes.Tile.Window or t == SimTileMapRes.Tile.Screen
 
 
 static func _set_door(map: Variant, tx: int, ty: int) -> void:
