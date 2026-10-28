@@ -496,5 +496,60 @@
     "appearance": { "sprite": "item_bolts" },
     "stack": 10,
     "ammo": { "caliber": "bolt", "word": "broadheads", "ranged": { "damage": 1.5, "recoverable": 0.6 } }
+  },
+  {
+    "id": "item.ammo.9mm.handload",
+    "name": "9x19mm Hand-load",
+    "description": "A pistol round loaded by hand at a bench. Less powder than the factory load, a seating that is not always true, and a feed that stops more often.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.012,
+    "appearance": { "sprite": "item_pistol_rounds" },
+    "stack": 16,
+    "ammo": { "caliber": "9mm", "word": "hand-load", "ranged": { "damage": 0.85, "cone": 1.15 }, "misfire": 0.03, "handload": { "kinds": ["ingot", "charcoal"], "yield": 6 } }
+  },
+  {
+    "id": "item.ammo.38.handload",
+    "name": ".38 Special Hand-load",
+    "description": "A revolver round loaded by hand at a bench. Lighter than the factory load, and the cylinder does not care.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.015,
+    "appearance": { "sprite": "item_pistol_rounds" },
+    "stack": 20,
+    "ammo": { "caliber": "38", "word": "hand-load", "ranged": { "damage": 0.85, "cone": 1.15 }, "misfire": 0.03, "handload": { "kinds": ["ingot", "charcoal"], "yield": 6 } }
+  },
+  {
+    "id": "item.ammo.45.handload",
+    "name": ".45 ACP Hand-load",
+    "description": "A fat round loaded by hand at a bench. It is slower than the factory load and it still lands like a thrown brick.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.021,
+    "appearance": { "sprite": "item_pistol_rounds" },
+    "stack": 16,
+    "ammo": { "caliber": "45", "word": "hand-load", "ranged": { "damage": 0.85, "cone": 1.15 }, "misfire": 0.03, "handload": { "kinds": ["ingot", "charcoal"], "yield": 6 } }
+  },
+  {
+    "id": "item.ammo.rifle.handload",
+    "name": ".308 Winchester Hand-load",
+    "description": "A rifle cartridge loaded by hand at a bench. The powder charge is a guess, and the guess is a little low.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.02,
+    "appearance": { "sprite": "item_rifle_rounds" },
+    "stack": 20,
+    "ammo": { "caliber": "rifle", "word": "hand-load", "ranged": { "damage": 0.85, "cone": 1.15 }, "misfire": 0.03, "handload": { "kinds": ["ingot", "charcoal"], "yield": 5 } }
+  },
+  {
+    "id": "item.ammo.12g.handload",
+    "name": "12 Gauge Hand-load",
+    "description": "A shotgun shell loaded by hand at a bench, from whatever was in the shelf. It shoots less than the factory shell and it sticks more often.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.04,
+    "appearance": { "sprite": "item_shells" },
+    "stack": 12,
+    "ammo": { "caliber": "12g", "word": "hand-load", "ranged": { "damage": 0.85, "cone": 1.15 }, "misfire": 0.03, "handload": { "kinds": ["ingot", "charcoal"], "yield": 4 } }
   }
 ]
