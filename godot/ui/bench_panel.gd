@@ -79,8 +79,8 @@ const MAKE_SAYS: String = "make one"
 # Over a locked part's picture: the wash the window wears, lighter, so the part still shows.
 const LOCKED_WASH: Color = Color(0.027, 0.031, 0.039, 0.6)
 # Rust light enough to read at 4.5:1 on the cells' dark well, where the Locker's DANGER (made for
-# rims and hazard stripes) measures about 4 to 1. Only words wear it.
-const DANGER_INK: Color = Color("#e07a4f")
+# rims and hazard stripes) measures about 4 to 1. Only words wear it; the Locker owns the value.
+const DANGER_INK: Color = Locker.DANGER_INK
 
 # Where a slot's plate sits round the picture, as (column, row) on a three-column grid whose row 1
 # is the picture's. Anything not named here goes in the row beneath, in the order the weapon lists
