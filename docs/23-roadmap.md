@@ -1225,7 +1225,9 @@ tables and day lines are report-noise.md in the project's planning/balance folde
   `SimWorldgen.gate_gap` now names the whole gap and `_write_doors` doors all of it, so the gate is
   three doors with no floor route into the annex. The boot: `BOOT_CLEAR_METRES` (10) keeps a boot
   wanderer out of the annex grown by 10 m, but only where the grown rect covers at most half the
-  scatter box, so 64 boots are where they were; at 256 every 256 seed moves. Gate: `godot:m2:district`
+  scatter box, so 64 boots are where they were; at 256 every seed's wanderers move and nothing else
+  does. The gap is doored after the dressing, so the trees and grass are main's tile for tile (docs/30
+  says why; the first cut moved every tree on every map). Gate: `godot:m2:district`
   GAP-DOORED (64 and 256 on the canonical seed, the third tile set back to floor fails both readings)
   and BOOT-RING (256 on seeds 2024, 404 and 99: 0 non-dormant wanderers within 10 m of the annex with
   the ring on, 9 with it off; 64 unchanged with it on and off). Not yet shown: the day-one bite count
