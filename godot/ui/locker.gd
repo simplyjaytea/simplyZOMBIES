@@ -47,6 +47,9 @@ const TEXT_FAINT: Color = Color("#5f615e")
 const SHADOW: Color = Color(0.0, 0.0, 0.0, 0.55)
 const ACCENT: Color = Color("#e2a33a")
 const DANGER: Color = Color("#c4532c")
+# Rust light enough to read at 4.5:1 on the steel, where DANGER (made for rims and hazard stripes)
+# measures about 3.4 to 1. Only words wear it: the bench's refusals, the inspect pane's warnings.
+const DANGER_INK: Color = Color("#e07a4f")
 const GOOD: Color = Color("#8fae5e")
 const WASH: Color = Color(0.027, 0.031, 0.039, 0.9)
 
