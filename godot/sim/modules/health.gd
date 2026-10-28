@@ -69,31 +69,48 @@ static func _Items() -> GDScript:
 	return load("res://sim/modules/items.gd") as GDScript
 
 
-## The plate wears as it stops blows (docs/30, "The plate wears, 2026-10-27"). Every worn garment
-## that covered this part for this blow -- its coverage *as fitted* above zero, so an empty carrier,
-## which stops nothing, wears nothing -- has its parts worn on `struck`, and only the parts whose
-## own `armor` names this body part. A blow to an uncovered part wears nothing.
+## The plate wears as it stops blows (docs/30, "The plate wears, 2026-10-27"). The garment that
+## stopped this blow is the one with the most coverage of the struck part *as fitted*, the way
+## `armor_coverage_of` composes the same walk (max, never sum: the owner's call of 2026-09-12), and
+## it is the one that wears: its parts worn on `struck`, and only the parts whose own `armor` names
+## this body part. A jacket's lining under a carrier never stood in the blow's way and does not pay
+## for it; pull the carrier's plate and the carrier covers nothing, so the jacket is what stops the
+## next blow and the jacket's lining is what wears. Two garments at the same coverage both wear. An
+## empty carrier, which stops nothing, wears nothing, and a blow to an uncovered part wears nothing.
 ##
 ## Called from `damage_part` once per blow that reached a living body, after the blow has been
 ## softened by the coverage it met: the plate stops this blow at the condition it was in, and
 ## the next blow meets the plate this one left. A bite arrives through the same closure and wears
-## the same way -- teeth on a vest are a blow on a vest. Returns how many garments it asked, for
+## the same way -- teeth on a vest are a blow on a vest. Returns how many garments it wore, for
 ## check_m2_armor.gd's STRUCK lane; nothing in the sim reads the count.
 static func wear_struck_armor(world: Variant, target: int, part: String) -> int:
-	var asked: int = 0
 	var Attachments: GDScript = _Attachments()
+	# Two passes: the max is known only once every garment has answered. A garment with nothing
+	# fitted still counts towards it -- a bare riot vest over a lined jacket is what stops the blow,
+	# and that it has no part to wear does not hand the wear to the jacket underneath.
+	var covering: Array = []
+	var best: float = 0.0
 	for item in _Inventory().call("equipped_items", world, target) as Array:
 		var garment: int = int(item)
-		if (Attachments.call("attached", world, garment) as Dictionary).is_empty():
-			continue
 		var declared: float = _declared_cover(world, garment, part)
 		if declared <= 0.0:
 			continue
-		if float(Attachments.call("armor_coverage", world, garment, part, declared)) <= 0.0:
+		var fitted: float = clampf(float(Attachments.call("armor_coverage", world, garment, part, declared)), 0.0, 1.0)
+		if fitted <= 0.0:
+			continue
+		covering.append({"garment": garment, "fitted": fitted})
+		best = maxf(best, fitted)
+	var worn: int = 0
+	for rec in covering:
+		var r: Dictionary = rec as Dictionary
+		if float(r["fitted"]) < best - 1e-9:
+			continue
+		var garment: int = int(r["garment"])
+		if (Attachments.call("attached", world, garment) as Dictionary).is_empty():
 			continue
 		Attachments.call("wear_parts", world, garment, "struck", part)
-		asked += 1
-	return asked
+		worn += 1
+	return worn
 
 
 # The base's own coverage of one part, before anything fitted has its say.

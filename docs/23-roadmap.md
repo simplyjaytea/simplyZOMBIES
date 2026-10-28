@@ -2501,19 +2501,21 @@ not a to-do list:
 - **The plate wears as it stops blows, 2026-10-27.** `struck` joins `SimAttachments.WEAR_EVENTS`
   as the target's side of a blow (`hit` stays the swinger's). `SimHealth.damage_part`, the one
   closure that moves integrity, calls `SimHealth.wear_struck_armor` once per blow that reaches a
-  living body, after the blow is softened: every worn garment whose fitted coverage of the struck
-  part is above zero has its `struck` parts worn, and only the parts whose own `armor` names that
-  part (`wear_parts`' new `covering` argument). So a blow to the arm wears the aramid lining and
-  not the chest plate, a blow to the leg wears nothing, an empty carrier (which stops nothing)
-  wears nothing, and a bite wears the plate the same as a swipe, because it arrives through the
-  same closure. The garment's own condition is read by nothing and does not wear. Content: the
+  living body, after the blow is softened: the worn garment with the most fitted coverage of the
+  struck part (max, never sum, as `armor_coverage_of` composes it; ties both wear) has its
+  `struck` parts worn, and only the parts whose own `armor` names that part (`wear_parts`' new
+  `covering` argument). So a blow to the arm wears the aramid lining and not the chest plate, a
+  blow to the leg wears nothing, an empty carrier (which stops nothing) wears nothing, a lined
+  jacket under a carrier wears nothing until the carrier's plate is gone, and a bite wears the
+  plate the same as a swipe, because it arrives through the same closure. The garment's own condition is read by nothing and does not wear. Content: the
   ceramic plate `wearRate` 12 (about 42 blows to broken), the steel plate and the riot visor 4
   (125), the aramid lining 2 (250); a broken plate comes off and its carrier stops nothing, the
   rule the carrier already had. Nothing new on screen: the inspect pane's condition word is how
   the player sees it. Gate: `godot:m2:armor` STRUCK (the exact drop over 12 torso blows; coverage
   falls and the next blow takes more; pouch and carrier never wear; ceramic over steel over
   aramid; a bite wears the same step), COVERS (leg, arm, empty carrier, the swinger's own plate,
-  a spear in the struck survivor's hands) and REACHED (the playable district, a shambler beside a
+  a spear in the struck survivor's hands, and a lined jacket under the carrier that wears only
+  once the carrier stops nothing) and REACHED (the playable district, a shambler beside a
   vested player, the plate worn by exactly its share of the torso blows through the tick loop).
   With the call in `damage_part` replaced by a pass, STRUCK, COVERS and REACHED go red; with the
   `covering` filter dropped, COVERS and REACHED do. Numbers and the balance lines are in docs/30's

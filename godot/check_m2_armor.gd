@@ -50,6 +50,7 @@ const CERAMIC: String = "item.armorpart.plate.ceramic"
 const LINING: String = "item.armorpart.lining.aramid"
 const POUCH: String = "item.armorpart.pocket.pouch"
 const SPEAR: String = "item.spear.improvised"
+const JACKET: String = "item.jacket.leather"
 
 const TORSO: String = "torso"
 const FOOT: String = "foot_right"
@@ -601,7 +602,8 @@ func _a_plate_wears_as_it_stops_blows() -> bool:
 # holds; a blow to the arm wears the lining, which covers the arm, and leaves the plate, which does
 # not; a carrier with its plate pulled stops nothing, so its lining wears nothing; and the side that
 # swung is never `struck` -- a vested survivor's own swing leaves their plate alone, and a weapon in
-# a struck survivor's hands is not armour and is not worn by the blow.
+# a struck survivor's hands is not armour and is not worn by the blow. Under layers, only the garment
+# with the most coverage of the part stopped the blow, and only it wears.
 func _only_what_covered_the_blow_wears() -> bool:
 	var lane: String = "COVERS"
 
@@ -685,7 +687,60 @@ func _only_what_covered_the_blow_wears() -> bool:
 		push_error("%s: the same blow left the plate on the same body unworn, so the spear's head proves nothing" % lane)
 		return false
 
-	print("  COVERS OK a leg blow wore nothing; an arm blow wore the lining %.4f and not the plate; an empty carrier's lining stayed %.4f; the swinger's plate and the struck survivor's spear head stayed whole" % [arm_drop, bl0])
+	# Layers. A lined jacket under the carrier: the carrier covers the torso more (0.7 fitted up
+	# against 0.5), the jacket covers the arms more (0.5 against 0.15), and only the garment that
+	# stopped the blow wears, the way `armor_coverage_of` composes coverage (max, never sum). So a
+	# torso blow wears the carrier's plate and lining and not the jacket's lining; an arm blow wears
+	# the jacket's lining and not the carrier's; and with the carrier's plate pulled the carrier
+	# covers nothing, so a torso blow wears the jacket's lining after all.
+	var lw: Variant = _world(9704)
+	var lrig: Dictionary = _rig(lw)
+	var jacket: int = _wear(lw, JACKET, "torso")
+	var jlining: int = SimItems.spawn_item(lw, LINING, {"tier": "scavenged"})
+	if lrig.is_empty() or jacket < 0 or jlining < 0 or not SimAttachments.attach(lw, jacket, jlining, "lining"):
+		push_error("%s: the lined jacket would not go on under the carrier" % lane)
+		return false
+	var jbase: Dictionary = SimItems.item_base_of(lw, jacket) as Dictionary
+	var cbase: Dictionary = SimItems.item_base_of(lw, int(lrig["carrier"])) as Dictionary
+	var jarm: Dictionary = jbase.get("armor", {}) as Dictionary
+	var carm: Dictionary = cbase.get("armor", {}) as Dictionary
+	if not (float(carm.get(TORSO, 0.0)) > float(jarm.get(TORSO, 0.0)) and float(jarm.get("arm_left", 0.0)) > float(carm.get("arm_left", 0.0))):
+		push_error("%s: the fixture needs the carrier to cover the torso more and the jacket the arm more, and the catalogue no longer says so" % lane)
+		return false
+	var lplate: int = int(lrig["plate"])
+	var clining: int = int(lrig["lining"])
+	var lp0: float = _part_condition(lw, lplate)
+	var cl0: float = _part_condition(lw, clining)
+	var jl0: float = _part_condition(lw, jlining)
+	_strike(lw, TORSO, 0.5)
+	if absf((lp0 - _part_condition(lw, lplate)) - _per_blow(lw, lplate)) > 1e-6 or absf((cl0 - _part_condition(lw, clining)) - _per_blow(lw, clining)) > 1e-6:
+		push_error("%s: a torso blow under a lined jacket wore the carrier's plate %.6f and lining %.6f, not their rates" % [lane, lp0 - _part_condition(lw, lplate), cl0 - _part_condition(lw, clining)])
+		return false
+	if not is_equal_approx(_part_condition(lw, jlining), jl0):
+		push_error("%s: the carrier stopped the torso blow and the jacket's lining under it wore from %.4f to %.4f" % [lane, jl0, _part_condition(lw, jlining)])
+		return false
+	cl0 = _part_condition(lw, clining)
+	_strike(lw, "arm_left", 0.5)
+	if absf((jl0 - _part_condition(lw, jlining)) - _per_blow(lw, jlining)) > 1e-6:
+		push_error("%s: the jacket covers the arm most and an arm blow took %.6f off its lining, where its rate says %.6f" % [lane, jl0 - _part_condition(lw, jlining), _per_blow(lw, jlining)])
+		return false
+	if not is_equal_approx(_part_condition(lw, clining), cl0):
+		push_error("%s: the jacket stopped the arm blow and the carrier's lining wore from %.4f to %.4f" % [lane, cl0, _part_condition(lw, clining)])
+		return false
+	jl0 = _part_condition(lw, jlining)
+	if not SimAttachments.detach(lw, lplate) or SimInfection.armor_coverage_of(lw, lw.player, TORSO) <= 0.0:
+		push_error("%s: the plate would not come out of the layered carrier, or the jacket under it covers no torso" % lane)
+		return false
+	cl0 = _part_condition(lw, clining)
+	_strike(lw, TORSO, 0.5)
+	if absf((jl0 - _part_condition(lw, jlining)) - _per_blow(lw, jlining)) > 1e-6:
+		push_error("%s: with the carrier's plate pulled the jacket stops the torso blow, and its lining took %.6f, where its rate says %.6f" % [lane, jl0 - _part_condition(lw, jlining), _per_blow(lw, jlining)])
+		return false
+	if not is_equal_approx(_part_condition(lw, clining), cl0):
+		push_error("%s: the emptied carrier stops nothing and its lining still wore from %.4f to %.4f" % [lane, cl0, _part_condition(lw, clining)])
+		return false
+
+	print("  COVERS OK a leg blow wore nothing; an arm blow wore the lining %.4f and not the plate; an empty carrier's lining stayed %.4f; the swinger's plate and the struck survivor's spear head stayed whole; under layers only the garment that stopped the blow wore" % [arm_drop, bl0])
 	return true
 
 
