@@ -33,8 +33,9 @@ const MIN_CLEAR_TICKS: int = 30
 # attachment wearing the wrong hat. `jamChance` is absent for a different reason -- it is derived
 # from the condition band rather than authored (SimItems.JAM_CHANCE_BY_BAND), so a round that
 # multiplied it would break the coupling docs/30 keeps between the word the screen shows for a
-# weapon and how that weapon actually feeds. docs/09's hand-loaded round wants exactly that and
-# is named in docs/23's what's-left rather than faked here.
+# weapon and how that weapon actually feeds. A round's own misfire is not a multiplier on that
+# chance -- a multiplier on a sound gun's 0.0 is still 0.0 -- so it is an `ammo.misfire` added to
+# the band in `_jammed`, and it is absent here for the same reason `jamChance` is.
 const AMMO_SCALABLE: Array[String] = ["damage", "noise", "flash", "rangeMetres", "cone", "recoverable"]
 
 const FLASH_TICKS: int = 4
@@ -217,6 +218,14 @@ static func register_module(world: Variant) -> void:
 				var why: String = choose_round(w, actor, round_item)
 				if why != "":
 					w.events.publish({"type": "item.load_refused", "entity": actor, "item": round_item, "reason": why})
+			elif t == "item.handload":
+				# `item.handload {actor, item}`: the firearm's hand-load, made from what the actor
+				# carries at a bench. `handload_refusal` is the predicate the menu's verb is offered on.
+				var hand_actor: int = int((c as Dictionary).get("actor", w.player))
+				var gun: int = int((c as Dictionary).get("item", -1))
+				var hand_why: String = make_handloads(w, hand_actor, gun)
+				if hand_why != "":
+					w.events.publish({"type": "item.handload_refused", "entity": hand_actor, "item": gun, "reason": hand_why})
 		if not fire and not reload:
 			return
 		for entity in w.components.query(["rangedWeapon", "controlled"]):
@@ -265,7 +274,7 @@ static func register_module(world: Variant) -> void:
 					# during the clear. Spending it too would be a second cost the document does
 					# not ask for, on top of an interruption that already costs more than a
 					# reload.
-					if _jammed(w, r, rng):
+					if _jammed(w, int(entity), r, rng):
 						w.events.publish({"type": "weapon.jammed", "entity": int(entity), "ticks": _clear_ticks(r), "item": int(r.get("source", -1))})
 						r["state"] = FireState.Clearing
 						r["ticksLeft"] = _clear_ticks(r)
@@ -321,13 +330,46 @@ static func _clear_ticks(weapon: Dictionary) -> int:
 # chance, so a sound firearm and a bow both cost the RNG stream nothing -- a draw taken on every
 # shot regardless would make the whole ranged sequence depend on how worn the weapon happened to
 # be, which is a determinism trap rather than a balance one.
-static func _jammed(world: Variant, weapon: Dictionary, rng: Variant) -> bool:
+#
+# The round about to be fired adds its `misfire` to the band (`_misfire_of`). A factory round has
+# none, so a sound gun on factory rounds still draws nothing; a round only ever raises the chance,
+# so a weapon the screen calls "failing" jams at least at that band's rate whatever it is loaded
+# with. A weapon with `jams: false` never jams, whatever round is in it.
+static func _jammed(world: Variant, entity: int, weapon: Dictionary, rng: Variant) -> bool:
 	if not bool(weapon.get("jams", false)):
 		return false
-	var chance: float = float(weapon.get("jamChance", 0.0))
+	var chance: float = float(weapon.get("jamChance", 0.0)) + _misfire_of(world, entity, weapon)
 	if chance <= 0.0:
 		return false
 	return float(rng.call("float_range", 0.0, 1.0)) < chance
+
+
+# The misfire of the round this trigger pull would fire: the magazine's next round for a fed
+# weapon, the round `_pick_round` would reach for otherwise, and 0.0 when there is none.
+static func _misfire_of(world: Variant, entity: int, weapon: Dictionary) -> float:
+	var round_id: String = ""
+	if is_fed(weapon):
+		var rounds: Array = _rounds_now(world, weapon)
+		if rounds.is_empty():
+			return 0.0
+		round_id = String(rounds[0])
+	elif _wants_ammo(weapon):
+		round_id = _pick_round(world, entity, weapon)
+	return ammo_misfire(world, round_id)
+
+
+## The chance a round adds to every trigger pull in a weapon that can jam: its `ammo.misfire`, or
+## 0.0 for a factory round, a bow's arrow and "". Read by `_jammed` and by nothing else.
+static func ammo_misfire(world: Variant, ammo_id: String) -> float:
+	if ammo_id == "":
+		return 0.0
+	var base: Variant = SimItemsRes.content_entry(world, "item", ammo_id)
+	if not base is Dictionary:
+		return 0.0
+	var spec: Variant = (base as Dictionary).get("ammo")
+	if not spec is Dictionary:
+		return 0.0
+	return float((spec as Dictionary).get("misfire", 0.0))
 
 
 # Every precondition a shot has to pass, in one place — see the note on SimMelee.try_begin_swing.
@@ -469,8 +511,9 @@ static func _wants_ammo(weapon: Dictionary) -> bool:
 ## same answer moving because a bag was tidied, with nothing to tell the player why.
 ##
 ## Choosing deliberately is the sheet's `load` verb (`choose_round`), and the round it chose goes
-## ahead of all of this: the chosen round while one is carried, then the preferred, then by id. A
-## weapon nobody has chosen for fires exactly the order it always did. A magazine-fed weapon asks
+## ahead of all of this: the chosen round while one is carried, then the preferred, then by id, with
+## every hand-load after every factory round (`_fallback_order`). A weapon nobody has chosen for
+## fires exactly the order it always did. A magazine-fed weapon asks
 ## this only through `planned_load`; a bow asks it on every nock.
 static func _pick_round(world: Variant, actor: int, weapon: Dictionary) -> String:
 	var preferred: String = String(weapon.get("ammo", ""))
@@ -504,8 +547,34 @@ static func _pick_round(world: Variant, actor: int, weapon: Dictionary) -> Strin
 			candidates.append(cid)
 	if candidates.is_empty():
 		return ""
-	candidates.sort()
-	return String(candidates[0])
+	return String(_fallback_order(world, candidates)[0])
+
+
+## The order a round with no choice behind it is reached for: factory rounds by base id, then
+## hand-loads by base id. A hand-load is the worse round of its caliber (docs/09), so the weapon
+## spends every factory round of that caliber first. Content decides what a hand-load is
+## (`ammo.handload`), so a shipped load with no recipe sorts with the factory rounds exactly as it
+## did before, and no existing magazine or pick moves.
+static func _fallback_order(world: Variant, ids: Array) -> Array:
+	var factory: Array = []
+	var handloads: Array = []
+	for id in ids:
+		if is_handload(world, String(id)):
+			handloads.append(String(id))
+		else:
+			factory.append(String(id))
+	factory.sort()
+	handloads.sort()
+	return factory + handloads
+
+
+## Whether `base_id` is a round a survivor loads by hand: its content declares `ammo.handload`.
+static func is_handload(world: Variant, base_id: String) -> bool:
+	var base: Variant = SimItemsRes.content_entry(world, "item", base_id)
+	if not base is Dictionary:
+		return false
+	var spec: Variant = (base as Dictionary).get("ammo")
+	return spec is Dictionary and (spec as Dictionary).has("handload")
 
 
 static func _carries_base(world: Variant, actor: int, base_id: String) -> bool:
@@ -648,8 +717,7 @@ static func planned_load(world: Variant, actor: int, weapon: Dictionary, choice:
 	for k in pool.keys():
 		if not order.has(String(k)):
 			rest.append(String(k))
-	rest.sort()
-	order.append_array(rest)
+	order.append_array(_fallback_order(world, rest))
 	var out: Array = []
 	for id_v in order:
 		var n: int = mini(int(pool[id_v]), size - out.size())
@@ -785,6 +853,127 @@ static func choose_round(world: Variant, actor: int, round_item: int) -> String:
 	_record(world, r)["choice"] = base_id
 	if is_fed(r):
 		try_begin_reload(world, actor)
+	return ""
+
+
+# --- the hand-load: a round made at the bench from what the survivor carries ---------------------
+#
+# docs/09: "late-game hand-loading is possible and produces worse ammunition: reduced power, higher
+# jam chance." The round's content says what it is: `ammo.handload` names the materials it is made
+# of and how many it yields, and `ammo.misfire` is what it adds to a weapon's jam chance (`_jammed`).
+# Otherwise a hand-load is a round like any other, so `takes`, `planned_load`, `_pick_round` and the
+# magazine read it without knowing it was made.
+
+static func _Gunsmith() -> GDScript:
+	return load("res://sim/modules/gunsmith.gd") as GDScript
+
+
+static func _Fortify() -> GDScript:
+	return load("res://sim/modules/fortify.gd") as GDScript
+
+
+static func _Grid() -> GDScript:
+	return load("res://sim/inventory/grid.gd") as GDScript
+
+
+## The hand-load a caliber is made into, as {id, kinds, yield}, or {} for a caliber with none: the
+## .22, a bow, anything no recipe names. Where two recipes name one caliber the lower id wins, so
+## the answer is stable whatever order the content was read in.
+static func handload_of(world: Variant, caliber: String) -> Dictionary:
+	var found: Dictionary = {}
+	if caliber == "":
+		return found
+	for base_v in SimItemsRes.content_entries(world, "item") as Array:
+		var spec: Variant = (base_v as Dictionary).get("ammo")
+		if not spec is Dictionary or not (spec as Dictionary).has("handload"):
+			continue
+		if String((spec as Dictionary).get("caliber", "")) != caliber:
+			continue
+		var id: String = String((base_v as Dictionary).get("id", ""))
+		if found.is_empty() or id < String(found["id"]):
+			var recipe: Dictionary = (spec as Dictionary)["handload"] as Dictionary
+			found = {"id": id, "kinds": recipe.get("kinds", []), "yield": int(recipe.get("yield", 0))}
+	return found
+
+
+## Why `actor` cannot hand-load `item` now, or "" when they can. The predicate the menu's `handload`
+## verb is offered on and the `item.handload` command asks first, so the two cannot disagree.
+## Checked in this order, and nothing is spent on any refusal:
+##   not-a-firearm   the item has no ranged profile
+##   not-carried     the actor does not carry it
+##   no-handload     its caliber has no hand-load: the .22, a bow
+##   no-bench        no gunsmith's bench in reach
+##   needs:<kind>    the first material the recipe spends that the actor does not carry
+##   no-room         the pack cannot take the stack
+static func handload_refusal(world: Variant, actor: int, item: int) -> String:
+	var profile: Variant = SimItemsRes.ranged_profile_of(world, item)
+	if not profile is Dictionary:
+		return "not-a-firearm"
+	if not SimInventoryRes.owns(world, actor, item):
+		return "not-carried"
+	# The effective caliber: `ranged_profile_of` has the conversion parts folded in.
+	var recipe: Dictionary = handload_of(world, String((profile as Dictionary).get("caliber", "")))
+	if recipe.is_empty():
+		return "no-handload"
+	if int(_Gunsmith().call("bench_in_reach", world, actor)) < 0:
+		return "no-bench"
+	for kind in recipe["kinds"] as Array:
+		if int(_Fortify().call("material_count", world, actor, String(kind))) < 1:
+			return "needs:" + String(kind)
+	if not _pack_takes(world, actor, String(recipe["id"]), int(recipe["yield"])):
+		return "no-room"
+	return ""
+
+
+# Whether the pack could take `count` rounds of `base_id` as one stack: onto a stack of the same
+# round with room under its limit, or into a free place in a container the actor reaches. The two
+# places `SimInventory.stow` tries, asked without moving anything.
+static func _pack_takes(world: Variant, actor: int, base_id: String, count: int) -> bool:
+	var base: Variant = SimItemsRes.content_entry(world, "item", base_id)
+	if not base is Dictionary:
+		return false
+	var limit: int = SimItemsRes.base_stack_limit(base as Dictionary)
+	if count > limit:
+		return false
+	for item in SimInventoryRes.carried_items(world, actor) as Array:
+		var carried: Variant = SimItemsRes.item_base_of(world, int(item))
+		if not (carried is Dictionary and String((carried as Dictionary).get("id", "")) == base_id):
+			continue
+		var stk: Variant = world.components.get_component(int(item), "stack")
+		if stk is Dictionary and int((stk as Dictionary).get("count", 1)) + count <= limit:
+			return true
+	var probe: int = -1
+	var footprint: Dictionary = (base as Dictionary).get("size", {"w": 1, "h": 1}) as Dictionary
+	var size_of: Callable = func(i: int) -> Dictionary:
+		return footprint if i == probe else SimItemsRes.size_of_item(world, i)
+	for container in SimInventoryRes.reachable_containers(world, actor):
+		var box: Variant = world.components.get_component(container, "container")
+		if not box is Dictionary:
+			continue
+		if _Grid().call("find_free_slot", box, (box as Dictionary)["items"], size_of, probe) != null:
+			return true
+	return false
+
+
+## `item.handload {actor, item}`: make the yield of this firearm's hand-load from what the actor
+## carries, at a bench in reach. Returns `handload_refusal`'s reason, or "". The rounds are stowed
+## before any material is spent, so a stow that fails spends nothing either.
+static func make_handloads(world: Variant, actor: int, item: int) -> String:
+	var why: String = handload_refusal(world, actor, item)
+	if why != "":
+		return why
+	var caliber: String = String((SimItemsRes.ranged_profile_of(world, item) as Dictionary).get("caliber", ""))
+	var recipe: Dictionary = handload_of(world, caliber)
+	var count: int = int(recipe["yield"])
+	# Scavenged is the tier a round carries when nothing says otherwise; naming it spends no loot
+	# roll, so a hand-load never moves the loot stream.
+	var stack: int = SimItemsRes.spawn_item(world, String(recipe["id"]), {"tier": "scavenged", "count": count})
+	if not SimInventoryRes.stow(world, actor, stack):
+		world.despawn(stack)
+		return "no-room"
+	for kind in recipe["kinds"] as Array:
+		_Fortify().call("consume_material", world, actor, String(kind))
+	world.events.publish({"type": "item.handloaded", "entity": actor, "item": item, "round": String(recipe["id"]), "count": count})
 	return ""
 
 

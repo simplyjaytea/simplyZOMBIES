@@ -282,9 +282,9 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
 - **Gunsmithing decides field versus bench, and the botch.** Skill moves operations between
   `is_field_swap` and the bench and feeds `modification.gd`'s failure curve. Gate:
   `godot:m2:bench`.
-- (Already named above and part of this arc: the hand-loaded round, the five ranged affixes.
-  Choosing which round to fire and the magazine that remembers its load landed 2026-10-28; see the
-  record, "The round you load".)
+- (Already named above and part of this arc: the five ranged affixes.
+  Choosing which round to fire and the magazine that remembers its load landed 2026-10-28, and the
+  hand-loaded round landed the same day; see the record, "The round you load" and "The hand-loaded round".)
 
 *Melee, frames and recipes (stage 1): finished, 2026-10-27.* Every piece has landed; the arc's
 record is "Melee frames and the widened slots, and the improvised recipe table, 2026-10-26",
@@ -564,11 +564,7 @@ system.
   `SimRoster.spawn_zombie` gives such a body the `equipment` component `armor_coverage_of` was
   always willing to read.
 - ~~**Named items, the fourth tier**~~ — **landed** 2026-09-12, see the record.
-- **The hand-loaded round.** docs/09 specifies it — *"late-game hand-loading is possible and
-  produces worse ammunition — reduced power, higher jam chance"* — and the ammo slice can express
-  only the first half. `jamChance` is *derived* from the condition band rather than authored, so
-  that a weapon the screen calls "failing" cannot be one that never jams; a round that raised it
-  needs its own reader and its own lane rather than a multiplier that breaks that coupling.
+- ~~**The hand-loaded round**~~ — **landed** 2026-10-28, see the record.
 - ~~**The balance re-baseline the arc reserves**~~ — **run** 2026-09-12, see the record. It
   closes the arc.
 
@@ -2441,6 +2437,43 @@ not a to-do list:
     first with `load_held`. Not measured here: the ten-seed table was not re-run (handed to the
     balance thread for the found rounds); the FAST tier of `godot:m2:balance` judges it in the
     chain.
+- **The hand-loaded round, 2026-10-28.** docs/23's "The hand-loaded round" (docs/09's "higher jam
+  chance", which the ammo slice could not express). Built as the batch's B2 piece, on the round you
+  load.
+  - **The reader.** A round's `ammo.misfire` is added to the weapon's band chance in `_jammed`
+    (`SimRanged._misfire_of`): the magazine's next round for a fed gun, the round `_pick_round`
+    would reach for otherwise. A factory round has none, so a sound gun on factory rounds draws
+    nothing from the `ranged` stream, and a round only ever raises a chance. A `jams: false` weapon
+    (the .38 revolver) still never jams, whatever round it holds.
+  - **The rounds and the recipe.** Five hand-loads in `godot/content/items/ranged.json`: 9mm, .38,
+    .45, rifle and 12g, each `damage` 0.85, `cone` 1.15, `misfire` 0.03, and an `ammo.handload`
+    recipe of one ingot and one charcoal for a yield of 6, 6, 6, 5 and 4. No .22 hand-load: rimfire
+    cannot be reloaded. No arrow or bolt. The recipe is content; `SimRanged.handload_of` reads it.
+  - **The command and the verb.** `item.handload {actor, item}` makes the yield of the firearm's
+    caliber at a gunsmith's bench in reach. `SimRanged.handload_refusal` is the one predicate the
+    command and the menu's `handload` verb both ask, refused in order `not-a-firearm`,
+    `not-carried`, `no-handload`, `no-bench`, `needs:<kind>`, `no-room`, and nothing is spent on any
+    refusal: the rounds are stowed before the materials are consumed. A refusal publishes
+    `item.handload_refused`; the panel does not yet word it (the `item.load_refused` precedent).
+  - **The fallback.** With no choice, a factory round of a caliber is reached for before any
+    hand-load of it (`SimRanged._fallback_order`, used by `_pick_round` and `planned_load`); a
+    chosen hand-load goes first. A content round with no recipe sorts exactly as before, so no
+    existing magazine moves.
+  - **The gates.** `godot:m2:ammo` holds MISFIRE (a sound pistol on hand-loads jams at the round's
+    0.03 over 2,000 pulls and draws from the stream, while the same pistol on factory ball draws
+    nothing; a failing one jams near 0.15), WORSE (the hand-load hits for 0.85 of the factory
+    round from the same gun), RECIPE (a bow and the .22 have no hand-load; no bench, then
+    `needs:charcoal`, refused with nothing spent; one ingot and one charcoal make six 9mm
+    hand-loads; a full pack says `no-room`), ORDER and the CONTENT findability rule, which accepts
+    a hand-load a shipped gun chambers and still refuses a fabricated round with no recipe and a
+    hand-load for a caliber nothing chambers. `godot:check:inventory` HANDLOAD holds the offer to
+    the sim, the pane's button to `item.handload`, and every verb button inside the pane at
+    1280x720.
+  - **Not measured here.** No balance claim. The loot tables do not move, and the balance trees
+    are compared in the chain, not in this entry.
+  - **Card 27.** The hand-load's cost is built as the default (one ingot and one charcoal at the
+    bench). The owner chose spent brass, option B, on 2026-10-28; the brass is piece B3, not this
+    record.
 - **A weapon you named, 2026-10-27.** The last piece of the melee arc. A weapon with three or more
   slots holding a part it did not come with may be named by the player (docs/33 items 23 and 24,
   three or more by the owner's call of 2026-10-27; typed, the default). What landed:

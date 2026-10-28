@@ -95,10 +95,11 @@ func _run() -> void:
 	ok = await _a_dull_blade_offers_hone_and_the_button_hones_it() and ok
 	ok = await _the_pane_draws_one_state_line() and ok
 	ok = await _a_round_the_gun_takes_offers_load_and_the_button_loads_it() and ok
+	ok = await _a_firearm_offers_hand_load_only_at_a_bench_and_the_button_makes_the_rounds() and ok
 	ok = _a_rebuilt_weapon_takes_a_name() and ok
 	ok = _the_name_field_holds_its_text() and ok
 	if ok:
-		print("INVENTORY_OK a picked body part offers the care the sim would take and nothing else, descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, a cupboard is a column and a window, a stack that cannot merge is not reported as stored, the list, a ctrl-click and the pane's buttons each move the world, a part dropped on a weapon fits an empty slot and lands in the grid otherwise, standing in the stockpile the window is the stockpile, a ctrl-click takes and a drag puts back, a dull blade with a whetstone offers hone and the pane's button hones it, the pane draws a blade's edge, a lamp's fuel or a gun's load as one state line, a round the gun in hand takes offers load and the pane's button loads it, and a weapon rebuilt in three slots takes the name you give it and nothing but a name")
+		print("INVENTORY_OK a picked body part offers the care the sim would take and nothing else, descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, a cupboard is a column and a window, a stack that cannot merge is not reported as stored, the list, a ctrl-click and the pane's buttons each move the world, a part dropped on a weapon fits an empty slot and lands in the grid otherwise, standing in the stockpile the window is the stockpile, a ctrl-click takes and a drag puts back, a dull blade with a whetstone offers hone and the pane's button hones it, the pane draws a blade's edge, a lamp's fuel or a gun's load as one state line, a round the gun in hand takes offers load and the pane's button loads it, a firearm offers hand-load only at a bench with its materials and the pane's button makes the rounds, and a weapon rebuilt in three slots takes the name you give it and nothing but a name")
 		quit(0)
 	else:
 		push_error("INVENTORY_FAIL")
@@ -2641,6 +2642,94 @@ func _a_round_the_gun_takes_offers_load_and_the_button_loads_it() -> bool:
 	if ok:
 		print("LOAD OK no gun in hand offers no load; with buckshot in a shotgun, slugs offer load and buckshot and a rifle round do not; every offer agrees with load_refusal; the pane's load button put five slugs in and the gun reads slug")
 	return ok
+
+
+# The hand-load, docs/23's B2. `handload` is offered on a firearm exactly when `SimRanged.handload_refusal`
+# is empty: a bench in reach, the recipe's materials carried and room in the pack. Absent otherwise,
+# never greyed. Then the dead-socket half: the pane's button, pressed through the panel's own
+# dispatch, reaches `item.handload`, and the materials make the yield. The verb row is judged at
+# 1280x720 as well: every button sits inside the pane there.
+func _a_firearm_offers_hand_load_only_at_a_bench_and_the_button_makes_the_rounds() -> bool:
+	var lane: String = "HANDLOAD"
+	var w: Variant = _world(3151)
+	SimRanged.register_module(w)
+	w.components.set_component(w.player, "facing", {"radians": 0.0})
+	if not _room(w):
+		push_error("%s: the pack would not go on" % lane)
+		return false
+	var actor: int = w.player
+	var gun: int = SimItems.spawn_item(w, "item.shotgun.pump", {"tier": "scavenged"})
+	if not SimInventory.equip(w, actor, gun):
+		push_error("%s: the shotgun would not go in a hand" % lane)
+		return false
+	w.step()
+	var ingot: int = _give(w, "item.ingot.lead", 1)
+	var charcoal: int = _give(w, "item.charcoal.lump", 1)
+	if ingot < 0 or charcoal < 0:
+		push_error("%s: the fixture could not carry its materials" % lane)
+		return false
+	if SimInventory.verbs_for(w, actor, gun).has("handload"):
+		push_error("%s: hand-load was offered with no bench in reach" % lane)
+		return false
+	var at: Dictionary = w.components.get_component(actor, "position") as Dictionary
+	SimGunsmith.make_bench(w, float(at["x"]), float(at["y"]))
+	if not SimInventory.verbs_for(w, actor, gun).has("handload"):
+		push_error("%s: hand-load was not offered at a bench with an ingot and charcoal (%s)" % [lane, SimRanged.handload_refusal(w, actor, gun)])
+		return false
+
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(1280, 720)
+	root.add_child(viewport)
+	var panel: Control = (load(PANEL_GD) as GDScript).new() as Control
+	viewport.add_child(panel)
+	await process_frame
+	panel.call("set_world", w, actor)
+	panel.call("set_open", true)
+	await process_frame
+	panel.set("_selected", gun)
+	var pane: Rect2 = panel.call("_inspect_rect")
+	var button: Variant = null
+	var inside: bool = true
+	for b in InspectPane.button_rects(pane, panel.call("_pane_verbs")):
+		var rect: Rect2 = (b as Dictionary)["rect"]
+		if not pane.encloses(rect):
+			inside = false
+		if String((b as Dictionary)["verb"]) == "handload":
+			button = rect
+	var ok: bool = true
+	if not inside:
+		push_error("%s: at 1280x720 a verb button sits outside the pane (%s of %s)" % [lane, str(panel.call("_pane_verbs")), str(pane)])
+		ok = false
+	if button == null:
+		push_error("%s: the pane offers no hand-load button on the gun: %s" % [lane, str(panel.call("_pane_verbs"))])
+		ok = false
+	else:
+		panel.call("_press_at", (button as Rect2).get_center())
+		for i in 30:
+			w.step()
+		if _in_pack_base(w, actor, "item.ammo.12g.handload") != 4:
+			push_error("%s: pressing hand-load made %d rounds, not the yield of 4" % [lane, _in_pack_base(w, actor, "item.ammo.12g.handload")])
+			ok = false
+		elif _in_pack_base(w, actor, "item.ingot.lead") != 0 or _in_pack_base(w, actor, "item.charcoal.lump") != 0:
+			push_error("%s: pressing hand-load did not spend the ingot and the charcoal" % lane)
+			ok = false
+		elif SimInventory.verbs_for(w, actor, gun).has("handload"):
+			push_error("%s: hand-load is still offered with its materials spent" % lane)
+			ok = false
+	viewport.queue_free()
+	if ok:
+		print("HANDLOAD OK a firearm offers hand-load only with a bench in reach and its ingot and charcoal carried; at 1280x720 every verb button sits inside the pane; the pane's button makes four 12g hand-loads, spends the ingot and the charcoal, and the offer goes")
+	return ok
+
+
+func _in_pack_base(w: Variant, actor: int, base_id: String) -> int:
+	var n: int = 0
+	for item in SimInventory.carried_items(w, actor):
+		var base: Variant = SimItems.item_base_of(w, int(item))
+		if base is Dictionary and String((base as Dictionary).get("id", "")) == base_id:
+			var stk: Variant = w.components.get_component(int(item), "stack")
+			n += int((stk as Dictionary).get("count", 1)) if stk is Dictionary else 1
+	return n
 
 
 func _carried(w: Variant, actor: int, base_id: String) -> int:
