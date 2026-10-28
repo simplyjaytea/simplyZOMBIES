@@ -1951,14 +1951,19 @@ static func _replan_due(world: Variant, job: Dictionary) -> bool:
 
 # The Doctor's two pick questions, asked of the patient's position now: inside the errand radius of
 # home, and no shambler within DANGER_TARGET_METRES of the patient. `_doctor_work` asks the same two
-# at the pick. A patient with no position answers no, so the job is let go.
+# at the pick, and the zombie question only under BREAK_OFF_FROM_DANGER, so it is asked under the
+# same flag here: a lane that pins the flag off to get the colony as it was would otherwise be given
+# a pick the leash drops on its first walk tick, every tick. A patient with no position answers no,
+# so the job is let go.
 static func _doctor_leash_holds(world: Variant, job: Dictionary) -> bool:
 	var op: Variant = world.components.get_component(int(job.get("target", -1)), "position")
 	if not op is Dictionary:
 		return false
 	var x: float = float((op as Dictionary)["x"])
 	var y: float = float((op as Dictionary)["y"])
-	return _near_errand(world, x, y) and not _danger_at(world, x, y, DANGER_TARGET_METRES)
+	if not _near_errand(world, x, y):
+		return false
+	return not (BREAK_OFF_FROM_DANGER and _danger_at(world, x, y, DANGER_TARGET_METRES))
 
 # The hands are the re-arm rule's business and nothing here may reach into them: a machete has no
 # `armor` block, so this would never fire on one anyway, and saying it out loud is cheaper than

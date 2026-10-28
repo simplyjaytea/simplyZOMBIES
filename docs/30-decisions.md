@@ -7358,7 +7358,10 @@ causes in `planning/balance/2026-10-28-dayone-causes.md`, sections 2 and 6. The 
   errand radius or with a zombie within `DANGER_TARGET_METRES` of them, and nothing asked again
   after it. The Doctor's own `_endangered` rule fires at 6 m from the Doctor, which is in the street
   by then. Re-asking the two pick questions of the patient's position on each walk tick adds no new
-  rule: it is the pick, asked again. Walking home with a pursuer behind is not covered (P1 says why).
+  rule: it is the pick, asked again, under the same flag: the pick asks its zombie question only
+  under `BREAK_OFF_FROM_DANGER`, so the leash does too (the end review's one finding; without it a
+  lane that pins the flag off was handed a pick the leash dropped on its first walk tick, every
+  tick). Walking home with a pursuer behind is not covered (P1 says why).
 - **The far side is ranked from the nearest zombie, not from the colonist.** Ranked from the
   colonist, the nearest interior tile is the one the colonist already stands beside, which is the
   room the zombie is in. Ranked from the zombie, the farthest interior tile is the one it reaches

@@ -20,7 +20,8 @@ extends SceneTree
 # Three more, for the Doctor's leash and the far-side Retreat (docs/23, "Balance after the alpha"):
 #   LEASH      -- a Doctor on the walk to a patient out past the errand radius, or with a zombie 8 m
 #                 from the patient, lets the job go; the same walk to a patient ten tiles out with
-#                 nothing near keeps it. Each drop is red with DOCTOR_LEASH off.
+#                 nothing near keeps it. Each drop is red with DOCTOR_LEASH off, and the zombie drop
+#                 is red with BREAK_OFF_FROM_DANGER pinned off, the flag the pick asks it under.
 #   FAR-SIDE   -- a colonist inside the walls with a zombie inside three metres off: the Retreat aims
 #                 at the interior tile farthest from it, and the colonist walks until the distance
 #                 has opened. Red with RETREAT_FAR_SIDE off (it aims at home). A zombie outside the
@@ -346,6 +347,16 @@ func _doctor_leash() -> bool:
 		push_error("LEASH: with DOCTOR_LEASH off a Doctor walking past a zombie 8 m from the patient was dropped, so the switch does not decide it")
 		return false
 	SimJobs.DOCTOR_LEASH = true
+	# The zombie question is the pick's, and the pick asks it only under BREAK_OFF_FROM_DANGER: with
+	# that flag pinned off (the colony before the A24 pass, which `godot:m2:jobs` and `godot:m2:storm`
+	# pin), the pick hands out this patient and the leash must not drop it.
+	var was_danger: bool = SimJobs.BREAK_OFF_FROM_DANGER
+	SimJobs.BREAK_OFF_FROM_DANGER = false
+	var kept_unpinned: bool = _doctor_still_walking(w, doctor, patient, pick, near, Vector2(float(near.x) + 8.5, float(near.y) + 0.5))
+	SimJobs.BREAK_OFF_FROM_DANGER = was_danger
+	if not kept_unpinned:
+		push_error("LEASH: with BREAK_OFF_FROM_DANGER pinned off, the leash dropped a Doctor walking to a patient with a zombie 8 m off, a patient the pick hands out under that pin")
+		return false
 
 	# True negative: the patient stays ten tiles out, nothing near, and the walk is still on after the
 	# same five ticks.
