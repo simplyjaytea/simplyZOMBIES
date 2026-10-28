@@ -497,9 +497,26 @@
           "exclusiveMinimum": 0,
           "description": "How much weapon there is to bring up, mirroring melee.weight. Multiplies every rung of docs/09-combat.md's raise -> steady -> fire -> recover ladder through sim/combat.gd's raise_ticks / steady_ticks / shot_recover_ticks, so a submachine gun is quick to the shoulder and a crossbow is not. Required for the same reason it is required on melee: a weapon with no declared heft would silently borrow 1.0 and handle like a service pistol."
         },
+        "cylinder": {
+          "type": "boolean",
+          "description": "A revolver: its spent cases stay in the cylinder after each shot and fall to the ground when the next reload begins, one per round fired since the last (SimRanged._begin_reload). Absent on everything else, which ejects its case at the shot. The case itself comes from the round's caliber (`brass`), so a cylinder gun of a caliber with no case drops nothing."
+        },
         "jams": {
           "type": "boolean",
           "description": "Whether this weapon can jam as it degrades, per docs/09-combat.md: \"degraded firearms jam, and clearing a jam takes longer than a reload\". Firearms only -- a bow has nothing to stovepipe -- which is why it is declared here rather than inferred from having a magazine. The chance itself is not authored: SimItems.JAM_CHANCE_BY_BAND derives it from condition, so it cannot drift from the band the inventory screen shows for the same weapon."
+        }
+      }
+    },
+    "brass": {
+      "type": "object",
+      "description": "Present on a spent case: the one kind of item a centrefire shot leaves on the ground, and the input a hand-load spends (`ammo.handload.brass`). `caliber` names the round it is the case of, matched exactly against a round's `ammo.caliber`; a caliber with no case here (the .22, the bow's arrow) leaves nothing. Read by SimItems.brass_of, never by name, so a case's id is free to change.",
+      "additionalProperties": false,
+      "required": [
+        "caliber"
+      ],
+      "properties": {
+        "caliber": {
+          "type": "string"
         }
       }
     },
@@ -544,6 +561,10 @@
             "yield"
           ],
           "properties": {
+            "brass": {
+              "type": "boolean",
+              "description": "True when each round made spends one spent case of this round's caliber (an item whose `brass` names the caliber), from what the survivor carries. Yield is then the lesser of `yield` and the cases carried, and no case is `needs:brass`. Absent on a recipe that needs no case."
+            },
             "kinds": {
               "type": "array",
               "minItems": 1,

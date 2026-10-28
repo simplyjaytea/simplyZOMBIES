@@ -454,6 +454,8 @@ static func _begin_reload(world: Variant, entity: int, r: Dictionary) -> bool:
 	# nothing.
 	if is_fed(r) and planned_load(world, entity, r, choice_in(world, r)) == _rounds_now(world, r):
 		return false
+	if _is_cylinder(world, r):
+		_empty_cylinder(world, entity, r)
 	r["state"] = FireState.Reload
 	# The reload clock is the weapon's own and its item-scoped share on top; a bare gun's is unchanged.
 	r["ticksLeft"] = _scaled(maxi(1, int(r.get("reloadTicks", 24))), SimItemsRes.reload_share_of(world, int(r.get("source", -1))))
@@ -876,9 +878,10 @@ static func _Grid() -> GDScript:
 	return load("res://sim/inventory/grid.gd") as GDScript
 
 
-## The hand-load a caliber is made into, as {id, kinds, yield}, or {} for a caliber with none: the
-## .22, a bow, anything no recipe names. Where two recipes name one caliber the lower id wins, so
-## the answer is stable whatever order the content was read in.
+## The hand-load a caliber is made into, as {id, caliber, kinds, yield, brass}, or {} for a caliber
+## with none: the .22, a bow, anything no recipe names. `brass` is whether each round spends a spent
+## case of the caliber. Where two recipes name one caliber the lower id wins, so the answer is stable
+## whatever order the content was read in.
 static func handload_of(world: Variant, caliber: String) -> Dictionary:
 	var found: Dictionary = {}
 	if caliber == "":
@@ -892,7 +895,7 @@ static func handload_of(world: Variant, caliber: String) -> Dictionary:
 		var id: String = String((base_v as Dictionary).get("id", ""))
 		if found.is_empty() or id < String(found["id"]):
 			var recipe: Dictionary = (spec as Dictionary)["handload"] as Dictionary
-			found = {"id": id, "kinds": recipe.get("kinds", []), "yield": int(recipe.get("yield", 0))}
+			found = {"id": id, "caliber": caliber, "kinds": recipe.get("kinds", []), "yield": int(recipe.get("yield", 0)), "brass": bool(recipe.get("brass", false))}
 	return found
 
 
@@ -904,7 +907,8 @@ static func handload_of(world: Variant, caliber: String) -> Dictionary:
 ##   no-handload     its caliber has no hand-load: the .22, a bow
 ##   no-bench        no gunsmith's bench in reach
 ##   needs:<kind>    the first material the recipe spends that the actor does not carry
-##   no-room         the pack cannot take the stack
+##   needs:brass     the recipe spends a spent case and the actor carries none of its caliber
+##   no-room         the pack cannot take the rounds made (`rounds_made`)
 static func handload_refusal(world: Variant, actor: int, item: int) -> String:
 	var profile: Variant = SimItemsRes.ranged_profile_of(world, item)
 	if not profile is Dictionary:
@@ -920,9 +924,38 @@ static func handload_refusal(world: Variant, actor: int, item: int) -> String:
 	for kind in recipe["kinds"] as Array:
 		if int(_Fortify().call("material_count", world, actor, String(kind))) < 1:
 			return "needs:" + String(kind)
-	if not _pack_takes(world, actor, String(recipe["id"]), int(recipe["yield"])):
+	if bool(recipe["brass"]) and rounds_made(world, actor, recipe) < 1:
+		return "needs:brass"
+	if not _pack_takes(world, actor, String(recipe["id"]), rounds_made(world, actor, recipe)):
 		return "no-room"
 	return ""
+
+
+## How many rounds one hand-load makes from what `actor` carries: the recipe's `yield`, or fewer
+## when the recipe spends a spent case per round and the actor carries fewer cases than that.
+static func rounds_made(world: Variant, actor: int, recipe: Dictionary) -> int:
+	var made: int = int(recipe["yield"])
+	if bool(recipe["brass"]):
+		made = mini(made, _carried_count(world, actor, SimItemsRes.brass_of(world, String(recipe["caliber"]))))
+	return made
+
+
+# How many of `base_id` the actor carries, counted over the stacks in the pack.
+static func _carried_count(world: Variant, actor: int, base_id: String) -> int:
+	var n: int = 0
+	if base_id == "":
+		return n
+	for item in SimInventoryRes.carried_items(world, actor) as Array:
+		if _base_id_of(world, int(item)) != base_id:
+			continue
+		var stk: Variant = world.components.get_component(int(item), "stack")
+		n += int((stk as Dictionary).get("count", 1)) if stk is Dictionary else 1
+	return n
+
+
+static func _base_id_of(world: Variant, item: int) -> String:
+	var b: Variant = world.components.get_component(item, "itemBase")
+	return String((b as Dictionary).get("baseId", "")) if b is Dictionary else ""
 
 
 # Whether the pack could take `count` rounds of `base_id` as one stack: onto a stack of the same
@@ -955,6 +988,101 @@ static func _pack_takes(world: Variant, actor: int, base_id: String, count: int)
 	return false
 
 
+# Spend `count` spent cases of `base_id` out of the pack, the way `_take_round` spends a round.
+static func _spend_brass(world: Variant, actor: int, base_id: String, count: int) -> void:
+	var left: int = count
+	for item in SimInventoryRes.carried_items(world, actor) as Array:
+		if left <= 0:
+			break
+		if _base_id_of(world, int(item)) != base_id:
+			continue
+		var stk: Variant = world.components.get_component(int(item), "stack")
+		var have: int = int((stk as Dictionary).get("count", 1)) if stk is Dictionary else 1
+		var take: int = mini(have, left)
+		left -= take
+		if take >= have:
+			SimInventoryRes.remove_from_container(world, int(item))
+			world.despawn(int(item))
+		else:
+			(stk as Dictionary)["count"] = have - take
+
+
+# Put `count` spent cases of `base_id` on the ground where `actor` stands. Cases of one caliber on one
+# tile make one stack, filled to the case's stack limit before a second is started, so a firefight
+# makes one ground item per tile per caliber and not one per shot (docs/30, "Spent brass").
+static func _scatter_cases(world: Variant, actor: int, base_id: String, count: int) -> void:
+	var at: Variant = world.components.get_component(actor, "position")
+	var base: Variant = SimItemsRes.content_entry(world, "item", base_id) if base_id != "" else null
+	if not at is Dictionary or not base is Dictionary:
+		return
+	var x: float = float((at as Dictionary)["x"])
+	var y: float = float((at as Dictionary)["y"])
+	var limit: int = SimItemsRes.base_stack_limit(base as Dictionary)
+	var left: int = count
+	for item in SimInventoryRes.ground_items(world) as Array:
+		if left <= 0:
+			break
+		if _base_id_of(world, int(item)) != base_id:
+			continue
+		var stk: Variant = world.components.get_component(int(item), "stack")
+		var there: Variant = world.components.get_component(int(item), "position")
+		if not (stk is Dictionary and there is Dictionary):
+			continue
+		if floori(float((there as Dictionary)["x"])) != floori(x) or floori(float((there as Dictionary)["y"])) != floori(y):
+			continue
+		var moved: int = mini(limit - int((stk as Dictionary).get("count", 0)), left)
+		if moved <= 0:
+			continue
+		(stk as Dictionary)["count"] = int((stk as Dictionary).get("count", 0)) + moved
+		left -= moved
+	while left > 0:
+		var n: int = mini(limit, left)
+		var item: int = SimItemsRes.spawn_item(world, base_id, {"tier": "scavenged", "count": n})
+		world.components.set_component(item, "position", {"x": x, "y": y})
+		left -= n
+
+
+# The spent case one round leaves. A cylinder gun keeps it in the cylinder (`spent`, on the record,
+# until its next reload); anything else lets it fall where the shooter stands. A round whose caliber
+# has no case (the .22, an arrow) leaves nothing.
+static func _eject_case(world: Variant, attacker: int, weapon: Dictionary, round_id: String) -> void:
+	var base: Variant = SimItemsRes.content_entry(world, "item", round_id)
+	if not (base is Dictionary and (base as Dictionary).get("ammo") is Dictionary):
+		return
+	var caliber: String = String(((base as Dictionary)["ammo"] as Dictionary).get("caliber", ""))
+	var brass: String = SimItemsRes.brass_of(world, caliber)
+	if brass == "":
+		return
+	if _is_cylinder(world, weapon):
+		var rec: Dictionary = _record(world, weapon)
+		rec["spent"] = int(rec.get("spent", 0)) + 1
+		return
+	_scatter_cases(world, attacker, brass, 1)
+
+
+# Whether this weapon is a cylinder gun. A save from before the `cylinder` key has no copy of it on the
+# live `rangedWeapon` until the next equip or wear refresh, so the item's own profile is asked then,
+# the same way a pre-change save's parts are derived on load (docs/30, "Spent brass").
+static func _is_cylinder(world: Variant, weapon: Dictionary) -> bool:
+	if weapon.has("cylinder"):
+		return bool(weapon["cylinder"])
+	var item: int = int(weapon.get("source", -1))
+	if item < 0 or not world.components.has_component(item, "itemBase"):
+		return false
+	var profile: Variant = SimItemsRes.ranged_profile_of(world, item)
+	return profile is Dictionary and bool((profile as Dictionary).get("cylinder", false))
+
+
+# A cylinder gun's spent cases fall out at the start of its reload, one per round fired since the last.
+static func _empty_cylinder(world: Variant, entity: int, weapon: Dictionary) -> void:
+	var spent: int = int(_peek(world, weapon).get("spent", 0))
+	if spent <= 0:
+		return
+	var rec: Dictionary = _record(world, weapon)
+	rec["spent"] = 0
+	_scatter_cases(world, entity, SimItemsRes.brass_of(world, String(weapon.get("caliber", ""))), spent)
+
+
 ## `item.handload {actor, item}`: make the yield of this firearm's hand-load from what the actor
 ## carries, at a bench in reach. Returns `handload_refusal`'s reason, or "". The rounds are stowed
 ## before any material is spent, so a stow that fails spends nothing either.
@@ -964,7 +1092,7 @@ static func make_handloads(world: Variant, actor: int, item: int) -> String:
 		return why
 	var caliber: String = String((SimItemsRes.ranged_profile_of(world, item) as Dictionary).get("caliber", ""))
 	var recipe: Dictionary = handload_of(world, caliber)
-	var count: int = int(recipe["yield"])
+	var count: int = rounds_made(world, actor, recipe)
 	# Scavenged is the tier a round carries when nothing says otherwise; naming it spends no loot
 	# roll, so a hand-load never moves the loot stream.
 	var stack: int = SimItemsRes.spawn_item(world, String(recipe["id"]), {"tier": "scavenged", "count": count})
@@ -973,6 +1101,8 @@ static func make_handloads(world: Variant, actor: int, item: int) -> String:
 		return "no-room"
 	for kind in recipe["kinds"] as Array:
 		_Fortify().call("consume_material", world, actor, String(kind))
+	if bool(recipe["brass"]):
+		_spend_brass(world, actor, SimItemsRes.brass_of(world, caliber), count)
 	world.events.publish({"type": "item.handloaded", "entity": actor, "item": item, "round": String(recipe["id"]), "count": count})
 	return ""
 
@@ -1189,6 +1319,8 @@ static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: V
 		scale = ammo_scale(world, round_id)
 	elif int(weapon.get("magSize", 0)) > 0:
 		weapon["mag"] = maxi(0, int(weapon.get("mag", 0)) - 1)
+	if round_id != "":
+		_eject_case(world, attacker, weapon, round_id)
 	var from: Variant = world.components.get_component(attacker, "position")
 	var facing_v: Variant = world.components.get_component(attacker, "facing")
 	if from == null or facing_v == null:

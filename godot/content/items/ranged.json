@@ -179,7 +179,7 @@
       "sear": "item.part.sear.standard",
       "extractor": "item.part.extractor.standard"
     },
-    "ranged": {"damage": 22, "noise": 190, "flash": 55, "ammo": "item.ammo.38", "caliber": "38", "magSize": 6, "reloadTicks": 75, "rangeMetres": 18, "weight": 1.0, "jams": false}
+    "ranged": {"damage": 22, "noise": 190, "flash": 55, "ammo": "item.ammo.38", "caliber": "38", "magSize": 6, "reloadTicks": 75, "rangeMetres": 18, "weight": 1.0, "jams": false, "cylinder": true}
   },
   {
     "id": "item.rifle.rimfire",
@@ -506,7 +506,7 @@
     "massKg": 0.012,
     "appearance": { "sprite": "item_pistol_rounds" },
     "stack": 16,
-    "ammo": { "caliber": "9mm", "word": "hand-load", "ranged": { "damage": 0.85, "cone": 1.15 }, "misfire": 0.03, "handload": { "kinds": ["ingot", "charcoal"], "yield": 6 } }
+    "ammo": { "caliber": "9mm", "word": "hand-load", "ranged": { "damage": 0.85, "cone": 1.15 }, "misfire": 0.03, "handload": { "kinds": ["ingot", "charcoal"], "yield": 6, "brass": true } }
   },
   {
     "id": "item.ammo.38.handload",
@@ -517,7 +517,7 @@
     "massKg": 0.015,
     "appearance": { "sprite": "item_pistol_rounds" },
     "stack": 20,
-    "ammo": { "caliber": "38", "word": "hand-load", "ranged": { "damage": 0.85, "cone": 1.15 }, "misfire": 0.03, "handload": { "kinds": ["ingot", "charcoal"], "yield": 6 } }
+    "ammo": { "caliber": "38", "word": "hand-load", "ranged": { "damage": 0.85, "cone": 1.15 }, "misfire": 0.03, "handload": { "kinds": ["ingot", "charcoal"], "yield": 6, "brass": true } }
   },
   {
     "id": "item.ammo.45.handload",
@@ -528,7 +528,7 @@
     "massKg": 0.021,
     "appearance": { "sprite": "item_pistol_rounds" },
     "stack": 16,
-    "ammo": { "caliber": "45", "word": "hand-load", "ranged": { "damage": 0.85, "cone": 1.15 }, "misfire": 0.03, "handload": { "kinds": ["ingot", "charcoal"], "yield": 6 } }
+    "ammo": { "caliber": "45", "word": "hand-load", "ranged": { "damage": 0.85, "cone": 1.15 }, "misfire": 0.03, "handload": { "kinds": ["ingot", "charcoal"], "yield": 6, "brass": true } }
   },
   {
     "id": "item.ammo.rifle.handload",
@@ -539,7 +539,7 @@
     "massKg": 0.02,
     "appearance": { "sprite": "item_rifle_rounds" },
     "stack": 20,
-    "ammo": { "caliber": "rifle", "word": "hand-load", "ranged": { "damage": 0.85, "cone": 1.15 }, "misfire": 0.03, "handload": { "kinds": ["ingot", "charcoal"], "yield": 5 } }
+    "ammo": { "caliber": "rifle", "word": "hand-load", "ranged": { "damage": 0.85, "cone": 1.15 }, "misfire": 0.03, "handload": { "kinds": ["ingot", "charcoal"], "yield": 5, "brass": true } }
   },
   {
     "id": "item.ammo.12g.handload",
@@ -550,6 +550,6 @@
     "massKg": 0.04,
     "appearance": { "sprite": "item_shells" },
     "stack": 12,
-    "ammo": { "caliber": "12g", "word": "hand-load", "ranged": { "damage": 0.85, "cone": 1.15 }, "misfire": 0.03, "handload": { "kinds": ["ingot", "charcoal"], "yield": 4 } }
+    "ammo": { "caliber": "12g", "word": "hand-load", "ranged": { "damage": 0.85, "cone": 1.15 }, "misfire": 0.03, "handload": { "kinds": ["ingot", "charcoal"], "yield": 4, "brass": true } }
   }
 ]
