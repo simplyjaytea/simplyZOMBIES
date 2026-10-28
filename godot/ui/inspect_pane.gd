@@ -52,8 +52,8 @@ static func state_line(view: Dictionary) -> Dictionary:
 	var fuel: String = String(view.get("fuel", ""))
 	if not fuel.is_empty():
 		return {"label": "fuel", "word": fuel}
-	# What a magazine-fed weapon holds: "empty", "slugs", "slugs, then buckshot". No firearm is a
-	# blade or a lamp, so this is still one line.
+	# What a magazine-fed weapon holds: "empty", "slug", "mixed". No firearm is a blade or a lamp,
+	# so this is still one line.
 	var load: String = String(view.get("load", ""))
 	if not load.is_empty():
 		return {"label": "load", "word": load}

@@ -2471,24 +2471,24 @@ func _every_state_word_fits_the_narrow_pane(w: Variant, lamp: int) -> bool:
 		fuel_words[word] = true
 		lines.append(["fuel", word])
 	w.components.set_component(lamp, "lightFuel", {"ticksLeft": cap})
-	# Every load line a magazine can show: empty, each round's word, and each ordered pair of two
-	# rounds that share a caliber ("slugs, then buckshot"), read off the content, so a longer word
-	# is judged the day it is written.
+	# Every load line a magazine can show: empty, mixed, and each round's word, read off the content
+	# so a longer word is judged the day it is written. "slug, then buckshot" was cut to "slug,
+	# then..." the first time it was drawn.
 	lines.append(["load", "empty"])
-	var by_caliber: Dictionary = {}
-	for entry in (ContentLoader.load_tree().get("item", {}) as Dictionary).values():
-		var spec: Variant = (entry as Dictionary).get("ammo")
-		if spec is Dictionary:
-			var cal: String = String((spec as Dictionary).get("caliber", ""))
-			if not by_caliber.has(cal):
-				by_caliber[cal] = []
-			(by_caliber[cal] as Array).append(String((entry as Dictionary).get("id", "")))
-	for cal in by_caliber.keys():
-		for a in by_caliber[cal] as Array:
-			lines.append(["load", SimRanged.round_word(w, String(a))])
-			for b in by_caliber[cal] as Array:
-				if String(b) != String(a):
-					lines.append(["load", "%s, then %s" % [SimRanged.round_word(w, String(a)), SimRanged.round_word(w, String(b))]])
+	lines.append(["load", "mixed"])
+	var tree: Dictionary = ContentLoader.load_tree()
+	var round_words: int = 0
+	for path in tree.keys():
+		if not String(path).begins_with("items/") or not tree[path] is Array:
+			continue
+		for entry in tree[path] as Array:
+			if entry is Dictionary and (entry as Dictionary).get("ammo") is Dictionary:
+				lines.append(["load", SimRanged.round_word(w, String((entry as Dictionary).get("id", "")))])
+				round_words += 1
+	# Data to judge: the walk found the rounds, or FIT measured the two words above and nothing else.
+	if round_words < 10:
+		push_error("%s: the content walk found %d rounds to measure" % [lane, round_words])
+		return false
 	# Data to judge: four tank levels that read as four different words, or the walk proved one.
 	if fuel_words.size() != 4 or fuel_words.has(""):
 		push_error("%s: walking the lantern down its tank read %s, not four fuel words" % [lane, str(fuel_words.keys())])
@@ -2631,15 +2631,15 @@ func _a_round_the_gun_takes_offers_load_and_the_button_loads_it() -> bool:
 		if SimRanged.rounds_in(w, gun) != want:
 			push_error("%s: pressing load on the slugs left the magazine %s" % [lane, str(SimRanged.rounds_in(w, gun))])
 			ok = false
-		elif String(SimInventory.inspect_view(w, actor, gun).get("load", "")) != "slugs":
-			push_error("%s: the loaded shotgun reads '%s', not slugs" % [lane, String(SimInventory.inspect_view(w, actor, gun).get("load", ""))])
+		elif String(SimInventory.inspect_view(w, actor, gun).get("load", "")) != "slug":
+			push_error("%s: the loaded shotgun reads '%s', not slug" % [lane, String(SimInventory.inspect_view(w, actor, gun).get("load", ""))])
 			ok = false
 		elif SimInventory.verbs_for(w, actor, _carried(w, actor, "item.ammo.12g")).has("load") == false:
 			push_error("%s: with slugs loaded, buckshot was not offered back" % lane)
 			ok = false
 	viewport.queue_free()
 	if ok:
-		print("LOAD OK no gun in hand offers no load; with buckshot in a shotgun, slugs offer load and buckshot and a rifle round do not; every offer agrees with load_refusal; the pane's load button put five slugs in and the gun reads slugs")
+		print("LOAD OK no gun in hand offers no load; with buckshot in a shotgun, slugs offer load and buckshot and a rifle round do not; every offer agrees with load_refusal; the pane's load button put five slugs in and the gun reads slug")
 	return ok
 
 

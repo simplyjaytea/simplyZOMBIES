@@ -660,9 +660,8 @@ static func inspect_view(world: Variant, actor: int, item: int) -> Dictionary:
 		# blade, exactly as `fuel` is "" for everything that is not a lamp. The pane draws whichever
 		# of the two is not empty as its one state line; no item is both.
 		"edge": SimItems.edge_word(world, item),
-		# What is in a magazine-fed weapon, as words: "empty", the round's word ("slugs"), or the
-		# next round and the one after it ("slugs, then buckshot"); "" for everything else. Never a
-		# count. `SimRanged.load_words` builds it from the round's `ammo.word`, never its `name`,
+		# What is in a magazine-fed weapon, as words: "empty", the round's word ("slug") when every
+		# round in it is the same, or "mixed"; "" for everything else. Never a count. `SimRanged.load_words` builds it from the round's `ammo.word`, never its `name`,
 		# which may carry a digit under the one amendment while this line may not.
 		"load": _Ranged().call("load_words", world, item),
 	}
