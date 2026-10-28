@@ -7114,7 +7114,12 @@ move with the internals would be the dead-socket pattern docs/37 warns about.
 list, and its slot goes on every base that defaults an action. A new internal that replaces the
 action declares its own mass against the 0.12 kg action so an assembly keeps its weight.
 
-**Measured:** see the PR's Measured section and the balance row for this piece in docs/23.
+**Measured.** The FAST tier of `godot:m2:balance` passes on c119866e: four seeds, ten days, the
+shipped district. Survivors alive on day ten were 2 of 3 on 20260805, 1 of 3 on 404, 3 of 3 on 31337
+and 1 of 3 on 90210, with 2, 5, 1 and 3 deaths. No before run on main was taken for this piece, so
+the numbers are the after only; the gate asserts the bands and the placement sets, not the counts.
+The internals change every spawned gun, so a before-and-after on the same driver is the number a
+later balance piece should compare against.
 
 ## The ranged affixes, partly, 2026-10-28
 
