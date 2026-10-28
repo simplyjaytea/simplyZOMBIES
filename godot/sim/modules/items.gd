@@ -183,6 +183,33 @@ static func condition_loss_of(world: Variant, item: int) -> float:
 	return scoped / unscoped if unscoped > 0.0 else scoped
 
 
+# The gun's own share of `ranged_accuracy`: the same division as `noise_emission_of`. The shooter's
+# accuracy is resolved on the entity (`ranged.gd:_refresh_cone`), so a Trued barrel on the bench
+# would otherwise move nothing; the cone multiplies this in beside the person's own value. A
+# weapon with no affix reads exactly 1.0, so every bare gun's cone is unchanged.
+static func accuracy_of(world: Variant, item: int) -> float:
+	if item < 0 or world.modifiers == null or not (world.modifiers as Object).has_method("resolve"):
+		return 1.0
+	var unscoped: float = float(world.modifiers.call("resolve", "ranged_accuracy"))
+	var scoped: float = float(world.modifiers.call("resolve", "ranged_accuracy", item))
+	return scoped / unscoped if unscoped > 0.0 else scoped
+
+
+# The stats an item's own affix can move and some reader resolves through the item's scope: the
+# melee profile (`melee_profile_of`) and the four readers above. An affix on any other stat is a
+# dead socket: it loads, rolls, and changes nothing a player can see. The RANGED lane in
+# godot:m2:attach holds the ranged prefixes to this list. Grow it only with a reader that is gated
+# to move.
+const ITEM_SCOPED_READS: Array[String] = [
+	"melee_damage", "melee_reach", "melee_stagger", "swing_recovery", "swing_speed", "swing_stamina",
+	"condition_loss", "noise_emission", "ranged_accuracy", "repair_cost",
+]
+
+
+static func reads_through_item(stat: String) -> bool:
+	return ITEM_SCOPED_READS.has(stat)
+
+
 # ---- content helpers (supports both registry object and flat Dict from ContentLoader) ----
 
 static func _content_get(world: Variant, type_id: String, id: String) -> Variant:

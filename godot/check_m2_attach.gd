@@ -90,6 +90,7 @@ func _run() -> void:
 	ok = _an_affix_reaches_the_swing_it_names() and ok
 	ok = _an_affix_reaches_the_wear_it_names() and ok
 	ok = _an_affix_reaches_the_repair_it_names() and ok
+	ok = _the_ranged_prefixes_reach_what_they_name() and ok
 	ok = _every_melee_base_has_a_family_and_the_new_slots_have_hosts() and ok
 	ok = _every_applies_to_names_a_real_family_or_base_and_every_recipe_has_a_host() and ok
 	ok = _a_part_goes_on_where_its_slot_and_its_family_say_and_nowhere_else() and ok
@@ -2058,6 +2059,83 @@ func _an_affix_reaches_the_repair_it_names() -> bool:
 		return false
 	print("  REPAIR OK a plain pistol's ceiling goes to %.4f; of Salvage to %.4f and %.4f; quiet hand leaves it at %.4f" % [plain, salvage, salvage_deep, quiet])
 	return true
+# --- RANGED AFFIXES ---------------------------------------------------------------------------
+# docs/10's ranged prefixes that a stat can carry: Trued (accuracy) and Blued (condition loss).
+# Ported (recoil), Chambered (reload time) and Heavy-barrelled (weight, steady time) name effects
+# no stat carries yet, so they are not authored; docs/23's ranged affixes entry names them. Every
+# lane here is a true positive on the number its affix governs, and a true negative on one it does
+# not, read through the same readers the shot and the wear use.
+
+# The felt cone a gun gives its holder at rest, from the reader the shot itself calls
+# (`_refresh_cone`), so the lane proves what the sim reads and not a copy of it.
+func _resting_cone(w: Variant, affix_id: String, tier: int) -> float:
+	var barrel: int = _carrying(w, PISTOL, affix_id, tier)
+	var rw: Dictionary = {"state": SimRanged.FireState.Idle, "source": barrel, "cone": 1.0}
+	SimRanged._refresh_cone(w, w.player, rw)
+	return float(rw["coneHalf"])
+
+
+func _the_ranged_prefixes_reach_what_they_name() -> bool:
+	var lane: String = "RANGED"
+	var w: Variant = _world()
+	var pool: Array = SimItems.affix_pool(w, "weapon.ranged", "prefix")
+	var ids: Array[String] = []
+	for affix in pool:
+		ids.append(String((affix as Dictionary)["id"]))
+	# The pool a ranged roll draws from holds the two new prefixes, so a rolled gun can carry them.
+	if not ids.has("affix.prefix.trued") or not ids.has("affix.prefix.blued"):
+		push_error("%s: the ranged prefix pool is %s, without trued and blued" % [lane, str(ids)])
+		return false
+	# Every ranged prefix the pool can roll reads through the item. A stat outside the list is the
+	# dead socket docs/23 names, so the lane refuses it by name.
+	for affix in pool:
+		for tier_v in (affix as Dictionary)["tiers"] as Array:
+			for mod_v in (tier_v as Dictionary)["modifiers"] as Array:
+				var stat: String = String((mod_v as Dictionary)["stat"])
+				if not SimItems.reads_through_item(stat):
+					push_error("%s: %s moves %s, which no reader resolves through the item" % [lane, String((affix as Dictionary)["id"]), stat])
+					return false
+	if SimItems.reads_through_item("reload_speed") or not SimItems.reads_through_item("ranged_accuracy"):
+		push_error("%s: the item-scoped list refuses a stat nothing reads, or refuses ranged_accuracy" % lane)
+		return false
+
+	# Trued, TP: the barrel's own accuracy is 1.1 at tier zero and 1.3 at tier two, and the cone the
+	# shot fires from is the bare cone divided by it.
+	var bare: float = _resting_cone(w, "", 0)
+	var trued_low: float = _resting_cone(w, "affix.prefix.trued", 0)
+	var trued_high: float = _resting_cone(w, "affix.prefix.trued", 2)
+	if absf(trued_low - bare / 1.1) > 0.000001 or absf(trued_high - bare / 1.3) > 0.000001:
+		push_error("%s: a trued barrel's cone is %.6f and %.6f, not the bare %.6f over 1.1 and 1.3" % [lane, trued_low, trued_high, bare])
+		return false
+	var trued_gun: int = _carrying(w, PISTOL, "affix.prefix.trued", 2)
+	if absf(SimItems.accuracy_of(w, trued_gun) - 1.3) > 0.000001:
+		push_error("%s: a tier-two trued barrel reads accuracy %.6f, not 1.3" % [lane, SimItems.accuracy_of(w, trued_gun)])
+		return false
+	# Trued, TN: it names accuracy and nothing else, so the same barrel is as loud as a bare one.
+	if absf(SimItems.noise_emission_of(w, trued_gun) - 1.0) > 0.000001 or absf(SimItems.condition_loss_of(w, trued_gun) - 1.0) > 0.000001:
+		push_error("%s: a trued barrel moved noise or condition loss" % lane)
+		return false
+
+	# Blued, TP: condition loss is 0.75 at tier zero and 0.4 at tier two, and one shot wears the gun
+	# by that share of a bare gun's wear.
+	var blued_gun: int = _carrying(w, PISTOL, "affix.prefix.blued", 2)
+	if absf(SimItems.condition_loss_of(w, blued_gun) - 0.4) > 0.000001:
+		push_error("%s: a tier-two blued barrel reads condition loss %.6f, not 0.4" % [lane, SimItems.condition_loss_of(w, blued_gun)])
+		return false
+	var plain_loss: float = _host_loss_after_one_shot("")
+	var blued_loss: float = _host_loss_after_one_shot("affix.prefix.blued")
+	if absf(blued_loss - plain_loss * 0.75) > 0.000001:
+		push_error("%s: one shot wears a blued pistol by %.6f, not the plain %.6f times 0.75" % [lane, blued_loss, plain_loss])
+		return false
+	# Blued, TN: it names condition loss and nothing else, so its cone is the bare cone.
+	if absf(_resting_cone(w, "affix.prefix.blued", 0) - bare) > 0.000001:
+		push_error("%s: a blued barrel moved the cone" % lane)
+		return false
+
+	print("  RANGED OK trued cone %.4f at tier zero and %.4f at tier two over bare %.4f; blued wear %.6f against plain %.6f; the pool refuses no stat it rolls" % [trued_low, trued_high, bare, blued_loss, plain_loss])
+	return true
+
+
 # --- MELEE FRAMES -----------------------------------------------------------------------------
 #
 # docs/23's melee arc, stage 1. Every melee base is in one of four families; the slots widen to
