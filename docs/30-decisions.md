@@ -7364,11 +7364,9 @@ card) and the inspect pane's one state line. The sim owns the words in `godot/si
   and `barrel full, service, steel` about 260. The plan left this call to the piece.
 - **A plain barrel says "plain".** It does not say nothing. A barrel `error_of` refuses says nothing,
   so a typo never reads as a plain barrel, which is the rule `WEAR_EVENTS` keeps for wear words.
-- **Single departures are the fit the lane judges.** STATE FIT measures "plain" and every one-word
-  departure in the tables, at 1280x720, and they all fit. Two or three departures are not judged: no
-  shipped barrel makes one, and a three-word phrase is wider than the pane. If a content barrel with
-  two departures ships, its line is the first thing to measure and it may need a shorter word. This is
-  the known gap.
+- **Single departures fit one line; more wrap.** "plain" and every one-word departure fit beside the
+  label at 1280x720. Two or three departures did not, and that gap is closed by the next entry, "The
+  barrel's words wrap, 2026-10-28".
 - **Plates carry no words.** The bench's plate is 80 px and full; the words sit on the offer card and
   on the in-it-now card only, and the in-it-now card grows one line when the picked part is a barrel.
 - **Caliber is not a barrel word.** Rimfire and .45 conversion barrels say "plain" like the standard
@@ -7378,3 +7376,33 @@ card) and the inspect pane's one state line. The sim owns the words in `godot/si
   in-it-now card off `said()`, inside the frame, and the sight's card off the same list, which
   draws no barrel word. The rifle comes with a barrel fitted in that world, so the in-it-now words
   are read from that slot's row rather than from a fixture fit.
+
+## The barrel's words wrap, 2026-10-28
+
+The inspect pane's barrel line may take two rows. Every other state line (edge, fuel, load) still
+takes one, and STATE FIT still holds each of those to one. No shipped barrel departs in more than
+one word, but content can make any of the 45 length, quality and material combinations, and the
+worst, `barrel carbine, rough, chromed`, measures 300 px against the 180 px beside the picture at
+1280x720 (the body size, 25 px). Cut to an ellipsis, it would hide the very word a player compares
+two barrels by.
+
+- **Wrap, not shrink.** The pane's type sizes are the ladder's 25 and 20 (`Chrome.LADDER`), and a
+  state line a rung smaller than the condition line above it would read as a lesser fact. So the
+  phrase breaks after a comma: the label and as many words as fit beside it, the rest on a second
+  row from the label's left edge, in the same ink. `barrel carbine,` over `rough, chromed`.
+- **No hanging indent.** The second row starts under the label, not under the first word. Indented,
+  it has 110 px, and `rough, chromed` is 140. The label's dim ink and the words' amber still say
+  which is which.
+- **The label goes before the type does.** When the words will not sit beside the label in two rows,
+  the label is dropped and the words wrap on their own. No shipped word needs this; a fabricated
+  one proves it works.
+- **Two rows at most.** `InspectPane.state_rows` is the one layout: `draw_pane` draws its rows and
+  STATE FIT measures them, so the two cannot disagree. A phrase needing a third row is refused by
+  the gate before it is drawn; if one reached the screen anyway, the pane puts the rest on the
+  second row cut to an ellipsis, so the cut is marked.
+- **What it costs.** The second row moves the groove and the description down by up to one line at
+  1280x720. The description already stops above the buttons; it loses a line, never runs under them.
+- **Gate: `godot:check:inventory` STATE FIT.** All 45 combinations, read off the tables, each in at
+  most two rows inside the room; 27 of them wrap. True negatives: a three-row phrase is refused, and a
+  first word too long to sit beside the label comes back as two label-less rows. STATE checks that
+  `draw_pane` lays the line out through `state_rows`.
