@@ -644,13 +644,17 @@ static func inspect_view(world: Variant, actor: int, item: int) -> Dictionary:
 		"worn": worn,
 		"attachments": fitted,
 		"fits": fits,
-		# How much is left in a lamp, as a **word**: "burning steadily", "burning low",
+		# How much is left in a lamp, as a **word**: "burning well", "burning low",
 		# "guttering", "dark", and "" for the overwhelming majority of items, which are not lamps.
 		# Never a fraction and never a count, for the reason `condition` is a band rather than an
 		# integrity: docs/01 clause 4, and the gate above serialises this whole view and refuses a
 		# digit anywhere in it. It is also the one reader `SimLightModule.fuel_clause` has, which
 		# is the difference between a read model and a dead socket.
 		"fuel": _Light().call("fuel_clause", world, item),
+		# A blade's edge as a word, "keen", "dulling" or "dull", and "" for everything that is not a
+		# blade, exactly as `fuel` is "" for everything that is not a lamp. The pane draws whichever
+		# of the two is not empty as its one state line; no item is both.
+		"edge": SimItems.edge_word(world, item),
 	}
 
 
@@ -664,7 +668,7 @@ static func inspect_view(world: Variant, actor: int, item: int) -> Dictionary:
 # nothing here re-implements either. That is the dead-socket rule applied to a menu: a verb whose
 # availability is computed in the UI is a verb that will one day be offered for a command the sim
 # drops on the floor.
-const MENU_ORDER: Array[String] = ["equip", "unequip", "use", "modify", "name", "open", "inspect", "split", "drop"]
+const MENU_ORDER: Array[String] = ["equip", "unequip", "use", "hone", "modify", "name", "open", "inspect", "split", "drop"]
 static func verbs_for(world: Variant, actor: int, item: int) -> Array[String]:
 	var out: Array[String] = []
 	if item < 0 or not (SimItems.item_base_of(world, item) is Dictionary):
@@ -686,6 +690,11 @@ static func verbs_for(world: Variant, actor: int, item: int) -> Array[String]:
 		var Gunsmith: GDScript = load("res://sim/modules/gunsmith.gd") as GDScript
 		if Gunsmith != null and bool(Gunsmith.call("may_open", world, actor, item)):
 			offered["modify"] = true
+	# A blade below its edge with a whetstone carried, asked of `SimItems.hone_refusal`, the
+	# predicate the `item.hone` command asks first. Worn or not: a knife in the hand hones as well
+	# as one in the pack.
+	if SimItems.hone_refusal(world, actor, item) == "":
+		offered["hone"] = true
 	# A weapon rebuilt enough to be the survivor's own may be named, worn or carried. The sim's
 	# `nameable` is the whole question, so the menu never offers a name the command would refuse
 	# for being ordinary.

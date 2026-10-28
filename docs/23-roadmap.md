@@ -291,13 +291,11 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
 - (Already named above and part of this arc: choosing which round to fire, the magazine that
   remembers its load, the hand-loaded round, the five ranged affixes.)
 
-*Melee, frames and recipes (stage 1):*
-
-- **The bench and the pack offer hone.** `item.hone` (`godot/sim/modules/items.gd`) is built and
-  gated (`godot:m2:attach` HONE), but no screen offers it. The inspect pane and the context menu
-  need a row for it: sim-side in `SimInventory.verbs_for` and `SimContext.verbs_at`, and the
-  screen code in `godot/ui/`. The screen half of "Specific melee wear", named as the improvise row
-  was in #227.
+*Melee, frames and recipes (stage 1): finished, 2026-10-27.* Every piece has landed; the arc's
+record is "Melee frames and the widened slots, and the improvised recipe table, 2026-10-26",
+"Specific melee wear", "The bench offers improvised parts", "Hone on the pack, and the edge in
+words" and "A weapon you named, 2026-10-27". What it still owes is pictures, a stage behind: the
+art group's "Pictures for the melee arc".
 
 *Zombies, seven to fourteen (stage 2 for the first four, stage 4 for the rest):*
 
@@ -1392,6 +1390,16 @@ tables and day lines are report-noise.md in the project's planning/balance folde
 - ~~**The skill web screen**~~ — **landed** 2026-09-13, see the record (`godot:check:web_look`).
 - **Prose that names its modifier sources.** "Slow because the leg is splinted", generated from
   the modifier pipeline rather than hand-authored per case.
+- **The inspect pane at 1280x720** (minor, from the hone art review, 2026-10-27). The pane cuts a
+  description silently, mid-sentence and with no ellipsis, where the buttons start. Before the
+  state line it drew two lines of a knife's sentence at 1280x720; the fourth line beside the
+  picture pushes the groove down 14 px, and a blade or a lamp now shows one ("A kitchen knife. It
+  goes in"). The slot line beside the picture is cut there too ("goes on the prima..."). The fix
+  is the pane's, not the state line's: say that the sentence goes on, or give it room.
+- **"edge" names two things on a blade's pane** (minor, same review). The state line reads "edge
+  dull" and the fitted list below it "edge — empty", the melee slot that takes a ground or
+  fire-hardened edge. Each is labelled where it sits, but a player can read the second as the
+  first. A different word for one of them is a vocabulary call.
 
 **Proof — what closes the milestone, in this order:**
 
@@ -2473,7 +2481,32 @@ not a to-do list:
     ignoring the given name (NAMED).
   - **Measured.** Off the tick path. `godot:m2:balance` on the head: see the PR; no NPC and no
     scripted campaign sends `item.name`.
-
+- **Hone on the pack, and the edge in words, 2026-10-27.** The screen half of "Specific melee
+  wear". `SimInventory.verbs_for` offers `hone` exactly when `SimItems.hone_refusal` is empty: a
+  blade, below its edge's ceiling, a whetstone carried, worn or in the pack. `hone_refusal` is the
+  predicate `SimItems.hone` now asks first, so the verb and the command cannot disagree. The
+  inventory panel's dispatch sends `item.hone` for the actor. `inspect_view` gains `edge`, a word
+  ("keen" from three quarters of the edge, "dulling" from two fifths, "dull" below; `EDGE_BANDS`
+  beside `edge_of`) and "" for anything that is not a blade, like `fuel`. The inspect pane draws
+  one state line under the condition, `InspectPane.state_line`: the edge word for a blade, the
+  fuel word for a lamp, nothing otherwise. That also draws `fuel`, which `inspect_view` carried
+  with no reader in `godot/ui/`. The context menu does not offer hone: `SimContext.verbs_at` lists
+  verbs for what is under the cursor in the street, never for a held item, so there is no row to
+  add it to. Gates: `godot:check:inventory` HONE (a dull knife with a whetstone offers hone; a keen
+  knife, a dull knife with no stone, a club with a hand-written edge and a rifle do not; every offer
+  agrees with `hone_refusal`; the pane's hone button, pressed through the panel on the knife in the
+  hand, hones it to keen and spends one stone of two; red with the dispatch branch removed), STATE
+  (a half-dull knife draws "edge dulling", a lantern its fuel, a club nothing, and `draw_pane` asks
+  `state_line`), and INSPECT, whose scanned views now include a dulled knife's `edge` word under the
+  digit ban. `godot:m2:attach` HONE stays green on the refactored `hone`. Off the tick path. The
+  first-cut bands are in docs/30's "Hone on the pack, 2026-10-27". The art review (base bd4807cb
+  against the head, its own shots of a dull, dulling and keen knife, a lantern, a club and a rifle
+  at both windows; the pane rectangle unchanged, the club and rifle pixel-identical) found the
+  lantern's "burning steadily" cut to an ellipsis at 1280x720, and "dull" (with the condition's
+  "broken") at 3.4 to 1. The word is now "burning well", the warnings draw in `Locker.DANGER_INK`
+  (the bench's word rust, moved onto the Locker), and STATE's FIT half holds every state word to
+  `InspectPane.side_width` at that window and every ink on the pane's two scales to 4.5:1 on the
+  steel, red on either old value. Its two minor findings are in what's left, under UI.
 - **Raider doctrine, 2026-10-27.** A raid band is drawn `probe`, `raid` or `siege` once it is
   placed, and every body carries the word. `trade` is not built (docs/33 item 16) and no draw
   produces it.
