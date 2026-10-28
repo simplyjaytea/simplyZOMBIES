@@ -2834,11 +2834,13 @@ not a to-do list:
   Plates carry no words. A conversion barrel says its barrel words; its caliber is on the load line,
   not in the barrel words. Gates: `godot:m2:attach` BARREL WORDS (the tables held both ways, the six
   shipped barrels' words, a typo and a non-barrel saying nothing, the bench's rows and offers);
-  `godot:check:inventory` STATE and STATE FIT (a long barrel draws its word, and every single-departure
-  phrase fits the 180 px pane at 1280x720); `godot:check:play` BENCH (the match barrel's card and the
+  `godot:check:inventory` STATE and STATE FIT (a long barrel draws its word, and all 45 length,
+  quality and material phrases fit the 180 px pane at 1280x720 in at most two rows, through
+  `InspectPane.state_rows`; docs/30, "The barrel's words wrap"); `godot:check:play` BENCH (the match barrel's card and the
   fitted barrel's in-it-now card draw their words inside the frame, and the sight's card draws none).
-  Shots: `bench_barrel` at 1280x720 and 1920x1080. Only one departure per phrase is judged to fit the
-  pane. Two or three departures are not (no shipped barrel makes one; docs/30). No balance claim.
+  Shots: `bench_barrel` at 1280x720 and 1920x1080. A phrase of two or three departures wraps to a
+  second row in the inspect pane (no shipped barrel makes one yet); the bench card has room for the
+  longest on one line. No balance claim.
 - **Furniture decides the seat, 2026-10-28.** Aim time and recovery already read furniture through
   `handling` (the folding stock 1.35, the foregrip 1.15, both folded through condition), so the
   stock and the grip needed no new reader; the FURNITURE lane of `godot:m2:aim` holds them to it.
