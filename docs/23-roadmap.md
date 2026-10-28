@@ -468,8 +468,10 @@ balance record and says so in its record; `survivors_end >= 1` is never the leve
   `godot:m2:attach` RANGED. **Still open, and blocked on stats, not readers:** Ported (less recoil,
   more `noise_emission`), Chambered (reload time), Heavy-barrelled (weight and steady time), and
   Blued's "resists wet" clause. No stat declared in `sim/modifiers/stats.gd` carries recoil, reload,
-  weight or wet resistance, and adding one is a new stat, which is the owner's or the coordinator's
-  call. Ported's noise half alone would be a pure drawback, so it waits for its recoil half.
+  weight or wet resistance. F4 (furniture) adds recoil recovery and steady time; a second PR after F4
+  merges reads those for Ported and Heavy-barrelled, plus a reload-time stat if F4 did not add one.
+  Blued's "resists wet" stays open with no stat. Ported's noise half alone would be a pure drawback,
+  so it waits for its recoil half.
 - **Armour attachment slots** — **moved into the alpha-roster group below** (2026-09-12), where
   it is slice 12. Named here only so the cross-reference resolves.
 
