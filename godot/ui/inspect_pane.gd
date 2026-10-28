@@ -36,15 +36,17 @@ const BUTTON_GAP: float = 8.0
 const VERB_WORDS: Dictionary = {"stash": "put it here", "take": "take it", "unequip": "take off", "name": "name it", "handload": "hand-load"}
 # The caret in the name field: one art pixel wide, the accent, as tall as the type.
 const CARET_W: float = 2.0
+# The most rows a state line may take beside the picture (`state_rows`).
+const STATE_ROWS: int = 2
 # From the well's edge to the first letter, and from the last to the far edge: the rim's art pixel
 # and two of fill.
 const FIELD_INSET: float = 6.0
 
 
-# The one state line under the condition, as {label, word}: a blade's edge, a lamp's fuel, or what
-# a firearm is loaded with, and nothing for an item that is none of them. Every word comes out of
-# `inspect_view` ready-made; the pane only chooses which one is not empty. No item is two of them,
-# and the edge is asked first so a future one would still draw one line, not two.
+# The one state line under the condition, as {label, word}: a blade's edge, a lamp's fuel, a barrel's
+# words, or what a firearm is loaded with, and nothing for an item that is none of them. Every word
+# comes out of `inspect_view` ready-made; the pane only chooses which one is not empty. No item is
+# two of them, and the edge is asked first so a future one would still draw one line, not two.
 static func state_line(view: Dictionary) -> Dictionary:
 	var edge: String = String(view.get("edge", ""))
 	if not edge.is_empty():
@@ -52,12 +54,72 @@ static func state_line(view: Dictionary) -> Dictionary:
 	var fuel: String = String(view.get("fuel", ""))
 	if not fuel.is_empty():
 		return {"label": "fuel", "word": fuel}
+	# A barrel's departures from the identity, "long, match": a part, so no blade or lamp is one too.
+	var barrel: String = String(view.get("barrel", ""))
+	if not barrel.is_empty():
+		return {"label": "barrel", "word": barrel}
 	# What a magazine-fed weapon holds: "empty", "slug", "mixed". No firearm is a blade or a lamp,
 	# so this is still one line.
 	var load: String = String(view.get("load", ""))
 	if not load.is_empty():
 		return {"label": "load", "word": load}
 	return {}
+
+
+# How a state line is laid out in `room` px at the body size, as rows of {label, word}; `draw_pane`
+# draws them and STATE FIT measures them, so the two cannot disagree. One row while label and word
+# fit together, which every edge, fuel and load word does. A phrase that does not (a barrel's
+# "carbine, rough, chromed") breaks after a comma: the label and as many words as fit beside it,
+# the rest on a second row from the label's left edge. Only when that still does not fit is the
+# label dropped and the words wrapped on their own, never the type shrunk (docs/30, "The barrel's
+# words wrap, 2026-10-28"). More than STATE_ROWS rows means the phrase does not fit; the pane draws
+# the rest on its last row cut to an ellipsis, and the gate refuses the phrase first.
+static func state_rows(font: Font, state: Dictionary, room: float) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if state.is_empty():
+		return out
+	var label: String = String(state["label"]) + " "
+	var word: String = String(state["word"])
+	var lead: float = _width(font, label)
+	if lead + _width(font, word) <= room:
+		out.append({"label": label, "word": word})
+		return out
+	var parts: PackedStringArray = word.split(", ", false)
+	var beside: int = _parts_that_fit(font, parts, 0, room - lead)
+	if beside > 0:
+		var rest: String = _parts_line(parts, beside, parts.size())
+		if _width(font, rest) <= room:
+			out.append({"label": label, "word": _parts_line(parts, 0, beside)})
+			out.append({"label": "", "word": rest})
+			return out
+	# The label goes before the type does: the words alone, wrapped at their commas.
+	var at: int = 0
+	while at < parts.size():
+		var take: int = maxi(1, _parts_that_fit(font, parts, at, room))
+		out.append({"label": "", "word": _parts_line(parts, at, at + take)})
+		at += take
+	return out
+
+
+# How many of `parts` from `from` fit on one line of `room`, with the comma a line ends on when
+# more follow.
+static func _parts_that_fit(font: Font, parts: PackedStringArray, from: int, room: float) -> int:
+	var fit: int = 0
+	for to in range(from + 1, parts.size() + 1):
+		if _width(font, _parts_line(parts, from, to)) > room:
+			break
+		fit = to - from
+	return fit
+
+
+# `parts[from..to)` as one line of the phrase, ending on its comma when the phrase goes on.
+static func _parts_line(parts: PackedStringArray, from: int, to: int) -> String:
+	var line: String = ", ".join(parts.slice(from, to))
+	return line + "," if to < parts.size() else line
+
+
+static func _width(font: Font, text: String) -> float:
+	return font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE).x
 
 
 # How wide the lines beside the picture may run in a pane of this rect: the name, the condition,
@@ -154,15 +216,28 @@ static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: floa
 	ci.draw_string(font, Vector2(text_x + lead, ty), UiText.fit(font, band, BODY_SIZE, text_wide - lead), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, Locker._a(_band_colour(band), alpha))
 	ty += LINE
 
-	# The state line: how keen a blade is, or how much a lamp has left, in the condition's shape.
+	# The state line: how keen a blade is, or how much a lamp has left, in the condition's shape. A
+	# phrase too long for one line (a barrel with more than one departure) takes a second, laid out by
+	# `state_rows`.
 	var state: Dictionary = state_line(view)
 	if not state.is_empty():
-		var label: String = String(state["label"]) + " "
-		var word: String = String(state["word"])
-		ci.draw_string(font, Vector2(text_x, ty), label, HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, Locker._a(Locker.TEXT_DIM, alpha))
-		var state_lead: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE).x
-		ci.draw_string(font, Vector2(text_x + state_lead, ty), UiText.fit(font, word, BODY_SIZE, text_wide - state_lead), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, Locker._a(_state_colour(word), alpha))
-		ty += LINE
+		var ink: Color = Locker._a(_state_colour(String(state["word"]), String(state["label"])), alpha)
+		var rows: Array[Dictionary] = state_rows(font, state, text_wide)
+		for n in mini(rows.size(), STATE_ROWS):
+			var label: String = String(rows[n]["label"])
+			var word: String = String(rows[n]["word"])
+			# Past the last row the pane has room for, the rest goes on that row and the cut is marked.
+			if n == STATE_ROWS - 1 and rows.size() > STATE_ROWS:
+				var rest: PackedStringArray = []
+				for m in range(n, rows.size()):
+					rest.append(String(rows[m]["word"]))
+				word = " ".join(rest)
+			var state_lead: float = 0.0
+			if not label.is_empty():
+				ci.draw_string(font, Vector2(text_x, ty), label, HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, Locker._a(Locker.TEXT_DIM, alpha))
+				state_lead = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE).x
+			ci.draw_string(font, Vector2(text_x + state_lead, ty), UiText.fit(font, word, BODY_SIZE, text_wide - state_lead), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, ink)
+			ty += LINE
 
 	var slot: String = String(view.get("slot", ""))
 	if not slot.is_empty():
@@ -321,8 +396,11 @@ static func _band_colour(band: String) -> Color:
 
 
 # The state word's colour, on the condition's scale: at its best reads calm, spent reads as the
-# warning it is, and everything between is the accent.
-static func _state_colour(word: String) -> Color:
+# warning it is, and everything between is the accent. A barrel's words are a description, not a
+# condition, so they read as plain text rather than as the amber that means "fits" on the bench.
+static func _state_colour(word: String, label: String = "") -> Color:
+	if label == "barrel":
+		return Locker.TEXT
 	match word:
 		"keen", "burning well":
 			return Locker.GOOD
