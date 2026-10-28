@@ -41,7 +41,7 @@ func _run() -> void:
 
 
 func _names() -> void:
-	if Scenes.NAMES != ["day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing", "colony_picked", "colony_crowd", "colony_scrolled", "bench_drop", "bench", "bench_field", "bench_make", "context_menu", "night_torch",
+	if Scenes.NAMES != ["day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing", "colony_picked", "colony_crowd", "colony_scrolled", "bench_drop", "bench", "bench_barrel", "bench_field", "bench_make", "context_menu", "night_torch",
 			"stockpile_mark",
 			"stockpile_rest",
 			"stockpile_night",

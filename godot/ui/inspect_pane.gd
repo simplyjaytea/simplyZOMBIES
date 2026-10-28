@@ -41,10 +41,10 @@ const CARET_W: float = 2.0
 const FIELD_INSET: float = 6.0
 
 
-# The one state line under the condition, as {label, word}: a blade's edge, a lamp's fuel, or what
-# a firearm is loaded with, and nothing for an item that is none of them. Every word comes out of
-# `inspect_view` ready-made; the pane only chooses which one is not empty. No item is two of them,
-# and the edge is asked first so a future one would still draw one line, not two.
+# The one state line under the condition, as {label, word}: a blade's edge, a lamp's fuel, a barrel's
+# words, or what a firearm is loaded with, and nothing for an item that is none of them. Every word
+# comes out of `inspect_view` ready-made; the pane only chooses which one is not empty. No item is
+# two of them, and the edge is asked first so a future one would still draw one line, not two.
 static func state_line(view: Dictionary) -> Dictionary:
 	var edge: String = String(view.get("edge", ""))
 	if not edge.is_empty():
@@ -52,6 +52,11 @@ static func state_line(view: Dictionary) -> Dictionary:
 	var fuel: String = String(view.get("fuel", ""))
 	if not fuel.is_empty():
 		return {"label": "fuel", "word": fuel}
+	# A barrel's length, quality and material, "full, service, steel": a part, so no blade or lamp
+	# is one too.
+	var barrel: String = String(view.get("barrel", ""))
+	if not barrel.is_empty():
+		return {"label": "barrel", "word": barrel}
 	# What a magazine-fed weapon holds: "empty", "slug", "mixed". No firearm is a blade or a lamp,
 	# so this is still one line.
 	var load: String = String(view.get("load", ""))

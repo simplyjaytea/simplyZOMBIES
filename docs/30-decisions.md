@@ -7348,3 +7348,33 @@ named is handed to the balance thread, after the run already going on main.
 `rangedWeapon.mag`. A body that should arrive with a loaded gun calls `SimRanged.load_held` after
 its kit. A gate that fires a gun it has just armed loads it first (`load_held`), or its first pull
 is a reload.
+
+## The barrel's words, 2026-10-28
+
+A barrel's words reach the screen now: the bench (the slot rows, the offer cards and the in-it-now
+card) and the inspect pane's one state line. The sim owns the words in `godot/sim/barrel.gd`
+(`WORD_OF`, `IDENTITY`, `words_of`); the readers are `SimGunsmith.bench_view` and
+`SimInventory.inspect_view`. Gates and the record are in docs/23, "The barrel's words on the bench".
+
+- **Only departures are said.** The identity (full, service, steel) is silent, so `words_of` gives
+  "long" for a long barrel and "match, chromed" for a match barrel of chromed steel, in length,
+  quality, material order. The first cut said all three identity words too (a plain barrel read
+  "full, service, steel"). The inspect pane is 180 px wide beside the picture at 1280x720, and that
+  does not hold three words beside the label: `barrel stub, rough, mild` measured 240 px against 180,
+  and `barrel full, service, steel` about 260. The plan left this call to the piece.
+- **A plain barrel says "plain".** It does not say nothing. A barrel `error_of` refuses says nothing,
+  so a typo never reads as a plain barrel, which is the rule `WEAR_EVENTS` keeps for wear words.
+- **Single departures are the fit the lane judges.** STATE FIT measures "plain" and every one-word
+  departure in the tables, at 1280x720, and they all fit. Two or three departures are not judged: no
+  shipped barrel makes one, and a three-word phrase is wider than the pane. If a content barrel with
+  two departures ships, its line is the first thing to measure and it may need a shorter word. This is
+  the known gap.
+- **Plates carry no words.** The bench's plate is 80 px and full; the words sit on the offer card and
+  on the in-it-now card only, and the in-it-now card grows one line when the picked part is a barrel.
+- **Caliber is not a barrel word.** Rimfire and .45 conversion barrels say "plain" like the standard
+  barrel, because their caliber is the round's share and reads on the load line. A reader who wants
+  the caliber change in words needs its own piece.
+- **Gate: `godot:check:play` BENCH is the card proof.** It reads the match barrel's card and the
+  in-it-now card off `said()`, inside the frame, and the sight's card off the same list, which
+  draws no barrel word. The rifle comes with a barrel fitted in that world, so the in-it-now words
+  are read from that slot's row rather than from a fixture fit.

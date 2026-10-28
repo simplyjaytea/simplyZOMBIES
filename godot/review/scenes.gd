@@ -50,7 +50,7 @@ const SIZES: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(1920, 1080)]
 const NAMES: Array[String] = [
 	"day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing",
 	"colony_picked", "colony_crowd", "colony_scrolled", "bench_drop",
-	"bench", "bench_field", "bench_make",
+	"bench", "bench_barrel", "bench_field", "bench_make",
 	"context_menu",
 	"night_torch",
 	"stockpile_mark",
@@ -95,6 +95,9 @@ const CARE_PART: String = "arm_left"
 const BENCH_WEAPON: String = "item.rifle.hunting"
 const BENCH_PARTS: Array[String] = ["item.attach.optic.red_dot", "item.attach.optic.scope", "item.attach.suppressor", "item.attach.magazine.extended", "item.attach.barrel.long"]
 const BENCH_SLOT: String = "optic"
+# The same bench with the barrel picked (B1, "The barrel's words"): the rifle's barrel is a plain one,
+# the long barrel in the pack says "long" on its card, and the card's words are the shot's subject.
+const BENCH_BARREL_SLOT: String = "barrel"
 # The stockpile shot (stockpile plan, slice S5): the Colony screen with nobody picked, so the
 # stockpile stands in the drawer's place, over a pile stocked across the groups -- stacks of rounds
 # counted as their rounds ("plenty"), the most numerous a round whose name carries a digit, so it is
@@ -458,7 +461,7 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 				return "the colony has nobody but you to view"
 			main.set("_selected", other)
 			press(tree, KEY_K)
-		"bench":
+		"bench", "bench_barrel":
 			world.tick = Clock.tick_on_day(DAY, NOON)
 			var why: String = _bench_setup(world)
 			if not why.is_empty():
@@ -467,7 +470,7 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 			await tree.process_frame
 			var bench_panel: Variant = main.get("_bench_panel")
 			if bench_panel != null and bench_panel.has_method("pick_slot"):
-				bench_panel.call("pick_slot", BENCH_SLOT)
+				bench_panel.call("pick_slot", BENCH_BARREL_SLOT if scene == "bench_barrel" else BENCH_SLOT)
 				# Enter on an empty slot crosses to what fits it, through the router as a key would,
 				# so the shot shows a candidate focused and the footer's lit button.
 				press(tree, KEY_ENTER)
@@ -871,7 +874,7 @@ static func verify(main: Node, scene: String) -> String:
 			if nav_v == null or bool(nav_v.get("subject_is_you")) or String(nav_v.get("subject_name")).is_empty():
 				return "the bar is not viewing a colonist"
 			return ""
-		"bench":
+		"bench", "bench_barrel":
 			var rifle: int = SimGunsmith.focus_of(world, int(world.player))
 			var base: Variant = world.components.get_component(rifle, "itemBase") if rifle >= 0 else null
 			if not base is Dictionary or String((base as Dictionary).get("baseId", "")) != BENCH_WEAPON:
@@ -879,10 +882,13 @@ static func verify(main: Node, scene: String) -> String:
 			var bench_panel_v: Variant = main.get("_bench_panel")
 			if bench_panel_v == null or not bool((bench_panel_v as CanvasItem).visible):
 				return "the assembly screen is not up"
-			if bench_panel_v.has_method("picked_slot") and String(bench_panel_v.call("picked_slot")) != BENCH_SLOT:
-				return "the %s is not picked" % BENCH_SLOT
-			if bench_panel_v.has_method("side") and String(bench_panel_v.call("side")) != "offers":
-				return "no candidate for the %s is focused" % BENCH_SLOT
+			var want_slot: String = BENCH_BARREL_SLOT if scene == "bench_barrel" else BENCH_SLOT
+			if bench_panel_v.has_method("picked_slot") and String(bench_panel_v.call("picked_slot")) != want_slot:
+				return "the %s is not picked" % want_slot
+			# Enter crosses to the candidates only on an empty slot; the barrel slot is filled, so its shot
+			# shows the picked plate and its candidate cards, and the focus is not asserted there.
+			if scene == "bench" and bench_panel_v.has_method("side") and String(bench_panel_v.call("side")) != "offers":
+				return "no candidate for the %s is focused" % want_slot
 			return ""
 		"bench_field":
 			var gun: int = SimGunsmith.focus_of(world, int(world.player))

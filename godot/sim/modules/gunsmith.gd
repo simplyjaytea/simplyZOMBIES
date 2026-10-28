@@ -27,6 +27,7 @@ extends RefCounted
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
+const SimBarrel = preload("res://sim/barrel.gd")
 
 ## How close you have to stand. The same figure SimFortify reaches a window at, deliberately: one
 ## number for "arm's length" across the whole game.
@@ -196,6 +197,11 @@ static func first_workpiece(world: Variant, actor: int) -> int:
 
 
 ## Everything the bench screen draws about one weapon. Empty when there is nothing to draw.
+static func _barrel_words(world: Variant, part: int) -> String:
+	var spec: Variant = SimAttachments.spec_of(world, part) if part >= 0 else null
+	return SimBarrel.words_of(spec as Dictionary) if spec is Dictionary else ""
+
+
 static func bench_view(world: Variant, actor: int, host: int) -> Dictionary:
 	var base: Variant = SimItems.item_base_of(world, host)
 	if not base is Dictionary:
@@ -215,6 +221,8 @@ static func bench_view(world: Variant, actor: int, host: int) -> Dictionary:
 			"part": part,
 			"name": _name_of(world, part) if part >= 0 else "empty",
 			"condition": _band_of(world, part) if part >= 0 else "",
+			# A fitted barrel's words, "" for everything else (sim/barrel.gd `words_of`).
+			"barrel": _barrel_words(world, part),
 			"required": _has(required, slot),
 			"structural": part >= 0 and _is_structural(world, part),
 			"removable": part >= 0 and may_work(world, actor, part),
@@ -240,6 +248,8 @@ static func bench_view(world: Variant, actor: int, host: int) -> Dictionary:
 				"item": part2,
 				"name": _name_of(world, part2),
 				"condition": _band_of(world, part2),
+				# The barrel's words the player compares before taking it, "" for a scope or a grip.
+				"barrel": SimBarrel.words_of(spec as Dictionary),
 				"changes": SimAttachments.compare_view(world, host, slot2, part2),
 			})
 	return {

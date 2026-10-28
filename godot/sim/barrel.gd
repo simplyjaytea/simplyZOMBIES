@@ -49,6 +49,19 @@ const QUALITY_WEAR: Dictionary = {
 	"match": 1.4,
 }
 
+# The screen's word for each key of the three tables above, so the bench and the inspect pane say
+# what a barrel is in words, never its numbers (docs/30, "The barrel's words, 2026-10-28"). Every
+# key of LENGTH, QUALITY and MATERIAL_WEAR has a word here, and no word is for a key they lack: the
+# BARREL WORDS lane holds both directions. A word is said only where a barrel departs from the
+# identity (`IDENTITY`): a plain barrel says "plain", and a long match barrel says "long, match". The
+# inspect pane is 180 px wide beside the picture at 1280x720, and three identity words do not fit.
+const IDENTITY: Dictionary = {"length": "full", "quality": "service", "material": "steel"}
+const WORD_OF: Dictionary = {
+	"length": {"stub": "stub", "short": "short", "carbine": "carbine", "full": "full", "long": "long"},
+	"quality": {"rough": "rough", "service": "service", "match": "match"},
+	"material": {"mild": "mild", "steel": "steel", "chromed": "chromed"},
+}
+
 # Past this fraction of its reach a slow round starts to lose its damage (docs/30's first cut).
 # Below it nothing is lost, and a round at full muzzle speed never loses anything at all.
 const FALLOFF_START: float = 0.6
@@ -73,6 +86,21 @@ static func error_of(barrel: Variant) -> String:
 	if not MATERIAL_WEAR.has(String(b["material"])):
 		return "material:%s" % String(b["material"])
 	return ""
+
+
+## The barrel's words on the screen: each departure from the identity, length then quality then
+## material, as "long, match"; "plain" when a barrel departs nowhere. "" for a spec with no barrel, and
+## "" for a barrel `error_of` refuses, so a typo never reads as a plain barrel. Digit-free by
+## construction: every word comes from WORD_OF.
+static func words_of(spec: Dictionary) -> String:
+	if not spec.has("barrel") or error_of(spec["barrel"]) != "":
+		return ""
+	var b: Dictionary = spec["barrel"] as Dictionary
+	var said: PackedStringArray = []
+	for key in KEYS:
+		if String(b[key]) != String(IDENTITY[key]):
+			said.append(String((WORD_OF[key] as Dictionary)[String(b[key])]))
+	return ", ".join(said) if not said.is_empty() else "plain"
 
 
 ## The part's effective spec: its declared numbers times what its words add up to. A spec with no

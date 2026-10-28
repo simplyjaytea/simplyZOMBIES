@@ -41,6 +41,7 @@ const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
+const SimBarrel = preload("res://sim/barrel.gd")
 const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimStockpile = preload("res://sim/modules/stockpile.gd")
@@ -56,7 +57,7 @@ const CarePane = preload("res://ui/care_pane.gd")
 # The pane's whole vocabulary. Adding a key here is a decision about what the player is told, so
 # it is made in this file as well as in the read model -- the `check_ban_health_bar` arrangement,
 # and the reason a numeric field cannot be added to either by accident.
-const INSPECT_KEYS: Array[String] = ["item", "name", "condition", "description", "slot", "worn", "attachments", "fits", "fuel", "edge", "load"]
+const INSPECT_KEYS: Array[String] = ["item", "name", "condition", "description", "slot", "worn", "attachments", "fits", "fuel", "edge", "barrel", "load"]
 # `item` is an entity handle the screen routes a click with, never drawn. Every other value is a
 # word, a boolean, or a list of words.
 const INSPECT_HANDLE: String = "item"
@@ -329,7 +330,7 @@ func _the_pane_carries_only_words() -> bool:
 	var sabotage: Dictionary = {
 		"item": 7, "name": "Service Pistol", "condition": "worn",
 		"description": "A service pistol. 18 damage at 25 metres.", "slot": "secondary",
-		"worn": true, "attachments": [], "fits": [], "fuel": "", "edge": "", "load": "",
+		"worn": true, "attachments": [], "fits": [], "fuel": "", "edge": "", "barrel": "", "load": "",
 	}
 	if _inspect_faults(sabotage).is_empty():
 		push_error("the pane scanner passed a description reading \"%s\"" % String(sabotage["description"]))
@@ -2438,6 +2439,15 @@ func _the_pane_draws_one_state_line() -> bool:
 	if String(gun.get("label", "")) != "load" or String(gun.get("word", "")) != "empty":
 		push_error("%s: an empty pistol drew the state line %s, not load empty" % [lane, str(gun)])
 		return false
+	# A barrel's words: a long barrel in the pack draws its departure as its one line.
+	var long_barrel: int = _give(w, "item.attach.barrel.long")
+	if long_barrel < 0:
+		push_error("%s: the long barrel would not go in the pack" % lane)
+		return false
+	var barrel: Dictionary = InspectPane.state_line(SimInventory.inspect_view(w, actor, long_barrel))
+	if String(barrel.get("label", "")) != "barrel" or String(barrel.get("word", "")) != "long":
+		push_error("%s: a long barrel drew the state line %s, not its words" % [lane, str(barrel)])
+		return false
 	# The reader: `draw_pane` asks `state_line`, so the line above is the one on screen.
 	var src: String = FileAccess.get_file_as_string(INSPECT_PANE_GD)
 	var body: int = src.find("static func draw_pane(")
@@ -2446,7 +2456,7 @@ func _the_pane_draws_one_state_line() -> bool:
 		return false
 	if not await _every_state_word_fits_the_narrow_pane(w, lamp):
 		return false
-	print("STATE OK a half-dull knife draws edge dulling, a lantern draws fuel %s, an empty pistol draws load empty, a club draws no state line, draw_pane asks state_line, and every edge, fuel and load word fits beside the picture at 1280x720" % String(light["word"]))
+	print("STATE OK a half-dull knife draws edge dulling, a lantern draws fuel %s, an empty pistol draws load empty, a long barrel draws its words, a club draws no state line, draw_pane asks state_line, and every edge, fuel and load word fits beside the picture at 1280x720" % String(light["word"]))
 	return true
 
 
@@ -2464,6 +2474,19 @@ func _every_state_word_fits_the_narrow_pane(w: Variant, lamp: int) -> bool:
 	var lines: Array = []
 	for band in SimItems.EDGE_BANDS:
 		lines.append(["edge", String((band as Dictionary)["name"])])
+	# Every phrase a barrel says on its own: "plain", and each one word that departs from the
+	# identity, which is every shipped barrel. A barrel with two or three departures is not judged
+	# here, because none ships (docs/30, "The barrel's words, 2026-10-28").
+	for key in SimBarrel.KEYS:
+		for word_key in SimBarrel.WORD_OF[key].keys():
+			var one: Dictionary = SimBarrel.IDENTITY.duplicate()
+			one[key] = word_key
+			var phrase: String = SimBarrel.words_of({"barrel": one})
+			if phrase.is_empty():
+				push_error("%s: the barrel with %s %s says no words" % [lane, key, word_key])
+				return false
+			lines.append(["barrel", phrase])
+	lines.append(["barrel", SimBarrel.words_of({"barrel": SimBarrel.IDENTITY})])
 	var fuel_words: Dictionary = {}
 	for left in [cap, floori(cap / 3.0), floori(cap / 8.0), 0]:
 		w.components.set_component(lamp, "lightFuel", {"ticksLeft": int(left)})
