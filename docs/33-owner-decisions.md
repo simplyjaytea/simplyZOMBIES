@@ -377,3 +377,10 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
     letters only in a typed name (one change to `SimItems.name_char_allowed`), or a typed name kept
     off the HUD (the order line says the plain weapon name). `godot:check:inventory` NAME holds the
     default.
+
+26. **Should a gun you find come with rounds in it?** -- decided by the owner 2026-10-28: **a few
+    rounds**, over the built default of empty. A gun a loot table rolls (a shelf at boot, a
+    cupboard opened later) holds one to a third of its magazine, rounded up and five at most, of
+    its usual round at the stack default tier, rolled on its own `foundRounds` stream so no other
+    shelf's draw moves (docs/30's "The round you load"). A raider still arrives loaded from their
+    own kit, and a gun a gate spawns by hand is still empty. `godot:check:loot` FOUND holds it.

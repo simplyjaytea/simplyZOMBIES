@@ -84,7 +84,12 @@ static func _Attachments() -> GDScript:
 
 static func make_ranged_armed(world: Variant, entity: int, profile: Dictionary) -> void:
 	var p: Dictionary = profile.duplicate()
-	if not p.has("mag"):
+	# A weapon fed from a magazine starts at what is in it, which the item remembers (see the load,
+	# below), and never at a full `magSize`: this used to fill the counter on every equip, harmless
+	# while the pack held the real rounds and a free reload the moment the magazine held them.
+	if is_fed(p):
+		p["mag"] = _rounds_now(world, p).size()
+	elif not p.has("mag"):
 		p["mag"] = int(p.get("magSize", 0))
 	p["state"] = FireState.Idle
 	p["ticksLeft"] = 0
@@ -203,6 +208,15 @@ static func register_module(world: Variant) -> void:
 				fire = true
 			elif t == "reload":
 				reload = true
+			elif t == "item.load":
+				# `item.load {actor, item}`: the round the sheet's verb was pressed on becomes the
+				# weapon's choice, and a magazine starts the reload that puts it in. Every refusal is
+				# `load_refusal`'s, the predicate the verb was offered on.
+				var actor: int = int((c as Dictionary).get("actor", w.player))
+				var round_item: int = int((c as Dictionary).get("item", -1))
+				var why: String = choose_round(w, actor, round_item)
+				if why != "":
+					w.events.publish({"type": "item.load_refused", "entity": actor, "item": round_item, "reason": why})
 		if not fire and not reload:
 			return
 		for entity in w.components.query(["rangedWeapon", "controlled"]):
@@ -277,7 +291,11 @@ static func register_module(world: Variant) -> void:
 						r["state"] = FireState.Idle
 						r["ticksLeft"] = 0
 				FireState.Reload:
-					if int(r.get("magSize", 0)) > 0:
+					# Decided when the reload ends rather than when it began: what is in the pack
+					# now is what goes in, so a round dropped mid-reload is not loaded.
+					if is_fed(r):
+						_apply_load(w, int(entity), r)
+					elif int(r.get("magSize", 0)) > 0:
 						r["mag"] = int(r["magSize"])
 					r["state"] = FireState.Idle
 					r["ticksLeft"] = 0
@@ -320,14 +338,22 @@ static func try_begin_fire(world: Variant, entity: int) -> bool:
 	if not rw is Dictionary:
 		return false
 	var r: Dictionary = rw as Dictionary
-	if int(r.get("magSize", 0)) > 0 and int(r.get("mag", 0)) <= 0:
+	if is_fed(r):
+		# The magazine is what fires, so a loaded gun fires with nothing left in the pack. An empty
+		# one, or one whose next round no longer chambers (a conversion since it was loaded),
+		# turns the pull into a reload, which empties what will not chamber back into the pack.
+		var rounds: Array = _rounds_now(world, r)
+		r["mag"] = rounds.size()
+		if rounds.is_empty() or not takes(world, r, String(rounds[0])):
+			return _begin_reload(world, entity, r)
+	elif int(r.get("magSize", 0)) > 0 and int(r.get("mag", 0)) <= 0:
 		return _begin_reload(world, entity, r)
 	# A seat refuses the shot, not the reload: a body in a car can still change its magazine.
 	var seat: String = SimStancesRes.seat_refusal(world.components, entity, bool(_Attachments().call("from_vehicle_of", world, r)))
 	if seat != "":
 		world.events.publish({"type": "weapon.refused", "entity": entity, "reason": seat})
 		return false
-	if _wants_ammo(r) and _pick_round(world, entity, r) == "":
+	if not is_fed(r) and _wants_ammo(r) and _pick_round(world, entity, r) == "":
 		return false
 	r["state"] = FireState.Raise
 	r["ticksLeft"] = _raise_of(r)
@@ -380,9 +406,12 @@ static func _idle_weapon(world: Variant, entity: int) -> Variant:
 
 
 static func _begin_reload(world: Variant, entity: int, r: Dictionary) -> bool:
-	if _wants_ammo(r) and int(r.get("magSize", 0)) > 0:
-		if _pick_round(world, entity, r) == "":
-			return false
+	# Refused when it would change nothing: an empty pack and an empty magazine, or a magazine
+	# already holding exactly what a reload would put in it. It used to be refused only when the
+	# pack held no round at all, and allowed on a full magazine, which cost a reload and changed
+	# nothing.
+	if is_fed(r) and planned_load(world, entity, r, choice_in(world, r)) == _rounds_now(world, r):
+		return false
 	r["state"] = FireState.Reload
 	# The reload clock is the weapon's own and its item-scoped share on top; a bare gun's is unchanged.
 	r["ticksLeft"] = _scaled(maxi(1, int(r.get("reloadTicks", 24))), SimItemsRes.reload_share_of(world, int(r.get("source", -1))))
@@ -439,13 +468,17 @@ static func _wants_ammo(weapon: Dictionary) -> bool:
 ## and that would make *which round you fire* a function of where in the pack you dropped it: the
 ## same answer moving because a bag was tidied, with nothing to tell the player why.
 ##
-## Choosing deliberately is a verb on the inventory sheet and is named in docs/23's what's-left.
-## Until it exists, a weapon fires its preferred round and then whatever else fits, in a fixed
-## order -- and the record says that is the half that shipped.
+## Choosing deliberately is the sheet's `load` verb (`choose_round`), and the round it chose goes
+## ahead of all of this: the chosen round while one is carried, then the preferred, then by id. A
+## weapon nobody has chosen for fires exactly the order it always did. A magazine-fed weapon asks
+## this only through `planned_load`; a bow asks it on every nock.
 static func _pick_round(world: Variant, actor: int, weapon: Dictionary) -> String:
 	var preferred: String = String(weapon.get("ammo", ""))
 	if preferred == "":
 		return ""
+	var choice: String = choice_in(world, weapon)
+	if choice != "" and takes(world, weapon, choice) and _carries_base(world, actor, choice):
+		return choice
 	if _carries_base(world, actor, preferred):
 		return preferred
 	var caliber: String = String(weapon.get("caliber", ""))
@@ -481,6 +514,356 @@ static func _carries_base(world: Variant, actor: int, base_id: String) -> bool:
 		if base is Dictionary and String((base as Dictionary).get("id", "")) == base_id:
 			return true
 	return false
+
+
+# --- the load: what is in the magazine, and the round the player chose --------------------------
+#
+# docs/23's two ammo items, landed together because they share one record. Until 2026-10-28 a
+# reload refilled a counter and every shot drew its round from the pack, so a magazine held mixed
+# rounds and switching loads was free. Now a reload takes the rounds out of the pack and the record
+# keeps them, in the order they will fire; a shot spends the one at the front; and the round the
+# player chose with the sheet's `load` verb goes in first.
+#
+# **The record lives on the weapon item, never on the actor.** docs/23 named the `rangedWeapon`
+# component as its home, but that component sits on the actor and is rebuilt from the item on every
+# equip and dropped on every unequip -- and a gun drawn over another in the same hand replaces it
+# without an unequip at all. A record there would forget a choice the moment the rifle was slung and
+# lose every round in it. On the item it rides the item: holstered, stowed, dropped, looted off a
+# dead raider, saved. It is the item's own component, so it is still not a `{weapon: round}` side
+# table, which is what docs/23 warned against. A fixture's profile with no item behind it keeps the
+# same keys on the profile itself; `_record` is the one place that decides which.
+#
+# Shape: `loaded {rounds: Array[String], tiers: Array[String], choice: String}`. `rounds` holds
+# round base ids in firing order, the next shot first; `tiers` the tier each went in at, in step,
+# so a round a reload puts back comes out as it went in; `choice` is a round base id or "". A save
+# from before this slice has no `loaded` on any item and reads as an empty magazine and no choice:
+# the first pull reloads from the pack, which holds every round the old counter only pretended to
+# (no SAVE_VERSION bump). A record with no `tiers` reads every round as scavenged. The live `mag`
+# on `rangedWeapon` is kept equal to the record's size for the readers that count it.
+const LOAD: String = "loaded"
+
+
+## Whether this weapon keeps its rounds in a magazine: it takes a round and holds at least one. A
+## bow (`magSize` 0) is not fed -- it nocks from the quiver -- and neither is a fixture's weapon that
+## names no round, which keeps the counter it always had.
+static func is_fed(weapon: Dictionary) -> bool:
+	return _wants_ammo(weapon) and int(weapon.get("magSize", 0)) > 0
+
+
+# The record a write goes to: the weapon item's `loaded` component, created when it has none, or
+# the profile itself for a fixture's weapon with no item. Reads use `_rounds_now` and `choice_in`,
+# which never create anything -- a read model that grew components would change a save by looking
+# at it.
+static func _record(world: Variant, weapon: Dictionary) -> Dictionary:
+	var item: int = int(weapon.get("source", -1))
+	if item >= 0 and world.components.has_component(item, "itemBase"):
+		var rec: Variant = world.components.get_component(item, LOAD)
+		if not rec is Dictionary:
+			rec = {"rounds": [], "choice": ""}
+			world.components.set_component(item, LOAD, rec)
+		var d: Dictionary = rec as Dictionary
+		if not d.get("rounds") is Array:
+			d["rounds"] = []
+		if not d.has("choice"):
+			d["choice"] = ""
+		return d
+	if not weapon.get("rounds") is Array:
+		weapon["rounds"] = []
+	if not weapon.has("choice"):
+		weapon["choice"] = ""
+	return weapon
+
+
+static func _peek(world: Variant, weapon: Dictionary) -> Dictionary:
+	var item: int = int(weapon.get("source", -1))
+	if item >= 0 and world.components.has_component(item, "itemBase"):
+		var rec: Variant = world.components.get_component(item, LOAD)
+		return rec as Dictionary if rec is Dictionary else {}
+	return weapon
+
+
+# What is in the magazine now, in firing order. A copy: comparing it to `planned_load` must not
+# alias the live record.
+static func _rounds_now(world: Variant, weapon: Dictionary) -> Array:
+	var rounds: Variant = _peek(world, weapon).get("rounds")
+	return (rounds as Array).duplicate() if rounds is Array else []
+
+
+## The round the player chose for this weapon, or "" for none.
+static func choice_in(world: Variant, weapon: Dictionary) -> String:
+	return String(_peek(world, weapon).get("choice", ""))
+
+
+## What is in this weapon item's magazine, in firing order, the next shot first. Read-only.
+static func rounds_in(world: Variant, item: int) -> Array:
+	return _rounds_now(world, {"source": item})
+
+
+## Whether this weapon chambers `base_id`: the round it prefers, or any round of its caliber. The
+## same two rules `_pick_round` has always used, as one question.
+static func takes(world: Variant, weapon: Dictionary, base_id: String) -> bool:
+	if base_id == "":
+		return false
+	if base_id == String(weapon.get("ammo", "")):
+		return true
+	var caliber: String = String(weapon.get("caliber", ""))
+	if caliber == "":
+		return false
+	var base: Variant = SimItemsRes.content_entry(world, "item", base_id)
+	if not base is Dictionary:
+		return false
+	var spec: Variant = (base as Dictionary).get("ammo")
+	return spec is Dictionary and String((spec as Dictionary).get("caliber", "")) == caliber
+
+
+## The rounds a reload would leave in this weapon, in firing order, if `choice` were its chosen
+## round. The pool is what is in the magazine now plus every round of its caliber the actor
+## carries, so one rule covers a top-up, a switch and a mixed load: the chosen round first, then
+## the round the weapon prefers, then the rest by base id (stable, for `_pick_round`'s reason),
+## until the magazine is full. A round that no longer chambers -- a conversion since it was loaded
+## -- is not in the pool, and a reload puts it back in the pack.
+static func planned_load(world: Variant, actor: int, weapon: Dictionary, choice: String) -> Array:
+	var size: int = int(weapon.get("magSize", 0))
+	var pool: Dictionary = {}
+	for id_v in _rounds_now(world, weapon):
+		var id: String = String(id_v)
+		if takes(world, weapon, id):
+			pool[id] = int(pool.get(id, 0)) + 1
+	for item in SimInventoryRes.carried_items(world, actor) as Array:
+		var base: Variant = SimItemsRes.item_base_of(world, int(item))
+		if not (base is Dictionary and (base as Dictionary).get("ammo") is Dictionary):
+			continue
+		var cid: String = String((base as Dictionary).get("id", ""))
+		if not takes(world, weapon, cid):
+			continue
+		var stk: Variant = world.components.get_component(int(item), "stack")
+		pool[cid] = int(pool.get(cid, 0)) + (int((stk as Dictionary).get("count", 1)) if stk is Dictionary else 1)
+	var order: Array = []
+	if choice != "" and pool.has(choice):
+		order.append(choice)
+	var preferred: String = String(weapon.get("ammo", ""))
+	if pool.has(preferred) and not order.has(preferred):
+		order.append(preferred)
+	var rest: Array = []
+	for k in pool.keys():
+		if not order.has(String(k)):
+			rest.append(String(k))
+	rest.sort()
+	order.append_array(rest)
+	var out: Array = []
+	for id_v in order:
+		var n: int = mini(int(pool[id_v]), size - out.size())
+		for i in n:
+			out.append(String(id_v))
+		if out.size() >= size:
+			break
+	return out
+
+
+# Make the magazine what `planned_load` says, moving only the difference through the pack: rounds
+# that go in are taken from it, rounds that come out are put back. A top-up touches nothing it
+# keeps. Bases are walked in sorted order so which stack is spent, and the order a returned round
+# lands in, never depends on a Dictionary's insertion history.
+static func _apply_load(world: Variant, actor: int, weapon: Dictionary) -> void:
+	var rec: Dictionary = _record(world, weapon)
+	var now: Array = (rec["rounds"] as Array).duplicate()
+	var now_tiers: Array = _tiers_of(rec)
+	var next: Array = planned_load(world, actor, weapon, String(rec.get("choice", "")))
+	# Per base, the tiers of the rounds of it the magazine holds, in firing order. A reload keeps the
+	# first of them, returns the rest with their own tier, and adds rounds from the pack with theirs.
+	var held: Dictionary = {}
+	for i in now.size():
+		var id: String = String(now[i])
+		if not held.has(id):
+			held[id] = []
+		(held[id] as Array).append(String(now_tiers[i]))
+	var wanted: Dictionary = {}
+	for id_v in next:
+		wanted[String(id_v)] = int(wanted.get(String(id_v), 0)) + 1
+	var bases: Array = held.keys()
+	for k in wanted.keys():
+		if not bases.has(k):
+			bases.append(k)
+	bases.sort()
+	var pools: Dictionary = {}
+	for k in bases:
+		var have: Array = (held.get(k, []) as Array).duplicate()
+		var want: int = int(wanted.get(k, 0))
+		if have.size() > want:
+			_return_rounds(world, actor, String(k), have.slice(want))
+			have = have.slice(0, want)
+		while have.size() < want:
+			# The pool counted it, so it is there; if it somehow is not, the record does not claim
+			# a round the pack never gave up.
+			var tier: String = _take_round(world, actor, String(k))
+			if tier == "":
+				break
+			have.append(tier)
+		pools[k] = have
+	var rounds: Array = []
+	var tiers: Array = []
+	for id_v in next:
+		var pool: Array = pools[String(id_v)] as Array
+		if pool.is_empty():
+			continue
+		rounds.append(String(id_v))
+		tiers.append(String(pool.pop_front()))
+	rec["rounds"] = rounds
+	rec["tiers"] = tiers
+	weapon["mag"] = rounds.size()
+
+
+# The tier of each round in the record, in step with `rounds`. A record written before tiers were
+# kept (or by hand in a fixture) reads every round as scavenged, the floor `SimItems.tier_of` uses.
+static func _tiers_of(rec: Dictionary) -> Array:
+	var rounds: Array = rec.get("rounds", []) as Array
+	var tiers: Variant = rec.get("tiers")
+	var out: Array = (tiers as Array).duplicate() if tiers is Array else []
+	out.resize(mini(out.size(), rounds.size()))
+	while out.size() < rounds.size():
+		out.append("scavenged")
+	return out
+
+
+# Rounds out of a magazine and back into the pack, each at the tier it went in at: onto a stack of
+# the same round first, then anywhere the actor can stow them, then at their feet -- a round is
+# never destroyed by a reload, and never comes back plainer than it went in.
+static func _return_rounds(world: Variant, actor: int, base_id: String, tiers: Array) -> void:
+	var base: Variant = SimItemsRes.content_entry(world, "item", base_id)
+	var limit: int = maxi(1, SimItemsRes.base_stack_limit(base as Dictionary)) if base is Dictionary else 1
+	var by_tier: Dictionary = {}
+	for t in tiers:
+		by_tier[String(t)] = int(by_tier.get(String(t), 0)) + 1
+	var names: Array = by_tier.keys()
+	names.sort()
+	for tier in names:
+		var left: int = int(by_tier[tier])
+		while left > 0:
+			var n: int = mini(left, limit)
+			var stack: int = SimItemsRes.spawn_item(world, base_id, {"tier": String(tier), "count": n})
+			if not SimInventoryRes.stow(world, actor, stack):
+				SimInventoryRes.drop_at_feet(world, actor, stack)
+			left -= n
+
+
+## Why `actor` cannot load `round_item` into the weapon in their hands, or "" when they can. The
+## predicate the sheet's `load` verb is offered on and the `item.load` command asks first, so the
+## two cannot disagree. Refused: not a round, not carried, no weapon that takes a round in hand, a
+## round of the wrong caliber, and a load that would change nothing -- a magazine already holding
+## what this choice would put in it, or a bow already set to this round.
+static func load_refusal(world: Variant, actor: int, round_item: int) -> String:
+	var base: Variant = SimItemsRes.item_base_of(world, round_item)
+	if not (base is Dictionary and (base as Dictionary).get("ammo") is Dictionary):
+		return "not-a-round"
+	var base_id: String = String((base as Dictionary).get("id", ""))
+	if not _carries_base(world, actor, base_id):
+		return "not-carried"
+	var rw: Variant = world.components.get_component(actor, "rangedWeapon")
+	if not (rw is Dictionary and _wants_ammo(rw as Dictionary)):
+		return "no-weapon"
+	var r: Dictionary = rw as Dictionary
+	if not takes(world, r, base_id):
+		return "wont-chamber"
+	if is_fed(r):
+		if planned_load(world, actor, r, base_id) == _rounds_now(world, r):
+			return "already-loaded"
+	elif choice_in(world, r) == base_id:
+		return "already-loaded"
+	return ""
+
+
+## The sheet's `load` verb: `round_item`'s round becomes the choice of the weapon in `actor`'s
+## hands, and a magazine starts the reload that puts it in. A reload that cannot start now -- mid-
+## aim, grabbed, a missing part -- leaves the choice made, and the next reload honours it. A bow
+## only remembers: its next nock takes the round. Returns `load_refusal`'s reason, or "".
+static func choose_round(world: Variant, actor: int, round_item: int) -> String:
+	var why: String = load_refusal(world, actor, round_item)
+	if why != "":
+		return why
+	var r: Dictionary = world.components.get_component(actor, "rangedWeapon") as Dictionary
+	var base_id: String = String((SimItemsRes.item_base_of(world, round_item) as Dictionary).get("id", ""))
+	_record(world, r)["choice"] = base_id
+	if is_fed(r):
+		try_begin_reload(world, actor)
+	return ""
+
+
+## Load every magazine this body holds from what it carries, at once. For a body that arrives armed
+## -- a raider walks in with the gun already loaded from their own kit, which is what kept a band's
+## first shot where it was before the magazine remembered anything. Rounds still leave the pack, so
+## nothing is conjured, and a dead raider's gun keeps what was left in it.
+static func load_held(world: Variant, actor: int) -> void:
+	for item in SimInventoryRes.equipped_items(world, actor):
+		var profile: Variant = SimItemsRes.ranged_profile_of(world, int(item))
+		if not (profile is Dictionary and is_fed(profile as Dictionary)):
+			continue
+		_apply_load(world, actor, profile as Dictionary)
+		var live: Variant = world.components.get_component(actor, "rangedWeapon")
+		if live is Dictionary and int((live as Dictionary).get("source", -1)) == int(item):
+			(live as Dictionary)["mag"] = rounds_in(world, int(item)).size()
+
+
+# The stream a found gun's rounds are rolled on. Its own, not `lootTable`: a gun on a shelf rolling
+# its rounds must not move what every later shelf in the district holds.
+const FOUND_STREAM: String = "foundRounds"
+# The most rounds a found gun can hold, whatever its magazine: "a few" (docs/33 item 26).
+const FOUND_MAX: int = 5
+
+
+## Put a few of its usual round in a gun found on a shelf or in a crate (docs/33 item 26, the
+## owner's call of 2026-10-28: found guns hold a few rounds). Between one and a third of the
+## magazine, rounded up, never more than `FOUND_MAX`, all of the round the weapon prefers, at the
+## stack default tier. The rounds are new to the world -- a found gun is where they were found --
+## so nothing leaves a pack. Anything that is not fed from a magazine, and a gun that already has a
+## record, is left alone. `SimLoot.roll` is the one caller, so a shelf at boot and a cupboard opened
+## later load alike.
+static func load_found(world: Variant, item: int) -> void:
+	var profile: Variant = SimItemsRes.ranged_profile_of(world, item)
+	if not (profile is Dictionary and is_fed(profile as Dictionary)):
+		return
+	if world.components.get_component(item, LOAD) is Dictionary:
+		return
+	var p: Dictionary = profile as Dictionary
+	var size: int = int(p.get("magSize", 0))
+	var most: int = clampi(ceili(float(size) / 3.0), 1, mini(FOUND_MAX, size))
+	var n: int = int(world.rng.stream(FOUND_STREAM).call("int_range", 1, most))
+	var rounds: Array = []
+	var tiers: Array = []
+	for _i in n:
+		rounds.append(String(p.get("ammo", "")))
+		tiers.append("scavenged")
+	world.components.set_component(item, LOAD, {"rounds": rounds, "tiers": tiers, "choice": ""})
+
+
+## What is in this weapon item, in words, for the inspect pane: "" for anything that is not fed
+## from a magazine, "empty", the round's word ("slug") when every round in it is the same, and
+## "mixed" when they are not. Words only, never a count -- docs/01 clause 4, and
+## `godot:check:inventory` INSPECT scans it. The word is the round's content `ammo.word`, never its
+## `name`, which may carry a digit under the one amendment. "mixed" names no round because the
+## line beside the picture has eighteen letters at 1280x720 (STATE FIT holds it), and "slug, then
+## buckshot" was cut to "slug, then..." the first time it was drawn.
+static func load_words(world: Variant, item: int) -> String:
+	var profile: Variant = SimItemsRes.ranged_profile_of(world, item)
+	if not (profile is Dictionary and is_fed(profile as Dictionary)):
+		return ""
+	var rounds: Array = rounds_in(world, item)
+	if rounds.is_empty():
+		return "empty"
+	var first: String = String(rounds[0])
+	for id_v in rounds:
+		if String(id_v) != first:
+			return "mixed"
+	return round_word(world, first)
+
+
+## A round's word: its content `ammo.word`, or "rounds" for one that declares none.
+static func round_word(world: Variant, base_id: String) -> String:
+	var base: Variant = SimItemsRes.content_entry(world, "item", base_id)
+	if base is Dictionary and (base as Dictionary).get("ammo") is Dictionary:
+		var word: String = String(((base as Dictionary)["ammo"] as Dictionary).get("word", ""))
+		if word != "":
+			return word
+	return "rounds"
 
 
 ## The multipliers one round folds over the weapon for the shot that spends it, whitelisted
@@ -533,10 +916,16 @@ static func _cone_with_ammo(scale: Dictionary, half: float, cap: float = WIDE_HA
 
 
 static func _consume_ammo(world: Variant, actor: int, ammo_id: String) -> bool:
+	return _take_round(world, actor, ammo_id) != ""
+
+
+# One round of `ammo_id` out of the pack: its tier, or "" when the actor carries none.
+static func _take_round(world: Variant, actor: int, ammo_id: String) -> String:
 	for item in SimInventoryRes.carried_items(world, actor) as Array:
 		var base: Variant = SimItemsRes.item_base_of(world, int(item))
 		if not (base is Dictionary and String((base as Dictionary).get("id", "")) == ammo_id):
 			continue
+		var tier: String = SimItemsRes.tier_of(world, int(item))
 		var stk: Variant = world.components.get_component(int(item), "stack")
 		if stk is Dictionary:
 			var cnt: int = int((stk as Dictionary).get("count", 1))
@@ -548,8 +937,8 @@ static func _consume_ammo(world: Variant, actor: int, ammo_id: String) -> bool:
 		else:
 			SimInventoryRes.remove_from_container(world, int(item))
 			world.despawn(int(item))
-		return true
-	return false
+		return tier
+	return ""
 
 
 # "What you cannot see, you cannot aim at" -- docs/09-combat.md. The one answer, here rather than
@@ -586,14 +975,30 @@ static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: V
 	# product back into `weapon`, because `weapon` is the live `rangedWeapon` component (it is
 	# mutated two lines down) and a product written there would scale the gun itself, compounding
 	# once per shot until a shotgun did a thousand damage. A round's effect belongs to the shot.
+	#
+	# A magazine spends the round at its front and the pack is not touched: the rounds left the pack
+	# when they were loaded. A bow still draws from the quiver on every shot, because the nock is its
+	# reload and there is no magazine to remember anything.
 	var scale: Dictionary = {}
 	var round_id: String = ""
-	if _wants_ammo(weapon):
+	if is_fed(weapon):
+		var rec: Dictionary = _record(world, weapon)
+		var rounds: Array = rec["rounds"] as Array
+		if rounds.is_empty():
+			weapon["mag"] = 0
+			return
+		var tiers: Array = _tiers_of(rec)
+		tiers.pop_front()
+		rec["tiers"] = tiers
+		round_id = String(rounds.pop_front())
+		weapon["mag"] = rounds.size()
+		scale = ammo_scale(world, round_id)
+	elif _wants_ammo(weapon):
 		round_id = _pick_round(world, attacker, weapon)
 		if round_id == "" or not _consume_ammo(world, attacker, round_id):
 			return
 		scale = ammo_scale(world, round_id)
-	if int(weapon.get("magSize", 0)) > 0:
+	elif int(weapon.get("magSize", 0)) > 0:
 		weapon["mag"] = maxi(0, int(weapon.get("mag", 0)) - 1)
 	var from: Variant = world.components.get_component(attacker, "position")
 	var facing_v: Variant = world.components.get_component(attacker, "facing")

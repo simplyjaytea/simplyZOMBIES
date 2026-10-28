@@ -314,6 +314,7 @@ func _arm_both_hands(w: Variant, with_ammo: bool = true) -> Dictionary:
 		var rounds: int = SimItems.spawn_item(w, "item.ammo.9mm", {"tier": "scavenged", "count": 12})
 		if not SimInventory.stow(w, w.player, rounds):
 			w.components.set_component(rounds, "stored", {"container": w.player})
+		SimRanged.load_held(w, w.player)
 	w.events.drain()
 	return {"knife": knife, "pistol": pistol}
 

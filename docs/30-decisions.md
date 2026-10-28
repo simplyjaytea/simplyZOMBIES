@@ -7263,3 +7263,88 @@ on one tick, and the 480 to 600 ms worst ticks of the day-one playtest logs. The
 **How to apply:** a reader that asks the walls box for many tiles takes `_walls_box_of` once and
 asks `_in_walls_box` per tile. A new memo here is trusted only while everything it read is
 unchanged, and its lane in `godot:m2:tick` changes each of those things under it.
+
+## The round you load, 2026-10-28
+
+Piece F2 of the firearms readers batch: docs/23's "Choosing which round to fire" and "The magazine
+remembers what you loaded", landed together because they share one record. Before it, a reload
+refilled a counter, every shot drew its round from the pack, a magazine held whatever the pack
+held, and the only way to fire a slug was to carry nothing else.
+
+- **The record lives on the weapon item, not on `rangedWeapon`.** docs/23 named the `rangedWeapon`
+  component as the home. That component sits on the actor: it is rebuilt from the item on every
+  equip, removed on every unequip, and replaced without an unequip when a gun is drawn over another
+  in the same hand. A choice stored there is forgotten the moment the rifle is slung, and rounds
+  stored there vanish with it. So the weapon item carries `loaded {rounds, choice}`: `rounds` holds
+  round base ids in firing order, the next shot first, and `choice` is a round base id or "". It
+  rides the item through a holster, a drop, a dead raider's kit and a save, and it is still the
+  item's own component, not a `{weapon: round}` side table. A fixture's weapon with no item keeps
+  the same keys on its profile; `SimRanged._record` is the one place that decides. The live
+  `mag` on `rangedWeapon` is kept equal to the record's size for the readers that count it.
+- **One reload rule.** A reload empties the magazine back into the pool, then fills it from the
+  pool: the chosen round first, the round the weapon prefers next, the rest by base id, until full
+  (`SimRanged.planned_load`). Only the difference moves through the pack. That one rule is a
+  top-up when nothing changed, a switch when the choice did, and a mixed load when the chosen round
+  runs short (two slugs, then buckshot). A round that no longer chambers (a conversion since it was
+  loaded) is not in the pool, so the next reload puts it back in the pack, and a pull with such a
+  round at the front reloads instead of firing. Rounds that come out go onto a matching stack,
+  then anywhere the actor can stow them, then at their feet. A reload that would change nothing is
+  refused; it used to be allowed on a full magazine and cost a reload for nothing.
+- **A round keeps its tier through the gun (the end review's finding).** The first cut stored base
+  ids only, so buckshot loaded from a modified stack came back out of a switch as scavenged, and a
+  reload could launder a worse round into a better one or the other way. The record now carries
+  `tiers` beside `rounds`, in step: a round taken from the pack records the tier of the stack it
+  came off, a shot pops both, and a reload returns the rounds it removes as stacks at their own
+  tiers, keeping the rounds it leaves in with theirs. A record from before this (no `tiers`) reads
+  every round as scavenged, the stack default. `godot:m2:ammo` TIER: modified buckshot swapped out
+  for slugs comes back modified, and the slugs keep their own tier; red with the tier dropped on
+  the way out.
+- **Switching loads costs the reload.** The sheet's `load` verb on a round sets the choice and
+  starts the reload; the magazine changes when the reload ends, not when the verb lands. If the
+  reload cannot start (mid-aim, grabbed, a part missing) the choice stands and the next reload
+  honours it.
+- **A bow only remembers.** A bow (`magSize` 0) has no magazine: it nocks from the quiver on every
+  shot, as before, and `load` on an arrow sets which one it nocks next.
+- **A found gun holds a few rounds (the owner's call).** Built first as empty, the default of
+  docs/33 item 26; the owner chose a few rounds on 2026-10-28. A gun a loot table rolls, on a shelf
+  at boot or in a cupboard opened later, gets one to a third of its magazine, rounded up and five
+  at most (`SimRanged.FOUND_MAX`), all of its preferred round at the stack default tier
+  (`SimRanged.load_found`, called from `SimLoot.roll`, the one place both paths roll). These rounds
+  are new to the world, which is the point of the call. The card said "rolled on the loot stream";
+  they roll on their own stream, `foundRounds`, because a draw on `lootTable` would move what every
+  later shelf in the district holds, and the call was about the gun, not the shelves.
+  `godot:check:loot` FOUND holds the range, the round, the tier, the stream, the negatives (a bow,
+  a knife, a stack of rounds) and that a found pistol fires its own round with nothing in the pack.
+  A gun that is not rolled from a table (a gate's fixture, a boot kit, a trader's) has no record
+  and arrives empty; the first trigger pull reloads it from the pack. A raider arrives loaded from
+  their own kit (`SimRanged.load_held` at spawn), so a band's first shot is where it was, and a dead
+  raider's gun keeps what was left in it.
+- **Older saves load empty, with no version bump.** A v33 save has no `loaded` anywhere: every gun
+  in it loads as an empty magazine with no choice, and the old counter is not trusted, so the first
+  pull reloads from the pack, which holds every round the counter only pretended to.
+- **The screen says what is loaded, in words.** The inspect pane's one state line, after edge and
+  fuel: "load empty", "load slug" when every round in it is one kind, "load mixed" when not. The
+  word is the round's content `ammo.word`, a short word with no digit, because a round's `name`
+  may carry a digit under the one amendment and this line may not. `word` is required by the
+  item schema, and `godot:m2:ammo` WORD holds every round to a word, no digit, and no two rounds of
+  one caliber sharing one. "empty" draws in `Locker.DANGER_INK`. Nothing reaches the HUD.
+- **"mixed" names no round, and the words are short (the shots).** The line beside the picture has
+  180 px at 1280x720, about eighteen letters with the label. The first cut said "slugs, then
+  buckshot" and was drawn "slugs, then..."; plural words like "standard rounds" and "broadhead
+  bolts" did not fit either. So a mixed magazine reads "mixed" (the player chose the round, and
+  "mixed" says it ran short), and the words are the trade's short ones: "ball" (9mm, .45),
+  "standard" (.38, .22), "soft point" (.308), "buckshot", "slug", "birdshot", "hollowpoint",
+  "subsonic", "match", "surplus", "+P", "bolts", "broadheads", and for arrows, which no magazine
+  holds, "arrows" and "target tips". STATE FIT in `godot:check:inventory` measures every word
+  read off the content, red on the first cut.
+
+**Not measured here.** The ten-seed table was not re-run in this piece. What moves in a campaign:
+a found gun now brings a few rounds of its own (more ammunition in every run, the owner's call), a
+gun keeps its rounds when it is put away, and a gun from a fixture spends one reload before its
+first shot. The FAST tier of `godot:m2:balance` judges it in the chain; the ten-seed re-run the card
+named is handed to the balance thread, after the run already going on main.
+
+**How to apply:** a reader of what is in a gun calls `SimRanged.rounds_in` or `load_words`, never
+`rangedWeapon.mag`. A body that should arrive with a loaded gun calls `SimRanged.load_held` after
+its kit. A gate that fires a gun it has just armed loads it first (`load_held`), or its first pull
+is a reload.

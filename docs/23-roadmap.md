@@ -282,8 +282,9 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
 - **Gunsmithing decides field versus bench, and the botch.** Skill moves operations between
   `is_field_swap` and the bench and feeds `modification.gd`'s failure curve. Gate:
   `godot:m2:bench`.
-- (Already named above and part of this arc: choosing which round to fire, the magazine that
-  remembers its load, the hand-loaded round, the five ranged affixes.)
+- (Already named above and part of this arc: the hand-loaded round, the five ranged affixes.
+  Choosing which round to fire and the magazine that remembers its load landed 2026-10-28; see the
+  record, "The round you load".)
 
 *Melee, frames and recipes (stage 1): finished, 2026-10-27.* Every piece has landed; the arc's
 record is "Melee frames and the widened slots, and the improvised recipe table, 2026-10-26",
@@ -563,15 +564,6 @@ system.
   `SimRoster.spawn_zombie` gives such a body the `equipment` component `armor_coverage_of` was
   always willing to read.
 - ~~**Named items, the fourth tier**~~ — **landed** 2026-09-12, see the record.
-- **Choosing which round to fire.** The ammo slice shipped the mechanism and not the choice: with
-  buckshot and slugs both in the pack the pick order decides, and the only way to fire the slug is
-  to carry nothing else. A verb on the inventory sheet, and the `rangedWeapon` component is where
-  the chosen round would live — as a String, never as a `{weapon: round}` side table, which does
-  not survive a save.
-- **The magazine remembers what you loaded.** `FireState.Reload` refills `mag` from `magSize` and
-  consumes nothing while rounds leave the pack one per shot, so a magazine holds mixed rounds and
-  switching loads is instant. The cheapest consistent story, and named rather than left looking
-  finished. Wants a per-magazine record on the component, which is why it is not a rider.
 - **The hand-loaded round.** docs/09 specifies it — *"late-game hand-loading is possible and
   produces worse ammunition — reduced power, higher jam chance"* — and the ammo slice can express
   only the first half. `jamChance` is *derived* from the condition band rather than authored, so
@@ -816,10 +808,11 @@ before it.
 - **Build speed is read.** A new `build_speed` on the Construct and Repair spans and the player's
   fortify channel, through one helper both call; two Craft minors and **the fixer** keystone
   (faster building and cheaper repairs, slower on foot for the toolbag).
-- **Reload, and the shot's recoil.** New `reload_speed` on both reload spans and `shot_recovery`
-  on the existing recover rung — recoil is not a new mechanism, it is the rung that already
-  exists; two Ranged minors and **the cold shot** keystone (a much tighter cone, a much longer
-  recovery).
+- **Reload, and the shot's recoil.** The stats exist since F4 (#255): `reload_ticks` on both reload
+  spans and `recover_ticks` on the existing recover rung, read today only item-scoped (the gun's own
+  share); this piece reads them on the shooter as well, not new `reload_speed` and `shot_recovery`
+  stats — recoil is not a new mechanism, it is the rung that already exists; two Ranged minors and
+  **the cold shot** keystone (a much tighter cone, a much longer recovery).
 - **Noise emission is read.** `noise_emission` on the shooter, the swinger and the walker, times
   the item's own, through one helper the shot, the connect and the footstep all call; revives the
   affix "of the Quiet Hand"; soft feet as a Survival minor and **the quiet ones** keystone (half
@@ -2390,6 +2383,49 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **The round you load, 2026-10-28.** docs/23's "Choosing which round to fire" and "The magazine
+  remembers what you loaded", together (firearms batch piece F2; docs/30's "The round you load").
+  - **The record.** The weapon item carries `loaded {rounds, tiers, choice}`: round base ids in
+    firing order, their tiers in step, and the chosen round or "". Not `rangedWeapon`, which is the
+    actor's and is rebuilt on every equip, so a choice there would be forgotten on a holster. A
+    reload empties the magazine into the pool and fills it again, the chosen round first, then the
+    preferred, then by base id, moving only the difference through the pack
+    (`SimRanged.planned_load`, `_apply_load`): a top-up, a switch and a mixed load are one rule. A
+    shot spends the front round and leaves the pack alone. A round comes back out of a reload at the
+    tier it went in with (the end review's finding; an older record reads as scavenged). A bow still
+    nocks from the quiver and only remembers the choice. A found gun holds a few rounds of its own
+    (docs/33 item 26, the owner's call: one to a third of the magazine, five at most, on the
+    `foundRounds` stream, `SimRanged.load_found` from `SimLoot.roll`); a raider arrives loaded from
+    their own kit (`SimRanged.load_held`). An older save has no `loaded` and loads every gun empty,
+    its counter not trusted; no `SAVE_VERSION` bump.
+  - **The verb.** `load` on a round, offered by `SimInventory.verbs_for` exactly when
+    `SimRanged.load_refusal` is empty (a round the gun in hand takes, when loading it would change
+    what is in it), sends `item.load`, which sets the choice and starts the reload.
+    `ranged.intake` reads the command. The inspect pane's state line says what is in a gun in
+    words ("load slug", "load mixed", "load empty") from the round's new content `ammo.word`,
+    required by the schema and digit-free.
+  - **Gates.** `godot:m2:ammo` ROUND (chosen slugs reload in and fire, the buckshot goes back to the
+    pack, the choice survives a holster, a bow nocks the chosen broadhead; unchosen, buckshot goes
+    first), MAG (a reload takes eight from the pack and a shot none, a top-up takes only what was
+    fired, a loaded pistol fires with an empty pack and an emptied one does not, a switch waits out
+    the reload, two slugs load over buckshot and fire first), WORD and TIER (modified buckshot
+    swapped out for slugs returns modified, the slugs keep theirs); each red with the choice ignored
+    or with the shot drawing from the pack again. `godot:m2:save` MAGAZINE (a part-spent
+    slug-over-buckshot magazine and its choice round-trip in order and the next shot spends the
+    slug; a save with no record loads empty and its counter of five turns the first pull into a
+    reload; the older save is the boot's save with the whole `loaded` table taken out, since found
+    guns write one). `godot:check:loot` FOUND (a found gun holds one to a third of its magazine,
+    five at most, of its usual round, scavenged; a bow, a knife and a stack get none; the roll
+    leaves `lootTable` where a knife leaves it; a found pistol fires its own round with nothing in
+    the pack; red with the call removed and with the roll on `lootTable`). `godot:check:inventory`
+    LOAD (no gun, no offer; slugs offered and buckshot and a rifle round not; every offer agrees
+    with `load_refusal`; the pane's button loads five slugs) and STATE (an empty pistol draws "load
+    empty"; FIT holds every load line, "mixed" and each round's word read off the content, to the
+    room beside the picture at 1280x720). Gates that armed a gun and fired it at once
+    (`godot:m2:ranged`, `sight`, `attach`, `aim`, `upkeep`, `godot:check:fx`, `decals`) load it
+    first with `load_held`. Not measured here: the ten-seed table was not re-run (handed to the
+    balance thread for the found rounds); the FAST tier of `godot:m2:balance` judges it in the
+    chain.
 - **A weapon you named, 2026-10-27.** The last piece of the melee arc. A weapon with three or more
   slots holding a part it did not come with may be named by the player (docs/33 items 23 and 24,
   three or more by the owner's call of 2026-10-27; typed, the default). What landed:

@@ -34,8 +34,9 @@ func _run() -> void:
 	ok = _the_save_is_never_absent_from_disk() and ok
 	ok = _recording_is_opt_in() and ok
 	ok = _a_named_weapon_keeps_its_name() and ok
+	ok = _a_mixed_magazine_keeps_its_load() and ok
 	if ok:
-		print("M2_SAVE_OK v%d ticket10 needs-era despawn-clean container-grid atomic record-opt-in named" % int(SimSerialize.SAVE_VERSION))
+		print("M2_SAVE_OK v%d ticket10 needs-era despawn-clean container-grid atomic record-opt-in named magazine" % int(SimSerialize.SAVE_VERSION))
 		quit(0)
 	else:
 		push_error("M2_SAVE_FAIL")
@@ -549,3 +550,116 @@ func _a_named_weapon_keeps_its_name() -> bool:
 	if ok:
 		print("NAMED OK a named bat round-trips as Old Faithful, a save without givenName loads as %s and takes a name after, and the version stays %d" % [plain, int(SimSerialize.SAVE_VERSION)])
 	return ok
+
+
+# The magazine remembers its load (2026-10-28): a part-spent, mixed magazine and the round the
+# player chose ride the weapon item's `loaded` component through a save, in firing order, with no
+# version bump. The older save has no `loaded` anywhere and loads as an empty magazine whose old
+# counter is not trusted: the first pull reloads from the pack rather than firing a round the old
+# counter only pretended was there.
+func _a_mixed_magazine_keeps_its_load() -> bool:
+	var lane: String = "MAGAZINE"
+	var boot: Dictionary = SimBoot.playable(20260805, 64)
+	var w: Variant = boot["world"]
+	var actor: int = int(w.player)
+	var gun: int = SimItems.spawn_item(w, "item.shotgun.pump", {"tier": "scavenged"})
+	if not SimInventory.equip(w, actor, gun):
+		push_error("%s: the fixture shotgun would not go in a hand" % lane)
+		return false
+	for pair in [["item.ammo.12g.slug", 2], ["item.ammo.12g", 6]]:
+		var stack: int = SimItems.spawn_item(w, String(pair[0]), {"tier": "scavenged", "count": int(pair[1])})
+		if not SimInventory.stow(w, actor, stack):
+			push_error("%s: the survivor could not carry %s" % [lane, String(pair[0])])
+			return false
+	w.step()
+	var unloaded: Dictionary = w.snapshot()
+	var slugs: int = -1
+	for item in SimInventory.carried_items(w, actor):
+		var b: Variant = SimItems.item_base_of(w, int(item))
+		if b is Dictionary and String((b as Dictionary).get("id", "")) == "item.ammo.12g.slug":
+			slugs = int(item)
+	if SimRanged.choose_round(w, actor, slugs) != "":
+		push_error("%s: the slugs could not be chosen: %s" % [lane, SimRanged.load_refusal(w, actor, slugs)])
+		return false
+	_settle(w, actor)
+	if not _fire(w, actor):
+		push_error("%s: the loaded shotgun did not fire" % lane)
+		return false
+	var want: Array = ["item.ammo.12g.slug", "item.ammo.12g", "item.ammo.12g", "item.ammo.12g"]
+	if SimRanged.rounds_in(w, gun) != want:
+		push_error("%s: before the save the magazine holds %s, not %s" % [lane, str(SimRanged.rounds_in(w, gun)), str(want)])
+		return false
+	var saved: Dictionary = SimSave.decode_save_or_throw(SimSave.encode_save(SimSave.create_save(w)))
+	var restored: Variant = _restore_bare(saved["snapshot"] as Dictionary, 20260805, 64)
+	var ok: bool = true
+	# The true positive: the same rounds in the same order, and the choice, on the same entity.
+	if SimRanged.rounds_in(restored, gun) != want:
+		push_error("%s: a part-spent mixed magazine came back as %s" % [lane, str(SimRanged.rounds_in(restored, gun))])
+		ok = false
+	var rw: Variant = restored.components.get_component(actor, "rangedWeapon")
+	if not (rw is Dictionary and SimRanged.choice_in(restored, rw as Dictionary) == "item.ammo.12g.slug"):
+		push_error("%s: the chosen round did not survive the save" % lane)
+		ok = false
+	# And it is read: the next shot after the load spends the slug at the front.
+	if not _fire(restored, actor) or SimRanged.rounds_in(restored, gun) != want.slice(1):
+		push_error("%s: the first shot after the load left %s, not %s" % [lane, str(SimRanged.rounds_in(restored, gun)), str(want.slice(1))])
+		ok = false
+	if int(saved["snapshot"].get("version", -1)) != int(SimSerialize.SAVE_VERSION):
+		push_error("%s: a loaded magazine changed the save version" % lane)
+		ok = false
+
+	# The older save: no `loaded` component anywhere, and a counter that says five. Since found guns
+	# hold a few rounds (docs/33 item 26) the district's shelves carry records of their own, so the
+	# older save is this one with the whole `loaded` table taken out, which is what a v33 save from
+	# before the record looks like.
+	var comps: Variant = unloaded.get("components")
+	if not (comps is Dictionary and (comps as Dictionary).has("loaded")):
+		push_error("%s: the district's found guns wrote no `loaded` table, so taking it out proves nothing" % lane)
+		ok = false
+	else:
+		(comps as Dictionary).erase("loaded")
+	if JSON.stringify(unloaded).contains("\"loaded\""):
+		push_error("%s: the save standing in for an older one still carries `loaded`" % lane)
+		ok = false
+	var old: Variant = _restore_bare(unloaded, 20260805, 64)
+	if not SimRanged.rounds_in(old, gun).is_empty():
+		push_error("%s: a save with no record loaded holding %s" % [lane, str(SimRanged.rounds_in(old, gun))])
+		ok = false
+	var orw: Variant = old.components.get_component(actor, "rangedWeapon")
+	if not orw is Dictionary:
+		push_error("%s: the older save restored no rangedWeapon" % lane)
+		return false
+	(orw as Dictionary)["mag"] = 5
+	old.commands.push({"type": "fire"})
+	old.step()
+	if int((orw as Dictionary).get("state", -1)) != SimRanged.FireState.Reload:
+		push_error("%s: an older save's counter of five was trusted: the pull went to state %d, not a reload" % [lane, int((orw as Dictionary).get("state", -1))])
+		ok = false
+	if ok:
+		print("MAGAZINE OK a part-spent slug-over-buckshot magazine and its choice round-trip in order and the next shot spends the slug; a save with no record loads empty and its old counter turns the first pull into a reload")
+	return ok
+
+
+# Step until this actor's weapon is idle again.
+func _settle(w: Variant, actor: int) -> void:
+	for i in 300:
+		var rw: Variant = w.components.get_component(actor, "rangedWeapon")
+		if rw is Dictionary and int((rw as Dictionary).get("state", 0)) == SimRanged.FireState.Idle:
+			return
+		w.step()
+
+
+# Fire once and wait for the weapon to come back to idle; true when a round left it.
+func _fire(w: Variant, actor: int) -> bool:
+	_settle(w, actor)
+	w.commands.push({"type": "fire"})
+	var fired: bool = false
+	for i in 300:
+		w.step()
+		for e in w.events.drained:
+			if String((e as Dictionary).get("type", "")) == "weapon.fired" and int((e as Dictionary).get("entity", -1)) == actor:
+				fired = true
+		var rw: Variant = w.components.get_component(actor, "rangedWeapon")
+		if fired and rw is Dictionary and int((rw as Dictionary).get("state", 0)) == SimRanged.FireState.Idle:
+			break
+	return fired

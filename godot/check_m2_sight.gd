@@ -94,6 +94,7 @@ func _arm(w: Variant, ent: int) -> void:
 	var ammo: int = SimItems.spawn_item(w, "item.ammo.9mm", {"tier": "scavenged", "count": 40})
 	if not SimInventory.stow(w, ent, ammo):
 		w.components.set_component(ammo, "stored", {"container": ent})
+	SimRanged.load_held(w, ent)
 
 
 func _zombie(w: Variant, x: float, y: float) -> int:
