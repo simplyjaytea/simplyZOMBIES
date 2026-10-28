@@ -6936,3 +6936,61 @@ keen a blade is, in a word.
 **How to apply:** a new verb on the pack gets a refusal function its command shares, never a copy
 of the checks. Retune the edge bands in `EDGE_BANDS` with the HONE and STATE lanes' fixtures.
 
+## The plate wears, 2026-10-27
+
+"A plate that degrades as it stops blows" (docs/23's record). Armour parts used to declare no
+`wearsOn`, deliberately: `hit` fires on the swinger's weapon. "Melee wear, 2026-10-27" kept
+`struck` free for the target's side; this piece makes it real. Four calls, all first cuts.
+
+**Where the wear is called.** In `SimHealth.damage_part`, right after the integrity write, through
+`SimHealth.wear_struck_armor`. Every path that hurts a body arrives at that closure (a swing, a
+shot, a shambler's swipe on `attack.connected`; a bite on `bite.landed`), so the plate wears from
+all of them and there is one call per blow, never per tick. The blow is softened first, so it
+meets the plate at the condition it was in, and the next blow meets the plate this one left. A
+blow to a dead body or a part already at zero returns before it, so it wears nothing.
+
+**Bites wear the plate.** A bite comes through the same closure as a swipe, and teeth on a vest
+are a blow on a vest. One consequence, accepted: `infection.record-bite` runs after
+`health.take-bite` (same order, ids sorted), so the transmission roll for a bite reads the
+coverage that bite left. The difference is one blow's wear, at most 0.024 of a ceramic plate's
+condition, which moves the plate's multiplier by about a thousandth.
+
+**What wears.** The garment that stopped the blow: the one with the most coverage of the struck
+part *as fitted*, the way `armor_coverage_of` composes the same walk (max, never sum, the
+2026-09-12 call), and it wears only when that coverage is above zero, so an empty carrier, which
+`blocked_reason` already makes worth nothing, wears nothing. A lined jacket under a carrier does
+not wear on a torso blow, because the carrier stopped it and the jacket never stood in its way;
+pull the carrier's plate and the jacket is what stops the next one, so its lining wears. Two
+garments at the same coverage both wear. The end review caught the first cut wearing every
+covering garment, so a jacket's lining paid for blows it never met; the COVERS lane now holds the
+layered case both ways. Inside the garment, only the parts whose own `armor` names the struck part
+wear (a `covering` argument on `wear_parts`; the weapon channels pass none and are unchanged).
+Without that filter a blow to the arm would wear the chest plate, which never stood in its way.
+The garment's own condition does not wear: nothing reads it (`armor_coverage` reads the parts'
+condition through `effect_scale`, not the host's), so wearing it would be a dead socket.
+
+**The numbers.** On top of `PART_WEAR_PER_EVENT` 0.002 a blow: the ceramic plate `wearRate` 12
+(0.024 a blow, about 42 blows to broken: "it does not forgive a second hit"), the steel plate 4
+(125 blows), the riot visor 4 (125), the aramid lining 2 (250). The visor is included though the
+plan named plates and linings: it is the fourth part that carries armour, and leaving one
+armour part unworn would be a rule with an exception nobody could learn. A plate worn through
+comes off (`_wear_one` detaches at zero) and the carrier then stops nothing, which is the rule the
+carrier already had; the PLATE lane holds that half.
+
+**Measured.** `godot:m2:balance` on `main` at bd4807cb (melee wear and the raider doctrine in) and
+on this piece, same machine, and once before that on #233's head with the same result: M2_BALANCE_OK
+both, and every FAST and ARMOUR line identical, digit for digit (seed 20260805 2 deaths, 404 5,
+31337 1, 90210 3; the dressed arm a 28.0% cut on both). Nothing moved because no scripted colonist
+in those campaigns wears a part that declares `struck`: the dressed arm's riot vest
+(`check_m2_balance.gd`'s kit) has no `defaultParts`, so nothing is fitted to it, and the plates and
+carriers are findable loot the scripted survivors do not fit. So the piece changes a run only once a
+player fits a plate, and REACHED is the lane that holds that the wear is reached when one is.
+`godot:bench:runtime`, six and six interleaved: shipped-tick mean median 13.89 ms base against 14.40
+head, colony-tick 17.30 against 18.63, both inside the 1 to 4 ms run-to-run spread on this machine
+(the base alone ran 13.03 to 15.57 and 15.46 to 20.91). The wear is a few dictionary reads per blow,
+and blows are a few a second at most.
+
+**How to apply:** a new armour part that adds coverage declares `wearsOn: ["struck"]` and a
+`wearRate`; `godot:m2:attach` WEARS holds the word to the vocabulary, `godot:m2:armor` STRUCK,
+COVERS and REACHED hold the call. The ten-seed table was not re-run; owed by the post-arc
+re-baseline.
