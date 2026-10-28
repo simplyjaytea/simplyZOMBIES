@@ -128,6 +128,15 @@ Each of these was found the expensive way. They are not style opinions.
   only `godot:check:authored`'s READS lane noticed, because the art it declared was now read by
   nothing. After merging branches that both touched `godot/content/`, scan for duplicate keys
   (Python's `json.load(..., object_pairs_hook=...)` sees them) before trusting a green validator.
+- **A tile written before the dressing moves every tree on the map.** `_dress_terrain`
+  (`godot/sim/map/worldgen.gd`) draws one jitter from the `terrain` stream per outdoor Floor tile,
+  so a change that turns one Floor into anything else *before* the dressing runs takes a draw away
+  and shifts every tree, thicket and grass disc decided after it, on every seed and size. The first
+  cut of the gate-gap door (2026-10-28) did exactly that from `_write_doors`: the gates stayed green,
+  the record claimed the 64 world was byte-identical to main, and a side-by-side boot of the two
+  branches found fifty moved tiles at 64 and hundreds at 256. A generator change that must leave
+  the dressing alone runs after it (the gap door runs last in `generate`), and the claim is checked
+  by hashing `map.tiles` on main and on the branch, not inferred from a green gate.
 - **Throughput, measured:** the shipped world measured **34 ticks/second** headless (docs/22,
   "Remaining milestone evidence", 2026-10-03), so a game day (72,000 ticks since the one-hour day
   of 2026-10-19) is about 35 minutes and a no-wipe ten-day campaign (693,000 ticks) about 5.7
