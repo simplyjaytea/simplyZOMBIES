@@ -2778,6 +2778,13 @@ not a to-do list:
   a folding stock fires from a sedan's driver seat, a full stock is refused there and fires on foot.
   The numbers are first cuts and were not re-tuned. The ten-seed table was not re-run: no body and
   no kind changed.
+  The clocks an affix can move are item-scoped, for the ranged affixes follow-up: `steady_ticks`
+  (time to settle on the aim), `recover_ticks` (time to come back down after a shot) and
+  `reload_ticks`, each in `SimItems.ITEM_SCOPED_READS` and read through `SimItems.steady_share_of`,
+  `recover_share_of` and `reload_share_of`. The ladder scales its settle, recovery and reload by the
+  item's share on every read, so a moved clock takes effect on the next rung with no refit. Gate:
+  `godot:m2:aim` READERS (a x2 on each clock moves that clock alone, on that gun, and a sibling
+  reads 1.0; the bare gun is the true negative).
 - **Melee frames and the widened slots, and the improvised recipe table, 2026-10-26.** The first
   stage of the melee arc (docs/38). Every melee item declares a `family` (club, blade, polearm or
   tool): the nineteen melee bases, a new `item.bat.wood` (a twentieth base, so the wooden bat the

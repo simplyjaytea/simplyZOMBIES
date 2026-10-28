@@ -7079,7 +7079,13 @@ it, and both are first cuts a card can reverse.
 rule lives in the weapon's content, not in a per-weapon branch.
 
 **Not measured.** The numbers are first cuts and were not re-tuned; no body or kind changed, so the
-ten-seed table was not re-run. Gates: `godot:m2:aim` FURNITURE, `godot:m2:stance` SEAT.
+ten-seed table was not re-run. Gates: `godot:m2:aim` FURNITURE and READERS, `godot:m2:stance` SEAT.
+
+**The clocks are item-scoped (the affixes thread asked, 2026-10-28).** Settle, recovery and reload
+each read their item's share (`steady_ticks`, `recover_ticks`, `reload_ticks`, scoped over unscoped,
+the `noise_emission_of` division) and the ladder reads it live, not from a profile field, so a
+modifier takes effect without a refit. The three names are in `ITEM_SCOPED_READS` and registered in
+`modifiers/stats.gd`, floor 0.1 like `swing_speed`. A bare gun's clocks are unchanged.
 
 **How to apply:** a new part that should change what a seat allows declares it under the attachment
 block, and the reader is `SimAttachments.fires_from_vehicle`. A new refusal for a seat goes through
