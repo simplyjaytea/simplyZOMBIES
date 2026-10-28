@@ -61,11 +61,12 @@ func _run() -> void:
 	ok = _recovery_after_a_shot_is_per_weapon() and ok
 	ok = _aim_is_a_second_heading_priced_at_a_walk() and ok
 	ok = _furniture_moves_the_aim_and_the_recovery() and ok
+	ok = _item_scoped_clocks_move_the_ladder_and_nothing_else() and ok
 	if not ok:
 		push_error("M2_AIM_FAIL")
 		quit(1)
 		return
-	print("M2_AIM_OK sway heft cone arm recover heading furniture")
+	print("M2_AIM_OK sway heft cone arm recover heading furniture readers")
 	quit(0)
 
 
@@ -266,7 +267,7 @@ func _a_ruined_arm_widens_the_cone_and_an_intact_one_does_not() -> bool:
 				b["arm_right"] = 20.0
 		var r: Dictionary = rw as Dictionary
 		r["state"] = SimRanged.FireState.Steady
-		r["ticksLeft"] = SimRanged._steady_of(r)
+		r["ticksLeft"] = SimRanged._steady_of(w, r)
 		SimRanged._refresh_cone(w, w.player, r)
 		cones[label] = float(r["coneHalf"])
 	var neutral: float = float(cones["neutral"])
@@ -548,4 +549,99 @@ func _refit(id: String, variant: String) -> Dictionary:
 		push_error("FURNITURE: %s refused to begin firing" % variant)
 		return {}
 	rw = w.components.get_component(w.player, "rangedWeapon")
-	return {"raise": int((rw as Dictionary)["ticksLeft"]), "recover": SimRanged._recover_of(rw as Dictionary), "handling": handling}
+	return {"raise": int((rw as Dictionary)["ticksLeft"]), "recover": SimRanged._recover_of(w, rw as Dictionary), "handling": handling}
+
+
+# --- item-scoped clocks (F4, for the affixes follow-up) ------------------------------------------
+
+const CLOCK_ID: String = "item.shotgun.pump"
+
+# A modifier on one item's `steady_ticks`, `recover_ticks` or `reload_ticks` is an affix's move. The
+# lane puts a x2 on each clock in turn and reads the number the ladder actually runs: the moved clock
+# doubles, the other two stay put, the share the reader reports is 2.0, and a sibling gun with no
+# affix reads 1.0. The bare gun is the true negative: all three shares 1.0 and the old clocks.
+func _item_scoped_clocks_move_the_ladder_and_nothing_else() -> bool:
+	var weight: float = float((HEFT[CLOCK_ID] as Dictionary)["weight"])
+	var bare: Dictionary = _fire_clocks("", 1.0)
+	var bare_reload: int = _reload_clock("", 1.0)
+	if bare.is_empty() or bare_reload < 0:
+		return false
+	if int(bare["steady"]) != SimCombat.steady_ticks(weight, 1.0) or int(bare["recover"]) != SimCombat.shot_recover_ticks(weight, 1.0):
+		push_error("READERS: a bare pump runs steady %d and recover %d, want the old %d and %d" % [int(bare["steady"]), int(bare["recover"]), SimCombat.steady_ticks(weight, 1.0), SimCombat.shot_recover_ticks(weight, 1.0)])
+		return false
+	var cases: Dictionary = {"steady_ticks": "steady", "recover_ticks": "recover", "reload_ticks": "reload"}
+	for stat in cases.keys():
+		var key: String = String(cases[stat])
+		var moved: Dictionary = _fire_clocks(String(stat), 2.0)
+		var moved_reload: int = _reload_clock(String(stat), 2.0)
+		if moved.is_empty() or moved_reload < 0:
+			return false
+		var want_moved: int = int(round(float(int(bare[key] if key != "reload" else bare_reload)) * 2.0))
+		var got: int = int(moved[key]) if key != "reload" else moved_reload
+		if got != want_moved:
+			push_error("READERS: a x2 %s on the pump runs %s %d, want %d" % [stat, key, got, want_moved])
+			return false
+		for other in ["steady", "recover"]:
+			if other != key and int(moved[other]) != int(bare[other]):
+				push_error("READERS: a x2 %s moved the %s clock to %d, not %d" % [stat, other, int(moved[other]), int(bare[other])])
+				return false
+		if key != "reload" and moved_reload != bare_reload:
+			push_error("READERS: a x2 %s moved the reload to %d, not %d" % [stat, moved_reload, bare_reload])
+			return false
+	print("READERS OK a bare pump runs steady %d, recover %d, reload %d; a x2 on each clock moves that clock alone on that gun; a sibling with no affix reads 1.0" % [int(bare["steady"]), int(bare["recover"]), bare_reload])
+	return true
+
+
+## Fires one armed pump with a jam-free trigger and reads the steady and recover clocks off the ladder.
+## `stat` is an optional x`value` modifier scoped to the pump. Returns {steady, recover}, or {} on error.
+func _fire_clocks(stat: String, value: float) -> Dictionary:
+	var w: Variant = _world()
+	var rw: Variant = _armed(w, CLOCK_ID)
+	if not rw is Dictionary:
+		return {}
+	var weapon: int = int((rw as Dictionary)["source"])
+	if stat != "":
+		w.modifiers.add({"stat": stat, "op": "mul", "value": value, "source": "gate.fixture"}, weapon)
+	# A sibling gun with no affix reads the plain share: the modifier is scoped to one item.
+	var sibling: int = SimItems.spawn_item(w, CLOCK_ID, {"tier": "scavenged"})
+	if stat != "" and SimItems.steady_share_of(w, sibling) != 1.0:
+		push_error("READERS: a modifier scoped to one pump moved a sibling pump's share")
+		return {}
+	w.events.drain()
+	rw = w.components.get_component(w.player, "rangedWeapon")
+	# A jam is a draw, not a clock, and this lane measures clocks.
+	(rw as Dictionary)["jams"] = false
+	if not SimRanged.try_begin_fire(w, w.player):
+		push_error("READERS: the pump refused to begin firing")
+		return {}
+	var steady: int = -1
+	var recover: int = -1
+	for _i in range(120):
+		w.step()
+		var r: Dictionary = w.components.get_component(w.player, "rangedWeapon") as Dictionary
+		var st: int = int(r["state"])
+		if st == SimRanged.FireState.Steady and steady < 0:
+			steady = int(r["ticksLeft"])
+		if st == SimRanged.FireState.Recover:
+			recover = int(r["ticksLeft"])
+			break
+	if steady < 0 or recover < 0:
+		push_error("READERS: the pump never reached Steady and Recover in 120 ticks")
+		return {}
+	return {"steady": steady, "recover": recover}
+
+
+## The reload clock the ladder runs for a pump with `stat` x`value` on it, or -1 on error.
+func _reload_clock(stat: String, value: float) -> int:
+	var w: Variant = _world()
+	var rw: Variant = _armed(w, CLOCK_ID)
+	if not rw is Dictionary:
+		return -1
+	var weapon: int = int((rw as Dictionary)["source"])
+	if stat != "":
+		w.modifiers.add({"stat": stat, "op": "mul", "value": value, "source": "gate.fixture"}, weapon)
+	w.events.drain()
+	if not SimRanged.try_begin_reload(w, w.player):
+		push_error("READERS: the pump refused to begin a reload")
+		return -1
+	return int((w.components.get_component(w.player, "rangedWeapon") as Dictionary)["ticksLeft"])

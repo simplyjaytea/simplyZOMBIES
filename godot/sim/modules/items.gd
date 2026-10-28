@@ -183,6 +183,35 @@ static func condition_loss_of(world: Variant, item: int) -> float:
 	return scoped / unscoped if unscoped > 0.0 else scoped
 
 
+# The gun's own share of the three clocks the ladder runs on: how long it takes to settle on the aim
+# (`steady_ticks`), to come back down after a shot (`recover_ticks`) and to reload (`reload_ticks`).
+# Each is the same division as `noise_emission_of`, and ranged.gd multiplies its clock by it on every
+# read rather than caching it on the profile, so an affix that moves one takes effect on the next
+# rung without a refit. A bare gun reads exactly 1.0 on all three, so every clock is unchanged.
+static func steady_share_of(world: Variant, item: int) -> float:
+	if item < 0 or world.modifiers == null or not (world.modifiers as Object).has_method("resolve"):
+		return 1.0
+	var unscoped: float = float(world.modifiers.call("resolve", "steady_ticks"))
+	var scoped: float = float(world.modifiers.call("resolve", "steady_ticks", item))
+	return scoped / unscoped if unscoped > 0.0 else scoped
+
+
+static func recover_share_of(world: Variant, item: int) -> float:
+	if item < 0 or world.modifiers == null or not (world.modifiers as Object).has_method("resolve"):
+		return 1.0
+	var unscoped: float = float(world.modifiers.call("resolve", "recover_ticks"))
+	var scoped: float = float(world.modifiers.call("resolve", "recover_ticks", item))
+	return scoped / unscoped if unscoped > 0.0 else scoped
+
+
+static func reload_share_of(world: Variant, item: int) -> float:
+	if item < 0 or world.modifiers == null or not (world.modifiers as Object).has_method("resolve"):
+		return 1.0
+	var unscoped: float = float(world.modifiers.call("resolve", "reload_ticks"))
+	var scoped: float = float(world.modifiers.call("resolve", "reload_ticks", item))
+	return scoped / unscoped if unscoped > 0.0 else scoped
+
+
 # The gun's own share of `ranged_accuracy`: the same division as `noise_emission_of`. The shooter's
 # accuracy is resolved on the entity (`ranged.gd:_refresh_cone`), so a Trued barrel on the bench
 # would otherwise move nothing; the cone multiplies this in beside the person's own value. A
@@ -203,6 +232,7 @@ static func accuracy_of(world: Variant, item: int) -> float:
 const ITEM_SCOPED_READS: Array[String] = [
 	"melee_damage", "melee_reach", "melee_stagger", "swing_recovery", "swing_speed", "swing_stamina",
 	"condition_loss", "noise_emission", "ranged_accuracy", "repair_cost",
+	"steady_ticks", "recover_ticks", "reload_ticks",
 ]
 
 
