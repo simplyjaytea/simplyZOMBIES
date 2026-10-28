@@ -461,19 +461,15 @@ balance record and says so in its record; `survivors_end >= 1` is never the leve
   cross-reference resolves.
 - **Carried weight loudens footsteps.** Weight stays simulated and never printed; footstep noise
   is how it is supposed to read.
-- **The five ranged affixes docs/10 names.** Trued, Ported, Chambered, Blued and Heavy-barrelled.
-  Six melee prefixes ship and no ranged prefix does, against docs/10 rule 4's "melee and ranged
-  get equal item depth" — but this is not the data edit it looks like: of the stats they would
-  want, `noise_emission`, `condition_loss` and `repair_cost` are declared in
-  `sim/modifiers/stats.gd` and resolved by nothing anywhere, so authoring the affixes first would
-  ship five dead sockets. The readers come first, then the content. **Measured by the named-items
-  slice, 2026-09-12, and it is worse than this entry said:** affix modifiers are scoped to the
-  *item*, but `noise_emission`, `condition_loss` and `repair_cost` resolve against nothing at all
-  while `ranged_accuracy` resolves on the *entity* — so of the four suffixes whose `appliesTo`
-  already includes `weapon.ranged` (`quiet_hand`, `long_nights`, `salvage`, `ruin`), **not one moves
-  a stat that is read for a ranged weapon.** The pool is not merely thin, it is inert. That is why
-  the two named ranged items ship with empty fixed rolls and their character entirely in their base
-  numbers, which is honest and is also the measure of how much reader work this piece needs.
+- **The ranged affixes docs/10 names, partly landed (2026-10-28).** Trued (`ranged_accuracy`) and
+  Blued (`condition_loss`) ship in `godot/content/affixes/ranged_prefixes.json`. Trued reads through
+  the gun's own share of accuracy (`SimItems.accuracy_of`, folded into the cone at
+  `ranged.gd:_refresh_cone`); Blued through `condition_loss_of`, which already existed. Gate:
+  `godot:m2:attach` RANGED. **Still open, and blocked on stats, not readers:** Ported (less recoil,
+  more `noise_emission`), Chambered (reload time), Heavy-barrelled (weight and steady time), and
+  Blued's "resists wet" clause. No stat declared in `sim/modifiers/stats.gd` carries recoil, reload,
+  weight or wet resistance, and adding one is a new stat, which is the owner's or the coordinator's
+  call. Ported's noise half alone would be a pure drawback, so it waits for its recoil half.
 - **Armour attachment slots** — **moved into the alpha-roster group below** (2026-09-12), where
   it is slice 12. Named here only so the cross-reference resolves.
 
@@ -2749,6 +2745,16 @@ not a to-do list:
   docs/30's "Melee wear, 2026-10-27". The ten-seed table was not re-run; owed by the post-arc
   re-baseline.
 
+- **Two ranged affixes, 2026-10-28.** Trued and Blued are the first ranged prefixes that a stat
+  carries, in `godot/content/affixes/ranged_prefixes.json`; a ranged roll can now draw them. The
+  item's own accuracy is `SimItems.accuracy_of`, the division `noise_emission_of` already does, read
+  into the cone at `ranged.gd:_refresh_cone` beside the shooter's `ranged_accuracy`, so a bare gun's
+  cone is unchanged to the digit. `SimItems.ITEM_SCOPED_READS` lists the stats an item's own affix
+  can move, and the RANGED lane of `godot:m2:attach` refuses a ranged prefix on any other stat. Gate:
+  `godot:m2:attach` RANGED (Trued's cone at tiers zero and two over the bare 0.55, the barrel's
+  accuracy, its silence; Blued's condition loss at tier two and one shot's wear against the plain
+  pistol). Not measured on the ten-seed table; the FAST tier of `godot:m2:balance` judges the new
+  roll pool in the chain. Open: the three named above in "What's left".
 - **The barrel governs, 2026-10-27.** A barrel declares three words, `length`, `quality` and
   `material`, and every number it contributes is their product: muzzle speed, noise, reach, cone,
   handling and wear (quality and material both multiply the wear; the match barrel wears 1.4 as a
