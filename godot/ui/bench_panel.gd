@@ -74,6 +74,8 @@ const PLATE_TEXT_TOP: float = 16.0
 # The amber corner's key: a small well wearing the corner, and its sentence beside it.
 const LEGEND: float = 24.0
 const LEGEND_SAYS: String = "something you carry fits"
+# Between the key's well and its sentence.
+const LEGEND_TEXT_GAP: float = 12.0
 # The make group's label, over the first row of parts the bench can make for the picked slot.
 const MAKE_SAYS: String = "make one"
 # Over a locked part's picture: the wash the window wears, lighter, so the part still shows.
@@ -325,13 +327,26 @@ func layout() -> Dictionary:
 		var x: float = left + floorf(lead / PX) * PX + float(i % 3) * (PLATE.x + PLATE_GAP.x)
 		plates[String(rest[i])] = Rect2(Vector2(x, ry2.x), PLATE)
 
-	# The key to the amber corner, under the assembly on its left, when the plates leave room.
-	var lowest: float = picture.end.y
-	for r_v in plates.values():
-		lowest = maxf(lowest, (r_v as Rect2).end.y)
-	var legend_at: Vector2 = Vector2(left, floorf((bottom - LEGEND) / PX) * PX)
-	if legend_at.y < lowest + PLATE_GAP.y:
-		legend_at = Vector2(-1.0, -1.0)
+	# The key to the amber corner. Where the weapon has a top row (a sight or an optic over the
+	# picture) the key takes that row's free left cell, level with the sight's plate, where a
+	# diagram's key is read first; with no top row it sits under the assembly on its left, when the
+	# plates leave room. Which rows the weapon has decides it, never the window, so one weapon keeps
+	# its key in one place at both sizes. Under the assembly was the only place until a firearm's
+	# spring, sear and extractor filled a second row beneath and left no room there at 1280x720.
+	var legend_w: float = LEGEND + LEGEND_TEXT_GAP + ceilf(Chrome.font().get_string_size(LEGEND_SAYS, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE).x)
+	var legend_at: Vector2 = Vector2(-1.0, -1.0)
+	# No slot anchors at (0, 0) today; the test keeps the key off a plate if one ever does.
+	if has_top and not anchored.values().has(Vector2i(0, 0)) and legend_w <= PLATE.x:
+		var top_row: Vector2 = row_y[0] as Vector2
+		legend_at = Vector2(left, top_row.x + floorf((top_row.y - LEGEND) / 2.0 / PX) * PX)
+	else:
+		var lowest: float = picture.end.y
+		for r_v in plates.values():
+			lowest = maxf(lowest, (r_v as Rect2).end.y)
+		var under: Vector2 = Vector2(left, floorf((bottom - LEGEND) / PX) * PX)
+		if under.y >= lowest + PLATE_GAP.y:
+			legend_at = under
+	var legend: Rect2 = Rect2(legend_at, Vector2(legend_w, LEGEND)) if legend_at.x >= 0.0 else Rect2()
 
 	# The candidates column: the slot's tape, what is in it now, then what fits it.
 	var tape_at: Vector2 = Vector2(col_x, top)
@@ -384,7 +399,7 @@ func layout() -> Dictionary:
 	return {
 		"frame": frame, "picture": picture, "plates": plates, "tape_at": tape_at, "current": current,
 		"fits_label_y": fits_label_y, "offers": offers, "more_above": more_above, "more_below": more_below, "make_label_y": make_label_y,
-		"legend_at": legend_at, "foot_y": foot_y, "buttons": buttons, "esc_at": esc_at, "enter_x": bx, "col_x": col_x, "col_w": col_w,
+		"legend_at": legend_at, "legend": legend, "foot_y": foot_y, "buttons": buttons, "esc_at": esc_at, "enter_x": bx, "col_x": col_x, "col_w": col_w,
 	}
 
 
@@ -505,7 +520,7 @@ func _draw_legend(lay: Dictionary) -> void:
 	Locker.well(self, box, 1.0)
 	_draw_ear(box)
 	var base_y: float = floorf(at.y + (LEGEND - Chrome.line_height(SMALL_SIZE)) / 2.0 + Chrome.ascent(SMALL_SIZE))
-	_say(Vector2(box.end.x + 12.0, base_y), LEGEND_SAYS, SMALL_SIZE, Locker.TEXT_DIM)
+	_say(Vector2(box.end.x + LEGEND_TEXT_GAP, base_y), LEGEND_SAYS, SMALL_SIZE, Locker.TEXT_DIM)
 
 
 func _draw_ear(r: Rect2) -> void:

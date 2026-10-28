@@ -450,8 +450,10 @@ static func assembly_condition_factor(world: Variant, item: int) -> float:
 # are CONDITION_BANDS, so this cannot drift from the words the inventory screen shows for the same
 # item -- a weapon the player is told is "failing" is the one that jams often.
 #
-# A broken firearm reads 1.0, but nothing reaches it: apply_wear unequips at zero condition. It is
-# here so the table is total rather than relying on that ordering.
+# A broken firearm reads 1.0, but no trigger pull reaches it: apply_wear unequips a weapon at zero
+# condition, and an internal held at zero by `staysWhenWornOut` blocks the weapon before a pull
+# (SimAttachments.blocked_reason, `broken:<slot>`). It is here so the table is total rather than
+# relying on either ordering.
 const JAM_CHANCE_BY_BAND: Dictionary = {
 	"sound": 0.0,
 	"worn": 0.02,
