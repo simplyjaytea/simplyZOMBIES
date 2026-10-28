@@ -350,7 +350,9 @@ func layout() -> Dictionary:
 
 	# The candidates column: the slot's tape, what is in it now, then what fits it.
 	var tape_at: Vector2 = Vector2(col_x, top)
-	var current: Rect2 = Rect2(Vector2(col_x, top + Locker.TAPE_H + 12.0), Vector2(col_w, THUMB + 16.0))
+	# The card grows a line only when the picked slot's part is a barrel with words to say.
+	var current_h: float = THUMB + 16.0 + (LINE if not String(_row(_pick).get("barrel", "")).is_empty() else 0.0)
+	var current: Rect2 = Rect2(Vector2(col_x, top + Locker.TAPE_H + 12.0), Vector2(col_w, current_h))
 	var fits_label_y: float = current.end.y + 20.0
 	var list_top: float = fits_label_y + LINE
 	var offers: Array = []
@@ -407,7 +409,9 @@ func _offer_height(offer: Dictionary) -> float:
 	if _is_make(offer):
 		return OFFER_THUMB + 16.0
 	var changes: int = (offer.get("changes", []) as Array).size()
-	return maxf(OFFER_THUMB + 16.0, 12.0 + LINE + float(changes) * LINE + 10.0)
+	# A barrel's words take a line under the name, before the changes.
+	var words: float = 0.0 if String(offer.get("barrel", "")).is_empty() else 1.0
+	return maxf(OFFER_THUMB + 16.0, 12.0 + LINE + words * LINE + float(changes) * LINE + 10.0)
 
 
 static func _keycap_height() -> float:
@@ -647,6 +651,9 @@ func _draw_candidates(lay: Dictionary, font: Font) -> void:
 		_say(Vector2(tx, line2), UiText.fit(font, String(row.get("name", "")), NAME_SIZE, room - cond_w - 12.0), NAME_SIZE, Locker.TEXT, "name")
 		if not cond.is_empty():
 			_say(Vector2(cur.end.x - PX * 4.0 - cond_w, line2), cond, SMALL_SIZE, _band_colour(cond))
+		var words: String = String(row.get("barrel", ""))
+		if not words.is_empty():
+			_say(Vector2(tx, _baseline(cur.position.y + 36.0 + LINE, SMALL_SIZE)), UiText.fit(font, words, SMALL_SIZE, room), SMALL_SIZE, Locker.TEXT)
 	else:
 		Locker.rim(self, thumb, Locker.WELL_LIP)
 		_say(Vector2(tx, _baseline(cur.position.y + 36.0, NAME_SIZE)), "nothing", NAME_SIZE, Locker.TEXT_DIM)
@@ -696,6 +703,10 @@ func _draw_offer(offer: Dictionary, r: Rect2, focused: bool, font: Font) -> void
 	if not cond.is_empty():
 		_say(Vector2(r.end.x - PX * 4.0 - cond_w, line1), cond, SMALL_SIZE, _band_colour(cond))
 	var cy: float = r.position.y + 10.0 + LINE + 4.0
+	var words: String = String(offer.get("barrel", ""))
+	if not words.is_empty():
+		_say(Vector2(tx, _baseline(cy, SMALL_SIZE)), UiText.fit(font, words, SMALL_SIZE, r.end.x - PX * 4.0 - tx), SMALL_SIZE, Locker.TEXT)
+		cy += LINE
 	for change_v in offer.get("changes", []) as Array:
 		var change: Dictionary = change_v as Dictionary
 		var word: String = String(change.get("change", ""))

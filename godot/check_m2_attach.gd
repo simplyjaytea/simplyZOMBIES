@@ -109,9 +109,10 @@ func _run() -> void:
 	ok = _quality_moves_the_cone_it_names() and ok
 	ok = _material_moves_the_wear_it_names() and ok
 	ok = _a_slow_round_loses_damage_past_its_falloff() and ok
+	ok = _barrel_words_are_said_in_words() and ok
 	ok = _every_firearm_is_built_with_its_internals() and ok
 	if ok:
-		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair required headless override mismatch names light armor swing wear salvage family applies plausible improvise cut stud lash edge hone connect stream barrel internals")
+		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair required headless override mismatch names light armor swing wear salvage family applies plausible improvise cut stud lash edge hone connect stream barrel barrel_words internals")
 		quit(0)
 	else:
 		push_error("M2_ATTACH_FAIL")
@@ -3122,6 +3123,123 @@ func _a_slow_round_loses_damage_past_its_falloff() -> bool:
 		return false
 	print("  BARREL FALLOFF OK at %.2f m a cut-down round carries %.3f of the standard round's damage; full speed loses nothing at any range" % [distance, short_damage / std_damage])
 	return true
+
+
+# --- BARREL WORDS ----------------------------------------------------------------------------
+
+# A barrel's three words as the screen says them (sim/barrel.gd `words_of`, drawn by the bench and
+# by the inspect pane). The tables are held both ways: every key of LENGTH, QUALITY and MATERIAL_WEAR
+# has a screen word, and no screen word is for a key the shot does not read. The words are then
+# checked against the six shipped barrels, which say what they are with no digit; a declaration the
+# bench refuses, or a part with no barrel, says nothing; a barrel of other words says other words.
+# Last, the bench carries the words where the player chooses: a fitted barrel's row and each barrel
+# in the pack, and a magazine offer carries none. The dead-socket reader is the bench, which asks
+# `words_of` rather than keeping its own copy.
+func _barrel_words_are_said_in_words() -> bool:
+	var lane: String = "BARREL WORDS"
+	var tables: Dictionary = {"length": SimBarrel.LENGTH, "quality": SimBarrel.QUALITY, "material": SimBarrel.MATERIAL_WEAR}
+	for key in tables.keys():
+		var table: Dictionary = tables[key] as Dictionary
+		var words: Dictionary = SimBarrel.WORD_OF[key] as Dictionary
+		for k in table.keys():
+			if not words.has(k):
+				push_error("%s: the %s '%s' has no word on the screen" % [lane, key, k])
+				return false
+		for k in words.keys():
+			if not table.has(k):
+				push_error("%s: the screen word for %s '%s' names no key the shot reads" % [lane, key, k])
+				return false
+	for key in SimBarrel.WORD_OF.keys():
+		for word in (SimBarrel.WORD_OF[key] as Dictionary).values():
+			if String(word).is_empty() or _has_digit(String(word)):
+				push_error("%s: the %s word '%s' is empty or carries a digit" % [lane, key, String(word)])
+				return false
+
+	var w: Variant = _world()
+	var want: Dictionary = {
+		BARREL_STD: "plain",
+		BARREL_RIMFIRE: "plain",
+		BARREL_45: "plain",
+		BARREL_MATCH: "match",
+		BARREL_SHORT: "short",
+		BARREL_LONG: "long",
+	}
+	for id in want.keys():
+		var spec: Variant = SimAttachments.spec_of(w, _spawn(w, id))
+		if not spec is Dictionary:
+			push_error("%s: %s has no attachment spec" % [lane, id])
+			return false
+		var got: String = SimBarrel.words_of(spec as Dictionary)
+		if got != String(want[id]):
+			push_error("%s: %s says '%s', not '%s'" % [lane, id, got, String(want[id])])
+			return false
+	# TP: each departure said, in length, quality, material order. A barrel that departs nowhere says
+	# "plain" rather than nothing, so a plain barrel and a refused one never read alike.
+	if SimBarrel.words_of({"barrel": {"length": "stub", "quality": "rough", "material": "mild"}}) != "stub, rough, mild":
+		push_error("%s: a stub, rough, mild barrel did not say its three departures in order" % lane)
+		return false
+	if SimBarrel.words_of({"barrel": {"length": "full", "quality": "service", "material": "steel"}}) != "plain":
+		push_error("%s: the identity barrel did not say plain" % lane)
+		return false
+	# TN: a barrel the bench refuses says nothing, a typo never reads as a plain barrel, a part with
+	# no barrel says nothing, and a barrel that is not a dictionary says nothing.
+	for bad in [
+		{"barrel": {"length": "lenght", "quality": "service", "material": "steel"}},
+		{"barrel": {"length": "full", "quality": "service", "material": "brass"}},
+		{"barrel": "steel"},
+		{"fits": ["muzzle"]},
+	]:
+		if SimBarrel.words_of(bad) != "":
+			push_error("%s: %s said '%s', not nothing" % [lane, str(bad), SimBarrel.words_of(bad)])
+			return false
+
+	# The bench: a fitted barrel's row carries its words, a barrel in the pack is offered with its
+	# words, and a magazine offer carries none.
+	var bw: Variant = _world()
+	var pistol: int = _armed_pistol(bw)
+	var fitted: int = SimAttachments.in_slot(bw, pistol, "barrel")
+	var match_item: int = _spawn(bw, BARREL_MATCH)
+	var spare: int = _spawn(bw, EXT_MAG)
+	SimInventory.stow(bw, bw.player, match_item)
+	SimInventory.stow(bw, bw.player, spare)
+	# Offers are only made where the person can work, so a bench stands on the player.
+	var here: Dictionary = bw.components.get_component(bw.player, "position") as Dictionary
+	SimGunsmith.make_bench(bw, float(here["x"]), float(here["y"]))
+	var view: Dictionary = SimGunsmith.bench_view(bw, bw.player, pistol)
+	var fitted_words: String = SimBarrel.words_of(SimAttachments.spec_of(bw, fitted) as Dictionary)
+	var barrel_row: Dictionary = {}
+	for row_v in view.get("slots", []) as Array:
+		if String((row_v as Dictionary).get("slot", "")) == "barrel":
+			barrel_row = row_v as Dictionary
+	if fitted_words.is_empty() or String(barrel_row.get("barrel", "")) != fitted_words:
+		push_error("%s: the fitted barrel's row says '%s', not its words '%s'" % [lane, String(barrel_row.get("barrel", "")), fitted_words])
+		return false
+	var offered_match: bool = false
+	var offered_spare: bool = false
+	for offer_v in view.get("offers", []) as Array:
+		var offer: Dictionary = offer_v as Dictionary
+		if int(offer.get("item", -1)) == match_item:
+			offered_match = true
+			if String(offer.get("barrel", "")) != "match":
+				push_error("%s: the match barrel in the pack is offered as '%s'" % [lane, String(offer.get("barrel", ""))])
+				return false
+		if int(offer.get("item", -1)) == spare:
+			offered_spare = true
+			if String(offer.get("barrel", "")) != "":
+				push_error("%s: a magazine offer carries barrel words '%s'" % [lane, String(offer.get("barrel", ""))])
+				return false
+	if not offered_match or not offered_spare:
+		push_error("%s: the match barrel (%s) or the spare magazine (%s) is not offered at the bench" % [lane, offered_match, offered_spare])
+		return false
+	print("  BARREL WORDS OK the six shipped barrels say plain, match, short or long as words with no digit; a typo or a non-barrel says nothing; the bench carries a fitted barrel's words and the one in the pack, and a magazine carries none")
+	return true
+
+
+func _has_digit(text: String) -> bool:
+	for i in text.length():
+		if "0123456789".find(text[i]) >= 0:
+			return true
+	return false
 
 
 # --- INTERNALS --------------------------------------------------------------------------------
