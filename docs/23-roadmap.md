@@ -458,17 +458,12 @@ balance record and says so in its record; `survivors_end >= 1` is never the leve
   cross-reference resolves.
 - **Carried weight loudens footsteps.** Weight stays simulated and never printed; footstep noise
   is how it is supposed to read.
-- **The ranged affixes docs/10 names, partly landed (2026-10-28).** Trued (`ranged_accuracy`) and
-  Blued (`condition_loss`) ship in `godot/content/affixes/ranged_prefixes.json`. Trued reads through
-  the gun's own share of accuracy (`SimItems.accuracy_of`, folded into the cone at
-  `ranged.gd:_refresh_cone`); Blued through `condition_loss_of`, which already existed. Gate:
-  `godot:m2:attach` RANGED. **Still open, and blocked on stats, not readers:** Ported (less recoil,
-  more `noise_emission`), Chambered (reload time), Heavy-barrelled (weight and steady time), and
-  Blued's "resists wet" clause. No stat declared in `sim/modifiers/stats.gd` carries recoil, reload,
-  weight or wet resistance. F4 (furniture) adds recoil recovery and steady time; a second PR after F4
-  merges reads those for Ported and Heavy-barrelled, plus a reload-time stat if F4 did not add one.
-  Blued's "resists wet" stays open with no stat. Ported's noise half alone would be a pure drawback,
-  so it waits for its recoil half.
+- **The ranged affixes docs/10 names, partly landed.** Trued and Blued shipped in #250; Ported,
+  Chambered and Heavy-barrelled ship in a second PR on F4's clocks (`recover_ticks`, `reload_ticks`,
+  `steady_ticks`, and the item-scoped `noise_emission` and `ranged_accuracy`), gated by `godot:m2:attach`
+  RANGED. **Still open, with no stat:** Heavy-barrelled's weight half (the barrel's heft is content on
+  the profile, not a stat an affix can move; a stat is the owner's or the coordinator's call), and
+  Blued's "resists wet" clause.
 - **Armour attachment slots** — **moved into the alpha-roster group below** (2026-09-12), where
   it is slice 12. Named here only so the cross-reference resolves.
 
@@ -2754,6 +2749,14 @@ not a to-do list:
   accuracy, its silence; Blued's condition loss at tier two and one shot's wear against the plain
   pistol). Not measured on the ten-seed table; the FAST tier of `godot:m2:balance` judges the new
   roll pool in the chain. Open: the three named above in "What's left".
+- **Three more ranged affixes, 2026-10-28.** Ported (`recover_ticks` mul, `noise_emission` mul),
+  Chambered (`reload_ticks` mul) and Heavy-barrelled (`ranged_accuracy` mul, `steady_ticks` mul) join
+  `godot/content/affixes/ranged_prefixes.json`, each reading its clock through F4's item-scoped share,
+  live on the next rung. Gate: `godot:m2:attach` RANGED, the clocks against the base's rounded clock
+  (Ported's recovery and noise, Chambered's reload, Heavy-barrelled's accuracy and settle). The bare
+  clocks are small integers (4 settle, 8 recovery, 24 reload), so a tier moves a rung by a tick at
+  the least; the ten-seed table judges whether that reads. Open: Heavy-barrelled's weight half and
+  Blued's wet clause, each with no stat.
 - **The barrel governs, 2026-10-27.** A barrel declares three words, `length`, `quality` and
   `material`, and every number it contributes is their product: muzzle speed, noise, reach, cone,
   handling and wear (quality and material both multiply the wear; the match barrel wears 1.4 as a

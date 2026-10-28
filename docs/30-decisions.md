@@ -7119,3 +7119,35 @@ which is a no-op for a bare gun.
 
 **How to apply:** a new affix on a stat that is not in `ITEM_SCOPED_READS` is refused by the gate
 until a reader that reads it through the item exists and is gated to move.
+
+## The oracle stat registry mirrors content stat ids, 2026-10-28
+
+The frozen oracle's stat registry (`src/sim/modifiers/stats.ts`) takes the stat ids the shared content
+can name, and nothing else. The content JSON is read by both runtimes, so the oracle's Ajv check has to
+know every id a content file uses, or the oracle goes red on a content edit that is correct for Godot.
+Call taken by the coordinator, 2026-10-28: register the ids, with their base and min, and no behaviour.
+The sim logic is still never ported into the oracle. The three clock ids (`steady_ticks`,
+`recover_ticks`, `reload_ticks`) are the first mirrored this way. The next affix PR that names a new
+stat id registers it the same way.
+
+## The ranged affixes, the rest of them, 2026-10-28
+
+Ported, Chambered and Heavy-barrelled ship on F4's stats, per the coordinator's split. Calls taken:
+
+- **Clocks, not stats of the gun.** Ported moves `recover_ticks` (the recovery after a shot) and
+  `noise_emission`; Chambered moves `reload_ticks`; Heavy-barrelled moves `ranged_accuracy` and
+  `steady_ticks`. Each is an item-scoped share read live by `ranged.gd`, so no rung is cached.
+- **Double-edged where the docs give a cost.** Ported's faster recovery comes with more noise.
+  Heavy-barrelled's accuracy comes with a longer settle. Chambered has no drawback in docs/10, and none
+  is invented.
+- **Weight is not a stat.** Heavy-barrelled's "more weight" would need an affix to move the profile's
+  `weight`, which no affix path does. It is left out, not faked, and docs/23 names it.
+- **Rounding is the rung's own.** At 4 settle ticks and 8 recovery ticks, a tier moves a rung by a tick.
+  That is what the clock is; the balance table is where its reading is judged.
+
+**Gate fixes carried from #250's review.** `_carrying` puts a prefix id in the prefixes list, as a roll
+does. The refusal lane now tests `mood`, a declared stat no reader resolves through an item, instead
+of the undeclared `reload_speed`.
+
+**How to apply:** a new ranged affix moves a clock or a share that F4's readers resolve through the item.
+A stat outside `ITEM_SCOPED_READS` is refused until a reader that moves it through the item is gated.

@@ -20,5 +20,74 @@
       { "weight": 40, "modifiers": [{ "stat": "condition_loss", "op": "mul", "value": 0.55 }] },
       { "weight": 10, "modifiers": [{ "stat": "condition_loss", "op": "mul", "value": 0.4 }] }
     ]
+  },
+  {
+    "id": "affix.prefix.ported",
+    "name": "Ported",
+    "slot": "prefix",
+    "appliesTo": ["weapon.ranged"],
+    "tiers": [
+      {
+        "weight": 100,
+        "modifiers": [
+          { "stat": "recover_ticks", "op": "mul", "value": 0.85 },
+          { "stat": "noise_emission", "op": "mul", "value": 1.15 }
+        ]
+      },
+      {
+        "weight": 40,
+        "modifiers": [
+          { "stat": "recover_ticks", "op": "mul", "value": 0.7 },
+          { "stat": "noise_emission", "op": "mul", "value": 1.3 }
+        ]
+      },
+      {
+        "weight": 10,
+        "modifiers": [
+          { "stat": "recover_ticks", "op": "mul", "value": 0.55 },
+          { "stat": "noise_emission", "op": "mul", "value": 1.5 }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "affix.prefix.chambered",
+    "name": "Chambered",
+    "slot": "prefix",
+    "appliesTo": ["weapon.ranged"],
+    "tiers": [
+      { "weight": 100, "modifiers": [{ "stat": "reload_ticks", "op": "mul", "value": 0.8 }] },
+      { "weight": 40, "modifiers": [{ "stat": "reload_ticks", "op": "mul", "value": 0.65 }] },
+      { "weight": 10, "modifiers": [{ "stat": "reload_ticks", "op": "mul", "value": 0.5 }] }
+    ]
+  },
+  {
+    "id": "affix.prefix.heavy_barrelled",
+    "name": "Heavy-barrelled",
+    "slot": "prefix",
+    "appliesTo": ["weapon.ranged"],
+    "tiers": [
+      {
+        "weight": 100,
+        "modifiers": [
+          { "stat": "ranged_accuracy", "op": "mul", "value": 1.08 },
+          { "stat": "steady_ticks", "op": "mul", "value": 1.15 }
+        ]
+      },
+      {
+        "weight": 40,
+        "modifiers": [
+          { "stat": "ranged_accuracy", "op": "mul", "value": 1.15 },
+          { "stat": "steady_ticks", "op": "mul", "value": 1.3 }
+        ]
+      },
+      {
+        "weight": 10,
+        "modifiers": [
+          { "stat": "ranged_accuracy", "op": "mul", "value": 1.22 },
+          { "stat": "steady_ticks", "op": "mul", "value": 1.45 }
+        ]
+      }
+    ]
   }
 ]
