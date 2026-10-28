@@ -125,6 +125,7 @@ const SimFortify = preload("res://sim/modules/fortify.gd")
 const ReviewScenes = preload("res://review/scenes.gd")
 const CheckInventory = preload("res://check_inventory.gd")
 const BenchPanel = preload("res://ui/bench_panel.gd")
+const Locker = preload("res://ui/locker.gd")
 
 # The frame loop's own delta. main.gd's TICK_SECONDS, named again here rather than read off the
 # scene, so a gate that claims "one frame, one tick" is not quoting the thing it is judging.
@@ -3678,6 +3679,19 @@ func _the_bench_opens_fits_and_closes() -> bool:
 		if not corner_keyed or (lay["legend_at"] as Vector2).x < 0.0:
 			push_error("%s: parts that fit are carried, but the amber corner has no key at %s" % [lane, str(dims)])
 			ok = false
+		# Drawn is not enough: the key sits inside the frame and on nothing else -- no plate, a
+		# "needed" tape's reach over a plate's top edge, the picture, the candidates column or the
+		# footer. The rifle's internals once pushed it off the bottom; a move that lands it on a plate
+		# is the same fault. The judge is proved on a rect laid over the sight's plate first.
+		var key_rect: Rect2 = lay.get("legend", Rect2()) as Rect2
+		var sight_plate: Rect2 = (lay["plates"] as Dictionary).get("optic", Rect2()) as Rect2
+		if _bench_key_clash(lay, Rect2(sight_plate.position + Vector2(8, 8), Vector2(64, 24))).is_empty():
+			push_error("%s: the key's judge passes a key laid over the sight's plate" % lane)
+			ok = false
+		var clash: String = _bench_key_clash(lay, key_rect)
+		if key_rect.size == Vector2.ZERO or not clash.is_empty():
+			push_error("%s: the amber corner's key %s is not clear at %s: %s" % [lane, str(key_rect), str(dims), clash if not clash.is_empty() else "it has no size"])
+			ok = false
 		# At the bench nothing is locked: the "bench" tape is a by-hand mark (the negative for the
 		# by-hand half after this loop).
 		if not (panel.call("locked") as Array).is_empty():
@@ -3765,6 +3779,27 @@ func _the_bench_opens_fits_and_closes() -> bool:
 # gates sent until now has a key). On the way: the column lists more parts than it has room for at
 # 1280x720 and every drawn row and the make group's label stay inside the frame above the footer;
 # a row that cannot be made lights no button and Enter on it sends nothing.
+# What the bench key's rect `r` lands on, in words, or "" when it sits clear inside the frame. A
+# plate counts with the half of a "needed" or "bench" tape that hangs over its top edge.
+func _bench_key_clash(lay: Dictionary, r: Rect2) -> String:
+	var frame: Rect2 = lay["frame"] as Rect2
+	if not frame.encloses(r):
+		return "outside the frame %s" % str(frame)
+	if r.end.y > float(lay["foot_y"]):
+		return "over the footer"
+	if r.end.x > float(lay["col_x"]):
+		return "over the candidates column"
+	if r.intersects(lay["picture"] as Rect2):
+		return "over the picture"
+	var plates: Dictionary = lay["plates"] as Dictionary
+	for slot_v in plates.keys():
+		var plate: Rect2 = plates[slot_v] as Rect2
+		var reach: Rect2 = Rect2(plate.position - Vector2(0.0, Locker.TAPE_H / 2.0), plate.size + Vector2(0.0, Locker.TAPE_H / 2.0))
+		if r.intersects(reach):
+			return "over the %s plate" % String(slot_v)
+	return ""
+
+
 func _bench_makes_a_part(main: Node, world: Variant, panel: Control) -> bool:
 	var lane: String = "BENCH"
 	var me: int = int(world.player)
