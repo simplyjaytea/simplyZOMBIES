@@ -508,13 +508,15 @@ static func _carries_base(world: Variant, actor: int, base_id: String) -> bool:
 # lose every round in it. On the item it rides the item: holstered, stowed, dropped, looted off a
 # dead raider, saved. It is the item's own component, so it is still not a `{weapon: round}` side
 # table, which is what docs/23 warned against. A fixture's profile with no item behind it keeps the
-# same two keys on the profile itself; `_record` is the one place that decides which.
+# same keys on the profile itself; `_record` is the one place that decides which.
 #
-# Shape: `loaded {rounds: Array[String], choice: String}`. `rounds` holds round base ids in firing
-# order, the next shot first; `choice` is a round base id or "". A save from before this slice has
-# no `loaded` on any item and reads as an empty magazine and no choice: the first pull reloads from
-# the pack, which holds every round the old counter only pretended to (no SAVE_VERSION bump). The
-# live `mag` on `rangedWeapon` is kept equal to the record's size for the readers that count it.
+# Shape: `loaded {rounds: Array[String], tiers: Array[String], choice: String}`. `rounds` holds
+# round base ids in firing order, the next shot first; `tiers` the tier each went in at, in step,
+# so a round a reload puts back comes out as it went in; `choice` is a round base id or "". A save
+# from before this slice has no `loaded` on any item and reads as an empty magazine and no choice:
+# the first pull reloads from the pack, which holds every round the old counter only pretended to
+# (no SAVE_VERSION bump). A record with no `tiers` reads every round as scavenged. The live `mag`
+# on `rangedWeapon` is kept equal to the record's size for the readers that count it.
 const LOAD: String = "loaded"
 
 
@@ -642,40 +644,83 @@ static func planned_load(world: Variant, actor: int, weapon: Dictionary, choice:
 static func _apply_load(world: Variant, actor: int, weapon: Dictionary) -> void:
 	var rec: Dictionary = _record(world, weapon)
 	var now: Array = (rec["rounds"] as Array).duplicate()
+	var now_tiers: Array = _tiers_of(rec)
 	var next: Array = planned_load(world, actor, weapon, String(rec.get("choice", "")))
-	var delta: Dictionary = {}
+	# Per base, the tiers of the rounds of it the magazine holds, in firing order. A reload keeps the
+	# first of them, returns the rest with their own tier, and adds rounds from the pack with theirs.
+	var held: Dictionary = {}
+	for i in now.size():
+		var id: String = String(now[i])
+		if not held.has(id):
+			held[id] = []
+		(held[id] as Array).append(String(now_tiers[i]))
+	var wanted: Dictionary = {}
 	for id_v in next:
-		delta[String(id_v)] = int(delta.get(String(id_v), 0)) + 1
-	for id_v in now:
-		delta[String(id_v)] = int(delta.get(String(id_v), 0)) - 1
-	var keys: Array = delta.keys()
-	keys.sort()
-	for k in keys:
-		var d: int = int(delta[k])
-		if d > 0:
-			for i in d:
-				# The pool counted it, so it is there; if it somehow is not, the record does not
-				# claim a round the pack never gave up.
-				if not _consume_ammo(world, actor, String(k)):
-					next.erase(String(k))
-		elif d < 0:
-			_return_rounds(world, actor, String(k), -d)
-	rec["rounds"] = next
-	weapon["mag"] = next.size()
+		wanted[String(id_v)] = int(wanted.get(String(id_v), 0)) + 1
+	var bases: Array = held.keys()
+	for k in wanted.keys():
+		if not bases.has(k):
+			bases.append(k)
+	bases.sort()
+	var pools: Dictionary = {}
+	for k in bases:
+		var have: Array = (held.get(k, []) as Array).duplicate()
+		var want: int = int(wanted.get(k, 0))
+		if have.size() > want:
+			_return_rounds(world, actor, String(k), have.slice(want))
+			have = have.slice(0, want)
+		while have.size() < want:
+			# The pool counted it, so it is there; if it somehow is not, the record does not claim
+			# a round the pack never gave up.
+			var tier: String = _take_round(world, actor, String(k))
+			if tier == "":
+				break
+			have.append(tier)
+		pools[k] = have
+	var rounds: Array = []
+	var tiers: Array = []
+	for id_v in next:
+		var pool: Array = pools[String(id_v)] as Array
+		if pool.is_empty():
+			continue
+		rounds.append(String(id_v))
+		tiers.append(String(pool.pop_front()))
+	rec["rounds"] = rounds
+	rec["tiers"] = tiers
+	weapon["mag"] = rounds.size()
 
 
-# Rounds out of a magazine and back into the pack: onto a stack of the same round first, then
-# anywhere the actor can stow them, then at their feet -- a round is never destroyed by a reload.
-static func _return_rounds(world: Variant, actor: int, base_id: String, count: int) -> void:
+# The tier of each round in the record, in step with `rounds`. A record written before tiers were
+# kept (or by hand in a fixture) reads every round as scavenged, the floor `SimItems.tier_of` uses.
+static func _tiers_of(rec: Dictionary) -> Array:
+	var rounds: Array = rec.get("rounds", []) as Array
+	var tiers: Variant = rec.get("tiers")
+	var out: Array = (tiers as Array).duplicate() if tiers is Array else []
+	out.resize(mini(out.size(), rounds.size()))
+	while out.size() < rounds.size():
+		out.append("scavenged")
+	return out
+
+
+# Rounds out of a magazine and back into the pack, each at the tier it went in at: onto a stack of
+# the same round first, then anywhere the actor can stow them, then at their feet -- a round is
+# never destroyed by a reload, and never comes back plainer than it went in.
+static func _return_rounds(world: Variant, actor: int, base_id: String, tiers: Array) -> void:
 	var base: Variant = SimItemsRes.content_entry(world, "item", base_id)
 	var limit: int = maxi(1, SimItemsRes.base_stack_limit(base as Dictionary)) if base is Dictionary else 1
-	var left: int = count
-	while left > 0:
-		var n: int = mini(left, limit)
-		var stack: int = SimItemsRes.spawn_item(world, base_id, {"tier": "scavenged", "count": n})
-		if not SimInventoryRes.stow(world, actor, stack):
-			SimInventoryRes.drop_at_feet(world, actor, stack)
-		left -= n
+	var by_tier: Dictionary = {}
+	for t in tiers:
+		by_tier[String(t)] = int(by_tier.get(String(t), 0)) + 1
+	var names: Array = by_tier.keys()
+	names.sort()
+	for tier in names:
+		var left: int = int(by_tier[tier])
+		while left > 0:
+			var n: int = mini(left, limit)
+			var stack: int = SimItemsRes.spawn_item(world, base_id, {"tier": String(tier), "count": n})
+			if not SimInventoryRes.stow(world, actor, stack):
+				SimInventoryRes.drop_at_feet(world, actor, stack)
+			left -= n
 
 
 ## Why `actor` cannot load `round_item` into the weapon in their hands, or "" when they can. The
@@ -816,10 +861,16 @@ static func _cone_with_ammo(scale: Dictionary, half: float, cap: float = WIDE_HA
 
 
 static func _consume_ammo(world: Variant, actor: int, ammo_id: String) -> bool:
+	return _take_round(world, actor, ammo_id) != ""
+
+
+# One round of `ammo_id` out of the pack: its tier, or "" when the actor carries none.
+static func _take_round(world: Variant, actor: int, ammo_id: String) -> String:
 	for item in SimInventoryRes.carried_items(world, actor) as Array:
 		var base: Variant = SimItemsRes.item_base_of(world, int(item))
 		if not (base is Dictionary and String((base as Dictionary).get("id", "")) == ammo_id):
 			continue
+		var tier: String = SimItemsRes.tier_of(world, int(item))
 		var stk: Variant = world.components.get_component(int(item), "stack")
 		if stk is Dictionary:
 			var cnt: int = int((stk as Dictionary).get("count", 1))
@@ -831,8 +882,8 @@ static func _consume_ammo(world: Variant, actor: int, ammo_id: String) -> bool:
 		else:
 			SimInventoryRes.remove_from_container(world, int(item))
 			world.despawn(int(item))
-		return true
-	return false
+		return tier
+	return ""
 
 
 # "What you cannot see, you cannot aim at" -- docs/09-combat.md. The one answer, here rather than
@@ -876,10 +927,14 @@ static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: V
 	var scale: Dictionary = {}
 	var round_id: String = ""
 	if is_fed(weapon):
-		var rounds: Array = _record(world, weapon)["rounds"] as Array
+		var rec: Dictionary = _record(world, weapon)
+		var rounds: Array = rec["rounds"] as Array
 		if rounds.is_empty():
 			weapon["mag"] = 0
 			return
+		var tiers: Array = _tiers_of(rec)
+		tiers.pop_front()
+		rec["tiers"] = tiers
 		round_id = String(rounds.pop_front())
 		weapon["mag"] = rounds.size()
 		scale = ammo_scale(world, round_id)

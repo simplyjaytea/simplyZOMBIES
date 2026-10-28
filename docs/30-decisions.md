@@ -7071,7 +7071,7 @@ held, and the only way to fire a slug was to carry nothing else.
   round base ids in firing order, the next shot first, and `choice` is a round base id or "". It
   rides the item through a holster, a drop, a dead raider's kit and a save, and it is still the
   item's own component, not a `{weapon: round}` side table. A fixture's weapon with no item keeps
-  the same two keys on its profile; `SimRanged._record` is the one place that decides. The live
+  the same keys on its profile; `SimRanged._record` is the one place that decides. The live
   `mag` on `rangedWeapon` is kept equal to the record's size for the readers that count it.
 - **One reload rule.** A reload empties the magazine back into the pool, then fills it from the
   pool: the chosen round first, the round the weapon prefers next, the rest by base id, until full
@@ -7082,6 +7082,15 @@ held, and the only way to fire a slug was to carry nothing else.
   round at the front reloads instead of firing. Rounds that come out go onto a matching stack,
   then anywhere the actor can stow them, then at their feet. A reload that would change nothing is
   refused; it used to be allowed on a full magazine and cost a reload for nothing.
+- **A round keeps its tier through the gun (the end review's finding).** The first cut stored base
+  ids only, so buckshot loaded from a modified stack came back out of a switch as scavenged, and a
+  reload could launder a worse round into a better one or the other way. The record now carries
+  `tiers` beside `rounds`, in step: a round taken from the pack records the tier of the stack it
+  came off, a shot pops both, and a reload returns the rounds it removes as stacks at their own
+  tiers, keeping the rounds it leaves in with theirs. A record from before this (no `tiers`) reads
+  every round as scavenged, the stack default. `godot:m2:ammo` TIER: modified buckshot swapped out
+  for slugs comes back modified, and the slugs keep their own tier; red with the tier dropped on
+  the way out.
 - **Switching loads costs the reload.** The sheet's `load` verb on a round sets the choice and
   starts the reload; the magazine changes when the reload ends, not when the verb lands. If the
   reload cannot start (mid-aim, grabbed, a part missing) the choice stands and the next reload
