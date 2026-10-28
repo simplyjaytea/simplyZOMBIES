@@ -15774,6 +15774,40 @@ not a to-do list:
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not
   cancelled.
 
+
+- **Kernel & tooling — the colony tick without changing outcomes, 2026-10-28.** Piece P4 of the
+  nail-survival batch. **The day-one spike:** the 480 to 637 ms worst ticks of the day-one
+  playtest logs were one colonist's Retreat re-plan, which asked `SimJobs._inside_walls` once per
+  tile of the lot while each ask read the whole lot: 206 to 222 ms on a quiet container, found by a
+  per-system driver over day one on seeds 99 and 404. The box is found once per call
+  (`_walls_box`) and kept on the world (`_walls_box_of`, `world.walls_memo`) while the map, its
+  tile array and the lot are the same, 0.33 ms to 0.003 ms a reading for every colonist in the lot
+  every tick. Re-profiled over the same day one, no tick passes 92 ms and nothing in `jobs.ai`
+  passes 22. **The stockpile list:** `SimNeeds.stockpile_items` is kept on the world
+  (`world.stockpile_memo`, switch `STOCKPILE_MEMO`) while the map's generation, tiles, indoor
+  flags, overlays and anchors, the player, the zone record, the position, item-base and `stored`
+  membership counts (`SimComponentStore.changes`, new) and the tile under every loose item hold;
+  1.4 ms to 0.16 ms a call with 272 loose items, at 2.6 calls a colony tick, every one a hit.
+  **Not done:** the long job plan still runs whole on one tick. After the walls fix no plan shows
+  in the worst day-one ticks, and splitting it would stand a walking-home colonist still while
+  the plan finishes (docs/30, "The colony tick, without changing outcomes"). The remaining spikes
+  the driver saw are a whole cast, one shambler pass, `need.temperature` once at 30 ms and the
+  scripted survivor's own walk-to plan, 10 to 22 ms. **Gate:** `godot:m2:tick` STOCK-MEMO (the
+  memo held to `stockpile_items_fresh` through a spawn, a replaced position, an in-place edit, a
+  store, a pickup, a mark, an in-place record edit, a wall and a board written straight onto the
+  map arrays, a restore and stepped ticks; each step must move the fresh list; a stepped colony
+  reaches the memo) and WALLS-BOX (the kept box held to the per-tile reading, a forged row proves
+  the hit, a yard wall, another lot and another map each move it, the Retreat re-plan picks the
+  tile the per-tile reading picked, and `_outside_in_danger` reaches it). Each lane goes red with
+  its validity check removed. **Measured:** no outcome moved. A sha256 of `w.serialize()` (parsed,
+  `exploredGen` stripped) matched `main` at every 500-tick checkpoint over 3,000 ticks of the
+  shipped and the colony bench worlds, and over 6,000 ticks of the playtest on seeds 99 and 404,
+  which covers four of the traced Retreat re-plans. `godot:bench:runtime`, median of three
+  interleaved runs against main `0e562cf8` on one container: `shipped-tick` 11.37 / 27.75 ms to
+  10.45 / 35.04 (mean / worst), `colony-tick` 14.48 / 31.61 ms to 10.45 / 21.79. The shipped worst
+  is the host: head's three worst ticks were 35.0, 43.9 and 20.3 ms at no fixed tick, and main
+  threw a 210 ms tick in a run outside the three. Both samples stay over the 8 ms / 16 ms budget.
+
 ## Milestone 3A: Survivor depth
 
 Only if Milestone 2 answers the thesis affirmatively. This track deepens the people and colony before
