@@ -1,0 +1,24 @@
+[
+  {
+    "id": "affix.prefix.trued",
+    "name": "Trued",
+    "slot": "prefix",
+    "appliesTo": ["weapon.ranged"],
+    "tiers": [
+      { "weight": 100, "modifiers": [{ "stat": "ranged_accuracy", "op": "mul", "value": 1.1 }] },
+      { "weight": 40, "modifiers": [{ "stat": "ranged_accuracy", "op": "mul", "value": 1.2 }] },
+      { "weight": 10, "modifiers": [{ "stat": "ranged_accuracy", "op": "mul", "value": 1.3 }] }
+    ]
+  },
+  {
+    "id": "affix.prefix.blued",
+    "name": "Blued",
+    "slot": "prefix",
+    "appliesTo": ["weapon.ranged"],
+    "tiers": [
+      { "weight": 100, "modifiers": [{ "stat": "condition_loss", "op": "mul", "value": 0.75 }] },
+      { "weight": 40, "modifiers": [{ "stat": "condition_loss", "op": "mul", "value": 0.55 }] },
+      { "weight": 10, "modifiers": [{ "stat": "condition_loss", "op": "mul", "value": 0.4 }] }
+    ]
+  }
+]
