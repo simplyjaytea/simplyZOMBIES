@@ -2598,7 +2598,7 @@ func _every_state_word_fits_the_narrow_pane(w: Variant, lamp: int) -> bool:
 		return false
 	var inks: Array = [["label", Locker.TEXT_DIM]]
 	for row in lines:
-		inks.append([String(row[1]), InspectPane._state_colour(String(row[1]))])
+		inks.append([String(row[1]), InspectPane._state_colour(String(row[1]), String(row[0]))])
 	for band in SimItems.CONDITION_BANDS:
 		inks.append([String((band as Dictionary)["name"]), InspectPane._band_colour(String((band as Dictionary)["name"]))])
 	for ink in inks:
