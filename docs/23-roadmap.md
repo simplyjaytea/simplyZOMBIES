@@ -294,8 +294,8 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
 *Melee, frames and recipes (stage 1): finished, 2026-10-27.* Every piece has landed; the arc's
 record is "Melee frames and the widened slots, and the improvised recipe table, 2026-10-26",
 "Specific melee wear", "The bench offers improvised parts", "Hone on the pack, and the edge in
-words" and "A weapon you named, 2026-10-27". What it still owes is pictures, a stage behind: the
-art group's "Pictures for the melee arc".
+words", "The plate wears as it stops blows" and "A weapon you named, 2026-10-27". What it still
+owes is pictures, a stage behind: the art group's "Pictures for the melee arc".
 
 *Zombies, seven to fourteen (stage 2 for the first four, stage 4 for the rest):*
 
@@ -567,11 +567,6 @@ system.
 - ~~**Armour attachment slots, and armour that stops damage**~~ — **landed** 2026-09-12, see the
   record.
 - ~~**Armour that reaches a campaign**~~ — **landed** 2026-09-12, see the record. Both halves.
-- **A plate that degrades as it stops blows.** Armour parts declare no `wearsOn`, and deliberately:
-  `WEAR_EVENTS`' `"hit"` means *the weapon you swung connected* and fires on the attacker's item,
-  not the target's garment, so declaring it would have been a dead socket. Wants a new wear word
-  (`struck`) and a subscriber on the target's side. Their *condition* is already read — a scavenged
-  plate does less than a pristine one, through `effect_scale`.
 - **The headgear light mount docs/10 names.** Not built, and for a reason worth keeping: a helmet
   lamp needs the light scan to walk worn gear, and after the burn slice it walks `LIGHT_SLOTS`,
   which covers the head — so this is now much closer than it was, and wants a `mount` slot plus
@@ -2603,6 +2598,29 @@ not a to-do list:
   (`SimGunsmith.field_work` asks only carried and fitted parts). The improvised parts still have no
   pictures (stage 3).
 
+- **The plate wears as it stops blows, 2026-10-27.** `struck` joins `SimAttachments.WEAR_EVENTS`
+  as the target's side of a blow (`hit` stays the swinger's). `SimHealth.damage_part`, the one
+  closure that moves integrity, calls `SimHealth.wear_struck_armor` once per blow that reaches a
+  living body, after the blow is softened: the worn garment with the most fitted coverage of the
+  struck part (max, never sum, as `armor_coverage_of` composes it; ties both wear) has its
+  `struck` parts worn, and only the parts whose own `armor` names that part (`wear_parts`' new
+  `covering` argument). So a blow to the arm wears the aramid lining and not the chest plate, a
+  blow to the leg wears nothing, an empty carrier (which stops nothing) wears nothing, a lined
+  jacket under a carrier wears nothing until the carrier's plate is gone, and a bite wears the
+  plate the same as a swipe, because it arrives through the same closure. The garment's own condition is read by nothing and does not wear. Content: the
+  ceramic plate `wearRate` 12 (about 42 blows to broken), the steel plate and the riot visor 4
+  (125), the aramid lining 2 (250); a broken plate comes off and its carrier stops nothing, the
+  rule the carrier already had. Nothing new on screen: the inspect pane's condition word is how
+  the player sees it. Gate: `godot:m2:armor` STRUCK (the exact drop over 12 torso blows; coverage
+  falls and the next blow takes more; pouch and carrier never wear; ceramic over steel over
+  aramid; a bite wears the same step), COVERS (leg, arm, empty carrier, the swinger's own plate,
+  a spear in the struck survivor's hands, and a lined jacket under the carrier that wears only
+  once the carrier stops nothing) and REACHED (the playable district, a shambler beside a
+  vested player, the plate worn by exactly its share of the torso blows through the tick loop).
+  With the call in `damage_part` replaced by a pass, STRUCK, COVERS and REACHED go red; with the
+  `covering` filter dropped, COVERS and REACHED do. Numbers and the balance lines are in docs/30's
+  "The plate wears, 2026-10-27". The ten-seed table was not re-run; owed by the post-arc
+  re-baseline.
 - **The bloodhound, 2026-10-27.** Zombie kind eight, content only: `godot/content/zombies/bloodhound.json`,
   wave 3, weight 6, `sensory` noise 0, light 0, scent 1.0. It follows the scent field alone and is
   deaf to noise. Light 0 also turns its sight off (`shambler.gd`'s `sight_reach` is range times the
