@@ -70,8 +70,10 @@ func _run() -> void:
 	ok = _the_magazine_remembers_what_you_loaded() and ok
 	ok = _every_load_reads_in_words() and ok
 	ok = _a_round_comes_back_as_it_went_in() and ok
+	ok = _spent_brass_is_left_by_every_real_shot() and ok
+	ok = _a_hand_load_takes_only_the_cases_it_can_make() and ok
 	if ok:
-		print("M2_AMMO_OK content reach scaled default pick refuse fold drops legacy convert recover jam debug-stack round mag word tier handload")
+		print("M2_AMMO_OK content reach scaled default pick refuse fold drops legacy convert recover jam debug-stack round mag word tier handload brass")
 		quit(0)
 	else:
 		push_error("M2_AMMO_FAIL")
@@ -1303,6 +1305,195 @@ func _every_load_reads_in_words() -> bool:
 # A round a reload puts back comes out at the tier it went in at (the review of 2026-10-28: the first
 # cut spawned every returned round "scavenged"). Modified buckshot loaded, slugs chosen over it: the
 # buckshot back in the pack is still modified, and the slugs in the gun are still scavenged.
+# The spent cases on the ground, all tiles: how many, and in how many ground items. Counted through
+# `ground_items`, which is what Haul and the stockpile read, so a case the gate can count is one they can see.
+func _cases_on_ground(w: Variant, base_id: String) -> Array:
+	var n: int = 0
+	var stacks: int = 0
+	for item in SimInventory.ground_items(w):
+		if SimRanged._base_id_of(w, int(item)) != base_id:
+			continue
+		stacks += 1
+		var stk: Variant = w.components.get_component(int(item), "stack")
+		n += int((stk as Dictionary).get("count", 1)) if stk is Dictionary else 1
+	return [n, stacks]
+
+
+func _step_until_idle(w: Variant, shooter: int, ticks: int) -> void:
+	for i in ticks:
+		w.step()
+		var rw: Variant = w.components.get_component(shooter, "rangedWeapon")
+		if rw is Dictionary and int((rw as Dictionary)["state"]) == SimRanged.FireState.Idle:
+			return
+
+
+func _spent_brass_is_left_by_every_real_shot() -> bool:
+	var lane: String = "BRASS"
+	# EJECT: a pistol fired three times leaves one stack of three cases on the shooter's tile; a bow
+	# leaves none; a jammed pull leaves none; a .22 leaves none.
+	var w: Variant = _world()
+	var gun: int = _armed(w, PISTOL, [[NINE, 3]])
+	if gun < 0:
+		return false
+	w.step()
+	for i in 3:
+		_fire_once(w, w.player)
+	var got: Array = _cases_on_ground(w, BRASS_9)
+	if got[0] != 3 or got[1] != 1:
+		push_error("%s EJECT: three 9mm shots left %s, not three cases in one stack" % [lane, str(got)])
+		return false
+	var at: Dictionary = w.components.get_component(w.player, "position") as Dictionary
+	for item in SimInventory.ground_items(w):
+		if SimRanged._base_id_of(w, int(item)) == BRASS_9:
+			var there: Dictionary = w.components.get_component(int(item), "position") as Dictionary
+			if floori(float(there["x"])) != floori(float(at["x"])) or floori(float(there["y"])) != floori(float(at["y"])):
+				push_error("%s EJECT: the cases did not land on the shooter's tile" % lane)
+				return false
+
+	var wb: Variant = _world()
+	var bow: int = _armed(wb, BOW, [[ARROW, 3]])
+	if bow < 0:
+		return false
+	wb.step()
+	_fire_once(wb, wb.player)
+	if _cases_on_ground(wb, BRASS_9)[0] != 0 or _cases_on_ground(wb, BRASS_RIFLE)[0] != 0:
+		push_error("%s EJECT: a bow's arrow left a case" % lane)
+		return false
+
+	var wr: Variant = _world()
+	var rimfire: int = _armed(wr, "item.rifle.rimfire", [["item.ammo.22", 3]])
+	if rimfire < 0:
+		return false
+	wr.step()
+	_fire_once(wr, wr.player)
+	if _cases_on_ground(wr, BRASS_9)[0] != 0 or _cases_on_ground(wr, BRASS_38)[0] != 0:
+		push_error("%s EJECT: a .22 left a case" % lane)
+		return false
+
+	var wj: Variant = _world()
+	var jammer: int = _armed(wj, PISTOL, [[NINE, 2]])
+	if jammer < 0:
+		return false
+	wj.step()
+	var live: Dictionary = wj.components.get_component(wj.player, "rangedWeapon") as Dictionary
+	live["jamChance"] = 1.0
+	_fire_once(wj, wj.player)
+	if _cases_on_ground(wj, BRASS_9)[0] != 0:
+		push_error("%s EJECT: a jammed pull left a case" % lane)
+		return false
+
+	# REVOLVER: two shots leave no case until the reload; the reload drops two, and the cylinder empties.
+	var wv: Variant = _world()
+	var snub: int = _armed(wv, RIMFIRE_GUN, [[FACTORY_38, 8]])
+	if snub < 0:
+		return false
+	wv.step()
+	_fire_once(wv, wv.player)
+	_fire_once(wv, wv.player)
+	if _cases_on_ground(wv, BRASS_38)[0] != 0:
+		push_error("%s REVOLVER: a cylinder dropped a case before its reload" % lane)
+		return false
+	var rec: Dictionary = wv.components.get_component(snub, "loaded") as Dictionary
+	if int(rec.get("spent", 0)) != 2:
+		push_error("%s REVOLVER: two shots left %s in the cylinder, not two" % [lane, str(rec.get("spent", 0))])
+		return false
+	wv.commands.push({"type": "reload"})
+	_step_until_idle(wv, wv.player, 200)
+	wv.step()
+	if _cases_on_ground(wv, BRASS_38)[0] != 2:
+		push_error("%s REVOLVER: the reload dropped %s, not two cases" % [lane, str(_cases_on_ground(wv, BRASS_38))])
+		return false
+	if int((wv.components.get_component(snub, "loaded") as Dictionary).get("spent", 0)) != 0:
+		push_error("%s REVOLVER: the cylinder still holds cases after the reload" % lane)
+		return false
+
+	# MERGE: two shots from one tile make one ground item; a step to the next tile makes a second.
+	var wm: Variant = _world()
+	var m_gun: int = _armed(wm, PISTOL, [[NINE, 4]])
+	if m_gun < 0:
+		return false
+	wm.step()
+	_fire_once(wm, wm.player)
+	_fire_once(wm, wm.player)
+	wm.components.set_component(wm.player, "position", {"x": 9.5, "y": 12.5})
+	_fire_once(wm, wm.player)
+	var merged: Array = _cases_on_ground(wm, BRASS_9)
+	if merged[0] != 3 or merged[1] != 2:
+		push_error("%s MERGE: three shots over two tiles left %s, not three cases in two stacks" % [lane, str(merged)])
+		return false
+
+	# EVERY SHOOTER: a colonist's shot through the tick loop leaves a case, on the same path a survivor's does.
+	var wc: Variant = _world()
+	var gun_item: int = SimItems.spawn_item(wc, PISTOL, {"tier": "scavenged"})
+	wc.components.set_component(gun_item, "loaded", {"rounds": [NINE, NINE], "tiers": ["scavenged", "scavenged"], "choice": ""})
+	var colonist: int = wc.entities.spawn()
+	wc.components.set_component(colonist, "position", {"x": 4.5, "y": 4.5})
+	wc.components.set_component(colonist, "facing", {"radians": 0.0})
+	SimRanged.make_ranged_armed(wc, colonist, SimItems.ranged_profile_of(wc, gun_item) as Dictionary)
+	if not SimRanged.try_begin_fire(wc, colonist):
+		push_error("%s EVERY SHOOTER: a colonist with a loaded pistol would not begin a shot" % lane)
+		return false
+	for i in 60:
+		wc.step()
+		var rw: Variant = wc.components.get_component(colonist, "rangedWeapon")
+		if rw is Dictionary and int((rw as Dictionary)["state"]) == SimRanged.FireState.Idle:
+			break
+	if _cases_on_ground(wc, BRASS_9)[0] != 1:
+		push_error("%s EVERY SHOOTER: a colonist's shot left %s, not one case" % [lane, str(_cases_on_ground(wc, BRASS_9))])
+		return false
+	print("  BRASS OK a pistol's three shots leave one stack of three on its tile; a bow, a .22 and a jammed pull leave none; a revolver keeps two in the cylinder until its reload drops them; a step to the next tile starts a second stack; a colonist's shot through the tick loop leaves one case")
+	return true
+
+
+# BRASS RECIPE: a hand-load makes the lesser of its yield and the cases carried, and spends what it makes.
+func _a_hand_load_takes_only_the_cases_it_can_make() -> bool:
+	var lane: String = "BRASS RECIPE"
+	var w: Variant = _world()
+	var gun: int = _armed(w, PISTOL, [])
+	if gun < 0:
+		return false
+	w.step()
+	SimGunsmith.make_bench(w, 8.5, 12.5)
+	for id in [INGOT, CHARCOAL]:
+		SimInventory.store_anywhere(w, SimItems.spawn_item(w, id, {"tier": "scavenged"}), w.player)
+	SimInventory.store_anywhere(w, SimItems.spawn_item(w, BRASS_9, {"tier": "scavenged", "count": 3}), w.player)
+	if SimRanged.handload_refusal(w, w.player, gun) != "":
+		push_error("%s: three cases, an ingot and charcoal refused (%s)" % [lane, SimRanged.handload_refusal(w, w.player, gun)])
+		return false
+	w.commands.push({"type": "item.handload", "actor": w.player, "item": gun})
+	w.step()
+	if _in_pack(w, w.player, HAND_NINE) != 3:
+		push_error("%s: three cases made %d hand-loads, not three" % [lane, _in_pack(w, w.player, HAND_NINE)])
+		return false
+	if _stack_of(w, w.player, BRASS_9) >= 0:
+		push_error("%s: three cases made three rounds and one case is still in the pack" % lane)
+		return false
+
+	for id in [INGOT, CHARCOAL]:
+		SimInventory.store_anywhere(w, SimItems.spawn_item(w, id, {"tier": "scavenged"}), w.player)
+	SimInventory.store_anywhere(w, SimItems.spawn_item(w, BRASS_9, {"tier": "scavenged", "count": 10}), w.player)
+	w.commands.push({"type": "item.handload", "actor": w.player, "item": gun})
+	w.step()
+	if _in_pack(w, w.player, HAND_NINE) != 3 + 6:
+		push_error("%s: ten cases made %d more rounds, not six" % [lane, _in_pack(w, w.player, HAND_NINE) - 3])
+		return false
+	if _stack_of(w, w.player, BRASS_9) < 0 or _cases_in_pack(w, w.player) != 4:
+		push_error("%s: ten cases and six made left %d in the pack, not four" % [lane, _cases_in_pack(w, w.player)])
+		return false
+	print("  BRASS RECIPE OK three cases make three hand-loads and spend all three; ten cases make the yield of six and keep four")
+	return true
+
+
+func _cases_in_pack(w: Variant, actor: int) -> int:
+	var n: int = 0
+	for item in SimInventory.carried_items(w, actor) as Array:
+		if SimRanged._base_id_of(w, int(item)) != BRASS_9:
+			continue
+		var stk: Variant = w.components.get_component(int(item), "stack")
+		n += int((stk as Dictionary).get("count", 1)) if stk is Dictionary else 1
+	return n
+
+
 func _a_round_comes_back_as_it_went_in() -> bool:
 	var lane: String = "TIER"
 	var w: Variant = _world()
@@ -1351,6 +1542,10 @@ const HAND_BUCK: String = "item.ammo.12g.handload"
 const INGOT: String = "item.ingot.lead"
 const CHARCOAL: String = "item.charcoal.lump"
 const RIMFIRE_GUN: String = "item.revolver.snub"
+const FACTORY_38: String = "item.ammo.38"
+const BRASS_9: String = "item.brass.9mm"
+const BRASS_38: String = "item.brass.38"
+const BRASS_RIFLE: String = "item.brass.rifle"
 
 
 # Counts every draw a trigger pull takes on the ranged stream and answers the same value each time,
@@ -1540,8 +1735,14 @@ func _the_hand_load_recipe_refuses_in_order_and_spends_nothing_until_it_works() 
 	if not SimInventory.store_anywhere(w, charcoal, w.player):
 		push_error("%s: the charcoal would not go in a pocket" % lane)
 		return false
+	if SimRanged.handload_refusal(w, w.player, gun) != "needs:brass":
+		push_error("%s: an ingot and charcoal with no spent case said %s, not needs:brass" % [lane, SimRanged.handload_refusal(w, w.player, gun)])
+		return false
+	if not SimInventory.store_anywhere(w, SimItems.spawn_item(w, BRASS_9, {"tier": "scavenged", "count": 6}), w.player):
+		push_error("%s: six spent cases would not go in a pocket" % lane)
+		return false
 	if SimRanged.handload_refusal(w, w.player, gun) != "":
-		push_error("%s: a bench, an ingot and charcoal still refused (%s)" % [lane, SimRanged.handload_refusal(w, w.player, gun)])
+		push_error("%s: a bench, an ingot, charcoal and cases still refused (%s)" % [lane, SimRanged.handload_refusal(w, w.player, gun)])
 		return false
 	if not SimInventory.verbs_for(w, w.player, gun).has("handload"):
 		push_error("%s: the menu does not offer hand-load with everything the recipe needs" % lane)
@@ -1553,6 +1754,9 @@ func _the_hand_load_recipe_refuses_in_order_and_spends_nothing_until_it_works() 
 		return false
 	if _stack_of(w, w.player, INGOT) >= 0 or _stack_of(w, w.player, CHARCOAL) >= 0:
 		push_error("%s: the hand-load did not spend one ingot and one charcoal" % lane)
+		return false
+	if _stack_of(w, w.player, BRASS_9) >= 0:
+		push_error("%s: the hand-load did not spend its six spent cases" % lane)
 		return false
 	if SimRanged.handload_refusal(w, w.player, gun) != "needs:ingot":
 		push_error("%s: with the materials gone the refusal is %s, not needs:ingot" % [lane, SimRanged.handload_refusal(w, w.player, gun)])
@@ -1569,6 +1773,9 @@ func _the_hand_load_recipe_refuses_in_order_and_spends_nothing_until_it_works() 
 		if not SimInventory.store_anywhere(wf, SimItems.spawn_item(wf, id, {"tier": "scavenged"}), wf.player):
 			push_error("%s: %s would not go in a pocket before the pack filled" % [lane, id])
 			return false
+	if not SimInventory.store_anywhere(wf, SimItems.spawn_item(wf, BRASS_9, {"tier": "scavenged", "count": 6}), wf.player):
+		push_error("%s: the spent cases would not go in a pocket before the pack filled" % lane)
+		return false
 	var junk: Array = [ "item.ammo.arrow", "item.ammo.bolt", "item.ammo.22", "item.ammo.38", "item.ammo.45", "item.ammo.12g.slug", "item.ammo.12g.bird", "item.ammo.rifle.match", "item.ammo.rifle.surplus", "item.ammo.9mm.sub", "item.ammo.9mm.hollow", "item.ammo.12g" ]
 	for id in junk:
 		if not SimInventory.store_anywhere(wf, SimItems.spawn_item(wf, String(id), {"tier": "scavenged"}), wf.player):
@@ -1578,10 +1785,10 @@ func _the_hand_load_recipe_refuses_in_order_and_spends_nothing_until_it_works() 
 		return false
 	wf.commands.push({"type": "item.handload", "actor": wf.player, "item": full_gun})
 	wf.step()
-	if _stack_of(wf, wf.player, INGOT) < 0 or _stack_of(wf, wf.player, CHARCOAL) < 0 or _in_pack(wf, wf.player, HAND_NINE) != 0:
+	if _stack_of(wf, wf.player, INGOT) < 0 or _stack_of(wf, wf.player, CHARCOAL) < 0 or _stack_of(wf, wf.player, BRASS_9) < 0 or _in_pack(wf, wf.player, HAND_NINE) != 0:
 		push_error("%s: a hand-load refused for room spent its materials" % lane)
 		return false
-	print("  RECIPE OK no-handload for a bow and the .22; no-bench, then needs:charcoal, refused with nothing spent; one ingot and one charcoal make six 9mm hand-loads; a full pack says no-room and spends nothing")
+	print("  RECIPE OK no-handload for a bow and the .22; no-bench, then needs:charcoal, then needs:brass, refused with nothing spent; one ingot, one charcoal and six cases make six 9mm hand-loads; a full pack says no-room and spends nothing")
 	return true
 
 
