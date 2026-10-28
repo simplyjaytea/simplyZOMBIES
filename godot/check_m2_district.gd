@@ -30,6 +30,7 @@ extends SceneTree
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimTemplates = preload("res://sim/map/templates.gd")
 const SimWorldgen = preload("res://sim/map/worldgen.gd")
+const SimFortify = preload("res://sim/modules/fortify.gd")
 const World = preload("res://sim/world.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimBoot = preload("res://sim/boot.gd")
@@ -103,8 +104,10 @@ func _run() -> void:
 	ok = _a_refused_candidate_moves_the_colony_to_the_next_one() and ok
 	ok = _the_boot_population_scales_with_the_district() and ok
 	ok = _the_bloodhound_follows_scent_alone() and ok
+	ok = _the_gate_gap_is_doored() and ok
+	ok = _the_boot_ring_keeps_the_dead_off_the_colony() and ok
 	if ok:
-		print("M2_DISTRICT_OK validate blit annex anchors boot isolation walls generator roads enterable determinism district-data reserve siting survivability re-site density scent-only")
+		print("M2_DISTRICT_OK validate blit annex anchors boot isolation walls generator roads enterable determinism district-data reserve siting survivability re-site density scent-only gap-doored boot-ring")
 		quit(0)
 	else:
 		push_error("M2_DISTRICT_FAIL")
@@ -297,6 +300,152 @@ func _playable_boot() -> bool:
 
 	print("BOOT OK zeds=%d loot=%d containers=%d, none of them inside the colony at %s" % [zeds, ground, boxes, str(annex)])
 	return true
+
+
+# The annex's south gap is closed: every tile of it is a door with a door entity standing on it, and no
+# floor route runs from outside the annex to inside it. P1's day-one chain came in through the third tile
+# of the gap, which the generator left as floor (planning/balance/2026-10-28-dayone-causes.md). Both the
+# 64 miniature and the 256 district. True negative: the third tile put back to floor fails both readings.
+func _the_gate_gap_is_doored() -> bool:
+	for size in [GATE_SIZE, SHIPPED_SIZE]:
+		var boot: Dictionary = SimBoot.playable(CANON_SEED, size)
+		var world: Variant = boot["world"]
+		var map: Variant = boot["map"]
+		var annex: Rect2i = SimTileMap.annex_rect(map)
+		var gap: Array[Vector2i] = SimWorldgen.gate_gap(map)
+		if annex.size.x <= 0 or gap.size() < 2:
+			push_error("%d: the canonical boot carries no gate gap to judge (annex %s, gap %d tiles)" % [size, str(annex), gap.size()])
+			return false
+		var open: int = _open_gap_tiles(world, map, gap)
+		if open != 0 or _floor_leaks_in(map, annex):
+			push_error("%d: %d of the %d gap tiles are not a door, and a floor route into the annex is %s" % [
+				size, open, gap.size(), str(_floor_leaks_in(map, annex)),
+			])
+			return false
+		# The true negative: the last tile of the gap back to floor, as the generator left it. Both
+		# readings must now fail, and the tile is restored whatever they say.
+		var idx: int = gap[gap.size() - 1].y * int(map.w) + gap[gap.size() - 1].x
+		var was: int = int(map.tiles[idx])
+		map.tiles[idx] = SimTileMap.Tile.Floor
+		var open_back: int = _open_gap_tiles(world, map, gap)
+		var leak_back: bool = _floor_leaks_in(map, annex)
+		map.tiles[idx] = was
+		if open_back == 0 or not leak_back:
+			push_error("%d: the gap reads closed with its last tile back to floor (open %d, leak %s)" % [size, open_back, str(leak_back)])
+			return false
+	print("GAP OK the annex gap is doored at 64 and 256, and a floor tile left in it fails both readings")
+	return true
+
+
+# Gap tiles that are not a door: the tile is not a Door, or no door entity stands on it.
+func _open_gap_tiles(world: Variant, map: Variant, gap: Array[Vector2i]) -> int:
+	var n: int = 0
+	for tile in gap:
+		if SimTileMap.tile_at(map, tile.x, tile.y) != SimTileMap.Tile.Door or SimFortify.door_at(world, tile.x, tile.y) < 0:
+			n += 1
+	return n
+
+
+# True if a 4-connected run of floor leads from ground outside the annex's rooms to a room inside its rect.
+# The annex's rect is larger than its walls (a yard of floor surrounds them), so "inside" is the indoors
+# flag, not the rect alone. Walls, windows and doors all stop the run, so only an open floor gap counts.
+func _floor_leaks_in(map: Variant, annex: Rect2i) -> bool:
+	var w: int = int(map.w)
+	var h: int = int(map.h)
+	var seen: PackedByteArray = PackedByteArray()
+	seen.resize(w * h)
+	var queue: Array[int] = []
+	for y in h:
+		for x in w:
+			if int(map.tiles[y * w + x]) == SimTileMap.Tile.Floor and not SimTileMap.is_indoors(map, x, y):
+				seen[y * w + x] = 1
+				queue.append(y * w + x)
+	var head: int = 0
+	while head < queue.size():
+		var at: int = queue[head]
+		head += 1
+		var x0: int = at % w
+		var y0: int = at / w
+		if SimTileMap.is_indoors(map, x0, y0) and annex.has_point(Vector2i(x0, y0)):
+			return true
+		for step in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var nx: int = x0 + step.x
+			var ny: int = y0 + step.y
+			if nx < 0 or ny < 0 or nx >= w or ny >= h:
+				continue
+			var n: int = ny * w + nx
+			if seen[n] == 0 and int(map.tiles[n]) == SimTileMap.Tile.Floor:
+				seen[n] = 1
+				queue.append(n)
+	return false
+
+
+# The boot's clear ring. At 256, on the three seeds P1 found a wanderer within 5 m of the lot, no
+# non-dormant shambler starts within BOOT_CLEAR_METRES of the annex, and none inside it. True negative:
+# with the ring switched off (restored after), at least one of the three has one. At 64 the ring does
+# not fit, so the wanderers are where they are with it off: the byte-identical promise.
+func _the_boot_ring_keeps_the_dead_off_the_colony() -> bool:
+	var seeds: Array[int] = [2024, 404, 99]
+	var was: bool = SimBoot.boot_clear_ring
+	SimBoot.boot_clear_ring = true
+	var near_on: int = 0
+	for s in seeds:
+		var boot: Dictionary = SimBoot.playable(s, SHIPPED_SIZE)
+		var annex: Rect2i = SimTileMap.annex_rect(boot["map"])
+		var counts: Array[int] = _dead_near_annex(boot["world"], annex)
+		near_on += counts[0]
+		if counts[1] != 0:
+			SimBoot.boot_clear_ring = was
+			push_error("seed %d: %d wanderers booted inside the annex %s" % [s, counts[1], str(annex)])
+			return false
+	SimBoot.boot_clear_ring = false
+	var near_off: int = 0
+	for s in seeds:
+		var boot_off: Dictionary = SimBoot.playable(s, SHIPPED_SIZE)
+		near_off += _dead_near_annex(boot_off["world"], SimTileMap.annex_rect(boot_off["map"]))[0]
+	SimBoot.boot_clear_ring = true
+	var at_64_on: Array = _wanderer_positions(SimBoot.playable(CANON_SEED, GATE_SIZE)["world"])
+	SimBoot.boot_clear_ring = false
+	var at_64_off: Array = _wanderer_positions(SimBoot.playable(CANON_SEED, GATE_SIZE)["world"])
+	SimBoot.boot_clear_ring = was
+	if near_on != 0:
+		push_error("%d wanderers booted within %d m of the annex with the ring on" % [near_on, SimBoot.BOOT_CLEAR_METRES])
+		return false
+	if near_off == 0:
+		push_error("the ring off put no wanderer within %d m of the annex, so the lane cannot fail" % SimBoot.BOOT_CLEAR_METRES)
+		return false
+	if at_64_on != at_64_off:
+		push_error("the ring moved a wanderer at 64, where it does not fit")
+		return false
+	print("RING OK 256 seeds 2024, 404, 99: 0 wanderers within %d m of the annex with the ring on, %d with it off; 64 unchanged" % [SimBoot.BOOT_CLEAR_METRES, near_off])
+	return true
+
+
+# [count within BOOT_CLEAR_METRES of the annex but outside it, count inside the annex], non-dormant only.
+func _dead_near_annex(world: Variant, annex: Rect2i) -> Array[int]:
+	var ring: Rect2i = annex.grow(SimBoot.BOOT_CLEAR_METRES)
+	var near: int = 0
+	var inside: int = 0
+	for e in world.components.query(["shambler", "position"]):
+		var sh: Variant = world.components.get_component(int(e), "shambler")
+		if sh is Dictionary and int((sh as Dictionary).get("state", -1)) == SimShambler.ShamblerState["Dormant"]:
+			continue
+		var p: Dictionary = world.components.get_component(int(e), "position")
+		var at: Vector2i = Vector2i(floori(float(p["x"])), floori(float(p["y"])))
+		if annex.has_point(at):
+			inside += 1
+		elif ring.has_point(at):
+			near += 1
+	var out: Array[int] = [near, inside]
+	return out
+
+
+func _wanderer_positions(world: Variant) -> Array:
+	var out: Array = []
+	for e in world.components.query(["shambler", "position"]):
+		var p: Dictionary = world.components.get_component(int(e), "position")
+		out.append([int(e), float(p["x"]), float(p["y"])])
+	return out
 
 
 func _wanderers_inside(world: Variant, annex: Rect2i) -> int:

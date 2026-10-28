@@ -651,7 +651,7 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 			press(tree, KEY_E)
 		"raised_walls":
 			world.tick = Clock.tick_on_day(DAY, NOON)
-			var at: Vector2 = _street_spot(world)
+			var at: Vector2 = _street_spot(world, RAISED)
 			if at.x < 0.0:
 				return "no open paved street within %d tiles" % SEARCH_TILES
 			world.components.set_component(world.player, "position", {"x": at.x, "y": at.y})
@@ -1370,7 +1370,10 @@ static func _outdoor_paved(map: Variant, at: Vector2i) -> bool:
 ## about one paved tile in five and a half, evenly block by block, so a seven-tile square with none
 ## is all but absent and the scraps are weighed rather than refused, as a room shot weighs them.
 ## Failing a candidate that much street, the one with the most. Its centre, or (-1, -1) for none.
-static func _street_spot(world: Variant) -> Vector2:
+## `footprint` is the pieces a scene will raise from the spot (`RAISED`): a candidate where one of
+## them cannot stand is skipped. Only the raised-walls scene passes it, so no other scene's spot
+## depends on what that one builds.
+static func _street_spot(world: Variant, footprint: Array = []) -> Vector2:
 	var from: Vector2i = _tile_under_player(world)
 	var occ: Dictionary = _spot_occupancy(world)
 	var best := Vector2(-1.0, -1.0)
@@ -1390,7 +1393,7 @@ static func _street_spot(world: Variant) -> Vector2:
 					if not _outdoor_paved(world.tilemap, t + d):
 						open = false
 						break
-				if not open:
+				if not open or not _footprint_fits(world, t, footprint):
 					continue
 				if not Dressing.clear_around(occ, t.x, t.y, SPOT_CLEAR, false) or not _held_free(occ, t):
 					continue
@@ -1407,6 +1410,18 @@ static func _street_spot(world: Variant) -> Vector2:
 					best_count = count
 					best = centre
 	return street if street.x >= 0.0 else best
+
+
+# Every piece of `footprint` can stand on its tile from `at`. The picker used to ignore the raised
+# walls' footprint, so a spot whose stone tile was a Low tile passed as the street, and the setup
+# then skipped the piece and the verify failed. Filtering here cannot change a spot that already
+# fits: the best spot among fitting candidates is the best among all of them when it fits. An empty
+# footprint fits everywhere, which is every scene but the raised walls.
+static func _footprint_fits(world: Variant, at: Vector2i, footprint: Array) -> bool:
+	for piece in footprint:
+		if not SimFortify.can_build(world, at.x + int(piece[0]), at.y + int(piece[1])):
+			return false
+	return true
 
 
 ## How many outdoor paved tiles lie in the STREET_WINDOW box centred on `at`: the share of the

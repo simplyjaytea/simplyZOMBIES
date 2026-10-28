@@ -1213,6 +1213,23 @@ its consumer. Each keeps its gate when it is picked up: `godot:m2:fortify` with 
 `godot/playtest/ten_day.gd`, one scripted survivor, seeds 20260805, 31337 and 404; the seed
 tables and day lines are report-noise.md in the project's planning/balance folder. Worst first.
 
+- **A closed house at dawn (day-one bites at home, P1 and P3, 2026-10-28).** P1
+  (`planning/balance/2026-10-28-dayone-causes.md`) found 125 of 130 colonist bites on days 1 to 3
+  landed inside the house, from the south gap, and the two run-ending player bites came from a
+  wanderer the boot placed 2.5 m and 4.5 m from the lot. Shipped in two halves. The gap: the annex's
+  south gap is three floor-or-door tiles and the gate anchors covered two, so the third stayed floor.
+  `SimWorldgen.gate_gap` now names the whole gap and `_write_doors` doors all of it, so the gate is
+  three doors with no floor route into the annex. The boot: `BOOT_CLEAR_METRES` (10) keeps a boot
+  wanderer out of the annex grown by 10 m, but only where the grown rect covers at most half the
+  scatter box, so 64 boots are where they were; at 256 every seed's wanderers move and nothing else
+  does. The gap is doored after the dressing, so the trees and grass are main's tile for tile (docs/30
+  says why; the first cut moved every tree on every map). Gate: `godot:m2:district`
+  GAP-DOORED (64 and 256 on the canonical seed, the third tile set back to floor fails both readings)
+  and BOOT-RING (256 on seeds 2024, 404 and 99: 0 non-dormant wanderers within 10 m of the annex with
+  the ring on, 9 with it off; 64 unchanged with it on and off). Not yet shown: the day-one bite count
+  on seed 2024 (one two-day playtest, before and after, in planning/balance) and the ten-seed table
+  on the new main, which the balance thread runs after the 87750e3a row. The P2 Doctor leash and
+  Retreat, the other half of the day-one chain, is its own piece.
 - **The well stands outside the gate, so the last survivor dies of a bite taken there.** Day the
   colony was wiped, by seed (20260805 / 31337 / 404): A24 main 9 / 2 / 2; the building-noise pass
   (#178) 4 / 6 / 6; the idle-colonist fix (#179) 4 / 6 / 6; the well verb (#180) 4 / 8 / 9. The
