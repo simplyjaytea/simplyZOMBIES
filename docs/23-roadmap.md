@@ -279,9 +279,6 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
   two of three jams. The allowed table is content keyed by receiver family, written to a realism
   table in docs/10 (the owner vetoes rows; docs/33). About twelve across the twelve receivers.
   Gate: `godot:m2:ammo` KIT, refusing a two-part kit and an off-table pairing.
-- **Internals wear, and the jam derives.** Springs, sear and extractor are parts with condition;
-  `jamChance` derives from the worst of them, keeping docs/09's coupling. Gate: `godot:m2:ammo`
-  JAM with a pristine and a worn sear.
 - **Gunsmithing decides field versus bench, and the botch.** Skill moves operations between
   `is_field_swap` and the bench and feeds `modification.gd`'s failure curve. Gate:
   `godot:m2:bench`.
@@ -2654,6 +2651,32 @@ not a to-do list:
     code) beside a short name left whole.
   - Also run green: `godot:smoke`, `godot:check:inventory`, `godot:check:ui_skin`,
     `godot:check:respond`, `godot:check:web_look`, `godot:check:context`, `check:routing`.
+- **Items — internals wear, and the jam derives from them, 2026-10-28.** The firearms arc's F3 piece.
+  A firearm's **spring, sear and extractor** are parts in their own slots (`spring`, `sear`,
+  `extractor`, added to the nine `ranged.json` bases that default an action, and defaulted to the
+  `item.part.*.standard` parts). Each is structural, wears through the existing part path
+  (`wearsOn` shot, the extractor also jam), and `jamChance` already read the worst structural part,
+  so the jam now follows the internals. The screen's band words (`inspect_view` and the grid view)
+  read `SimItems.assembly_condition` rather than the receiver's own condition, so a gun with a
+  failing sear reads "failing", the band the jam table is keyed by. A worn-through internal stays
+  fitted at zero (`staysWhenWornOut`, read in `SimAttachments._wear_one`) instead of falling off
+  and leaving the gun to jam less, and `SimAttachments.blocked_reason` refuses the weapon as
+  `broken:<slot>` (the end review's change: a jam on every pull left the never-jamming revolver
+  firing for nothing and npc_combat's envelope open; docs/30). The action's 0.20 kg is split: action
+  0.12, spring 0.04, sear 0.02, extractor 0.02; the tuned action, match action and magnum cylinder
+  drop by the same 0.08 kg, so every assembled firearm weighs what it did. The three parts are in
+  the `tables.json` parts bin the action sits in. Gates: `godot:m2:ammo` JAM (a sound pistol never
+  jams; a sear at 0.35 jams 0.117 of 4000 pulls against the table's 0.12, reads "failing" and still
+  fires; a sear worn through stays fitted, reads "broken", refuses as `broken:sear` on the pull, the
+  HUD line and the NPC envelope, spending no round; the revolver refuses the same on a worn-through
+  extractor), `godot:m2:attach` INTERNALS (all nine bases
+  spawn with the three fitted, each structural and each staying fitted). The bench's key to the
+  amber corner, which the second row of plates pushed off the panel at 1280x720, moves to the top
+  row's free left cell on any weapon with a sight or optic (`godot/ui/bench_panel.gd`'s `layout`;
+  docs/30), and `godot:check:play` BENCH holds it inside the frame and clear of every plate at both
+  windows. Not in this piece: a hand-loaded round, which needs a reader of its own on the jam, and
+  the named break-action, which has never had an action and so carries none of the three. Measured
+  in the PR's Measured section.
 - **Items — the three dead stats get readers, 2026-10-26.** The first piece of the firearms arc
   (readers before content). `noise_emission`, `condition_loss` and `repair_cost` were declared in
   `sim/modifiers/stats.gd` and two of them resolved by nothing, so the ranged affixes that name

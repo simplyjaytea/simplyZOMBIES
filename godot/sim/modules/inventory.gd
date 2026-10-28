@@ -528,7 +528,7 @@ static func _view_of(world: Variant, item: int, placement: Variant) -> Dictionar
 	var w: int = int(size["h"]) if turned else int(size["w"])
 	var h: int = int(size["w"]) if turned else int(size["h"])
 	var cond: Variant = world.components.get_component(item, "condition")
-	var band: String = "sound" if cond == null else SimItems.condition_band(cond as Dictionary)
+	var band: String = "sound" if cond == null else SimItems.condition_band({"current": SimItems.assembly_condition(world, item)})
 	var base_id: String = ""
 	var b: Variant = world.components.get_component(item, "itemBase")
 	if b is Dictionary:
@@ -638,7 +638,7 @@ static func inspect_view(world: Variant, actor: int, item: int) -> Dictionary:
 	return {
 		"item": item,
 		"name": SimItems.item_name(world, item),
-		"condition": "sound" if cond == null else SimItems.condition_band(cond as Dictionary),
+		"condition": "sound" if cond == null else SimItems.condition_band({"current": SimItems.assembly_condition(world, item)}),
 		"description": SimItems.description_of(world, base_id),
 		"slot": "" if slot == null else String(slot),
 		"worn": worn,
