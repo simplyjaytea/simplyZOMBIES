@@ -70,10 +70,11 @@ func _run() -> void:
 	ok = _the_magazine_remembers_what_you_loaded() and ok
 	ok = _every_load_reads_in_words() and ok
 	ok = _a_round_comes_back_as_it_went_in() and ok
+	ok = _every_case_is_left_by_a_shipped_shot() and ok
 	ok = _spent_brass_is_left_by_every_real_shot() and ok
 	ok = _a_hand_load_takes_only_the_cases_it_can_make() and ok
 	if ok:
-		print("M2_AMMO_OK content reach scaled default pick refuse fold drops legacy convert recover jam debug-stack round mag word tier handload brass")
+		print("M2_AMMO_OK content reach scaled default pick refuse fold drops legacy convert recover jam debug-stack round mag word tier handload brass cases")
 		quit(0)
 	else:
 		push_error("M2_AMMO_FAIL")
@@ -258,6 +259,58 @@ func _loot_ids() -> Dictionary:
 #
 # The shallow-validator half: every shape claim about `ammo` and about `ranged.caliber` that the
 # schema states and cannot enforce one level down.
+func _every_case_is_left_by_a_shipped_shot() -> bool:
+	var lane: String = "CASES"
+	var items: Array = _all_items()
+	var faults: Array = _case_faults(items)
+	if not faults.is_empty():
+		push_error("%s: %s" % [lane, String(faults[0])])
+		return false
+	var cases: int = 0
+	for entry in items:
+		if (entry as Dictionary).get("brass") is Dictionary:
+			cases += 1
+	if cases == 0:
+		push_error("%s: no shipped case, so the lane judges nothing" % lane)
+		return false
+	# A case nothing fires is dead content, and a second case of one caliber is one `brass_of` would
+	# silently never reach. Both predicates proved able to fail on fabricated content first.
+	var nothing_fires: Array = items.duplicate()
+	nothing_fires.append({"id": "item.gate.case", "class": "material", "brass": {"caliber": "gate"}})
+	if _case_faults(nothing_fires).is_empty():
+		push_error("%s: a case of a caliber nothing fires passed" % lane)
+		return false
+	var twin: Array = items.duplicate()
+	twin.append({"id": "item.gate.twin", "class": "material", "brass": {"caliber": "9mm"}})
+	if _case_faults(twin).is_empty():
+		push_error("%s: a second case of 9mm passed" % lane)
+		return false
+	print("  CASES OK %d shipped cases, each the case of a caliber a shipped gun chambers and a shipped round declares, one per caliber; a case nothing fires and a second case of one caliber are both refused" % cases)
+	return true
+
+
+# Every way a `brass` block can be dead content, as messages. Empty means the cases are sound.
+func _case_faults(items: Array) -> Array:
+	var faults: Array = []
+	var chambered: Dictionary = _chambered_calibers(items)
+	var loaded: Dictionary = _round_calibers(items)
+	var seen: Dictionary = {}
+	for entry in items:
+		var brass: Variant = (entry as Dictionary).get("brass")
+		if not brass is Dictionary:
+			continue
+		var caliber: String = String((brass as Dictionary).get("caliber", ""))
+		var id: String = String((entry as Dictionary).get("id", ""))
+		if not chambered.has(caliber):
+			faults.append("%s is the case of %s, which no shipped gun chambers -- a case nothing fires" % [id, caliber])
+		elif not loaded.has(caliber):
+			faults.append("%s is the case of %s, which no shipped round declares" % [id, caliber])
+		if seen.has(caliber):
+			faults.append("%s and %s are both the case of %s -- brass_of would never reach one" % [String(seen[caliber]), id, caliber])
+		seen[caliber] = id
+	return faults
+
+
 func _every_round_and_every_gun_is_well_formed() -> bool:
 	var lane: String = "CONTENT"
 	var items: Array = _all_items()
@@ -1405,6 +1458,19 @@ func _spent_brass_is_left_by_every_real_shot() -> bool:
 		return false
 	if int((wv.components.get_component(snub, "loaded") as Dictionary).get("spent", 0)) != 0:
 		push_error("%s REVOLVER: the cylinder still holds cases after the reload" % lane)
+		return false
+
+	# A save from before the cylinder key: the live weapon has none, and the revolver still keeps its cases.
+	var wo: Variant = _world()
+	var old_snub: int = _armed(wo, RIMFIRE_GUN, [[FACTORY_38, 8]])
+	if old_snub < 0:
+		return false
+	wo.step()
+	(wo.components.get_component(wo.player, "rangedWeapon") as Dictionary).erase("cylinder")
+	_fire_once(wo, wo.player)
+	_fire_once(wo, wo.player)
+	if _cases_on_ground(wo, BRASS_38)[0] != 0 or int((wo.components.get_component(old_snub, "loaded") as Dictionary).get("spent", 0)) != 2:
+		push_error("%s REVOLVER: a pre-change revolver with no cylinder key dropped its cases at the shot" % lane)
 		return false
 
 	# MERGE: two shots from one tile make one ground item; a step to the next tile makes a second.

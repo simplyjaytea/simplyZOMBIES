@@ -2487,10 +2487,16 @@ not a to-do list:
   - **The revolver.** A cylinder gun (`cylinder: true`, the snub revolver) keeps its cases in the
     cylinder, counted on its magazine record (`spent`), and drops them when its next reload begins. A
     refused reload drops nothing.
+    Load default: a save from before this piece has no `spent` (reads as zero) and no `cylinder` on
+    its live weapon; `SimRanged._is_cylinder` asks the item's profile when the key is absent, so an
+    equipped revolver keeps its cases from its first shot after the load, not its next wear refresh.
+    No `SAVE_VERSION` bump.
   - **The recipe.** Each hand-load block carries `brass: true`: one case per round made, the yield the
     lesser of `yield` and the cases carried (`SimRanged.rounds_made`), and `needs:brass` refused after
     the materials and before `no-room`.
-  - **The gates.** `godot:m2:ammo` BRASS lanes: EJECT, REVOLVER, MERGE, EVERY SHOOTER, and BRASS RECIPE;
+  - **The gates.** `godot:m2:ammo` BRASS lanes: EJECT, REVOLVER (with a pre-change revolver), MERGE,
+    EVERY SHOOTER, and BRASS RECIPE, and CASES, the content lane that holds every shipped case to a
+    caliber a shipped gun chambers and a round declares, one per caliber;
     `godot:check:inventory` HANDLOAD spends its cases. `godot:m2:save`, `godot:m2:jobs`,
     `godot:m2:tick`, `godot:check:loot` and `godot:m2:gear` are green on the branch.
   - **Haul.** A loose case is hauled under the same errand radius as any loose item (`jobs.gd`'s

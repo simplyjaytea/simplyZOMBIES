@@ -7481,7 +7481,12 @@ is piece B3 of the batch in `planning/2026-10-28-next-batch.md`, built on the ha
   snub revolver) counts its spent cases on the magazine record (`spent`, on the `loaded` component) and
   drops them when its next reload begins, one per round fired since the last. The count is taken only
   once the reload is known to change something: a refused reload drops nothing. The record key is
-  absent from an older save and reads as zero, so no `SAVE_VERSION` bump.
+  absent from an older save and reads as zero, so no `SAVE_VERSION` bump. An equipped revolver from an
+  older save has no `cylinder` on its live weapon until its next equip or wear refresh, so the reader
+  asks the item's own profile (`SimRanged._is_cylinder`) and the revolver keeps its cases from the
+  first shot after the load; `godot:m2:ammo`'s REVOLVER lane runs a weapon with the key stripped.
+  The CASES lane holds every shipped case to a caliber a shipped gun chambers and a shipped round
+  declares, one case per caliber.
 - **The recipe spends one case per round.** `ammo.handload.brass: true` on each hand-load. The yield is
   the lesser of the recipe's `yield` and the cases carried (`SimRanged.rounds_made`), so ten cases make
   the yield of six and keep four, and three make three. No case is `needs:brass`, checked after the

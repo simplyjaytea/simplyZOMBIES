@@ -454,7 +454,7 @@ static func _begin_reload(world: Variant, entity: int, r: Dictionary) -> bool:
 	# nothing.
 	if is_fed(r) and planned_load(world, entity, r, choice_in(world, r)) == _rounds_now(world, r):
 		return false
-	if bool(r.get("cylinder", false)):
+	if _is_cylinder(world, r):
 		_empty_cylinder(world, entity, r)
 	r["state"] = FireState.Reload
 	# The reload clock is the weapon's own and its item-scoped share on top; a bare gun's is unchanged.
@@ -1053,11 +1053,24 @@ static func _eject_case(world: Variant, attacker: int, weapon: Dictionary, round
 	var brass: String = SimItemsRes.brass_of(world, caliber)
 	if brass == "":
 		return
-	if bool(weapon.get("cylinder", false)):
+	if _is_cylinder(world, weapon):
 		var rec: Dictionary = _record(world, weapon)
 		rec["spent"] = int(rec.get("spent", 0)) + 1
 		return
 	_scatter_cases(world, attacker, brass, 1)
+
+
+# Whether this weapon is a cylinder gun. A save from before the `cylinder` key has no copy of it on the
+# live `rangedWeapon` until the next equip or wear refresh, so the item's own profile is asked then,
+# the same way a pre-change save's parts are derived on load (docs/30, "Spent brass").
+static func _is_cylinder(world: Variant, weapon: Dictionary) -> bool:
+	if weapon.has("cylinder"):
+		return bool(weapon["cylinder"])
+	var item: int = int(weapon.get("source", -1))
+	if item < 0 or not world.components.has_component(item, "itemBase"):
+		return false
+	var profile: Variant = SimItemsRes.ranged_profile_of(world, item)
+	return profile is Dictionary and bool((profile as Dictionary).get("cylinder", false))
 
 
 # A cylinder gun's spent cases fall out at the start of its reload, one per round fired since the last.
