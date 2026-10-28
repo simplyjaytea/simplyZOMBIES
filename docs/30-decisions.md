@@ -7055,3 +7055,28 @@ table was not re-run.
 **How to apply:** a screen that shows an item's name reads `SimItems.item_name`, never the base's
 `name`, so a given name reaches it. A new check of the item-name clause calls
 `SimItems.name_is_allowed`, never its own copy.
+
+## The ranged affixes, partly, 2026-10-28
+
+The five ranged prefixes docs/10 names were planned as one data edit. Two of them are. Calls taken:
+
+- **Two ship, three wait.** Trued (accuracy) and Blued (condition loss) are authored. Ported
+  (recoil), Chambered (reload time) and Heavy-barrelled (weight and steady time) name effects that no
+  stat carries, and Blued's "resists wet" has no stat either. Authoring them would need a new stat,
+  and the batch plan said no new stat. So they wait for the owner's or the coordinator's call on
+  adding stats, and docs/23 names them.
+- **The gun's own accuracy is read through the item.** `ranged_accuracy` resolves on the shooter, so a
+  barrel's Trued could not move the cone. `SimItems.accuracy_of` is the item's share of it, the same
+  division `noise_emission_of` and `condition_loss_of` already do, and `_refresh_cone` multiplies it
+  beside the shooter's value. A bare gun reads exactly 1.0, so no gun without an affix changes.
+- **A stat with no item reader is refused by name.** `SimItems.ITEM_SCOPED_READS` lists the stats some
+  reader resolves through an item's scope, and the RANGED lane fails any ranged prefix that moves
+  another. It is a list a person grows with a reader, not an inference from the code.
+- **The roll pool grows.** A ranged roll can now draw Trued or Blued, so the RNG draws for a modified
+  or field-tested gun change. The FAST tier of `godot:m2:balance` judges that in the chain.
+
+**Not measured.** The ten-seed table was not re-run. The change is off the tick path except the cone,
+which is a no-op for a bare gun.
+
+**How to apply:** a new affix on a stat that is not in `ITEM_SCOPED_READS` is refused by the gate
+until a reader that reads it through the item exists and is gated to move.

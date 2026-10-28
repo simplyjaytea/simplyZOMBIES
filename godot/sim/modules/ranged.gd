@@ -133,7 +133,10 @@ static func _refresh_cone(world: Variant, entity: int, r: Dictionary) -> void:
 		if _arm_ruined(world, entity):
 			half = minf(WIDE_HALF, half + 0.15)
 	if world.modifiers != null and (world.modifiers as Object).has_method("resolve"):
+		# The person's accuracy, times the gun's own share of it. An affix on the barrel (Trued) is
+		# item-scoped, so it has to be read through the item, not the shooter.
 		var acc: float = float(world.modifiers.call("resolve", "ranged_accuracy", entity))
+		acc *= SimItemsRes.accuracy_of(world, int(r.get("source", -1)))
 		if acc > 0.0:
 			half = half / acc
 	# What is bolted to the weapon, after what is true of the person holding it. An optic tightens
