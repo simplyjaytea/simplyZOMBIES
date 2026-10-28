@@ -82,6 +82,7 @@ func _armed(w: Variant, id: String) -> Variant:
 	var ammo: int = SimItems.spawn_item(w, ammo_id, {"tier": "scavenged", "count": 20})
 	if not SimInventory.stow(w, w.player, ammo):
 		w.components.set_component(ammo, "stored", {"container": w.player})
+	SimRanged.load_held(w, w.player)
 	# The equip event is what builds the profile, and publish() only queues -- without this the
 	# component is not there yet and every assertion below would judge an unarmed survivor.
 	w.events.drain()

@@ -87,6 +87,9 @@ func _pistol_loud() -> bool:
 	SimInventory.equip(w, w.player, pistol)
 	var ammo: int = SimItems.spawn_item(w, "item.ammo.9mm", {"tier": "scavenged", "count": 20})
 	SimInventory.stow(w, w.player, ammo)
+	# Loaded the way a body arrives armed: a gun is empty until a reload, and the magazine holds
+	# real rounds since 2026-10-28.
+	SimRanged.load_held(w, w.player)
 	var rng: Variant = w.rng.stream("shambler")
 	SimRoster.spawn_zombie(w, 14.0, 12.0, SimRoster.TYPE_SHAMBLER, rng)
 	w.events.drain()
@@ -131,6 +134,9 @@ func _worn_pistol(w: Variant, condition: float) -> int:
 	SimInventory.equip(w, w.player, pistol)
 	var ammo: int = SimItems.spawn_item(w, "item.ammo.9mm", {"tier": "scavenged", "count": 20})
 	SimInventory.stow(w, w.player, ammo)
+	# Loaded the way a body arrives armed: a gun is empty until a reload, and the magazine holds
+	# real rounds since 2026-10-28.
+	SimRanged.load_held(w, w.player)
 	w.events.drain()
 	return pistol
 
@@ -156,12 +162,12 @@ func _jam_rate(w: Variant, shots: int) -> float:
 		var rw: Variant = w.components.get_component(w.player, "rangedWeapon")
 		if not (rw is Dictionary):
 			break
-		# Top the magazine AND the pouch up by hand so neither is ever the reason a pull does not
+		# Top the pouch up and load the magazine from it so neither is ever the reason a pull does not
 		# happen -- this measures jamming, not logistics. Without the pouch half the denominator
 		# is a lie: try_begin_fire refuses outright with no ammo, so 400 pushes became 20 real
 		# trigger pulls and the measured rate read a fifth of the truth.
-		(rw as Dictionary)["mag"] = int((rw as Dictionary).get("magSize", 8))
 		_top_up_ammo(w)
+		SimRanged.load_held(w, w.player)
 		w.commands.push({"type": "fire"})
 		pulls += 1
 		for _i in 200:
@@ -257,9 +263,8 @@ func _clearing_a_jam_takes_longer_than_a_reload() -> bool:
 	for _pull in 60:
 		if jammed_at >= 0:
 			break
-		var live0: Dictionary = w.components.get_component(w.player, "rangedWeapon") as Dictionary
-		live0["mag"] = int(live0.get("magSize", 8))
 		_top_up_ammo(w)
+		SimRanged.load_held(w, w.player)
 		w.commands.push({"type": "fire"})
 		for _i in 400:
 			w.step()
@@ -358,6 +363,7 @@ func _a_gun_with_no_barrel_does_not_fire_and_says_so() -> bool:
 	var ammo: int = SimItems.spawn_item(w, "item.ammo.9mm", {"tier": "scavenged", "count": 40})
 	if not SimInventory.stow(w, w.player, ammo):
 		w.components.set_component(ammo, "stored", {"container": w.player})
+	SimRanged.load_held(w, w.player)
 	w.events.drain()
 
 	# It fires to begin with, or nothing below means anything.
@@ -435,6 +441,9 @@ func _one_shot(affix_id: String, tier: int) -> Dictionary:
 	SimInventory.equip(w, w.player, pistol)
 	var ammo: int = SimItems.spawn_item(w, "item.ammo.9mm", {"tier": "scavenged", "count": 20})
 	SimInventory.stow(w, w.player, ammo)
+	# Loaded the way a body arrives armed: a gun is empty until a reload, and the magazine holds
+	# real rounds since 2026-10-28.
+	SimRanged.load_held(w, w.player)
 	var rng: Variant = w.rng.stream("shambler")
 	SimRoster.spawn_zombie(w, 14.0, 12.0, SimRoster.TYPE_SHAMBLER, rng)
 	w.events.drain()
