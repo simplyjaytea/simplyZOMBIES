@@ -279,9 +279,6 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
   two of three jams. The allowed table is content keyed by receiver family, written to a realism
   table in docs/10 (the owner vetoes rows; docs/33). About twelve across the twelve receivers.
   Gate: `godot:m2:ammo` KIT, refusing a two-part kit and an off-table pairing.
-- **Furniture is ergonomics.** Stock, grip and foregrip read into aim time, recoil recovery and
-  which stances may fire (a folding stock fires from the car). Gate: `godot:m2:aim` and
-  `godot:m2:stance`.
 - **Gunsmithing decides field versus bench, and the botch.** Skill moves operations between
   `is_field_swap` and the bench and feeds `modification.gd`'s failure curve. Gate:
   `godot:m2:bench`.
@@ -463,11 +460,12 @@ balance record and says so in its record; `survivors_end >= 1` is never the leve
   Blued (`condition_loss`) ship in `godot/content/affixes/ranged_prefixes.json`. Trued reads through
   the gun's own share of accuracy (`SimItems.accuracy_of`, folded into the cone at
   `ranged.gd:_refresh_cone`); Blued through `condition_loss_of`, which already existed. Gate:
-  `godot:m2:attach` RANGED. **Still open, and blocked on stats, not readers:** Ported (less recoil,
+  `godot:m2:attach` RANGED. **Still open, no longer blocked on stats:** Ported (less recoil,
   more `noise_emission`), Chambered (reload time), Heavy-barrelled (weight and steady time), and
-  Blued's "resists wet" clause. No stat declared in `sim/modifiers/stats.gd` carries recoil, reload,
-  weight or wet resistance. F4 (furniture) adds recoil recovery and steady time; a second PR after F4
-  merges reads those for Ported and Heavy-barrelled, plus a reload-time stat if F4 did not add one.
+  Blued's "resists wet" clause. F4 (furniture, #255) added the clocks they need: `steady_ticks`,
+  `recover_ticks` and `reload_ticks`, each read item-scoped through `SimItems.steady_share_of`,
+  `recover_share_of` and `reload_share_of`. A second PR reads those for Ported (`recover_ticks`),
+  Chambered (`reload_ticks`) and Heavy-barrelled (`steady_ticks`; its weight half has no stat).
   Blued's "resists wet" stays open with no stat. Ported's noise half alone would be a pure drawback,
   so it waits for its recoil half.
 - **Armour attachment slots** — **moved into the alpha-roster group below** (2026-09-12), where
@@ -816,10 +814,11 @@ before it.
 - **Build speed is read.** A new `build_speed` on the Construct and Repair spans and the player's
   fortify channel, through one helper both call; two Craft minors and **the fixer** keystone
   (faster building and cheaper repairs, slower on foot for the toolbag).
-- **Reload, and the shot's recoil.** New `reload_speed` on both reload spans and `shot_recovery`
-  on the existing recover rung — recoil is not a new mechanism, it is the rung that already
-  exists; two Ranged minors and **the cold shot** keystone (a much tighter cone, a much longer
-  recovery).
+- **Reload, and the shot's recoil.** The stats exist since F4 (#255): `reload_ticks` on both reload
+  spans and `recover_ticks` on the existing recover rung, read today only item-scoped (the gun's own
+  share); this piece reads them on the shooter as well, not new `reload_speed` and `shot_recovery`
+  stats — recoil is not a new mechanism, it is the rung that already exists; two Ranged minors and
+  **the cold shot** keystone (a much tighter cone, a much longer recovery).
 - **Noise emission is read.** `noise_emission` on the shooter, the swinger and the walker, times
   the item's own, through one helper the shot, the connect and the footstep all call; revives the
   affix "of the Quiet Hand"; soft feet as a Survival minor and **the quiet ones** keystone (half
@@ -2828,6 +2827,26 @@ not a to-do list:
   (`barrel:` reason; the pistol will not fire and says so). Gate: `godot:m2:attach` BARREL, six lanes,
   each with a true negative: VOCAB, SHIPPED, LENGTH, QUALITY, MATERIAL, FALLOFF. The screen half is
   named in what's left. The ten-seed table was not re-run.
+- **Furniture decides the seat, 2026-10-28.** Aim time and recovery already read furniture through
+  `handling` (the folding stock 1.35, the foregrip 1.15, both folded through condition), so the
+  stock and the grip needed no new reader; the FURNITURE lane of `godot:m2:aim` holds them to it.
+  The new rule is the seat. A part declares `fireFromVehicle` (only the folding stock does), and
+  `SimAttachments.fires_from_vehicle` reads it off every fitted part into the profile's `fromVehicle`.
+  A body in a vehicle seat that pulls the trigger is refused unless its weapon says so, with the
+  reason id `seat:stock` (`SimStances.seat_refusal`) and the sentence "It will not fire from a car
+  seat. Get out to shoot it." A reload from the seat is still allowed. Both readers go through
+  `SimAttachments.from_vehicle_of`, which asks the fitted parts when a profile restored from an
+  older save has no key. Gate: `godot:m2:stance` SEAT, a folding stock fires from a sedan's driver
+  seat, a full stock is refused there and fires on foot, and both hold with the key erased.
+  The numbers are first cuts and were not re-tuned. The ten-seed table was not re-run: no body and
+  no kind changed.
+  The clocks an affix can move are item-scoped, for the ranged affixes follow-up: `steady_ticks`
+  (time to settle on the aim), `recover_ticks` (time to come back down after a shot) and
+  `reload_ticks`, each in `SimItems.ITEM_SCOPED_READS` and read through `SimItems.steady_share_of`,
+  `recover_share_of` and `reload_share_of`. The ladder scales its settle, recovery and reload by the
+  item's share on every read, so a moved clock takes effect on the next rung with no refit. Gate:
+  `godot:m2:aim` READERS (a x2 on each clock moves that clock alone, on that gun, and a sibling
+  reads 1.0; the bare gun is the true negative).
 - **Melee frames and the widened slots, and the improvised recipe table, 2026-10-26.** The first
   stage of the melee arc (docs/38). Every melee item declares a `family` (club, blade, polearm or
   tool): the nineteen melee bases, a new `item.bat.wood` (a twentieth base, so the wooden bat the
