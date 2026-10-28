@@ -2664,13 +2664,17 @@ not a to-do list:
   so the jam now follows the internals. The screen's band words (`inspect_view` and the grid view)
   read `SimItems.assembly_condition` rather than the receiver's own condition, so a gun with a
   failing sear reads "failing", the band the jam table is keyed by. A worn-through internal stays
-  fitted at zero (`staysWhenWornOut`, read in `SimAttachments._wear_one`) so it jams every pull
-  instead of falling off and leaving the gun to jam less. The action's 0.20 kg is split: action
+  fitted at zero (`staysWhenWornOut`, read in `SimAttachments._wear_one`) instead of falling off
+  and leaving the gun to jam less, and `SimAttachments.blocked_reason` refuses the weapon as
+  `broken:<slot>` (the end review's change: a jam on every pull left the never-jamming revolver
+  firing for nothing and npc_combat's envelope open; docs/30). The action's 0.20 kg is split: action
   0.12, spring 0.04, sear 0.02, extractor 0.02; the tuned action, match action and magnum cylinder
   drop by the same 0.08 kg, so every assembled firearm weighs what it did. The three parts are in
   the `tables.json` parts bin the action sits in. Gates: `godot:m2:ammo` JAM (a sound pistol never
-  jams; a sear at 0.35 jams 0.117 of 4000 pulls against the table's 0.12 and reads "failing"; a
-  sear worn through stays fitted and jams every pull), `godot:m2:attach` INTERNALS (all nine bases
+  jams; a sear at 0.35 jams 0.117 of 4000 pulls against the table's 0.12, reads "failing" and still
+  fires; a sear worn through stays fitted, reads "broken", refuses as `broken:sear` on the pull, the
+  HUD line and the NPC envelope, spending no round; the revolver refuses the same on a worn-through
+  extractor), `godot:m2:attach` INTERNALS (all nine bases
   spawn with the three fitted, each structural and each staying fitted). Not in this piece: a
   hand-loaded round, which needs a reader of its own on the jam, and the named break-action, which
   has never had an action and so carries none of the three. Measured in the PR's Measured section.
