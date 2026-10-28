@@ -104,7 +104,11 @@ const OVERRIDABLE: Dictionary = {
 # indistinguishable from a part that never wears. Not a slot-to-event table in code, because the
 # `barrel` slot holds both a suppressor and a long barrel and they do not wear alike -- and
 # because "adding a kind of attachment is a data edit" is the rule this module exists to keep.
-const WEAR_EVENTS: Array[String] = ["shot", "reload", "hit", "jam"]
+#
+# `hit` and `struck` are the two sides of one blow. `hit` is the attacker's: the weapon that
+# connected, worn by `attack.connected`'s `item`. `struck` is the target's: a garment that covered
+# the part the blow landed on, worn by SimHealth's `damage_part` through `wear_struck_armor`.
+const WEAR_EVENTS: Array[String] = ["shot", "reload", "hit", "jam", "struck"]
 
 # Wear a part takes from one event it declares, before its own `wearRate` multiplies it. Set
 # against SimItems.WEAR_PER_SHOT (0.0015) so a plain part outlasts the weapon it is bolted to and
@@ -454,12 +458,21 @@ static func _rehome(world: Variant, host: int, part: int) -> bool:
 
 
 ## Wears every part on this host that declares the event, then rebuilds the host. Called from the
-## three channels SimItems publishes; the host itself is worn there, not here.
-static func wear_parts(world: Variant, host: int, event_word: String) -> void:
+## channels SimItems publishes, where the host itself is worn too, and from SimHealth for `struck`,
+## where it is not: a garment's own condition is read by nothing, so only its parts wear.
+##
+## `covering` narrows the walk to parts whose own `armor` block names that body part. A blow to the
+## arm wears the vest's lining, which covers the arm, and leaves its plate, which covers only the
+## chest, as it was. Empty means every part that declares the word, which is every weapon channel.
+static func wear_parts(world: Variant, host: int, event_word: String, covering: String = "") -> void:
 	if host < 0 or not WEAR_EVENTS.has(event_word):
 		return
 	for rec in parts_of(world, host):
 		var spec: Dictionary = (rec as Dictionary)["spec"] as Dictionary
+		if covering != "":
+			var guards: Variant = spec.get("armor")
+			if not (guards is Dictionary and float((guards as Dictionary).get(covering, 0.0)) > 0.0):
+				continue
 		var declared: Variant = spec.get("wearsOn", [])
 		if not declared is Array:
 			continue
