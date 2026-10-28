@@ -2397,13 +2397,14 @@ not a to-do list:
 
 - **The round you load, 2026-10-28.** docs/23's "Choosing which round to fire" and "The magazine
   remembers what you loaded", together (firearms batch piece F2; docs/30's "The round you load").
-  - **The record.** The weapon item carries `loaded {rounds, choice}`: round base ids in firing
-    order, and the chosen round or "". Not `rangedWeapon`, which is the actor's and is rebuilt on
+  - **The record.** The weapon item carries `loaded {rounds, tiers, choice}`: round base ids in
+    firing order, their tiers in step, and the chosen round or "". Not `rangedWeapon`, which is the actor's and is rebuilt on
     every equip, so a choice there would be forgotten on a holster. A reload empties the magazine
     into the pool and fills it again, the chosen round first, then the preferred, then by base id,
     moving only the difference through the pack (`SimRanged.planned_load`, `_apply_load`): a
     top-up, a switch and a mixed load are one rule. A shot spends the front round and leaves the
-    pack alone. A bow still nocks from the quiver and only remembers the choice. A found gun is
+    pack alone. A round comes back out of a reload at the tier it went in with (the end review's
+    finding; an older record reads as scavenged). A bow still nocks from the quiver and only remembers the choice. A found gun is
     empty (docs/33 item 26, the built default); a raider arrives loaded from their own kit
     (`SimRanged.load_held`). An older save has no `loaded` and loads every gun empty, its counter
     not trusted; no `SAVE_VERSION` bump.
@@ -2417,7 +2418,8 @@ not a to-do list:
     the pack, the choice survives a holster, a bow nocks the chosen broadhead; unchosen, buckshot
     goes first), MAG (a reload takes eight from the pack and a shot none, a top-up takes only what
     was fired, a loaded pistol fires with an empty pack and an emptied one does not, a switch waits
-    out the reload, two slugs load over buckshot and fire first) and WORD; each red with the choice
+    out the reload, two slugs load over buckshot and fire first), WORD and TIER (modified buckshot
+    swapped out for slugs returns modified, the slugs keep theirs); each red with the choice
     ignored or with the shot drawing from the pack again. `godot:m2:save` MAGAZINE (a part-spent
     slug-over-buckshot magazine and its choice round-trip in order and the next shot spends the
     slug; a save with no record loads empty and its counter of five turns the first pull into a

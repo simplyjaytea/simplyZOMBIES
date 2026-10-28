@@ -62,8 +62,9 @@ func _run() -> void:
 	ok = _the_round_you_choose_is_the_round_you_fire() and ok
 	ok = _the_magazine_remembers_what_you_loaded() and ok
 	ok = _every_load_reads_in_words() and ok
+	ok = _a_round_comes_back_as_it_went_in() and ok
 	if ok:
-		print("M2_AMMO_OK content reach scaled default pick refuse fold drops legacy convert recover debug-stack round mag word")
+		print("M2_AMMO_OK content reach scaled default pick refuse fold drops legacy convert recover debug-stack round mag word tier")
 		quit(0)
 	else:
 		push_error("M2_AMMO_FAIL")
@@ -1097,6 +1098,46 @@ func _every_load_reads_in_words() -> bool:
 		push_error("%s: with the two slugs fired the magazine reads '%s', not buckshot" % [lane, String(SimInventory.inspect_view(w2, w2.player, gun2).get("load", ""))])
 		return false
 	print("  WORD OK %d rounds each with a word, none with a digit, none shared in a caliber; empty reads empty, a bow reads nothing, slug over buckshot reads mixed and buckshot once the slugs are fired" % rounds)
+	return true
+
+
+# --- TIER ---------------------------------------------------------------------------------------
+#
+# A round a reload puts back comes out at the tier it went in at (the review of 2026-10-28: the first
+# cut spawned every returned round "scavenged"). Modified buckshot loaded, slugs chosen over it: the
+# buckshot back in the pack is still modified, and the slugs in the gun are still scavenged.
+func _a_round_comes_back_as_it_went_in() -> bool:
+	var lane: String = "TIER"
+	var w: Variant = _world()
+	var gun: int = _spawn(w, SHOTGUN)
+	if not SimInventory.equip(w, w.player, gun):
+		push_error("%s: the shotgun would go in neither hand" % lane)
+		return false
+	var buck: int = SimItems.spawn_item(w, BUCK, {"tier": "modified", "count": 5})
+	var slug: int = SimItems.spawn_item(w, SLUG, {"tier": "scavenged", "count": 5})
+	if not SimInventory.store_anywhere(w, buck, w.player) or not SimInventory.store_anywhere(w, slug, w.player):
+		push_error("%s: the rounds would not go in a pocket" % lane)
+		return false
+	SimRanged.load_held(w, w.player)
+	w.step()
+	if _stack_of(w, w.player, BUCK) >= 0:
+		push_error("%s: loading five buckshot left a buckshot stack in the pack" % lane)
+		return false
+	w.commands.push({"type": "item.load", "actor": w.player, "item": _stack_of(w, w.player, SLUG)})
+	w.step()
+	_load_first(w, w.player)
+	var back: int = _stack_of(w, w.player, BUCK)
+	if back < 0 or _rounds_left(w, w.player, BUCK) != 5:
+		push_error("%s: the buckshot did not come back to the pack" % lane)
+		return false
+	if SimItems.tier_of(w, back) != "modified":
+		push_error("%s: modified buckshot came back out of the magazine %s" % [lane, SimItems.tier_of(w, back)])
+		return false
+	var rec: Variant = w.components.get_component(gun, SimRanged.LOAD)
+	if not (rec is Dictionary and (rec as Dictionary).get("tiers") == ["scavenged", "scavenged", "scavenged", "scavenged", "scavenged"]):
+		push_error("%s: the slugs in the gun carry tiers %s" % [lane, str((rec as Dictionary).get("tiers") if rec is Dictionary else null)])
+		return false
+	print("  TIER OK modified buckshot swapped out for slugs comes back to the pack modified, and the slugs in the gun keep their own tier")
 	return true
 
 
