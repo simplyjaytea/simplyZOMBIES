@@ -505,7 +505,7 @@
     },
     "ammo": {
       "type": "object",
-      "description": "Present on a round and absent on everything else, the way `food` is what makes an item edible. `caliber` and `word` are the required keys: a round that names a caliber and scales nothing is the plain load for that weapon, which is what every round shipped before this block existed effectively was. The `ranged` table is multipliers folded over the *host weapon's* profile for the one shot that spends this round -- the same grammar `attachment.ranged` uses and for the same reason, so a slug is one set of numbers whatever gun it goes into and nothing in the sim has to know what a slug is. Multipliers, never adders. The content validator is shallow and will not look inside this, which is what godot/check_m2_ammo.gd is for.",
+      "description": "Present on a round and absent on everything else, the way `food` is what makes an item edible. `caliber` and `word` are the required keys: a round that names a caliber and scales nothing is the plain load for that weapon, which is what every round shipped before this block existed effectively was. The `ranged` table is multipliers folded over the *host weapon's* profile for the one shot that spends this round -- the same grammar `attachment.ranged` uses and for the same reason, so a slug is one set of numbers whatever gun it goes into and nothing in the sim has to know what a slug is. Multipliers, never adders, with one exception: `misfire` is a chance added to a weapon's jam chance, because a multiplier on a sound gun's zero would never bite. The content validator is shallow and will not look inside this, which is what godot/check_m2_ammo.gd is for.",
       "additionalProperties": false,
       "required": [
         "caliber",
@@ -528,6 +528,48 @@
             "exclusiveMinimum": 0
           },
           "description": "Multipliers over the host weapon's ranged profile for this shot only, keyed by the field they scale, against sim/modules/ranged.gd's AMMO_SCALABLE whitelist: damage, noise, flash, rangeMetres, cone, recoverable. A whitelist rather than \"whatever key matches\" for the reason SimAttachments.SCALABLE is one -- a typo would behave exactly like a round that does nothing, which is the hardest bug in this codebase to see. `cone` above 1 is an accuracy cost, so birdshot charges one; `recoverable` only does anything on a weapon that already declares it, which is how a target arrow is worth more than a broadhead to somebody who has to walk out and pick it up."
+        },
+        "misfire": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "description": "A chance per trigger pull added to the jam chance of the weapon that fires this round, on top of its condition band (SimItems.JAM_CHANCE_BY_BAND), read by SimRanged._jammed. Added, never multiplied, so a sound weapon (band 0) still misfires on it and a round never lowers the chance. Absent on factory rounds, which therefore draw nothing from the ranged stream in a sound gun. Shipped on the hand-loads only, at 0.03 (docs/09's late-game hand-loading)."
+        },
+        "handload": {
+          "type": "object",
+          "description": "Present on a round a survivor makes at a gunsmith's bench from what they carry (`item.handload`, sim/modules/ranged.gd's handload_refusal). The recipe is content: `kinds` are the build-material vocabulary (sim/modules/fortify.gd MATERIAL_KINDS), one unit of each spent; `yield` is how many rounds one hand-load makes, and must fit one stack of this round. A caliber with no hand-load recipe has no hand-loads (the .22 by design, and the bow).",
+          "additionalProperties": false,
+          "required": [
+            "kinds",
+            "yield"
+          ],
+          "properties": {
+            "kinds": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "metal",
+                  "wood",
+                  "plank",
+                  "stone",
+                  "fiber",
+                  "cordage",
+                  "fixings",
+                  "ingot",
+                  "charcoal",
+                  "clay",
+                  "wire",
+                  "circuit"
+                ]
+              }
+            },
+            "yield": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
         }
       }
     },
