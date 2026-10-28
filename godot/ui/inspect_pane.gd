@@ -54,8 +54,7 @@ static func state_line(view: Dictionary) -> Dictionary:
 	var fuel: String = String(view.get("fuel", ""))
 	if not fuel.is_empty():
 		return {"label": "fuel", "word": fuel}
-	# A barrel's length, quality and material, "full, service, steel": a part, so no blade or lamp
-	# is one too.
+	# A barrel's departures from the identity, "long, match": a part, so no blade or lamp is one too.
 	var barrel: String = String(view.get("barrel", ""))
 	if not barrel.is_empty():
 		return {"label": "barrel", "word": barrel}
@@ -221,7 +220,7 @@ static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: floa
 	# phrase too long for one line (a barrel's three words) takes a second, laid out by `state_rows`.
 	var state: Dictionary = state_line(view)
 	if not state.is_empty():
-		var ink: Color = Locker._a(_state_colour(String(state["word"])), alpha)
+		var ink: Color = Locker._a(_state_colour(String(state["word"]), String(state["label"])), alpha)
 		var rows: Array[Dictionary] = state_rows(font, state, text_wide)
 		for n in mini(rows.size(), STATE_ROWS):
 			var label: String = String(rows[n]["label"])
@@ -396,8 +395,11 @@ static func _band_colour(band: String) -> Color:
 
 
 # The state word's colour, on the condition's scale: at its best reads calm, spent reads as the
-# warning it is, and everything between is the accent.
-static func _state_colour(word: String) -> Color:
+# warning it is, and everything between is the accent. A barrel's words are a description, not a
+# condition, so they read as plain text rather than as the amber that means "fits" on the bench.
+static func _state_colour(word: String, label: String = "") -> Color:
+	if label == "barrel":
+		return Locker.TEXT
 	match word:
 		"keen", "burning well":
 			return Locker.GOOD
