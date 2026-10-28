@@ -65,6 +65,7 @@ const NAMES: Array[String] = [
 	"name_field_long",
 	"load_gun",
 	"load_round",
+	"inspect_barrel",
 ]
 # The Colony screen's two fuller shots (art QA, slice 2): Mara picked by a click on her name, her
 # row made manual by one changed number, the pointer resting on the medic chip; and a roster of
@@ -704,6 +705,28 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 				for _i in NAMED_LONG_BACK:
 					press(tree, KEY_LEFT)
 			main.set_meta("name_field_bat", bat)
+		"inspect_barrel":
+			# The inspect pane on a barrel whose three words are all departures, the widest phrase the
+			# barrel table can say ("carbine, rough, chromed"), so the two-row wrap is shot. No shipped
+			# barrel departs three ways, so the long barrel's base is given them here. The base is a
+			# shared cache, so this is the last scene in NAMES, and the shot process ends after it.
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			var widest: Dictionary = SimItems.base_by_id(world, "item.attach.barrel.long") as Dictionary
+			var words: Dictionary = (widest["attachment"] as Dictionary)["barrel"] as Dictionary
+			words["length"] = "carbine"
+			words["quality"] = "rough"
+			words["material"] = "chromed"
+			var barrel: int = SimItems.spawn_item(world, "item.attach.barrel.long", {"tier": "scavenged"})
+			if not SimInventory.stow(world, int(world.player), barrel):
+				return "the survivor has no room for the barrel"
+			press(tree, KEY_TAB)
+			await _settle(tree, main)
+			var sheet_i: Variant = main.get("_inventory_panel")
+			if sheet_i == null:
+				return "there is no inventory sheet"
+			(sheet_i as Control).set("_selected", barrel)
+			(sheet_i as Control).queue_redraw()
+			await tree.process_frame
 		"load_gun", "load_round":
 			world.tick = Clock.tick_on_day(DAY, NOON)
 			var actor_l: int = int(world.player)
@@ -882,6 +905,17 @@ static func verify(main: Node, scene: String) -> String:
 			var nav_v: Variant = main.get("_nav_bar")
 			if nav_v == null or bool(nav_v.get("subject_is_you")) or String(nav_v.get("subject_name")).is_empty():
 				return "the bar is not viewing a colonist"
+			return ""
+		"inspect_barrel":
+			var sheet_v: Variant = main.get("_inventory_panel")
+			if sheet_v == null:
+				return "there is no inventory sheet"
+			var picked: int = int((sheet_v as Object).get("_selected"))
+			if picked < 0 or not SimItems.item_name(world, picked).contains("Long Barrel"):
+				return "the inspect pane is not on the barrel"
+			var words_on: String = String(InspectPaneRes.state_line(SimInventory.inspect_view(world, int(world.player), picked)).get("word", ""))
+			if words_on != "carbine, rough, chromed":
+				return "the barrel's words are %s, not the widest phrase" % words_on
 			return ""
 		"bench", "bench_barrel":
 			var rifle: int = SimGunsmith.focus_of(world, int(world.player))

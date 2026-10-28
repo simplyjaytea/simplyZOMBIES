@@ -33,7 +33,7 @@ const PICTURE_GAP: float = 16.0
 const BUTTON_H: float = 36.0
 const BUTTON_GAP: float = 8.0
 # What a verb is called on a button, where the menu's bare word would be unclear out of context.
-const VERB_WORDS: Dictionary = {"stash": "put it here", "take": "take it", "unequip": "take off", "name": "name it"}
+const VERB_WORDS: Dictionary = {"stash": "put it here", "take": "take it", "unequip": "take off", "name": "name it", "handload": "hand-load"}
 # The caret in the name field: one art pixel wide, the accent, as tall as the type.
 const CARET_W: float = 2.0
 # The most rows a state line may take beside the picture (`state_rows`).

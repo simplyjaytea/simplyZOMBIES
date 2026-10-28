@@ -420,6 +420,13 @@ func _the_catalogue_is_findable_and_read() -> bool:
 		if att is Dictionary and (att as Dictionary).get("recipe") is Dictionary and not (((att as Dictionary)["recipe"] as Dictionary).get("kinds", []) as Array).is_empty():
 			made += 1
 			continue
+		# A hand-load is made at a bench, the same way: `item.handload` makes it from `ammo.handload`
+		# (sim/modules/ranged.gd's handload_refusal). Its reach is judged where the recipe is, by
+		# check_m2_ammo.gd's CONTENT lane, which refuses a hand-load whose caliber nothing chambers.
+		var spec: Variant = e.get("ammo")
+		if spec is Dictionary and (spec as Dictionary).get("handload") is Dictionary:
+			made += 1
+			continue
 		judged += 1
 		if not (findable.has(String(id)) or kits.has(String(id)) or empties.has(String(id)) or produced_ids.has(String(id))):
 			unreachable.append(String(id))

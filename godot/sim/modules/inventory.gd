@@ -682,7 +682,7 @@ static func inspect_view(world: Variant, actor: int, item: int) -> Dictionary:
 # nothing here re-implements either. That is the dead-socket rule applied to a menu: a verb whose
 # availability is computed in the UI is a verb that will one day be offered for a command the sim
 # drops on the floor.
-const MENU_ORDER: Array[String] = ["equip", "unequip", "use", "load", "hone", "modify", "name", "open", "inspect", "split", "drop"]
+const MENU_ORDER: Array[String] = ["equip", "unequip", "use", "load", "handload", "hone", "modify", "name", "open", "inspect", "split", "drop"]
 static func verbs_for(world: Variant, actor: int, item: int) -> Array[String]:
 	var out: Array[String] = []
 	if item < 0 or not (SimItems.item_base_of(world, item) is Dictionary):
@@ -713,6 +713,11 @@ static func verbs_for(world: Variant, actor: int, item: int) -> Array[String]:
 	# `SimRanged.load_refusal`, the predicate the `item.load` command asks first.
 	if String(_Ranged().call("load_refusal", world, actor, item)) == "":
 		offered["load"] = true
+	# A firearm whose caliber has a hand-load, asked of `SimRanged.handload_refusal`, the predicate
+	# the `item.handload` command asks first. Absent with the bench out of reach or a material short,
+	# never greyed: the menu rule.
+	if String(_Ranged().call("handload_refusal", world, actor, item)) == "":
+		offered["handload"] = true
 	# A weapon rebuilt enough to be the survivor's own may be named, worn or carried. The sim's
 	# `nameable` is the whole question, so the menu never offers a name the command would refuse
 	# for being ordinary.
