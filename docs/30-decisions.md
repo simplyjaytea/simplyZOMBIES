@@ -7084,3 +7084,42 @@ which is a no-op for a bare gun.
 
 **How to apply:** a new affix on a stat that is not in `ITEM_SCOPED_READS` is refused by the gate
 until a reader that reads it through the item exists and is gated to move.
+
+## The colony tick, without changing outcomes, 2026-10-28
+
+Piece P4 of the nail-survival batch (`planning/2026-10-28-nail-survival.md` in the project files).
+Three costs were named: the stockpile list asked about ten times over, the long job plan run whole
+on one tick, and the 480 to 600 ms worst ticks of the day-one playtest logs. The calls taken:
+
+- **The day-one spike was the walls box, not a plan.** A per-system driver over a whole day one on
+  seeds 99 and 404 found every spike over 200 ms on one colonist in `jobs.ai`, on Retreat, with one
+  short path find under it (0.6 to 2.9 ms). `_retreat_inside` asked `_inside_walls` once per tile
+  of the lot, and each ask read every tile of the lot again to find the box the walls draw: about
+  700 tiles squared, 206 to 222 ms on a quiet container, on the tick a walk home ran past
+  `RETREAT_WALK_TICKS`. Under the playtest's parallel load that is the 480 to 637 ms in the logs.
+  The box is now found once per call (`_walls_box`), which is the same answer by construction.
+- **The box is kept on the world, checked against the whole tile array.** The danger rules asked it
+  for every colonist in the lot every tick, 0.33 ms a reading. `_walls_box_of` keeps it in
+  `world.walls_memo` and hands it back while the map is the same object, the lot is the same rect
+  and `map.tiles` equals the copy it was built from. The box is a function of exactly those three,
+  and the compare is one native call (0.003 ms a reading). A generation key was refused: gates edit
+  `map.tiles` without bumping it.
+- **The stockpile list is kept across ticks, checked against everything it read.**
+  `SimNeeds.stockpile_items` keeps its answer in `world.stockpile_memo` and hands it back while the
+  map's generation, tiles, indoor flags, overlays and anchors, the player, the zone record, the
+  position, item-base and `stored` membership counts (`SimComponentStore.changes`, new) and the
+  tile under every loose item are what they were. The last check is per item, so an item moved in
+  place or by a replaced position is a miss, not a stale answer. That check is most of a hit's
+  cost (0.16 ms against 1.4 for the fresh list with 272 loose items), and it was kept on purpose:
+  an audit of every writer of an item's position was the alternative, and the next writer would
+  not read the audit. `STOCKPILE_MEMO` off answers fresh every time.
+- **The long plan was not split across ticks.** After the walls fix, the same day-one driver shows
+  no job plan in the worst ticks: `jobs.ai` peaks at 22 ms once over two day-one runs under load, and the
+  worst ticks left are a whole cast, one shambler pass or the scripted survivor's own walk-to plan.
+  A split also changes outcomes: a body stands still while its plan finishes, and the plan that
+  matters most is the walk home from a zombie, where a few ticks of standing is a bite. So it stays
+  open in docs/23 with this measurement, for when a quiet machine says plans are the worst tick.
+
+**How to apply:** a reader that asks the walls box for many tiles takes `_walls_box_of` once and
+asks `_in_walls_box` per tile. A new memo here is trusted only while everything it read is
+unchanged, and its lane in `godot:m2:tick` changes each of those things under it.
