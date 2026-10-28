@@ -792,6 +792,10 @@ static func ranged_profile_of(world: Variant, item: int) -> Variant:
 		# weapon that actually fired.
 		"source": item,
 		"blocked": String(_Attachments().call("blocked_reason", world, item)),
+		# Whether the weapon may fire from a vehicle seat: a folding stock's word, read off every fitted
+		# part (SimAttachments.fires_from_vehicle). Rides the profile so the trigger and the HUD read
+		# one field; a bare receiver and a full stock do not declare it, so both are refused a seat.
+		"fromVehicle": bool(_Attachments().call("fires_from_vehicle", world, item)),
 	}
 	var built: Dictionary = _Attachments().call("fold", world, item, "ranged", profile) as Dictionary
 	# `jamChance` was derived above, from the base's own `jams`. A part may *replace* `jams` --

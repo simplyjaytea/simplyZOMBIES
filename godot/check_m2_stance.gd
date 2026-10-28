@@ -22,6 +22,11 @@ const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const SimAttention = preload("res://sim/modules/attention_emitter.gd")
 const SimCombat = preload("res://sim/combat.gd")
+const SimItems = preload("res://sim/modules/items.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimAttachments = preload("res://sim/modules/attachments.gd")
+const SimRanged = preload("res://sim/modules/ranged.gd")
+const SimVehicles = preload("res://sim/modules/vehicles.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -37,8 +42,9 @@ func _run() -> void:
 	ok = _dex_speed_modifier_scales_surface_noise() and ok
 	ok = _the_ground_multiplies_the_rung() and ok
 	ok = _deterministic_replay() and ok
+	ok = _a_furniture_decides_whether_a_seat_fires() and ok
 	if ok:
-		print("M2_STANCE_OK ladder sim-owned, stamina drains and regenerates, zero-stamina gated, the ground multiplies the rung")
+		print("M2_STANCE_OK ladder sim-owned, stamina drains and regenerates, zero-stamina gated, the ground multiplies the rung, a folding stock fires from a seat and a full stock is refused with a reason")
 		quit(0)
 	else:
 		push_error("M2_STANCE_FAIL")
@@ -454,3 +460,87 @@ func _drive(w: Variant, commands_by_tick: Dictionary, ticks: int) -> void:
 		for cmd in commands_by_tick.get(t, []) as Array:
 			w.commands.push(cmd as Dictionary)
 		w.step()
+
+
+# --- the seat (F4) ------------------------------------------------------------------------------
+
+# A seat is the one posture a stance does not name, so the weapon says whether it may fire from one:
+# a folding stock may, and a full stock may not (docs/10's furniture). On foot the same full stock
+# fires, which is the true negative -- the refusal is the seat's and nothing else's. The stock is
+# swapped on a real vehicle the player has mounted through SimVehicles.mount, not a flag set by hand.
+func _a_furniture_decides_whether_a_seat_fires() -> bool:
+	var folding: Dictionary = _shot_with_stock("item.attach.furniture.folding", true)
+	var full: Dictionary = _shot_with_stock("item.part.stock.standard", true)
+	var full_on_foot: Dictionary = _shot_with_stock("item.part.stock.standard", false)
+	if folding.is_empty() or full.is_empty() or full_on_foot.is_empty():
+		return false
+	if not bool(folding["began"]) or String(folding["reason"]) != "":
+		push_error("SEAT: a folding stock was refused from the seat (reason %s)" % String(folding["reason"]))
+		return false
+	if bool(full["began"]) or String(full["reason"]) != SimStances.SEAT_REFUSAL:
+		push_error("SEAT: a full stock in the seat began a shot=%s with reason %s, want refused with %s" % [bool(full["began"]), String(full["reason"]), SimStances.SEAT_REFUSAL])
+		return false
+	if String(full["clause"]) != "It will not fire from a car seat. Get out to shoot it.":
+		push_error("SEAT: the refused full stock reads %s, not the seat sentence" % String(full["clause"]))
+		return false
+	if String(folding["clause"]) != "":
+		push_error("SEAT: a folding stock in the seat still reads a refusal: %s" % String(folding["clause"]))
+		return false
+	if not bool(full_on_foot["began"]) or String(full_on_foot["reason"]) != "":
+		push_error("SEAT: a full stock on foot was refused (reason %s) -- the seat is not the only reason it should fire" % String(full_on_foot["reason"]))
+		return false
+	print("SEAT OK a folding stock fires from the driver's seat; a full stock is refused there with %s and the sentence the screen prints, and fires on foot" % SimStances.SEAT_REFUSAL)
+	return true
+
+
+## One pump shotgun with `stock_id` in its furniture slot, tried once from a seat or from the ground.
+## Returns {began, reason, clause}, where `reason` is the last weapon.refused reason published and
+## `clause` what the screen would say; {} and an error when the district has no car to sit in.
+func _shot_with_stock(stock_id: String, seated: bool) -> Dictionary:
+	var boot: Dictionary = SimBoot.playable(20260805, 64)
+	var w: Variant = boot["world"]
+	var map: Variant = boot["map"]
+	var pos: Dictionary = w.components.get_component(w.player, "position") as Dictionary
+	# A sedan parked one tile east of the player, the way the generator parks one: the record into the
+	# manifest, Low under it, then the manifest spawned. The playable seed rolls no car of its own.
+	var rec: Dictionary = {"x": int(pos["x"]) + 1, "y": int(pos["y"]), "w": 2, "h": 4, "axis": "ns", "class": "vehicle.sedan", "facing": "n"}
+	if not (map.vehicles is Array):
+		push_error("SEAT: the playable map has no vehicle manifest")
+		return {}
+	for ty in range(int(rec["y"]), int(rec["y"]) + int(rec["h"])):
+		for tx in range(int(rec["x"]), int(rec["x"]) + int(rec["w"])):
+			map.tiles[ty * int(map.w) + tx] = SimTileMap.Tile.Low
+	(map.vehicles as Array).append(rec)
+	var cars: Array[int] = SimVehicles.spawn_from_manifest(w, map)
+	if cars.is_empty():
+		push_error("SEAT: the parked sedan did not spawn")
+		return {}
+	var car: int = cars[0]
+	var weapon: int = SimItems.spawn_item(w, "item.shotgun.pump", {"tier": "scavenged"})
+	if not SimInventory.equip(w, w.player, weapon):
+		push_error("SEAT: the pump shotgun would not equip")
+		return {}
+	# Ammunition first: the stock taken off below needs the pockets it would otherwise fill.
+	var ammo: int = SimItems.spawn_item(w, "item.ammo.12g", {"tier": "scavenged", "count": 20})
+	if not SimInventory.stow(w, w.player, ammo):
+		w.components.set_component(ammo, "stored", {"container": w.player})
+	var stock: int = SimAttachments.in_slot(w, weapon, "furniture")
+	if not SimAttachments.detach(w, stock):
+		push_error("SEAT: could not take the standard stock off the shotgun")
+		return {}
+	var fitted: int = SimItems.spawn_item(w, stock_id, {"tier": "scavenged"})
+	if not SimAttachments.attach(w, weapon, fitted, "furniture"):
+		push_error("SEAT: %s would not fit the shotgun's furniture slot" % stock_id)
+		return {}
+	if seated and not SimVehicles.mount(w, w.player, car):
+		push_error("SEAT: the player could not get in the car")
+		return {}
+	w.events.drain()
+	var began: bool = SimRanged.try_begin_fire(w, w.player)
+	w.events.drain()
+	var reason: String = ""
+	for e in w.events.drained:
+		if String((e as Dictionary).get("type", "")) == "weapon.refused" and int((e as Dictionary).get("entity", -1)) == w.player:
+			reason = String((e as Dictionary).get("reason", ""))
+	var clause: String = SimAttachments.refusal_clause(w, w.player)
+	return {"began": began, "reason": reason, "clause": clause}

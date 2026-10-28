@@ -305,6 +305,11 @@ static func try_begin_fire(world: Variant, entity: int) -> bool:
 	var r: Dictionary = rw as Dictionary
 	if int(r.get("magSize", 0)) > 0 and int(r.get("mag", 0)) <= 0:
 		return _begin_reload(world, entity, r)
+	# A seat refuses the shot, not the reload: a body in a car can still change its magazine.
+	var seat: String = SimStancesRes.seat_refusal(world.components, entity, bool(r.get("fromVehicle", false)))
+	if seat != "":
+		world.events.publish({"type": "weapon.refused", "entity": entity, "reason": seat})
+		return false
 	if _wants_ammo(r) and _pick_round(world, entity, r) == "":
 		return false
 	r["state"] = FireState.Raise

@@ -35,6 +35,7 @@ const SimAim = preload("res://sim/aim.gd")
 const SimStances = preload("res://sim/stances.gd")
 const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
+const SimAttachments = preload("res://sim/modules/attachments.gd")
 
 # Weapon, its ammunition, and the `ranged.weight` its base declares. The weight is written out
 # here rather than read off the content on purpose: a gate that reads the value under test and
@@ -59,11 +60,12 @@ func _run() -> void:
 	ok = _a_ruined_arm_widens_the_cone_and_an_intact_one_does_not() and ok
 	ok = _recovery_after_a_shot_is_per_weapon() and ok
 	ok = _aim_is_a_second_heading_priced_at_a_walk() and ok
+	ok = _furniture_moves_the_aim_and_the_recovery() and ok
 	if not ok:
 		push_error("M2_AIM_FAIL")
 		quit(1)
 		return
-	print("M2_AIM_OK sway heft cone arm recover heading")
+	print("M2_AIM_OK sway heft cone arm recover heading furniture")
 	quit(0)
 
 
@@ -465,3 +467,85 @@ func _reads_aim(src: String) -> bool:
 		if not line.strip_edges().begins_with("#") and line.contains("SimAimRes.radians_of(world.components, "):
 			return true
 	return false
+
+
+# --- furniture (F4) -----------------------------------------------------------------------------
+
+# The handling each piece of furniture declares, written out here on purpose: a gate that reads the
+# multiplier under test and compares it to itself cannot fail (HEFT's rule). The expected value still
+# goes through the part's condition, the way the fold does, so a worn stock is judged as worn.
+const FURNITURE_HANDLING: Dictionary = {
+	"item.attach.furniture.folding": 1.35,
+	"item.attach.underbarrel.grip": 1.15,
+}
+
+# Which slot each variant fits, for the variants that add a part rather than take the stock off.
+const FITS: Dictionary = {
+	"folding": ["item.attach.furniture.folding", "furniture"],
+	"grip": ["item.attach.underbarrel.grip", "underbarrel"],
+}
+
+
+# Furniture is the ergonomics the ladder reads: a folding stock and a vertical foregrip bring the
+# weapon up quicker, and a quicker weapon also comes back down sooner after a shot. The true negative
+# is a receiver with no stock, and the standard stock declares no ergonomics of its own: both must sit
+# at the numbers the ladder had before furniture was read at all. Each variant is refit on a fresh
+# world and read the way the trigger reads it, so a lane that passes is the ladder's own clock.
+func _furniture_moves_the_aim_and_the_recovery() -> bool:
+	var id: String = "item.shotgun.pump"
+	var weight: float = float((HEFT[id] as Dictionary)["weight"])
+	var got: Dictionary = {}
+	for variant in ["bare", "standard", "folding", "grip"]:
+		got[variant] = _refit(id, variant)
+		if (got[variant] as Dictionary).is_empty():
+			return false
+	var old_raise: int = SimCombat.raise_ticks(weight, 1.0)
+	var old_recover: int = SimCombat.shot_recover_ticks(weight, 1.0)
+	for variant in ["bare", "standard"]:
+		var g: Dictionary = got[variant]
+		if int(g["raise"]) != old_raise or int(g["recover"]) != old_recover:
+			push_error("FURNITURE: the %s receiver comes up in %d ticks and recovers in %d, want the old %d and %d" % [variant, int(g["raise"]), int(g["recover"]), old_raise, old_recover])
+			return false
+	for variant in ["folding", "grip"]:
+		var g: Dictionary = got[variant]
+		if int(g["raise"]) >= old_raise or int(g["recover"]) >= old_recover:
+			push_error("FURNITURE: the %s does not come up or recover faster than a bare receiver (%d/%d against %d/%d)" % [variant, int(g["raise"]), int(g["recover"]), old_raise, old_recover])
+			return false
+	print("FURNITURE OK bare and standard stock sit at the old %d up and %d back; folding %d and %d; foregrip %d and %d" % [old_raise, old_recover, int(got["folding"]["raise"]), int(got["folding"]["recover"]), int(got["grip"]["raise"]), int(got["grip"]["recover"])])
+	return true
+
+
+## One pump shotgun refit as `variant` says, on a fresh world, read back the way the ladder reads it.
+## Returns {raise, recover, handling}, or {} and an error when the refit or the read could not be made.
+func _refit(id: String, variant: String) -> Dictionary:
+	var w: Variant = _world()
+	var rw: Variant = _armed(w, id)
+	if not rw is Dictionary:
+		return {}
+	var weapon: int = int((rw as Dictionary)["source"])
+	if variant == "bare" or variant == "folding":
+		if not SimAttachments.detach(w, SimAttachments.in_slot(w, weapon, "furniture")):
+			push_error("FURNITURE: %s could not take the standard stock off" % variant)
+			return {}
+	var want: float = 1.0
+	if FITS.has(variant):
+		var fit: Array = FITS[variant]
+		var part: int = SimItems.spawn_item(w, String(fit[0]), {"tier": "scavenged"})
+		if not SimAttachments.attach(w, weapon, part, String(fit[1])):
+			push_error("FURNITURE: %s would not fit the %s" % [variant, id])
+			return {}
+		want = SimAttachments.effect_scale(w, part, float(FURNITURE_HANDLING[String(fit[0])]))
+	w.events.drain()
+	rw = w.components.get_component(w.player, "rangedWeapon")
+	if not rw is Dictionary:
+		push_error("FURNITURE: %s lost its rangedWeapon in the refit" % variant)
+		return {}
+	var handling: float = float((rw as Dictionary)["handling"])
+	if absf(handling - want) > 0.0001:
+		push_error("FURNITURE: %s reads handling %.4f, want %.4f" % [variant, handling, want])
+		return {}
+	if not SimRanged.try_begin_fire(w, w.player):
+		push_error("FURNITURE: %s refused to begin firing" % variant)
+		return {}
+	rw = w.components.get_component(w.player, "rangedWeapon")
+	return {"raise": int((rw as Dictionary)["ticksLeft"]), "recover": SimRanged._recover_of(rw as Dictionary), "handling": handling}

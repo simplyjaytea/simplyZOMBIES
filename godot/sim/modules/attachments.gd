@@ -40,6 +40,7 @@ extends RefCounted
 const SimItemsRes = preload("res://sim/modules/items.gd")
 const SimInventoryRes = preload("res://sim/modules/inventory.gd")
 const SimBarrelRes = preload("res://sim/barrel.gd")
+const SimStancesRes = preload("res://sim/stances.gd")
 
 # Profile fields an attachment is allowed to scale, per kind. A table rather than "multiply
 # anything present in both dictionaries", because that would let a typo -- `magsize`, `range` --
@@ -598,6 +599,17 @@ static func parts_of(world: Variant, host: int) -> Array:
 	return out
 
 
+## Whether a weapon with these parts fitted may fire from a vehicle seat. Read off every fitted part,
+## not only the furniture, so the rule is the content's to set: a folding stock says `fireFromVehicle`
+## and nothing else in the shipped content does. Read by `SimItems.ranged_profile_of` into the
+## profile's `fromVehicle`, and the one refusal reader is SimStances.seat_refusal.
+static func fires_from_vehicle(world: Variant, host: int) -> bool:
+	for rec in parts_of(world, host):
+		if bool((rec as Dictionary)["spec"].get("fireFromVehicle", false)):
+			return true
+	return false
+
+
 ## One declared multiplier, softened by the state the part is actually in.
 ##
 ##     effective = 1.0 + (declared - 1.0) * k,  k = SimItems.condition_factor(part)
@@ -983,6 +995,10 @@ static func refusal_clause(world: Variant, entity: int) -> String:
 		if int((w as Dictionary).get("source", -1)) == -1:
 			continue
 		var reason: String = String((w as Dictionary).get("blocked", ""))
+		# A working gun that will not fire from where its owner sits. Only a trigger pull is refused
+		# for it (ranged.gd try_begin_fire), so this is the sentence that says why nothing happens.
+		if reason == "" and comp == "rangedWeapon" and SimStancesRes.seat_refusal(world.components, entity, bool((w as Dictionary).get("fromVehicle", false))) != "":
+			return "It will not fire from a car seat. Get out to shoot it."
 		if reason == "":
 			continue
 		if reason.begins_with("mismatch:"):
