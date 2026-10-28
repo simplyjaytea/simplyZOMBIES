@@ -501,7 +501,10 @@ static func _wear_one(world: Variant, host: int, part: int, amount: float) -> vo
 		return
 	var after: float = maxf(0.0, before - amount * SimItemsRes.condition_loss_of(world, part))
 	(c as Dictionary)["current"] = after
-	if after > 0.0:
+	# A worn-out internal stays where it is. Detaching it would take it out of `assembly_condition`
+	# and the gun would jam less for losing its sear, which is backwards. Held at zero, it reads
+	# "broken" and the gun jams on every pull, and `detach` is still how a player takes it out.
+	if after > 0.0 or _stays_when_worn_out(world, part):
 		_refresh(world, host)
 		return
 	# Worn through: off it comes, and `detach` is what puts it somewhere. Announced on its own
@@ -513,6 +516,11 @@ static func _wear_one(world: Variant, host: int, part: int, amount: float) -> vo
 		slot = String((link as Dictionary).get("slot", ""))
 	if detach(world, part):
 		world.events.publish({"type": "attachment.broke", "host": host, "item": part, "slot": slot})
+
+
+static func _stays_when_worn_out(world: Variant, part: int) -> bool:
+	var spec: Variant = spec_of(world, part)
+	return spec is Dictionary and bool((spec as Dictionary).get("staysWhenWornOut", false))
 
 
 ## A connecting swing can pull a stud out or throw a lashed head. Only a part that declares
@@ -891,7 +899,8 @@ static func _host_is(world: Variant, host: int, kind: String) -> bool:
 # shipped base actually requires -- a missing noun would read as "has no ", which is worse than
 # saying nothing.
 const SLOT_NOUN: Dictionary = {
-	"barrel": "barrel", "internal": "action", "magazine": "magazine", "furniture": "stock",
+	"barrel": "barrel", "internal": "action", "spring": "spring", "sear": "sear", "extractor": "extractor",
+	"magazine": "magazine", "furniture": "stock",
 	"muzzle": "muzzle device", "optic": "sight", "sight": "sight",
 	"limb": "limbs", "string": "string", "head": "head", "edge": "edge", "haft": "haft",
 	"wrap": "grip wrap", "underbarrel": "underbarrel", "stud": "stud", "guard": "guard", "weight": "weight",

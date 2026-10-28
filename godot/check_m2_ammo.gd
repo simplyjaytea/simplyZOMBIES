@@ -58,9 +58,10 @@ func _run() -> void:
 	ok = _a_weapon_with_no_caliber_still_fires_its_own_round() and ok
 	ok = _a_conversion_moves_the_round_and_the_set_together() and ok
 	ok = _what_is_recovered_is_what_was_fired() and ok
+	ok = _a_worn_internal_jams_the_gun() and ok
 	ok = _the_debug_spawned_round_holds_the_count_asked_for() and ok
 	if ok:
-		print("M2_AMMO_OK content reach scaled default pick refuse fold drops legacy convert recover debug-stack")
+		print("M2_AMMO_OK content reach scaled default pick refuse fold drops legacy convert recover jam debug-stack")
 		quit(0)
 	else:
 		push_error("M2_AMMO_FAIL")
@@ -836,3 +837,89 @@ func _debug_spawned_stack(round_id: String, extra: Dictionary) -> int:
 			return int((stack as Dictionary).get("count", 1))
 		return 1
 	return -1
+
+
+# JAM. A jam is read off the worst internal, so a worn sear jams a pistol that its own receiver
+# does not explain. Three things to prove, each against the same pistol: a sound gun never jams
+# and draws nothing; a worn sear jams at its band's rate and the inspect view says the band in
+# words; a sear worn through stays fitted and jams on every pull, because a part that fell off
+# would take itself out of the assembly and leave the gun jamming less for losing it.
+#
+# The roll is SimRanged._jammed, the function a trigger pull calls, fed a seeded stand-in for the
+# stream. A real trigger pull is one draw of this function, and four thousand draws are what makes
+# a one-in-eight chance measurable without firing four thousand rounds.
+class SeededRoll:
+	extends RefCounted
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+
+	func _init(seed_val: int) -> void:
+		rng.seed = seed_val
+
+	func float_range(lo: float, hi: float) -> float:
+		return rng.randf_range(lo, hi)
+
+
+func _jams_in(w: Variant, gun: int, draws: int) -> int:
+	var profile: Dictionary = SimItems.ranged_profile_of(w, gun) as Dictionary
+	var roll: SeededRoll = SeededRoll.new(7)
+	var jams: int = 0
+	for i in draws:
+		if SimRanged._jammed(w, profile, roll):
+			jams += 1
+	return jams
+
+
+func _a_worn_internal_jams_the_gun() -> bool:
+	var lane: String = "JAM"
+	var w: Variant = _world()
+	var gun: int = _armed(w, "item.pistol.service", [])
+	if gun < 0:
+		return false
+	var sear: int = SimAttachments.in_slot(w, gun, "sear")
+	if sear < 0:
+		push_error("%s: a shipped pistol spawned with no sear fitted, so there is nothing to wear" % lane)
+		return false
+	var sear_cond: Dictionary = w.components.get_component(sear, "condition") as Dictionary
+
+	# Sound: the table's 0.0, and not one draw of the stand-in is a jam.
+	SimItems.refresh_armed(w, gun)
+	var sound_chance: float = SimItems.jam_chance(w, gun)
+	if sound_chance != 0.0 or _jams_in(w, gun, 4000) != 0:
+		push_error("%s: a sound pistol has jam chance %.3f and jammed on a 4000-pull sample" % [lane, sound_chance])
+		return false
+
+	# Worn to "failing" (0.2 up to 0.5): the table's 0.12, and the inspect view says "failing" for
+	# the pistol, which reads its own condition as "sound" unless the internals count.
+	sear_cond["current"] = 0.35
+	SimItems.refresh_armed(w, gun)
+	var worn_chance: float = SimItems.jam_chance(w, gun)
+	var band: String = String(SimInventory.inspect_view(w, w.player, gun).get("condition", ""))
+	if not is_equal_approx(worn_chance, float(SimItems.JAM_CHANCE_BY_BAND["failing"])):
+		push_error("%s: a sear at 0.35 gives jam chance %.3f, not the failing band's %.2f" % [lane, worn_chance, float(SimItems.JAM_CHANCE_BY_BAND["failing"])])
+		return false
+	if band != "failing":
+		push_error("%s: the inspect view says the pistol is '%s' with a failing sear in it -- the screen would call a jamming gun sound" % [lane, band])
+		return false
+	var jams: int = _jams_in(w, gun, 4000)
+	var rate: float = float(jams) / 4000.0
+	if rate < 0.10 or rate > 0.14:
+		push_error("%s: a failing sear jammed %d of 4000 pulls (%.3f), not near 0.12" % [lane, jams, rate])
+		return false
+
+	# Worn through: the sear stays where it is, reads "broken", and jams every pull.
+	sear_cond["current"] = 0.001
+	SimAttachments.wear_parts(w, gun, "shot")
+	SimItems.refresh_armed(w, gun)
+	var dead_chance: float = SimItems.jam_chance(w, gun)
+	if SimAttachments.in_slot(w, gun, "sear") != sear:
+		push_error("%s: a sear worn through came off the gun -- a part that falls off makes the gun jam less" % lane)
+		return false
+	if dead_chance != 1.0 or String(SimInventory.inspect_view(w, w.player, gun).get("condition", "")) != "broken":
+		push_error("%s: a worn-through sear gives jam chance %.3f, not 1.0" % [lane, dead_chance])
+		return false
+	if _jams_in(w, gun, 200) != 200:
+		push_error("%s: a worn-through sear did not jam on every one of 200 pulls" % lane)
+		return false
+
+	print("  JAM OK a sound pistol never jams; a sear at 0.35 jams %.3f of pulls (table 0.12) and reads 'failing'; a sear worn through stays fitted and jams every pull" % rate)
+	return true

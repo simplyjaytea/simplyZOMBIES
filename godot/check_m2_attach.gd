@@ -107,8 +107,9 @@ func _run() -> void:
 	ok = _quality_moves_the_cone_it_names() and ok
 	ok = _material_moves_the_wear_it_names() and ok
 	ok = _a_slow_round_loses_damage_past_its_falloff() and ok
+	ok = _every_firearm_is_built_with_its_internals() and ok
 	if ok:
-		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair required headless override mismatch names light armor swing wear salvage family applies plausible improvise cut stud lash edge hone connect stream barrel")
+		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair required headless override mismatch names light armor swing wear salvage family applies plausible improvise cut stud lash edge hone connect stream barrel internals")
 		quit(0)
 	else:
 		push_error("M2_ATTACH_FAIL")
@@ -2957,4 +2958,46 @@ func _a_slow_round_loses_damage_past_its_falloff() -> bool:
 		push_error("%s: short carries %.3f of standard's damage at %.2f m, not 0.849" % [lane, short_damage / std_damage, distance])
 		return false
 	print("  BARREL FALLOFF OK at %.2f m a cut-down round carries %.3f of the standard round's damage; full speed loses nothing at any range" % [distance, short_damage / std_damage])
+	return true
+
+
+# --- INTERNALS --------------------------------------------------------------------------------
+#
+# A firearm's spring, sear and extractor are parts, so every base that defaults an action is also
+# defaulted these three, and each one is structural and stays fitted when it is worn through. The
+# last half is what the JAM lane in check_m2_ammo.gd relies on: a part that fell off would take
+# itself out of the assembly. A base with no default action (the named break-action) carries none of
+# the three, and is left out on purpose: it has never had an action to wear.
+func _every_firearm_is_built_with_its_internals() -> bool:
+	var lane: String = "INTERNALS"
+	var w: Variant = _world()
+	var tree: Dictionary = ContentLoader.load_tree()
+	var guns: int = 0
+	for path in tree.keys():
+		if not String(path).begins_with("items/"):
+			continue
+		var value: Variant = tree[path]
+		if not value is Array:
+			continue
+		for e_v in value as Array:
+			var e: Dictionary = e_v as Dictionary
+			var defaults: Variant = e.get("defaultParts")
+			if not (defaults is Dictionary and (defaults as Dictionary).has("internal")):
+				continue
+			var id: String = String(e.get("id", "?"))
+			var host: int = _spawn(w, id)
+			for slot in ["spring", "sear", "extractor"]:
+				var part: int = SimAttachments.in_slot(w, host, slot)
+				if part < 0:
+					push_error("%s: %s spawns with no %s fitted" % [lane, id, slot])
+					return false
+				var spec: Variant = SimAttachments.spec_of(w, part)
+				if not (spec is Dictionary and bool((spec as Dictionary).get("structural", false)) and bool((spec as Dictionary).get("staysWhenWornOut", false))):
+					push_error("%s: the %s in %s is not a structural part that stays when worn out" % [lane, slot, id])
+					return false
+			guns += 1
+	if guns == 0:
+		push_error("%s: no firearm defaults an internal, so the lane asserts nothing" % lane)
+		return false
+	print("  INTERNALS OK %d firearms spawn with a spring, a sear and an extractor fitted, each structural and each staying fitted when worn out" % guns)
 	return true

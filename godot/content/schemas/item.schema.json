@@ -359,6 +359,10 @@
           },
           "description": "What wears this part, from sim/modules/attachments.gd's WEAR_EVENTS vocabulary: shot, reload, hit, jam, struck. `hit` is the weapon that connected; `struck` is a worn armour part covering the body part a blow landed on. A part declaring none never wears. The words are a code-owned list rather than an enum here because the registry is the authority and check_m2_attach.gd asserts both directions -- every word declared is one the module knows, and every word the module knows is declared by something shipped."
         },
+        "staysWhenWornOut": {
+          "type": "boolean",
+          "description": "A structural part that stays fitted at zero condition instead of falling off. A worn-through action detaches and the gun stops for want of one; a worn-through spring, sear or extractor would take itself out of assembly_condition and the gun would jam less for losing it. Held at zero it reads broken and jams on every pull, and detach still takes it out. SimAttachments._wear_one reads it; check_m2_ammo.gd's JAM lane and check_m2_attach.gd's INTERNALS lane hold the three shipped parts to it."
+        },
         "wearRate": {
           "type": "number",
           "exclusiveMinimum": 0,
