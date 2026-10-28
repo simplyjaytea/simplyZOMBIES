@@ -217,7 +217,8 @@ static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: floa
 	ty += LINE
 
 	# The state line: how keen a blade is, or how much a lamp has left, in the condition's shape. A
-	# phrase too long for one line (a barrel's three words) takes a second, laid out by `state_rows`.
+	# phrase too long for one line (a barrel with more than one departure) takes a second, laid out by
+	# `state_rows`.
 	var state: Dictionary = state_line(view)
 	if not state.is_empty():
 		var ink: Color = Locker._a(_state_colour(String(state["word"]), String(state["label"])), alpha)
