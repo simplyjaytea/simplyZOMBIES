@@ -196,12 +196,13 @@ static func first_workpiece(world: Variant, actor: int) -> int:
 	return -1
 
 
-## Everything the bench screen draws about one weapon. Empty when there is nothing to draw.
+## The barrel words a part says on the bench, "" for anything that is not a barrel.
 static func _barrel_words(world: Variant, part: int) -> String:
 	var spec: Variant = SimAttachments.spec_of(world, part) if part >= 0 else null
 	return SimBarrel.words_of(spec as Dictionary) if spec is Dictionary else ""
 
 
+## Everything the bench screen draws about one weapon. Empty when there is nothing to draw.
 static func bench_view(world: Variant, actor: int, host: int) -> Dictionary:
 	var base: Variant = SimItems.item_base_of(world, host)
 	if not base is Dictionary:

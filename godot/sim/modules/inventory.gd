@@ -661,7 +661,7 @@ static func inspect_view(world: Variant, actor: int, item: int) -> Dictionary:
 		# blade, exactly as `fuel` is "" for everything that is not a lamp. The pane draws whichever
 		# of the two is not empty as its one state line; no item is both.
 		"edge": SimItems.edge_word(world, item),
-		# A barrel's three words, "full, service, steel", and "" for everything that is not a barrel
+		# A barrel's departures from the identity, "long, match", and "" for everything that is not a barrel
 		# (sim/barrel.gd `words_of`). The pane draws it as its one state line; no item is a barrel
 		# and a blade, a lamp or a loaded gun.
 		"barrel": SimBarrel.words_of(spec as Dictionary) if spec is Dictionary else "",

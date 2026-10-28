@@ -2872,8 +2872,9 @@ not a to-do list:
   `InspectPane.state_rows`; docs/30, "The barrel's words wrap"); `godot:check:play` BENCH (the match barrel's card and the
   fitted barrel's in-it-now card draw their words inside the frame, and the sight's card draws none).
   Shots: `bench_barrel` at 1280x720 and 1920x1080. A phrase of two or three departures wraps to a
-  second row in the inspect pane (no shipped barrel makes one yet); the bench card has room for the
-  longest on one line. No balance claim.
+  second row in the inspect pane (no shipped barrel makes one yet), shot by `inspect_barrel`. The bench
+  card draws its words on one line; no gate measures the longest phrase on the card, and the bench
+  shots show only the shipped words. No balance claim.
 - **Furniture decides the seat, 2026-10-28.** Aim time and recovery already read furniture through
   `handling` (the folding stock 1.35, the foregrip 1.15, both folded through condition), so the
   stock and the grip needed no new reader; the FURNITURE lane of `godot:m2:aim` holds them to it.

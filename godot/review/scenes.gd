@@ -708,8 +708,9 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 		"inspect_barrel":
 			# The inspect pane on a barrel whose three words are all departures, the widest phrase the
 			# barrel table can say ("carbine, rough, chromed"), so the two-row wrap is shot. No shipped
-			# barrel departs three ways, so the long barrel's base is given them here. The base is a
-			# shared cache, so this is the last scene in NAMES, and the shot process ends after it.
+			# barrel departs three ways, so the long barrel's base is given them here. The base is shared by
+			# every barrel of its kind in this process, so the scene stays last in NAMES and no later scene
+			# sees the patch.
 			world.tick = Clock.tick_on_day(DAY, NOON)
 			var widest: Dictionary = SimItems.base_by_id(world, "item.attach.barrel.long") as Dictionary
 			var words: Dictionary = (widest["attachment"] as Dictionary)["barrel"] as Dictionary
