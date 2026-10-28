@@ -2665,7 +2665,8 @@ func _a_firearm_offers_hand_load_only_at_a_bench_and_the_button_makes_the_rounds
 	w.step()
 	var ingot: int = _give(w, "item.ingot.lead", 1)
 	var charcoal: int = _give(w, "item.charcoal.lump", 1)
-	if ingot < 0 or charcoal < 0:
+	var cases: int = _give(w, "item.brass.12g", 4)
+	if ingot < 0 or charcoal < 0 or cases < 0:
 		push_error("%s: the fixture could not carry its materials" % lane)
 		return false
 	if SimInventory.verbs_for(w, actor, gun).has("handload"):
@@ -2710,15 +2711,15 @@ func _a_firearm_offers_hand_load_only_at_a_bench_and_the_button_makes_the_rounds
 		if _in_pack_base(w, actor, "item.ammo.12g.handload") != 4:
 			push_error("%s: pressing hand-load made %d rounds, not the yield of 4" % [lane, _in_pack_base(w, actor, "item.ammo.12g.handload")])
 			ok = false
-		elif _in_pack_base(w, actor, "item.ingot.lead") != 0 or _in_pack_base(w, actor, "item.charcoal.lump") != 0:
-			push_error("%s: pressing hand-load did not spend the ingot and the charcoal" % lane)
+		elif _in_pack_base(w, actor, "item.ingot.lead") != 0 or _in_pack_base(w, actor, "item.charcoal.lump") != 0 or _in_pack_base(w, actor, "item.brass.12g") != 0:
+			push_error("%s: pressing hand-load did not spend the ingot, the charcoal and the four cases" % lane)
 			ok = false
 		elif SimInventory.verbs_for(w, actor, gun).has("handload"):
 			push_error("%s: hand-load is still offered with its materials spent" % lane)
 			ok = false
 	viewport.queue_free()
 	if ok:
-		print("HANDLOAD OK a firearm offers hand-load only with a bench in reach and its ingot and charcoal carried; at 1280x720 every verb button sits inside the pane; the pane's button makes four 12g hand-loads, spends the ingot and the charcoal, and the offer goes")
+		print("HANDLOAD OK a firearm offers hand-load only with a bench in reach and its ingot, charcoal and spent cases carried; at 1280x720 every verb button sits inside the pane; the pane's button makes four 12g hand-loads, spends the ingot, the charcoal and the four cases, and the offer goes")
 	return ok
 
 
