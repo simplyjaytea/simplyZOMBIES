@@ -7539,3 +7539,61 @@ each recorded because each one could have gone the other way:
 - **Refusals are published, not worded.** `item.handload_refused` carries the reason; the panel does
   not yet say it in words, the same as `item.load_refused`. Naming the refusal on the screen is a
   follow-up, not this piece.
+
+## Spent brass, 2026-10-28
+
+Card 27 (JT, 2026-10-28, option B): a hand-load also needs the spent brass your own shots leave. This
+is piece B3 of the batch in `planning/2026-10-28-next-batch.md`, built on the hand-loaded round
+(section above).
+
+- **The cases are items, one per caliber.** `item.brass.9mm`, `.38`, `.45`, `.rifle` and `.12g` (a
+  shotshell hull), in `godot/content/items/materials.json`: class `material`, a large stack (50), and a
+  `brass: {caliber}` block. `SimItems.brass_of` finds a case by its caliber, lowest id winning, so a
+  case's id is free to change. The block is named and read the way `ammo.caliber` is. No .22 case (the
+  rimfire is not reloaded, the B2 rule) and no arrow or bolt case: a caliber with no case leaves nothing,
+  so the bow and the .22 need no rule of their own. No case is in any loot table; the cases come from
+  shooting.
+- **One case per round fired, where the shooter stands.** `SimRanged._fire_shot` ejects after the round
+  is spent, so a jam (which never spends the round) and an empty weapon leave nothing. Every shooter
+  does it: the player, a colonist and a raider reach the same line, because a rule that applied only to
+  the player would be a rule about the screen.
+- **Cases on one tile are one stack.** `_scatter_cases` puts a case on the shooter's tile, filled into a
+  same-caliber stack already there up to the case's stack limit before a second is started. A firefight
+  makes one ground item per tile per caliber, not one per shot. The tile is `floori` of the position, as
+  Needs reads it. Why: the Haul scan and the stockpile read walk every loose item each tick, so one item
+  per shot would make the cost of a firefight grow with its length.
+- **A revolver keeps its cases.** A cylinder gun (`cylinder: true` on the ranged profile, shipped on the
+  snub revolver) counts its spent cases on the magazine record (`spent`, on the `loaded` component) and
+  drops them when its next reload begins, one per round fired since the last. The count is taken only
+  once the reload is known to change something: a refused reload drops nothing. The record key is
+  absent from an older save and reads as zero, so no `SAVE_VERSION` bump. An equipped revolver from an
+  older save has no `cylinder` on its live weapon until its next equip or wear refresh, so the reader
+  asks the item's own profile (`SimRanged._is_cylinder`) and the revolver keeps its cases from the
+  first shot after the load; `godot:m2:ammo`'s REVOLVER lane runs a weapon with the key stripped.
+  The CASES lane holds every shipped case to a caliber a shipped gun chambers and a shipped round
+  declares, one case per caliber.
+- **The recipe spends one case per round.** `ammo.handload.brass: true` on each hand-load. The yield is
+  the lesser of the recipe's `yield` and the cases carried (`SimRanged.rounds_made`), so ten cases make
+  the yield of six and keep four, and three make three. No case is `needs:brass`, checked after the
+  materials and before `no-room`, and nothing is spent on a refusal. The materials stay one unit each per
+  batch, as B2 wrote them: the batch is what the bench makes, and a case is what each round costs.
+- **Why per round.** The cost scales with what is made: six rounds cost six cases, so a short bench
+  session with little brass makes fewer rounds, and nobody needs a second rule for it.
+
+**Gates.** `godot:m2:ammo` holds a BRASS lane group: EJECT (a pistol's three shots leave one stack of
+three on its tile; a bow, a .22 and a jammed pull leave none), REVOLVER (two shots leave none in the
+cylinder until the reload, which drops two and empties it), MERGE (two shots on one tile make one stack,
+a step to the next tile a second) and EVERY SHOOTER (a colonist's shot through the tick loop leaves one
+case, the dead-socket lane). BRASS RECIPE holds three cases to three hand-loads and ten to six.
+`godot:check:inventory` HANDLOAD now carries four 12g cases and spends them. `godot:m2:save`,
+`godot:m2:jobs`, `godot:m2:tick`, `godot:check:loot` and `godot:m2:gear` are green on the branch.
+
+**Tick cost.** `godot:bench:runtime` (`colony-tick` and `shipped-tick`), three interleaved rounds on this
+machine, branch against main e6c0d21b: colony-tick mean 10.04, 9.52, 10.05 ms on the branch against 9.80,
+10.02, 9.93 ms on main (medians 10.04 and 9.93); shipped-tick mean medians 8.37 and 9.16 ms. The spread
+is the same 1 to 4 ms noise as before, and both trees already sit over the 8 ms mean target. Not measured:
+a throwaway run with a firefight's worth of cases on the ground (twenty shots round the annex).
+
+**Not in this piece.** Haul walks to a loose case by the same errand rule it uses for any loose item
+(`ERRAND_RADIUS_TILES`, the danger rules); `jobs.gd` is untouched and no job was added. The pictures are
+the class glyph: a case has no sprite of its own yet, and no review scene was added for it.

@@ -195,7 +195,10 @@ read. Jamming is the same kind of exclusion for a different reason: the chance i
 weapon's condition band rather than authored, so that a weapon the screen calls "failing" cannot be
 one that never jams. docs/09's hand-loaded round is the exception that proves the rule: its
 `misfire` is added to the band rather than multiplied into it, so a sound gun still misfires on it
-and no round lowers the chance (docs/30, "The hand-loaded round, 2026-10-28").
+and no round lowers the chance (docs/30, "The hand-loaded round, 2026-10-28"). The hand-load's other input is brass: a centrefire shot leaves its
+spent case where the shooter stands (a revolver keeps them in the cylinder until its reload), and a
+hand-load spends one case per round it makes, so the brass is a cost of firing, not a loot item
+(docs/30, "Spent brass, 2026-10-28").
 
 A **conversion part** moves both fields together — the round the weapon prefers and the set it
 takes. One without the other is a gun that prefers something it cannot chamber.
