@@ -596,6 +596,24 @@ head 20.92, 19.90, 19.51 ms (median 19.90) against main 19.88, 19.35, 20.33 ms (
 shipped median is +0.8 ms, inside the 1 to 4 ms run-to-run spread this box shows; the colony tick is
 level. Both sit over the 8 ms mean target, as main does.
 
+**The colony tick, P4, 2026-10-28 (`claude/project-thread-k4ppk0`).** Two memos and one spike, no
+outcome moved (docs/23's record, "the colony tick without changing outcomes"). A per-system driver
+over day one of the playtest on seeds 99 and 404 put every tick over 200 ms on one colonist's
+Retreat re-plan reading the lot's walls once per lot tile, 206 to 222 ms quiet and the 480 to 637
+ms in the day-one logs under load; after the fix nothing on those days passes 92 ms. The walls box
+read itself fell from 0.33 ms to 0.003 ms, and `stockpile_items` from 1.4 ms to 0.16 ms a call
+with 272 loose items (2.6 calls a colony tick). Median of three interleaved `godot:bench:runtime`
+pairs against main `0e562cf8` on this box, mean / worst:
+
+| Sample | main | head |
+|---|---:|---:|
+| `shipped-tick` | 11.37 / 27.75 ms (11.23, 11.37, 11.77) | 10.45 / 35.04 ms (10.85, 9.88, 10.45) |
+| `colony-tick` | 14.48 / 31.61 ms (14.48, 14.22, 15.93) | 10.45 / 21.79 ms (10.45, 10.45, 11.15) |
+
+The colony mean drops about 4 ms, the stockpile scan and the danger rule's walls read. The shipped
+worst is host noise at this size: head's worst ticks fell at no fixed tick, and a fourth main run
+outside the three threw a 210 ms tick. Both samples remain over the 8 / 16 ms budget.
+
 ### The world, baked
 
 Plan item A4, 2026-10-19 (`presentation/world_layers.gd`, `world_mask.gdshader`; docs/23's
