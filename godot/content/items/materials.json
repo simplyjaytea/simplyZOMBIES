@@ -301,5 +301,55 @@
     "massKg": 3.2,
     "buildMaterial": "metal",
     "stack": 5
+  },
+  {
+    "id": "item.brass.9mm",
+    "name": "9x19mm Brass",
+    "description": "A spent pistol case, dull and dented at the mouth. A hand-loader can use it again.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.008,
+    "brass": { "caliber": "9mm" },
+    "stack": 50
+  },
+  {
+    "id": "item.brass.38",
+    "name": "Revolver Brass",
+    "description": "A spent revolver case, the rim scored by the extractor. A hand-loader can use it again.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.009,
+    "brass": { "caliber": "38" },
+    "stack": 50
+  },
+  {
+    "id": "item.brass.45",
+    "name": "Heavy Pistol Brass",
+    "description": "A spent case, wide and heavy for its length. A hand-loader can use it again.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.011,
+    "brass": { "caliber": "45" },
+    "stack": 50
+  },
+  {
+    "id": "item.brass.rifle",
+    "name": "Rifle Brass",
+    "description": "A spent rifle case, long and bottlenecked, green at the crimp. A hand-loader can use it again.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.012,
+    "brass": { "caliber": "rifle" },
+    "stack": 50
+  },
+  {
+    "id": "item.brass.12g",
+    "name": "12 gauge Hull",
+    "description": "A spent shotshell hull, its paper gone and the brass head left. A hand-loader can use it again.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.014,
+    "brass": { "caliber": "12g" },
+    "stack": 50
   }
 ]

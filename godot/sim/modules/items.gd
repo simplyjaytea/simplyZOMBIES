@@ -791,6 +791,23 @@ static func melee_profile_of(world: Variant, item: int) -> Variant:
 	}
 	return _Attachments().call("fold", world, item, "melee", profile)
 
+## The spent case a round of `caliber` leaves, as a base id, or "" for a caliber with none: the .22,
+## a bow's arrow. Where two cases name one caliber the lower id wins, so the answer is stable
+## whatever order the content was read in (the rule `SimRanged.handload_of` keeps for recipes).
+static func brass_of(world: Variant, caliber: String) -> String:
+	var found: String = ""
+	if caliber == "":
+		return found
+	for base_v in content_entries(world, "item") as Array:
+		var brass: Variant = (base_v as Dictionary).get("brass")
+		if not brass is Dictionary or String((brass as Dictionary).get("caliber", "")) != caliber:
+			continue
+		var id: String = String((base_v as Dictionary).get("id", ""))
+		if found == "" or id < found:
+			found = id
+	return found
+
+
 static func ranged_profile_of(world: Variant, item: int) -> Variant:
 	var base: Variant = item_base_of(world, item)
 	if base == null:
@@ -823,6 +840,8 @@ static func ranged_profile_of(world: Variant, item: int) -> Variant:
 		# together -- a barrel that changes the round without changing the caliber would build a
 		# weapon that prefers a round it cannot take.
 		"caliber": String(r.get("caliber", "")),
+		# A revolver keeps its spent cases in the cylinder until its next reload (SimRanged._eject_case).
+		"cylinder": bool(r.get("cylinder", false)),
 		"recoverable": float(r.get("recoverable", 0.0)),
 		"magSize": int(r.get("magSize", 0)),
 		"reloadTicks": int(r.get("reloadTicks", 24)),
