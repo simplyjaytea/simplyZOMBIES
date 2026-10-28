@@ -608,9 +608,18 @@ func _a_mixed_magazine_keeps_its_load() -> bool:
 		push_error("%s: a loaded magazine changed the save version" % lane)
 		ok = false
 
-	# The older save: no `loaded` component anywhere, and a counter that says five.
+	# The older save: no `loaded` component anywhere, and a counter that says five. Since found guns
+	# hold a few rounds (docs/33 item 26) the district's shelves carry records of their own, so the
+	# older save is this one with the whole `loaded` table taken out, which is what a v33 save from
+	# before the record looks like.
+	var comps: Variant = unloaded.get("components")
+	if not (comps is Dictionary and (comps as Dictionary).has("loaded")):
+		push_error("%s: the district's found guns wrote no `loaded` table, so taking it out proves nothing" % lane)
+		ok = false
+	else:
+		(comps as Dictionary).erase("loaded")
 	if JSON.stringify(unloaded).contains("\"loaded\""):
-		push_error("%s: the save taken before any load already carries `loaded`, so it is not an older save" % lane)
+		push_error("%s: the save standing in for an older one still carries `loaded`" % lane)
 		ok = false
 	var old: Variant = _restore_bare(unloaded, 20260805, 64)
 	if not SimRanged.rounds_in(old, gun).is_empty():

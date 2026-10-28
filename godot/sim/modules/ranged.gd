@@ -783,6 +783,38 @@ static func load_held(world: Variant, actor: int) -> void:
 			(live as Dictionary)["mag"] = rounds_in(world, int(item)).size()
 
 
+# The stream a found gun's rounds are rolled on. Its own, not `lootTable`: a gun on a shelf rolling
+# its rounds must not move what every later shelf in the district holds.
+const FOUND_STREAM: String = "foundRounds"
+# The most rounds a found gun can hold, whatever its magazine: "a few" (docs/33 item 26).
+const FOUND_MAX: int = 5
+
+
+## Put a few of its usual round in a gun found on a shelf or in a crate (docs/33 item 26, the
+## owner's call of 2026-10-28: found guns hold a few rounds). Between one and a third of the
+## magazine, rounded up, never more than `FOUND_MAX`, all of the round the weapon prefers, at the
+## stack default tier. The rounds are new to the world -- a found gun is where they were found --
+## so nothing leaves a pack. Anything that is not fed from a magazine, and a gun that already has a
+## record, is left alone. `SimLoot.roll` is the one caller, so a shelf at boot and a cupboard opened
+## later load alike.
+static func load_found(world: Variant, item: int) -> void:
+	var profile: Variant = SimItemsRes.ranged_profile_of(world, item)
+	if not (profile is Dictionary and is_fed(profile as Dictionary)):
+		return
+	if world.components.get_component(item, LOAD) is Dictionary:
+		return
+	var p: Dictionary = profile as Dictionary
+	var size: int = int(p.get("magSize", 0))
+	var most: int = clampi(ceili(float(size) / 3.0), 1, mini(FOUND_MAX, size))
+	var n: int = int(world.rng.stream(FOUND_STREAM).call("int_range", 1, most))
+	var rounds: Array = []
+	var tiers: Array = []
+	for _i in n:
+		rounds.append(String(p.get("ammo", "")))
+		tiers.append("scavenged")
+	world.components.set_component(item, LOAD, {"rounds": rounds, "tiers": tiers, "choice": ""})
+
+
 ## What is in this weapon item, in words, for the inspect pane: "" for anything that is not fed
 ## from a magazine, "empty", the round's word ("slug") when every round in it is the same, and
 ## "mixed" when they are not. Words only, never a count -- docs/01 clause 4, and

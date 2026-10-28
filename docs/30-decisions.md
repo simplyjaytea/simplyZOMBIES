@@ -7126,10 +7126,20 @@ held, and the only way to fire a slug was to carry nothing else.
   honours it.
 - **A bow only remembers.** A bow (`magSize` 0) has no magazine: it nocks from the quiver on every
   shot, as before, and `load` on an arrow sets which one it nocks next.
-- **A found gun is empty.** A gun from a shelf or a crate has no record and arrives empty; the first
-  trigger pull reloads it from the pack. No new ammunition enters the world. This is the built
-  default of docs/33 item 26. A raider arrives loaded from their own kit (`SimRanged.load_held` at
-  spawn), so a band's first shot is where it was, and a dead raider's gun keeps what was left in it.
+- **A found gun holds a few rounds (the owner's call).** Built first as empty, the default of
+  docs/33 item 26; the owner chose a few rounds on 2026-10-28. A gun a loot table rolls, on a shelf
+  at boot or in a cupboard opened later, gets one to a third of its magazine, rounded up and five
+  at most (`SimRanged.FOUND_MAX`), all of its preferred round at the stack default tier
+  (`SimRanged.load_found`, called from `SimLoot.roll`, the one place both paths roll). These rounds
+  are new to the world, which is the point of the call. The card said "rolled on the loot stream";
+  they roll on their own stream, `foundRounds`, because a draw on `lootTable` would move what every
+  later shelf in the district holds, and the call was about the gun, not the shelves.
+  `godot:check:loot` FOUND holds the range, the round, the tier, the stream, the negatives (a bow,
+  a knife, a stack of rounds) and that a found pistol fires its own round with nothing in the pack.
+  A gun that is not rolled from a table (a gate's fixture, a boot kit, a trader's) has no record
+  and arrives empty; the first trigger pull reloads it from the pack. A raider arrives loaded from
+  their own kit (`SimRanged.load_held` at spawn), so a band's first shot is where it was, and a dead
+  raider's gun keeps what was left in it.
 - **Older saves load empty, with no version bump.** A v33 save has no `loaded` anywhere: every gun
   in it loads as an empty magazine with no choice, and the old counter is not trusted, so the first
   pull reloads from the pack, which holds every round the counter only pretended to.
@@ -7149,9 +7159,11 @@ held, and the only way to fire a slug was to carry nothing else.
   holds, "arrows" and "target tips". STATE FIT in `godot:check:inventory` measures every word
   read off the content, red on the first cut.
 
-**Not measured.** The ten-seed table was not re-run. What moves in a campaign: a colonist with a
-found gun spends one reload before the first shot, and a gun keeps its rounds when it is put away.
-The FAST tier of `godot:m2:balance` judges it in the chain.
+**Not measured here.** The ten-seed table was not re-run in this piece. What moves in a campaign:
+a found gun now brings a few rounds of its own (more ammunition in every run, the owner's call), a
+gun keeps its rounds when it is put away, and a gun from a fixture spends one reload before its
+first shot. The FAST tier of `godot:m2:balance` judges it in the chain; the ten-seed re-run the card
+named is handed to the balance thread, after the run already going on main.
 
 **How to apply:** a reader of what is in a gun calls `SimRanged.rounds_in` or `load_words`, never
 `rangedWeapon.mag`. A body that should arrive with a loaded gun calls `SimRanged.load_held` after

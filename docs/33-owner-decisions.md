@@ -378,11 +378,9 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
     off the HUD (the order line says the plain weapon name). `godot:check:inventory` NAME holds the
     default.
 
-26. **Should a gun you find come with rounds in it?** (2026-10-28, docs/30's "The round you load").
-    The magazine now holds real rounds taken from the pack, so a newly spawned gun needs a rule
-    for what is in it. Built default: **empty**. A gun from a shelf or a crate arrives empty and
-    the first trigger pull reloads it from the survivor's own rounds, so no ammunition enters the
-    world; a raider arrives loaded from their own kit, and a dead raider's gun keeps what was left
-    in it. The alternative is a found gun holding a few of its usual round, rolled on the loot
-    stream, which adds ammunition to every run and wants the ten-seed table re-run.
-    `godot:m2:ammo` MAG and `godot:m2:save` MAGAZINE hold the default.
+26. **Should a gun you find come with rounds in it?** -- decided by the owner 2026-10-28: **a few
+    rounds**, over the built default of empty. A gun a loot table rolls (a shelf at boot, a
+    cupboard opened later) holds one to a third of its magazine, rounded up and five at most, of
+    its usual round at the stack default tier, rolled on its own `foundRounds` stream so no other
+    shelf's draw moves (docs/30's "The round you load"). A raider still arrives loaded from their
+    own kit, and a gun a gate spawns by hand is still empty. `godot:check:loot` FOUND holds it.

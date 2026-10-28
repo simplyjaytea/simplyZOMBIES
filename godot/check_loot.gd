@@ -43,6 +43,7 @@ const SimLoot = preload("res://sim/loot.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimRanged = preload("res://sim/modules/ranged.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimWorldgen = preload("res://sim/map/worldgen.gd")
@@ -103,8 +104,9 @@ func _run() -> void:
 	ok = _the_prose_has_three_states_and_no_digits() and ok
 	ok = _every_kind_a_district_names_has_a_grid() and ok
 	ok = _every_container_site_stands_in_the_booted_district() and ok
+	ok = _a_found_gun_holds_a_few_rounds() and ok
 	if ok:
-		print("LOOT_OK tables and profiles well formed, generated sites resolve and stand open indoors, every location placed, counts inside their bounds, sites seeded and dressing-proof, templates carry their own, tier is a property of the place, a container is a grid that yields once, only to somebody standing at it")
+		print("LOOT_OK tables and profiles well formed, generated sites resolve and stand open indoors, every location placed, counts inside their bounds, sites seeded and dressing-proof, templates carry their own, tier is a property of the place, a container is a grid that yields once, only to somebody standing at it, a found gun holds a few rounds")
 		quit(0)
 	else:
 		push_error("LOOT_FAIL")
@@ -1815,3 +1817,102 @@ func _take_starting_bottle(w: Variant, actor: int) -> void:
 			SimInventory.remove_from_container(w, int(item))
 			w.despawn(int(item))
 
+
+# Found guns hold a few rounds (docs/33 item 26, the owner's call of 2026-10-28). A gun a table
+# rolls holds between one and a third of its magazine, rounded up, never more than
+# `SimRanged.FOUND_MAX`, all of its preferred round at the stack default tier. True negatives: a
+# bow (no magazine), a knife and a stack of rounds get no record. The roll is on its own stream, so
+# a table that rolls a gun leaves `lootTable` exactly where the same table rolling a knife leaves
+# it. And it is read: the found gun drawn by a survivor carrying no round of its caliber arms with
+# its rounds and fires one of them.
+func _a_found_gun_holds_a_few_rounds() -> bool:
+	var lane: String = "FOUND"
+	var w: Variant = _booted(4404)["world"]
+	var ok: bool = true
+	var seen_more_than_one: bool = false
+	for gun in ["item.pistol.service", "item.shotgun.pump", "item.smg.compact", "item.shotgun.sawnoff"]:
+		var base: Variant = SimItems.content_entry(w, "item", String(gun))
+		var spec: Dictionary = (base as Dictionary)["ranged"] as Dictionary
+		var size: int = int(spec.get("magSize", 0))
+		var most: int = clampi(ceili(float(size) / 3.0), 1, mini(SimRanged.FOUND_MAX, size))
+		var table: Dictionary = {"entries": [{"item": gun, "weight": 1}], "rolls": {"min": 1, "max": 1}}
+		var counts: Dictionary = {}
+		for _i in 30:
+			var item: int = int(SimLoot.roll(w, table, SimLoot.stream(w))[0])
+			var rounds: Array = SimRanged.rounds_in(w, item)
+			var rec_v: Variant = w.components.get_component(item, SimRanged.LOAD)
+			var rec: Dictionary = rec_v as Dictionary if rec_v is Dictionary else {}
+			if rounds.size() < 1 or rounds.size() > most:
+				push_error("%s: a found %s held %d rounds, outside 1 to %d" % [lane, gun, rounds.size(), most])
+				ok = false
+			for r in rounds:
+				if String(r) != String(spec.get("ammo", "")):
+					push_error("%s: a found %s held %s, not its usual round" % [lane, gun, String(r)])
+					ok = false
+			if (rec.get("tiers", []) as Array) != Array(rounds.map(func(_r: Variant) -> String: return "scavenged")):
+				push_error("%s: a found %s's rounds are not at the stack default tier: %s" % [lane, gun, str(rec.get("tiers"))])
+				ok = false
+			counts[rounds.size()] = true
+		if most > 1 and counts.size() > 1:
+			seen_more_than_one = true
+		if most == 1 and counts.keys() != [1]:
+			push_error("%s: a found %s (magazine of %d) held other than one round" % [lane, gun, size])
+			ok = false
+	if not seen_more_than_one:
+		push_error("%s: every found gun held the same number of rounds, so nothing was rolled" % lane)
+		ok = false
+
+	# True negatives: nothing that is not fed from a magazine gets a record.
+	for other in ["item.bow.hunting", "item.knife.kitchen", "item.ammo.9mm"]:
+		var item2: int = int(SimLoot.roll(w, {"entries": [{"item": other, "weight": 1}], "rolls": {"min": 1, "max": 1}}, SimLoot.stream(w))[0])
+		if w.components.get_component(item2, SimRanged.LOAD) != null:
+			push_error("%s: a found %s was given a magazine record" % [lane, other])
+			ok = false
+
+	# Its own stream: the same table shape moves `lootTable` the same whether it rolls a gun or not.
+	var loot: Variant = SimLoot.stream(w)
+	var before: int = int(loot.call("save"))
+	SimLoot.roll(w, {"entries": [{"item": "item.smg.compact", "weight": 1}], "rolls": {"min": 1, "max": 1}}, loot)
+	var after_gun: int = int(loot.call("save"))
+	loot.call("restore", before)
+	SimLoot.roll(w, {"entries": [{"item": "item.knife.kitchen", "weight": 1}], "rolls": {"min": 1, "max": 1}}, loot)
+	if int(loot.call("save")) != after_gun:
+		push_error("%s: rolling a found gun's rounds moved the lootTable stream" % lane)
+		ok = false
+	if after_gun == before:
+		push_error("%s: the roll drew nothing from lootTable, so the comparison judges nothing" % lane)
+		ok = false
+
+	# Read: a survivor with no 9mm draws a found pistol, and it fires one of its own rounds.
+	var b: Variant = _booted(4405)["world"]
+	var actor: int = int(b.player)
+	for carried in SimInventory.carried_items(b, actor):
+		var cb: Variant = SimItems.item_base_of(b, int(carried))
+		if cb is Dictionary and (cb as Dictionary).get("ammo") is Dictionary:
+			push_error("%s: the fixture survivor already carries rounds, so the shot proves nothing" % lane)
+			return false
+	var pistol: int = int(SimLoot.roll(b, {"entries": [{"item": "item.pistol.service", "weight": 1}], "rolls": {"min": 1, "max": 1}}, SimLoot.stream(b))[0])
+	var held: int = SimRanged.rounds_in(b, pistol).size()
+	if not SimInventory.equip(b, actor, pistol):
+		push_error("%s: the found pistol would not go in a hand" % lane)
+		return false
+	b.step()
+	var rw: Variant = b.components.get_component(actor, "rangedWeapon")
+	if not (rw is Dictionary and int((rw as Dictionary).get("mag", -1)) == held):
+		push_error("%s: the found pistol armed with %s rounds, not the %d it held" % [lane, str((rw as Dictionary).get("mag") if rw is Dictionary else null), held])
+		ok = false
+	b.commands.push({"type": "fire"})
+	var fired: bool = false
+	for _i in 300:
+		b.step()
+		for e in b.events.drained:
+			if String((e as Dictionary).get("type", "")) == "weapon.fired" and int((e as Dictionary).get("entity", -1)) == actor:
+				fired = true
+		if fired:
+			break
+	if not fired or SimRanged.rounds_in(b, pistol).size() != held - 1:
+		push_error("%s: the found pistol did not fire one of its own rounds (fired %s, %d left of %d)" % [lane, str(fired), SimRanged.rounds_in(b, pistol).size(), held])
+		ok = false
+	if ok:
+		print("FOUND OK a found gun holds one to a third of its magazine (five at most) of its usual round, scavenged; a bow, a knife and a stack of rounds get none; the roll leaves lootTable where a knife leaves it; and a found pistol drawn with no rounds in the pack fires one of its own")
+	return ok
