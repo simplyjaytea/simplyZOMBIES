@@ -180,6 +180,26 @@ export function defineCoreStats(registry: StatRegistry): void {
       min: 0,
       description: "Multiplier on the materials a repair consumes.",
     },
+    // Clocks an affix may move (the ranged affixes). Ids only, mirrored from godot/sim/modifiers/stats.gd
+    // so the content check knows every id the shared content can name; the sim never reads them here.
+    {
+      id: "steady_ticks",
+      base: 1,
+      min: 0.1,
+      description: "Multiplier on how long a gun takes to settle on the aim.",
+    },
+    {
+      id: "recover_ticks",
+      base: 1,
+      min: 0.1,
+      description: "Multiplier on how long a gun takes to come back after a shot.",
+    },
+    {
+      id: "reload_ticks",
+      base: 1,
+      min: 0.1,
+      description: "Multiplier on how long a reload takes.",
+    },
     {
       id: "bleed_on_hit",
       base: 0,
