@@ -468,12 +468,21 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 				return why
 			main.call("_process", TICK_SECONDS)
 			await tree.process_frame
+			# The rifle comes with its plain barrel fitted, which the first tick applies after the bench
+			# opened. The panel reads its view when it is set, so set it again: the barrel slot then shows
+			# "plain" and the long barrel in the pack says "long" on its card.
+			if scene == "bench_barrel":
+				var refresh: Variant = main.get("_bench_panel")
+				if refresh != null and refresh.has_method("set_world"):
+					refresh.call("set_world", world, int(world.player))
 			var bench_panel: Variant = main.get("_bench_panel")
 			if bench_panel != null and bench_panel.has_method("pick_slot"):
 				bench_panel.call("pick_slot", BENCH_BARREL_SLOT if scene == "bench_barrel" else BENCH_SLOT)
 				# Enter on an empty slot crosses to what fits it, through the router as a key would,
-				# so the shot shows a candidate focused and the footer's lit button.
-				press(tree, KEY_ENTER)
+				# so the shot shows a candidate focused and the footer's lit button. On the filled barrel
+				# slot Enter takes the barrel off, so the barrel shot leaves Enter alone.
+				if scene == "bench":
+					press(tree, KEY_ENTER)
 		"bench_field":
 			world.tick = Clock.tick_on_day(DAY, NOON)
 			var street_b: Vector2 = _street_spot(world)
