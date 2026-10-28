@@ -310,6 +310,10 @@
           },
           "description": "Multipliers over the ranged profile, keyed by field: damage, noise, flash, magSize, reloadTicks, rangeMetres, cone, handling. `handling` scales how fast the weapon comes up and settles, against its content-declared `weight`. `cone` scales the felt aim cone, so a number above 1 is an accuracy cost -- docs/09 charges one for a suppressor."
         },
+        "fireFromVehicle": {
+          "type": "boolean",
+          "description": "Whether a weapon with this fitted may fire from a vehicle seat. Only a folding stock says so: a full stock, a padded one and a bare receiver cannot be fired from a car. Read off every fitted part by sim/modules/attachments.gd (`fires_from_vehicle`), into the weapon's profile as `fromVehicle`, and refused by sim/stances.gd (`seat_refusal`). Absent means no."
+        },
         "fieldSwap": {
           "type": "boolean",
           "description": "Whether a person can change this part with their hands, away from a gunsmithing bench. A magazine, a sight, a can on a thread: yes. A barrel, an action, an axe head: no. Absent means no, which is the safe default -- a part nobody has thought about is bench-only rather than silently field-swappable. Read by sim/modules/gunsmith.gd on the item.attach / item.detach commands, never inside SimAttachments.attach itself."
