@@ -279,9 +279,6 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
   two of three jams. The allowed table is content keyed by receiver family, written to a realism
   table in docs/10 (the owner vetoes rows; docs/33). About twelve across the twelve receivers.
   Gate: `godot:m2:ammo` KIT, refusing a two-part kit and an off-table pairing.
-- **Furniture is ergonomics.** Stock, grip and foregrip read into aim time, recoil recovery and
-  which stances may fire (a folding stock fires from the car). Gate: `godot:m2:aim` and
-  `godot:m2:stance`.
 - **Internals wear, and the jam derives.** Springs, sear and extractor are parts with condition;
   `jamChance` derives from the worst of them, keeping docs/09's coupling. Gate: `godot:m2:ammo`
   JAM with a pristine and a worn sear.
@@ -2762,6 +2759,17 @@ not a to-do list:
   (`barrel:` reason; the pistol will not fire and says so). Gate: `godot:m2:attach` BARREL, six lanes,
   each with a true negative: VOCAB, SHIPPED, LENGTH, QUALITY, MATERIAL, FALLOFF. The screen half is
   named in what's left. The ten-seed table was not re-run.
+- **Furniture decides the seat, 2026-10-28.** Aim time and recovery already read furniture through
+  `handling` (the folding stock 1.35, the foregrip 1.15, both folded through condition), so the
+  stock and the grip needed no new reader; the FURNITURE lane of `godot:m2:aim` holds them to it.
+  The new rule is the seat. A part declares `fireFromVehicle` (only the folding stock does), and
+  `SimAttachments.fires_from_vehicle` reads it off every fitted part into the profile's `fromVehicle`.
+  A body in a vehicle seat that pulls the trigger is refused unless its weapon says so, with the
+  reason id `seat:stock` (`SimStances.seat_refusal`) and the sentence "It will not fire from a car
+  seat. Get out to shoot it." A reload from the seat is still allowed. Gate: `godot:m2:stance` SEAT,
+  a folding stock fires from a sedan's driver seat, a full stock is refused there and fires on foot.
+  The numbers are first cuts and were not re-tuned. The ten-seed table was not re-run: no body and
+  no kind changed.
 - **Melee frames and the widened slots, and the improvised recipe table, 2026-10-26.** The first
   stage of the melee arc (docs/38). Every melee item declares a `family` (club, blade, polearm or
   tool): the nineteen melee bases, a new `item.bat.wood` (a twentieth base, so the wooden bat the
