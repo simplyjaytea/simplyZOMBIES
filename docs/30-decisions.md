@@ -7091,6 +7091,14 @@ modifier takes effect without a refit. The three names are in `ITEM_SCOPED_READS
 block, and the reader is `SimAttachments.fires_from_vehicle`. A new refusal for a seat goes through
 `SimStances.seat_refusal` and the sentence in `SimAttachments.refusal_clause`, never a second check.
 
+**The key is asked for, not assumed (end review, 2026-10-28).** A profile restored from a save
+written before `fromVehicle` existed has no such key, and nothing rebuilds a profile until an equip
+or a wear event, which a refused trigger never raises: a folding stock would have been refused its
+seat for the rest of that run. Both seat readers, the trigger and the sentence, now go through
+`SimAttachments.from_vehicle_of`, which reads the key when it is there and asks the fitted parts
+once and writes it back when it is not. `godot:m2:stance` SEAT erases the key before the trigger
+and holds the folding stock to firing and the full stock to its refusal.
+
 ## The ranged affixes, partly, 2026-10-28
 
 The five ranged prefixes docs/10 names were planned as one data edit. Two of them are. Calls taken:

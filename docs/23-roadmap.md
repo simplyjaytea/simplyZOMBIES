@@ -2774,8 +2774,10 @@ not a to-do list:
   `SimAttachments.fires_from_vehicle` reads it off every fitted part into the profile's `fromVehicle`.
   A body in a vehicle seat that pulls the trigger is refused unless its weapon says so, with the
   reason id `seat:stock` (`SimStances.seat_refusal`) and the sentence "It will not fire from a car
-  seat. Get out to shoot it." A reload from the seat is still allowed. Gate: `godot:m2:stance` SEAT,
-  a folding stock fires from a sedan's driver seat, a full stock is refused there and fires on foot.
+  seat. Get out to shoot it." A reload from the seat is still allowed. Both readers go through
+  `SimAttachments.from_vehicle_of`, which asks the fitted parts when a profile restored from an
+  older save has no key. Gate: `godot:m2:stance` SEAT, a folding stock fires from a sedan's driver
+  seat, a full stock is refused there and fires on foot, and both hold with the key erased.
   The numbers are first cuts and were not re-tuned. The ten-seed table was not re-run: no body and
   no kind changed.
   The clocks an affix can move are item-scoped, for the ranged affixes follow-up: `steady_ticks`
