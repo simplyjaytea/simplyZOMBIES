@@ -33,7 +33,12 @@ const PICTURE_GAP: float = 16.0
 const BUTTON_H: float = 36.0
 const BUTTON_GAP: float = 8.0
 # What a verb is called on a button, where the menu's bare word would be unclear out of context.
-const VERB_WORDS: Dictionary = {"stash": "put it here", "take": "take it", "unequip": "take off"}
+const VERB_WORDS: Dictionary = {"stash": "put it here", "take": "take it", "unequip": "take off", "name": "name it"}
+# The caret in the name field: one art pixel wide, the accent, as tall as the type.
+const CARET_W: float = 2.0
+# From the well's edge to the first letter, and from the last to the far edge: the rim's art pixel
+# and two of fill.
+const FIELD_INSET: float = 6.0
 
 
 # The one state line under the condition, as {label, word}: a blade's edge, or a lamp's fuel, and
@@ -94,7 +99,11 @@ static func button_rects(rect: Rect2, verbs: Array) -> Array[Dictionary]:
 # and the floor draw for that base, through `Appearance.item_look` -- the pack's icon, or its class's
 # glyph where the pack has none. With no world the pane is words alone, as it was before the pictures.
 # `verbs` are the buttons along its foot, from `button_rects`; the first is drawn as the obvious one.
-static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: float, verbs: Array = [], world: Variant = null) -> void:
+# `field` is the name field while it is open on this item ({item, text, caret}, the panel's own
+# typing state): it is drawn in the title's place, so the name you are typing sits where the name
+# will be. It comes before `world`, which stays last: `godot:check:appearance` PICTURES reads the
+# sheet's call for the world as its final argument.
+static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: float, verbs: Array = [], field: Dictionary = {}, world: Variant = null) -> void:
 	Locker.panel(ci, rect, alpha)
 	var top: float = Locker.header(ci, rect, "inspect", alpha, "", Chrome.GLYPH_SMALL + Locker.PX * 3.0)
 	Chrome.glyph(ci, "inspect", Vector2(rect.end.x - Chrome.GLYPH_SMALL - Locker.PX * 5.0, rect.position.y + Locker.PX * 2.0 + floorf((Locker.TAPE_H - Chrome.GLYPH_SMALL) / 2.0)), true, alpha * 0.7)
@@ -122,7 +131,14 @@ static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: floa
 		text_wide = side_width(rect)
 
 	var ty: float = y + Chrome.ascent(TITLE_SIZE)
-	ci.draw_string(font, Vector2(text_x, ty), UiText.fit(font, String(view.get("name", "")), TITLE_SIZE, text_wide), HORIZONTAL_ALIGNMENT_LEFT, -1, TITLE_SIZE, Locker._a(Locker.TEXT, alpha))
+	if not field.is_empty() and int(field.get("item", -2)) == int(view.get("item", -1)):
+		draw_field(ci, field_rect(rect, world != null), String(field.get("text", "")), int(field.get("caret", 0)), alpha, String(field.get("plain", "")), int(field.get("start", -1)))
+	else:
+		# The title takes the field's rule: its own rung while the name fits, a rung down when it does
+		# not, and only then the ellipsis. A name typed whole in the field stays whole once it is kept.
+		var title: String = String(view.get("name", ""))
+		var title_size: int = TITLE_SIZE if font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, TITLE_SIZE).x <= text_wide else BODY_SIZE
+		ci.draw_string(font, Vector2(text_x, ty), UiText.fit(font, title, title_size, text_wide), HORIZONTAL_ALIGNMENT_LEFT, -1, title_size, Locker._a(Locker.TEXT, alpha))
 	ty += LINE + 2.0
 
 	# The condition word, and the only place on this screen where a colour carries meaning about
@@ -192,6 +208,101 @@ static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: floa
 	for n in buttons.size():
 		var b: Dictionary = buttons[n]
 		Locker.button(ci, b["rect"] as Rect2, verb_word(String(b["verb"])), n == 0, alpha)
+
+
+# Where the name field stands in a pane drawn at `rect`: over the title's line, beside the picture
+# when there is one, one art pixel proud of the text on the left and above. The pane draws it here
+# and the panel tests a click against it, so the two cannot disagree about where the field is.
+static func field_rect(rect: Rect2, with_picture: bool) -> Rect2:
+	var x: float = rect.position.x + PAD
+	var wide: float = rect.size.x - PAD * 2.0
+	var y: float = Locker._snap(rect).position.y + Locker.HEAD_H + PAD
+	var text_x: float = x
+	if with_picture:
+		text_x = x + minf(PICTURE_W, wide * 0.4) + PICTURE_GAP
+	var text_wide: float = rect.end.x - PAD - text_x
+	return Rect2(Vector2(text_x - Locker.PX * 2.0, y - Locker.PX * 2.0), Vector2(text_wide + Locker.PX * 2.0, Chrome.line_height(TITLE_SIZE) + Locker.PX * 2.0))
+
+
+# The name field: a well with the typed text in it and the caret where the next letter goes. The
+# title's ladder size while the name fits; a rung down when it does not; and if it still runs past
+# the well, the text scrolls so the caret is always on show. Words only, and only what was typed --
+# except an empty field, which shows `plain` dimmed behind the caret: the name the item goes back to
+# if Enter keeps nothing.
+static func draw_field(ci: CanvasItem, box: Rect2, text: String, caret: int, alpha: float, plain: String = "", start: int = -1) -> void:
+	Locker.well(ci, box, alpha)
+	# One art pixel of the accent round the well: the picture's well is the same well, and this is
+	# what says the one on the right is live and taking keys. Snapped as the well is, so the rim
+	# sits on the art grid at 1280 too.
+	Locker.rim(ci, Locker._snap(box), Locker._a(Locker.ACCENT, alpha * 0.85))
+	var font: Font = Chrome.font()
+	var lay: Dictionary = field_layout(font, box, text, caret, start)
+	var size: int = int(lay["size"])
+	var at: Vector2 = lay["at"] as Vector2
+	if text.is_empty() and not plain.is_empty():
+		ci.draw_string(font, at + Vector2(CARET_W + Locker.PX, 0.0), UiText.fit(font, plain, size, box.size.x - FIELD_INSET * 2.0 - CARET_W - Locker.PX), HORIZONTAL_ALIGNMENT_LEFT, -1, size, Locker._a(Locker.TEXT_DIM, alpha))
+	ci.draw_string(font, at, String(lay["shown"]), HORIZONTAL_ALIGNMENT_LEFT, -1, size, Locker._a(Locker.TEXT, alpha))
+	ci.draw_rect(caret_rect(box, float(lay["caret_x"])), Locker._a(Locker.ACCENT, alpha))
+
+
+# The caret at `x` in a field drawn in `box`: the well's height less two art pixels top and bottom,
+# so it brackets the letters rather than hanging off the top of the face's padded ascent.
+static func caret_rect(box: Rect2, x: float) -> Rect2:
+	return Rect2(Vector2(x, box.position.y + Locker.PX * 2.0), Vector2(CARET_W, box.size.y - Locker.PX * 4.0))
+
+
+# How the field lays out `text` in `box` with the caret at `caret`: the size it is drawn at, the
+# first character shown, the part that fits, where the text's baseline starts and where the caret
+# stands. The draw reads it and so does a click placing the caret. `start` is where the field was
+# scrolled to last (-1 for none): kept while the caret stays on show, so a click or an arrow inside
+# the visible letters moves the caret and not the text.
+static func field_layout(font: Font, box: Rect2, text: String, caret: int, start: int = -1) -> Dictionary:
+	var inner: float = box.size.x - FIELD_INSET * 2.0
+	var size: int = TITLE_SIZE
+	if font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > inner - CARET_W:
+		size = BODY_SIZE
+	caret = clampi(caret, 0, text.length())
+	start = visible_start(font, text, caret, size, inner, start)
+	var shown: String = text.substr(start)
+	while not shown.is_empty() and font.get_string_size(shown, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > inner:
+		shown = shown.left(-1)
+	var at := Vector2(box.position.x + FIELD_INSET, floorf(box.position.y + (box.size.y - Chrome.line_height(size)) / 2.0 + Chrome.ascent(size)))
+	var cx: float = at.x + font.get_string_size(text.substr(start, caret - start), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	return {"size": size, "start": start, "shown": shown, "at": at, "caret_x": cx}
+
+
+# Where a click at `x` puts the caret in a field laid out with the caret at `caret`: the gap between
+# two letters nearest the click, among the letters on show.
+static func caret_from_click(font: Font, box: Rect2, text: String, caret: int, x: float, scrolled: int = -1) -> int:
+	var lay: Dictionary = field_layout(font, box, text, caret, scrolled)
+	var size: int = int(lay["size"])
+	var start: int = int(lay["start"])
+	var left: float = (lay["at"] as Vector2).x
+	var best: int = start
+	var best_d: float = absf(x - left)
+	for n in range(1, String(lay["shown"]).length() + 1):
+		var gap_x: float = left + font.get_string_size(text.substr(start, n), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		if absf(x - gap_x) < best_d:
+			best_d = absf(x - gap_x)
+			best = start + n
+	return best
+
+
+# The first character the field shows. With no earlier scroll, 0 while everything up to the caret
+# fits, else as far along as it takes for the caret to be inside the well. With one (`from`), that
+# start is kept while the caret is on show: back to the caret when it moved left of it, on as far
+# as the caret needs when it moved right of the well, and back as far as the letters allow when
+# deleting left room at the end.
+static func visible_start(font: Font, text: String, caret: int, size: int, inner: float, from: int = -1) -> int:
+	var room: float = inner - CARET_W
+	if font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x <= room:
+		return 0
+	var start: int = clampi(from, 0, caret)
+	while start < caret and font.get_string_size(text.substr(start, caret - start), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > room:
+		start += 1
+	while start > 0 and font.get_string_size(text.substr(start - 1), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x <= room:
+		start -= 1
+	return start
 
 
 static func _band_colour(band: String) -> Color:

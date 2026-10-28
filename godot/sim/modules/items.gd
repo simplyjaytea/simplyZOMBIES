@@ -645,15 +645,29 @@ static func is_melee_item(world: Variant, item: int) -> bool:
 # with a profile, so a survivor carrying a knife and a pistol wore the knife on every gunshot and
 # the pistol never degraded at all, which meant its jam chance never rose off zero.
 static func register_module(world: Variant) -> void:
+	# One intake for the item commands a survivor sends from the sheet.
+	# `item.hone {actor, item}`: the actor hones the blade, or the refusal is published.
+	# `item.name {item, name}`: whoever carries the weapon names it -- the sheet can be any
+	# colonist's, the way `item.drop` finds its actor. Every refusal is `name_refusal`'s, so the
+	# screen that asked first and the command that checks again agree; carried by nobody is
+	# refused like any other.
 	world.systems.register("items.intake", "input", 10, func(w: Variant) -> void:
+		var Inv: GDScript = load("res://sim/modules/inventory.gd") as GDScript
 		for cmd in w.commands.current as Array:
 			var c: Dictionary = cmd as Dictionary
-			if String(c.get("type", "")) != "item.hone":
-				continue
+			var kind: String = String(c.get("type", ""))
 			var item: int = int(c.get("item", -1))
-			var reason: String = hone(w, int(c.get("actor", w.player)), item)
-			if reason != "":
-				w.events.publish({"type": "item.hone_refused", "item": item, "reason": reason})
+			if kind == "item.hone":
+				var reason: String = hone(w, int(c.get("actor", w.player)), item)
+				if reason != "":
+					w.events.publish({"type": "item.hone_refused", "item": item, "reason": reason})
+			elif kind == "item.name":
+				var holder: int = -1
+				for actor in w.components.query(["equipment"]):
+					if bool(Inv.call("owns", w, int(actor), item)):
+						holder = int(actor)
+						break
+				give_name(w, holder, item, String(c.get("name", "")))
 	)
 	world.events.subscribe({"id": "items.wear-on-hit", "type": "attack.connected", "handler": func(event: Dictionary) -> void:
 		# A melee weapon wears where it lands. A firearm does not wear here -- it wore when it
@@ -1029,6 +1043,26 @@ static func generated_description(base: Dictionary) -> String:
 
 
 static func item_name(world: Variant, item: int) -> String:
+	if item_base_of(world, item) == null:
+		return "something"
+	# A name the player gave it is the whole name: no base noun and no affix words around it. That
+	# is the point of naming a thing you rebuilt -- "Old Faithful", not "Sturdy Old Faithful".
+	var given: String = given_name(world, item)
+	return given if not given.is_empty() else plain_name(world, item)
+
+
+## How a sentence names this item: "the hunting rifle" for a thing, or the name the player gave it,
+## as typed. A given name is a proper noun -- "pick up Old Faithful", never "pick up the old
+## faithful" -- so every line that puts an item in a sentence asks here rather than lowering
+## `item_name` and putting "the" in front of it.
+static func the_item(world: Variant, item: int) -> String:
+	var given: String = given_name(world, item)
+	return given if not given.is_empty() else "the %s" % item_name(world, item).to_lower()
+
+
+## The name the item would have with no name given: the base's noun with its affix words. What the
+## name field offers back when it is emptied, since an empty name gives this name back.
+static func plain_name(world: Variant, item: int) -> String:
 	var base: Variant = item_base_of(world, item)
 	if base == null:
 		return "something"
@@ -1063,6 +1097,128 @@ static func item_name(world: Variant, item: int) -> String:
 			out += " "
 		out += String(parts[i])
 	return out
+
+
+# --- a weapon you named --------------------------------------------------------------------------
+#
+# docs/38's melee arc: "a weapon past its modifications may be named by the player, which is how
+# bespoke reads on a screen with no stat line". What counts as bespoke is derived from what is
+# fitted (`SimAttachments.modifications_of`), so nothing is saved for it; the name is the one new
+# thing a save carries, in its own component.
+#
+# The component is `givenName`, not `named`: "named" already means docs/10's hand-authored fourth
+# tier (`is_named`, `NAMED_TIER`, the base's `named` block), and a second meaning on the same word
+# is how a `has_component(item, "named")` ends up asking the wrong question.
+const GIVEN_NAME: String = "givenName"
+# How many of a weapon's slots have to hold a part it did not come with before it takes a name.
+# Three, by the owner's call of 2026-10-27 (docs/33 item 23): the wooden bat has three slots, so a
+# bat with nails, a weight and a wrap is the arc's example of a thing worth naming.
+const BESPOKE_PARTS: int = 3
+# The longest name the field takes. The field shows the cap by refusing the next key, never by a
+# counter: a counter would be a digit on the screen.
+const NAME_MAX: int = 24
+
+
+## Whether this item has been rebuilt enough to take a name. Any item with slots, melee or
+## firearm alike; a thing with no slots is never bespoke.
+static func nameable(world: Variant, item: int) -> bool:
+	if item < 0 or not (item_base_of(world, item) is Dictionary):
+		return false
+	var Att: GDScript = _Attachments()
+	if (Att.call("slots_of", world, item) as Array).is_empty():
+		return false
+	return int(Att.call("modifications_of", world, item)) >= BESPOKE_PARTS
+
+
+## The digit ban's item-name clause (CLAUDE.md, Standing bans; docs/30, "The cartridge on the
+## label"), as one predicate. An item's `name` may carry a digit -- `.308 Winchester Match` -- but a
+## name with no word in it is a quantity, not a name. `check_inventory.gd`'s `_name_is_allowed`
+## calls this, so the gate and the `item.name` command ask the same question.
+##
+## A name needs a letter. The clause used to read "not every character a digit", which let "4 2"
+## and "1.000" through as names; neither is a noun, and a player typing one is the first time the
+## clause met text nobody authored.
+static func name_is_allowed(text: String) -> bool:
+	for ch in text.strip_edges():
+		if ch.to_lower() != ch.to_upper():
+			return true
+	return false
+
+
+## Whether a typed character may stand in a name: printable Latin (Basic, Latin-1 and Extended-A,
+## which is what the screens' pixel face draws) and the few marks it carries beyond them -- the euro,
+## the dashes, the curly quotes and the ellipsis. No control, no invisible space or soft hyphen, no
+## direction mark, and nothing the face would hand to a smooth fallback or draw as a box on the web
+## build, where there are no system fonts. A fixed list rather than a font question: the sim reads
+## no fonts, and a command or a save is held to the same rule as the field.
+const NAME_MARKS: Array[int] = [0x20AC, 0x2013, 0x2014, 0x2018, 0x2019, 0x201C, 0x201D, 0x2026]
+static func name_char_allowed(code: int) -> bool:
+	if code >= 0x20 and code <= 0x7E:
+		return true
+	if code >= 0xA1 and code <= 0x17E and code != 0xAD:
+		return true
+	return NAME_MARKS.has(code)
+
+
+## Why this survivor may not give this item this name, or "" when they may. An empty name is
+## allowed: it gives back the plain name. Asked by the command and by the screen before it sends,
+## so the field can say what is wrong and stay open.
+static func name_refusal(world: Variant, actor: int, item: int, text: String) -> String:
+	var Inv: GDScript = load("res://sim/modules/inventory.gd") as GDScript
+	if item < 0 or not bool(Inv.call("owns", world, actor, item)):
+		return "not-carried"
+	if not nameable(world, item):
+		return "not-bespoke"
+	var trimmed: String = text.strip_edges()
+	if trimmed.is_empty():
+		return ""
+	if trimmed.length() > NAME_MAX:
+		return "too-long"
+	for ch in trimmed:
+		if not name_char_allowed(ch.unicode_at(0)):
+			return "not-a-letter"
+	if not name_is_allowed(trimmed):
+		return "not-a-name"
+	return ""
+
+
+## The refusal in words, for the field to say.
+static func name_refusal_words(reason: String) -> String:
+	match reason:
+		"not-carried":
+			return "you are not holding it"
+		"not-bespoke":
+			return "only a weapon you rebuilt takes a name"
+		"too-long":
+			return "that name is too long"
+		"not-a-name":
+			return "a name needs a word in it"
+		"not-a-letter":
+			return "it will not take a letter like that"
+		_:
+			return "it will not take that name"
+
+
+## Gives an item a name, or gives back its plain one for an empty name. Returns the refusal reason,
+## or "" when it took.
+static func give_name(world: Variant, actor: int, item: int, text: String) -> String:
+	var reason: String = name_refusal(world, actor, item, text)
+	if reason != "":
+		world.events.publish({"type": "item.nameRefused", "item": item, "reason": reason})
+		return reason
+	var trimmed: String = text.strip_edges()
+	if trimmed.is_empty():
+		world.components.remove_component(item, GIVEN_NAME)
+	else:
+		world.components.set_component(item, GIVEN_NAME, {"name": trimmed})
+	world.events.publish({"type": "item.named", "item": item, "name": trimmed})
+	return ""
+
+
+## The name the player gave this item, or "" when it has none.
+static func given_name(world: Variant, item: int) -> String:
+	var given: Variant = world.components.get_component(item, GIVEN_NAME)
+	return String((given as Dictionary).get("name", "")) if given is Dictionary else ""
 
 static func spawn_item(world: Variant, base_id: String, options: Dictionary = {}) -> int:
 	var item: int = int(world.entities.spawn())

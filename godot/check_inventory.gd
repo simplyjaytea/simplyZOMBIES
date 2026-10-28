@@ -93,8 +93,10 @@ func _run() -> void:
 	ok = await _the_stockpile_is_the_window_where_you_stand() and ok
 	ok = await _a_dull_blade_offers_hone_and_the_button_hones_it() and ok
 	ok = await _the_pane_draws_one_state_line() and ok
+	ok = _a_rebuilt_weapon_takes_a_name() and ok
+	ok = _the_name_field_holds_its_text() and ok
 	if ok:
-		print("INVENTORY_OK a picked body part offers the care the sim would take and nothing else, descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, a cupboard is a column and a window, a stack that cannot merge is not reported as stored, the list, a ctrl-click and the pane's buttons each move the world, a part dropped on a weapon fits an empty slot and lands in the grid otherwise, and standing in the stockpile the window is the stockpile, a ctrl-click takes and a drag puts back, a dull blade with a whetstone offers hone and the pane's button hones it, and the pane draws a blade's edge or a lamp's fuel as one state line")
+		print("INVENTORY_OK a picked body part offers the care the sim would take and nothing else, descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, a cupboard is a column and a window, a stack that cannot merge is not reported as stored, the list, a ctrl-click and the pane's buttons each move the world, a part dropped on a weapon fits an empty slot and lands in the grid otherwise, standing in the stockpile the window is the stockpile, a ctrl-click takes and a drag puts back, a dull blade with a whetstone offers hone and the pane's button hones it, the pane draws a blade's edge or a lamp's fuel as one state line, and a weapon rebuilt in three slots takes the name you give it and nothing but a name")
 		quit(0)
 	else:
 		push_error("INVENTORY_FAIL")
@@ -176,14 +178,15 @@ static func _carries_a_digit(text: String) -> bool:
 # the exemption is scoped to this one field: `description`, `condition`, every other value in the
 # inspect pane, and every line `check_hud.gd` scans are all untouched, which the lanes below prove
 # by refusing the identical string in those positions.
+#
+# **The predicate lives in the sim now** (`SimItems.name_is_allowed`, 2026-10-27), because a name the
+# player types reaches the same `name` field through `item.name`, and a command that asked its own
+# copy of this question would be the two-copies mistake again. This wrapper is how every lane here
+# and `check_play.gd`'s bench scan still call it; NAME asserts the wrapper and the sim answer alike
+# on every string it judges. The predicate now asks for a letter rather than for a non-digit: "4 2"
+# was a quantity the old reading let through, and nobody had typed one until a name could be typed.
 static func _name_is_allowed(text: String) -> bool:
-	var trimmed: String = text.strip_edges()
-	if trimmed.is_empty():
-		return false
-	for ch in trimmed:
-		if not (ch >= "0" and ch <= "9"):
-			return true
-	return false
+	return SimItems.name_is_allowed(text)
 
 
 func _world(seed_val: int) -> Variant:
@@ -2010,6 +2013,284 @@ func _window_click(panel: Control, at: Vector2, pressed: bool, ctrl: bool) -> vo
 	mb.ctrl_pressed = ctrl
 	mb.position = at
 	panel.call("_loot_input", mb)
+
+
+# --- NAME -------------------------------------------------------------------------------------
+#
+# A weapon rebuilt enough to be the survivor's own may be named (docs/33 items 23 and 24). Four
+# halves, each with its negative: what counts (three changed slots, never a default, never a part
+# swapped back), the verb (offered exactly when the count says so), the command (the name shows
+# everywhere `item_name` is read, an empty name gives the plain one back, a quantity, an overlong
+# name and a control character are refused in words), and the predicate (the gate's
+# `_name_is_allowed` and the sim's are one function, asserted by text and on every string here).
+const NAME_FIXTURES: Array[String] = ["Old Faithful", "Nailbat 2", ".308 Winchester Match", "42", "4 2", "   ", "", "Ellis's Persuader"]
+
+
+func _a_rebuilt_weapon_takes_a_name() -> bool:
+	var w: Variant = _world(3171)
+	if not _room(w):
+		push_error("NAME: the pack would not go on")
+		return false
+	var actor: int = w.player
+	var bat: int = _give(w, "item.bat.wood")
+	if bat < 0:
+		push_error("NAME: the fixture bat could not be carried")
+		return false
+	var ok: bool = true
+
+	# COUNT. The bat as it was found: three empty slots and no defaults, so nothing is changed.
+	if SimAttachments.slots_of(w, bat).size() != 3:
+		push_error("NAME: the wooden bat no longer has three slots, so it is not the fixture this lane was written for")
+		return false
+	if SimAttachments.modifications_of(w, bat) != 0 or SimItems.nameable(w, bat):
+		push_error("NAME: a wooden bat as it spawned counts %d changes" % SimAttachments.modifications_of(w, bat))
+		ok = false
+	var fitted: Array = [["item.attach.stud.nails", "stud"], ["item.attach.weight.sandbag", "weight"], ["item.attach.wrap.cord", "wrap"]]
+	for i in fitted.size():
+		var part: int = SimItems.spawn_item(w, String(fitted[i][0]), {"tier": "scavenged"})
+		if not SimAttachments.attach(w, bat, part, String(fitted[i][1])):
+			push_error("NAME: the fixture could not fit %s" % String(fitted[i][0]))
+			return false
+		var count: int = SimAttachments.modifications_of(w, bat)
+		var offered: bool = SimInventory.verbs_for(w, actor, bat).has("name")
+		var want: bool = count >= SimItems.BESPOKE_PARTS
+		if count != i + 1:
+			push_error("NAME: %d parts fitted counted %d changes" % [i + 1, count])
+			ok = false
+		if offered != want or SimItems.nameable(w, bat) != want:
+			push_error("NAME: with %d changed slots \"name\" was %s (want %s)" % [count, "offered" if offered else "absent", "offered" if want else "absent"])
+			ok = false
+	if not SimInventory.verbs_for(w, actor, bat).has("name"):
+		push_error("NAME: a bat with nails, a weight and a wrap was not offered a name")
+		return false
+
+	# A default part is not a change, and neither is a part swapped back to its default. The spear
+	# arrives with a head and a haft; a lashed spike in the head's place is one change, and a plain
+	# head put back is none.
+	var spear: int = _give(w, "item.spear.improvised")
+	if spear < 0 or SimAttachments.attached(w, spear).size() != 2:
+		push_error("NAME: the fixture spear did not arrive with its two default parts")
+		return false
+	if SimAttachments.modifications_of(w, spear) != 0:
+		push_error("NAME: a spear with only its default head and haft counts %d changes" % SimAttachments.modifications_of(w, spear))
+		ok = false
+	var head: int = SimAttachments.in_slot(w, spear, "head")
+	SimAttachments.detach(w, head)
+	var spike: int = SimItems.spawn_item(w, "item.attach.head.lashed_spike", {"tier": "scavenged"})
+	if not SimAttachments.attach(w, spear, spike, "head") or SimAttachments.modifications_of(w, spear) != 1:
+		push_error("NAME: a lashed spike in the spear's head did not count as one change")
+		ok = false
+	SimAttachments.detach(w, spike)
+	var plain: int = SimItems.spawn_item(w, "item.part.head.standard", {"tier": "scavenged"})
+	if not SimAttachments.attach(w, spear, plain, "head") or SimAttachments.modifications_of(w, spear) != 0:
+		push_error("NAME: a plain head put back on the spear still counted as a change")
+		ok = false
+	# A firearm counts the same way, and its factory barrel, magazine and internals are not changes.
+	var pistol: int = _give(w, "item.pistol.service")
+	if pistol < 0 or SimAttachments.modifications_of(w, pistol) != 0 or SimInventory.verbs_for(w, actor, pistol).has("name"):
+		push_error("NAME: a service pistol as it spawned was counted as rebuilt, or offered a name")
+		ok = false
+	# Something with no slots is never nameable, however the count reads.
+	var tin: int = _give(w, "item.food.jerky")
+	if tin < 0 or SimItems.nameable(w, tin) or SimInventory.verbs_for(w, actor, tin).has("name"):
+		push_error("NAME: a strip of jerky was offered a name")
+		ok = false
+
+	# THE PREDICATE. One function: the gate's wrapper calls the sim's, by text and by answer.
+	var body: String = _function_text("res://check_inventory.gd", "_name_is_allowed")
+	if not body.contains("SimItems.name_is_allowed("):
+		push_error("NAME: the gate's _name_is_allowed no longer calls SimItems.name_is_allowed, so the gate and the command can disagree")
+		ok = false
+	for text in NAME_FIXTURES:
+		if _name_is_allowed(text) != SimItems.name_is_allowed(text):
+			push_error("NAME: the gate and the sim disagree about '%s'" % text)
+			ok = false
+	if SimItems.name_is_allowed("42") or SimItems.name_is_allowed("4 2") or SimItems.name_is_allowed("   ") or not SimItems.name_is_allowed("Nailbat 2"):
+		push_error("NAME: the predicate lets a quantity through or refuses a name with a digit in it")
+		ok = false
+
+	# THE COMMAND. A refusal first, so the true positive below is not the only thing that ever ran.
+	var refused: Dictionary = {}
+	for pair in [["42", "not-a-name"], ["4 2", "not-a-name"], ["Shovelhead Persuader Grande", "too-long"], ["Be\u0007ll", "not-a-letter"], ["Be\u200Bll", "not-a-letter"], ["\u0411\u0438\u0442\u0430", "not-a-letter"], ["Bat \U01F987", "not-a-letter"]]:
+		var reason: String = SimItems.name_refusal(w, actor, bat, String(pair[0]))
+		refused[String(pair[0])] = reason
+		var words: String = SimItems.name_refusal_words(reason)
+		if reason != String(pair[1]) or words.is_empty() or _carries_a_digit(words):
+			push_error("NAME: '%s' was answered '%s' / '%s' (want %s, in words)" % [String(pair[0]), reason, words, String(pair[1])])
+			ok = false
+	# The letters the screens' face draws are names: Option and AltGr letters, the dashes, the euro.
+	for text in ["\u00C9lan Noir", "\u0141ukasz's Bat", "Old\u2014Faithful", "\u20ACuro Bat"]:
+		if SimItems.name_refusal(w, actor, bat, text) != "":
+			push_error("NAME: '%s' was refused (%s), though the face draws every letter in it" % [text, SimItems.name_refusal(w, actor, bat, text)])
+			ok = false
+	var cap: String = "x".repeat(SimItems.NAME_MAX)
+	if SimItems.name_refusal(w, actor, bat, cap) != "" or SimItems.name_refusal(w, actor, bat, cap + "x") != "too-long":
+		push_error("NAME: the cap is not exactly %s characters" % ["twenty-four"])
+		ok = false
+	if SimItems.name_refusal(w, actor, spear, "Pokey") != "not-bespoke" or SimItems.name_refusal(w, actor, -1, "Pokey") != "not-carried":
+		push_error("NAME: an unrebuilt spear or no item at all was not refused")
+		ok = false
+	w.commands.push({"type": "item.name", "item": bat, "name": "42"})
+	w.step()
+	if not SimItems.given_name(w, bat).is_empty():
+		push_error("NAME: a refused name was given anyway: '%s'" % SimItems.item_name(w, bat))
+		ok = false
+	var plain_name: String = SimItems.item_name(w, bat)
+	w.commands.push({"type": "item.name", "item": bat, "name": "  Old Faithful "})
+	w.step()
+	var inspect: Dictionary = SimInventory.inspect_view(w, actor, bat)
+	var bench: Dictionary = SimGunsmith.bench_view(w, actor, bat)
+	if SimItems.item_name(w, bat) != "Old Faithful" or String(inspect.get("name", "")) != "Old Faithful" or String(bench.get("name", "")) != "Old Faithful":
+		push_error("NAME: the bat was not called Old Faithful everywhere (item %s, inspect %s, bench %s)" % [SimItems.item_name(w, bat), String(inspect.get("name", "")), String(bench.get("name", ""))])
+		ok = false
+	w.commands.push({"type": "item.name", "item": bat, "name": "Nailbat 2"})
+	w.step()
+	inspect = SimInventory.inspect_view(w, actor, bat)
+	if String(inspect.get("name", "")) != "Nailbat 2":
+		push_error("NAME: a name with a digit in it was refused")
+		ok = false
+	var faults: Array = _inspect_faults(inspect)
+	if not faults.is_empty():
+		push_error("NAME: the inspect view with a given name broke the ban: %s" % str(faults))
+		ok = false
+	# The same view with that string in the description is refused: the exemption is the name only.
+	var moved: Dictionary = inspect.duplicate()
+	moved["description"] = "Nailbat 2"
+	if _inspect_faults(moved).is_empty():
+		push_error("NAME: a digit in the description passed because the name carries the same string")
+		ok = false
+	# The quick strip reads `item_name` too. A pistol in the pockets, rebuilt in three slots.
+	for pair in [["item.attach.optic.red_dot", "optic"], ["item.attach.suppressor", "muzzle"], ["item.attach.underbarrel.light", "underbarrel"]]:
+		var part2: int = SimItems.spawn_item(w, String(pair[0]), {"tier": "scavenged"})
+		if part2 < 0 or not SimAttachments.attach(w, pistol, part2, String(pair[1])):
+			push_error("NAME: the fixture could not fit %s to the pistol" % String(pair[0]))
+			ok = false
+	w.commands.push({"type": "item.name", "item": pistol, "name": "Quiet Mary"})
+	w.step()
+	var strip_named: bool = false
+	var strip_has: bool = false
+	for row in SimInventory.quick_strip_view(w, actor):
+		if int((row as Dictionary)["item"]) == pistol:
+			strip_has = true
+			strip_named = String((row as Dictionary)["name"]) == "Quiet Mary"
+	if not strip_has:
+		push_error("NAME: STRIP SKIPPED is not allowed here -- the pistol is not on the strip, so the fixture proves nothing about it")
+		ok = false
+	elif not strip_named:
+		push_error("NAME: the quick strip did not call the pistol Quiet Mary")
+		ok = false
+	# An empty name gives the plain one back, and so does a name of nothing but spaces.
+	w.commands.push({"type": "item.name", "item": bat, "name": "   "})
+	w.step()
+	if not SimItems.given_name(w, bat).is_empty() or SimItems.item_name(w, bat) != plain_name:
+		push_error("NAME: an empty name left '%s' rather than the plain name '%s'" % [SimItems.item_name(w, bat), plain_name])
+		ok = false
+	# PHRASE. A given name is a proper noun in a sentence: the menu on the ground and its header say
+	# "pick up Quiet Mary", not "pick up the quiet mary". The bat, plain again, is the negative: a
+	# thing keeps its article and its lower case.
+	var SimContextRes: GDScript = load("res://sim/context.gd") as GDScript
+	var SimOrdersRes: GDScript = load("res://sim/modules/orders.gd") as GDScript
+	if SimItems.plain_name(w, pistol) == "Quiet Mary" or SimItems.the_item(w, pistol) != "Quiet Mary" or SimItems.the_item(w, bat) != "the " + plain_name.to_lower():
+		push_error("NAME: PHRASE the plain name or the sentence noun is wrong (plain '%s', pistol '%s', bat '%s')" % [SimItems.plain_name(w, pistol), SimItems.the_item(w, pistol), SimItems.the_item(w, bat)])
+		ok = false
+	for pair in [[pistol, "pick up Quiet Mary", "Quiet Mary"], [bat, "pick up the " + plain_name.to_lower(), "the " + plain_name.to_lower()]]:
+		var thing: int = int(pair[0])
+		SimInventory.drop_at_feet(w, actor, thing)
+		var hit: Dictionary = {"kind": "item", "entity": thing, "tile": Vector2i(-1, -1)}
+		var texts: Array[String] = []
+		for row in SimContextRes.call("verbs_at", w, actor, hit) as Array:
+			texts.append(String((row as Dictionary).get("text", "")))
+		var header: String = String(SimContextRes.call("target_label", w, hit))
+		if not texts.has(String(pair[1])) or header != String(pair[2]):
+			push_error("NAME: PHRASE the ground menu read %s under '%s' (want '%s' under '%s')" % [str(texts), header, String(pair[1]), String(pair[2])])
+			ok = false
+	# The orders line a colonist's HUD and the Colony screen read, on a haul of the named pistol.
+	w.components.set_component(actor, "colonistOrder", {"kind": "haul", "target": pistol})
+	var clause: String = String(SimOrdersRes.call("hud_clause", w, actor))
+	w.components.remove_component(actor, "colonistOrder")
+	if clause != "Hauling Quiet Mary to the stockpile.":
+		push_error("NAME: PHRASE the haul line read '%s'" % clause)
+		ok = false
+	if ok:
+		print("NAME OK a bat counts 0, 1, 2, 3 changes and is offered a name only at three; a default part and a part swapped back count nothing; a pistol as found and a strip of jerky are not offered one; one predicate; a quantity, a spaced quantity, an overlong name, a control character, an invisible space, Cyrillic and an emoji refused in words (%d answers), Latin-1, Extended-A and the dashes taken; the name reaches the inspect view, the bench and the strip, a digit only in the name, and an empty name gives the plain one back; a given name is a proper noun on the ground menu, its header and the haul line, a thing keeps its article" % refused.size())
+	return ok
+
+
+# --- FIELD ------------------------------------------------------------------------------------
+#
+# The name field's layout, with no screen: every length from empty to the cap, every caret position,
+# in every well width from narrower than the 1280 pane's to wider than the 1920 one's. The caret
+# stays inside the well, the text on show never runs past it, a name that fits whole is shown from
+# its first letter, and a click where the caret is drawn puts the caret back there. VT323 is one
+# advance wide for every letter, so a run of W is every name of that length.
+func _the_name_field_holds_its_text() -> bool:
+	var font: Font = load("res://ui/chrome.gd").call("font") as Font
+	var ok: bool = true
+	var cases: int = 0
+	var scrolled: int = 0
+	for wide in range(150, 302, 2):
+		var box := Rect2(Vector2(100.0, 50.0), Vector2(float(wide), 34.0))
+		var inner: float = box.size.x - InspectPane.FIELD_INSET * 2.0
+		for n in range(0, 25):
+			var text: String = "W".repeat(n)
+			for caret in range(0, n + 1):
+				cases += 1
+				var lay: Dictionary = InspectPane.field_layout(font, box, text, caret)
+				var size: int = int(lay["size"])
+				var cr: Rect2 = InspectPane.caret_rect(box, float(lay["caret_x"]))
+				var shown_w: float = font.get_string_size(String(lay["shown"]), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+				# Whole at the lower rung, caret and all: then some rung shows it from its first letter.
+				var whole: bool = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, InspectPane.BODY_SIZE).x <= inner - InspectPane.CARET_W
+				if int(lay["start"]) > 0:
+					scrolled += 1
+				if not box.encloses(cr) or cr.end.x > box.end.x - InspectPane.FIELD_INSET + InspectPane.CARET_W:
+					push_error("FIELD: the caret left the well (width %d, %d letters, caret at %d)" % [wide, n, caret])
+					return false
+				if shown_w > inner:
+					push_error("FIELD: the text ran past the well (width %d, %d letters)" % [wide, n])
+					return false
+				if whole and int(lay["start"]) != 0:
+					push_error("FIELD: a name that fits whole lost its first letters (width %d, %d letters, caret at %d)" % [wide, n, caret])
+					return false
+				if InspectPane.caret_from_click(font, box, text, caret, float(lay["caret_x"]) + 1.0) != caret:
+					push_error("FIELD: a click on the caret moved it (width %d, %d letters, caret at %d)" % [wide, n, caret])
+					return false
+				# Scrolled, a click before any letter on show moves the caret there and leaves the text
+				# where it was: the start is kept, so nothing slides under the pointer. (The gap after
+				# the last letter on show may scroll one on: the caret needs its own width of room.)
+				var st: int = int(lay["start"])
+				if st > 0:
+					var left_x: float = (lay["at"] as Vector2).x
+					for k in range(0, String(lay["shown"]).length()):
+						var gx: float = left_x + font.get_string_size(text.substr(st, k), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+						var moved_to: int = InspectPane.caret_from_click(font, box, text, caret, gx, st)
+						var after: Dictionary = InspectPane.field_layout(font, box, text, moved_to, st)
+						if moved_to != st + k or int(after["start"]) != st:
+							push_error("FIELD: a click on letter gap %d of a scrolled field put the caret at %d and the start at %d (want %d and %d; width %d, %d letters)" % [k, moved_to, int(after["start"]), st + k, st, wide, n])
+							return false
+	# The negative: in the narrowest well a full-length name does scroll, so the lane above judged
+	# the scrolling branch and not only names that fit.
+	if scrolled == 0:
+		push_error("FIELD: no case scrolled, so the scrolling layout was never judged")
+		ok = false
+	if ok:
+		print("FIELD OK %d layouts: the caret stays in the well, the text never runs past it, a name that fits starts at its first letter, a click on the caret leaves it there, and a click on a scrolled field's letters moves the caret and not the text (%d scrolled)" % [cases, scrolled])
+	return ok
+
+
+# The source text of one function in a script, from its `func` line to the next top-level line.
+func _function_text(path: String, name: String) -> String:
+	var src: String = FileAccess.get_file_as_string(path)
+	var at: int = src.find("func %s(" % name)
+	if at < 0:
+		return ""
+	var out: String = ""
+	var lines: PackedStringArray = src.substr(at).split("\n")
+	for i in lines.size():
+		if i > 0 and not lines[i].is_empty() and not lines[i].begins_with("\t") and not lines[i].begins_with("#"):
+			break
+		out += lines[i] + "\n"
+	return out
 
 
 # --- HONE -----------------------------------------------------------------------------------
