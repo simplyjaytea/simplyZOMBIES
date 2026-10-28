@@ -61,11 +61,25 @@ const STREAM: String = "ranged"
 static func _raise_of(r: Dictionary) -> int:
 	return SimCombat.raise_ticks(float(r.get("weight", 1.0)), float(r.get("handling", 1.0)))
 
-static func _steady_of(r: Dictionary) -> int:
-	return SimCombat.steady_ticks(float(r.get("weight", 1.0)), float(r.get("handling", 1.0)))
+# The settle and the recovery each take the gun's own item-scoped share (SimItems.steady_share_of and
+# recover_share_of) on top of the clock the heft and handling set. A share of 1.0 is the clock as it
+# was, so a bare gun's rungs do not move.
+static func _steady_of(world: Variant, r: Dictionary) -> int:
+	var clock: int = SimCombat.steady_ticks(float(r.get("weight", 1.0)), float(r.get("handling", 1.0)))
+	return _scaled(clock, SimItemsRes.steady_share_of(world, int(r.get("source", -1))))
 
-static func _recover_of(r: Dictionary) -> int:
-	return SimCombat.shot_recover_ticks(float(r.get("weight", 1.0)), float(r.get("handling", 1.0)))
+static func _recover_of(world: Variant, r: Dictionary) -> int:
+	var clock: int = SimCombat.shot_recover_ticks(float(r.get("weight", 1.0)), float(r.get("handling", 1.0)))
+	return _scaled(clock, SimItemsRes.recover_share_of(world, int(r.get("source", -1))))
+
+static func _scaled(clock: int, share: float) -> int:
+	return maxi(1, int(round(float(clock) * share)))
+
+
+# Loaded, not preloaded, the way items.gd reaches it: attachments.gd preloads items.gd, and a preload
+# here would close that ring.
+static func _Attachments() -> GDScript:
+	return load("res://sim/modules/attachments.gd") as GDScript
 
 
 static func make_ranged_armed(world: Variant, entity: int, profile: Dictionary) -> void:
@@ -110,7 +124,7 @@ static func _refresh_cone(world: Variant, entity: int, r: Dictionary) -> void:
 		# "the ladder is per-weapon" has to be followed one link further, into here.
 		half = lerpf(WIDE_HALF, (WIDE_HALF + TIGHT_HALF) * 0.5, 1.0 - float(r.get("ticksLeft", 0)) / float(_raise_of(r)))
 	elif st == FireState.Steady:
-		half = lerpf((WIDE_HALF + TIGHT_HALF) * 0.5, TIGHT_HALF, 1.0 - float(r.get("ticksLeft", 0)) / float(_steady_of(r)))
+		half = lerpf((WIDE_HALF + TIGHT_HALF) * 0.5, TIGHT_HALF, 1.0 - float(r.get("ticksLeft", 0)) / float(_steady_of(world, r)))
 	elif st == FireState.Idle:
 		half = WIDE_HALF
 	var vel: Variant = world.components.get_component(entity, "velocity")
@@ -228,7 +242,7 @@ static func register_module(world: Variant) -> void:
 			match int(r["state"]):
 				FireState.Raise:
 					r["state"] = FireState.Steady
-					r["ticksLeft"] = _steady_of(r)
+					r["ticksLeft"] = _steady_of(w, r)
 					_refresh_cone(w, int(entity), r)
 				FireState.Steady:
 					# A jam is decided at the trigger, before the round is spent: the cost of a
@@ -244,7 +258,7 @@ static func register_module(world: Variant) -> void:
 					else:
 						_fire_shot(w, int(entity), r, rng)
 						r["state"] = FireState.Recover
-						r["ticksLeft"] = _recover_of(r)
+						r["ticksLeft"] = _recover_of(w, r)
 				FireState.Recover:
 					if int(r.get("magSize", 0)) > 0 and int(r.get("mag", 0)) <= 0:
 						if _begin_reload(w, int(entity), r):
@@ -308,6 +322,11 @@ static func try_begin_fire(world: Variant, entity: int) -> bool:
 	var r: Dictionary = rw as Dictionary
 	if int(r.get("magSize", 0)) > 0 and int(r.get("mag", 0)) <= 0:
 		return _begin_reload(world, entity, r)
+	# A seat refuses the shot, not the reload: a body in a car can still change its magazine.
+	var seat: String = SimStancesRes.seat_refusal(world.components, entity, bool(_Attachments().call("from_vehicle_of", world, r)))
+	if seat != "":
+		world.events.publish({"type": "weapon.refused", "entity": entity, "reason": seat})
+		return false
 	if _wants_ammo(r) and _pick_round(world, entity, r) == "":
 		return false
 	r["state"] = FireState.Raise
@@ -365,7 +384,8 @@ static func _begin_reload(world: Variant, entity: int, r: Dictionary) -> bool:
 		if _pick_round(world, entity, r) == "":
 			return false
 	r["state"] = FireState.Reload
-	r["ticksLeft"] = maxi(1, int(r.get("reloadTicks", 24)))
+	# The reload clock is the weapon's own and its item-scoped share on top; a bare gun's is unchanged.
+	r["ticksLeft"] = _scaled(maxi(1, int(r.get("reloadTicks", 24))), SimItemsRes.reload_share_of(world, int(r.get("source", -1))))
 	return true
 
 

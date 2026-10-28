@@ -7056,6 +7056,49 @@ table was not re-run.
 `name`, so a given name reaches it. A new check of the item-name clause calls
 `SimItems.name_is_allowed`, never its own copy.
 
+## Furniture decides the seat, 2026-10-28
+
+The firearms arc's furniture piece (docs/23's record, "Furniture decides the seat"). The arc named
+the shape: a folding stock fires from the car and a full stock does not. Two calls were taken inside
+it, and both are first cuts a card can reverse.
+
+- **Aim time and recovery were already read from furniture.** The stock and the foregrip fold
+  `handling` into the same clock the ladder reads, so no reader was added for them. What the lane
+  adds is the proof: a bare receiver and the standard stock sit at the old 11 ticks up and 11 back
+  on the pump shotgun, the folding stock at 8 and 8, the foregrip at 10 and 10.
+- **The seat is the weapon's to allow.** A seated body may fire only a weapon whose fitted parts
+  declare `fireFromVehicle`. Taken as a call: a bare receiver is refused from a seat too. The arc
+  names only the full stock, but a receiver with no stock at all is not a folding stock, and the
+  refusal cannot be read as a stock refusal without a stock to refuse. Reloading from the seat stays
+  allowed, because the rule is about firing.
+- **Any vehicle counts, not only a cab.** A rider on a bicycle is refused the same as a driver in a
+  car. The arc said "the car"; the mount is what the code can see, and a cab-only rule would need a
+  second reader for the same fact.
+
+**Why:** the seat is the one posture a stance does not name, so it needed a reader of its own. The
+rule lives in the weapon's content, not in a per-weapon branch.
+
+**Not measured.** The numbers are first cuts and were not re-tuned; no body or kind changed, so the
+ten-seed table was not re-run. Gates: `godot:m2:aim` FURNITURE and READERS, `godot:m2:stance` SEAT.
+
+**The clocks are item-scoped (the affixes thread asked, 2026-10-28).** Settle, recovery and reload
+each read their item's share (`steady_ticks`, `recover_ticks`, `reload_ticks`, scoped over unscoped,
+the `noise_emission_of` division) and the ladder reads it live, not from a profile field, so a
+modifier takes effect without a refit. The three names are in `ITEM_SCOPED_READS` and registered in
+`modifiers/stats.gd`, floor 0.1 like `swing_speed`. A bare gun's clocks are unchanged.
+
+**How to apply:** a new part that should change what a seat allows declares it under the attachment
+block, and the reader is `SimAttachments.fires_from_vehicle`. A new refusal for a seat goes through
+`SimStances.seat_refusal` and the sentence in `SimAttachments.refusal_clause`, never a second check.
+
+**The key is asked for, not assumed (end review, 2026-10-28).** A profile restored from a save
+written before `fromVehicle` existed has no such key, and nothing rebuilds a profile until an equip
+or a wear event, which a refused trigger never raises: a folding stock would have been refused its
+seat for the rest of that run. Both seat readers, the trigger and the sentence, now go through
+`SimAttachments.from_vehicle_of`, which reads the key when it is there and asks the fitted parts
+once and writes it back when it is not. `godot:m2:stance` SEAT erases the key before the trigger
+and holds the folding stock to firing and the full stock to its refusal.
+
 ## Internals wear, and the jam derives from them, 2026-10-28
 
 The firearms arc's F3 piece (`planning/2026-10-28-firearms-readers.md`, section F3). Calls taken in
