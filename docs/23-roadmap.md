@@ -1330,6 +1330,20 @@ tables and day lines are report-noise.md in the project's planning/balance folde
     lanes; the bound lane fails with the re-plan switched off, the resume lane with the shake off.
     The walk-home bound lane moves the body by hand, since the world step does not run in a lane.
     Ten seeds on this head are a separate measurement, after the 6b89d17e set.
+  - **The Doctor's leash, and the far side of the house (the day-one trace, 404 and 2024).** Two
+    rules in `jobs.gd`. (1) A Doctor on the walk to a patient asks the pick's two questions again on
+    every tick: is the patient inside `ERRAND_RADIUS_TILES` of home, and is no zombie within
+    `DANGER_TARGET_METRES` of them. If either fails the job is let go and the next pick decides
+    (`DOCTOR_LEASH`). Before this the walk followed the scripted survivor 25 to 39 m into the street.
+    (2) A Retreat from a zombie inside the walls aims at the interior tile farthest from the nearest
+    such zombie, found in at most `RETREAT_INSIDE_TRIES` path searches, and not at the centre of the
+    room the zombie stands in (`RETREAT_FAR_SIDE`). A far-side hold that has a zombie come inside the
+    walls within `DANGER_METRES` re-plans its walk, at most once per `RETREAT_REPLAN_TICKS` (40); the
+    last re-plan is `replanAt` on the job, and an absent key reads as never. A Retreat from a zombie
+    outside the walls still aims at home. Gate: `godot:m2:walls`, lanes LEASH, FAR-SIDE and NO-STAND,
+    each asserting its fixture first and each with a true negative; the two switches off give the
+    colony as it was. Measured in the record's pull request: the colony tick, and the two-day traces
+    on 404 and 2024. Ten seeds on the head follow P2 and P3 merging, not before.
 
 **Feel and speed — smooth motion, and time a player can live with:**
 

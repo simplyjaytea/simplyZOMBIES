@@ -7348,3 +7348,30 @@ named is handed to the balance thread, after the run already going on main.
 `rangedWeapon.mag`. A body that should arrive with a loaded gun calls `SimRanged.load_held` after
 its kit. A gate that fires a gun it has just armed loads it first (`load_held`), or its first pull
 is a reload.
+
+## The Doctor's leash and the far side of the house, 2026-10-28
+
+Piece P2 of the batch in `planning/2026-10-28-next-batch.md` (project files), built on the day-one
+causes in `planning/balance/2026-10-28-dayone-causes.md`, sections 2 and 6. The calls taken:
+
+- **The leash asks the patient, not the Doctor.** The pick already refuses a patient out past the
+  errand radius or with a zombie within `DANGER_TARGET_METRES` of them, and nothing asked again
+  after it. The Doctor's own `_endangered` rule fires at 6 m from the Doctor, which is in the street
+  by then. Re-asking the two pick questions of the patient's position on each walk tick adds no new
+  rule: it is the pick, asked again. Walking home with a pursuer behind is not covered (P1 says why).
+- **The far side is ranked from the nearest zombie, not from the colonist.** Ranked from the
+  colonist, the nearest interior tile is the one the colonist already stands beside, which is the
+  room the zombie is in. Ranked from the zombie, the farthest interior tile is the one it reaches
+  last. The walk is planned once and marked `rerouted`, so the walk-too-long re-plan (which goes to
+  the tile nearest the colonist) does not walk it back to the zombie.
+- **`RETREAT_REPLAN_TICKS` is 40 as a first cut.** Two seconds. A tile search every tick would be
+  the #257 spike again, and a colonist still beside a zombie for two seconds is the stand-still
+  the rule replaces (134 on 2024 stood 2,600 ticks with a zombie 3 to 5 m off).
+- **`replanAt` is absent on a save from before, and reads as never.** The `handsFull` precedent:
+  a key a save does not hold loads as no record, so nothing bumps `SAVE_VERSION` and the save lane
+  is unchanged. The two switches, `DOCTOR_LEASH` and `RETREAT_FAR_SIDE`, are `static var`s the three
+  lanes pin on and restore, so a gate run cannot leave one off.
+
+**How to apply:** a rule that asks a fact of a job's target asks it of the target's position on
+every walk tick, not only at the pick. A far-side target is planned once, marked `rerouted`, and not
+re-planned by the walk-too-long bound.
