@@ -1351,8 +1351,13 @@ tables and day lines are report-noise.md in the project's planning/balance folde
     last re-plan is `replanAt` on the job, and an absent key reads as never. A Retreat from a zombie
     outside the walls still aims at home. Gate: `godot:m2:walls`, lanes LEASH, FAR-SIDE and NO-STAND,
     each asserting its fixture first and each with a true negative; the two switches off give the
-    colony as it was. Measured in the record's pull request: the colony tick, and the two-day traces
-    on 404 and 2024. Ten seeds on the head follow P2 and P3 merging, not before.
+    colony as it was. Measured: colony tick median of three interleaved pairs, 11.09 ms on main
+    87750e3a and 11.44 ms on the branch (inside the 1 to 4 ms noise band). Two-day traces, one seed
+    each, same driver, base 87750e3a: 404 before, colony at head 2 alive on day 2 (one death, colonist
+    113 on Retreat, day 1); 404 after, colony wiped on day 2 (three deaths, the first on a Retreat
+    at tick 73204). 2024 after, colony wiped on day 2 (three deaths). The 2024 before trace did not
+    complete. These traces do not show the rules help: they are the open question for this piece,
+    not a balance claim, and the ten seeds follow P2 and P3 merging, not before.
 
 **Feel and speed — smooth motion, and time a player can live with:**
 
