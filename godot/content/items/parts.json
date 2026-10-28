@@ -17,15 +17,60 @@
   {
     "id": "item.part.action.standard",
     "name": "Action",
-    "description": "Springs, a firing pin and the bar that carries a round to the chamber. When it goes, the gun stops.",
+    "description": "The bolt, and the bar that carries a round to the chamber with the firing pin in it. When it goes, the gun stops.",
     "class": "attachment",
     "size": { "w": 1, "h": 1 },
-    "massKg": 0.2,
+    "massKg": 0.12,
     "attachment": {
       "fits": ["internal"],
       "structural": true,
       "wearsOn": ["shot", "jam"],
       "wearRate": 1.2
+    }
+  },
+  {
+    "id": "item.part.spring.standard",
+    "name": "Action Spring",
+    "description": "The spring that drives the bolt home. It tires with every round, and a tired one is why the next round does not seat.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.04,
+    "attachment": {
+      "fits": ["spring"],
+      "structural": true,
+      "staysWhenWornOut": true,
+      "wearsOn": ["shot"],
+      "wearRate": 1.2
+    }
+  },
+  {
+    "id": "item.part.sear.standard",
+    "name": "Sear",
+    "description": "The notch that holds the hammer until the trigger lets it go. It wears where the trigger bears on it.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.02,
+    "attachment": {
+      "fits": ["sear"],
+      "structural": true,
+      "staysWhenWornOut": true,
+      "wearsOn": ["shot"],
+      "wearRate": 1.0
+    }
+  },
+  {
+    "id": "item.part.extractor.standard",
+    "name": "Extractor",
+    "description": "The hook that pulls the spent case out of the chamber. It takes the worst of every stoppage, because it is the thing that clears them.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.02,
+    "attachment": {
+      "fits": ["extractor"],
+      "structural": true,
+      "staysWhenWornOut": true,
+      "wearsOn": ["shot", "jam"],
+      "wearRate": 1.0
     }
   },
   {
@@ -151,7 +196,7 @@
     "description": "Somebody who knew what they were doing polished every surface a round touches.",
     "class": "attachment",
     "size": { "w": 1, "h": 1 },
-    "massKg": 0.2,
+    "massKg": 0.12,
     "attachment": {
       "fits": ["internal"],
       "structural": true,
@@ -233,7 +278,7 @@
     "description": "A heavier cylinder bored for the bigger round. It will not sit in anything that disagrees with it.",
     "class": "attachment",
     "size": { "w": 1, "h": 1 },
-    "massKg": 0.3,
+    "massKg": 0.22,
     "attachment": {
       "fits": ["internal"],
       "structural": true,
@@ -249,7 +294,7 @@
     "description": "Hand-fitted, hand-lapped, and it does not stovepipe. Somebody spent a winter on this.",
     "class": "attachment",
     "size": { "w": 1, "h": 1 },
-    "massKg": 0.22,
+    "massKg": 0.14,
     "attachment": {
       "fits": ["internal"],
       "structural": true,
