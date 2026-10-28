@@ -59,6 +59,11 @@ var content_resolved: Dictionary = {}
 # a world whose `content` is swapped (content_reload.gd, a gate pinning its own tree) rebuilds.
 var content_index: Dictionary = {}
 var content_index_of: Variant = null
+# `SimNeeds.stockpile_items`' memo and `SimJobs`' walls box, kept on the world for the two-worlds
+# reason above. Each is trusted only while what it read is unchanged (see their writers), and a
+# restore drops both.
+var stockpile_memo: Array = []
+var walls_memo: Array = []
 var entities: Variant = null
 var components: Variant = null
 var commands: Variant = null
@@ -257,6 +262,8 @@ func restore(snap: Dictionary) -> void:
 	assert(int(snap["version"]) == int(SimSerialize.SAVE_VERSION), "Save version %s != %s" % [snap["version"], SimSerialize.SAVE_VERSION])
 	assert(int(snap["seed"]) == seed, "Save seed %s != world seed %s" % [snap["seed"], seed])
 	tick = int(snap["tick"])
+	stockpile_memo = []
+	walls_memo = []
 	(rng as RefCounted).call("restore", snap["rng"])
 	(entities as RefCounted).call("restore", snap["entities"])
 	(components as RefCounted).call("restore", snap["components"])
