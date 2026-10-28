@@ -1354,6 +1354,8 @@ func _act(verb: String, item: int) -> void:
 			_world.commands.push({"type": "item.unequip", "slot": _slot_of(item), "item": item})
 		"use":
 			_world.commands.push({"type": "item.use", "item": item})
+		"hone":
+			_world.commands.push({"type": "item.hone", "actor": _actor, "item": item})
 		"modify":
 			_world.commands.push({"type": "bench.open", "item": item})
 		"drop":
