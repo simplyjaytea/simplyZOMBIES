@@ -2454,9 +2454,16 @@ func _the_pane_draws_one_state_line() -> bool:
 	if body < 0 or src.find("state_line(view)", body) < 0:
 		push_error("%s: %s never asks state_line while drawing -- the edge and fuel words are a dead socket" % [lane, INSPECT_PANE_GD])
 		return false
+	# And lays it out through `state_rows`, the measure STATE FIT judges, so the rows judged are the
+	# rows drawn.
+	var body_end: int = src.find("\nstatic func ", body + 1)
+	var at_rows: int = src.find("state_rows(font, state, text_wide)", body)
+	if at_rows < 0 or (body_end >= 0 and at_rows > body_end):
+		push_error("%s: %s draws the state line without state_rows -- the wrap STATE FIT measures is a dead socket" % [lane, INSPECT_PANE_GD])
+		return false
 	if not await _every_state_word_fits_the_narrow_pane(w, lamp):
 		return false
-	print("STATE OK a half-dull knife draws edge dulling, a lantern draws fuel %s, an empty pistol draws load empty, a long barrel draws its words, a club draws no state line, draw_pane asks state_line, and every edge, fuel and load word fits beside the picture at 1280x720" % String(light["word"]))
+	print("STATE OK a half-dull knife draws edge dulling, a lantern draws fuel %s, an empty pistol draws load empty, a long barrel draws its words, a club draws no state line, draw_pane asks state_line and lays it out by state_rows, and every edge, fuel, load and barrel phrase fits beside the picture at 1280x720" % String(light["word"]))
 	return true
 
 
@@ -2474,19 +2481,24 @@ func _every_state_word_fits_the_narrow_pane(w: Variant, lamp: int) -> bool:
 	var lines: Array = []
 	for band in SimItems.EDGE_BANDS:
 		lines.append(["edge", String((band as Dictionary)["name"])])
-	# Every phrase a barrel says on its own: "plain", and each one word that departs from the
-	# identity, which is every shipped barrel. A barrel with two or three departures is not judged
-	# here, because none ships (docs/30, "The barrel's words, 2026-10-28").
-	for key in SimBarrel.KEYS:
-		for word_key in SimBarrel.WORD_OF[key].keys():
-			var one: Dictionary = SimBarrel.IDENTITY.duplicate()
-			one[key] = word_key
-			var phrase: String = SimBarrel.words_of({"barrel": one})
-			if phrase.is_empty():
-				push_error("%s: the barrel with %s %s says no words" % [lane, key, word_key])
-				return false
-			lines.append(["barrel", phrase])
-	lines.append(["barrel", SimBarrel.words_of({"barrel": SimBarrel.IDENTITY})])
+	# Every phrase a barrel can say: all length x quality x material combinations, read off the
+	# tables so a new word is judged the day it is written. A barrel may take two rows (docs/30, "The
+	# barrel's words wrap, 2026-10-28"), so these are judged by `state_rows` below, not by one line.
+	var barrel_phrases: Array[String] = []
+	for length_key in SimBarrel.LENGTH.keys():
+		for quality_key in SimBarrel.QUALITY.keys():
+			for material_key in SimBarrel.MATERIAL_WEAR.keys():
+				var spec: Dictionary = {"barrel": {"length": length_key, "quality": quality_key, "material": material_key}}
+				var phrase: String = SimBarrel.words_of(spec)
+				if phrase.is_empty():
+					push_error("%s: the %s %s %s barrel says no words" % [lane, length_key, quality_key, material_key])
+					return false
+				barrel_phrases.append(phrase)
+	# Data to judge: every combination, or the walk proved a corner of the table.
+	var combos: int = SimBarrel.LENGTH.size() * SimBarrel.QUALITY.size() * SimBarrel.MATERIAL_WEAR.size()
+	if barrel_phrases.size() != combos or combos < 45:
+		push_error("%s: the barrel walk read %d phrases of %d combinations" % [lane, barrel_phrases.size(), combos])
+		return false
 	var fuel_words: Dictionary = {}
 	for left in [cap, floori(cap / 3.0), floori(cap / 8.0), 0]:
 		w.components.set_component(lamp, "lightFuel", {"ticksLeft": int(left)})
@@ -2545,6 +2557,40 @@ func _every_state_word_fits_the_narrow_pane(w: Variant, lamp: int) -> bool:
 		if wide > room:
 			push_error("%s: \"%s%s\" is %d px beside a picture that leaves %d at 1280x720, so the pane cuts it to an ellipsis" % [lane, label, word, int(wide), int(room)])
 			return false
+	# The barrel's phrases: each in at most two rows the pane draws whole. True negatives first: a
+	# phrase too long for two rows is refused by the same measure, and a phrase whose first word
+	# will not sit beside the label still fits by dropping the label, not by shrinking the type.
+	var per_row: int = int(room / maxf(1.0, font.get_string_size("m", HORIZONTAL_ALIGNMENT_LEFT, -1, size).x))
+	var part: String = "m".repeat(per_row - 2)
+	var three: String = ", ".join(PackedStringArray([part, part, part]))
+	if _state_rows_fault(font, room, three).is_empty():
+		push_error("%s: the measure passed \"%s\", a phrase three rows long, as fitting two" % [lane, three])
+		return false
+	var long_first: String = part + ", mm"
+	var dropped: Array[Dictionary] = InspectPane.state_rows(font, {"label": "barrel", "word": long_first}, room)
+	if not _state_rows_fault(font, room, long_first).is_empty() or dropped.size() != 2 or not String(dropped[0]["label"]).is_empty():
+		push_error("%s: \"%s\" did not wrap with its label dropped: %s" % [lane, long_first, str(dropped)])
+		return false
+	var wrapped: int = 0
+	var worst: String = ""
+	var worst_wide: float = 0.0
+	for phrase in barrel_phrases:
+		var fault: String = _state_rows_fault(font, room, phrase)
+		if not fault.is_empty():
+			push_error("%s: %s at 1280x720" % [lane, fault])
+			return false
+		if InspectPane.state_rows(font, {"label": "barrel", "word": phrase}, room).size() > 1:
+			wrapped += 1
+		var full: float = font.get_string_size("barrel " + phrase, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		if full > worst_wide:
+			worst_wide = full
+			worst = phrase
+	# Data to judge: the worst phrase is wider than one line, so the wrap was exercised, not skipped.
+	if wrapped == 0 or worst_wide <= room:
+		push_error("%s: no barrel phrase needed a second row (worst \"%s\", %d px), so the wrap was never judged" % [lane, worst, int(worst_wide)])
+		return false
+	for phrase in barrel_phrases:
+		lines.append(["barrel", phrase])
 	# And every word on the pane's colour scale reads at 4.5:1 on the steel's lighter grain, the
 	# condition's bands with the state words: "dull" and "broken" drew in the rim rust at 3.4 to 1.
 	if _contrast(Locker.STEEL, Locker.STEEL_GRAIN) >= 4.5:
@@ -2560,8 +2606,22 @@ func _every_state_word_fits_the_narrow_pane(w: Variant, lamp: int) -> bool:
 		if ratio < 4.5:
 			push_error("%s: \"%s\" draws at %.2f:1 on the pane's steel, under 4.5:1" % [lane, String(ink[0]), ratio])
 			return false
-	print("  STATE FIT %d state lines with their labels fit the %d px beside the picture at 1280x720, and %d inks read at 4.5:1 on the steel" % [lines.size(), int(room), inks.size()])
+	print("  STATE FIT %d state lines with their labels fit the %d px beside the picture at 1280x720; all %d barrel phrases fit two rows (%d wrap, the worst \"barrel %s\" at %d px), a three-row phrase is refused and a long first word drops the label; %d inks read at 4.5:1 on the steel" % [lines.size() - barrel_phrases.size(), int(room), barrel_phrases.size(), wrapped, worst, int(worst_wide), inks.size()])
 	return true
+
+
+# Why a barrel phrase does not fit the pane's state rows in `room`, or "" when it does: at most
+# InspectPane.STATE_ROWS rows, each row's label and words inside the room at the body size.
+func _state_rows_fault(font: Font, room: float, phrase: String) -> String:
+	var rows: Array[Dictionary] = InspectPane.state_rows(font, {"label": "barrel", "word": phrase}, room)
+	if rows.size() > InspectPane.STATE_ROWS:
+		return "\"barrel %s\" takes %d rows, more than the pane's %d" % [phrase, rows.size(), InspectPane.STATE_ROWS]
+	for row in rows:
+		var text: String = String(row["label"]) + String(row["word"])
+		var wide: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, InspectPane.BODY_SIZE).x
+		if wide > room:
+			return "the row \"%s\" of \"barrel %s\" is %d px in %d" % [text, phrase, int(wide), int(room)]
+	return ""
 
 
 # WCAG contrast of two opaque colours (`check_play.gd`'s measure).
