@@ -7056,6 +7056,71 @@ table was not re-run.
 `name`, so a given name reaches it. A new check of the item-name clause calls
 `SimItems.name_is_allowed`, never its own copy.
 
+## Internals wear, and the jam derives from them, 2026-10-28
+
+The firearms arc's F3 piece (`planning/2026-10-28-firearms-readers.md`, section F3). Calls taken in
+the piece, so a later reader can see why they are shaped this way:
+
+- **Three slots, not one.** A slot holds one item, so the spring, the sear and the extractor each
+  got a slot name (`spring`, `sear`, `extractor`). Every firearm base that defaults an action
+  defaults all three, and the action keeps the name `internal`.
+- **A worn-through internal stays fitted, and the gun is refused.** A barrel or an action at zero
+  detaches, and a gun without its action stops, because `internal` is a required slot. A spring,
+  sear or extractor cannot follow that rule: it is not required, so a detached one would leave
+  `assembly_condition` and the gun would jam *less* for losing its sear. These three declare
+  `staysWhenWornOut`, sit at zero and read "broken". The piece first had them jam on every pull;
+  the end review's fix PR made a worn-through internal block the weapon instead,
+  `SimAttachments.blocked_reason` answering `broken:<slot>` the way a missing action answers
+  `missing:internal`, for two reasons the gates now hold. A jam is only a stoppage on a base whose
+  content says it jams, so the revolver (`jams: false`) and any gun with a match action fitted
+  fired on a dead sear for `assembly_condition_factor` 0.0: a round spent for nothing, and nothing
+  said. And `SimRanged.can_fire` reads only `blocked`, so npc_combat gave a gun jamming on every
+  pull its full envelope and walked a colonist into range of it, the open circuit docs/37 keeps
+  finding. Refused, the gun fires nothing and spends nothing, the HUD's refusal sentence names the
+  part that is worn through, the NPC envelope is zero and the colonist falls back to melee, and the table's
+  "broken" row (1.0) stays total without any pull reaching it. `detach` still takes one out.
+- **The mass is split, not added.** The old action weighed 0.20 kg with its springs and sear inside
+  it. The action is now 0.12 kg, the three parts make the other 0.08 kg, and the tuned action, match
+  action and magnum cylinder (which replace the action in `internal`) drop by the same 0.08 kg. An
+  assembled firearm weighs what it weighed; `godot:m2:attach` MASS holds that number.
+- **The parts are findable.** They sit in the `tables.json` parts bin beside the action, at weights
+  4, 3 and 3. Findability is a gate rule (`godot:m2:attach` CONTENT), not a choice.
+- **The band words read the assembly.** The inspect view and the grid view band an item by its
+  assembly condition, as the jam already did, so a gun with a failing sear says "failing" and jams
+  at the failing rate. Before this, the screen read the receiver alone and called a jamming gun
+  sound.
+- **The bench's key moves to the top row.** Three more slots put a second row of plates under a
+  firearm's picture, and at 1280x720 the bench had no room left under the assembly for the key to
+  its amber corner ("something you carry fits"), so `layout` placed it nowhere and the BENCH lane of
+  `godot:check:play` went red at both windows. The key now takes the top row's free left cell, level
+  with the sight's plate, on any weapon with a sight or optic over its picture, and stays under the
+  assembly on a weapon with no top row. Which rows the weapon has decides it, never the window, so a
+  rifle's key is in one place at both sizes rather than jumping when the window shrinks. A fourth
+  column was the other way out and was turned down: at 1280x720 it leaves the candidates column a
+  hundred-odd pixels wide. The BENCH lane now also holds the key inside the frame and clear of every
+  plate (with the tape that hangs over its top edge), the picture, the column and the footer, its
+  judge proved first on rects laid over the sight's plate, its tape's reach and the picture; and the
+  same rifle with its sight taken away draws the key clear under the assembly, so the other branch
+  has a reader too.
+- **Not done here.** The named break-action (`item.named.deer_rifle`) has never had an action
+  defaulted, so it gets none of the three; giving it internals is a content decision for the owner
+  of that base, and it is not in F3's list.
+
+**Why:** the owner's arc rule is that every number is a sum of the gun's parts, and a jam that
+follows a part the player can see worn is the readable half of that rule. A jam chance that did not
+move with the internals would be the dead-socket pattern docs/37 warns about.
+
+**How to apply:** a new internal part declares `structural` and `staysWhenWornOut` and a `wearsOn`
+list, and its slot goes on every base that defaults an action. A new internal that replaces the
+action declares its own mass against the 0.12 kg action so an assembly keeps its weight.
+
+**Measured.** The FAST tier of `godot:m2:balance` passes on c119866e: four seeds, ten days, the
+shipped district. Survivors alive on day ten were 2 of 3 on 20260805, 1 of 3 on 404, 3 of 3 on 31337
+and 1 of 3 on 90210, with 2, 5, 1 and 3 deaths. No before run on main was taken for this piece, so
+the numbers are the after only; the gate asserts the bands and the placement sets, not the counts.
+The internals change every spawned gun, so a before-and-after on the same driver is the number a
+later balance piece should compare against.
+
 ## The ranged affixes, partly, 2026-10-28
 
 The five ranged prefixes docs/10 names were planned as one data edit. Two of them are. Calls taken:
