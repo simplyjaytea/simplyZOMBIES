@@ -29,6 +29,7 @@ const SimLightMod = preload("res://sim/modules/light.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
 const SimStockpile = preload("res://sim/modules/stockpile.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
+const SimRanged = preload("res://sim/modules/ranged.gd")
 
 const SCENE_PATH: String = "res://presentation/main.tscn"
 const InspectPaneRes = preload("res://ui/inspect_pane.gd")
@@ -39,6 +40,11 @@ const NAMED_AS: String = "Old Faithful"
 # field at its smaller rung with letters on both sides of the caret.
 const NAMED_LONG: String = "Grandmother's Long Reach"
 const NAMED_LONG_BACK: int = 8
+# The round you load (docs/30, 2026-10-28): a pump shotgun in hand with two slugs chosen over
+# buckshot, so the pane's state line reads "load mixed"; and the same gun with buckshot in it and
+# the slug stack picked, so the pane offers "load".
+const LOAD_GUN: String = "item.shotgun.pump"
+const LOAD_ROUNDS: Array = [["item.ammo.12g.slug", 2], ["item.ammo.12g", 8]]
 # The two windows the game supports: check_play's WORK-LAYOUT lane lays out at both.
 const SIZES: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(1920, 1080)]
 const NAMES: Array[String] = [
@@ -57,6 +63,8 @@ const NAMES: Array[String] = [
 	"raised_walls",
 	"name_field",
 	"name_field_long",
+	"load_gun",
+	"load_round",
 ]
 # The Colony screen's two fuller shots (art QA, slice 2): Mara picked by a click on her name, her
 # row made manual by one changed number, the pointer resting on the medic chip; and a roster of
@@ -684,6 +692,36 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 				for _i in NAMED_LONG_BACK:
 					press(tree, KEY_LEFT)
 			main.set_meta("name_field_bat", bat)
+		"load_gun", "load_round":
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			var actor_l: int = int(world.player)
+			var gun: int = SimItems.spawn_item(world, LOAD_GUN, {"tier": "scavenged"})
+			if not SimInventory.equip(world, actor_l, gun, "primary"):
+				return "the shotgun would not go in the hand"
+			var slug_stack: int = -1
+			for pair in LOAD_ROUNDS:
+				var stack: int = SimItems.spawn_item(world, String(pair[0]), {"tier": "scavenged", "count": int(pair[1])})
+				if not SimInventory.stow(world, actor_l, stack):
+					return "the survivor has no room for %s" % String(pair[0])
+				if String(pair[0]) == "item.ammo.12g.slug":
+					slug_stack = stack
+			SimRanged.load_held(world, actor_l)
+			world.step()
+			if scene == "load_gun":
+				if SimRanged.choose_round(world, actor_l, slug_stack) != "":
+					return "the slugs could not be chosen"
+				for _i in 120:
+					world.step()
+			press(tree, KEY_TAB)
+			await _settle(tree, main)
+			var sheet_g: Variant = main.get("_inventory_panel")
+			if sheet_g == null:
+				return "there is no inventory sheet"
+			var picked: int = gun if scene == "load_gun" else _carried_base(world, actor_l, "item.ammo.12g.slug")
+			(sheet_g as Control).set("_selected", picked)
+			(sheet_g as Control).queue_redraw()
+			main.set_meta("load_gun", gun)
+			main.set_meta("load_picked", picked)
 		"dusk_street":
 			# The day street's spot at dusk: the day grade at weight 0.5, under a darkening sky.
 			world.tick = Clock.tick_on_day(DAY, DUSK)
@@ -996,6 +1034,17 @@ static func verify(main: Node, scene: String) -> String:
 			if String(long_field.get("text", "")) != NAMED_LONG:
 				return "the field holds '%s', not '%s'" % [String(long_field.get("text", "")), NAMED_LONG]
 			return "" if int(long_field.get("caret", -1)) == NAMED_LONG.length() - NAMED_LONG_BACK else "the caret is at %d, not in the middle" % int(long_field.get("caret", -1))
+		"load_gun", "load_round":
+			var sheet_v2: Variant = main.get("_inventory_panel")
+			if sheet_v2 == null or not bool(main.get("inventory_open")):
+				return "the inventory sheet is not open"
+			if int(sheet_v2.get("_selected")) != int(main.get_meta("load_picked", -2)):
+				return "the pane is not on the %s" % ("shotgun" if scene == "load_gun" else "slugs")
+			var gun_v: int = int(main.get_meta("load_gun", -1))
+			if scene == "load_gun":
+				var said: String = SimRanged.load_words(world, gun_v)
+				return "" if said == "mixed" else "the shotgun reads '%s', not mixed" % said
+			return "" if (sheet_v2.call("_pane_verbs") as Array).has("load") else "the slugs offer no load: %s" % str(sheet_v2.call("_pane_verbs"))
 		"raised_walls":
 			var origin: Vector2i = main.get_meta("raised_walls_at", Vector2i(-1, -1)) as Vector2i
 			if origin.x < 0:
@@ -1535,3 +1584,13 @@ static func _room_count(map: Variant, at: Vector2i) -> int:
 			seen[nx] = true
 			queue.append(nx)
 	return n
+
+
+
+# The first carried item of `base_id`, or -1.
+static func _carried_base(world: Variant, actor: int, base_id: String) -> int:
+	for item in SimInventory.carried_items(world, actor):
+		var base: Variant = SimItems.item_base_of(world, int(item))
+		if base is Dictionary and String((base as Dictionary).get("id", "")) == base_id:
+			return int(item)
+	return -1

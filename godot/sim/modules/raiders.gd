@@ -67,6 +67,7 @@ const SimHomeRes = preload("res://sim/home.gd")
 const SimInventoryRes = preload("res://sim/modules/inventory.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
 const SimNeedsRes = preload("res://sim/modules/needs.gd")
+const SimRangedRes = preload("res://sim/modules/ranged.gd")
 const SimPeopleRes = preload("res://sim/modules/people.gd")
 const SimStockpileRes = preload("res://sim/modules/stockpile.gd")
 const SimTileMapRes = preload("res://sim/map/tilemap.gd")
@@ -416,6 +417,10 @@ static func spawn(world: Variant, x: float, y: float, type_id: String) -> int:
 				continue
 			if not SimInventoryRes.stow(world, ent, item):
 				world.components.set_component(item, "position", {"x": x, "y": y})
+	# A raider walks in with the gun already loaded from their own kit: the rounds leave the pack for
+	# the magazine, so the band's first shot is where it was before the magazine remembered its load,
+	# and a dead raider's gun keeps whatever was left in it.
+	SimRangedRes.load_held(world, ent)
 	world.events.publish({"type": "raider.arrived", "entity": ent, "id": String(e.get("id", type_id)), "x": x, "y": y})
 	return ent
 

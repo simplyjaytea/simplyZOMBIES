@@ -85,6 +85,7 @@ func _armed(w: Variant, id: String) -> Variant:
 	var ammo: int = SimItems.spawn_item(w, ammo_id, {"tier": "scavenged", "count": 20})
 	if not SimInventory.stow(w, w.player, ammo):
 		w.components.set_component(ammo, "stored", {"container": w.player})
+	SimRanged.load_held(w, w.player)
 	# The equip event is what builds the profile, and publish() only queues -- without this the
 	# component is not there yet and every assertion below would judge an unarmed survivor.
 	w.events.drain()
@@ -641,6 +642,9 @@ func _reload_clock(stat: String, value: float) -> int:
 	if stat != "":
 		w.modifiers.add({"stat": stat, "op": "mul", "value": value, "source": "gate.fixture"}, weapon)
 	w.events.drain()
+	# `_armed` loads the pump full, and a reload that would change nothing is refused (docs/30, "The
+	# round you load"), so the magazine is emptied first; the pack still holds the rest of the box.
+	w.components.remove_component(weapon, SimRanged.LOAD)
 	if not SimRanged.try_begin_reload(w, w.player):
 		push_error("READERS: the pump refused to begin a reload")
 		return -1

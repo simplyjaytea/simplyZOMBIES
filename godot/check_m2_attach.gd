@@ -430,6 +430,7 @@ func _armed_pistol(w: Variant) -> int:
 	var ammo: int = SimItems.spawn_item(w, "item.ammo.9mm", {"tier": "scavenged", "count": 40})
 	if not SimInventory.stow(w, w.player, ammo):
 		w.components.set_component(ammo, "stored", {"container": w.player})
+	SimRanged.load_held(w, w.player)
 	w.events.drain()
 	return pistol
 
@@ -1348,6 +1349,7 @@ func _a_conversion_part_changes_what_the_gun_eats() -> bool:
 	var small: int = SimItems.spawn_item(w2, "item.ammo.22", {"tier": "scavenged", "count": 20})
 	if not SimInventory.stow(w2, w2.player, small):
 		w2.components.set_component(small, "stored", {"container": w2.player})
+	SimRanged.load_held(w2, w2.player)
 	w2.events.drain()
 	if _noise_of(w2, w2.player) <= 0.0:
 		push_error("%s: a converted pistol with the right rounds did not fire" % lane)
@@ -1364,6 +1366,7 @@ func _a_conversion_part_changes_what_the_gun_eats() -> bool:
 	var big: int = SimItems.spawn_item(w3, "item.ammo.9mm", {"tier": "scavenged", "count": 20})
 	if not SimInventory.stow(w3, w3.player, big):
 		w3.components.set_component(big, "stored", {"container": w3.player})
+	SimRanged.load_held(w3, w3.player)
 	w3.events.drain()
 	if _noise_of(w3, w3.player) > 0.0:
 		push_error("%s: a converted pistol fired the round it no longer takes" % lane)
@@ -1599,6 +1602,7 @@ func _a_fitted_light_lights_whoever_is_holding_it() -> bool:
 	var ammo: int = SimItems.spawn_item(w, "item.ammo.rifle", {"tier": "scavenged", "count": 20})
 	if not SimInventory.stow(w, w.player, ammo):
 		w.components.set_component(ammo, "stored", {"container": w.player})
+	SimRanged.load_held(w, w.player)
 	w.events.drain()
 	if not SimRanged.try_begin_fire(w, w.player):
 		push_error("LIGHT: the rifle refused to fire, so the flash is never reached")
@@ -2396,6 +2400,7 @@ func _an_improvised_part_is_made_from_what_is_carried_and_fitted() -> bool:
 	var fixings: int = SimItems.spawn_item(w, "item.fixings.nails", {"tier": "scavenged"})
 	if not SimInventory.stow(w, w.player, fixings):
 		w.components.set_component(fixings, "stored", {"container": w.player})
+	SimRanged.load_held(w, w.player)
 	var bat: int = _spawn(w, WOOD_BAT)
 	var before: int = int(SimFortify.material_count(w, w.player, "fixings"))
 	if before != 1:
@@ -2435,6 +2440,7 @@ func _an_improvised_part_is_made_from_what_is_carried_and_fitted() -> bool:
 	var stock: int = SimItems.spawn_item(w, "item.fixings.nails", {"tier": "scavenged"})
 	if not SimInventory.stow(w, w.player, stock):
 		w.components.set_component(stock, "stored", {"container": w.player})
+	SimRanged.load_held(w, w.player)
 	var misfit: String = SimAttachments.improvise(w, w.player, _spawn(w, ALU_BAT), "stud", NAILS)
 	if misfit != "not-plausible" or int(SimFortify.material_count(w, w.player, "fixings")) != 1:
 		push_error("RECIPE: nails went into an aluminium bat, or the refusal spent the fixings (reason '%s')" % misfit)
@@ -2445,6 +2451,7 @@ func _an_improvised_part_is_made_from_what_is_carried_and_fitted() -> bool:
 	var cord: int = SimItems.spawn_item(wb, "item.cordage.twine", {"tier": "scavenged"})
 	if not SimInventory.stow(wb, wb.player, cord):
 		wb.components.set_component(cord, "stored", {"container": wb.player})
+	SimRanged.load_held(wb, wb.player)
 	var glass_bat: int = _spawn(wb, WOOD_BAT)
 	if SimAttachments.improvise(wb, wb.player, glass_bat, "stud", GLASS) != "":
 		push_error("RECIPE: glass was refused at a bench with cord in the pack")

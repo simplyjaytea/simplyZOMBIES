@@ -45,6 +45,7 @@ const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimStockpile = preload("res://sim/modules/stockpile.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
+const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const InspectPane = preload("res://ui/inspect_pane.gd")
@@ -55,7 +56,7 @@ const CarePane = preload("res://ui/care_pane.gd")
 # The pane's whole vocabulary. Adding a key here is a decision about what the player is told, so
 # it is made in this file as well as in the read model -- the `check_ban_health_bar` arrangement,
 # and the reason a numeric field cannot be added to either by accident.
-const INSPECT_KEYS: Array[String] = ["item", "name", "condition", "description", "slot", "worn", "attachments", "fits", "fuel", "edge"]
+const INSPECT_KEYS: Array[String] = ["item", "name", "condition", "description", "slot", "worn", "attachments", "fits", "fuel", "edge", "load"]
 # `item` is an entity handle the screen routes a click with, never drawn. Every other value is a
 # word, a boolean, or a list of words.
 const INSPECT_HANDLE: String = "item"
@@ -93,10 +94,11 @@ func _run() -> void:
 	ok = await _the_stockpile_is_the_window_where_you_stand() and ok
 	ok = await _a_dull_blade_offers_hone_and_the_button_hones_it() and ok
 	ok = await _the_pane_draws_one_state_line() and ok
+	ok = await _a_round_the_gun_takes_offers_load_and_the_button_loads_it() and ok
 	ok = _a_rebuilt_weapon_takes_a_name() and ok
 	ok = _the_name_field_holds_its_text() and ok
 	if ok:
-		print("INVENTORY_OK a picked body part offers the care the sim would take and nothing else, descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, a cupboard is a column and a window, a stack that cannot merge is not reported as stored, the list, a ctrl-click and the pane's buttons each move the world, a part dropped on a weapon fits an empty slot and lands in the grid otherwise, standing in the stockpile the window is the stockpile, a ctrl-click takes and a drag puts back, a dull blade with a whetstone offers hone and the pane's button hones it, the pane draws a blade's edge or a lamp's fuel as one state line, and a weapon rebuilt in three slots takes the name you give it and nothing but a name")
+		print("INVENTORY_OK a picked body part offers the care the sim would take and nothing else, descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, a cupboard is a column and a window, a stack that cannot merge is not reported as stored, the list, a ctrl-click and the pane's buttons each move the world, a part dropped on a weapon fits an empty slot and lands in the grid otherwise, standing in the stockpile the window is the stockpile, a ctrl-click takes and a drag puts back, a dull blade with a whetstone offers hone and the pane's button hones it, the pane draws a blade's edge, a lamp's fuel or a gun's load as one state line, a round the gun in hand takes offers load and the pane's button loads it, and a weapon rebuilt in three slots takes the name you give it and nothing but a name")
 		quit(0)
 	else:
 		push_error("INVENTORY_FAIL")
@@ -327,7 +329,7 @@ func _the_pane_carries_only_words() -> bool:
 	var sabotage: Dictionary = {
 		"item": 7, "name": "Service Pistol", "condition": "worn",
 		"description": "A service pistol. 18 damage at 25 metres.", "slot": "secondary",
-		"worn": true, "attachments": [], "fits": [], "fuel": "", "edge": "",
+		"worn": true, "attachments": [], "fits": [], "fuel": "", "edge": "", "load": "",
 	}
 	if _inspect_faults(sabotage).is_empty():
 		push_error("the pane scanner passed a description reading \"%s\"" % String(sabotage["description"]))
@@ -2430,6 +2432,12 @@ func _the_pane_draws_one_state_line() -> bool:
 	if not none.is_empty():
 		push_error("%s: a club drew a state line %s" % [lane, str(none)])
 		return false
+	# A gun's load: an empty pistol reads "load empty".
+	var pistol: int = _give(w, "item.pistol.service")
+	var gun: Dictionary = InspectPane.state_line(SimInventory.inspect_view(w, actor, pistol))
+	if String(gun.get("label", "")) != "load" or String(gun.get("word", "")) != "empty":
+		push_error("%s: an empty pistol drew the state line %s, not load empty" % [lane, str(gun)])
+		return false
 	# The reader: `draw_pane` asks `state_line`, so the line above is the one on screen.
 	var src: String = FileAccess.get_file_as_string(INSPECT_PANE_GD)
 	var body: int = src.find("static func draw_pane(")
@@ -2438,7 +2446,7 @@ func _the_pane_draws_one_state_line() -> bool:
 		return false
 	if not await _every_state_word_fits_the_narrow_pane(w, lamp):
 		return false
-	print("STATE OK a half-dull knife draws edge dulling, a lantern draws fuel %s, a club draws no state line, draw_pane asks state_line, and every edge and fuel word fits beside the picture at 1280x720" % String(light["word"]))
+	print("STATE OK a half-dull knife draws edge dulling, a lantern draws fuel %s, an empty pistol draws load empty, a club draws no state line, draw_pane asks state_line, and every edge, fuel and load word fits beside the picture at 1280x720" % String(light["word"]))
 	return true
 
 
@@ -2463,6 +2471,24 @@ func _every_state_word_fits_the_narrow_pane(w: Variant, lamp: int) -> bool:
 		fuel_words[word] = true
 		lines.append(["fuel", word])
 	w.components.set_component(lamp, "lightFuel", {"ticksLeft": cap})
+	# Every load line a magazine can show: empty, mixed, and each round's word, read off the content
+	# so a longer word is judged the day it is written. "slug, then buckshot" was cut to "slug,
+	# then..." the first time it was drawn.
+	lines.append(["load", "empty"])
+	lines.append(["load", "mixed"])
+	var tree: Dictionary = ContentLoader.load_tree()
+	var round_words: int = 0
+	for path in tree.keys():
+		if not String(path).begins_with("items/") or not tree[path] is Array:
+			continue
+		for entry in tree[path] as Array:
+			if entry is Dictionary and (entry as Dictionary).get("ammo") is Dictionary:
+				lines.append(["load", SimRanged.round_word(w, String((entry as Dictionary).get("id", "")))])
+				round_words += 1
+	# Data to judge: the walk found the rounds, or FIT measured the two words above and nothing else.
+	if round_words < 10:
+		push_error("%s: the content walk found %d rounds to measure" % [lane, round_words])
+		return false
 	# Data to judge: four tank levels that read as four different words, or the walk proved one.
 	if fuel_words.size() != 4 or fuel_words.has(""):
 		push_error("%s: walking the lantern down its tank read %s, not four fuel words" % [lane, str(fuel_words.keys())])
@@ -2511,7 +2537,7 @@ func _every_state_word_fits_the_narrow_pane(w: Variant, lamp: int) -> bool:
 		if ratio < 4.5:
 			push_error("%s: \"%s\" draws at %.2f:1 on the pane's steel, under 4.5:1" % [lane, String(ink[0]), ratio])
 			return false
-	print("  STATE FIT %d state words with their labels fit the %d px beside the picture at 1280x720, and %d inks read at 4.5:1 on the steel" % [lines.size(), int(room), inks.size()])
+	print("  STATE FIT %d state lines with their labels fit the %d px beside the picture at 1280x720, and %d inks read at 4.5:1 on the steel" % [lines.size(), int(room), inks.size()])
 	return true
 
 
@@ -2527,3 +2553,99 @@ func _luminance(c: Color) -> float:
 	for v in [c.r, c.g, c.b]:
 		ch.append(float(v) / 12.92 if float(v) <= 0.03928 else pow((float(v) + 0.055) / 1.055, 2.4))
 	return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]
+
+
+
+# --- LOAD -----------------------------------------------------------------------------------
+
+# The round you load, 2026-10-28. `load` is offered on a round exactly when `SimRanged.load_refusal`
+# is empty -- a round the weapon in hand takes, when loading it would change what is in it -- and
+# absent otherwise, never greyed. Then the dead-socket half: the pane's load button, pressed through
+# the panel's own dispatch, reaches `item.load`, which starts the reload that puts the round in.
+func _a_round_the_gun_takes_offers_load_and_the_button_loads_it() -> bool:
+	var lane: String = "LOAD"
+	var w: Variant = _world(3143)
+	SimRanged.register_module(w)
+	w.components.set_component(w.player, "facing", {"radians": 0.0})
+	if not _room(w):
+		push_error("%s: the pack would not go on" % lane)
+		return false
+	var actor: int = w.player
+	var buck: int = _give(w, "item.ammo.12g", 5)
+	var slugs: int = _give(w, "item.ammo.12g.slug", 5)
+	var rifle_round: int = _give(w, "item.ammo.rifle", 4)
+	if buck < 0 or slugs < 0 or rifle_round < 0:
+		push_error("%s: the fixture could not carry its rounds" % lane)
+		return false
+	# Nothing in hand: no round offers load.
+	for item in [buck, slugs, rifle_round]:
+		if SimInventory.verbs_for(w, actor, int(item)).has("load"):
+			push_error("%s: load was offered with no gun in hand" % lane)
+			return false
+	var gun: int = SimItems.spawn_item(w, "item.shotgun.pump", {"tier": "scavenged"})
+	if not SimInventory.equip(w, actor, gun):
+		push_error("%s: the shotgun would not go in a hand" % lane)
+		return false
+	SimRanged.load_held(w, actor)
+	w.step()
+	# Buckshot is what is in it: buckshot is not offered, slugs are, a rifle round never is.
+	var offers: Dictionary = {}
+	for item in [buck, slugs, rifle_round]:
+		var offered: bool = SimInventory.verbs_for(w, actor, int(item)).has("load")
+		offers[item] = offered
+		if offered != (SimRanged.load_refusal(w, actor, int(item)) == ""):
+			push_error("%s: the menu and SimRanged.load_refusal disagree about item %d" % [lane, int(item)])
+			return false
+	if bool(offers[buck]) or not bool(offers[slugs]) or bool(offers[rifle_round]):
+		push_error("%s: with buckshot loaded the offers were buckshot %s, slugs %s, rifle %s" % [lane, str(offers[buck]), str(offers[slugs]), str(offers[rifle_round])])
+		return false
+	if SimInventory.verbs_for(w, actor, gun).has("load"):
+		push_error("%s: load was offered on the gun itself" % lane)
+		return false
+
+	# The button, on the slugs.
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(1920, 1080)
+	root.add_child(viewport)
+	var panel: Control = (load(PANEL_GD) as GDScript).new() as Control
+	viewport.add_child(panel)
+	await process_frame
+	panel.call("set_world", w, actor)
+	panel.call("set_open", true)
+	await process_frame
+	panel.set("_selected", slugs)
+	var pane: Rect2 = panel.call("_inspect_rect")
+	var button: Variant = null
+	for b in InspectPane.button_rects(pane, panel.call("_pane_verbs")):
+		if String((b as Dictionary)["verb"]) == "load":
+			button = (b as Dictionary)["rect"]
+	var ok: bool = true
+	if button == null:
+		push_error("%s: the pane offers no load button on the slugs: %s" % [lane, str(panel.call("_pane_verbs"))])
+		ok = false
+	else:
+		panel.call("_press_at", (button as Rect2).get_center())
+		for i in 120:
+			w.step()
+		var want: Array = ["item.ammo.12g.slug", "item.ammo.12g.slug", "item.ammo.12g.slug", "item.ammo.12g.slug", "item.ammo.12g.slug"]
+		if SimRanged.rounds_in(w, gun) != want:
+			push_error("%s: pressing load on the slugs left the magazine %s" % [lane, str(SimRanged.rounds_in(w, gun))])
+			ok = false
+		elif String(SimInventory.inspect_view(w, actor, gun).get("load", "")) != "slug":
+			push_error("%s: the loaded shotgun reads '%s', not slug" % [lane, String(SimInventory.inspect_view(w, actor, gun).get("load", ""))])
+			ok = false
+		elif SimInventory.verbs_for(w, actor, _carried(w, actor, "item.ammo.12g")).has("load") == false:
+			push_error("%s: with slugs loaded, buckshot was not offered back" % lane)
+			ok = false
+	viewport.queue_free()
+	if ok:
+		print("LOAD OK no gun in hand offers no load; with buckshot in a shotgun, slugs offer load and buckshot and a rifle round do not; every offer agrees with load_refusal; the pane's load button put five slugs in and the gun reads slug")
+	return ok
+
+
+func _carried(w: Variant, actor: int, base_id: String) -> int:
+	for item in SimInventory.carried_items(w, actor):
+		var base: Variant = SimItems.item_base_of(w, int(item))
+		if base is Dictionary and String((base as Dictionary).get("id", "")) == base_id:
+			return int(item)
+	return -1

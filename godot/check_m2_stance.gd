@@ -558,6 +558,9 @@ func _shot_with_stock(stock_id: String, seated: bool, forget: bool = false) -> D
 			push_error("SEAT: the refit profile carries no fromVehicle to forget, so the old-save lane has nothing to judge")
 			return {}
 		(live as Dictionary).erase("fromVehicle")
+	# Loaded first: an empty magazine turns the pull into a reload, which a seat allows, so the shot
+	# this lane judges would never be asked for (docs/30, "The round you load").
+	SimRanged.load_held(w, w.player)
 	var began: bool = SimRanged.try_begin_fire(w, w.player)
 	w.events.drain()
 	var reason: String = ""

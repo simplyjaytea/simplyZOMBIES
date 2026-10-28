@@ -64,8 +64,18 @@ static func roll(world: Variant, table: Dictionary, rng: Variant) -> Array:
 			# spawn_item clamps to the base's own stack limit, so a range wider than the base
 			# allows is a table being generous rather than a bug to guard against here.
 			opts["count"] = roll_range(rng, chosen["count"] as Dictionary, 1)
-		out.append(SimItems.spawn_item(world, String(chosen.get("item", "")), opts))
+		var item: int = SimItems.spawn_item(world, String(chosen.get("item", "")), opts)
+		# A found gun holds a few rounds (docs/33 item 26). Rolled on its own stream inside
+		# SimRanged, so the draws above stay the sequence they have always been.
+		_Ranged().call("load_found", world, item)
+		out.append(item)
 	return out
+
+
+# Loaded on use, the way inventory.gd reaches ranged.gd: ranged.gd preloads half the sim, and a
+# preload cycle in GDScript is a parse error, so this file never joins that tree.
+static func _Ranged() -> GDScript:
+	return load("res://sim/modules/ranged.gd") as GDScript
 
 
 # Rolls one site and lays what it yields on the ground around (x, y). Returns the item entities
