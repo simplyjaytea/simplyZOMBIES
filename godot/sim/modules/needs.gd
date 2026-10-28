@@ -2908,7 +2908,68 @@ static func is_annex_floor(world: Variant, tx: int, ty: int) -> bool:
 	return SimStockpile.is_annex_floor(world, tx, ty)
 
 
+# What lies on the stockpile, in entity order. The colony asks this two or three times a tick (Cook,
+# Water, Repair, the doctor's bandage, comfort, books), and with 272 loose items on the ground one
+# answer cost about 1.4 ms, a third of the colony tick. So the answer is kept on the world
+# (`stockpile_memo`) and handed back, on this tick or a later one, while nothing it read has changed:
+#
+# - the map's generation, its tiles, overlays, indoor flags and anchors, the player, and the zone
+#   record (a mark, a wall, a door or a board each move one of these);
+# - which entities have a position, an item base or a `stored` mark (the store's `changes`), so an
+#   item picked up, dropped, stored or spawned is a miss;
+# - the tile under every loose item, read again on every hit, so an item moved without leaving the
+#   ground (a position replaced or edited in place) is a miss too.
+#
+# A hit is the same list `stockpile_items_fresh` would build, by construction; `godot:m2:tick`
+# STOCK-MEMO holds it there through every way the data underneath can change. `STOCKPILE_MEMO` off
+# answers fresh every time.
+static var STOCKPILE_MEMO: bool = true
+static var stockpile_memo_hits: int = 0
+const NOT_A_TILE: int = -2147483648
+
+
 static func stockpile_items(world: Variant) -> Array[int]:
+	if not STOCKPILE_MEMO or not ("stockpile_memo" in world):
+		return stockpile_items_fresh(world)
+	var key: Array = _stockpile_key(world)
+	var memo: Array = world.stockpile_memo
+	var map: Variant = world.tilemap
+	if memo.size() == 6 and memo[0] == key and _same_ground(map, memo[4], memo[5]) and _ground_unmoved(world, memo[1] as PackedInt32Array, memo[2] as PackedInt32Array):
+		stockpile_memo_hits += 1
+		return (memo[3] as Array[int]).duplicate()
+	var ground: Array[int] = SimInventory.ground_items(world)
+	var ids := PackedInt32Array()
+	var tiles := PackedInt32Array()
+	var out: Array[int] = []
+	var ptable: Dictionary = world.components.table("position")
+	for item in ground:
+		var p: Variant = ptable.get(item)
+		ids.append(item)
+		if not p is Dictionary:
+			tiles.append(NOT_A_TILE)
+			tiles.append(NOT_A_TILE)
+			continue
+		var tx: int = floori(float((p as Dictionary)["x"]))
+		var ty: int = floori(float((p as Dictionary)["y"]))
+		tiles.append(tx)
+		tiles.append(ty)
+		if is_stockpile_tile(world, tx, ty):
+			out.append(item)
+	world.stockpile_memo = [key, ids, tiles, out.duplicate(),
+		(map.tiles as PackedByteArray).duplicate() if map is Object else null,
+		(map.indoors as PackedByteArray).duplicate() if map is Object else null]
+	return out
+
+
+# The map's tiles and indoor flags, compared whole: one native compare each, cheaper than hashing.
+static func _same_ground(map: Variant, tiles: Variant, indoors: Variant) -> bool:
+	if not (map is Object):
+		return tiles == null
+	return tiles is PackedByteArray and (tiles as PackedByteArray) == map.tiles and (indoors as PackedByteArray) == map.indoors
+
+
+# The slow answer the memo stands in for, kept whole so the gate can hold the memo to it.
+static func stockpile_items_fresh(world: Variant) -> Array[int]:
 	var out: Array[int] = []
 	for item in SimInventory.ground_items(world):
 		var p: Variant = world.components.get_component(item, "position")
@@ -2917,6 +2978,35 @@ static func stockpile_items(world: Variant) -> Array[int]:
 		if is_stockpile_tile(world, floori(float((p as Dictionary)["x"])), floori(float((p as Dictionary)["y"]))):
 			out.append(item)
 	return out
+
+
+static func _stockpile_key(world: Variant) -> Array:
+	var map: Variant = world.tilemap
+	var rec: Variant = world.components.get_component(world.player, SimStockpile.COMPONENT) if int(world.player) >= 0 else null
+	return [
+		int(world.map_generation), int(world.player),
+		world.entities.is_alive(world.player) if int(world.player) >= 0 else false,
+		map.get_instance_id() if map is Object else 0,
+		hash(map.overlays) if map is Object else 0,
+		hash(map.anchors) if map is Object else 0,
+		hash(rec) if rec is Dictionary else 0,
+		world.components.changes("position"), world.components.changes("itemBase"), world.components.changes("stored"),
+	]
+
+
+# Every loose item the memo was built from still lies on the tile it read. The membership counts in
+# the key already say the set of loose items is the same one.
+static func _ground_unmoved(world: Variant, ids: PackedInt32Array, tiles: PackedInt32Array) -> bool:
+	var ptable: Dictionary = world.components.table("position")
+	for i in ids.size():
+		var p: Variant = ptable.get(ids[i])
+		if not p is Dictionary:
+			if tiles[2 * i] != NOT_A_TILE:
+				return false
+			continue
+		if floori(float((p as Dictionary)["x"])) != tiles[2 * i] or floori(float((p as Dictionary)["y"])) != tiles[2 * i + 1]:
+			return false
+	return true
 
 
 static func seek_kind(world: Variant, entity: int) -> String:

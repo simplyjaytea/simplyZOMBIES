@@ -1015,7 +1015,7 @@ static func _cookable_in_danger(world: Variant, x: float, y: float) -> bool:
 		var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
 		var tx: int = floori(x)
 		var ty: int = floori(y)
-		if annex.has_point(Vector2i(tx, ty)) and _inside_walls(world.tilemap, annex, tx, ty):
+		if annex.has_point(Vector2i(tx, ty)) and _in_walls_box(_walls_box_of(world, annex), tx, ty):
 			return _zombie_inside_walls(world, annex, x, y)
 	return _danger_at(world, x, y, DANGER_TARGET_METRES)
 
@@ -1677,7 +1677,7 @@ static func _outside_in_danger(world: Variant, ent: int, walls: bool = false) ->
 	if world.tilemap != null:
 		var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
 		if annex.has_point(Vector2i(floori(x), floori(y))):
-			if _inside_walls(world.tilemap, annex, floori(x), floori(y)):
+			if _in_walls_box(_walls_box_of(world, annex), floori(x), floori(y)):
 				return _zombie_inside_walls(world, annex, x, y)
 			if not walls and not _zombie_in_lot(world, annex):
 				return false
@@ -1688,6 +1688,7 @@ static func _outside_in_danger(world: Variant, ent: int, walls: bool = false) ->
 # window and door tiles bound it, so a zombie in the yard outside the wall is not counted here.
 static func _zombie_inside_walls(world: Variant, annex: Rect2i, x: float, y: float) -> bool:
 	var r2: float = DANGER_METRES * DANGER_METRES
+	var box: PackedInt32Array = PackedInt32Array()
 	for z in world.components.query(["shambler", "position"]):
 		if world.components.has_component(int(z), "corpse"):
 			continue
@@ -1698,7 +1699,9 @@ static func _zombie_inside_walls(world: Variant, annex: Rect2i, x: float, y: flo
 		var dy: float = float((p as Dictionary)["y"]) - y
 		if dx * dx + dy * dy > r2:
 			continue
-		if _inside_walls(world.tilemap, annex, floori(float((p as Dictionary)["x"])), floori(float((p as Dictionary)["y"]))):
+		if box.is_empty():
+			box = _walls_box_of(world, annex)
+		if _in_walls_box(box, floori(float((p as Dictionary)["x"])), floori(float((p as Dictionary)["y"]))):
 			return true
 	return false
 
@@ -1717,6 +1720,15 @@ static func _zombie_in_lot(world: Variant, annex: Rect2i) -> bool:
 # The house inside the annex lot: the box its walls, windows and doors draw. The lot is that house
 # and a yard of floor round it, so a tile in the lot but outside the box is the yard.
 static func _inside_walls(map: Variant, annex: Rect2i, tx: int, ty: int) -> bool:
+	return _in_walls_box(_walls_box(map, annex), tx, ty)
+
+
+# The box itself, as [lo.x, lo.y, hi.x, hi.y], for a caller that asks about many tiles: finding it
+# reads every tile of the lot, so a caller that asked `_inside_walls` once per tile of the lot read
+# the lot once per tile. That was the Retreat re-plan (`_retreat_inside`), about 200 ms on the one
+# tick a walk home ran past RETREAT_WALK_TICKS, the worst tick in the day-one playtest logs. A lot
+# with no wall, window or door leaves lo past hi, so the box holds no tile, as before.
+static func _walls_box(map: Variant, annex: Rect2i) -> PackedInt32Array:
 	var lo: Vector2i = annex.end
 	var hi: Vector2i = annex.position
 	for j in range(annex.position.y, annex.end.y):
@@ -1726,7 +1738,27 @@ static func _inside_walls(map: Variant, annex: Rect2i, tx: int, ty: int) -> bool
 				continue
 			lo = Vector2i(mini(lo.x, i), mini(lo.y, j))
 			hi = Vector2i(maxi(hi.x, i), maxi(hi.y, j))
-	return tx >= lo.x and tx <= hi.x and ty >= lo.y and ty <= hi.y
+	return PackedInt32Array([lo.x, lo.y, hi.x, hi.y])
+
+
+# The box, kept on the world (`walls_memo`) while the map is the same map with the same tiles and
+# the lot is the same lot. The danger rules ask it for every colonist in the lot every tick, at about
+# 0.3 ms a reading; the check is one native compare of the tile array. It is a function of exactly
+# those three things, so a hit is the answer `_walls_box` would give (`godot:m2:tick` WALLS-BOX).
+static func _walls_box_of(world: Variant, annex: Rect2i) -> PackedInt32Array:
+	var map: Variant = world.tilemap
+	if not ("walls_memo" in world) or not (map is Object):
+		return _walls_box(map, annex)
+	var memo: Array = world.walls_memo
+	if memo.size() == 4 and int(memo[0]) == map.get_instance_id() and (memo[1] as Rect2i) == annex and (memo[2] as PackedByteArray) == map.tiles:
+		return memo[3] as PackedInt32Array
+	var box: PackedInt32Array = _walls_box(map, annex)
+	world.walls_memo = [map.get_instance_id(), annex, (map.tiles as PackedByteArray).duplicate(), box]
+	return box
+
+
+static func _in_walls_box(box: PackedInt32Array, tx: int, ty: int) -> bool:
+	return tx >= box[0] and tx <= box[2] and ty >= box[1] and ty <= box[3]
 
 
 # The same line `_tick_one`'s seek branch draws: a pool at zero, or the far end of a band.
@@ -1762,9 +1794,10 @@ static func _retreat_inside(world: Variant, ent: int, job: Dictionary) -> bool:
 		return false
 	var here := Vector2i(floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))
 	var inside: Array[Vector2i] = []
+	var box: PackedInt32Array = _walls_box_of(world, annex)
 	for j in range(annex.position.y, annex.position.y + annex.size.y):
 		for i in range(annex.position.x, annex.position.x + annex.size.x):
-			if _inside_walls(world.tilemap, annex, i, j) and not SimTileMap.is_solid(world.tilemap, i, j):
+			if _in_walls_box(box, i, j) and not SimTileMap.is_solid(world.tilemap, i, j):
 				inside.append(Vector2i(i, j))
 	inside.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return (a - here).length_squared() < (b - here).length_squared())
 	for n in mini(inside.size(), RETREAT_INSIDE_TRIES):
