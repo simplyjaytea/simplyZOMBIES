@@ -7369,6 +7369,19 @@ content edit would fix one template and leave the next. `SimWorldgen.gate_gap` w
 alone. The gap stays three tiles wide, all doors, so no one-tile doorway is made and the deadlock of
 two walkers in one (2026-09-07's note on the doorway) does not return.
 
+**Why the gap is doored after the dressing, not in `_write_doors`.** The first cut doored it with
+the gate anchors, before the dressing, and the review's side-by-side boot of main and the branch
+found every map's trees, thickets and grass moved, at 64 as much as at 256, on every seed sampled
+(about fifty tiles at 64 and two to three hundred at 256; on seed 8080 at 64 a tree landed under a
+wanderer's roll and moved the wanderer too). The cause is `_dress_terrain`'s grass pass, which
+draws one jitter from the `terrain` stream per outdoor Floor tile and warns in its own comment that
+a tile taken out of that walk shifts every tile decided after it: the gap's third tile was one such
+Floor, and a Door written before the dressing took its draw away. `_door_the_gap` now runs at the
+end of `generate`, after the dressing, where the tile is still the Floor main dressed around (the
+annex's reserve is protected, so nothing is ever planted on it). Checked by hashing `map.tiles` and
+every positioned entity on main and on the branch at 64 and 256 on seeds 20260805, 8080 and 2024:
+the one tile that differs on any of the six maps is the gap's third, Floor to Door.
+
 **Why `BOOT_CLEAR_METRES` is 10.** A first cut from P1's table: the two bites came from boots within
 5 m of the lot, and 10 m is twice that, which clears the rolls P1 measured without tuning to any
 seed. It is a number to measure against, not a balance claim. The ten-seed table on the merged main
@@ -7379,14 +7392,16 @@ box at 256. The grown annex is 46x46. At 64 that is 92% of the box, so the ring 
 every draw and the 64 boot would stop being the one every gate measures. The ring applies only when
 the grown rect covers at most half the box: at 256 it covers under 4%, at 64 it does not apply, and
 the 64 wanderers stand where they stood (checked by hash of their positions on main and on this
-branch; entity ids move, positions do not, because the door entities spawn before the scatter).
+branch, ten seeds; entity ids move, positions do not, because the door entities spawn before the
+scatter).
 The annex refusal stays hard: a try inside the annex is never placed. When every try lands in the
 ring, the first try outside the annex is placed, and the try count stays fixed so the campaign is a
 function of its seed.
 
-**What moved.** Every 256 world: the re-rolls change the `placement` stream's draw count. The
-ten-seed table re-runs on the new main once P2 and P3 have both merged, and the 87750e3a row is the
-"before".
+**What moved.** The wanderers of every 256 world: the re-rolls change the `placement` stream's
+draw count. Nothing else: every map's tiles but the gap's third, every colonist, station, item and
+dormant body, and every 64 wanderer are where main put them (the hashes above). The ten-seed table
+re-runs on the new main once P2 and P3 have both merged, and the 87750e3a row is the "before".
 
 
 ## The hand-loaded round, 2026-10-28
