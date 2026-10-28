@@ -1227,11 +1227,29 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 			dest = _job_tile(world, job)
 	var reach: float = GUARD_REACH if kind == "Guard" else REACH
 	if dest.x >= 0 and not _at(world, ent, dest, reach):
+		# The Doctor's leash: the walk to a patient is asked the pick's two questions again on every
+		# tick, so a patient who has walked out past the errand radius, or come within reach of a
+		# zombie, is let go and the next pick decides. Without it the Doctor followed the scripted
+		# survivor into the street (the day-one trace, 404 and 2024).
+		if kind == "Doctor" and DOCTOR_LEASH and not _doctor_leash_holds(world, job):
+			_stop(world, ent)
+			return
 		_walk(world, ent, job, dest)
 		return
 	_still(world, ent)
 	match kind:
 		"Retreat":
+			# A zombie inside the walls has come within DANGER_METRES while the colonist holds at the
+			# far side: the hold ends and the walk home is planned again. At most once per
+			# RETREAT_REPLAN_TICKS, so the tile search is not paid every tick.
+			if job.has("until") and RETREAT_FAR_SIDE and _walls_danger(world, ent) and _replan_due(world, job):
+				var was: String = String(job.get("was", ""))
+				_retreat(world, ent, was)
+				var fresh: Variant = world.components.get_component(ent, "job")
+				if fresh is Dictionary:
+					(fresh as Dictionary)["replanAt"] = int(world.tick)
+					world.components.set_component(ent, "job", fresh)
+				return
 			# Home, and a while there before the next errand: without the wait a colonist walks
 			# straight back out at the same zombie and turns at the door again, every tick.
 			if not job.has("until"):
@@ -1621,6 +1639,15 @@ const HANDS_FULL: String = "handsFull"
 const RETREAT_WALK_TICKS: int = 200
 # How many of the nearest interior tiles a re-plan tries. Each is a full path search.
 const RETREAT_INSIDE_TRIES: int = 4
+# How long a far-side Retreat holds before a zombie that comes inside the walls within DANGER_METRES
+# of it re-plans its walk. Forty ticks is two seconds: a tile search per tick would be the #257 spike
+# again, and a colonist still standing beside a zombie for two seconds is what the rule replaces.
+const RETREAT_REPLAN_TICKS: int = 40
+# The Doctor's leash and the far-side Retreat, the two rules of the day-one chain (docs/23, "Balance
+# after the alpha"). False is the colony before each rule, so a gate can prove the rule is what
+# changes the outcome.
+static var DOCTOR_LEASH: bool = true
+static var RETREAT_FAR_SIDE: bool = true
 
 
 static func _danger_at(world: Variant, x: float, y: float, metres: float) -> bool:
@@ -1825,6 +1852,10 @@ static func _retreat_inside(world: Variant, ent: int, job: Dictionary) -> bool:
 # the Colony screen's now line (`sim/work_read.gd`), which out of the player's sight says the
 # errand the colony believes she is on rather than a walk home that would tell of a zombie near her.
 static func _retreat(world: Variant, ent: int, was: String = "") -> void:
+	# A zombie inside the walls is the danger: the walk goes to the far side of the house, away from
+	# it, not to the centre tile of the room it is standing in. Anything else keeps home.
+	if RETREAT_FAR_SIDE and _walls_danger(world, ent) and _retreat_far_side(world, ent, was):
+		return
 	var home: Vector2 = _home_centre(world)
 	var tile := Vector2i(floori(home.x), floori(home.y))
 	if world.tilemap != null and SimTileMap.is_solid(world.tilemap, tile.x, tile.y):
@@ -1832,6 +1863,102 @@ static func _retreat(world: Variant, ent: int, was: String = "") -> void:
 		if bool(open.get("ok", open.has("x"))) and open.has("x"):
 			tile = Vector2i(int(open["x"]), int(open["y"]))
 	world.components.set_component(ent, "job", {"kind": "Retreat", "tx": tile.x, "ty": tile.y, "ticksLeft": 0, "path": [], "pathGen": -1, "was": was})
+
+
+# A colonist inside the walls box with a shambler inside the same box within DANGER_METRES: the
+# house's own danger, the one `_outside_in_danger` answers with `_zombie_inside_walls`.
+static func _walls_danger(world: Variant, ent: int) -> bool:
+	if world.tilemap == null:
+		return false
+	var pos: Variant = world.components.get_component(ent, "position")
+	if not pos is Dictionary:
+		return false
+	var x: float = float((pos as Dictionary)["x"])
+	var y: float = float((pos as Dictionary)["y"])
+	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+	if not annex.has_point(Vector2i(floori(x), floori(y))):
+		return false
+	if not _in_walls_box(_walls_box_of(world, annex), floori(x), floori(y)):
+		return false
+	return _zombie_inside_walls(world, annex, x, y)
+
+
+# The Retreat to the far side: the interior tile farthest from the nearest shambler inside the walls,
+# tried in that order for at most RETREAT_INSIDE_TRIES path searches. The walk is planned here once,
+# so it is marked `rerouted` and `_advance_job` does not re-plan it to the tile nearest the colonist
+# (which is the tile beside the zombie). False when no interior tile is reachable; the caller falls
+# back to home.
+static func _retreat_far_side(world: Variant, ent: int, was: String) -> bool:
+	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+	var pos: Variant = world.components.get_component(ent, "position")
+	if annex.size.x <= 0 or not pos is Dictionary:
+		return false
+	var x: float = float((pos as Dictionary)["x"])
+	var y: float = float((pos as Dictionary)["y"])
+	var here := Vector2i(floori(x), floori(y))
+	var box: PackedInt32Array = _walls_box_of(world, annex)
+	var zed: Variant = _nearest_walls_zombie(world, box, x, y)
+	if zed == null:
+		return false
+	var zombie := Vector2i(floori(float(zed.x)), floori(float(zed.y)))
+	var inside: Array[Vector2i] = []
+	for j in range(annex.position.y, annex.position.y + annex.size.y):
+		for i in range(annex.position.x, annex.position.x + annex.size.x):
+			if _in_walls_box(box, i, j) and not SimTileMap.is_solid(world.tilemap, i, j):
+				inside.append(Vector2i(i, j))
+	inside.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return (a - zombie).length_squared() > (b - zombie).length_squared())
+	for n in mini(inside.size(), RETREAT_INSIDE_TRIES):
+		var t: Vector2i = inside[n]
+		var found: Array[Vector2i] = SimPath.find(world, here, t)
+		if found.is_empty():
+			continue
+		var path: Array = []
+		for step in found:
+			path.append({"x": step.x, "y": step.y})
+		world.components.set_component(ent, "job", {"kind": "Retreat", "tx": t.x, "ty": t.y, "ticksLeft": 0, "path": path, "pathGen": int(world.mapGeneration), "was": was, "rerouted": true, "walked": 0})
+		return true
+	return false
+
+
+# The shambler inside the walls box nearest (x, y), as a Vector2, or null when there is none.
+static func _nearest_walls_zombie(world: Variant, box: PackedInt32Array, x: float, y: float) -> Variant:
+	var best: Variant = null
+	var best_d2: float = INF
+	for z in world.components.query(["shambler", "position"]):
+		if world.components.has_component(int(z), "corpse"):
+			continue
+		var p: Variant = world.components.get_component(int(z), "position")
+		if not p is Dictionary:
+			continue
+		var zx: float = float((p as Dictionary)["x"])
+		var zy: float = float((p as Dictionary)["y"])
+		if not _in_walls_box(box, floori(zx), floori(zy)):
+			continue
+		var d2: float = (zx - x) * (zx - x) + (zy - y) * (zy - y)
+		if d2 < best_d2:
+			best_d2 = d2
+			best = Vector2(zx, zy)
+	return best
+
+
+# A Retreat may re-plan its far-side walk again once RETREAT_REPLAN_TICKS have passed since the last
+# re-plan. An absent `replanAt` reads as never, so a Retreat from before the rule is due at once.
+static func _replan_due(world: Variant, job: Dictionary) -> bool:
+	if not job.has("replanAt"):
+		return true
+	return int(world.tick) - int(job["replanAt"]) >= RETREAT_REPLAN_TICKS
+
+
+# The Doctor's two pick questions, asked of the patient's position now: inside the errand radius of
+# home, and no shambler within DANGER_TARGET_METRES of the patient. `_doctor_work` asks the same two
+# at the pick. A patient with no position answers no, so the job is let go.
+static func _doctor_leash_holds(world: Variant, job: Dictionary) -> bool:
+	var op: Variant = world.components.get_component(int(job.get("target", -1)), "position")
+	if not op is Dictionary:
+		return false
+	var x: float = float((op as Dictionary)["x"])
+	var y: float = float((op as Dictionary)["y"])
+	return _near_errand(world, x, y) and not _danger_at(world, x, y, DANGER_TARGET_METRES)
 
 # The hands are the re-arm rule's business and nothing here may reach into them: a machete has no
 # `armor` block, so this would never fire on one anyway, and saying it out loud is cheaper than
