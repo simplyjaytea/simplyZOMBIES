@@ -36,6 +36,29 @@ const BUTTON_GAP: float = 8.0
 const VERB_WORDS: Dictionary = {"stash": "put it here", "take": "take it", "unequip": "take off"}
 
 
+# The one state line under the condition, as {label, word}: a blade's edge, or a lamp's fuel, and
+# nothing for an item that is neither. Both words come out of `inspect_view` ready-made; the pane
+# only chooses which one is not empty. No item is both a blade and a lamp, and the edge is asked
+# first so a future one would still draw one line, not two.
+static func state_line(view: Dictionary) -> Dictionary:
+	var edge: String = String(view.get("edge", ""))
+	if not edge.is_empty():
+		return {"label": "edge", "word": edge}
+	var fuel: String = String(view.get("fuel", ""))
+	if not fuel.is_empty():
+		return {"label": "fuel", "word": fuel}
+	return {}
+
+
+# How wide the lines beside the picture may run in a pane of this rect: the name, the condition,
+# the state line and the slot line. `draw_pane` lays them out with it, and the STATE lane holds
+# every state word to it at the narrowest window, so a word that would be cut to an ellipsis turns
+# the gate red instead of reaching the screen.
+static func side_width(rect: Rect2) -> float:
+	var wide: float = rect.size.x - PAD * 2.0
+	return wide - minf(PICTURE_W, wide * 0.4) - PICTURE_GAP
+
+
 static func verb_word(verb: String) -> String:
 	return String(VERB_WORDS.get(verb, verb))
 
@@ -96,7 +119,7 @@ static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: floa
 		# the close look, and a whole multiple keeps every pixel square.
 		ItemPicture.draw(ci, well.grow(-Locker.PX * 3.0), look, alpha, 3)
 		text_x = well.end.x + PICTURE_GAP
-		text_wide = rect.end.x - PAD - text_x
+		text_wide = side_width(rect)
 
 	var ty: float = y + Chrome.ascent(TITLE_SIZE)
 	ci.draw_string(font, Vector2(text_x, ty), UiText.fit(font, String(view.get("name", "")), TITLE_SIZE, text_wide), HORIZONTAL_ALIGNMENT_LEFT, -1, TITLE_SIZE, Locker._a(Locker.TEXT, alpha))
@@ -109,6 +132,16 @@ static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: floa
 	var lead: float = font.get_string_size("condition ", HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE).x
 	ci.draw_string(font, Vector2(text_x + lead, ty), UiText.fit(font, band, BODY_SIZE, text_wide - lead), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, Locker._a(_band_colour(band), alpha))
 	ty += LINE
+
+	# The state line: how keen a blade is, or how much a lamp has left, in the condition's shape.
+	var state: Dictionary = state_line(view)
+	if not state.is_empty():
+		var label: String = String(state["label"]) + " "
+		var word: String = String(state["word"])
+		ci.draw_string(font, Vector2(text_x, ty), label, HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, Locker._a(Locker.TEXT_DIM, alpha))
+		var state_lead: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE).x
+		ci.draw_string(font, Vector2(text_x + state_lead, ty), UiText.fit(font, word, BODY_SIZE, text_wide - state_lead), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, Locker._a(_state_colour(word), alpha))
+		ty += LINE
 
 	var slot: String = String(view.get("slot", ""))
 	if not slot.is_empty():
@@ -166,7 +199,19 @@ static func _band_colour(band: String) -> Color:
 		"sound":
 			return Locker.GOOD
 		"broken", "barely holding":
-			return Locker.DANGER
+			return Locker.DANGER_INK
+		_:
+			return Locker.ACCENT
+
+
+# The state word's colour, on the condition's scale: at its best reads calm, spent reads as the
+# warning it is, and everything between is the accent.
+static func _state_colour(word: String) -> Color:
+	match word:
+		"keen", "burning well":
+			return Locker.GOOD
+		"dull", "dark":
+			return Locker.DANGER_INK
 		_:
 			return Locker.ACCENT
 
