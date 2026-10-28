@@ -271,10 +271,6 @@ and says so. The arcs are ordered so that stopping after any piece leaves the tr
 
 *Firearms, readers first (stage 1):*
 
-- **The barrel's words on the bench.** The barrel's length, quality and material reach the inspect
-  pane only as the numbers it already prints; no word line names them yet. That half needs
-  `godot/ui/` code and is the screen's to build (the sim already has the words; see the record,
-  "The barrel governs").
 - **Conversions are kits.** A caliber conversion is barrel plus bolt-or-cylinder plus magazine;
   two of three jams. The allowed table is content keyed by receiver family, written to a realism
   table in docs/10 (the owner vetoes rows; docs/33). About twelve across the twelve receivers.
@@ -2907,6 +2903,23 @@ not a to-do list:
   (`barrel:` reason; the pistol will not fire and says so). Gate: `godot:m2:attach` BARREL, six lanes,
   each with a true negative: VOCAB, SHIPPED, LENGTH, QUALITY, MATERIAL, FALLOFF. The screen half is
   named in what's left. The ten-seed table was not re-run.
+- **The barrel's words on the bench, 2026-10-28.** `SimBarrel.words_of` says a barrel's departures
+  from the identity (full, service, steel) as words: "long", "match, chromed". A barrel that departs
+  nowhere says "plain", and a barrel `error_of` refuses says nothing, so a typo never reads as plain.
+  The bench's slot rows and offers carry the words (`SimGunsmith.bench_view`), and so does the inspect
+  view (`SimInventory.inspect_view`). The pane's one state line draws them after edge and fuel, and
+  the bench card draws them under the name, with its height grown one line only where words exist.
+  Plates carry no words. A conversion barrel says its barrel words; its caliber is on the load line,
+  not in the barrel words. Gates: `godot:m2:attach` BARREL WORDS (the tables held both ways, the six
+  shipped barrels' words, a typo and a non-barrel saying nothing, the bench's rows and offers);
+  `godot:check:inventory` STATE and STATE FIT (a long barrel draws its word, and all 45 length,
+  quality and material phrases fit the 180 px pane at 1280x720 in at most two rows, through
+  `InspectPane.state_rows`; docs/30, "The barrel's words wrap"); `godot:check:play` BENCH (the match barrel's card and the
+  fitted barrel's in-it-now card draw their words inside the frame, and the sight's card draws none).
+  Shots: `bench_barrel` at 1280x720 and 1920x1080. A phrase of two or three departures wraps to a
+  second row in the inspect pane (no shipped barrel makes one yet), shot by `inspect_barrel`. The bench
+  card draws its words on one line; no gate measures the longest phrase on the card, and the bench
+  shots show only the shipped words. No balance claim.
 - **Furniture decides the seat, 2026-10-28.** Aim time and recovery already read furniture through
   `handling` (the folding stock 1.35, the foregrip 1.15, both folded through condition), so the
   stock and the grip needed no new reader; the FURNITURE lane of `godot:m2:aim` holds them to it.

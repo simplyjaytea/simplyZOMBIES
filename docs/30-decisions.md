@@ -7349,6 +7349,64 @@ named is handed to the balance thread, after the run already going on main.
 its kit. A gate that fires a gun it has just armed loads it first (`load_held`), or its first pull
 is a reload.
 
+## The barrel's words, 2026-10-28
+
+A barrel's words reach the screen now: the bench (the slot rows, the offer cards and the in-it-now
+card) and the inspect pane's one state line. The sim owns the words in `godot/sim/barrel.gd`
+(`WORD_OF`, `IDENTITY`, `words_of`); the readers are `SimGunsmith.bench_view` and
+`SimInventory.inspect_view`. Gates and the record are in docs/23, "The barrel's words on the bench".
+
+- **Only departures are said.** The identity (full, service, steel) is silent, so `words_of` gives
+  "long" for a long barrel and "match, chromed" for a match barrel of chromed steel, in length,
+  quality, material order. The first cut said all three identity words too (a plain barrel read
+  "full, service, steel"). The inspect pane is 180 px wide beside the picture at 1280x720, and that
+  does not hold three words beside the label: `barrel stub, rough, mild` measured 240 px against 180,
+  and `barrel full, service, steel` about 260. The plan left this call to the piece.
+- **A plain barrel says "plain".** It does not say nothing. A barrel `error_of` refuses says nothing,
+  so a typo never reads as a plain barrel, which is the rule `WEAR_EVENTS` keeps for wear words.
+- **Single departures fit one line; more wrap.** "plain" and every one-word departure fit beside the
+  label at 1280x720. Two or three departures did not, and that gap is closed by the next entry, "The
+  barrel's words wrap, 2026-10-28".
+- **Plates carry no words.** The bench's plate is 80 px and full; the words sit on the offer card and
+  on the in-it-now card only, and the in-it-now card grows one line when the picked part is a barrel.
+- **Caliber is not a barrel word.** Rimfire and .45 conversion barrels say "plain" like the standard
+  barrel, because their caliber is the round's share and reads on the load line. A reader who wants
+  the caliber change in words needs its own piece.
+- **Gate: `godot:check:play` BENCH is the card proof.** It reads the match barrel's card and the
+  in-it-now card off `said()`, inside the frame, and the sight's card off the same list, which
+  draws no barrel word. The rifle comes with a barrel fitted in that world, so the in-it-now words
+  are read from that slot's row rather than from a fixture fit.
+
+## The barrel's words wrap, 2026-10-28
+
+The inspect pane's barrel line may take two rows. Every other state line (edge, fuel, load) still
+takes one, and STATE FIT still holds each of those to one. No shipped barrel departs in more than
+one word, but content can make any of the 45 length, quality and material combinations, and the
+worst, `barrel carbine, rough, chromed`, measures 300 px against the 180 px beside the picture at
+1280x720 (the body size, 25 px). Cut to an ellipsis, it would hide the very word a player compares
+two barrels by.
+
+- **Wrap, not shrink.** The pane's type sizes are the ladder's 25 and 20 (`Chrome.LADDER`), and a
+  state line a rung smaller than the condition line above it would read as a lesser fact. So the
+  phrase breaks after a comma: the label and as many words as fit beside it, the rest on a second
+  row from the label's left edge, in the same ink. `barrel carbine,` over `rough, chromed`.
+- **No hanging indent.** The second row starts under the label, not under the first word. Indented,
+  it has 110 px, and `rough, chromed` is 140. The label's dim ink and the words' amber still say
+  which is which.
+- **The label goes before the type does.** When the words will not sit beside the label in two rows,
+  the label is dropped and the words wrap on their own. No shipped word needs this; a fabricated
+  one proves it works.
+- **Two rows at most.** `InspectPane.state_rows` is the one layout: `draw_pane` draws its rows and
+  STATE FIT measures them, so the two cannot disagree. A phrase needing a third row is refused by
+  the gate before it is drawn; if one reached the screen anyway, the pane puts the rest on the
+  second row cut to an ellipsis, so the cut is marked.
+- **What it costs.** The second row moves the groove and the description down by up to one line at
+  1280x720. The description already stops above the buttons; it loses a line, never runs under them.
+- **Gate: `godot:check:inventory` STATE FIT.** All 45 combinations, read off the tables, each in at
+  most two rows inside the room; 27 of them wrap. True negatives: a three-row phrase is refused, and a
+  first word too long to sit beside the label comes back as two label-less rows. STATE checks that
+  `draw_pane` lays the line out through `state_rows`.
+
 ## A closed house at dawn, 2026-10-28
 
 **The call.** The day-one wipe is the alpha blocker, and P1's diagnosis put 125 of 130 colonist

@@ -3480,6 +3480,7 @@ func _luminance(c: Color) -> float:
 const BENCH_RIFLE: String = "item.rifle.hunting"
 const BENCH_OPTIC: String = "item.attach.optic.red_dot"
 const BENCH_MAG: String = "item.attach.magazine.extended"
+const BENCH_BARREL: String = "item.attach.barrel.match"
 # The rect the panel had before slice 3: its bottom forty pixels were off a 720-pixel window.
 const OLD_BENCH_RECT: Rect2 = Rect2(Vector2(320, 140), Vector2(960, 620))
 
@@ -3512,7 +3513,8 @@ func _the_bench_opens_fits_and_closes() -> bool:
 		return await _bench_done(main, old_size, false)
 	var optic: int = SimItems.spawn_item(world, BENCH_OPTIC, {"tier": "scavenged"})
 	var mag: int = SimItems.spawn_item(world, BENCH_MAG, {"tier": "scavenged"})
-	if not SimInventory.stow(world, me, optic) or not SimInventory.stow(world, me, mag):
+	var barrel: int = SimItems.spawn_item(world, BENCH_BARREL, {"tier": "scavenged"})
+	if not SimInventory.stow(world, me, optic) or not SimInventory.stow(world, me, mag) or not SimInventory.stow(world, me, barrel):
 		push_error("%s: the pack would not take the parts" % lane)
 		return await _bench_done(main, old_size, false)
 	if String(SimFortify.rung_of(world, me).get("verb", "")) != "open_bench":
@@ -3587,6 +3589,11 @@ func _the_bench_opens_fits_and_closes() -> bool:
 				row = r_v as Dictionary
 		if int(row.get("part", -1)) != optic:
 			push_error("%s: the view did not follow the fit (the sight's row is %s)" % [lane, str(row)])
+			ok = false
+
+		# The barrel's words: the match barrel in the pack is offered for the barrel slot and its one
+		# word is drawn on its card; the sight's own card draws no barrel word (the true negative).
+		if not await _barrel_words_on_the_card(main, panel, barrel, lane):
 			ok = false
 
 		# "take off", from the footer, on the picked sight.
@@ -4010,13 +4017,60 @@ func _bench_makes_a_part(main: Node, world: Variant, panel: Control) -> bool:
 	return ok
 
 
+# The barrel slot picked: the match barrel's card draws "match" and sits inside the frame, and the
+# fitted barrel's words are drawn on the "in it now" card, read from the slot's row. Back on the sight,
+# no barrel word is drawn (the true negative). Read off `said()`, the words the last draw put on screen.
+func _barrel_words_on_the_card(main: Node, panel: Control, barrel: int, lane: String) -> bool:
+	if not bool(panel.call("pick_slot", "barrel")):
+		push_error("%s: the barrel slot did not pick" % lane)
+		return false
+	_frames(main, 2)
+	await process_frame
+	var lay: Dictionary = panel.call("layout") as Dictionary
+	var frame: Rect2 = lay["frame"] as Rect2
+	var card: Rect2 = Rect2()
+	for c_v in lay["offers"] as Array:
+		var c: Dictionary = c_v as Dictionary
+		if int(c.get("item", -1)) == barrel:
+			card = c["rect"] as Rect2
+	if card.size == Vector2.ZERO or not frame.encloses(card):
+		push_error("%s: the match barrel has no card inside the frame (%s in %s)" % [lane, str(card), str(frame)])
+		return false
+	var fitted_words: String = ""
+	for row_v in (panel.get("_view") as Dictionary).get("slots", []) as Array:
+		if String((row_v as Dictionary).get("slot", "")) == "barrel":
+			fitted_words = String((row_v as Dictionary).get("barrel", ""))
+	if fitted_words.is_empty():
+		push_error("%s: the fitted barrel's row carries no words" % lane)
+		return false
+	var said_now: Array = panel.call("said") as Array
+	if not _said_has(said_now, "match") or not _said_has(said_now, fitted_words):
+		push_error("%s: the barrel card does not draw \"match\" and the in-it-now card \"%s\"" % [lane, fitted_words])
+		return false
+	panel.call("pick_slot", "optic")
+	_frames(main, 2)
+	await process_frame
+	var sight_said: Array = panel.call("said") as Array
+	if _said_has(sight_said, "match") or _said_has(sight_said, fitted_words):
+		push_error("%s: the sight's card draws a barrel word" % lane)
+		return false
+	return true
+
+
+func _said_has(said: Array, text: String) -> bool:
+	for said_v in said:
+		if String((said_v as Dictionary).get("text", "")) == text:
+			return true
+	return false
+
+
 func _bench_done(main: Node, old_size: Vector2i, ok: bool) -> bool:
 	if old_size != Vector2i.ZERO:
 		root.size = old_size
 	main.queue_free()
 	await process_frame
 	if ok:
-		print("BENCH OK E at a bench opens the assembly inside 1280x720 and centred at 1920x1080 where the old rect does not fit; plate then candidate fits, take off detaches and then is gone, Enter crosses and fits, arrows stay on the screen, the wash eats a click, every word is digit-free but a name, Escape closes it; by hand the parts only a bench can take off wear a \"bench\" tape and the magazine does not")
+		print("BENCH OK E at a bench opens the assembly inside 1280x720 and centred at 1920x1080 where the old rect does not fit; plate then candidate fits, take off detaches and then is gone, Enter crosses and fits, arrows stay on the screen, the wash eats a click, every word is digit-free but a name, the barrel slot draws its words on the candidate and in-it-now cards and the sight draws none, Escape closes it; by hand the parts only a bench can take off wear a \"bench\" tape and the magazine does not")
 	return ok
 
 

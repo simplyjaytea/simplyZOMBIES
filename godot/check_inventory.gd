@@ -41,6 +41,7 @@ const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
+const SimBarrel = preload("res://sim/barrel.gd")
 const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimStockpile = preload("res://sim/modules/stockpile.gd")
@@ -56,7 +57,7 @@ const CarePane = preload("res://ui/care_pane.gd")
 # The pane's whole vocabulary. Adding a key here is a decision about what the player is told, so
 # it is made in this file as well as in the read model -- the `check_ban_health_bar` arrangement,
 # and the reason a numeric field cannot be added to either by accident.
-const INSPECT_KEYS: Array[String] = ["item", "name", "condition", "description", "slot", "worn", "attachments", "fits", "fuel", "edge", "load"]
+const INSPECT_KEYS: Array[String] = ["item", "name", "condition", "description", "slot", "worn", "attachments", "fits", "fuel", "edge", "barrel", "load"]
 # `item` is an entity handle the screen routes a click with, never drawn. Every other value is a
 # word, a boolean, or a list of words.
 const INSPECT_HANDLE: String = "item"
@@ -330,7 +331,7 @@ func _the_pane_carries_only_words() -> bool:
 	var sabotage: Dictionary = {
 		"item": 7, "name": "Service Pistol", "condition": "worn",
 		"description": "A service pistol. 18 damage at 25 metres.", "slot": "secondary",
-		"worn": true, "attachments": [], "fits": [], "fuel": "", "edge": "", "load": "",
+		"worn": true, "attachments": [], "fits": [], "fuel": "", "edge": "", "barrel": "", "load": "",
 	}
 	if _inspect_faults(sabotage).is_empty():
 		push_error("the pane scanner passed a description reading \"%s\"" % String(sabotage["description"]))
@@ -2439,15 +2440,31 @@ func _the_pane_draws_one_state_line() -> bool:
 	if String(gun.get("label", "")) != "load" or String(gun.get("word", "")) != "empty":
 		push_error("%s: an empty pistol drew the state line %s, not load empty" % [lane, str(gun)])
 		return false
+	# A barrel's words: a long barrel in the pack draws its departure as its one line.
+	var long_barrel: int = _give(w, "item.attach.barrel.long")
+	if long_barrel < 0:
+		push_error("%s: the long barrel would not go in the pack" % lane)
+		return false
+	var barrel: Dictionary = InspectPane.state_line(SimInventory.inspect_view(w, actor, long_barrel))
+	if String(barrel.get("label", "")) != "barrel" or String(barrel.get("word", "")) != "long":
+		push_error("%s: a long barrel drew the state line %s, not its words" % [lane, str(barrel)])
+		return false
 	# The reader: `draw_pane` asks `state_line`, so the line above is the one on screen.
 	var src: String = FileAccess.get_file_as_string(INSPECT_PANE_GD)
 	var body: int = src.find("static func draw_pane(")
 	if body < 0 or src.find("state_line(view)", body) < 0:
 		push_error("%s: %s never asks state_line while drawing -- the edge and fuel words are a dead socket" % [lane, INSPECT_PANE_GD])
 		return false
+	# And lays it out through `state_rows`, the measure STATE FIT judges, so the rows judged are the
+	# rows drawn.
+	var body_end: int = src.find("\nstatic func ", body + 1)
+	var at_rows: int = src.find("state_rows(font, state, text_wide)", body)
+	if at_rows < 0 or (body_end >= 0 and at_rows > body_end):
+		push_error("%s: %s draws the state line without state_rows -- the wrap STATE FIT measures is a dead socket" % [lane, INSPECT_PANE_GD])
+		return false
 	if not await _every_state_word_fits_the_narrow_pane(w, lamp):
 		return false
-	print("STATE OK a half-dull knife draws edge dulling, a lantern draws fuel %s, an empty pistol draws load empty, a club draws no state line, draw_pane asks state_line, and every edge, fuel and load word fits beside the picture at 1280x720" % String(light["word"]))
+	print("STATE OK a half-dull knife draws edge dulling, a lantern draws fuel %s, an empty pistol draws load empty, a long barrel draws its words, a club draws no state line, draw_pane asks state_line and lays it out by state_rows, and every edge, fuel, load and barrel phrase fits beside the picture at 1280x720" % String(light["word"]))
 	return true
 
 
@@ -2465,6 +2482,24 @@ func _every_state_word_fits_the_narrow_pane(w: Variant, lamp: int) -> bool:
 	var lines: Array = []
 	for band in SimItems.EDGE_BANDS:
 		lines.append(["edge", String((band as Dictionary)["name"])])
+	# Every phrase a barrel can say: all length x quality x material combinations, read off the
+	# tables so a new word is judged the day it is written. A barrel may take two rows (docs/30, "The
+	# barrel's words wrap, 2026-10-28"), so these are judged by `state_rows` below, not by one line.
+	var barrel_phrases: Array[String] = []
+	for length_key in SimBarrel.LENGTH.keys():
+		for quality_key in SimBarrel.QUALITY.keys():
+			for material_key in SimBarrel.MATERIAL_WEAR.keys():
+				var spec: Dictionary = {"barrel": {"length": length_key, "quality": quality_key, "material": material_key}}
+				var phrase: String = SimBarrel.words_of(spec)
+				if phrase.is_empty():
+					push_error("%s: the %s %s %s barrel says no words" % [lane, length_key, quality_key, material_key])
+					return false
+				barrel_phrases.append(phrase)
+	# Data to judge: every combination, or the walk proved a corner of the table.
+	var combos: int = SimBarrel.LENGTH.size() * SimBarrel.QUALITY.size() * SimBarrel.MATERIAL_WEAR.size()
+	if barrel_phrases.size() != combos or combos < 45:
+		push_error("%s: the barrel walk read %d phrases of %d combinations" % [lane, barrel_phrases.size(), combos])
+		return false
 	var fuel_words: Dictionary = {}
 	for left in [cap, floori(cap / 3.0), floori(cap / 8.0), 0]:
 		w.components.set_component(lamp, "lightFuel", {"ticksLeft": int(left)})
@@ -2523,6 +2558,40 @@ func _every_state_word_fits_the_narrow_pane(w: Variant, lamp: int) -> bool:
 		if wide > room:
 			push_error("%s: \"%s%s\" is %d px beside a picture that leaves %d at 1280x720, so the pane cuts it to an ellipsis" % [lane, label, word, int(wide), int(room)])
 			return false
+	# The barrel's phrases: each in at most two rows the pane draws whole. True negatives first: a
+	# phrase too long for two rows is refused by the same measure, and a phrase whose first word
+	# will not sit beside the label still fits by dropping the label, not by shrinking the type.
+	var per_row: int = int(room / maxf(1.0, font.get_string_size("m", HORIZONTAL_ALIGNMENT_LEFT, -1, size).x))
+	var part: String = "m".repeat(per_row - 2)
+	var three: String = ", ".join(PackedStringArray([part, part, part]))
+	if _state_rows_fault(font, room, three).is_empty():
+		push_error("%s: the measure passed \"%s\", a phrase three rows long, as fitting two" % [lane, three])
+		return false
+	var long_first: String = part + ", mm"
+	var dropped: Array[Dictionary] = InspectPane.state_rows(font, {"label": "barrel", "word": long_first}, room)
+	if not _state_rows_fault(font, room, long_first).is_empty() or dropped.size() != 2 or not String(dropped[0]["label"]).is_empty():
+		push_error("%s: \"%s\" did not wrap with its label dropped: %s" % [lane, long_first, str(dropped)])
+		return false
+	var wrapped: int = 0
+	var worst: String = ""
+	var worst_wide: float = 0.0
+	for phrase in barrel_phrases:
+		var fault: String = _state_rows_fault(font, room, phrase)
+		if not fault.is_empty():
+			push_error("%s: %s at 1280x720" % [lane, fault])
+			return false
+		if InspectPane.state_rows(font, {"label": "barrel", "word": phrase}, room).size() > 1:
+			wrapped += 1
+		var full: float = font.get_string_size("barrel " + phrase, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		if full > worst_wide:
+			worst_wide = full
+			worst = phrase
+	# Data to judge: the worst phrase is wider than one line, so the wrap was exercised, not skipped.
+	if wrapped == 0 or worst_wide <= room:
+		push_error("%s: no barrel phrase needed a second row (worst \"%s\", %d px), so the wrap was never judged" % [lane, worst, int(worst_wide)])
+		return false
+	for phrase in barrel_phrases:
+		lines.append(["barrel", phrase])
 	# And every word on the pane's colour scale reads at 4.5:1 on the steel's lighter grain, the
 	# condition's bands with the state words: "dull" and "broken" drew in the rim rust at 3.4 to 1.
 	if _contrast(Locker.STEEL, Locker.STEEL_GRAIN) >= 4.5:
@@ -2530,7 +2599,7 @@ func _every_state_word_fits_the_narrow_pane(w: Variant, lamp: int) -> bool:
 		return false
 	var inks: Array = [["label", Locker.TEXT_DIM]]
 	for row in lines:
-		inks.append([String(row[1]), InspectPane._state_colour(String(row[1]))])
+		inks.append([String(row[1]), InspectPane._state_colour(String(row[1]), String(row[0]))])
 	for band in SimItems.CONDITION_BANDS:
 		inks.append([String((band as Dictionary)["name"]), InspectPane._band_colour(String((band as Dictionary)["name"]))])
 	for ink in inks:
@@ -2538,8 +2607,22 @@ func _every_state_word_fits_the_narrow_pane(w: Variant, lamp: int) -> bool:
 		if ratio < 4.5:
 			push_error("%s: \"%s\" draws at %.2f:1 on the pane's steel, under 4.5:1" % [lane, String(ink[0]), ratio])
 			return false
-	print("  STATE FIT %d state lines with their labels fit the %d px beside the picture at 1280x720, and %d inks read at 4.5:1 on the steel" % [lines.size(), int(room), inks.size()])
+	print("  STATE FIT %d state lines with their labels fit the %d px beside the picture at 1280x720; all %d barrel phrases fit two rows (%d wrap, the worst \"barrel %s\" at %d px), a three-row phrase is refused and a long first word drops the label; %d inks read at 4.5:1 on the steel" % [lines.size() - barrel_phrases.size(), int(room), barrel_phrases.size(), wrapped, worst, int(worst_wide), inks.size()])
 	return true
+
+
+# Why a barrel phrase does not fit the pane's state rows in `room`, or "" when it does: at most
+# InspectPane.STATE_ROWS rows, each row's label and words inside the room at the body size.
+func _state_rows_fault(font: Font, room: float, phrase: String) -> String:
+	var rows: Array[Dictionary] = InspectPane.state_rows(font, {"label": "barrel", "word": phrase}, room)
+	if rows.size() > InspectPane.STATE_ROWS:
+		return "\"barrel %s\" takes %d rows, more than the pane's %d" % [phrase, rows.size(), InspectPane.STATE_ROWS]
+	for row in rows:
+		var text: String = String(row["label"]) + String(row["word"])
+		var wide: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, InspectPane.BODY_SIZE).x
+		if wide > room:
+			return "the row \"%s\" of \"barrel %s\" is %d px in %d" % [text, phrase, int(wide), int(room)]
+	return ""
 
 
 # WCAG contrast of two opaque colours (`check_play.gd`'s measure).

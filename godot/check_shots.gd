@@ -41,7 +41,7 @@ func _run() -> void:
 
 
 func _names() -> void:
-	if Scenes.NAMES != ["day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing", "colony_picked", "colony_crowd", "colony_scrolled", "bench_drop", "bench", "bench_field", "bench_make", "context_menu", "night_torch",
+	if Scenes.NAMES != ["day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing", "colony_picked", "colony_crowd", "colony_scrolled", "bench_drop", "bench", "bench_barrel", "bench_field", "bench_make", "context_menu", "night_torch",
 			"stockpile_mark",
 			"stockpile_rest",
 			"stockpile_night",
@@ -53,7 +53,8 @@ func _names() -> void:
 			"name_field",
 			"name_field_long",
 			"load_gun",
-			"load_round"]:
+			"load_round",
+			"inspect_barrel"]:
 		_fail("NAMES: the scene list is %s" % str(Scenes.NAMES))
 	var sizes: Array[Vector2i] = Scenes.SIZES
 	if not sizes.has(Vector2i(1280, 720)) or not sizes.has(Vector2i(1920, 1080)):
