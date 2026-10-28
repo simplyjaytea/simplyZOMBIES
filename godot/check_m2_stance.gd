@@ -489,14 +489,30 @@ func _a_furniture_decides_whether_a_seat_fires() -> bool:
 	if not bool(full_on_foot["began"]) or String(full_on_foot["reason"]) != "":
 		push_error("SEAT: a full stock on foot was refused (reason %s) -- the seat is not the only reason it should fire" % String(full_on_foot["reason"]))
 		return false
-	print("SEAT OK a folding stock fires from the driver's seat; a full stock is refused there with %s and the sentence the screen prints, and fires on foot" % SimStances.SEAT_REFUSAL)
+	# A weapon restored from a save written before `fromVehicle` existed carries no such key, and
+	# nothing rebuilds its profile until an equip or a wear event -- which a refused trigger never
+	# raises. The seat asks the fitted parts when the key is missing, so the folding stock still
+	# fires and the full stock is still refused (the true negative: a missing key is not a yes).
+	var folding_old: Dictionary = _shot_with_stock("item.attach.furniture.folding", true, true)
+	var full_old: Dictionary = _shot_with_stock("item.part.stock.standard", true, true)
+	if folding_old.is_empty() or full_old.is_empty():
+		return false
+	if not bool(folding_old["began"]) or String(folding_old["reason"]) != "" or String(folding_old["clause"]) != "":
+		push_error("SEAT: a folding stock whose profile predates fromVehicle was refused from the seat (reason %s, clause %s)" % [String(folding_old["reason"]), String(folding_old["clause"])])
+		return false
+	if bool(full_old["began"]) or String(full_old["reason"]) != SimStances.SEAT_REFUSAL:
+		push_error("SEAT: a full stock whose profile predates fromVehicle began a shot=%s with reason %s, want refused with %s" % [bool(full_old["began"]), String(full_old["reason"]), SimStances.SEAT_REFUSAL])
+		return false
+	print("SEAT OK a folding stock fires from the driver's seat; a full stock is refused there with %s and the sentence the screen prints, and fires on foot; a profile from before the key still reads its parts" % SimStances.SEAT_REFUSAL)
 	return true
 
 
 ## One pump shotgun with `stock_id` in its furniture slot, tried once from a seat or from the ground.
+## `forget` erases `fromVehicle` from the built profile first, the shape of a weapon restored from a
+## save written before the key existed (the profile is only rebuilt on an equip or a wear event).
 ## Returns {began, reason, clause}, where `reason` is the last weapon.refused reason published and
 ## `clause` what the screen would say; {} and an error when the district has no car to sit in.
-func _shot_with_stock(stock_id: String, seated: bool) -> Dictionary:
+func _shot_with_stock(stock_id: String, seated: bool, forget: bool = false) -> Dictionary:
 	var boot: Dictionary = SimBoot.playable(20260805, 64)
 	var w: Variant = boot["world"]
 	var map: Variant = boot["map"]
@@ -536,6 +552,12 @@ func _shot_with_stock(stock_id: String, seated: bool) -> Dictionary:
 		push_error("SEAT: the player could not get in the car")
 		return {}
 	w.events.drain()
+	if forget:
+		var live: Variant = w.components.get_component(w.player, "rangedWeapon")
+		if not (live is Dictionary) or not (live as Dictionary).has("fromVehicle"):
+			push_error("SEAT: the refit profile carries no fromVehicle to forget, so the old-save lane has nothing to judge")
+			return {}
+		(live as Dictionary).erase("fromVehicle")
 	var began: bool = SimRanged.try_begin_fire(w, w.player)
 	w.events.drain()
 	var reason: String = ""
