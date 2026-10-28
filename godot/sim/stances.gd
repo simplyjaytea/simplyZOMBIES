@@ -66,6 +66,18 @@ static func name_of(stance: int) -> String:
 	return NAMES[stance]
 
 
+# A seat is the one place a stance says nothing: `mounted` is the body's, and whether its weapon
+# will fire from one is the weapon's (`from_vehicle`, a folding stock's word). Refused on a reason
+# id in the `missing:` and `barrel:` family, so the screen reads it the same way as the rest.
+const SEAT_REFUSAL: String = "seat:stock"
+
+
+static func seat_refusal(components: ComponentStore, entity: int, from_vehicle: bool) -> String:
+	if from_vehicle or not components.has_component(entity, "mounted"):
+		return ""
+	return SEAT_REFUSAL
+
+
 static func stance_change_ticks(from: int, to: int) -> int:
 	return absi(to - from) * STANCE_CHANGE_TICKS
 

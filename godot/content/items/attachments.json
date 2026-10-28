@@ -248,6 +248,7 @@
     "attachment": {
       "fits": ["furniture"],
       "structural": true,
+      "fireFromVehicle": true,
       "ranged": { "handling": 1.35, "cone": 1.12 },
       "wearsOn": ["shot"],
       "wearRate": 0.8
