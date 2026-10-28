@@ -361,6 +361,7 @@ func _shoot(w: Variant) -> Array:
 	var pistol: int = SimItems.spawn_item(w, "item.pistol.service", {"tier": "scavenged"})
 	SimInventory.equip(w, w.player, pistol)
 	SimInventory.stow(w, w.player, SimItems.spawn_item(w, "item.ammo.9mm", {"tier": "scavenged", "count": 6}))
+	SimRanged.load_held(w, w.player)
 	w.events.drain()
 	var fired: Array = []
 	w.commands.push({"type": "fire"})

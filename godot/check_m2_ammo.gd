@@ -59,8 +59,11 @@ func _run() -> void:
 	ok = _a_conversion_moves_the_round_and_the_set_together() and ok
 	ok = _what_is_recovered_is_what_was_fired() and ok
 	ok = _the_debug_spawned_round_holds_the_count_asked_for() and ok
+	ok = _the_round_you_choose_is_the_round_you_fire() and ok
+	ok = _the_magazine_remembers_what_you_loaded() and ok
+	ok = _every_load_reads_in_words() and ok
 	if ok:
-		print("M2_AMMO_OK content reach scaled default pick refuse fold drops legacy convert recover debug-stack")
+		print("M2_AMMO_OK content reach scaled default pick refuse fold drops legacy convert recover debug-stack round mag word")
 		quit(0)
 	else:
 		push_error("M2_AMMO_FAIL")
@@ -107,14 +110,20 @@ func _armed(w: Variant, weapon_id: String, rounds: Array) -> int:
 		if not SimInventory.store_anywhere(w, stack, w.player):
 			push_error("the rounds would not go in a pocket: %s" % String(pair[0]))
 			return -1
+	# Loaded the way a raider arrives, at once and from the pack: a reload would wear the weapon
+	# (`WEAR_PER_RELOAD`), and DEFAULT pins a fresh gun's numbers to the decimal.
+	SimRanged.load_held(w, w.player)
 	return gun
 
 
-# How many units of `base_id` this actor is carrying. Counted through `carried_items`, never
-# through `components.query`: `_consume_ammo` despawns a spent stack without removing its
-# components, and docs/23's defect list records that a query still returns those ids.
+# How many units of `base_id` this actor has: in the pack, and in the magazine of anything they
+# hold. Since the magazine remembers its load (2026-10-28) a reload moves rounds from the first to
+# the second and only a shot spends one, so "spent" is the sum going down, never the pack alone.
+# Counted through `carried_items`, never through `components.query`: `_consume_ammo` despawns a
+# spent stack without removing its components, and docs/23's defect list records that a query
+# still returns those ids.
 func _rounds_left(w: Variant, actor: int, base_id: String) -> int:
-	var total: int = 0
+	var total: int = _in_magazines(w, actor, base_id)
 	for item in SimInventory.carried_items(w, actor) as Array:
 		var base: Variant = SimItems.item_base_of(w, int(item))
 		if not (base is Dictionary and String((base as Dictionary).get("id", "")) == base_id):
@@ -124,11 +133,45 @@ func _rounds_left(w: Variant, actor: int, base_id: String) -> int:
 	return total
 
 
+func _in_magazines(w: Variant, actor: int, base_id: String) -> int:
+	var n: int = 0
+	for held in SimInventory.equipped_items(w, actor):
+		for id in SimRanged.rounds_in(w, int(held)):
+			if String(id) == base_id:
+				n += 1
+	return n
+
+
+func _in_pack(w: Variant, actor: int, base_id: String) -> int:
+	return _rounds_left(w, actor, base_id) - _in_magazines(w, actor, base_id)
+
+
+# Wait for the weapon to be idle, and if it is a magazine with nothing in it, pull the trigger once
+# and wait out the reload that pull becomes. A gun arrives empty since the magazine remembers its
+# load, so every lane below that means "fire this gun" has to load it first, the way a player would.
+func _load_first(w: Variant, shooter: int) -> void:
+	for i in 200:
+		var rw0: Variant = w.components.get_component(shooter, "rangedWeapon")
+		if rw0 is Dictionary and int((rw0 as Dictionary)["state"]) == SimRanged.FireState.Idle:
+			break
+		w.step()
+	var rw: Variant = w.components.get_component(shooter, "rangedWeapon")
+	if not (rw is Dictionary and SimRanged.is_fed(rw as Dictionary) and int((rw as Dictionary).get("mag", 0)) <= 0):
+		return
+	w.commands.push({"type": "fire"})
+	for i in 200:
+		w.step()
+		var r2: Variant = w.components.get_component(shooter, "rangedWeapon")
+		if r2 is Dictionary and int((r2 as Dictionary)["state"]) == SimRanged.FireState.Idle:
+			break
+
+
 # Fire once and report the loudest noise this shooter made, or 0.0 if nothing fired. Lifted from
 # `check_m2_attach._noise_of`, comment and all: `try_begin_fire` refuses anything mid-sequence and
 # the command is consumed on the tick it is pushed, so pushing at a Recover tick asks for a shot
 # that never happens -- which read as "a suppressed pistol makes no noise" the first time.
 func _fire_once(w: Variant, shooter: int) -> float:
+	_load_first(w, shooter)
 	var loudest: float = 0.0
 	for i in 40:
 		var rw0: Variant = w.components.get_component(shooter, "rangedWeapon")
@@ -152,6 +195,7 @@ func _damage_at(w: Variant, shooter: int, metres: float) -> float:
 	var target: int = w.entities.spawn()
 	w.components.set_component(target, "position", {"x": 8.5 + metres, "y": 12.5})
 	SimHealth.make_survivor_body(w, target)
+	_load_first(w, shooter)
 	var worst: float = 0.0
 	for i in 40:
 		var rw0: Variant = w.components.get_component(shooter, "rangedWeapon")
@@ -836,3 +880,232 @@ func _debug_spawned_stack(round_id: String, extra: Dictionary) -> int:
 			return int((stack as Dictionary).get("count", 1))
 		return 1
 	return -1
+
+
+
+# --- ROUND --------------------------------------------------------------------------------------
+#
+# docs/23's "Choosing which round to fire". With buckshot and slugs both in the pack the pick order
+# used to decide, and the only way to fire a slug was to carry nothing else. The sheet's `load` verb
+# sends `item.load` on the round; the weapon in hand remembers the choice and a magazine reloads
+# with it. The true negative is the same fixture with no verb, which still spends buckshot first.
+func _the_round_you_choose_is_the_round_you_fire() -> bool:
+	var lane: String = "ROUND"
+	var w: Variant = _world()
+	var gun: int = _armed(w, SHOTGUN, [[BUCK, 5], [SLUG, 5]])
+	if gun < 0:
+		return false
+	w.step()
+	var slugs: int = _stack_of(w, w.player, SLUG)
+	var rifle_round: int = SimItems.spawn_item(w, RIFLE_ROUND, {"tier": "scavenged", "count": 2})
+	SimInventory.store_anywhere(w, rifle_round, w.player)
+	if SimRanged.load_refusal(w, w.player, rifle_round) != "wont-chamber":
+		push_error("%s: a rifle round was offered to a shotgun (%s)" % [lane, SimRanged.load_refusal(w, w.player, rifle_round)])
+		return false
+	if SimRanged.load_refusal(w, w.player, slugs) != "":
+		push_error("%s: slugs were refused to a shotgun loaded with buckshot (%s)" % [lane, SimRanged.load_refusal(w, w.player, slugs)])
+		return false
+	w.commands.push({"type": "item.load", "actor": w.player, "item": slugs})
+	w.step()
+	var rw: Dictionary = w.components.get_component(w.player, "rangedWeapon") as Dictionary
+	if int(rw.get("state", -1)) != SimRanged.FireState.Reload:
+		push_error("%s: choosing slugs did not start a reload" % lane)
+		return false
+	_load_first(w, w.player)
+	if SimRanged.rounds_in(w, gun) != [SLUG, SLUG, SLUG, SLUG, SLUG]:
+		push_error("%s: after choosing slugs the magazine holds %s" % [lane, str(SimRanged.rounds_in(w, gun))])
+		return false
+	if _rounds_left(w, w.player, BUCK) != 5 or _in_pack(w, w.player, BUCK) != 5:
+		push_error("%s: the buckshot that came out did not go back in the pack (%d in pack of %d)" % [lane, _in_pack(w, w.player, BUCK), _rounds_left(w, w.player, BUCK)])
+		return false
+	if _fire_once(w, w.player) <= 0.0 or _rounds_left(w, w.player, SLUG) != 4 or _rounds_left(w, w.player, BUCK) != 5:
+		push_error("%s: the chosen slug was not the round fired (slugs %d, buckshot %d)" % [lane, _rounds_left(w, w.player, SLUG), _rounds_left(w, w.player, BUCK)])
+		return false
+	if SimRanged.load_refusal(w, w.player, _stack_of(w, w.player, BUCK)) != "":
+		push_error("%s: switching back to buckshot was refused" % lane)
+		return false
+
+	# The choice is the weapon's, not the hand's: slung and drawn again, it still holds four slugs
+	# and still wants slugs -- and is not refilled to five, which the old counter did on every equip.
+	SimInventory.unequip(w, w.player, _slot_of(w, w.player, gun))
+	w.step()
+	if w.components.has_component(w.player, "rangedWeapon"):
+		push_error("%s: the shotgun was slung and the hand still holds a weapon" % lane)
+		return false
+	SimInventory.equip(w, w.player, gun)
+	w.step()
+	var again: Variant = w.components.get_component(w.player, "rangedWeapon")
+	if not (again is Dictionary and int((again as Dictionary).get("mag", -1)) == 4 and SimRanged.choice_in(w, again as Dictionary) == SLUG):
+		push_error("%s: drawn again the shotgun holds %s and wants '%s'" % [lane, str((again as Dictionary).get("mag", -1)) if again is Dictionary else "nothing", SimRanged.choice_in(w, again as Dictionary) if again is Dictionary else ""])
+		return false
+
+	# The true negative: the same pack, no verb, and buckshot goes first as it always has.
+	var w2: Variant = _world()
+	var gun2: int = _armed(w2, SHOTGUN, [[BUCK, 5], [SLUG, 5]])
+	if gun2 < 0:
+		return false
+	if _fire_once(w2, w2.player) <= 0.0 or _rounds_left(w2, w2.player, BUCK) != 4 or _rounds_left(w2, w2.player, SLUG) != 5:
+		push_error("%s: with nothing chosen the shotgun did not spend buckshot first" % lane)
+		return false
+
+	# A bow has no magazine and only remembers: the next nock takes the broadhead.
+	var w3: Variant = _world()
+	if _armed(w3, BOW, [[ARROW, 5], [BROADHEAD, 5]]) < 0:
+		return false
+	w3.step()
+	w3.commands.push({"type": "item.load", "actor": w3.player, "item": _stack_of(w3, w3.player, BROADHEAD)})
+	w3.step()
+	if _fire_once(w3, w3.player) <= 0.0 or _rounds_left(w3, w3.player, BROADHEAD) != 4 or _rounds_left(w3, w3.player, ARROW) != 5:
+		push_error("%s: a bow told to nock broadheads spent %d broadheads and %d arrows" % [lane, 5 - _rounds_left(w3, w3.player, BROADHEAD), 5 - _rounds_left(w3, w3.player, ARROW)])
+		return false
+	if SimRanged.load_refusal(w3, w3.player, _stack_of(w3, w3.player, BROADHEAD)) != "already-loaded":
+		push_error("%s: a bow already set to broadheads was offered them again" % lane)
+		return false
+	print("  ROUND OK slugs chosen over buckshot reload into the magazine and fire, the buckshot goes back in the pack, the choice survives a holster; unchosen, buckshot goes first; a bow nocks the chosen broadhead")
+	return true
+
+
+# --- MAG ----------------------------------------------------------------------------------------
+#
+# docs/23's "The magazine remembers what you loaded". A reload takes rounds out of the pack and the
+# record keeps them; a shot spends from the record and leaves the pack alone; a reload with a
+# different round changes what is in it, and that costs the reload's time.
+func _the_magazine_remembers_what_you_loaded() -> bool:
+	var lane: String = "MAG"
+	var w: Variant = _world()
+	var gun: int = _armed(w, PISTOL, [[NINE, 20]])
+	if gun < 0:
+		return false
+	if SimRanged.rounds_in(w, gun).size() != 8 or _in_pack(w, w.player, NINE) != 12:
+		push_error("%s: loading took %d from the pack into a magazine of %d" % [lane, 20 - _in_pack(w, w.player, NINE), SimRanged.rounds_in(w, gun).size()])
+		return false
+	if _fire_once(w, w.player) <= 0.0 or _in_pack(w, w.player, NINE) != 12 or SimRanged.rounds_in(w, gun).size() != 7:
+		push_error("%s: a shot left the pack at %d and the magazine at %d (want 12 and 7)" % [lane, _in_pack(w, w.player, NINE), SimRanged.rounds_in(w, gun).size()])
+		return false
+	_fire_once(w, w.player)
+	w.commands.push({"type": "reload"})
+	_load_first(w, w.player)
+	for i in 80:
+		w.step()
+	if SimRanged.rounds_in(w, gun).size() != 8 or _in_pack(w, w.player, NINE) != 10:
+		push_error("%s: a top-up after two shots left the magazine at %d and the pack at %d (want 8 and 10)" % [lane, SimRanged.rounds_in(w, gun).size(), _in_pack(w, w.player, NINE)])
+		return false
+
+	# A loaded gun fires with nothing left in the pack; emptied, it does not, and the pull does not
+	# even start a reload with nothing to load.
+	var w2: Variant = _world()
+	var gun2: int = _armed(w2, PISTOL, [[NINE, 2]])
+	if gun2 < 0:
+		return false
+	if _in_pack(w2, w2.player, NINE) != 0 or _fire_once(w2, w2.player) <= 0.0:
+		push_error("%s: a pistol with two rounds loaded and none in the pack did not fire" % lane)
+		return false
+	_fire_once(w2, w2.player)
+	if _fire_once(w2, w2.player) > 0.0:
+		push_error("%s: an empty pistol with an empty pack fired" % lane)
+		return false
+	var rw2: Dictionary = w2.components.get_component(w2.player, "rangedWeapon") as Dictionary
+	if int(rw2.get("state", -1)) != SimRanged.FireState.Idle:
+		push_error("%s: an empty pistol with an empty pack started a reload with nothing to load" % lane)
+		return false
+
+	# Mixed: two slugs chosen into a five-round magazine take the slugs and then buckshot, and fire
+	# in that order.
+	var w3: Variant = _world()
+	var gun3: int = _armed(w3, SHOTGUN, [[SLUG, 2], [BUCK, 8]])
+	if gun3 < 0:
+		return false
+	w3.step()
+	if SimRanged.rounds_in(w3, gun3) != [BUCK, BUCK, BUCK, BUCK, BUCK]:
+		push_error("%s: the fixture loaded %s, not buckshot" % [lane, str(SimRanged.rounds_in(w3, gun3))])
+		return false
+	w3.commands.push({"type": "item.load", "actor": w3.player, "item": _stack_of(w3, w3.player, SLUG)})
+	w3.commands.push({"type": "fire"})
+	w3.step()
+	# Switching loads costs the reload: on the tick the verb lands the magazine is still buckshot and
+	# the trigger pull beside it did nothing.
+	var rw3: Dictionary = w3.components.get_component(w3.player, "rangedWeapon") as Dictionary
+	if int(rw3.get("state", -1)) != SimRanged.FireState.Reload or SimRanged.rounds_in(w3, gun3) != [BUCK, BUCK, BUCK, BUCK, BUCK]:
+		push_error("%s: switching to slugs was instant (state %d, %s)" % [lane, int(rw3.get("state", -1)), str(SimRanged.rounds_in(w3, gun3))])
+		return false
+	_load_first(w3, w3.player)
+	var mixed: Array = [SLUG, SLUG, BUCK, BUCK, BUCK]
+	if SimRanged.rounds_in(w3, gun3) != mixed or _rounds_left(w3, w3.player, BUCK) != 8:
+		push_error("%s: two slugs chosen loaded %s with %d buckshot in all" % [lane, str(SimRanged.rounds_in(w3, gun3)), _rounds_left(w3, w3.player, BUCK)])
+		return false
+	_fire_once(w3, w3.player)
+	_fire_once(w3, w3.player)
+	if SimRanged.rounds_in(w3, gun3) != [BUCK, BUCK, BUCK] or _rounds_left(w3, w3.player, SLUG) != 0:
+		push_error("%s: two shots from a slug-over-buckshot magazine left %s" % [lane, str(SimRanged.rounds_in(w3, gun3))])
+		return false
+	print("  MAG OK a reload takes eight from the pack and a shot none; a top-up takes only the two fired; a loaded pistol fires with an empty pack and an emptied one does not; a switch waits out the reload, and two slugs load over buckshot and fire first")
+	return true
+
+
+# --- WORD ---------------------------------------------------------------------------------------
+#
+# The inspect pane's load line, in words. Every round has a word, none carries a digit (its name may,
+# under the one amendment; this line may not), and no two rounds of one caliber share one, or two
+# different loads would read the same. The line itself: "empty", one round, the next and the one
+# after; and "" for anything with no magazine.
+func _every_load_reads_in_words() -> bool:
+	var lane: String = "WORD"
+	var seen: Dictionary = {}
+	var rounds: int = 0
+	for entry in _all_items():
+		var spec: Variant = (entry as Dictionary).get("ammo")
+		if not spec is Dictionary:
+			continue
+		rounds += 1
+		var id: String = String((entry as Dictionary).get("id", ""))
+		var word: String = String((spec as Dictionary).get("word", ""))
+		if word.is_empty():
+			push_error("%s: %s has no word for the inspect pane" % [lane, id])
+			return false
+		for c in word:
+			if c >= "0" and c <= "9":
+				push_error("%s: %s's word '%s' carries a digit" % [lane, id, word])
+				return false
+		var key: String = String((spec as Dictionary).get("caliber", "")) + "|" + word
+		if seen.has(key):
+			push_error("%s: %s and %s are both '%s' in one caliber" % [lane, id, String(seen[key]), word])
+			return false
+		seen[key] = id
+	var w: Variant = _world()
+	var gun: int = _armed(w, SHOTGUN, [])
+	var bow: int = _spawn(w, BOW)
+	if SimRanged.load_words(w, gun) != "empty" or SimRanged.load_words(w, bow) != "":
+		push_error("%s: an empty shotgun reads '%s' and a bow '%s'" % [lane, SimRanged.load_words(w, gun), SimRanged.load_words(w, bow)])
+		return false
+	var w2: Variant = _world()
+	var gun2: int = _armed(w2, SHOTGUN, [[SLUG, 2], [BUCK, 8]])
+	if SimRanged.load_words(w2, gun2) != "buckshot":
+		push_error("%s: a shotgun full of buckshot reads '%s'" % [lane, SimRanged.load_words(w2, gun2)])
+		return false
+	w2.step()
+	w2.commands.push({"type": "item.load", "actor": w2.player, "item": _stack_of(w2, w2.player, SLUG)})
+	_load_first(w2, w2.player)
+	for i in 80:
+		w2.step()
+	var view: Dictionary = SimInventory.inspect_view(w2, w2.player, gun2)
+	if String(view.get("load", "")) != "slugs, then buckshot":
+		push_error("%s: a slug-over-buckshot magazine reads '%s' on the inspect view" % [lane, String(view.get("load", ""))])
+		return false
+	print("  WORD OK %d rounds each with a word, none with a digit, none shared in a caliber; empty reads empty, a bow reads nothing, and slugs over buckshot reads so" % rounds)
+	return true
+
+
+func _stack_of(w: Variant, actor: int, base_id: String) -> int:
+	for item in SimInventory.carried_items(w, actor) as Array:
+		var base: Variant = SimItems.item_base_of(w, int(item))
+		if base is Dictionary and String((base as Dictionary).get("id", "")) == base_id:
+			return int(item)
+	return -1
+
+
+func _slot_of(w: Variant, actor: int, item: int) -> String:
+	var eq: Dictionary = (w.components.get_component(actor, "equipment") as Dictionary).get("slots", {}) as Dictionary
+	for k in eq.keys():
+		if int(eq[k]) == item:
+			return String(k)
+	return ""

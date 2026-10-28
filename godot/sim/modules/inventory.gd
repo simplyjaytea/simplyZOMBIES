@@ -593,6 +593,11 @@ static func _Light() -> GDScript:
 	return load("res://sim/modules/light.gd") as GDScript
 
 
+# Loaded lazily: ranged.gd preloads this file.
+static func _Ranged() -> GDScript:
+	return load("res://sim/modules/ranged.gd") as GDScript
+
+
 static func _Noise() -> GDScript:
 	return load("res://sim/modules/noise_device.gd") as GDScript
 
@@ -655,6 +660,11 @@ static func inspect_view(world: Variant, actor: int, item: int) -> Dictionary:
 		# blade, exactly as `fuel` is "" for everything that is not a lamp. The pane draws whichever
 		# of the two is not empty as its one state line; no item is both.
 		"edge": SimItems.edge_word(world, item),
+		# What is in a magazine-fed weapon, as words: "empty", the round's word ("slugs"), or the
+		# next round and the one after it ("slugs, then buckshot"); "" for everything else. Never a
+		# count. `SimRanged.load_words` builds it from the round's `ammo.word`, never its `name`,
+		# which may carry a digit under the one amendment while this line may not.
+		"load": _Ranged().call("load_words", world, item),
 	}
 
 
@@ -668,7 +678,7 @@ static func inspect_view(world: Variant, actor: int, item: int) -> Dictionary:
 # nothing here re-implements either. That is the dead-socket rule applied to a menu: a verb whose
 # availability is computed in the UI is a verb that will one day be offered for a command the sim
 # drops on the floor.
-const MENU_ORDER: Array[String] = ["equip", "unequip", "use", "hone", "modify", "name", "open", "inspect", "split", "drop"]
+const MENU_ORDER: Array[String] = ["equip", "unequip", "use", "load", "hone", "modify", "name", "open", "inspect", "split", "drop"]
 static func verbs_for(world: Variant, actor: int, item: int) -> Array[String]:
 	var out: Array[String] = []
 	if item < 0 or not (SimItems.item_base_of(world, item) is Dictionary):
@@ -695,6 +705,10 @@ static func verbs_for(world: Variant, actor: int, item: int) -> Array[String]:
 	# as one in the pack.
 	if SimItems.hone_refusal(world, actor, item) == "":
 		offered["hone"] = true
+	# A round the weapon in hand takes, when loading it would change what is in it, asked of
+	# `SimRanged.load_refusal`, the predicate the `item.load` command asks first.
+	if String(_Ranged().call("load_refusal", world, actor, item)) == "":
+		offered["load"] = true
 	# A weapon rebuilt enough to be the survivor's own may be named, worn or carried. The sim's
 	# `nameable` is the whole question, so the menu never offers a name the command would refuse
 	# for being ordinary.

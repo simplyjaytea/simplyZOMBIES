@@ -41,10 +41,10 @@ const CARET_W: float = 2.0
 const FIELD_INSET: float = 6.0
 
 
-# The one state line under the condition, as {label, word}: a blade's edge, or a lamp's fuel, and
-# nothing for an item that is neither. Both words come out of `inspect_view` ready-made; the pane
-# only chooses which one is not empty. No item is both a blade and a lamp, and the edge is asked
-# first so a future one would still draw one line, not two.
+# The one state line under the condition, as {label, word}: a blade's edge, a lamp's fuel, or what
+# a firearm is loaded with, and nothing for an item that is none of them. Every word comes out of
+# `inspect_view` ready-made; the pane only chooses which one is not empty. No item is two of them,
+# and the edge is asked first so a future one would still draw one line, not two.
 static func state_line(view: Dictionary) -> Dictionary:
 	var edge: String = String(view.get("edge", ""))
 	if not edge.is_empty():
@@ -52,6 +52,11 @@ static func state_line(view: Dictionary) -> Dictionary:
 	var fuel: String = String(view.get("fuel", ""))
 	if not fuel.is_empty():
 		return {"label": "fuel", "word": fuel}
+	# What a magazine-fed weapon holds: "empty", "slugs", "slugs, then buckshot". No firearm is a
+	# blade or a lamp, so this is still one line.
+	var load: String = String(view.get("load", ""))
+	if not load.is_empty():
+		return {"label": "load", "word": load}
 	return {}
 
 
@@ -321,7 +326,7 @@ static func _state_colour(word: String) -> Color:
 	match word:
 		"keen", "burning well":
 			return Locker.GOOD
-		"dull", "dark":
+		"dull", "dark", "empty":
 			return Locker.DANGER_INK
 		_:
 			return Locker.ACCENT
