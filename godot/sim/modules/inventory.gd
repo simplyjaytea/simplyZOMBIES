@@ -4,6 +4,7 @@ extends RefCounted
 const SimItems = preload("res://sim/modules/items.gd")
 const SimGrid = preload("res://sim/inventory/grid.gd")
 const SimSerialize = preload("res://sim/kernel/serialize.gd")
+const SimBarrel = preload("res://sim/barrel.gd")
 
 # The slot taxonomy, expanded 2026-08-19 on the owner's cut: only slots with a system that
 # reads them today. face/eyes/gloves/legs/feet all carry armor coverage (max-composed per
@@ -660,6 +661,10 @@ static func inspect_view(world: Variant, actor: int, item: int) -> Dictionary:
 		# blade, exactly as `fuel` is "" for everything that is not a lamp. The pane draws whichever
 		# of the two is not empty as its one state line; no item is both.
 		"edge": SimItems.edge_word(world, item),
+		# A barrel's departures from the identity, "long, match", and "" for everything that is not a barrel
+		# (sim/barrel.gd `words_of`). The pane draws it as its one state line; no item is a barrel
+		# and a blade, a lamp or a loaded gun.
+		"barrel": SimBarrel.words_of(spec as Dictionary) if spec is Dictionary else "",
 		# What is in a magazine-fed weapon, as words: "empty", the round's word ("slug") when every
 		# round in it is the same, or "mixed"; "" for everything else. Never a count. `SimRanged.load_words` builds it from the round's `ammo.word`, never its `name`,
 		# which may carry a digit under the one amendment while this line may not.

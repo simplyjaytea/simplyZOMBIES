@@ -50,7 +50,7 @@ const SIZES: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(1920, 1080)]
 const NAMES: Array[String] = [
 	"day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing",
 	"colony_picked", "colony_crowd", "colony_scrolled", "bench_drop",
-	"bench", "bench_field", "bench_make",
+	"bench", "bench_barrel", "bench_field", "bench_make",
 	"context_menu",
 	"night_torch",
 	"stockpile_mark",
@@ -65,6 +65,7 @@ const NAMES: Array[String] = [
 	"name_field_long",
 	"load_gun",
 	"load_round",
+	"inspect_barrel",
 ]
 # The Colony screen's two fuller shots (art QA, slice 2): Mara picked by a click on her name, her
 # row made manual by one changed number, the pointer resting on the medic chip; and a roster of
@@ -95,6 +96,9 @@ const CARE_PART: String = "arm_left"
 const BENCH_WEAPON: String = "item.rifle.hunting"
 const BENCH_PARTS: Array[String] = ["item.attach.optic.red_dot", "item.attach.optic.scope", "item.attach.suppressor", "item.attach.magazine.extended", "item.attach.barrel.long"]
 const BENCH_SLOT: String = "optic"
+# The same bench with the barrel picked (B1, "The barrel's words"): the rifle's barrel is a plain one,
+# the long barrel in the pack says "long" on its card, and the card's words are the shot's subject.
+const BENCH_BARREL_SLOT: String = "barrel"
 # The stockpile shot (stockpile plan, slice S5): the Colony screen with nobody picked, so the
 # stockpile stands in the drawer's place, over a pile stocked across the groups -- stacks of rounds
 # counted as their rounds ("plenty"), the most numerous a round whose name carries a digit, so it is
@@ -458,19 +462,28 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 				return "the colony has nobody but you to view"
 			main.set("_selected", other)
 			press(tree, KEY_K)
-		"bench":
+		"bench", "bench_barrel":
 			world.tick = Clock.tick_on_day(DAY, NOON)
 			var why: String = _bench_setup(world)
 			if not why.is_empty():
 				return why
 			main.call("_process", TICK_SECONDS)
 			await tree.process_frame
+			# The rifle comes with its plain barrel fitted, which the first tick applies after the bench
+			# opened. The panel reads its view when it is set, so set it again: the barrel slot then shows
+			# "plain" and the long barrel in the pack says "long" on its card.
+			if scene == "bench_barrel":
+				var refresh: Variant = main.get("_bench_panel")
+				if refresh != null and refresh.has_method("set_world"):
+					refresh.call("set_world", world, int(world.player))
 			var bench_panel: Variant = main.get("_bench_panel")
 			if bench_panel != null and bench_panel.has_method("pick_slot"):
-				bench_panel.call("pick_slot", BENCH_SLOT)
+				bench_panel.call("pick_slot", BENCH_BARREL_SLOT if scene == "bench_barrel" else BENCH_SLOT)
 				# Enter on an empty slot crosses to what fits it, through the router as a key would,
-				# so the shot shows a candidate focused and the footer's lit button.
-				press(tree, KEY_ENTER)
+				# so the shot shows a candidate focused and the footer's lit button. On the filled barrel
+				# slot Enter takes the barrel off, so the barrel shot leaves Enter alone.
+				if scene == "bench":
+					press(tree, KEY_ENTER)
 		"bench_field":
 			world.tick = Clock.tick_on_day(DAY, NOON)
 			var street_b: Vector2 = _street_spot(world)
@@ -692,6 +705,29 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 				for _i in NAMED_LONG_BACK:
 					press(tree, KEY_LEFT)
 			main.set_meta("name_field_bat", bat)
+		"inspect_barrel":
+			# The inspect pane on a barrel whose three words are all departures, the widest phrase the
+			# barrel table can say ("carbine, rough, chromed"), so the two-row wrap is shot. No shipped
+			# barrel departs three ways, so the long barrel's base is given them here. The base is shared by
+			# every barrel of its kind in this process, so the scene stays last in NAMES and no later scene
+			# sees the patch.
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			var widest: Dictionary = SimItems.base_by_id(world, "item.attach.barrel.long") as Dictionary
+			var words: Dictionary = (widest["attachment"] as Dictionary)["barrel"] as Dictionary
+			words["length"] = "carbine"
+			words["quality"] = "rough"
+			words["material"] = "chromed"
+			var barrel: int = SimItems.spawn_item(world, "item.attach.barrel.long", {"tier": "scavenged"})
+			if not SimInventory.stow(world, int(world.player), barrel):
+				return "the survivor has no room for the barrel"
+			press(tree, KEY_TAB)
+			await _settle(tree, main)
+			var sheet_i: Variant = main.get("_inventory_panel")
+			if sheet_i == null:
+				return "there is no inventory sheet"
+			(sheet_i as Control).set("_selected", barrel)
+			(sheet_i as Control).queue_redraw()
+			await tree.process_frame
 		"load_gun", "load_round":
 			world.tick = Clock.tick_on_day(DAY, NOON)
 			var actor_l: int = int(world.player)
@@ -871,7 +907,18 @@ static func verify(main: Node, scene: String) -> String:
 			if nav_v == null or bool(nav_v.get("subject_is_you")) or String(nav_v.get("subject_name")).is_empty():
 				return "the bar is not viewing a colonist"
 			return ""
-		"bench":
+		"inspect_barrel":
+			var sheet_v: Variant = main.get("_inventory_panel")
+			if sheet_v == null:
+				return "there is no inventory sheet"
+			var picked: int = int((sheet_v as Object).get("_selected"))
+			if picked < 0 or not SimItems.item_name(world, picked).contains("Long Barrel"):
+				return "the inspect pane is not on the barrel"
+			var words_on: String = String(InspectPaneRes.state_line(SimInventory.inspect_view(world, int(world.player), picked)).get("word", ""))
+			if words_on != "carbine, rough, chromed":
+				return "the barrel's words are %s, not the widest phrase" % words_on
+			return ""
+		"bench", "bench_barrel":
 			var rifle: int = SimGunsmith.focus_of(world, int(world.player))
 			var base: Variant = world.components.get_component(rifle, "itemBase") if rifle >= 0 else null
 			if not base is Dictionary or String((base as Dictionary).get("baseId", "")) != BENCH_WEAPON:
@@ -879,10 +926,13 @@ static func verify(main: Node, scene: String) -> String:
 			var bench_panel_v: Variant = main.get("_bench_panel")
 			if bench_panel_v == null or not bool((bench_panel_v as CanvasItem).visible):
 				return "the assembly screen is not up"
-			if bench_panel_v.has_method("picked_slot") and String(bench_panel_v.call("picked_slot")) != BENCH_SLOT:
-				return "the %s is not picked" % BENCH_SLOT
-			if bench_panel_v.has_method("side") and String(bench_panel_v.call("side")) != "offers":
-				return "no candidate for the %s is focused" % BENCH_SLOT
+			var want_slot: String = BENCH_BARREL_SLOT if scene == "bench_barrel" else BENCH_SLOT
+			if bench_panel_v.has_method("picked_slot") and String(bench_panel_v.call("picked_slot")) != want_slot:
+				return "the %s is not picked" % want_slot
+			# Enter crosses to the candidates only on an empty slot; the barrel slot is filled, so its shot
+			# shows the picked plate and its candidate cards, and the focus is not asserted there.
+			if scene == "bench" and bench_panel_v.has_method("side") and String(bench_panel_v.call("side")) != "offers":
+				return "no candidate for the %s is focused" % want_slot
 			return ""
 		"bench_field":
 			var gun: int = SimGunsmith.focus_of(world, int(world.player))
