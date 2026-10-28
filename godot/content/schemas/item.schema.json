@@ -507,7 +507,7 @@
         "word": {
           "type": "string",
           "pattern": "^[^0-9]+$",
-          "description": "What the inspect pane calls this round when it is in a magazine, as a plural noun: \"slugs\", \"buckshot\", \"hollow points\". The screen's word for the round rather than its `name`, because a round's name may carry a digit (the one amendment, docs/30's \"The cartridge on the label\") and the line that says what a weapon is loaded with may not. No digit, and distinct from every other round of the same caliber, or two loads would read the same; godot/check_m2_ammo.gd holds both."
+          "description": "What the inspect pane calls this round when a magazine holds nothing else, in the trade's short word: \"slug\", \"buckshot\", \"hollowpoint\". Short because the line beside the picture is narrow at 1280x720; godot/check_inventory.gd's STATE FIT measures every one. The screen's word for the round rather than its `name`, because a round's name may carry a digit (the one amendment, docs/30's \"The cartridge on the label\") and the line that says what a weapon is loaded with may not. No digit, and distinct from every other round of the same caliber, or two loads would read the same; godot/check_m2_ammo.gd holds both."
         },
         "caliber": {
           "type": "string",

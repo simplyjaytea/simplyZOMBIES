@@ -1046,8 +1046,8 @@ func _the_magazine_remembers_what_you_loaded() -> bool:
 #
 # The inspect pane's load line, in words. Every round has a word, none carries a digit (its name may,
 # under the one amendment; this line may not), and no two rounds of one caliber share one, or two
-# different loads would read the same. The line itself: "empty", one round, the next and the one
-# after; and "" for anything with no magazine.
+# different loads would read the same. The line itself: "empty", one round's word, and "mixed"
+# when they differ; and "" for anything with no magazine.
 func _every_load_reads_in_words() -> bool:
 	var lane: String = "WORD"
 	var seen: Dictionary = {}
@@ -1088,10 +1088,15 @@ func _every_load_reads_in_words() -> bool:
 	for i in 80:
 		w2.step()
 	var view: Dictionary = SimInventory.inspect_view(w2, w2.player, gun2)
-	if String(view.get("load", "")) != "slugs, then buckshot":
-		push_error("%s: a slug-over-buckshot magazine reads '%s' on the inspect view" % [lane, String(view.get("load", ""))])
+	if String(view.get("load", "")) != "mixed":
+		push_error("%s: a slug-over-buckshot magazine reads '%s' on the inspect view, not mixed" % [lane, String(view.get("load", ""))])
 		return false
-	print("  WORD OK %d rounds each with a word, none with a digit, none shared in a caliber; empty reads empty, a bow reads nothing, and slugs over buckshot reads so" % rounds)
+	for i in 2:
+		_fire_once(w2, w2.player)
+	if String(SimInventory.inspect_view(w2, w2.player, gun2).get("load", "")) != "buckshot":
+		push_error("%s: with the two slugs fired the magazine reads '%s', not buckshot" % [lane, String(SimInventory.inspect_view(w2, w2.player, gun2).get("load", ""))])
+		return false
+	print("  WORD OK %d rounds each with a word, none with a digit, none shared in a caliber; empty reads empty, a bow reads nothing, slug over buckshot reads mixed and buckshot once the slugs are fired" % rounds)
 	return true
 
 

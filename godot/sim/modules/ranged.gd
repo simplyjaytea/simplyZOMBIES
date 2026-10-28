@@ -736,10 +736,12 @@ static func load_held(world: Variant, actor: int) -> void:
 
 
 ## What is in this weapon item, in words, for the inspect pane: "" for anything that is not fed
-## from a magazine, "empty", the round's word ("slugs"), or the next round's word and the one
-## after it when they differ ("slugs, then buckshot"). Words only, never a count -- docs/01 clause
-## 4, and `godot:check:inventory` INSPECT scans it. The word is the round's content `ammo.word`,
-## never its `name`, which may carry a digit under the one amendment.
+## from a magazine, "empty", the round's word ("slug") when every round in it is the same, and
+## "mixed" when they are not. Words only, never a count -- docs/01 clause 4, and
+## `godot:check:inventory` INSPECT scans it. The word is the round's content `ammo.word`, never its
+## `name`, which may carry a digit under the one amendment. "mixed" names no round because the
+## line beside the picture has eighteen letters at 1280x720 (STATE FIT holds it), and "slug, then
+## buckshot" was cut to "slug, then..." the first time it was drawn.
 static func load_words(world: Variant, item: int) -> String:
 	var profile: Variant = SimItemsRes.ranged_profile_of(world, item)
 	if not (profile is Dictionary and is_fed(profile as Dictionary)):
@@ -750,7 +752,7 @@ static func load_words(world: Variant, item: int) -> String:
 	var first: String = String(rounds[0])
 	for id_v in rounds:
 		if String(id_v) != first:
-			return "%s, then %s" % [round_word(world, first), round_word(world, String(id_v))]
+			return "mixed"
 	return round_word(world, first)
 
 
