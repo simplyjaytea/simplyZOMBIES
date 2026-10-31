@@ -156,6 +156,32 @@ write its record — named, gated, measured — into [the record, by system](#th
 the same commit. That is the whole discipline: one list of what remains, one record of what landed,
 and nothing that has to be ticked.
 
+##### First-person survival colony pivot
+
+Owner-authorized 2026-11-01; [docs/39](39-first-person-pivot.md) is the phased
+plan and spatial/art contract. The existing default remains top-down during
+conversion. The source baseline is archived on GitHub at
+`archive/topdown-colony-pre-first-person-2026-11-01`. Planned pieces:
+
+- **First-person simulation and ledger foundation.** An opt-in scene driven by
+  the real sim, mouse look and camera-relative movement, sim-owned collision,
+  NPC bodies and a nearby ledger opening functional work priorities; a scene
+  gate with positive and negative interaction/input paths, fully routed.
+- **Blender pixel-textured colony starter kit.** Original desk, ledger, shelf,
+  barricade and modular wall, editable source, builder, atlas, GLBs and preview.
+- **First-person starter-kit integration.** Consume the kit in the foundation,
+  verify dimensions and reach, make headed shots and independent art review.
+- **First-person scavenging and personal equipment.** Real world containers,
+  search/take/stow/equip through a revised grid UI; skill and condition access.
+- **First-person spatial combat and perception.** One coherent obstruction and
+  hit contract across visible geometry, sim movement, combat and NPC sight.
+- **First-person people and settlement operation.** Ledger animations, reports,
+  conversations, delegation and construction access; the captive arc stays
+  separately scoped planned work under its existing group.
+- **First-person expedition and default switch.** Prepare, scavenge, encounter
+  danger, return, treat, save/reload, die and succeed; measured performance,
+  regression proof, campaign balance and human play before changing the default.
+
 ##### UI overhaul
 
 **The whole interface, opened by the owner 2026-10-03.** Project Zomboid's practical
@@ -1228,7 +1254,7 @@ tables and day lines are report-noise.md in the project's planning/balance folde
   the ring on, 9 with it off; 64 unchanged with it on and off). Not yet shown: the day-one bite count
   on seed 2024 (one two-day playtest, before and after, in planning/balance) and the ten-seed table
   on the new main, which the balance thread runs after the 87750e3a row. The P2 Doctor leash and
-  Retreat, the other half of the day-one chain, is its own piece.
+  Retreat, the other half of the day-one chain, is its own piece. P2 was dropped 2026-10-31: the errand-radius drop leaves a patient to bleed on seed 2024 (see docs/30, "The Doctor's leash and the far side of the house, dropped").
 - **The well stands outside the gate, so the last survivor dies of a bite taken there.** Day the
   colony was wiped, by seed (20260805 / 31337 / 404): A24 main 9 / 2 / 2; the building-noise pass
   (#178) 4 / 6 / 6; the idle-colonist fix (#179) 4 / 6 / 6; the well verb (#180) 4 / 8 / 9. The

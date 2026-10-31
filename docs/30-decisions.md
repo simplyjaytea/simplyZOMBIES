@@ -7565,3 +7565,84 @@ a throwaway run with a firefight's worth of cases on the ground (twenty shots ro
 **Not in this piece.** Haul walks to a loose case by the same errand rule it uses for any loose item
 (`ERRAND_RADIUS_TILES`, the danger rules); `jobs.gd` is untouched and no job was added. The pictures are
 the class glyph: a case has no sprite of its own yet, and no review scene was added for it.
+
+## The Doctor's leash and the far side of the house, dropped, 2026-10-31
+
+Piece P2 of the batch in `planning/2026-10-28-next-batch.md` (project files), built on the day-one
+causes in `planning/balance/2026-10-28-dayone-causes.md`, sections 2 and 6. Built on
+`claude/project-thread-jqq1u5` (PR #265) and not on main: #265 was merged on GitHub at 02:36Z on
+2026-10-31 while its body said HELD, but the merge is not on main. Main (`4995ca6f`) has no
+`jobs.gd` leash or far side, and its history was rewritten after #264 (the root is now an
+`Initial commit`, and #264 has a new sha). The branch stays as it is. The piece is dropped here,
+and this entry keeps the whole isolation so the call can be read later.
+
+**The call.** The far side does nothing the traces can see, and the leash kills a day-one patient on
+seed 2024. Neither rule lands. P2 closes as dropped.
+
+**The isolation.** Two-day runs, one seed each, same driver. Every row is a variant on its own base.
+
+- Base `87750e3a` (before the closed house): 404 before, colony alive on day 2 with one death (a
+  colonist on Retreat, day 1). 404 after P2 (both rules, the zombie drop in): colony wiped on day 2
+  (three deaths). 2024 after P2: colony wiped on day 2 (three deaths). The 2024 before run did not
+  finish.
+- Base `738654e3` (with the closed house, #259, and the hand-loads, #262): main, 404 one death on day
+  1, alive on day 2. P2, both rules: the same. Leash off: the same. Far side off: the same. The day-2
+  wipe on 404 does not reproduce on this base. 2024: main 0 deaths. P2 both rules: one death on day 1
+  (entity 0, tick 25120, bleeding). Leash off: 0 deaths. Far side off: the same death as P2 both rules.
+- Base `4995ca6f` (current main, the head that is the branch's own base): main, 404 and 2024 as on
+  `738654e3`. Head `6bbdd4e0`, zombie drop cut: 404 the same, 2024 one death at tick 25120. Leash
+  code present with no drops at all (the errand-radius check also returns true): 2024 0 deaths. Leash
+  off: 2024 0 deaths.
+
+**The read, per rule.**
+
+- **The far side is inert on both seeds.** Switching it off changes no outcome. The far-side
+  ping-pong hypothesis from the end review does not survive these runs. The far side was not kept,
+  because nothing the traces can see depends on it.
+- **The zombie-distance drop is not the cause.** With that drop cut, the 2024 death at tick 25120 is
+  unchanged.
+- **The errand-radius drop is the cause.** With every leash drop cut, the 2024 death is gone. With the
+  errand-radius drop present, the death is back on the same tick. The Doctor walk that drops a patient
+  who has walked out past `ERRAND_RADIUS_TILES` is what leaves that patient to bleed on day 1.
+- **The 404 day-2 wipe of base `87750e3a` is not a P2 effect that survives.** It does not reproduce
+  on the closed-house base or on current main.
+
+**How to apply:** a rule that ends a job for a reason the pick does not share with the walk can
+leave a patient to bleed. Measure a leash in a two-day trace before it is written into the batch
+plan, and keep the isolation table with the call.
+
+## First-person survival colony pivot, 2026-11-01
+
+The owner reopened the projection decision and authorized the conversion after
+choosing first-person settlement life with physical management access. This
+supersedes the flat-top-down-only direction of 2026-10-26 for conversion work;
+the existing default game remains top-down until the replacement is verified.
+
+- Colony simulation, authored unique NPCs, generated people, skills, recruitment,
+  permanent loss and succession remain. Capturing and recruiting raiders remains
+  the planned captive arc; the camera change does not make it shipped.
+- Colony management is accessed in person: a physical ledger has an opening or
+  writing animation and opens an efficient assignments/priorities menu. Talking
+  to a foreman or other NPC provides another management and reporting route.
+  Persistent instructions and autonomous work remain important while exploring.
+- The art reference is Project Zomboid, specifically Project Viewpoint's 3D view,
+  with Zero Sievert-inspired pixel texture treatment. Inventory and equipment
+  presentation draw on Escape from Tarkov and STALKER. Assets are original.
+- Keep Godot and pivot the existing simulation rather than rewrite the game.
+  Blender is the authoring tool, with editable source and exported GLBs for
+  runtime. Existing art may be retired after backup; deleting it is unnecessary
+  for the first additive slices.
+- Before coding, preserve the current work on GitHub. The clean main commit
+  4995ca6ff94b6259f6ed4dc2bcfe55884e750218 was pushed as both a branch and an
+  annotated tag, archive/topdown-colony-pre-first-person-2026-11-01, and given
+  a source release. Both remote refs were verified against that commit.
+- Start with an opt-in sim-backed first-person foundation and functional ledger,
+  and an independent Blender starter kit. The phased plan is docs/39; docs/23
+  names the pieces. Spatial combat, inventory, people/management interaction,
+  campaign proof and the default-scene switch follow as separately verified work.
+
+The 20 Hz deterministic sim boundary, information restrictions, health-bar ban,
+frozen oracle, engine pin, budgets and review/merge policy still apply. No new
+walkable floors, jumping, pause policy or foreman authority was settled by this
+call. docs/33 records those open details. This entry records direction and the
+archive, not completion of the conversion.
