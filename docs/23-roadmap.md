@@ -1228,7 +1228,7 @@ tables and day lines are report-noise.md in the project's planning/balance folde
   the ring on, 9 with it off; 64 unchanged with it on and off). Not yet shown: the day-one bite count
   on seed 2024 (one two-day playtest, before and after, in planning/balance) and the ten-seed table
   on the new main, which the balance thread runs after the 87750e3a row. The P2 Doctor leash and
-  Retreat, the other half of the day-one chain, is its own piece.
+  Retreat, the other half of the day-one chain, is its own piece. P2 was dropped 2026-10-31: the errand-radius drop leaves a patient to bleed on seed 2024 (see docs/30, "The Doctor's leash and the far side of the house, dropped").
 - **The well stands outside the gate, so the last survivor dies of a bite taken there.** Day the
   colony was wiped, by seed (20260805 / 31337 / 404): A24 main 9 / 2 / 2; the building-noise pass
   (#178) 4 / 6 / 6; the idle-colonist fix (#179) 4 / 6 / 6; the well verb (#180) 4 / 8 / 9. The
