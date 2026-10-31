@@ -35,7 +35,7 @@ decides whether the game is correct.
 
 CLAUDE.md says to delete the driver afterwards. That rule is about **measurement** drivers, whose
 product is a number: once the number is in the record, the script is a liability. A generator's
-product is committed art that the whole arc re-derives from, and moving it to `.hermes/`
+product is committed art that the whole arc re-derives from, and moving it out of the repo
 guarantees palette drift between batches — which is the disease this method exists to cure. So it
 lives in the repo, in the same commit as its first key, and `--check` keeps it honest.
 

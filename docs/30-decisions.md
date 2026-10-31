@@ -1651,7 +1651,7 @@ dressing changes never move the layout.
 ## The art style: B, picked from a reference
 
 Decided by the owner, 2026-09-01, from the built comparison fixtures
-(`.hermes/plans/2026-09-01_art-style-fixtures/`) and a supplied reference screenshot rather than
+and a supplied reference screenshot rather than
 from the fixtures alone. The pick is **B — the rotating player**, the brainstorm doc's Zero
 Sievert read, and the reference fixes the mood the arc is aimed at: muted, overcast, desaturated
 urban decay — lane-marked asphalt, wrecked cars, dumpsters, debris and corpse dressing, rain,
@@ -1821,8 +1821,7 @@ italic note at the point it changed, and the list at the end of this entry names
 what dies and what survives. It was taken before slice 3 of the reference-look arc, so nothing
 built under the old direction is thrown away: the 32 px tile and the ground atlas are the floor
 this stands on. Twelve decisions, recorded once here, each paid for in the slice that lands it
-(docs/23, "the Dungeon Settlers arc", in order; the plan is
-`.hermes/plans/2026-09-03_dungeon-settlers-arc.md`):
+(docs/23, "the Dungeon Settlers arc", in order):
 
 - **Bodies stand up.** Every rig — player, colonists, zombies — is an upright, face-on pawn,
   feet-anchored on a taller-than-wide canvas, and heading is a horizontal flip: **nobody
@@ -3031,7 +3030,7 @@ still goes through the command queue.
 Decided by the owner, 2026-09-09, from a fixture round rather than from prose: asked how deep
 the animation should go, whether a body is ever seen from behind and whether the rigs are
 re-drawn, the owner's answer was **"show examples of art first then I will decide"**, and the
-round that answers it is `.hermes/plans/2026-09-09_character-fixtures/` — four sets of candidate
+round that answers it is four sets of candidate
 art, every one of them a *transform* of the shipped generator rather than hand art beside it, so
 that what the pictures showed is what a slice would actually be. Its `comparison.md` describes
 each image and recommends none, the arrangement the 2026-09-01 art-style round set.
@@ -4193,8 +4192,7 @@ the survival loop could be flipped on and measured with the colony held still. T
 later the owner opened a plan to "procedurally generate new NPCs, raiders, and of course zombies
 on the map" and answered the questions the plan turned on. This entry records those answers,
 because between them they lift a standing pause and widen the milestone in one direction docs/18
-had put in Milestone 3. The plan itself is
-`.hermes/plans/2026-09-14_procedural-population-arc.md`; the pieces are docs/23's group of the
+had put in Milestone 3. The pieces are docs/23's group of the
 same name.
 
 **The pause is lifted.** The sentence in `CLAUDE.md` and `AGENTS.md` that said "new NPCs and
@@ -5172,8 +5170,7 @@ bar 1296×48 centred at `view.y − MARGIN − STRIP_CLEARANCE − BAR_H`, its c
 with the key in `Chrome.ACCENT`, and the key hint at `SMALL_SIZE − 2` in `Chrome.TEXT_DIM` in the
 tail. The bar takes chrome's own 14 px bracket rather than the mockup's 12, because a second copy
 of the bracket arithmetic in `hud.gd` is exactly the drift `ui/chrome.gd` exists to prevent. The
-artboards, the canvas file and both screenshots are the record, under
-`.hermes/plans/2026-09-16_alpha-hud/`.
+artboards, the canvas file and both screenshots are the record.
 
 **The desk is for any agent.** `AGENTS.md` gains a section written for whichever assistant picks
 the project up — Claude, ChatGPT, Astra, Sol — with the claim mechanism being the branch name and
@@ -5511,8 +5508,7 @@ sources and generation instructions are preserved beside the reproducible native
 
 ## Wall picture mapping, 2026-10-03
 
-The owner chose **A2, shape-matched pack corners**, from the closed-building comparison in
-`.hermes/plans/2026-09-27_walls-picture-round/`. The existing generated timber and block faces
+The owner chose **A2, shape-matched pack corners**, from the closed-building comparison. The existing generated timber and block faces
 and the current unseen-wall roof coverage stay as they are. The bounded implementation covers
 supported rectangular brick and plaster perimeters, with generated fallbacks; its gates and
 runtime captures are recorded in docs/23. The mapping is not a decision to extend roofs over
@@ -5592,8 +5588,7 @@ in the same answer: a list beside the grid, with the grid still the authority on
 Three directions were drawn at 1920×1080 with the repository's own item icons (canvas
 webbing, a salvage locker, a hard case). On 2026-10-20 the owner picked **B, the Salvage
 Locker**, on a decision card: brushed steel, rivets, masking-tape labels, recessed cells and
-plates tinted by item class, at the world's 2× pixel density. The mockups are under
-`.hermes/plans/2026-10-19_inventory-redesign/`.
+plates tinted by item class, at the world's 2× pixel density.
 
 This settles the inventory's surfaces only. Typography, the anatomical diagram and the rest of
 the interface remain the recommendations "The whole interface" describes; VT323 is still the
@@ -7349,36 +7344,6 @@ named is handed to the balance thread, after the run already going on main.
 its kit. A gate that fires a gun it has just armed loads it first (`load_held`), or its first pull
 is a reload.
 
-## The Doctor's leash and the far side of the house, 2026-10-28
-
-Piece P2 of the batch in `planning/2026-10-28-next-batch.md` (project files), built on the day-one
-causes in `planning/balance/2026-10-28-dayone-causes.md`, sections 2 and 6. The calls taken:
-
-- **The leash asks the patient, not the Doctor.** The pick already refuses a patient out past the
-  errand radius or with a zombie within `DANGER_TARGET_METRES` of them, and nothing asked again
-  after it. The Doctor's own `_endangered` rule fires at 6 m from the Doctor, which is in the street
-  by then. Re-asking the two pick questions of the patient's position on each walk tick adds no new
-  rule: it is the pick, asked again, under the same flag: the pick asks its zombie question only
-  under `BREAK_OFF_FROM_DANGER`, so the leash does too (the end review's one finding; without it a
-  lane that pins the flag off was handed a pick the leash dropped on its first walk tick, every
-  tick). Walking home with a pursuer behind is not covered (P1 says why).
-- **The far side is ranked from the nearest zombie, not from the colonist.** Ranked from the
-  colonist, the nearest interior tile is the one the colonist already stands beside, which is the
-  room the zombie is in. Ranked from the zombie, the farthest interior tile is the one it reaches
-  last. The walk is planned once and marked `rerouted`, so the walk-too-long re-plan (which goes to
-  the tile nearest the colonist) does not walk it back to the zombie.
-- **`RETREAT_REPLAN_TICKS` is 40 as a first cut.** Two seconds. A tile search every tick would be
-  the #257 spike again, and a colonist still beside a zombie for two seconds is the stand-still
-  the rule replaces (134 on 2024 stood 2,600 ticks with a zombie 3 to 5 m off).
-- **`replanAt` is absent on a save from before, and reads as never.** The `handsFull` precedent:
-  a key a save does not hold loads as no record, so nothing bumps `SAVE_VERSION` and the save lane
-  is unchanged. The two switches, `DOCTOR_LEASH` and `RETREAT_FAR_SIDE`, are `static var`s the three
-  lanes pin on and restore, so a gate run cannot leave one off.
-
-**How to apply:** a rule that asks a fact of a job's target asks it of the target's position on
-every walk tick, not only at the pick. A far-side target is planned once, marked `rerouted`, and not
-re-planned by the walk-too-long bound.
-
 ## The barrel's words, 2026-10-28
 
 A barrel's words reach the screen now: the bench (the slot rows, the offer cards and the in-it-now
@@ -7600,3 +7565,42 @@ a throwaway run with a firefight's worth of cases on the ground (twenty shots ro
 **Not in this piece.** Haul walks to a loose case by the same errand rule it uses for any loose item
 (`ERRAND_RADIUS_TILES`, the danger rules); `jobs.gd` is untouched and no job was added. The pictures are
 the class glyph: a case has no sprite of its own yet, and no review scene was added for it.
+
+## The Doctor's leash and the far side of the house, 2026-10-28
+
+Piece P2 of the batch in `planning/2026-10-28-next-batch.md` (project files), built on the day-one
+causes in `planning/balance/2026-10-28-dayone-causes.md`, sections 2 and 6. The calls taken:
+
+- **The leash asks the errand radius and nothing else.** The first version also dropped a walk
+  when a zombie came within `DANGER_TARGET_METRES` of the patient. Two-day isolation on the current
+  base (seed 2024, same driver): that version killed the patient on day 1 (entity 0, tick 25120,
+  bleeding); with the leash off the same colony lost nobody. The zombie drop was cut. The pick still
+  refuses a patient with a zombie beside them, so a new walk is not started into one. Walking home
+  with a pursuer behind is not covered (P1 says why).
+- **Two-day isolation, base main 738654e3 (P2 head 4428becf), one seed each, same driver:**
+
+  | Variant | seed 404 | seed 2024 |
+  |---|---|---|
+  | main, no P2 | 1 death day 1, alive day 2 | 0 deaths, alive day 2 |
+  | P2 head, both rules, zombie drop in | 1 death day 1, alive day 2 | 1 death day 1 (tick 25120), alive day 2 |
+  | `DOCTOR_LEASH` off | 1 death day 1, alive day 2 | 0 deaths |
+  | `RETREAT_FAR_SIDE` off | 1 death day 1, alive day 2 | same death as P2 |
+
+  The far side is inert on both seeds: switching it off changes no outcome. The far-side
+  ping-pong hypothesis from the end review is not supported by these runs. The earlier day-2 wipe on
+  404 (base 87750e3a) does not reproduce on this base, so it is not a P2 effect that survives the
+  merge with the closed house.
+- **The far side is ranked from the nearest zombie, not from the colonist.** Ranked from the
+  colonist, the nearest interior tile is the one the colonist already stands beside, which is the
+  room the zombie is in. Ranked from the zombie, the farthest interior tile is the one it reaches
+  last. The walk is planned once and marked `rerouted`, so the walk-too-long re-plan (which goes to
+  the tile nearest the colonist) does not walk it back to the zombie.
+- **`RETREAT_REPLAN_TICKS` is 40 as a first cut.** Two seconds. A tile search every tick would be
+  the #257 spike again.
+- **`replanAt` is absent on a save from before, and reads as never.** The `handsFull` precedent:
+  nothing bumps `SAVE_VERSION`. The switches `DOCTOR_LEASH` and `RETREAT_FAR_SIDE` are `static var`s the
+  lanes pin on and restore.
+
+**How to apply:** a rule that asks a fact of a job's target asks it on every walk tick, and only the
+facts the pick itself decides a new walk on, or the walk stops being safe to keep. A far-side target
+is planned once, marked `rerouted`, and not re-planned by the walk-too-long bound.

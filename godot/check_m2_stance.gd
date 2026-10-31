@@ -1,6 +1,6 @@
 extends SceneTree
 # The stance ladder, made sim-owned. Guards Part A of the "Make harm real" slice
-# (.hermes/plans/2026-08-17_065300-vertical-slice-design.md Phase 0): before this, world.gd
+# (Phase 0): before this, world.gd
 # built posture as a bare `{"current": n}`, `_apply_commands` matched only move/wait/shout so
 # the `{"type":"stance"}` command main.gd pushed was recorded and never consumed, and nothing
 # ever advanced `current` toward `target`. Every rung had walk's speed, walk's noise, and

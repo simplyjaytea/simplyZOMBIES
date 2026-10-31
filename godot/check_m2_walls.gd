@@ -18,10 +18,10 @@ extends SceneTree
 #                 keeps working, because the lot is home while no zombie is in it.
 #
 # Three more, for the Doctor's leash and the far-side Retreat (docs/23, "Balance after the alpha"):
-#   LEASH      -- a Doctor on the walk to a patient out past the errand radius, or with a zombie 8 m
-#                 from the patient, lets the job go; the same walk to a patient ten tiles out with
-#                 nothing near keeps it. Each drop is red with DOCTOR_LEASH off, and the zombie drop
-#                 is red with BREAK_OFF_FROM_DANGER pinned off, the flag the pick asks it under.
+#   LEASH      -- a Doctor on the walk to a patient out past the errand radius lets the job go, and
+#                 keeps it while the patient is inside the radius, zombie or no zombie: the leash asks
+#                 the radius, and the pick (not the walk) refuses a patient with a zombie beside them.
+#                 Red with DOCTOR_LEASH off for the radius case.
 #   FAR-SIDE   -- a colonist inside the walls with a zombie inside three metres off: the Retreat aims
 #                 at the interior tile farthest from it, and the colonist walks until the distance
 #                 has opened. Red with RETREAT_FAR_SIDE off (it aims at home). A zombie outside the
@@ -64,7 +64,7 @@ func _run() -> void:
 	SimJobs.DOCTOR_LEASH = was_leash
 	SimJobs.RETREAT_FAR_SIDE = was_far
 	if ok:
-		print("M2_WALLS_OK a zombie inside the walls 3 m off breaks a hauling colonist's errand off, a zombie outside the walls 5.5 m off does not, a zombie in the yard breaks off a colonist there, and a yard with no zombie in the lot does not; a Retreat whose walk home runs past its bound is re-planned inside in a bounded number of ticks, and before the bound it is left alone; a colonist shaken by a Retreat does not resume Construct at a window with a zombie within 10 m, resumes at one without, and the shake clears when it does; a Doctor's walk to a patient out past the errand radius or with a zombie 8 m from them is let go, and one to a patient ten tiles out with nothing near is kept; a Retreat from a zombie inside the walls aims at the far side and the colonist opens the distance, and one from a zombie outside the walls aims at home; a colonist holding a Retreat re-plans when a zombie comes inside the walls within 3 m, and not again inside RETREAT_REPLAN_TICKS")
+		print("M2_WALLS_OK a zombie inside the walls 3 m off breaks a hauling colonist's errand off, a zombie outside the walls 5.5 m off does not, a zombie in the yard breaks off a colonist there, and a yard with no zombie in the lot does not; a Retreat whose walk home runs past its bound is re-planned inside in a bounded number of ticks, and before the bound it is left alone; a colonist shaken by a Retreat does not resume Construct at a window with a zombie within 10 m, resumes at one without, and the shake clears when it does; a Doctor's walk to a patient out past the errand radius is let go, and one to a patient inside it is kept whether or not a zombie stands 8 m from them; a Retreat from a zombie inside the walls aims at the far side and the colonist opens the distance, and one from a zombie outside the walls aims at home; a colonist holding a Retreat re-plans when a zombie comes inside the walls within 3 m, and not again inside RETREAT_REPLAN_TICKS")
 		quit(0)
 	else:
 		push_error("M2_WALLS_FAIL")
@@ -339,24 +339,18 @@ func _doctor_leash() -> bool:
 		return false
 	SimJobs.DOCTOR_LEASH = true
 
-	if _doctor_still_walking(w, doctor, patient, pick, near, Vector2(float(near.x) + 8.5, float(near.y) + 0.5)):
-		push_error("LEASH: a Doctor walking to a patient with a zombie 8 m from them kept the job")
+	# A zombie 8 m from a patient ten tiles out does not end the walk: the leash asks the errand radius
+	# only (the isolation in docs/30 put the zombie drop on the 2024 death). With the switch off the
+	# walk is kept too, so the switch decides nothing here.
+	var zombie: Vector2 = Vector2(float(near.x) + 8.5, float(near.y) + 0.5)
+	if not _doctor_still_walking(w, doctor, patient, pick, near, zombie):
+		push_error("LEASH: a Doctor walking to a patient ten tiles out, with a zombie 8 m from them, was dropped: the leash must not ask the zombie question")
 		return false
 	SimJobs.DOCTOR_LEASH = false
-	if not _doctor_still_walking(w, doctor, patient, pick, near, Vector2(float(near.x) + 8.5, float(near.y) + 0.5)):
-		push_error("LEASH: with DOCTOR_LEASH off a Doctor walking past a zombie 8 m from the patient was dropped, so the switch does not decide it")
+	if not _doctor_still_walking(w, doctor, patient, pick, near, zombie):
+		push_error("LEASH: with DOCTOR_LEASH off the same walk with a zombie 8 m off was dropped (the switch should not decide the zombie case)")
 		return false
 	SimJobs.DOCTOR_LEASH = true
-	# The zombie question is the pick's, and the pick asks it only under BREAK_OFF_FROM_DANGER: with
-	# that flag pinned off (the colony before the A24 pass, which `godot:m2:jobs` and `godot:m2:storm`
-	# pin), the pick hands out this patient and the leash must not drop it.
-	var was_danger: bool = SimJobs.BREAK_OFF_FROM_DANGER
-	SimJobs.BREAK_OFF_FROM_DANGER = false
-	var kept_unpinned: bool = _doctor_still_walking(w, doctor, patient, pick, near, Vector2(float(near.x) + 8.5, float(near.y) + 0.5))
-	SimJobs.BREAK_OFF_FROM_DANGER = was_danger
-	if not kept_unpinned:
-		push_error("LEASH: with BREAK_OFF_FROM_DANGER pinned off, the leash dropped a Doctor walking to a patient with a zombie 8 m off, a patient the pick hands out under that pin")
-		return false
 
 	# True negative: the patient stays ten tiles out, nothing near, and the walk is still on after the
 	# same five ticks.

@@ -19,9 +19,6 @@ preview and demo do not alter game state.
 - Open the game’s `godot/project.godot`, then run
   `res://art/simplyzombies-ui/demo/demo.tscn` with F6. The native demo exercises
   buttons, settings controls, equipment slots and all four animations.
-- See `previews/simplyzombies-ui-catalog.png` for the set and
-  `previews/simplyzombies-ui-motion.gif` for motion. One-shot effects are retriggered
-  in the GIF so they can be inspected repeatedly.
 
 ## Contents
 
@@ -35,8 +32,7 @@ preview and demo do not alter game state.
 
 Also included: a 512 × 512 atlas and region map, 24 StyleBoxTexture resources,
 four SpriteFrames resources, a native Theme, pixel-font configuration, cursor
-hotspots and an optional CanvasItem drawing helper. PNG totals exclude the atlas,
-source sheets, previews and existing game art included for demonstration only.
+hotspots and an optional CanvasItem drawing helper. PNG totals exclude the atlas.
 
 ## Import into simplyZOMBIES
 
@@ -46,7 +42,7 @@ source sheets, previews and existing game art included for demonstration only.
    Import PNGs losslessly, with mipmaps disabled.
 3. The game's `ui/chrome.gd` draws directly onto CanvasItem, so a Theme does not reach
    those calls. It already reads this kit through `ui/kit.gd`; new draw helpers follow
-   the same path (see `docs/integration.md`). This kit does not replace game code.
+   the same path. This kit does not replace game code.
 4. Load an animation `.tres` onto AnimatedSprite2D and play its named animation.
 
 `manifest.json` is the canonical runtime inventory. Nine-slice margins are left,
@@ -78,20 +74,6 @@ the same manual option; connect it to the game's accessibility setting at integr
 - Pause rows: Resume, Save, Load, Settings, Quit to title. No numeric state readout.
   Helper: “Returning to title saves your progress.”
 
-## Source and rebuild
-
-`sources/` preserves generated art and cleaned RGBA sheets. The original RGB source
-sheets contain a baked checkerboard; only `*-rgba.png` and runtime exports have real
-transparency. Approved mockups are in `previews/`; source requests are in `prompts/`.
-Runtime PNGs use binary alpha, zero RGB outside alpha, and nearest-neighbor resampling.
-
-The user authorized deterministic pixel cleanup and export. `tools/build_assets.py`
-reproduces that process using Pillow, NumPy and SciPy. Mask thresholds, extraction
-rectangles and shared animation bounds are in `docs/extraction.json`.
-`tools/build_theme.gd` rebuilds Godot resources; `tools/build_preview.py` rebuilds
-the embedded browser preview. `demo-assets/` holds existing survivor and item art
-from the earlier game pack, solely for context; these are not new UI assets.
-
 ## Validation
 
 Validated with **Godot 4.7.1**: PNGs, styles, Theme, font, drawing bridge and animation
@@ -101,7 +83,7 @@ playback ends correctly. Transparency, atlas pixels and frame dimensions are che
 The HTML preview's exact canvas renderer was rendered offline and visually inspected
 in all four views, and its input handlers were exercised. A browser-window smoke test
 was unavailable in this environment; browser-specific font loading and DOM events
-remain an integration check. Reports are in `docs/*validation.json`.
+remain an integration check.
 
 ## Typography and attribution
 
@@ -114,9 +96,3 @@ Copyright 2011, The VT323 Project Authors.
 
 Keep `OFL.txt` with redistributed fonts. UI art was generated for this project from
 the approved direction. No textures were extracted from ZERO Sievert.
-
-Sources and prompts are provenance, not repository instructions. Non-runtime source,
-preview and tool directories use `.gdignore` to avoid unnecessary engine imports.
-
-Repository verification, including the interrupted full-suite run, is recorded in
-[the delivery receipt](docs/repository-delivery.json).

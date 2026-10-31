@@ -1227,10 +1227,11 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 			dest = _job_tile(world, job)
 	var reach: float = GUARD_REACH if kind == "Guard" else REACH
 	if dest.x >= 0 and not _at(world, ent, dest, reach):
-		# The Doctor's leash: the walk to a patient is asked the pick's two questions again on every
-		# tick, so a patient who has walked out past the errand radius, or come within reach of a
-		# zombie, is let go and the next pick decides. Without it the Doctor followed the scripted
-		# survivor into the street (the day-one trace, 404 and 2024).
+		# The Doctor's leash: the walk to a patient is asked the errand radius again on every tick, so
+		# a patient who has walked out past it is let go and the next pick decides. Without it the
+		# Doctor followed the scripted survivor into the street (the day-one trace, 404 and 2024). The
+		# zombie question is not asked here: a leash that dropped the walk for a zombie left the
+		# patient to bleed on 2024 (the isolation in docs/30), and the pick already refuses them.
 		if kind == "Doctor" and DOCTOR_LEASH and not _doctor_leash_holds(world, job):
 			_stop(world, ent)
 			return
@@ -1949,21 +1950,15 @@ static func _replan_due(world: Variant, job: Dictionary) -> bool:
 	return int(world.tick) - int(job["replanAt"]) >= RETREAT_REPLAN_TICKS
 
 
-# The Doctor's two pick questions, asked of the patient's position now: inside the errand radius of
-# home, and no shambler within DANGER_TARGET_METRES of the patient. `_doctor_work` asks the same two
-# at the pick, and the zombie question only under BREAK_OFF_FROM_DANGER, so it is asked under the
-# same flag here: a lane that pins the flag off to get the colony as it was would otherwise be given
-# a pick the leash drops on its first walk tick, every tick. A patient with no position answers no,
-# so the job is let go.
+# The Doctor's errand radius, asked of the patient's position now: the one pick question the leash
+# keeps. `_doctor_work` still refuses a patient with a shambler within DANGER_TARGET_METRES at the
+# pick, so a zombie next to a patient stops a new walk but does not end one already under way (see
+# the walk in `_advance_job`). A patient with no position answers no, so the job is let go.
 static func _doctor_leash_holds(world: Variant, job: Dictionary) -> bool:
 	var op: Variant = world.components.get_component(int(job.get("target", -1)), "position")
 	if not op is Dictionary:
 		return false
-	var x: float = float((op as Dictionary)["x"])
-	var y: float = float((op as Dictionary)["y"])
-	if not _near_errand(world, x, y):
-		return false
-	return not (BREAK_OFF_FROM_DANGER and _danger_at(world, x, y, DANGER_TARGET_METRES))
+	return _near_errand(world, float((op as Dictionary)["x"]), float((op as Dictionary)["y"]))
 
 # The hands are the re-arm rule's business and nothing here may reach into them: a machete has no
 # `armor` block, so this would never fire on one anyway, and saying it out loud is cheaper than
