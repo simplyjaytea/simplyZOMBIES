@@ -7565,3 +7565,39 @@ a throwaway run with a firefight's worth of cases on the ground (twenty shots ro
 **Not in this piece.** Haul walks to a loose case by the same errand rule it uses for any loose item
 (`ERRAND_RADIUS_TILES`, the danger rules); `jobs.gd` is untouched and no job was added. The pictures are
 the class glyph: a case has no sprite of its own yet, and no review scene was added for it.
+
+## First-person survival colony pivot, 2026-11-01
+
+The owner reopened the projection decision and authorized the conversion after
+choosing first-person settlement life with physical management access. This
+supersedes the flat-top-down-only direction of 2026-10-26 for conversion work;
+the existing default game remains top-down until the replacement is verified.
+
+- Colony simulation, authored unique NPCs, generated people, skills, recruitment,
+  permanent loss and succession remain. Capturing and recruiting raiders remains
+  the planned captive arc; the camera change does not make it shipped.
+- Colony management is accessed in person: a physical ledger has an opening or
+  writing animation and opens an efficient assignments/priorities menu. Talking
+  to a foreman or other NPC provides another management and reporting route.
+  Persistent instructions and autonomous work remain important while exploring.
+- The art reference is Project Zomboid, specifically Project Viewpoint's 3D view,
+  with Zero Sievert-inspired pixel texture treatment. Inventory and equipment
+  presentation draw on Escape from Tarkov and STALKER. Assets are original.
+- Keep Godot and pivot the existing simulation rather than rewrite the game.
+  Blender is the authoring tool, with editable source and exported GLBs for
+  runtime. Existing art may be retired after backup; deleting it is unnecessary
+  for the first additive slices.
+- Before coding, preserve the current work on GitHub. The clean main commit
+  4995ca6ff94b6259f6ed4dc2bcfe55884e750218 was pushed as both a branch and an
+  annotated tag, archive/topdown-colony-pre-first-person-2026-11-01, and given
+  a source release. Both remote refs were verified against that commit.
+- Start with an opt-in sim-backed first-person foundation and functional ledger,
+  and an independent Blender starter kit. The phased plan is docs/39; docs/23
+  names the pieces. Spatial combat, inventory, people/management interaction,
+  campaign proof and the default-scene switch follow as separately verified work.
+
+The 20 Hz deterministic sim boundary, information restrictions, health-bar ban,
+frozen oracle, engine pin, budgets and review/merge policy still apply. No new
+walkable floors, jumping, pause policy or foreman authority was settled by this
+call. docs/33 records those open details. This entry records direction and the
+archive, not completion of the conversion.

@@ -1,5 +1,13 @@
 # 00 — Vision
 
+**Direction amendment, 2026-11-01:** the owner has authorized a first-person
+survival colony conversion. Colony management, skills, unique/generated people,
+recruitment and the captive roadmap remain; management is accessed through
+physical ledgers and conversations. The art reference is Zomboid's Project
+Viewpoint with pixel-texture treatment. [The pivot plan](39-first-person-pivot.md)
+supersedes older projection/art clauses below for new conversion work. The
+preserved top-down build remains the default until its replacement is verified.
+
 *Why this exists: to state what the game is in one page, so every later document can be checked
 against it. If a proposed feature doesn't serve a pillar below, it doesn't go in.*
 
