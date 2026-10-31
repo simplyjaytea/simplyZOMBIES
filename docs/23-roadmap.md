@@ -4607,15 +4607,11 @@ not a to-do list:
   kit is versioned under `godot/art/simplyzombies-ui/`: 120 native RGBA PNGs across
   76 logical assets, a 512×512 atlas, 24 StyleBoxTexture resources, a Theme, four
   animated SpriteFrames, pixel font and license, cursors and a CanvasItem helper.
-  A native demo, offline preview, sources and rebuild tools accompany the resources.
-  `python3 godot/art/simplyzombies-ui/tools/validate_assets.py` passes 998 checks;
-  Godot 4.7.1 running `res://art/simplyzombies-ui/tools/validate.gd` passes 349 checks;
-  `node godot/art/simplyzombies-ui/tools/verify_preview.cjs` passes 19 checks over
-  four rendered views. Typecheck, lint and formatting pass. All 82 M2 gates pass
+  A native demo and offline preview accompany the resources. Typecheck, lint and
+  formatting pass. All 82 M2 gates pass
   across the initial lethality run, a fresh stats retry after a stalled process,
   and the remaining 80 scripts in chain order, with no gate or assertion changes.
-  `docs/repository-delivery.json` inside the kit records that detail. A browser-window
-  smoke test was not performed. This delivers assets and a demo; applying the skin
+  A browser-window smoke test was not performed. This delivers assets and a demo; applying the skin
   to the live CanvasItem UI remains separate work. Preview sample counts do not
   amend the information or digit bans, and no open renderer slice or owner decision
   is closed by this delivery. That live-UI work is now named in [what's

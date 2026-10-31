@@ -4,12 +4,6 @@ An original survival pixel-art set made for simplyZOMBIES, informed by the compa
 
 Open **simplyzombies-production-preview.html** in a browser. It runs offline. Move with WASD/arrows, aim and click to fire, choose equipment, press E near containers, and use the searchable asset browser. On touch screens use the directional buttons and tap the scene. The survivor starts unequipped; every wearable and weapon remains a separate sprite.
 
-![Outpost asset preview](previews/simplyzombies-production-preview.png)
-
-[Complete asset catalog](previews/asset-catalog.png) ·
-[Animated scene](previews/simplyzombies-production-preview.gif) ·
-[Animated effects](previews/simplyzombies-effects-preview.gif)
-
 ## Included
 
 | Group | Asset entries | Contents |
@@ -34,11 +28,9 @@ The preview triggers actual sprite frames for shots, casings, impacts and explos
 ## Files
 
 - `manifest.json` — combined registry, paths, anchors, animation metadata and example scene placements.
-- `groups/` — independently usable source groups with native PNGs, atlases, source sheets, prompts, extraction scripts, manifests and inspection previews.
+- `groups/` — independently usable source groups with native PNGs, atlases, source sheets, extraction scripts and manifests.
 - `textures/characters/` — approved character idle/walk PNGs.
-- `previews/` — the action GIF and catalog.
 - `docs/` — import guidance, coverage inventory and asset audit.
-- `viewer/` — source HTML/JavaScript and Canvas verification harness.
 - `STYLE.md` — shared visual and scale contract.
 
 All world tiles are 32×32. Characters use 32×48 canvases with ground pivot `[16,40]` and occupied height about 28px. Use nearest-neighbor filtering and integer camera scales. Per-asset dimensions and anchors are authoritative; do not infer anchors from PNG canvas centers. Main and group manifests intentionally use different relative path roots.
@@ -54,10 +46,9 @@ sprites:check` judges them); the SpriteFrames resources themselves are not loade
 The HTML preview is a standalone asset demonstration, not a Godot game capture or a reproduction
 of its gameplay systems.
 
-Authoring sheets, source crops, prompts and preview renders have `.gdignore` files to keep them
-out of engine import. Native textures, frames, atlases and SpriteFrames resources remain
-available to the editor. The original generation prompts are provenance, not repository
-instructions. No third-party reference screenshots are included.
+Source crops have `.gdignore` files to keep them out of engine import. Native textures, frames,
+atlases and SpriteFrames resources remain available to the editor. No third-party reference
+screenshots are included.
 
 The repository keeps all native sprites, original generation sheets and extraction scripts.
 Intermediate `source-crops/` folders are omitted: those files can be reproduced by the group
