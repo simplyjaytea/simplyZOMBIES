@@ -39,6 +39,7 @@ const TICK_SECONDS: float = 1.0 / 20.0
 const EPSILON: float = 0.0001
 
 var _failures: Array[String] = []
+var _skips: Array[String] = []
 
 
 func _init() -> void:
@@ -61,8 +62,8 @@ func _run() -> void:
 	var ok: bool = _scene_shape(scene)
 	if ok:
 		var spawn: Vector2 = scene.call("rendered_player_position")
-		ok = _mapping(scene) and ok
 		ok = _npc(scene) and ok
+		ok = _mapping(scene) and ok
 		ok = _movement(scene) and ok
 		ok = _yaw(scene) and ok
 		ok = _blocked(scene) and ok
@@ -78,6 +79,8 @@ func _run() -> void:
 func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	root.size = old_size
 	if ok:
+		for skip in _skips:
+			print("FIRST_PERSON_SKIP " + skip)
 		print("FIRST_PERSON_OK the opt-in scene boots the real sim, maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, refuses E out of reach or off the aim and opens the real work panel in reach, dispatches a priority that changes a colonist's row, closes cleanly on Escape, steps NPC jobs, and draws a digit-free prose HUD")
 		quit(0)
 		return
@@ -138,8 +141,26 @@ func _scene_shape(scene: Node) -> bool:
 		ok = _fail("SHAPE", "the ledger seam points at the wrong path")
 	if not is_equal_approx(Assets.DESK_HEIGHT_M, 0.78):
 		ok = _fail("SHAPE", "the desk height is not the published 0.78 m")
+	if not is_equal_approx(Assets.DESK_WIDTH_M, 1.20) or not is_equal_approx(Assets.DESK_DEPTH_M, 0.62):
+		ok = _fail("SHAPE", "the desk footprint is not the published 1.20 x 0.62 m")
 	if not is_equal_approx(Assets.LEDGER_WIDTH_M, 0.30) or not is_equal_approx(Assets.LEDGER_DEPTH_M, 0.22):
 		ok = _fail("SHAPE", "the ledger footprint is not the published 0.30 x 0.22 m")
+	if not is_equal_approx(Assets.LEDGER_THICKNESS_M, 0.026):
+		ok = _fail("SHAPE", "the ledger thickness is not the published 0.026 m")
+	if not is_equal_approx(Assets.SHELF_SIZE.x, 0.90) or not is_equal_approx(Assets.SHELF_SIZE.y, 1.85):
+		ok = _fail("SHAPE", "the shelf seam is not the published 0.90 x 1.85 m")
+	if not is_equal_approx(Assets.BARRICADE_SIZE.x, 1.20) or not is_equal_approx(Assets.BARRICADE_SIZE.y, 1.10):
+		ok = _fail("SHAPE", "the barricade seam is not the published 1.20 x 1.10 m")
+	if not is_equal_approx(Assets.WALL_MODULE_SIZE.x, 1.00) or not is_equal_approx(Assets.WALL_MODULE_SIZE.y, 2.60):
+		ok = _fail("SHAPE", "the wall seam is not the published 1.00 x 2.60 m")
+	# The loader is a seam, not a dependency: each model is used exactly when its file is there.
+	var props: Node = scene.get_node_or_null("SafeSpawnProps")
+	var desk_model: bool = bool(props.get("used_desk_model")) if props != null else false
+	var ledger_model: bool = bool(props.get("used_ledger_model")) if props != null else false
+	if desk_model != ResourceLoader.exists(Assets.DESK):
+		ok = _fail("SHAPE", "the desk model use does not match what is on disk")
+	if ledger_model != ResourceLoader.exists(Assets.LEDGER):
+		ok = _fail("SHAPE", "the ledger model use does not match what is on disk")
 	return ok
 
 
@@ -155,7 +176,7 @@ func _collect_physics(node: Node, out: Array[Node]) -> void:
 func _mapping(scene: Node) -> bool:
 	var ok: bool = true
 	var point: Vector2 = Vector2(12.3, 7.8)
-	scene.call("place_player_at", point)
+	_place_player(scene, point)
 	var camera: Camera3D = scene.get("camera") as Camera3D
 	if not is_equal_approx(camera.global_position.x, point.x):
 		ok = _fail("MAPPING", "sim x is not Godot x (%.3f vs %.3f)" % [point.x, camera.global_position.x])
@@ -169,7 +190,7 @@ func _mapping(scene: Node) -> bool:
 	# Leave the player somewhere walkable, so the NPC lane does not step a body inside a wall.
 	var safe: Vector2 = _find_open_area(scene.get("map"), 2)
 	if safe != Vector2(-1.0, -1.0):
-		scene.call("place_player_at", safe)
+		_place_player(scene, safe)
 	return ok
 
 
@@ -202,7 +223,58 @@ func _npc(scene: Node) -> bool:
 		ok = _fail("NPC", "the player has a third-person body in first person")
 	if scene.call("body_node_for", ent) == null:
 		ok = _fail("NPC", "the working colonist has no sim-driven body view")
+	# True positive for visibility: aim at bodies until the sim says one is in sight, then require
+	# its view to be visible. The screen cannot show a body the sim does not know.
+	var visible_ent: int = -1
+	for candidate in world.components.query(["position", "body"]):
+		var ce: int = int(candidate)
+		if ce == int(world.player) or not world.entities.is_alive(ce):
+			continue
+		var cp: Variant = world.components.get_component(ce, "position")
+		if not (cp is Dictionary):
+			continue
+		var cx: float = float((cp as Dictionary)["x"])
+		var cy: float = float((cp as Dictionary)["y"])
+		scene.call("look_toward", Vector3(cx, 1.0, cy))
+		scene.call("step_sim_once")
+		if int(world.vision.call("detail", int(world.player), cx, cy)) > 0:
+			visible_ent = ce
+			break
+	if visible_ent < 0:
+		ok = _fail("NPC", "no body came into the sim's sight when the player looked at it")
+	else:
+		var visible_view: MeshInstance3D = scene.call("body_node_for", visible_ent) as MeshInstance3D
+		if visible_view == null or not visible_view.visible:
+			ok = _fail("NPC", "a body the sim can see was not drawn")
+	if int(scene.call("body_view_visible_count")) <= 0:
+		ok = _fail("NPC", "no sim body is visible after the player looked at one")
+	# True negative for visibility: a body the sim's own eyes cannot see is not drawn. A lane with
+	# no such body says so rather than passing quietly.
+	var hidden: int = _first_out_of_sight_body(world)
+	if hidden >= 0:
+		var hidden_view: MeshInstance3D = scene.call("body_node_for", hidden) as MeshInstance3D
+		if hidden_view == null:
+			ok = _fail("NPC", "an out-of-sight body had no view to hide")
+		elif hidden_view.visible:
+			ok = _fail("NPC", "an out-of-sight body was drawn through the world")
+	else:
+		_skips.append("NPC: no out-of-sight body at this spawn to judge visibility against")
 	return ok
+
+
+func _first_out_of_sight_body(world: Variant) -> int:
+	if world.vision == null:
+		return -1
+	for ent in world.components.query(["position", "body"]):
+		var e: int = int(ent)
+		if e == int(world.player) or not world.entities.is_alive(e):
+			continue
+		var pos: Variant = world.components.get_component(e, "position")
+		if not (pos is Dictionary):
+			continue
+		if int(world.vision.call("detail", int(world.player), float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))) == 0:
+			return e
+	return -1
 
 
 func _jobs_running(world: Variant) -> int:
@@ -224,7 +296,7 @@ func _movement(scene: Node) -> bool:
 	var origin: Vector2 = _find_open_area(map, 2)
 	if origin == Vector2(-1.0, -1.0):
 		return _fail("MOVE", "the district has no open area for a walk")
-	scene.call("place_player_at", origin)
+	_place_player(scene, origin)
 	scene.call("set_look", 0.0, 0.0)
 	# The real mouse path, not just the setter: a rightward motion turns the view and the aim.
 	var yaw_before: float = float(scene.get("yaw"))
@@ -292,19 +364,32 @@ func _yaw(scene: Node) -> bool:
 	if area == Vector2(-1.0, -1.0):
 		return _fail("YAW", "the district has no open area for a turn")
 
-	scene.call("place_player_at", area)
+	_place_player(scene, area)
 	scene.call("set_look", 0.0, 0.0)
 	world.commands.recorded.clear()
 	var tick_before: int = int(world.tick)
 	_key(KEY_W, true)
 	scene.call("_process", TICK_SECONDS)
 	var north: Dictionary = _last_command(world, "move", tick_before)
+	# Held W and a camera turn must send the new direction immediately, not wait for the next key.
+	var motion: InputEventMouseMotion = InputEventMouseMotion.new()
+	motion.relative = Vector2(655.0, 0.0)
+	root.push_input(motion)
+	scene.call("_process", TICK_SECONDS)
+	var turned: Dictionary = _last_command(world, "move", tick_before)
+	var turned_aim: Dictionary = _last_command(world, "aim", tick_before)
 	_key(KEY_W, false)
 	scene.call("_process", TICK_SECONDS)
 	if north.is_empty() or absf(float(north.get("dx", 9.0))) > 0.02 or absf(float(north.get("dy", 9.0)) + 1.0) > 0.02:
 		ok = _fail("YAW", "yaw zero did not walk toward sim north")
+	if turned.is_empty():
+		ok = _fail("YAW", "a turn while W was held sent no new move")
+	elif absf(float(turned.get("dx", 9.0)) - 1.0) > 0.02 or absf(float(turned.get("dy", 9.0))) > 0.02:
+		ok = _fail("YAW", "a turn while W was held kept the old direction (dx %.3f dy %.3f)" % [float(turned.get("dx", 9.0)), float(turned.get("dy", 9.0))])
+	if turned_aim.is_empty() or absf(angle_difference(float(turned_aim.get("radians", 99.0)), 0.0)) > 0.02:
+		ok = _fail("YAW", "a turn while W was held did not send the new aim")
 
-	scene.call("place_player_at", area)
+	_place_player(scene, area)
 	scene.call("set_look", -PI / 2.0, 0.0)
 	world.commands.recorded.clear()
 	tick_before = int(world.tick)
@@ -341,7 +426,7 @@ func _blocked(scene: Node) -> bool:
 	var centre: Vector2 = Vector2(float(tile.x) + 0.5, float(tile.y) + 0.5)
 	var ok: bool = true
 
-	scene.call("place_player_at", centre)
+	_place_player(scene, centre)
 	scene.call("set_look", atan2(-float(direction.x), -float(direction.y)), 0.0)
 	_key(KEY_W, true)
 	for _i in 6:
@@ -354,7 +439,7 @@ func _blocked(scene: Node) -> bool:
 	if floori(into_wall.x) != tile.x or floori(into_wall.y) != tile.y:
 		ok = _fail("BLOCK", "the body left its tile against the wall")
 
-	scene.call("place_player_at", centre)
+	_place_player(scene, centre)
 	scene.call("set_look", atan2(float(direction.x), float(direction.y)), 0.0)
 	_key(KEY_W, true)
 	for _i in 6:
@@ -371,6 +456,8 @@ func _blocked(scene: Node) -> bool:
 
 func _ledger(scene: Node, spawn: Vector2) -> bool:
 	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
 	var ledger: Vector2 = scene.call("ledger_sim_position")
 	var approach: Vector2 = scene.call("ledger_approach_position")
 	if ledger.distance_to(spawn) > 8.0:
@@ -387,7 +474,7 @@ func _ledger(scene: Node, spawn: Vector2) -> bool:
 		ok = _fail("LEDGER", "a work panel was visible before the ledger was used")
 
 	# Far away: refused, with words on screen.
-	scene.call("place_player_at", ledger + Vector2(6.0, 0.0))
+	_place_player(scene, ledger + Vector2(6.0, 0.0))
 	scene.call("look_toward", Vector3(ledger.x, 0.90, ledger.y))
 	if String(scene.call("interaction_verdict")) != "far":
 		ok = _fail("LEDGER", "a ledger six metres away did not read as far")
@@ -398,10 +485,33 @@ func _ledger(scene: Node, spawn: Vector2) -> bool:
 	if String(scene.get("_alert")) == "":
 		ok = _fail("LEDGER", "the refused far interaction said nothing")
 
+	# Within reach but through an opaque wall: the sim's own sight decides, so aim alone is not
+	# enough. The desk is sited against a sight-blocking wall for exactly this case.
+	var wall_dir: Vector2i = _find_through_wall(map, ledger)
+	if wall_dir == Vector2i(-1, -1):
+		ok = _fail("LEDGER", "the ledger has no opaque wall with open floor beyond it")
+	else:
+		var wall: Vector2i = Vector2i(floori(ledger.x), floori(ledger.y)) + wall_dir
+		var behind: Vector2 = Vector2(float(wall.x) + 0.5 + float(wall_dir.x) * 0.62, float(wall.y) + 0.5 + float(wall_dir.y) * 0.62)
+		_place_player(scene, behind)
+		scene.call("look_toward", Vector3(ledger.x, 0.90, ledger.y))
+		_settle_vision(scene)
+		if ledger.distance_to(behind) > 1.80:
+			ok = _fail("LEDGER", "the through-wall point is outside reach (%.2f m)" % ledger.distance_to(behind))
+		if String(scene.call("interaction_verdict")) != "blocked":
+			ok = _fail("LEDGER", "a ledger through a wall did not read as blocked")
+		_key(KEY_E, true)
+		_key(KEY_E, false)
+		if bool(scene.get("menu_open")):
+			ok = _fail("LEDGER", "E opened the ledger through a wall")
+		if String(scene.get("_alert")) == "":
+			ok = _fail("LEDGER", "the refused through-wall interaction said nothing")
+
 	# In reach but looking away: refused, with words on screen.
-	scene.call("place_player_at", approach)
+	_place_player(scene, approach)
 	scene.call("look_toward", Vector3(ledger.x, 0.90, ledger.y))
 	scene.call("set_look", float(scene.get("yaw")) + PI, 0.0)
+	_settle_vision(scene)
 	if String(scene.call("interaction_verdict")) != "away":
 		ok = _fail("LEDGER", "looking the other way in reach still read as usable")
 	_key(KEY_E, true)
@@ -413,6 +523,7 @@ func _ledger(scene: Node, spawn: Vector2) -> bool:
 
 	# In reach and looking at it: the real work panel opens.
 	scene.call("look_toward", Vector3(ledger.x, 0.90, ledger.y))
+	_settle_vision(scene)
 	if String(scene.call("interaction_verdict")) != "ok":
 		ok = _fail("LEDGER", "the ledger in reach and in aim did not read as usable")
 	_key(KEY_E, true)
@@ -453,7 +564,26 @@ func _priority(scene: Node) -> bool:
 		return _fail("PRIORITY", "the work panel drew no rows to click")
 	var row: Dictionary = drawn_rows[0] as Dictionary
 	var ent: int = int(row.get("entity", -1))
-	var cells: Array = row.get("cells", []) as Array
+	var cells: Array = []
+	# The panel's row selection must survive the per-frame `set_world` refresh: click the name,
+	# step a frame, and still have that colonist selected before editing their grid.
+	var name_at: Vector2 = row.get("name_at", Vector2(-1.0, -1.0)) as Vector2
+	if name_at.x < 0.0:
+		return _fail("PRIORITY", "the first drawn row has no name to select")
+	var picked: String = panel.call("_click", name_at, false)
+	if picked != "row":
+		ok = _fail("PRIORITY", "a click on a colonist's name did not pick the row (%s)" % picked)
+	if int(panel.call("selected")) != ent:
+		ok = _fail("PRIORITY", "the clicked colonist was not the panel's pick")
+	scene.call("_process", TICK_SECONDS)
+	if int(panel.call("selected")) != ent:
+		ok = _fail("PRIORITY", "the per-frame refresh reset the panel's pick")
+	laid = panel.call("_layout")
+	drawn_rows = laid.get("rows", []) as Array
+	if drawn_rows.is_empty():
+		return _fail("PRIORITY", "the work panel drew no rows after the pick")
+	row = drawn_rows[0] as Dictionary
+	cells = row.get("cells", []) as Array
 	if cells.is_empty():
 		return _fail("PRIORITY", "the first drawn row has no priority cells")
 	var cell: Dictionary = cells[0] as Dictionary
@@ -488,6 +618,17 @@ func _priority(scene: Node) -> bool:
 			ok = _fail("PRIORITY", "the priority command named the wrong colonist")
 		if String(cmd.get("column", "")) != column:
 			ok = _fail("PRIORITY", "the priority command named the wrong column")
+
+	# The panel's "their skills" button is a real signal, and this foundation answers it visibly
+	# rather than letting a press vanish. No skill web is claimed to exist.
+	var note: Label = scene.get("_ledger_note") as Label
+	if note == null:
+		ok = _fail("PRIORITY", "the ledger built no note for its out-of-scope button")
+	elif note.visible:
+		ok = _fail("PRIORITY", "the ledger note was visible before anything asked for it")
+	panel.emit_signal("navigate", "skills")
+	if note == null or not note.visible or note.text == "":
+		ok = _fail("PRIORITY", "the panel's skills button did not answer")
 	return ok
 
 
@@ -524,8 +665,23 @@ func _menu(scene: Node) -> bool:
 	if held is Dictionary and not (held as Dictionary).is_empty():
 		ok = _fail("MENU", "Escape left a movement key held")
 
+	# Alt-tab: a held key must not survive the focus loss, and the queued move must be zero.
+	_key(KEY_W, true)
+	scene.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	var lost: Variant = scene.get("_held")
+	if lost is Dictionary and not (lost as Dictionary).is_empty():
+		ok = _fail("MENU", "focus loss left a movement key held")
+	world.commands.record = true
+	world.commands.recorded.clear()
+	var loss_tick: int = int(world.tick)
+	scene.call("_process", TICK_SECONDS)
+	var zero: Dictionary = _last_command(world, "move", loss_tick)
+	if zero.is_empty() or absf(float(zero.get("dx", 9.0))) > 0.0001 or absf(float(zero.get("dy", 9.0))) > 0.0001:
+		ok = _fail("MENU", "focus loss did not queue a zero move")
+	_key(KEY_W, false)
+
 	var area: Vector2 = _find_open_area(map, 2)
-	scene.call("place_player_at", area)
+	_place_player(scene, area)
 	scene.call("set_look", 0.0, 0.0)
 	_key(KEY_W, true)
 	scene.call("_process", TICK_SECONDS)
@@ -591,6 +747,28 @@ func _key(code: Key, pressed: bool) -> void:
 	root.push_input(ev)
 
 
+## Test setup, kept in the gate so the presentation never writes a sim component. The scene is
+## told only to re-read the position afterwards (`snap_render_to_sim` is read-only).
+func _place_player(scene: Node, point: Vector2) -> void:
+	var world: Variant = scene.get("world")
+	if world == null:
+		return
+	world.components.set_component(int(world.player), "position", {"x": point.x, "y": point.y})
+	var velocity: Variant = world.components.get_component(int(world.player), "velocity")
+	if velocity is Dictionary:
+		(velocity as Dictionary)["dx"] = 0.0
+		(velocity as Dictionary)["dy"] = 0.0
+	scene.call("snap_render_to_sim")
+
+
+## The player's shadowcast is deliberately staggered over a few ticks (`STAGGER_PLAYER_CAST`), so
+## a teleport in the gate needs the same few ticks a walk would take before the sim's sight agrees
+## with the new position. Six covers the four quadrants and the tick that queues them.
+func _settle_vision(scene: Node, ticks: int = 6) -> void:
+	for _i in ticks:
+		scene.call("step_sim_once")
+
+
 func _player_pos(world: Variant) -> Vector2:
 	var pos: Variant = world.components.get_component(int(world.player), "position")
 	if not (pos is Dictionary):
@@ -648,6 +826,20 @@ func _find_blocked_setup(map: Variant) -> Dictionary:
 					continue
 				return {"tile": Vector2i(tx, ty), "dir": direction}
 	return {}
+
+
+func _find_through_wall(map: Variant, point: Vector2) -> Vector2i:
+	var tile: Vector2i = Vector2i(floori(point.x), floori(point.y))
+	var directions: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
+	for direction in directions:
+		var wall: Vector2i = tile + direction
+		if not SimTileMap.is_solid(map, wall.x, wall.y):
+			continue
+		if not SimTileMap.blocks_sight(map, wall.x, wall.y):
+			continue
+		if _walkable_floor(map, wall.x + direction.x, wall.y + direction.y):
+			return direction
+	return Vector2i(-1, -1)
 
 
 func _walkable_floor(map: Variant, tx: int, ty: int) -> bool:

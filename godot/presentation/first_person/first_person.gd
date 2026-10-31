@@ -20,6 +20,7 @@ const BodyView = preload("res://presentation/first_person/body_view.gd")
 const PropView = preload("res://presentation/first_person/prop_view.gd")
 const Hud = preload("res://presentation/first_person/hud.gd")
 const WorkPanel = preload("res://ui/work_panel.gd")
+const Chrome = preload("res://ui/chrome.gd")
 
 const SEED: int = 20260805
 const DISTRICT_TILES: int = 64
@@ -52,6 +53,7 @@ var _props: Node3D = null
 var _hud: Control = null
 var _work_layer: CanvasLayer = null
 var _work_panel: Control = null
+var _ledger_note: Label = null
 
 var _held: Dictionary = {}
 var _last_dx: float = 0.0
@@ -81,6 +83,18 @@ func _exit_tree() -> void:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 
+func _notification(what: int) -> void:
+	# Alt-tab must not leave a held key walking the body: the window stops receiving the release,
+	# so the held set is cleared and a zero move is queued. Focus back recaptures the mouse unless
+	# the ledger is open, where the pointer belongs to the menu.
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		_clear_held()
+		_push_zero_move()
+	elif what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
+		if not menu_open:
+			_capture_mouse()
+
+
 # --- boot and views -------------------------------------------------------------------------
 
 func _boot() -> void:
@@ -97,6 +111,7 @@ func _boot() -> void:
 	var to_ledger: Vector2 = _ledger_sim - _curr_player
 	if to_ledger.length_squared() > 0.01:
 		yaw = atan2(-to_ledger.x, -to_ledger.y)
+	_push_aim()
 
 
 func _build_environment() -> void:
@@ -104,8 +119,8 @@ func _build_environment() -> void:
 	environment.background_mode = Environment.BG_COLOR
 	environment.background_color = Color(0.09, 0.11, 0.12)
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color(0.62, 0.66, 0.70)
-	environment.ambient_light_energy = 0.75
+	environment.ambient_light_color = Color(0.72, 0.75, 0.78)
+	environment.ambient_light_energy = 1.10
 	var world_env: WorldEnvironment = WorldEnvironment.new()
 	world_env.name = "FirstPersonEnvironment"
 	world_env.environment = environment
@@ -163,20 +178,34 @@ func _build_hud() -> void:
 # --- the ledger site ------------------------------------------------------------------------
 
 # A desk within a few metres of the safe spawn, on open floor, with at least one open orthogonal
-# neighbour to stand on. The search is row-major over rings, so it is deterministic; no RNG is
-# drawn and the sim does not learn the desk exists.
+# neighbour to stand on. A tile backed by a real wall with open floor on the wall's far side is
+# preferred: it looks like a desk against a wall, and it gives the gate a genuine through-wall case
+# for the ledger's line-of-sight rule. The search is row-major over rings, so it is deterministic;
+# no RNG is drawn and the sim does not learn the desk exists.
 func _choose_ledger_site() -> void:
 	var start: Vector2i = Vector2i(floori(_curr_player.x), floori(_curr_player.y))
-	var best: Vector2i = Vector2i(-1, -1)
-	var approach: Vector2i = Vector2i(-1, -1)
-	var best_d: int = 1 << 30
+	var site: Dictionary = _find_site(start, true)
+	if site.is_empty():
+		site = _find_site(start, false)
+	if site.is_empty():
+		site = {"tile": start, "approach": start}
+	_ledger_sim = Vector2(float((site["tile"] as Vector2i).x) + 0.5, float((site["tile"] as Vector2i).y) + 0.5)
+	_ledger_approach = Vector2(float((site["approach"] as Vector2i).x) + 0.5, float((site["approach"] as Vector2i).y) + 0.5)
+
+
+func _find_site(start: Vector2i, require_blocking_wall: bool) -> Dictionary:
 	for radius in range(2, 8):
+		var best: Vector2i = Vector2i(-1, -1)
+		var approach: Vector2i = Vector2i(-1, -1)
+		var best_d: int = 1 << 30
 		for dy in range(-radius, radius + 1):
 			for dx in range(-radius, radius + 1):
 				if maxi(absi(dx), absi(dy)) != radius:
 					continue
 				var tile: Vector2i = start + Vector2i(dx, dy)
 				if not _furniture_tile(tile):
+					continue
+				if require_blocking_wall and _blocking_wall(tile) == Vector2i(-1, -1):
 					continue
 				var side: Vector2i = _approach_for(tile, start)
 				if side == Vector2i(-1, -1):
@@ -187,12 +216,8 @@ func _choose_ledger_site() -> void:
 					best = tile
 					approach = side
 		if best != Vector2i(-1, -1):
-			break
-	if best == Vector2i(-1, -1):
-		best = start
-		approach = start
-	_ledger_sim = Vector2(float(best.x) + 0.5, float(best.y) + 0.5)
-	_ledger_approach = Vector2(float(approach.x) + 0.5, float(approach.y) + 0.5)
+			return {"tile": best, "approach": approach}
+	return {}
 
 
 func _furniture_tile(tile: Vector2i) -> bool:
@@ -204,6 +229,21 @@ func _furniture_tile(tile: Vector2i) -> bool:
 		return false
 	var index: int = tile.y * int(map.w) + tile.x
 	return int(map.surfaces[index]) != SimTileMap.SURFACE_WATER
+
+
+func _blocking_wall(tile: Vector2i) -> Vector2i:
+	var sides: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
+	for side in sides:
+		var wall: Vector2i = tile + side
+		if not SimTileMap.is_solid(map, wall.x, wall.y):
+			continue
+		# A window is solid but clear: the ledger test needs a wall the sim's eyes cannot see
+		# through, so the desk prefers one that blocks sight.
+		if not SimTileMap.blocks_sight(map, wall.x, wall.y):
+			continue
+		if _furniture_tile(wall + side):
+			return side
+	return Vector2i(-1, -1)
 
 
 func _approach_for(tile: Vector2i, start: Vector2i) -> Vector2i:
@@ -257,6 +297,9 @@ func step_sim_once() -> void:
 	if pos is Dictionary:
 		_curr_player = Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
 	_bodies.call("end_tick", world)
+	# Keep the views and their sim-gated visibility current even when the gate drives ticks
+	# without a frame; `_process` overlays the interpolated position afterwards.
+	_bodies.call("apply", world, 1.0)
 
 
 func _update_render(alpha: float) -> void:
@@ -332,6 +375,10 @@ func look_by(delta_x: float, delta_y: float) -> void:
 	yaw = wrapf(yaw - delta_x * LOOK_SENSITIVITY, -PI, PI)
 	pitch = clampf(pitch - delta_y * LOOK_SENSITIVITY, -PITCH_LIMIT, PITCH_LIMIT)
 	_push_aim()
+	# Walking is relative to the yaw, so a turn while W is held must also send the new direction.
+	# Without this the body kept walking the direction of the last key event until another key.
+	if not _held.is_empty():
+		_push_move_from_held()
 
 
 func set_look(new_yaw: float, new_pitch: float) -> void:
@@ -339,6 +386,8 @@ func set_look(new_yaw: float, new_pitch: float) -> void:
 	pitch = clampf(new_pitch, -PITCH_LIMIT, PITCH_LIMIT)
 	_update_render(clampf(_accumulator / TICK_SECONDS, 0.0, 1.0))
 	_push_aim()
+	if not _held.is_empty():
+		_push_move_from_held()
 
 
 ## Points the eye at a Godot-space point. Used by the gate and by nothing else in the frame loop;
@@ -421,8 +470,9 @@ func _clear_held() -> void:
 
 # --- the ledger ------------------------------------------------------------------------------
 
-## "ok", "far" or "away". Reach is measured in the sim's own metres from the body the sim moved;
-## the look is the camera's forward cone. Both must pass.
+## "ok", "far", "blocked" or "away". Reach is measured in the sim's own metres from the body the
+## sim moved; the sim's own visibility decides whether a wall is in the way; the look is the
+## camera's forward cone. Every one must pass.
 func interaction_verdict() -> String:
 	if world == null or _props == null:
 		return "none"
@@ -435,7 +485,17 @@ func interaction_verdict() -> String:
 		return "away"
 	if look_direction().dot(to.normalized()) < LEDGER_AIM_DOT:
 		return "away"
+	if not ledger_in_sight():
+		return "blocked"
 	return "ok"
+
+
+## The same vision read the top-down screen uses: a ledger through a wall is not in reach,
+## however close the geometry is.
+func ledger_in_sight() -> bool:
+	if world == null or world.vision == null:
+		return false
+	return int(world.vision.call("detail", int(world.player), _ledger_sim.x, _ledger_sim.y)) != 0
 
 
 ## The one interaction the scene offers. False means it did not happen and says why on screen;
@@ -446,6 +506,9 @@ func try_interact() -> bool:
 	match interaction_verdict():
 		"far":
 			_set_alert("Nothing within reach. Walk closer to the ledger.")
+			return false
+		"blocked":
+			_set_alert("The ledger is behind a wall.")
 			return false
 		"away":
 			_set_alert("You are near the ledger, but not looking at it.")
@@ -465,8 +528,23 @@ func open_ledger_menu() -> void:
 		_work_panel = WorkPanel.new()
 		_work_panel.name = "WorkPanel"
 		_work_layer.add_child(_work_panel)
+		if _work_panel.has_signal("navigate"):
+			_work_panel.connect("navigate", _on_ledger_navigate)
+		# The foundation has no skill web. The panel's "their skills" button gets an honest answer
+		# rather than a silent dead press: a note above the panel saying what is not here yet.
+		_ledger_note = Label.new()
+		_ledger_note.name = "LedgerNote"
+		_ledger_note.position = Vector2(24.0, 18.0)
+		_ledger_note.add_theme_font_override("font", Chrome.font())
+		_ledger_note.add_theme_font_size_override("font_size", 20)
+		_ledger_note.add_theme_color_override("font_color", Color(0.94, 0.84, 0.58))
+		_ledger_note.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_ledger_note.visible = false
+		_work_layer.add_child(_ledger_note)
 	_work_panel.call("set_world", world, -1)
 	_work_panel.visible = true
+	if _ledger_note != null:
+		_ledger_note.visible = false
 	menu_open = true
 	_clear_held()
 	_push_zero_move()
@@ -477,11 +555,21 @@ func open_ledger_menu() -> void:
 func close_ledger_menu() -> void:
 	if _work_panel != null:
 		_work_panel.visible = false
+	if _ledger_note != null:
+		_ledger_note.visible = false
 	menu_open = false
 	_clear_held()
 	_push_zero_move()
 	_capture_mouse()
 	_alert = ""
+
+
+func _on_ledger_navigate(screen: String) -> void:
+	if _ledger_note == null:
+		return
+	if screen == "skills":
+		_ledger_note.text = "The skill web is a later slice; this ledger manages work priorities."
+		_ledger_note.visible = true
 
 
 func work_panel_node() -> Control:
@@ -510,22 +598,24 @@ func body_view_count() -> int:
 	return int(_bodies.call("count")) if _bodies != null else 0
 
 
+func body_view_visible_count() -> int:
+	return int(_bodies.call("visible_count")) if _bodies != null else 0
+
+
 func body_node_for(entity: int) -> MeshInstance3D:
 	return _bodies.call("node_for", entity) as MeshInstance3D
 
 
-## Puts the player on a sim point and makes the presentation agree at once. The gate's setup uses
-## it; in play nothing calls it, because walking is the sim's job.
-func place_player_at(point: Vector2) -> void:
+## Re-reads the player's sim position into the render state. Read-only by construction: a gate
+## moves the sim body itself and then calls this, so presentation never writes a component. In play
+## nothing calls it, because walking is the sim's job.
+func snap_render_to_sim() -> void:
 	if world == null:
 		return
-	world.components.set_component(int(world.player), "position", {"x": point.x, "y": point.y})
-	var velocity: Variant = world.components.get_component(int(world.player), "velocity")
-	if velocity is Dictionary:
-		(velocity as Dictionary)["dx"] = 0.0
-		(velocity as Dictionary)["dy"] = 0.0
-	_curr_player = point
-	_prev_player = point
+	var pos: Variant = world.components.get_component(int(world.player), "position")
+	if pos is Dictionary:
+		_curr_player = Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
+	_prev_player = _curr_player
 	_accumulator = 0.0
 	_update_render(0.0)
 

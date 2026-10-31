@@ -76,6 +76,14 @@ switch (mode) {
       "res://presentation/first_person/first_person.tscn",
     ];
     break;
+  case "--first-person-props":
+    args = [
+      "--path",
+      resolve(root, "godot"),
+      "--scene",
+      "res://presentation/first_person/prop_preview.tscn",
+    ];
+    break;
   case "--smoke":
     args = [
       "--headless",
@@ -682,8 +690,10 @@ const finish = (code) => {
   process.exit(code);
 };
 
-const run = (invocation) => {
-  const result = spawnSync(executable, invocation, { cwd: root, stdio: "inherit" });
+const run = (invocation, timeoutMs = 0) => {
+  const options = { cwd: root, stdio: "inherit" };
+  if (timeoutMs > 0) options.timeout = timeoutMs;
+  const result = spawnSync(executable, invocation, options);
   if (result.error !== undefined) throw result.error;
   if (result.status !== 0) finish(result.status ?? 1);
 };
@@ -721,7 +731,10 @@ if (mode === "--runtime-tick" || mode === "--runtime-frame") {
   mkdirSync(resolve(root, "dist-godot/web"), { recursive: true });
   run(["--headless", "--path", resolve(root, "godot"), "--export-release", "Web"]);
 } else {
-  run(args);
+  // The first-person gate is bounded on purpose: a GDScript runtime error can leave a SceneTree
+  // alive forever, and the gate's own quit is not reached in that case. Two minutes is far above
+  // its measured run and still ends a wedged process rather than hanging the chain.
+  run(args, mode === "--check-first-person" ? 120000 : 0);
 }
 
 finish(0);

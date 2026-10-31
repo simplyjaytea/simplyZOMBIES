@@ -22,9 +22,14 @@ const BARRICADE: String = DIR + "barricade.glb"
 const WALL_MODULE: String = DIR + "wall_module.glb"
 
 const DESK_HEIGHT_M: float = 0.78
+const DESK_WIDTH_M: float = 1.20
+const DESK_DEPTH_M: float = 0.62
 const LEDGER_WIDTH_M: float = 0.30
 const LEDGER_DEPTH_M: float = 0.22
-const LEDGER_THICKNESS_M: float = 0.035
+const LEDGER_THICKNESS_M: float = 0.026
+const SHELF_SIZE: Vector3 = Vector3(0.90, 1.85, 0.32)
+const BARRICADE_SIZE: Vector3 = Vector3(1.20, 1.10, 0.18)
+const WALL_MODULE_SIZE: Vector3 = Vector3(1.00, 2.60, 0.12)
 # Where the ledger's centre sits above the floor: the desk top plus half its own thickness. The
 # ledger's authored origin is its bottom centre, so its node is placed on the desk top instead.
 const LEDGER_TOP_M: float = DESK_HEIGHT_M + LEDGER_THICKNESS_M

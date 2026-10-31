@@ -63,6 +63,15 @@ func count() -> int:
 	return _views.size()
 
 
+func visible_count() -> int:
+	var total: int = 0
+	for view in _views.values():
+		var mesh: MeshInstance3D = view as MeshInstance3D
+		if mesh != null and mesh.visible:
+			total += 1
+	return total
+
+
 func node_for(entity: int) -> MeshInstance3D:
 	return _views.get(entity) as MeshInstance3D
 
@@ -109,6 +118,16 @@ func _sync_views(world: Variant, alpha: float) -> void:
 		var now: Vector2 = _curr[e] as Vector2
 		var at: Vector2 = then.lerp(now, a)
 		view.position = Vector3(at.x, view.position.y, at.y)
+		# The screen may not know more than the sim does: a body behind a wall or beyond the
+		# player's range is not drawn, even though the 3D depth buffer would hide some of them.
+		# `vision.detail` is the same read model the top-down screen and the work read use.
+		view.visible = _in_sight(world, now)
+
+
+func _in_sight(world: Variant, at: Vector2) -> bool:
+	if world == null or world.vision == null:
+		return false
+	return int(world.vision.call("detail", int(world.player), at.x, at.y)) != 0
 
 
 func _make_view(entity: int, world: Variant) -> MeshInstance3D:

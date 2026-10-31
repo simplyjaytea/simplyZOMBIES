@@ -27,12 +27,12 @@ const TREE_COLOUR: Color = Color(0.20, 0.36, 0.20)
 const WATER_COLOUR: Color = Color(0.16, 0.34, 0.45)
 
 const SURFACE_COLOURS: Array[Color] = [
-	Color(0.46, 0.45, 0.42),
-	Color(0.40, 0.34, 0.26),
-	Color(0.31, 0.42, 0.26),
-	Color(0.23, 0.33, 0.20),
-	Color(0.38, 0.35, 0.31),
-	Color(0.18, 0.36, 0.46),
+	Color(0.58, 0.57, 0.54),
+	Color(0.50, 0.43, 0.33),
+	Color(0.38, 0.50, 0.31),
+	Color(0.29, 0.40, 0.24),
+	Color(0.47, 0.44, 0.39),
+	Color(0.22, 0.42, 0.53),
 ]
 
 var map: Variant = null
@@ -57,9 +57,9 @@ func _build_mesh(node_name: String, mesh: Mesh) -> MeshInstance3D:
 	var material: StandardMaterial3D = StandardMaterial3D.new()
 	material.vertex_color_use_as_albedo = true
 	material.roughness = 0.95
-	# The placeholder boxes are built face by face; disabling culling means a winding mistake is a
-	# dark face rather than an invisible wall, which is the honest failure for a foundation.
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	# Back-face culling stays on. Every quad is wound to its outward normal below, so a hole in the
+	# district is a missing mesh and not a face quietly drawn from behind.
+	material.cull_mode = BaseMaterial3D.CULL_BACK
 	instance.material_override = material
 	add_child(instance)
 	return instance
@@ -76,8 +76,12 @@ func _ground_surface() -> ArrayMesh:
 			var tile: int = int(map.tiles[idx])
 			var surface: int = int(map.surfaces[idx])
 			var colour: Color = WATER_COLOUR if tile == SimTileMap.Tile.Water else _surface_colour(surface)
+			# A subtle per-tile even/odd shade, so the metre grid reads on the floor even before
+			# the pixel textures land.
+			if (tx + ty) % 2 != 0:
+				colour = colour * 0.90
 			var y: float = WATER_Y if tile == SimTileMap.Tile.Water else 0.0
-			_add_quad(st,
+			_add_quad_up(st,
 				Vector3(float(tx) + 0.02, y, float(ty) + 0.02),
 				Vector3(float(tx) + 0.98, y, float(ty) + 0.02),
 				Vector3(float(tx) + 0.98, y, float(ty) + 0.98),
@@ -123,19 +127,32 @@ func _surface_colour(surface: int) -> Color:
 	return SURFACE_COLOURS[surface]
 
 
-func _add_quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, colour: Color) -> void:
+func _add_quad_up(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, colour: Color) -> void:
+	_add_quad_facing(st, a, b, c, d, Vector3.UP, colour)
+
+
+# Adds the quad as two triangles wound so the normal `generate_normals` will produce along
+# `outward`. Godot's convention is the clockwise one: for triangle (a, b, c) the generated normal
+# is `(c - a) x (b - a)`, not `(b - a) x (c - a)`. The corner order is flipped only when that
+# generated normal disagrees with the outward one. That is what lets one helper build a floor (up),
+# a wall (sideways) and a box without a second convention or double-sided geometry.
+func _add_quad_facing(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, outward: Vector3, colour: Color) -> void:
+	var generated: Vector3 = (c - a).cross(b - a)
+	if generated.dot(outward) < 0.0:
+		_add_tri(st, a, c, b, colour)
+		_add_tri(st, a, d, c, colour)
+	else:
+		_add_tri(st, a, b, c, colour)
+		_add_tri(st, a, c, d, colour)
+
+
+func _add_tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, colour: Color) -> void:
 	st.set_color(colour)
 	st.add_vertex(a)
 	st.set_color(colour)
 	st.add_vertex(b)
 	st.set_color(colour)
 	st.add_vertex(c)
-	st.set_color(colour)
-	st.add_vertex(a)
-	st.set_color(colour)
-	st.add_vertex(c)
-	st.set_color(colour)
-	st.add_vertex(d)
 
 
 func _add_box(st: SurfaceTool, centre: Vector3, size: Vector3, colour: Color) -> void:
@@ -150,9 +167,9 @@ func _add_box(st: SurfaceTool, centre: Vector3, size: Vector3, colour: Color) ->
 	var p101: Vector3 = centre + Vector3(hx, -hy, hz)
 	var p111: Vector3 = centre + Vector3(hx, hy, hz)
 	var p011: Vector3 = centre + Vector3(-hx, hy, hz)
-	_add_quad(st, p000, p100, p110, p010, colour)
-	_add_quad(st, p001, p011, p111, p101, colour)
-	_add_quad(st, p000, p001, p101, p100, colour)
-	_add_quad(st, p010, p110, p111, p011, colour)
-	_add_quad(st, p000, p010, p011, p001, colour)
-	_add_quad(st, p100, p101, p111, p110, colour)
+	_add_quad_facing(st, p000, p100, p110, p010, Vector3.FORWARD, colour)
+	_add_quad_facing(st, p001, p011, p111, p101, Vector3.BACK, colour)
+	_add_quad_facing(st, p000, p001, p101, p100, Vector3.DOWN, colour)
+	_add_quad_facing(st, p010, p110, p111, p011, Vector3.UP, colour)
+	_add_quad_facing(st, p000, p010, p011, p001, Vector3.LEFT, colour)
+	_add_quad_facing(st, p100, p101, p111, p110, Vector3.RIGHT, colour)

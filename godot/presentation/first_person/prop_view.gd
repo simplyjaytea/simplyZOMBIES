@@ -10,7 +10,7 @@ extends Node3D
 
 const Assets = preload("res://presentation/first_person/assets.gd")
 
-const DESK_PLACEHOLDER_SIZE: Vector3 = Vector3(1.40, Assets.DESK_HEIGHT_M, 0.70)
+const DESK_PLACEHOLDER_SIZE: Vector3 = Vector3(Assets.DESK_WIDTH_M, Assets.DESK_HEIGHT_M, Assets.DESK_DEPTH_M)
 const LEDGER_PLACEHOLDER_SIZE: Vector3 = Vector3(Assets.LEDGER_WIDTH_M, Assets.LEDGER_THICKNESS_M, Assets.LEDGER_DEPTH_M)
 
 const DESK_COLOUR: Color = Color(0.35, 0.27, 0.19)
@@ -19,7 +19,8 @@ const INK_COLOUR: Color = Color(0.18, 0.16, 0.14)
 
 var ledger_sim: Vector2 = Vector2.ZERO
 var desk_height: float = Assets.DESK_HEIGHT_M
-var used_models: bool = false
+var used_desk_model: bool = false
+var used_ledger_model: bool = false
 
 
 ## Builds the desk at `desk_sim` (sim x/y, in metres) and the ledger on its top. Safe to call once;
@@ -38,7 +39,7 @@ func _build_desk() -> void:
 		if model != null:
 			model.name = "DeskModel"
 			add_child(model)
-			used_models = true
+			used_desk_model = true
 			return
 	var box: MeshInstance3D = _box("DeskPlaceholder", DESK_PLACEHOLDER_SIZE, DESK_COLOUR)
 	box.position = Vector3(0.0, DESK_PLACEHOLDER_SIZE.y * 0.5, 0.0)
@@ -53,7 +54,7 @@ func _build_ledger() -> void:
 			# Authored origin is the bottom centre, so the desk top is the whole offset.
 			model.position = Vector3(0.0, desk_height, 0.0)
 			add_child(model)
-			used_models = true
+			used_ledger_model = true
 			return
 	var book: MeshInstance3D = _box("LedgerPlaceholder", LEDGER_PLACEHOLDER_SIZE, LEDGER_COLOUR)
 	book.position = Vector3(0.0, desk_height + LEDGER_PLACEHOLDER_SIZE.y * 0.5, 0.0)
