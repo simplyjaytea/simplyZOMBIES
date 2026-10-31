@@ -30,9 +30,11 @@ oracle changed. The new scene is opt-in; the default `godot/presentation/main.ts
 ## Controls
 
 `WASD` walks relative to where you are looking, the mouse turns yaw and pitch, `E` uses the
-ledger when it is in reach and in front of you, `Escape` closes the ledger and gives the mouse and
-walking back, and `P` holds the world still. There is no key that opens the work panel from
-anywhere: the only way in is the physical ledger.
+ledger when it is in reach and in front of you, and `P` holds the world still. Outside the ledger,
+`Escape` releases the mouse and a click resumes looking; with the ledger open, `Escape` goes back
+from the skill web to the work grid, and again closes the ledger and gives the mouse and walking
+back. There is no key that opens the work panel from anywhere: the only way in is the physical
+ledger.
 
 ## How it is judged
 
@@ -50,12 +52,14 @@ the scene's own frame function. It asserts:
   third-person body;
 - `E` is refused out of reach, refused off the aim, and refused through an opaque wall, each with
   words on screen, and accepted at the ledger where it opens the real `ui/work_panel.gd`; the
-  panel's row pick survives the per-frame refresh and its out-of-scope skills button answers with a
-  visible note;
+  panel's row pick survives the per-frame refresh, and its skills button opens the existing
+  read-only `ui/web_panel.gd` on that colonist;
 - a click on a priority cell dispatches `job.priority`, changes the colonist's row and turns it
   Manual, and the player is never a row;
 - a walking key does not move the body behind the open panel, `J` does not open or switch it, and
-  `Escape` restores the mouse and movement;
+  `Escape` returns from the web to the grid and from the grid to the street; `Escape` outside the
+  ledger releases the mouse and a click resumes it, and losing focus clears held keys, queues a
+  zero move and releases the pointer;
 - the HUD's every line is digit-free, it names the controls and the ledger, and no progress bar
   exists in the tree;
 - the scene owns no physics body or collision shape, with a planted `CharacterBody3D` proving the

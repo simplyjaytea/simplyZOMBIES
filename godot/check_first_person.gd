@@ -81,7 +81,7 @@ func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)
-		print("FIRST_PERSON_OK the opt-in scene boots the real sim, maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, refuses E out of reach or off the aim and opens the real work panel in reach, dispatches a priority that changes a colonist's row, closes cleanly on Escape, steps NPC jobs, and draws a digit-free prose HUD")
+		print("FIRST_PERSON_OK the opt-in scene boots the real sim, maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, refuses E out of reach, off the aim and through a wall, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, and draws a digit-free prose HUD")
 		quit(0)
 		return
 	for failure in _failures:
@@ -473,6 +473,16 @@ func _ledger(scene: Node, spawn: Vector2) -> bool:
 	if scene.call("work_panel_node") != null and bool((scene.call("work_panel_node") as Control).visible):
 		ok = _fail("LEDGER", "a work panel was visible before the ledger was used")
 
+	# Outside the ledger, Escape releases the pointer rather than trapping it, and a click resumes
+	# mouse look. The HUD says so in the same press.
+	_key(KEY_ESCAPE, true)
+	_key(KEY_ESCAPE, false)
+	if bool(scene.call("mouse_captured")):
+		ok = _fail("LEDGER", "Escape outside the ledger did not release the mouse")
+	_click_mouse()
+	if not bool(scene.call("mouse_captured")):
+		ok = _fail("LEDGER", "a click did not resume mouse look")
+
 	# Far away: refused, with words on screen.
 	_place_player(scene, ledger + Vector2(6.0, 0.0))
 	scene.call("look_toward", Vector3(ledger.x, 0.90, ledger.y))
@@ -619,16 +629,30 @@ func _priority(scene: Node) -> bool:
 		if String(cmd.get("column", "")) != column:
 			ok = _fail("PRIORITY", "the priority command named the wrong column")
 
-	# The panel's "their skills" button is a real signal, and this foundation answers it visibly
-	# rather than letting a press vanish. No skill web is claimed to exist.
-	var note: Label = scene.get("_ledger_note") as Label
-	if note == null:
-		ok = _fail("PRIORITY", "the ledger built no note for its out-of-scope button")
-	elif note.visible:
-		ok = _fail("PRIORITY", "the ledger note was visible before anything asked for it")
-	panel.emit_signal("navigate", "skills")
-	if note == null or not note.visible or note.text == "":
-		ok = _fail("PRIORITY", "the panel's skills button did not answer")
+	# The panel's "their skills" button is a real door: it opens the existing read-only skill web
+	# for the picked colonist, and Escape returns to the work grid rather than dropping the whole
+	# ledger. No placeholder text is put in front of the player.
+	var web: Control = scene.call("web_panel_node") as Control
+	if web == null:
+		ok = _fail("PRIORITY", "the ledger built no skill web to open")
+	else:
+		if web.visible:
+			ok = _fail("PRIORITY", "the skill web was visible before it was asked for")
+		panel.emit_signal("navigate", "skills")
+		if not bool(scene.get("_web_open")):
+			ok = _fail("PRIORITY", "the panel's skills button did not open the web")
+		if not web.visible or panel.visible:
+			ok = _fail("PRIORITY", "the web did not replace the work grid")
+		if int(web.get("_who")) != ent:
+			ok = _fail("PRIORITY", "the web opened on the wrong colonist")
+		_key(KEY_ESCAPE, true)
+		_key(KEY_ESCAPE, false)
+		if bool(scene.get("_web_open")):
+			ok = _fail("PRIORITY", "Escape did not leave the skill web")
+		if not panel.visible:
+			ok = _fail("PRIORITY", "leaving the web did not return to the work grid")
+		if not bool(scene.get("menu_open")):
+			ok = _fail("PRIORITY", "leaving the web closed the whole ledger")
 	return ok
 
 
@@ -671,6 +695,11 @@ func _menu(scene: Node) -> bool:
 	var lost: Variant = scene.get("_held")
 	if lost is Dictionary and not (lost as Dictionary).is_empty():
 		ok = _fail("MENU", "focus loss left a movement key held")
+	if bool(scene.call("mouse_captured")):
+		ok = _fail("MENU", "focus loss kept the mouse captured")
+	_click_mouse()
+	if not bool(scene.call("mouse_captured")):
+		ok = _fail("MENU", "a click after focus loss did not resume mouse look")
 	world.commands.record = true
 	world.commands.recorded.clear()
 	var loss_tick: int = int(world.tick)
@@ -713,6 +742,10 @@ func _speech(scene: Node) -> bool:
 		ok = _fail("SPEECH", "the HUD does not name the walking keys")
 	if not joined.contains("ledger"):
 		ok = _fail("SPEECH", "the HUD does not name the ledger")
+	if not joined.contains("release") or not joined.contains("click"):
+		ok = _fail("SPEECH", "the HUD does not explain how to release and resume the mouse")
+	if not joined.contains("P hold"):
+		ok = _fail("SPEECH", "the HUD does not name the pause control")
 	var bars: Array[Node] = []
 	_collect_bars(scene, bars)
 	if not bars.is_empty():
@@ -744,6 +777,13 @@ func _key(code: Key, pressed: bool) -> void:
 	ev.keycode = code
 	ev.physical_keycode = code
 	ev.pressed = pressed
+	root.push_input(ev)
+
+
+func _click_mouse() -> void:
+	var ev: InputEventMouseButton = InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = true
 	root.push_input(ev)
 
 

@@ -20,7 +20,7 @@ const BodyView = preload("res://presentation/first_person/body_view.gd")
 const PropView = preload("res://presentation/first_person/prop_view.gd")
 const Hud = preload("res://presentation/first_person/hud.gd")
 const WorkPanel = preload("res://ui/work_panel.gd")
-const Chrome = preload("res://ui/chrome.gd")
+const WebPanel = preload("res://ui/web_panel.gd")
 
 const SEED: int = 20260805
 const DISTRICT_TILES: int = 64
@@ -53,7 +53,8 @@ var _props: Node3D = null
 var _hud: Control = null
 var _work_layer: CanvasLayer = null
 var _work_panel: Control = null
-var _ledger_note: Label = null
+var _web_panel: Control = null
+var _web_open: bool = false
 
 var _held: Dictionary = {}
 var _last_dx: float = 0.0
@@ -85,14 +86,14 @@ func _exit_tree() -> void:
 
 func _notification(what: int) -> void:
 	# Alt-tab must not leave a held key walking the body: the window stops receiving the release,
-	# so the held set is cleared and a zero move is queued. Focus back recaptures the mouse unless
-	# the ledger is open, where the pointer belongs to the menu.
+	# so the held set is cleared and a zero move is queued, and the pointer is let go rather than
+	# trapped by a window that no longer has focus. Focus back does not grab it again; the HUD
+	# asks for a click, which is the one deliberate way back into mouse look.
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
 		_clear_held()
 		_push_zero_move()
-	elif what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
 		if not menu_open:
-			_capture_mouse()
+			_release_mouse()
 
 
 # --- boot and views -------------------------------------------------------------------------
@@ -275,11 +276,14 @@ func _process(delta: float) -> void:
 			guard += 1
 		if guard >= 8:
 			_accumulator = 0.0
-	if menu_open and _work_panel != null and _work_panel.visible:
-		var who: int = -1
-		if _work_panel.has_method("selected"):
-			who = int(_work_panel.call("selected"))
-		_work_panel.call("set_world", world, who)
+	if menu_open:
+		if _web_open and _web_panel != null and _web_panel.visible:
+			_web_panel.call("set_world", world, int(_web_panel.get("_who")))
+		elif _work_panel != null and _work_panel.visible:
+			var who: int = -1
+			if _work_panel.has_method("selected"):
+				who = int(_work_panel.call("selected"))
+			_work_panel.call("set_world", world, who)
 	var alpha: float = clampf(_accumulator / TICK_SECONDS, 0.0, 1.0)
 	_update_render(alpha)
 	_update_hud()
@@ -317,7 +321,9 @@ func _update_hud() -> void:
 	if _hud == null or world == null:
 		return
 	var prompt: String = ""
-	if not menu_open:
+	if not menu_open and not _mouse_captured:
+		prompt = "Mouse released. Click to look again."
+	elif not menu_open:
 		var verdict: String = interaction_verdict()
 		if verdict == "ok":
 			prompt = "E read the ledger"
@@ -339,11 +345,21 @@ func _input(event: InputEvent) -> void:
 	var code: int = ke.keycode if ke.keycode != 0 else ke.physical_keycode
 	if menu_open:
 		if ke.pressed and code == KEY_ESCAPE:
-			close_ledger_menu()
+			if _web_open:
+				_show_work_panel()
+			else:
+				close_ledger_menu()
 			get_viewport().set_input_as_handled()
 			return
-		if ke.pressed and _work_panel != null and _work_panel.has_method("key"):
+		if ke.pressed and _work_panel != null and _work_panel.has_method("key") and not _web_open:
 			_work_panel.call("key", ke)
+		get_viewport().set_input_as_handled()
+		return
+	if ke.pressed and code == KEY_ESCAPE:
+		# Outside the ledger, Escape is the way out of the pointer trap: the mouse is released
+		# and the HUD asks for a click to resume looking.
+		_release_mouse()
+		_push_zero_move()
 		get_viewport().set_input_as_handled()
 		return
 	if ke.pressed and code == KEY_E:
@@ -367,6 +383,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		var motion: InputEventMouseMotion = event as InputEventMouseMotion
 		look_by(motion.relative.x, motion.relative.y)
 		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventMouseButton and not menu_open and not _mouse_captured:
+		var button: InputEventMouseButton = event as InputEventMouseButton
+		if button.pressed:
+			_capture_mouse()
+			get_viewport().set_input_as_handled()
 
 
 # --- mouse look (the gate's entry point too) ------------------------------------------------
@@ -530,21 +552,16 @@ func open_ledger_menu() -> void:
 		_work_layer.add_child(_work_panel)
 		if _work_panel.has_signal("navigate"):
 			_work_panel.connect("navigate", _on_ledger_navigate)
-		# The foundation has no skill web. The panel's "their skills" button gets an honest answer
-		# rather than a silent dead press: a note above the panel saying what is not here yet.
-		_ledger_note = Label.new()
-		_ledger_note.name = "LedgerNote"
-		_ledger_note.position = Vector2(24.0, 18.0)
-		_ledger_note.add_theme_font_override("font", Chrome.font())
-		_ledger_note.add_theme_font_size_override("font_size", 20)
-		_ledger_note.add_theme_color_override("font_color", Color(0.94, 0.84, 0.58))
-		_ledger_note.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_ledger_note.visible = false
-		_work_layer.add_child(_ledger_note)
+		_web_panel = WebPanel.new()
+		_web_panel.name = "WebPanel"
+		_web_panel.visible = false
+		_web_panel.size = Vector2(_web_panel.get_script().get("NATURAL"))
+		_work_layer.add_child(_web_panel)
 	_work_panel.call("set_world", world, -1)
 	_work_panel.visible = true
-	if _ledger_note != null:
-		_ledger_note.visible = false
+	if _web_panel != null:
+		_web_panel.visible = false
+	_web_open = false
 	menu_open = true
 	_clear_held()
 	_push_zero_move()
@@ -555,8 +572,9 @@ func open_ledger_menu() -> void:
 func close_ledger_menu() -> void:
 	if _work_panel != null:
 		_work_panel.visible = false
-	if _ledger_note != null:
-		_ledger_note.visible = false
+	if _web_panel != null:
+		_web_panel.visible = false
+	_web_open = false
 	menu_open = false
 	_clear_held()
 	_push_zero_move()
@@ -564,16 +582,54 @@ func close_ledger_menu() -> void:
 	_alert = ""
 
 
+# The work panel's "their skills" button is a real door: it opens the existing read-only skill web
+# for the colonist the drawer has picked. No second screen is invented and no placeholder note is
+# put in front of the player. Escape comes back to the grid; a second Escape closes the ledger.
 func _on_ledger_navigate(screen: String) -> void:
-	if _ledger_note == null:
+	if screen != "skills" or _work_panel == null or _web_panel == null:
 		return
-	if screen == "skills":
-		_ledger_note.text = "The skill web is a later slice; this ledger manages work priorities."
-		_ledger_note.visible = true
+	var who: int = int(_work_panel.call("selected"))
+	if who < 0:
+		return
+	_work_panel.visible = false
+	_web_panel.call("set_world", world, who)
+	_place_web()
+	_web_panel.visible = true
+	_web_open = true
+
+
+func _show_work_panel() -> void:
+	if _web_panel != null:
+		_web_panel.visible = false
+	_web_open = false
+	if _work_panel != null:
+		_work_panel.visible = true
+		_work_panel.call("set_world", world, int(_work_panel.call("selected")))
+
+
+# The web centred under the same top line the top-down screen uses, shrunk to the window when the
+# natural size does not fit. This is `main.gd`'s `_place_web` without the navigation bar.
+func _place_web() -> void:
+	if _web_panel == null:
+		return
+	var view: Vector2 = get_viewport().get_visible_rect().size
+	var natural: Vector2 = Vector2(_web_panel.get_script().get("NATURAL"))
+	var top: float = 16.0 + 48.0 + 16.0
+	var room: Vector2 = Vector2(view.x - 32.0, view.y - top - 16.0)
+	var fit: Vector2 = Vector2(floorf(minf(natural.x, room.x) / 2.0) * 2.0, floorf(minf(natural.y, room.y) / 2.0) * 2.0)
+	if _web_panel.size != fit:
+		_web_panel.size = fit
+		_web_panel.queue_redraw()
+	var at: Vector2 = Vector2(16.0 + (room.x - fit.x) / 2.0, top)
+	_web_panel.position = Vector2(maxf(16.0, floorf(at.x / 2.0) * 2.0), floorf(top / 2.0) * 2.0)
 
 
 func work_panel_node() -> Control:
 	return _work_panel
+
+
+func web_panel_node() -> Control:
+	return _web_panel
 
 
 # --- small read-only answers the gate and the HUD use ----------------------------------------

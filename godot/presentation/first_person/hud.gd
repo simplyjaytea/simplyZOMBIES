@@ -20,7 +20,7 @@ const MARGIN: float = 28.0
 # Worst-part states from condition.gd, as a sentence rather than a grade. Kept local because it is
 # wording, not a sim fact, and `ui/hud.gd` owns the top-down screen's own copy of the same words.
 const CONDITION_WORDS: Array[String] = ["", "hurt", "badly hurt", "barely standing"]
-const HELP: String = "WASD walk   mouse look   E read the ledger   Esc close"
+const HELP: String = "WASD walk   mouse look   E ledger   P hold   Esc back or release   click to look"
 
 var world: Variant = null
 var player: int = -1
