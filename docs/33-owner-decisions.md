@@ -6,6 +6,14 @@ stays short. Items keep the numbers they had in the retired `HANDOFF.md`, so a r
 
 ## Waiting on the owner
 
+**First-person interaction details** (opened 2026-11-01). The direction is
+approved; [docs/39](39-first-person-pivot.md) records it. Before those slices
+ship, decide inventory/ledger pause policy, how urgent colony reports reach
+the player, a foreman's delegated authority, and whether any future vertical
+world includes jumping or walkable upper floors. The foundation stays planar
+and may use labelled reversible interaction defaults; first person alone does
+not authorize multilevel simulation.
+
 This is what only the owner decides. Never pick one of these up unilaterally. Items keep the
 numbers they had in the retired `HANDOFF.md` (removed 2026-10-19, see docs/30), so a record that
 says "HANDOFF item N" means item N here.

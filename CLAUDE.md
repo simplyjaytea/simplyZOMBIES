@@ -35,6 +35,14 @@ Then read, in order:
 
 ## What the project is
 
+**Current direction: the first-person survival colony pivot, authorized 2026-11-01.**
+Read [docs/39](docs/39-first-person-pivot.md) before new presentation or art work.
+The owner has superseded the flat-top-down art direction for the conversion;
+the current default build remains top-down until the replacement is verified.
+Colony systems, skills, authored/generated people and the captive roadmap remain.
+Management moves to physical ledgers and conversations. Earlier projection and
+sprite rules describe the preserved baseline, not constraints on new 3D assets.
+
 A hardcore zombie survival colony sim: RimWorld's colony management, Project Zomboid's survival,
 Zero Sievert's top-down pixel art. One attention system (noise, scent, light) ties survival to
 the pressure the dead put on the colony. [docs/00](docs/00-vision.md) is the vision and
@@ -122,6 +130,7 @@ The longer state notes, the art history and the full dead-socket list are in
 | Need | Read |
 |---|---|
 | How the project runs: the owner, threads, merging, the shared folder, open calls | [docs/38, the playbook](docs/38-playbook.md) |
+| First-person conversion: approved direction, phases, spatial contracts and archive | [docs/39](docs/39-first-person-pivot.md) |
 | What is open, what landed, with evidence | [docs/23, the roadmap](docs/23-roadmap.md) |
 | Which release stage a piece belongs to, and the four content arcs | [docs/38's release plan](docs/38-playbook.md#the-release-plan) |
 | Why something is shaped the way it is | [docs/30, the decisions](docs/30-decisions.md), oldest first |

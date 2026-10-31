@@ -156,6 +156,32 @@ write its record — named, gated, measured — into [the record, by system](#th
 the same commit. That is the whole discipline: one list of what remains, one record of what landed,
 and nothing that has to be ticked.
 
+##### First-person survival colony pivot
+
+Owner-authorized 2026-11-01; [docs/39](39-first-person-pivot.md) is the phased
+plan and spatial/art contract. The existing default remains top-down during
+conversion. The source baseline is archived on GitHub at
+`archive/topdown-colony-pre-first-person-2026-11-01`. Planned pieces:
+
+- **First-person simulation and ledger foundation.** An opt-in scene driven by
+  the real sim, mouse look and camera-relative movement, sim-owned collision,
+  NPC bodies and a nearby ledger opening functional work priorities; a scene
+  gate with positive and negative interaction/input paths, fully routed.
+- **Blender pixel-textured colony starter kit.** Original desk, ledger, shelf,
+  barricade and modular wall, editable source, builder, atlas, GLBs and preview.
+- **First-person starter-kit integration.** Consume the kit in the foundation,
+  verify dimensions and reach, make headed shots and independent art review.
+- **First-person scavenging and personal equipment.** Real world containers,
+  search/take/stow/equip through a revised grid UI; skill and condition access.
+- **First-person spatial combat and perception.** One coherent obstruction and
+  hit contract across visible geometry, sim movement, combat and NPC sight.
+- **First-person people and settlement operation.** Ledger animations, reports,
+  conversations, delegation and construction access; the captive arc stays
+  separately scoped planned work under its existing group.
+- **First-person expedition and default switch.** Prepare, scavenge, encounter
+  danger, return, treat, save/reload, die and succeed; measured performance,
+  regression proof, campaign balance and human play before changing the default.
+
 ##### UI overhaul
 
 **The whole interface, opened by the owner 2026-10-03.** Project Zomboid's practical
