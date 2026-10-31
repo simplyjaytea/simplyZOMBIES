@@ -406,7 +406,7 @@ than here.
 pause on new NPCs and roster growth is lifted
 ([docs/30](30-decisions.md#the-pause-lifted-procedural-people-raiders-and-zombies-2026-09-14));
 the plan, with each piece's mechanism, gate lanes and first cuts, is
-`.hermes/plans/2026-09-14_procedural-population-arc.md`. The pieces, in the order they land (a landed one moves to the record):
+set out below. The pieces, in the order they land (a landed one moves to the record):
 zombies first because they are cheapest and the dormant piece builds the indoor-placement seam
 the people pieces reuse; raiders before settlers because the third side is a seam the individual
 raider first touches. Each piece that adds a body or a kind inside ten days re-baselines the FAST
@@ -945,7 +945,7 @@ untouched, and the peripheral-anonymity clause is proved *more* strongly than be
 round.** The direction is docs/30's "The character overhaul": the squat proportion kept and read
 harder, a four-frame walk, a body drawn from four directions, and the condition diagram redrawn
 as an exploded chart. It was decided from art rather than from prose — four sets of candidate
-art under `.hermes/plans/2026-09-09_character-fixtures/`, every candidate a transform of the
+art, every candidate a transform of the
 shipped generator, with the round's own `comparison.md` describing each and recommending none.
 Its load-bearing result is the one every animation piece below rests on: all eight rigs rendered
 at rest through the pose layer come back **byte for byte identical** to the shipped PNGs, with
@@ -976,8 +976,7 @@ the reference-look arc's first two slices laid (32 px a tile at 2×, the ground 
 direction is docs/30's "The Dungeon Settlers look": upright face-on pawns that flip and never
 rotate, a warm dark-fantasy palette, walls drawn with a lit cap and a south face, roofs cut out
 where the sim sees, tall trees and three-quarter vehicles in the entity sort. It supersedes the
-style-B pick of 2026-09-01 for the bodies and the mood; the plan is
-`.hermes/plans/2026-09-03_dungeon-settlers-arc.md` (the 2026-09-02 plan stays as the record of
+style-B pick of 2026-09-01 for the bodies and the mood (the 2026-09-02 plan stays as the record of
 slices 1–2). The pieces below are in the order they land, each one session, each with its gate
 red both ways and its record. The reference's HUD — portraits, bars, numbers, name plates — is
 explicitly **not** part of the pick; the health-bar ban and the prose HUD stand. **Decided lands
@@ -3490,8 +3489,7 @@ not a to-do list:
   for the refusal, PANEL drops `item_plate`, and GLYPHS moves `glyph_close` from unused to a
   reader. `godot:check:inventory`, `:ui_skin`, `:appearance`, `:respond`, `:context`, `:hud`,
   `:play`, `godot:ban:healthbar` and `godot:smoke` pass locally; the full chain passed in CI.
-  [Before/after captures](../.hermes/plans/2026-10-19_inventory-redesign/README.md) at 1280×720
-  and 1920×1080 from one throwaway driver (deleted). Not shown or proven: a drag in flight, the
+  Not shown or proven: a drag in flight, the
   ghost and the stripes on screen, a human using the list in a real run; and at 1280 with a box
   open the inspect pane gives way to the two lanes, so its buttons are not on screen there.
 
@@ -3812,8 +3810,6 @@ not a to-do list:
   but some at half; ids 1 and 2 seat apart; a standing second never walks. `godot:check:authored`
   holds 40 members per zombie family, eight walk and two breath frames, and the frame-name
   mapping both ways. `sprites:check` reproduces every new member from its source.
-  Before/after strips and GIFs for all eight bodies, and the survivor in helmet, vest and pistol,
-  are under `.hermes/plans/2026-10-19_a7-animation/`.
 
 - **Feel — actions on the render clock, 2026-10-19.** Item A8 of the 2026-10-19 alpha plan, on
   A7's clock above. A body used to do nothing but walk and breathe: a shot, a blow landing, a
@@ -3927,9 +3923,6 @@ not a to-do list:
   `_process` and `_draw_entities` hooks cut, every SCENE lane goes red. `godot:check:authored`
   and `godot:check:worn` hold the new members to the pack's geometry (action frames are allowed
   to stand lower and to move a layer point up to 10 px); `sprites:check` reproduces every one.
-  Before/after strips and GIFs per action, for the eight bodies there were before the screamer
-  and the bloater joined, are under
-  `.hermes/plans/2026-10-19_a8-actions/`.
 
 - **Feel — falls that lie down, and lunges that reach, 2026-10-20.** Art review's first pass over
   the screamer and bloater strips (NOT CLEAR: three blocking, eight major) found the fall broken
@@ -4208,8 +4201,7 @@ not a to-do list:
   front step forwards; `_draw_entities` hands the clock the view's front. `godot:check:worn` ORDER:
   the kitted actor wielding its far hand's pistol draws it over the body from e and w and under from
   n, and wielding the shotgun leaves the pistol behind (each fix sabotaged once and its lane went
-  red). Before/after GIFs (aiming in a circle, aiming while walking, a hit, a backpedal, the
-  sidearm seen from the side) are under `.hermes/plans/2026-10-19_a9-aim/`.
+  red).
 
 - **Gate infrastructure — the `godot:m2` chain runs as four CI shards, 2026-10-19.** The
   85-gate chain took 40m45s on one runner (job 118220307956, measured on 2b48fef), against the
@@ -4607,10 +4599,8 @@ not a to-do list:
   the last priority column, checks overflow-roster scrolling and the entity selected after
   scrolling, and checks paused corner-chart hiding/restoration. Inventory, play, UI skin, HUD
   and response focused checks pass; independent source and screenshot review found no blocker.
-  [Forty native viewport captures](../.hermes/plans/2026-10-03_ui-layout/README.md) compare ten
-  scenarios before/after at 1280×720 and 1920×1080, including healthy/injured inventory, pack
-  scrolling, Work, HUD, title/pause/settings and an edge item menu. Below-minimum layouts,
-  every possible long description and a human campaign remain outside this evidence.
+  Below-minimum layouts, every possible long description and a human campaign remain
+  unexamined.
   Combined verification is recorded with the October integration below.
 
 - **UI asset delivery — the approved UI Field Kit, 2026-09-20.** The owner-approved
@@ -5245,9 +5235,7 @@ not a to-do list:
   then reverted: the leather jacket's `equipSprite` removed (COVERAGE, STEP); `body_texture`
   returning the bare frame (STEP); the composite cache ignoring the rig (STEP's other-rig
   negative); `outfit_of` ignoring the slot (COVERAGE: jeans painted as a torso); the composite
-  leaving the trousers off east walk frames (COVERAGE, STEP). In-game crops of main, the first
-  pass and the shaded pass, a 4x sheet beside the pack's survivor, vest and three zombie
-  families, a walk GIF and the garment sheets are under `.hermes/plans/2026-10-19_clothing/`.
+  leaving the trousers off east walk frames (COVERAGE, STEP).
   **Half shipped, named:** the clothes are held to the pack survivor's own rendering (a chunky
   two-tone body with a thick black outline) and its vest, not to the zombie families, whose
   bodies are finer and dirtier by their own design; garments repaint the body and never change
@@ -5275,8 +5263,7 @@ not a to-do list:
   per view. **Measured:** `WEAR OK 29 garment(s), 1160 painted frame(s) ... (fewest painted
   5)`; `COVERAGE OK ... on all 40 rig frames (fewest 5 garment pixels showing)`; `STEP OK ...
   480 frame draws`; `CLOTHING_OK 29 garments, 1160 frames`; `SPRITES_OK ... 1643 authored keys
-  reproduced`. A walk GIF of the tee, leather, parka and hazmat outfits is under
-  `.hermes/plans/2026-10-19_a7-animation/`. **Art review, round 1:** a walking arm reaches
+  reproduced`. **Art review, round 1:** a walking arm reaches
   sideways or forward, and the row rule that found hands on the rest views left forearms up to
   five by three bare under long sleeves; `parts.py` now labels the hand as the two-by-two at the
   far end of each arm, measured from the shoulder, so a sleeve runs to the wrist on every frame
@@ -5453,8 +5440,7 @@ not a to-do list:
   and distinct pictures; topdown checks exact rates/canvases. `sprites:check` reproduces **96
   generated and 305 sourced** runtime PNGs, with the old 20-member `body_shambler` retired.
   Source sheets, prompts, extraction recipe, atlas and animated previews live under
-  `godot/art/simplyzombies/zombie-poses/`; actual renderer captures live under
-  `.hermes/plans/2026-10-02_zombie-animation-corpses/`.
+  `godot/art/simplyzombies/zombie-poses/`.
 
   **First cut:** locomotion and settled death poses only; idle is one frame, no attack, hit,
   falling, rising or crawler-specific animation. Screamer/bloater retain their current art.
@@ -5505,9 +5491,6 @@ not a to-do list:
   east-west frame pointed at the pane picture ("covers [P: (4, 12), S: (24, 8)], not
   [P: (2, 10), S: (28, 12)]").
 
-  **Seen:** the camp hall's north wall at noon before and after, one window at 3×, and the six
-  grey pictures at 6×, in `.hermes/plans/2026-10-19_glass/`.
-
   **What it leaves:** a window in a south face still draws the face's own window picture
   (`faces.window`), not this glass; a broken or boarded window is still only the tint, with no
   picture of its own.
@@ -5544,9 +5527,6 @@ not a to-do list:
 
   **Sabotage, red and restored:** the latrine back at `size` 0.55 (PROPS: "prop.latrine
   declares size 0.55 (18 px of a tile) and its art measures 32 px across").
-
-  **Seen:** the camp at noon with the fire lit, and the well, before (the base) and after, with
-  the four pictures old over new at 6×, are in `.hermes/plans/2026-10-19_stations/`.
 
   **Second pass, after the art review (2026-10-20).** The first latrine, a bench with its lid up
   over a front of boards, read as a crate. It is now an outhouse: a plank roof seen from above
@@ -5618,10 +5598,7 @@ not a to-do list:
 
   **Measured:** the suburb at 128 parks **152** vehicles over PLACED's four seeds against 149 on
   the base (sedans 63 → 66; every other class unchanged), the shorter sedan fitting slots the
-  longer one was refused. The balance harness boots the 64-tile suburb, which parks nothing. The
-  before/after captures (every class staged on open street at noon, the before at the base) and
-  sheets of the cars beside the pack's and the light vehicles old against new are in
-  `.hermes/plans/2026-10-19_vehicles/`.
+  longer one was refused. The balance harness boots the 64-tile suburb, which parks nothing.
 
   **Second pass, after the art review (2026-10-20).** The img2img cars drew 19–28% longer than
   the pack's own east-west pictures (102, 131 and 133 rows against 86, 102 and 106), with a roof
@@ -5695,8 +5672,6 @@ not a to-do list:
   green). `godot:check:worldgen` failed only its own time budget, 103.9 s against 90 s, and failed
   it the same way on the unchanged base (102.7 s) on this container; the art touches nothing it
   boots, so that is the machine, and CI's `godot-m2` job is the judge.
-  Before/after captures of the real scene, and both families beside the study 01 family they
-  were painted over, are in `.hermes/plans/2026-10-19_zombie-study-02/`.
 
   **Second pass, after the art review (2026-10-20).** The bloater's generated sheet lost its
   head on the front row, pasted its belly over the near arm in the side views, shaded it in
@@ -5772,7 +5747,7 @@ not a to-do list:
   mark placement and an actual drawable reader path; the armour seam is checked at 2× and 3×.
   `godot:ban:healthbar` is unchanged. Runtime captures for healthy, arm-cut, infected/armoured
   and unusable-arm cases cover stand, crouch and prone in the corner and inventory at 1280×720
-  and 1920×1080 under `.hermes/plans/2026-10-02_art-completion/chart/`.
+  and 1920×1080.
 
   **The workbench and tall furnishings.** `prop.workbench` is read from a real entity with the
   `workbench` component, created through `bench.build`. Fridge, road sign and unlit streetlamp
@@ -5784,15 +5759,14 @@ not a to-do list:
   `godot:check:appearance` WORKBENCH covers the build path, alive/seen draw guards and standing
   picks; `godot:check:authored` SOURCE/READS and `godot:check:topdown` hold provenance and draw
   path; `godot:m2:bench` holds the existing interaction. Captures show the built bench and each
-  furnishing with a body north and south in `.hermes/plans/2026-10-02_art-completion/props/`.
+  furnishing with a body north and south.
 
   **The Camp Stove icon.** A separately authored 32×32 transparent `item_camp_stove` replaces
   the class glyph on the carried Camp Stove. The preserved imagegen source, prompt, extraction
   metadata and previews are under `godot/art/simplyzombies/art-completion/`; the pack's 32×40
   utility stove is unchanged. The item remains the same 2×2 purifier. `godot:check:appearance`
   CAMP STOVE holds alpha and the shared resolver; `godot:check:authored` ICON holds declaration,
-  and `godot:check:inventory` holds the bag, strip and inspect readers. Bag/inspect/strip and
-  dropped-item captures are under `.hermes/plans/2026-10-02_art-completion/stove/`.
+  and `godot:check:inventory` holds the bag, strip and inspect readers.
 
   **Existing light sources get their own colour.** Optional lowercase `light.tint` content on
   light items, and `appearance.light.tint` on the lit campfire prop, now colour each winning
@@ -5804,8 +5778,7 @@ not a to-do list:
   unknown fallback, carried/attached priority, exhaustion, flash restoration, source removal,
   campfire state, overlap/tie, wall and unseen tiles, bounds, unchanged membership and alpha, and
   the live draw reader. `godot:m2:light_burn`, `godot:m2:sight`, `godot:check:memory`,
-  `godot:validate` and `npm test` passed. Night comparisons and a same-view noon capture are
-  under `.hermes/plans/2026-10-02_art-completion/lights/`.
+  `godot:validate` and `npm test` passed.
 
   **Verification boundary.** The slice reports include `godot:check:trees`, `godot:check:authored`,
   `godot:check:topdown`, `godot:m2:bench`, `godot:check:inventory`, `godot:validate`, `npm test`
@@ -5828,11 +5801,9 @@ not a to-do list:
   **Evidence:** `godot:check:roof`'s new A2_FLOOR lane instruments the real scene and verifies
   all eighteen accepted owners, snow, low zoom, missing atlas and the refused paths above.
   Restoring the old calls makes that lane fail. Roof, water, memory, weather, topdown and road
-  focused checks pass; independent source review found no blocker. The
-  [twelve before/after captures](../.hermes/plans/2026-10-03_a2-floor-underlay/README.md) cover
-  both resolutions, normal indoor sight, a normal north roof approach and a clearly marked
-  all-seen diagnostic. Pixel differences stay within owner-cell bounds; unseen roof coverage
-  is unchanged. Combined verification is recorded with the October integration below.
+  focused checks pass; independent source review found no blocker. Pixel differences stay
+  within owner-cell bounds; unseen roof coverage is unchanged. Combined verification is recorded
+  with the October integration below.
 
 - **Art & renderer — A2 fitted pack walls, 2026-10-03.** The owner's shape-matched wall pick
   is live on supported rectangular plaster and brick perimeters. Thirteen runtime PNGs reproduce
@@ -5861,9 +5832,7 @@ not a to-do list:
   missing keys, owner/destination sight clipping, map bounds, rounded zoom edges and equal-foot
   ordering, with real-reader negatives. `godot:check:authored` SOURCE/READS and `sprites:check`
   hold the thirteen declarations to decoded native pixels and a live resolver. Topdown, memory,
-  sight and content checks retain their existing contracts. Twelve exact-size runtime captures
-  at 1280×720 and 1920×1080 are under `.hermes/plans/2026-10-02_art-completion/walls/`; captions
-  distinguish forced all-seen geometry/depth diagnostics from the normal sight/roof views.
+  sight and content checks retain their existing contracts.
 
   **Follow-up:** the transparent-band floor limitation was fixed by the October 3 A2 floor
   underlay record above, without altering traversable floor or sight/roof safety. Interior wall, broken window,
@@ -6998,9 +6967,7 @@ not a to-do list:
   which the plan listed, had already retired with the colonist rig; its comment now says this
   slice re-pinned no luma bound there, because a pack body reads off a pack ground by its outline.
 
-  **Seen:** `.hermes/plans/2026-09-27_ground-pack/before.png` and `after.png`, the same boot view
-  (seed `SimBoot.DISTRICT_SEED`, day 1, zoom 32, 1256×930 cropped off the window with Godot's
-  Image API by a throwaway `SceneTree` driver, deleted). **What did not ship, and why:** the
+  **What did not ship, and why:** the
   pack's teal-and-cream interior tile (which rooms would be tiled is a question nobody has
   answered, and a hash-mixed checker among planks reads as noise), the slate puddle (a puddle
   drawn where the sim has no water would read as a ford — information the player is not owed),
@@ -7527,9 +7494,8 @@ not a to-do list:
   **empty content tree** (`content_tree: {}`) instead of relying on the shipped tree happening to
   declare nothing, with `Appearance.forget()` between worlds because `_cache` is a `static var`
   shared across every world one gate process boots. Eyeballed as well as gated: four headings
-  captured under Xvfb through a throwaway `SceneTree` driver (deleted after, per the rule) — the
-  composite is committed at `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice1-player.png`,
-  and a second pass with a pack force-equipped confirmed the overlay turns with the body.
+  captured under Xvfb through a throwaway `SceneTree` driver (deleted after, per the rule), and
+  a second pass with a pack force-equipped confirmed the overlay turns with the body.
   **Which halves shipped.** The equip overlays ride the rig **mechanically** — same transform,
   same rect, same compositor — but the overlay *art* is still authored face-on: a pack and a bat
   drawn for a face-on pawn, riding a rotating body. That is the characters slice's work and must
@@ -8063,10 +8029,8 @@ not a to-do list:
   multiplier changes on rubble tiles moved no counter on these seeds.
   **Open halves, named.** Undergrowth density is deliberately untouched — balance-shaped,
   wants its own measured slice (the debt entry keeps that half). Entity and prop contrast
-  against the lighter ground is eyeballed-only (the day/night shots beside this record's arc:
-  `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice2-day.png`, `slice2-night.png`,
-  captured through a throwaway Xvfb `SceneTree` driver, deleted after) and is re-judged in the
-  characters slice, never by palette revert. The bright window glass `#7ec8e8` now visibly
+  against the lighter ground is eyeballed-only and is re-judged in the characters slice, never
+  by palette revert. The bright window glass `#7ec8e8` now visibly
   clashes with the muted grade and stays the weather/mood slice's named material. Night
   tuning: nothing read washed out, so `NIGHT_WASH` stays 0.8 and `light_look.gd` untouched.
   docs/30: no new entry. `HANDOFF.md` unchanged.
@@ -8170,9 +8134,8 @@ not a to-do list:
   there since: `Appearance.blit_scale`, `check_topdown.gd`'s SCALE lane — see the characters
   record).
   Eyeballed as well as gated: day and night at a street wreck, captured through a throwaway Xvfb
-  `SceneTree` driver (deleted after, per the rule), committed at
-  `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice3-day.png` and `slice3-night.png`. The
-  night shot is nearly dark on purpose — sight collapses after dusk and the dressing goes with it,
+  `SceneTree` driver (deleted after, per the rule). The night shot is nearly dark on purpose —
+  sight collapses after dusk and the dressing goes with it,
   which is the contract, not a missing feature. docs/30: no new entry. `HANDOFF.md` unchanged.
 - ~~Weather & mood~~ **landed** (`godot:check:weather` → `WEATHER_OK`, the chain's 42nd gate) —
   the fourth slice of the style-B reference arc: the rain, and the accent regrade the reference
@@ -8251,10 +8214,9 @@ not a to-do list:
   name were corrected to 42 in the same commit, since this is the commit that moved the count.
 
   Eyeballed as well as gated: noon, dusk, night and a roofed interior, captured through a
-  throwaway Xvfb `SceneTree` driver (deleted after, per the rule), committed at
-  `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice4-{noon,dusk,night,interior}.png`. The
-  noon shot is the daylight-veil evidence: drizzle over an unwashed daylight street reads as
-  rain, not as noise, so the veil stays **considered and screenshot-refused** — no disabled
+  throwaway Xvfb `SceneTree` driver (deleted after, per the rule). The noon view is the
+  daylight-veil evidence: drizzle over an unwashed daylight street reads as rain, not as noise,
+  so the veil stays **considered and screenshot-refused** — no disabled
   toggle ships, and nothing escalates to `HANDOFF.md`. Deferred, named rather than hidden:
   ground splashes and ripples; per-streak brightening inside lit pools; slant driven by sim wind
   when docs/16 lands. docs/30: one new clause under the art decision — rain is ambience, not
@@ -8333,9 +8295,8 @@ not a to-do list:
   reads as a corpse"); per-source light tint; Detail tiers unchanged — "detailed NPC" still
   maps to Focal. Eyeballed as well as gated: the roster in a row, the zoom ladder walked, and a
   night street, captured through a throwaway Xvfb `SceneTree` driver (deleted after, per the
-  rule), committed at `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice5-{roster,zoom16,
-  zoom32,zoom128,night}.png` — the roster shot is the zoom-64 frame; the sim is paused before
-  the display-only stand-ins spawn, so the row is art evidence, not behaviour. At zoom 16 the
+  rule). The roster shot is the zoom-64 frame; the sim is paused before the display-only
+  stand-ins spawn, so the row is art evidence, not behaviour. At zoom 16 the
   unscaled facing lines outweigh the 5 px bodies, which is the named UI-constant decision and
   reads as a readout rather than as a wrong-sized body. `assets/sprites/README.md` now states the one overhead
   convention with the rig guarantees three-tiered honestly (≤ ~21 px shoulders on the rotating
@@ -8437,10 +8398,9 @@ not a to-do list:
   (18, 12) at 64 and from (108, 107) to (112, 110) at 256, the player start with it from
   (29, 20) to (26, 19) — and the six pins are re-measured from the gate's own error text, not
   chosen. Nothing else in the tree named the old tiles.
-  **The picture.** `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice-roads-after.png`,
-  a street at 256 through a throwaway Xvfb driver (deleted): sidewalk, two lanes, the line, two
-  lanes, sidewalk. The before is the street in `slice5-roster.png` from the characters slice,
-  dash on row 3 of 4. This is the frame the owner judges the vehicle class table against
+  **The picture.** A street at 256 through a throwaway Xvfb driver (deleted): sidewalk, two
+  lanes, the line, two lanes, sidewalk. The before is the street from the characters slice, dash
+  on row 3 of 4. This is the frame the owner judges the vehicle class table against
   (what's-left, "Cars are cars"). `HANDOFF.md`'s stale "39 gates" was corrected to 42 in
   passing — the count lives in `package.json`.
 - ~~The tile is 32 pixels, and a person fills it~~ **landed** (no new gate — `APPEARANCE_OK`,
@@ -8480,13 +8440,9 @@ not a to-do list:
   `appearance.gd`'s "sprites are absent" header, the `64x96 feet-anchored` description in
   `item.schema.json` (oracle-visible, so `npm test` judged it) and the `64x64` in the player and
   prop schemas, the `64` in `main.gd`'s wheel comment, and both sprite READMEs (tier bounds
-  restated in the same pixel numbers plus their new tile fractions). **The pictures.**
-  `.hermes/plans/2026-09-02_reference-look-shots/slice1-{street-64,roster-64,zoom-16,zoom-32,
-  zoom-128}.png` through a throwaway Xvfb driver (deleted): the roster row in front of the
-  player at the boot zoom, and the ladder walked. Named on what's-left in the same commit:
-  **The torch**, **Ground items draw as squares** (the twelfth dead socket), and under
-  Milestone 3B the **industrial yard**; the arc's plan is committed as
-  `.hermes/plans/2026-09-02_reference-look-arc.md`.
+  restated in the same pixel numbers plus their new tile fractions). Named on what's-left in
+  the same commit: **The torch**, **Ground items draw as squares** (the twelfth dead socket),
+  and under Milestone 3B the **industrial yard**.
 - ~~The ground has no grid~~ **landed** (`godot:check:road` → `ROAD_LOOK_OK` grew two lanes,
   TEXTURE and GRID; slice 2 of the reference-look arc, docs/30 "The ground is a texture whose
   mean is the palette"). The reference has a textured ground and no tile grid; ours was one
@@ -8530,9 +8486,8 @@ not a to-do list:
   counts that every district caller and the threshold name a row. Shown red by sabotage: the
   hairline restored ("still draws the hairline grid") and the region blit replaced by a flat
   fill ("does not contain draw_texture_rect_region"). Nothing under `godot/sim/` moved; the FAST
-  lines are byte-identical to slice 1's. **The pictures**:
-  `.hermes/plans/2026-09-02_reference-look-shots/slice2-zoom-{16,32,64}.png`. **A finding for
-  the owner**: with the hairline gone, `RoadPaint.vary`'s ±0.025 per-tile value offset reads as
+  lines are byte-identical to slice 1's. **A finding for the owner**: with the hairline gone,
+  `RoadPaint.vary`'s ±0.025 per-tile value offset reads as
   a patchwork of tiles at 64, which the grid used to make look intentional; the approved plan
   keeps `vary` as it was, so it is unchanged here, and the tune — `VARIATION_MAX` 0.025 → about
   0.01, inside the VARIATION lane's bounds — is the owner's, judged from `slice2-zoom-64.png`.
@@ -8596,9 +8551,7 @@ not a to-do list:
   atlas mean; `SURFACE_TINTS` reverted in `palette.py` alone → `sprites:check` red (the atlas
   regenerates around the stale copy); `WARM_MARGIN` set to 0 → the neutral-grey negative
   trips; the pool pin back to a sign test → the near-white negative trips. Nothing under
-  `godot/sim/` moved; the FAST lines are byte-identical to slice 2's. **The pictures**, under
-  `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice3-street-day-64.png`,
-  `slice3-street-night-64.png`, `slice3-interior-64.png`, `slice3-ladder-32.png`.
+  `godot/sim/` moved; the FAST lines are byte-identical to slice 2's.
 - ~~Bodies stand up~~ **landed** (no new gate — `TOPDOWN_OK`'s ROTATION lane becomes FLIP,
   `APPEARANCE_OK`'s canvas lanes learn a second shape, GREY re-measured; slice 4 of the Dungeon
   Settlers arc, docs/30 "The Dungeon Settlers look", the pawn clause). The pivot's headline: every
@@ -8675,10 +8628,7 @@ not a to-do list:
   glimpse branch's `continue` deleted ("no `continue` between the glimpse disc and the body blit" —
   an assertion the lane gained when the plan's version turned out to check only the order of two
   needles); `ART_NATIVE = 64` (every file refused by CANVAS). Nothing under `godot/sim/` moved; the
-  FAST lines are byte-identical to slice 3's. **The pictures**, under
-  `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice4-roster-64.png`,
-  `slice4-street-64.png`, `slice4-flip-east-west-64.png`, `slice4-zoom-16.png`,
-  `slice4-zoom-128.png`, `slice4-night-64.png`.
+  FAST lines are byte-identical to slice 3's.
 - ~~The squat pawn~~ **landed** (no new gate — `TOPDOWN_OK`'s FLIP lane re-pinned, `WORN_LOOK_OK`'s
   skeleton copy moved, GREY re-measured; the pawn piece of "Overcast or torchlight", docs/30's
   2026-09-08 entry). The owner's call, twice in one session: a one-tile figure from a strip of
@@ -8712,9 +8662,6 @@ not a to-do list:
   the outline now), still the owner's to widen. `sprites:check` counts 121 keys.
   `item.schema.json` and `player.schema.json` say 32×40 in their descriptions (oracle-visible;
   `npm test` judged them). Nothing under `godot/sim/` moved; the FAST lines are byte-identical.
-  **The pictures**, under `.hermes/plans/2026-09-08_squat-pawn/`: `boot-64.png`,
-  `zoom-128.png`, `zoom-32.png`, `night-64.png`, and the generator's own contact sheet
-  `sheet-kitted-4x.png`.
 - ~~Walls have thickness, roofs come off~~ **landed** (`godot:check:roof` → `ROOF_LOOK_OK`, the
   chain's 43rd gate; slice 5 of the Dungeon Settlers arc, docs/30 "The Dungeon Settlers look",
   the wall-and-roof clause). **The rules** live in `presentation/roof_look.gd`, pure functions
@@ -8790,10 +8737,7 @@ not a to-do list:
   mass inside a black ring. Roofing every unseen tile of the footprint instead — walls
   included, the eave over the wall — is one condition in `RoofLook.roof_tiles` and leaks
   nothing the footprint tell does not already; left as the owner's call, since the look is
-  arbitrated by screenshot. **The pictures**, under
-  `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice5-front-64.png`,
-  `slice5-annex-front-64.png`, `slice5-interior-64.png`, `slice5-street-32.png`,
-  `slice5-night-64.png`.
+  arbitrated by screenshot.
 - ~~The ground has edges~~ **landed** (`godot:check:road` → `ROAD_LOOK_OK` grew an EDGES lane;
   slice 6 of the Dungeon Settlers arc, docs/30 "The Dungeon Settlers look", the edges clause).
   Between two different grounds the darker draws the edge, once, onto the lighter tile. **The
@@ -8851,9 +8795,7 @@ not a to-do list:
   negative); the `_draw_ground_edges` call deleted (SOCKET); the corner rule's both-sides test
   dropped (MASK); one edge cell filled opaque with its tint (CELLS, and `sprites:check`);
   `edge_cell` addressing the variant columns (REGION). No sim change; the FAST lines are
-  byte-identical to slice 5's. **The
-  pictures**, under `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice6-edges-64.png`,
-  `slice6-edges-32.png`, `slice6-edges-128.png`, `slice6-dirt-64.png`.
+  byte-identical to slice 5's.
 - ~~Trees stand up~~ **landed** (`godot:check:trees` → `TREES_OK`, the chain's forty-fourth; slice 7
   of the Dungeon Settlers arc, docs/30 "The Dungeon Settlers look", the trees clause). A tree stops
   being two circles drawn on its tile and becomes a picture that stands in the entity sort. **The
@@ -8913,18 +8855,11 @@ not a to-do list:
   lines are byte-identical to slice 6's. Two traps the record keeps: `depth_of` wants a world
   coordinate, so the tree's is `ty + 1.0`; rain draws after entities and so in front of the trees,
   which is right, while ground items draw after the sorted loop, so an item north of a trunk draws
-  over the tree — the lesser evil, recorded. **The pictures**, under
-  `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice7-stand-64.png`, four conifers beside a
-  pawn at the district's north edge, the three variants' heights and tops telling apart at a glance;
-  `slice7-behind-64.png`, a body one tile north of a trunk, where the tree drops to 0.55 and the
-  pawn reads through it while the body itself is never dimmed; `slice7-south-64.png`, the same trunk
-  with the body one tile south of it and every tree opaque at 1.0; and `slice7-stand-32.png`, the
-  same stand at the lower rung, where the trees are small but still read as trees. The plan named
-  those middle two the wrong way round, which the shot run measured and this record keeps: the rect
-  stands 96 px north of the trunk's south edge with only `FOOT_DROP_PX` below it, so at 64 a ground
-  point one tile south sits 61 px outside it and never fades, while one tile north sits inside. That
-  is the fade decision 10 asks for — it fires for exactly the body the tree would otherwise hide —
-  so the rule is unchanged and the pictures are named for what they show.
+  over the tree — the lesser evil, recorded. The rect stands 96 px north of the trunk's south
+  edge with only `FOOT_DROP_PX` below it, so at 64 a ground point one tile south sits 61 px
+  outside it and never fades, while one tile north sits inside. That is the fade decision 10
+  asks for — it fires for exactly the body the tree would otherwise hide — so the rule is
+  unchanged.
 - ~~What you wear shows on your body~~ **landed** (`godot:check:worn` → `WORN_LOOK_OK`, the chain's
   forty-fifth; slice 8 of the Dungeon Settlers arc, docs/30 "The Dungeon Settlers look", the worn
   clause). **The mechanism**: `Appearance`'s two lists, `EQUIP_UNDER_BODY` and `EQUIP_OVER_BODY`,
@@ -8973,19 +8908,10 @@ not a to-do list:
   lean rather than sharing the bat's, which changes the shipped bat, so it is left as the owner's
   call rather than taken in passing; the service pistol is the weakest single key for the same
   reason of size. Recorded, not fixed. Nothing under `godot/sim/` moved; the FAST lines are
-  byte-identical to slice 7's. **The pictures**, under
-  `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice8-kitted-128.png`, the player wearing
-  every drawn slot at once — cap, wrap, trousers, pack and bat — the five layers composing with none
-  clobbering another; `slice8-kitted-64.png`, the same at the boot zoom, where the gear still reads
-  as gear; `slice8-flip-east-128.png` and `slice8-flip-west-128.png`, one kit on one body at both
-  headings, the overlays mirroring with their wearer through the body's own negative-width rect; and
-  `slice8-weapons-128.png`, a montage of three in-game frames cropped around the pawn — bat,
-  machete, pipe — which is the finding above made visible: the machete's rust and its belly near the
-  tip and the pipe's coupling are all there when you look for them, and none of it is what a player
-  sees at a glance. Only the player is posed in any of these. A companion is drawn only where the
-  sim says the player sees it at Focal detail, and a body teleported into place for a screenshot is
-  neither — three staging attempts established that faster than reading the rule would have, and it
-  is the same anonymity clause that makes a still peripheral body no body at all.
+  byte-identical to slice 7's. Only the player is posed; a companion is drawn only where the sim
+  says the player sees it at Focal detail, and a body teleported into place is neither — three
+  staging attempts established that faster than reading the rule would have, and it is the same
+  anonymity clause that makes a still peripheral body no body at all.
 - ~~A forest district: cabins, stands and dirt paths~~ **landed** (no new gate — `WORLDGEN_OK` grows
   TERRAIN DEFAULTS, FOREST and PATHS, `ROAD_LOOK_OK` grows DIRT ROADS; slice 9 of the Dungeon
   Settlers arc, docs/30 "The Dungeon Settlers look", the district clause). The first slice of the
@@ -9040,12 +8966,7 @@ not a to-do list:
   a few tiles, and the fade rule cannot help as much as it does in the open because several trunks
   overlap the body at once. That is the forest's character rather than a defect in the fade, but
   whether a stand should ever be that dense is a content decision, not one to take in passing: the
-  knobs are the terrain block's `standsMax`, `treesMax` and `treeSpread`. **The pictures**, under
-  `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice9-cabin-64.png`, a cabin with slice 5's
-  timber south face and windows, its shingle roof cut away where the sim sees, a pawn at the door
-  and conifers thinning away downhill — the clearest single frame of the arc so far;
-  `slice9-stand-64.png` and `slice9-stand-32.png`, the densest stand at both rungs, which is the
-  finding above made visible.
+  knobs are the terrain block's `standsMax`, `treesMax` and `treeSpread`.
 - ~~Cars are cars: the 2-wide vehicle footprint~~ **landed** (no new gate — `WRECKS_OK` goes
   from six lanes to nine, so the chain stays 45; slice 10 of the Dungeon Settlers arc, docs/30
   "The Dungeon Settlers look", the vehicle clause). **The mechanism**: a car stops being a shape
@@ -9124,12 +9045,7 @@ not a to-do list:
   `Tile.Low` **twice** — once to pick a colour and once to draw — because reading the first arm
   found four lines of colour arithmetic and reported that the loop never asks about vehicles,
   which is the worst thing a gate can do: go red and blame the code under test.
-  **The pictures**, under `.hermes/plans/2026-09-03_dungeon-settlers-shots/`:
-  `slice10-pale-64.png`, a pale sedan seen roof-and-side with the player in front of it;
-  `slice10-ns-64.png` and `slice10-behind-64.png`, the same car north-south with a pawn south of
-  it and then north of it, which is the sort; `slice10-ew-64.png`; and `slice10-street-32.png`,
-  two cars, a conifer, cut-away roofs and ground edges in one frame.
-  **A finding for the owner** (`slice10-pale-64.png`): the sedan reads *van-like*. Its body is a
+  **A finding for the owner**: the sedan reads *van-like*. Its body is a
   tall box for its whole length, where a sedan is a low bonnet, a raised and inset cabin, and a
   low boot. It is legible as a car and the three-quarter read is unambiguous, so it ships — but
   slice 11 puts an actual van (2×6) and a truck (2×7) on this vocabulary, and three classes that
@@ -9192,14 +9108,6 @@ not a to-do list:
   "vehicle.van is weighted in the suburb's classes and never landed", and a van drawn at the
   sedan's roof as "the van stands 76 rows, under the 86 a tall class must". 1.6 s of the 60 s
   budget. `npm test` (594) and `sprites:check` (76 keys) green beside the chain.
-  **The pictures**, under `.hermes/plans/2026-09-03_dungeon-settlers-shots/`:
-  `slice11-street-32.png`, the frame that judges the decision — two green sedans, a white van
-  north-south and the flatbed facing west in one street at 32, the three classes apart at a
-  glance by height and silhouette; `slice11-truck-ew-64.png`, the cab standing over the bed
-  with the player in front of it; `slice11-truck-ns-64.png`, the tailgate, the planked bed and
-  the cab receding; `slice11-van-ns-64.png`, the back doors and the long ribbed roof;
-  `slice11-van-ew-64.png`, a burnt van beside a burnt sedan, the shape still reading through
-  the char; `slice11-sedan-ew-64.png`, two pale sedans nose to tail at the lower roofline.
   **What it leaves, named**: the north-south axis still draws one picture for both facings
   (decision 11's limit, recorded in the sedan's entry); the hand map has slots for two classes
   beyond the sedan and says so when a third arrives; the forklift stays with the industrial
@@ -9276,13 +9184,6 @@ not a to-do list:
   tiles and turned, restored into a world with the car at the kerb: entity, record, Low and the
   cleared kerb all match, and both worlds drive on in step), SOCKETS (twelve needles across
   world, boot, shambler, fortify, main and dressing, the scanner proved on a fabricated string).
-  **The pictures**, under `.hermes/plans/2026-09-03_dungeon-settlers-shots/`, captured through
-  a throwaway Xvfb `SceneTree` driver (deleted after, per the rule) on the 256 suburb at zoom
-  64: `slice12-beside-64.png`, `slice12-in-64.png` and `slice12-driving-64.png`, the player's
-  sedan pulling away south past a parked van with the HUD reading "driving the sedan; Q to get
-  out once it stops" (captured before the key moved to E; the clause now says E) and the
-  attention line "audible nearby" — the engine on the field, in words. (The driver's capture ran a frame late, so the first two frames are already under
-  way; they are three frames of one drive rather than the three states the names suggest.)
   Two things the frame shows that the gate cannot: the driver's pawn is gone from the street
   and the car is what moves, and the stance readout still says "walking" at the wheel, which
   is the "driver's hands" half named below.
@@ -9619,8 +9520,8 @@ not a to-do list:
   `_draw_night_wash` no longer contains `Clock.ambient_light` at all.
 - **Art-style fixtures** — authorized by the owner (2026-09-01 session), package 5 of the same
   plan, and the only one of the five that ships no code. Twelve screenshots (A/B/C ×
-  day/indoors/night/combat, canonical seed 20260805) and a written comparison, both in
-  `.hermes/plans/2026-09-01_art-style-fixtures/` — the method the brainstorm doc named for
+  day/indoors/night/combat, canonical seed 20260805) and a written comparison — the method the
+  brainstorm doc named for
   choosing among its three candidate directions, built rather than left theoretical. A throwaway
   `SceneTree` script (`godot/screenshot_fixture.gd`, `project_smoke.gd`'s boot pattern, deleted
   after) posed each moment and stepped `world.step()` directly rather than relying on wall-clock
@@ -9812,8 +9713,7 @@ not a to-do list:
 - **Survivors / UI** — ~~the skill web screen~~ **landed** 2026-09-13
   (`npm run godot:check:web_look` → `WEB_LOOK_OK`, lanes PLACED / WOVEN / MAP / SCREEN / WIRED; the
   chain's **70th** gate). **K** opens the web for the colonist selected on the street, or for you,
-  and Esc closes it; screenshots for the owner in `.hermes/plans/2026-09-13_web-screen/`
-  (`web-manual.png`, `web-auto.png`). Presentation only: `godot/sim/` gained a read model and nothing
+  and Esc closes it. Presentation only: `godot/sim/` gained a read model and nothing
   on the campaign path.
   **Where a node sits is content.** docs/08's content shape had named `position` beside `cost` since
   the web was specified and no node carried one; every node in `skill_web.json` does now, on the unit
@@ -9989,8 +9889,7 @@ not a to-do list:
   coin flip that a rim node can tip, and the word landed on the keystone's disc; it is "within
   about twenty-five degrees of vertical" now, which separates the two axis regions from the four
   diagonal ones with room to spare. The web screen's MAP lane grants the Medicine *minors* to its
-  Auto twin, since a keystone is never auto-bought. Screenshot for the owner:
-  `.hermes/plans/2026-09-13_web-screen/web-keystone.png`. And a structural slip in this record
+  Auto twin, since a keystone is never auto-bought. And a structural slip in this record
   file, found while writing this entry: the three entries before it had been inserted inside the
   Focus-and-Manual entry, ahead of its closing paragraph; that paragraph is back where it belongs.
 - **Survivors** — ~~raiders carry a web~~ **landed** 2026-09-14 (`godot:m2:raiders`, new lane
@@ -10088,9 +9987,8 @@ not a to-do list:
   own refresh still says "You". PICK: Mara's pawn hit, three tiles off missed, a zombie and a
   corpse with identities missed, the player's own pawn answers the player. `ban:healthbar`,
   `godot:m2:save`, `godot:m2:fortify`, `check:topdown`, `check:respond`, `m2:recruits` green
-  around it; `check:routing` green with the two new files on the screen row. Screenshot for
-  the owner under `.hermes/plans/2026-09-07_colony-speaks/` (Mara selected, Ellis's line in
-  the world column). **The FAST tier** is untouched by construction: the chronicle reads
+  around it; `check:routing` green with the two new files on the screen row. **The FAST tier**
+  is untouched by construction: the chronicle reads
   events and writes a record nothing in the sim reads back.
 - **Needs & Wounds** — ~~lethality: the cold, the heat, and sepsis can kill~~ **landed**
   (`godot:m2:cold` COLD-KILLS, `godot:m2:heat` HEAT-KILLS, `godot:m2:wounds` SEPSIS-LETHAL),
@@ -11084,11 +10982,10 @@ not a to-do list:
   and `LightLook`; lane D's order is now entities → rain → lightning → fog → wash, the VEIL lane
   holds the guard before the draw and `_draw_rain` still refusing the kind (`look_of` falls back
   to rain, so a fog that reached it would draw rain), and six mutations of the real files were
-  each caught by name. Three screenshots under `.hermes/plans/2026-09-08_fog-look/` for the
-  owner: under fog the far streets and half the room are simply not drawn and the seen area ends
-  on a tile boundary, the veil pales the frame, and at night a small cross of floor remains
-  under both washes — the one thing to look at is that the *unseen* background goes pale grey
-  under a full-screen veil rather than staying dark. **Balance, before and after**
+  each caught by name. Under fog the far streets and half the room are simply not drawn and the
+  seen area ends on a tile boundary, the veil pales the frame, and at night a small cross of
+  floor remains under both washes — the one thing to look at is that the *unseen* background
+  goes pale grey under a full-screen veil rather than staying dark. **Balance, before and after**
   (`godot:m2:balance`, FAST, run on `main` in a worktree and on the branch): the four seed lines
   are **byte-identical** — 20260805 3/3 survivors 117 grabs, 404 3/3 and 7, 31337 3/3 and 0,
   90210 3/3 and 55 — because the compressed tier steps two thousand ticks after each window and
@@ -11187,9 +11084,7 @@ not a to-do list:
   without a strike — the headless-`_draw` limit `check_light_look.gd`'s DEAD SOCKET comment
   names, so both lanes read function bodies the way that file's does) and re-ran RAIN PURE/WIRED
   per kind; every other lane's true-positive numbers are unchanged and every existing lane stayed
-  green. Two screenshots at `.hermes/plans/2026-09-06_weather-look/` (`snow-cover-64.png`, a
-  full snow cover showing the street's paved tint pulled cool while the interior floor beside it
-  stays warm; `storm-lightning-64.png`, a forced strike's white wash over a storm). The owner's
+  green. The owner's
   calls, 2026-09-06: snow falls *and* lies; lightning stays the screen flash ADR 0016 already
   chose over a sim light pulse; the look is arbitrated by screenshot. `docs/16`'s ranged penalty,
   fog, barricade damage, firewood, frostbite, tracks, phase lengths by season and survivor
@@ -12064,8 +11959,7 @@ not a to-do list:
   return now, the corner chart and the HUD's key line moved above it, and KEYS asserts the
   ordering. **That assertion had to move as well**: it was first written *after* the check that
   reads its fault list, so it appended faults nobody looked at and could not fail — and the
-  sabotage meant to prove it red is what showed it. Screenshots for the owner under
-  `.hermes/plans/2026-09-08_inventory-sheet/`.
+  sabotage meant to prove it red is what showed it.
 - **Items** — ~~item glyphs, and the twelfth dead socket closed~~ **landed** 2026-09-08
   (`godot:check:appearance`'s new ITEMS lane), the third piece of the inventory overhaul.
   `item.appearance.sprite` had been in the schema since the appearance pipeline landed and was
@@ -12285,7 +12179,6 @@ not a to-do list:
   The lane also learned what to allow: feet stay planted in a crouch and, from directly above,
   a crawling trunk is the same shape as a standing one, so pose distinctness is judged per
   *pose pair* (fewer than half the parts moving is one pose stored twice) rather than per part.
-  Screenshots for the owner under `.hermes/plans/2026-09-08_inventory-sheet/`.
 - **Modification** — ~~Duct Tape (reroll an affix), Scrap Kit (add an affix), skill-weighted
   outcomes, failure that consumes and damages~~ **landed** (`godot:check:mods`). Which operation a
   consumable performs and against which item classes is **content** — a `modification:
@@ -12560,9 +12453,9 @@ not a to-do list:
   calls it), `godot/check_m2_raiders.gd`, `godot/check_m2_recruits.gd`.
 - **The alpha shell** — ~~the HUD in the chrome~~ **landed** 2026-09-16
   (`npm run godot:check:hud` → **`HUD_OK`**, lane ACTION), the owner's **Option A, two cards**
-  picked from four artboards the same day ([docs/30](30-decisions.md#the-alpha-shell-2026-09-16),
-  the mockups and both screenshots under `.hermes/plans/2026-09-16_alpha-hud/`). The corner
-  columns are now cards in `ui/chrome.gd`'s skin — a **"you"** card at the top left and an
+  picked from four artboards the same day ([docs/30](30-decisions.md#the-alpha-shell-2026-09-16)).
+  The corner columns are now cards in `ui/chrome.gd`'s skin — a **"you"** card at the top left
+  and an
   **"outside"** card at the top right, panel at alpha 0.86 with bracketed corners and a header
   strip, sized to their content in both directions so a healthy survivor's card is one line tall
   and a long chronicle line widens the box rather than hanging off it. **The arrays are
@@ -12717,8 +12610,7 @@ not a to-do list:
   `npm run godot:check:hud` → **`HUD_OK`**, new lane **SHELL**, 23 words across the three screens
   and not a digit among them). The game has a front door: it opens on a **title**, pauses to a
   **menu**, ends on a screen that **speaks the chronicle**, and writes its own save at each dawn
-  and when the window closes. Screenshots of all three are under
-  `.hermes/plans/2026-09-16_alpha-shell/`.
+  and when the window closes.
   **`godot/presentation/session.gd`** (new, RefCounted) owns the run's lifecycle: `State`
   {TITLE, PLAYING, PAUSED, RUN_OVER}, the world, map, fixture, district, region and seed,
   `boot` / `new_run` / `save` / `load` / `has_continue` / `autosave_if_dawn` / `enter` /
@@ -12883,7 +12775,7 @@ not a to-do list:
   - **the skill web** — K opened it with nobody else selected, which `main._who()` defaults to
     the player.
 
-  Screenshots, one per item, at `.hermes/plans/2026-09-16_alpha-walkthrough/`. **No gate
+  **No gate
   changed** with this piece — `npm run godot:smoke` and `npm run check:routing` both stayed
   green — so the walkthrough is a point-in-time proof rather than something a chain re-asserts,
   the way AGENTS.md's screenshot section has always worked. Two things a real player could not
@@ -12954,10 +12846,7 @@ not a to-do list:
     just wrote — and that is the required screenshot, `13_pause_menu.png`. Pressing "continue"
     resumed at the same tick and the same player id the menu was opened at.
   - **the title** — a fresh boot (`_remove_save()` first) opens on state `TITLE` over a world
-    that is not ticking, rows `["new run", "quit"]` (no `continue`: nothing to offer). Screenshot
-    `14_title.png` — the walkthrough's own copy beside the shell agent's
-    `.hermes/plans/2026-09-16_alpha-shell/title.png`, so the walkthrough's set is complete on its
-    own rather than borrowing that one.
+    that is not ticking, rows `["new run", "quit"]` (no `continue`: nothing to offer).
   - **Ctrl+S on the published web build** — `SETUP_EXPORT_TEMPLATES=1 bash
     scripts/setup-web-session.sh` reached the network on this container and installed 4.7.1's
     templates in about eight seconds; `npm run godot:export:web` built `dist-godot/web/`.
@@ -15873,10 +15762,7 @@ not a to-do list:
   pass caught (the Escape that closed the menu paused the game) and the RIGHT-CLICK lane now holds
   with its negative (with no menu open, Escape must still pause). The legend gains the
   `Right-click` row and `check_play.gd`'s KEYS lane knows it lives in `_unhandled_input` beside
-  `Click`. Screenshots for the owner, driven and captured by a throwaway `SceneTree` script
-  (deleted): `.hermes/plans/2026-09-17_after-the-shell/` — the shout's bubble, a shambler's
-  sound-word and the menu's `attack` / `walk here` rows over it, the afterimage a second and six
-  seconds after looking away, and the remembered map once the player has walked on. The lanes:
+  `Click`. The lanes:
   **VERBS** (an item
   in reach offers `pick up`, the same item ten metres away offers `walk over` and not `pick up`;
   a shut door offers `open the door` and an open one `shut the door`; a colonist offers `pull …

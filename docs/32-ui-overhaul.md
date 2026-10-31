@@ -19,9 +19,6 @@ The current interface has useful underlying actions, but repeated heavy frames g
 slots, instructions and important conditions similar weight. Navigation and survivor identity
 are inconsistent. The live audit also found skill-web and bench clipping at 720p, learning
 prose overflow at both sizes, and vehicle instruments covering quick slots.
-[The audit and native-size captures](../.hermes/plans/2026-10-03_ui-overhaul/audit/README.md)
-document those findings. Earlier inventory, title, pause and settings captures are in
-[the layout review](../.hermes/plans/2026-10-03_ui-layout/).
 
 ## Visual language
 
@@ -46,8 +43,7 @@ useful. Bundle and verify the chosen font's license before adoption. Mixed case 
 item names and prose; uppercase is limited to short section labels. Pixel art does not
 require small pixel lettering everywhere. Reduced motion remains supported.
 
-[The illustrative concept](../.hermes/plans/2026-10-03_ui-overhaul/anatomical-concept.png)
-explores this mood, not final proportions or gameplay. Its diagram and inspector are too
+The illustrative concept explores this mood, not final proportions or gameplay. Its diagram and inspector are too
 large for an efficient loot screen. The playable layout must devote visible space to bags
 and the opened container. Its finer wound label, incomplete equipment set and five illustrated
 quick slots are not specifications: production needs ten semantic body regions, all twelve

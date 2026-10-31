@@ -19,9 +19,8 @@ boot colony remains fixed; later recruitment grows it. The **captives arc** (doc
 and the captives", the same
 day; docs/23's what's-left names its slices) is named work under that lift rather than the lone
 exception to a pause its own entry was written against — a held raider who can be recruited or
-put to work, with a recruited captive mid-game growth either way. The design record is
-[`.hermes/plans/2026-08-17_065300-vertical-slice-design.md`](../.hermes/plans/2026-08-17_065300-vertical-slice-design.md).
-It captures decisions, not shipped behavior: nothing counts as done until code and a focused Godot
+put to work, with a recruited captive mid-game growth either way. The design record
+captures decisions, not shipped behavior: nothing counts as done until code and a focused Godot
 check prove it.
 
 [docs/23](23-roadmap.md) is the authority on what is intended **and**, in its milestone status

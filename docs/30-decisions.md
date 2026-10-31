@@ -1651,7 +1651,7 @@ dressing changes never move the layout.
 ## The art style: B, picked from a reference
 
 Decided by the owner, 2026-09-01, from the built comparison fixtures
-(`.hermes/plans/2026-09-01_art-style-fixtures/`) and a supplied reference screenshot rather than
+and a supplied reference screenshot rather than
 from the fixtures alone. The pick is **B — the rotating player**, the brainstorm doc's Zero
 Sievert read, and the reference fixes the mood the arc is aimed at: muted, overcast, desaturated
 urban decay — lane-marked asphalt, wrecked cars, dumpsters, debris and corpse dressing, rain,
@@ -1821,8 +1821,7 @@ italic note at the point it changed, and the list at the end of this entry names
 what dies and what survives. It was taken before slice 3 of the reference-look arc, so nothing
 built under the old direction is thrown away: the 32 px tile and the ground atlas are the floor
 this stands on. Twelve decisions, recorded once here, each paid for in the slice that lands it
-(docs/23, "the Dungeon Settlers arc", in order; the plan is
-`.hermes/plans/2026-09-03_dungeon-settlers-arc.md`):
+(docs/23, "the Dungeon Settlers arc", in order):
 
 - **Bodies stand up.** Every rig — player, colonists, zombies — is an upright, face-on pawn,
   feet-anchored on a taller-than-wide canvas, and heading is a horizontal flip: **nobody
@@ -3031,7 +3030,7 @@ still goes through the command queue.
 Decided by the owner, 2026-09-09, from a fixture round rather than from prose: asked how deep
 the animation should go, whether a body is ever seen from behind and whether the rigs are
 re-drawn, the owner's answer was **"show examples of art first then I will decide"**, and the
-round that answers it is `.hermes/plans/2026-09-09_character-fixtures/` — four sets of candidate
+round that answers it is four sets of candidate
 art, every one of them a *transform* of the shipped generator rather than hand art beside it, so
 that what the pictures showed is what a slice would actually be. Its `comparison.md` describes
 each image and recommends none, the arrangement the 2026-09-01 art-style round set.
@@ -4193,8 +4192,7 @@ the survival loop could be flipped on and measured with the colony held still. T
 later the owner opened a plan to "procedurally generate new NPCs, raiders, and of course zombies
 on the map" and answered the questions the plan turned on. This entry records those answers,
 because between them they lift a standing pause and widen the milestone in one direction docs/18
-had put in Milestone 3. The plan itself is
-`.hermes/plans/2026-09-14_procedural-population-arc.md`; the pieces are docs/23's group of the
+had put in Milestone 3. The pieces are docs/23's group of the
 same name.
 
 **The pause is lifted.** The sentence in `CLAUDE.md` and `AGENTS.md` that said "new NPCs and
@@ -5172,8 +5170,7 @@ bar 1296×48 centred at `view.y − MARGIN − STRIP_CLEARANCE − BAR_H`, its c
 with the key in `Chrome.ACCENT`, and the key hint at `SMALL_SIZE − 2` in `Chrome.TEXT_DIM` in the
 tail. The bar takes chrome's own 14 px bracket rather than the mockup's 12, because a second copy
 of the bracket arithmetic in `hud.gd` is exactly the drift `ui/chrome.gd` exists to prevent. The
-artboards, the canvas file and both screenshots are the record, under
-`.hermes/plans/2026-09-16_alpha-hud/`.
+artboards, the canvas file and both screenshots are the record.
 
 **The desk is for any agent.** `AGENTS.md` gains a section written for whichever assistant picks
 the project up — Claude, ChatGPT, Astra, Sol — with the claim mechanism being the branch name and
@@ -5511,8 +5508,7 @@ sources and generation instructions are preserved beside the reproducible native
 
 ## Wall picture mapping, 2026-10-03
 
-The owner chose **A2, shape-matched pack corners**, from the closed-building comparison in
-`.hermes/plans/2026-09-27_walls-picture-round/`. The existing generated timber and block faces
+The owner chose **A2, shape-matched pack corners**, from the closed-building comparison. The existing generated timber and block faces
 and the current unseen-wall roof coverage stay as they are. The bounded implementation covers
 supported rectangular brick and plaster perimeters, with generated fallbacks; its gates and
 runtime captures are recorded in docs/23. The mapping is not a decision to extend roofs over
@@ -5592,8 +5588,7 @@ in the same answer: a list beside the grid, with the grid still the authority on
 Three directions were drawn at 1920×1080 with the repository's own item icons (canvas
 webbing, a salvage locker, a hard case). On 2026-10-20 the owner picked **B, the Salvage
 Locker**, on a decision card: brushed steel, rivets, masking-tape labels, recessed cells and
-plates tinted by item class, at the world's 2× pixel density. The mockups are under
-`.hermes/plans/2026-10-19_inventory-redesign/`.
+plates tinted by item class, at the world's 2× pixel density.
 
 This settles the inventory's surfaces only. Typography, the anatomical diagram and the rest of
 the interface remain the recommendations "The whole interface" describes; VT323 is still the
