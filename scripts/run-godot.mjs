@@ -68,6 +68,14 @@ switch (mode) {
   case "--run":
     args = ["--path", resolve(root, "godot")];
     break;
+  case "--first-person":
+    args = [
+      "--path",
+      resolve(root, "godot"),
+      "--scene",
+      "res://presentation/first_person/first_person.tscn",
+    ];
+    break;
   case "--smoke":
     args = [
       "--headless",
@@ -494,6 +502,15 @@ switch (mode) {
     break;
   case "--play":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_play.gd"];
+    break;
+  case "--check-first-person":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_first_person.gd",
+    ];
     break;
   case "--context":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_context.gd"];
