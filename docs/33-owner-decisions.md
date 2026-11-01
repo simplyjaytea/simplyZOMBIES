@@ -82,6 +82,31 @@ This is what only the owner decides. Never pick one of these up unilaterally. It
 numbers they had in the retired `HANDOFF.md` (removed 2026-10-19, see docs/30), so a record that
 says "HANDOFF item N" means item N here.
 
+**Walls on tile edges instead of whole tiles?** (opened 2026-11-01). A wall is a whole 1 m tile,
+4 to 10 times the thickness of a real wall (a 0.10 to 0.12 m partition, a 0.20 to 0.25 m exterior
+wall). So a window sits at the end of a 1 m tunnel, and the small house gives 44% of its footprint
+to walls, windows and doors. Art can hide what the walls look like, but it cannot give back the floor
+they take, so the proportions are a sim question, not a finish question. The three options, and what
+each breaks:
+- **B1, walls on tile edges** (0.10 to 0.15 m interior, about 0.20 m exterior): movement and body
+  clearance, pathing (A* and every path consumer), vertical sight and `SimSpace` segment and ray
+  queries, melee reach, doors and windows, saves and replays, and all 22 templates, which need a
+  migration. It needs a full `godot:m2` chain and a balance re-measure, and an estimate of roughly
+  10 to 20 sessions. It is the only option that makes walls thin and gives back floor.
+- **B2, a 0.5 m grid:** it quadruples the tile count, so pathing and sight cost more and storage
+  grows. It remaps all 22 templates and the save fixtures, and the 1 m openings stay oversized
+  unless they become edge features. It still leaves walls 4 to 5 times a normal partition.
+- **C, a lower wall band** of about 2.40 m: `SimSpace.PROFILE`, the drawn geometry and the spatial
+  fixtures move together, and the sight cases are re-measured under the full shared-sim chain. It
+  saves 112 mm, 4.6% at the top, and does nothing for thickness, openings or floor area.
+
+**The built default** is option A, art-only finishes now: wall faces, cavity caps, door and window
+frames, skirting, ceilings, roofs and room-specific floors, with no sim change. Walls stay whole tiles,
+and edge walls are not started. Option A costs roughly 7 to 10 art and integration sessions for the
+residential kit and all 22 templates, and it cannot shorten the 1 m reveals or recover floor area.
+Nothing here is decided. The spatial contract is [docs/40](40-first-person-spatial-contract.md), and
+the pivot plan is [docs/39](39-first-person-pivot.md).
+
 **Does hot reload swap content under a live world, or re-run the seed?** docs/30's "What hot reload
 made structural" decides the second — four things capture content at spawn, equip and boot, so a
 live swap leaves a world disagreeing with its own content — and `ContentReload.try_reload_world`
