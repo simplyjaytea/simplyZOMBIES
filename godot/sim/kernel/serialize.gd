@@ -164,6 +164,16 @@ extends RefCounted
 # is restored (`world.gd`), so a save carrying a wall comes back with its tile solid and its
 # opacity as the kind says.
 # No version bump.
+# The aim's pitch (docs/40, slice 3) adds an optional `pitch` key to the `aim` component, radians
+# above level, and an NPC that turns to a body may carry an `aim` holding only that key (sim/aim.gd).
+# A level pitch is the absent key, so neither 0 nor -0.0 is ever stored. A v33 save has no `pitch`
+# and no pitch-only aim: it reads as level aims, which is what every aim was before, and `radians`
+# still means the yaw wherever it is present. The pitch-only aim is a shape an older build does not
+# know (it would read the missing yaw as 0, not as the facing), but a bump here is for a save this
+# build would misread, and like the walls and the loaded round above, a newer save in an older build
+# is not promised: `save.gd` refuses any version but its own, and pre-1.0 saves are not migrated.
+# Bumping would refuse every v33 save to guard a downgrade (docs/30, "A pitch with no yaw").
+# No version bump.
 const SAVE_VERSION: int = 33
 
 
