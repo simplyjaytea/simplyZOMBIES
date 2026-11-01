@@ -243,6 +243,7 @@ const SimTileMapRes = preload("res://sim/map/tilemap.gd")
 # _roll_body_part is reused rather than reimplemented -- CLAUDE.md's shape is "one canonical
 # place", and melee.gd:31 already is it.
 const SimMeleeRes = preload("res://sim/modules/melee.gd")
+const SimSpaceRes = preload("res://sim/space/space.gd")
 # escape_chance already resolves the STR-scaled grab_escape modifier; this module has no
 # business rolling its own escape maths.
 const SimAptitudesRes = preload("res://sim/modules/aptitudes.gd")
@@ -770,17 +771,16 @@ static func swipe_damage_for(body: Variant, part: String) -> float:
 	return maxf(SWIPE_DAMAGE_MIN, minf(SWIPE_DAMAGE, SWIPE_DAMAGE_PART_FRACTION * float(int(part_max))))
 
 
-# A short physical reach may cross screening foliage, but never a solid wall or window.
-# Three samples along the ray rather than a full raycast, matching the oracle's clearContact
-# (src/sim/modules/shambler.ts:628) -- world.is_blocked_tile is the Godot equivalent of the
-# oracle's blockedAt, and floori() here matches world.gd's own _blocked_at exactly.
-static func _clear_contact(world: Variant, from: Dictionary, to: Dictionary) -> bool:
-	for fraction in [0.25, 0.5, 0.75]:
-		var x: float = float(from["x"]) + (float(to["x"]) - float(from["x"])) * fraction
-		var y: float = float(from["y"]) + (float(to["y"]) - float(from["y"])) * fraction
-		if world.is_blocked_tile(floori(x), floori(y)):
-			return false
-	return true
+# A short physical reach may cross screening foliage, but never a wall. Since docs/40's slice 2
+# this is the one reach question every blow asks, `SimSpace.reach_clear`: the whole segment from
+# the reacher's shoulder to the reached body's middle or chest, traced through the height profile.
+# It used to be three samples against `world.is_blocked_tile` (the oracle's clearContact,
+# src/sim/modules/shambler.ts:628), which is solidity, not reach: for every full-height band the
+# two give the same answer, and they differ only where the profile has a height -- a window's
+# aperture, a car's top, a doorway's lintel. `reacher` and `reached` name the bodies when the
+# caller has them; a bare pair of positions reads as a shambler reaching a standing survivor.
+static func _clear_contact(world: Variant, from: Dictionary, to: Dictionary, reacher: int = -1, reached: int = -1) -> bool:
+	return SimSpaceRes.reach_clear(world, from, to, reacher, reached)
 
 
 # Opens a hold. Idempotent: a source that already has a grabState is left alone rather than
@@ -1001,7 +1001,7 @@ static func try_begin_rescue(world: Variant, rescuer: int, victim: int) -> bool:
 	var dy: float = float((to as Dictionary)["y"]) - float((from as Dictionary)["y"])
 	if sqrt(dx * dx + dy * dy) > RESCUE_METRES:
 		return false
-	if not _clear_contact(world, from as Dictionary, to as Dictionary):
+	if not _clear_contact(world, from as Dictionary, to as Dictionary, rescuer, victim):
 		return false
 	var stamina: Variant = world.components.get_component(rescuer, "stamina")
 	if stamina is Dictionary and float((stamina as Dictionary)["current"]) < RESCUE_STAMINA:
@@ -1265,7 +1265,7 @@ static func register_module(world: Variant, _map: Variant) -> void:
 				# wall between refuses the swipe the same way it refuses a grab.
 				if reached != null and not w.components.has_component(int(reached), "grabbed"):
 					var at_sw: Variant = w.components.get_component(int(reached), "position")
-					if at_sw is Dictionary and _clear_contact(w, from_sw, at_sw as Dictionary):
+					if at_sw is Dictionary and _clear_contact(w, from_sw, at_sw as Dictionary, int(swiper), int(reached)):
 						mark = reached
 			if mark == null:
 				sw["ticksToSwipe"] = SWIPE_FIRST_TICKS
@@ -1300,7 +1300,7 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			if still_here:
 				var dx: float = float((at_pos as Dictionary)["x"]) - float(from_pos["x"])
 				var dy: float = float((at_pos as Dictionary)["y"]) - float(from_pos["y"])
-				still_here = sqrt(dx * dx + dy * dy) <= RELEASE_METRES and _clear_contact(w, from_pos, at_pos as Dictionary)
+				still_here = sqrt(dx * dx + dy * dy) <= RELEASE_METRES and _clear_contact(w, from_pos, at_pos as Dictionary, int(source), victim)
 			if not still_here:
 				_release_grab(w, int(source), "geometry")
 				var self_data: Dictionary = w.components.get_component(int(source), "shambler") as Dictionary
@@ -1430,7 +1430,7 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			if new_victim == null:
 				continue
 			var at4: Dictionary = w.components.get_component(int(new_victim), "position") as Dictionary
-			if _clear_contact(w, from4, at4):
+			if _clear_contact(w, from4, at4, int(source4), int(new_victim)):
 				_start_grab(w, int(source4), int(new_victim))
 	)
 

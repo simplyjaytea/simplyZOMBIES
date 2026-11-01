@@ -97,6 +97,7 @@ export const M2_SHARDS = [
     "godot:check:worn",
     "godot:check:web_look",
     "godot:m2:swipe",
+    "godot:m2:space",
     "godot:m2:armor",
   ],
   [

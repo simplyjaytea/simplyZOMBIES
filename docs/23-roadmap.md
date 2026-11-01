@@ -2417,6 +2417,50 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **The segment, and melee stops going through walls, 2026-11-01.** Slice 2 of docs/40: the first
+  question the sim asks of the height profile, and the three blows that now ask it.
+  - **The record.** `SimSpace.segment_clear(map, a, b, purpose)` (`godot/sim/space/space.gd`) walks
+    the 2D segment tile by tile in integer steps and, inside each tile, tests the segment's height
+    between its two crossing heights against every `PROFILE` band that stops `SIGHT`, `SHOT` or
+    `REACH`, in integer millimetres, with no RNG. The tiles the two points stand in are skipped unless
+    they stop movement, an exact corner tests both tiles beside it, and it runs from the lesser
+    endpoint so either direction gives one answer. `SimSpace.reach_clear` is the blow: from the
+    attacker's shoulder (eye less 400 mm) to the target's mid-height or chest. `SimMelee._resolve_strike`
+    counts a candidate only if its blow is clear, so the nearest reachable body wins.
+    `SimShambler._clear_contact` is now that call for the swipe, the grab, the hold check and the
+    rescue, with each caller passing its two bodies. `SimNpcCombat.can_strike`'s melee arm asks it,
+    so the attack walk does not stop beside a wall. A survivor 1.70 m from a zombie across a one-metre
+    wall no longer lands the swing; through an open window, an open door or a doorway it does.
+  - **The gate.** `godot:m2:space` (`godot/check_m2_space.gd`): PAIRS (33 one-tile cases, from walls,
+    windows, sills, lintels and board stages to doors, Low, screen, fence, tree and water, each
+    answered for all three purposes and paired with the height or tile that flips it), ENDS, CORNER,
+    MIRROR (600 seeded segments over a map of every class and overlay: asked twice, backwards and
+    reflected, with both answers seen), SWING (the live swing through a wall, a closed door, a
+    window, a doorway, an open door and open ground, crouched under a sill, and a blocked nearer body
+    passed over for a clear farther one), and READS. READS plants a Low tile, which
+    `world.is_blocked_tile` reports open, between a crouched body and its mark. The swing, the live
+    shambler's claw and grab, and `can_strike` each refuse it crouched, land standing, and land
+    crouched once the tile is floor. Mutation-tested: dropping the call from each of the three
+    callers, the chest point, the corner rule or the endpoint rule turns it red.
+  - **Verified.** The full `godot:m2` chain, all 99 gates, run locally as its four CI shards side by
+    side: 98 green. `godot:check:shots` exited 1 with no failure line under that load and was green
+    when run alone. `godot:m2:swipe`, `contact`, `npc`, `hands` and `balance` stayed green with
+    their assertions unchanged.
+  - **What moved.** Survivor, colonist, raider and settler swings no longer land through walls, closed
+    doors, boarded windows below stage 3, barricades, trees or wire fences. A crouched swing over Low cover or under a
+    window sill is refused (it used to land). A zombie's reach now passes a window's aperture and
+    deep water where it used to be refused as solid, and it stops at a Low tile between it and a
+    crouched survivor. At grab and swipe range across a full tile, neither can happen, because
+    bodies either side of a tile are 1.70 m apart; only a line clipping a tile's corner, or the
+    3.2 m hold check, sees the difference. The traversal is exact where the old check took three
+    samples, so a hold check whose line clips a wall corner between the samples now releases. All
+    of this is balance-relevant and unmeasured here: docs/40's slice 8 owns the before and after.
+  - **The readings.** docs/40 named the target's mid-height alone; on its own heights that dips under
+    a window's sill, so the chest was added (docs/30, "The reach arrives at the chest as well as the
+    middle", which also records the endpoint, corner and wall-list readings).
+  - **Not yet.** `_engage` still starts an NPC's swing on distance, so a colonist crouched at a
+    window can waste one; perception, the shot and pitch do not read the segment (slices 3 to 5).
+
 - **First-person profile, drawn, 2026-11-01.** Slice 1 of docs/40, the spatial contract's "The
   profile, drawn": the one height table the first-person view draws and, from slice 2, the sim reads.
   - **The record.** `SimSpace` (`godot/sim/space/space.gd`, pure and static) owns `PROFILE`: for each
