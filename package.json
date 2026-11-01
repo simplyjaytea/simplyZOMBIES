@@ -23,6 +23,7 @@
     "godot:smoke:exports": "node scripts/smoke-godot-exports.mjs",
     "godot:editor": "node scripts/run-godot.mjs --editor",
     "godot:run": "node scripts/run-godot.mjs --run",
+    "godot:run:topdown": "node scripts/run-godot.mjs --topdown-run",
     "godot:run:first_person": "node scripts/run-godot.mjs --first-person",
     "godot:run:first_person:props": "node scripts/run-godot.mjs --first-person-props",
     "godot:validate": "node scripts/run-godot.mjs --validate",

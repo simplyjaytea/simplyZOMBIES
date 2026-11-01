@@ -174,6 +174,7 @@ func _run() -> void:
 		_finish(old_size)
 		return
 	var ok: bool = _lane("DISTRICT", _district_default(packed), "the scene boots the shipped district size and seed by default and the gate walks a smaller one")
+	ok = _lane("BOOT", _default_boot(), "project.godot boots the first-person scene, and a project that names the top-down scene is refused") and ok
 	var scene: Node = packed.instantiate()
 	scene.set("district_tiles", SMALL_DISTRICT_TILES)
 	root.add_child(scene)
@@ -210,6 +211,7 @@ func _run() -> void:
 		ok = _lane("LIGHT", _light(scene), "noon is bright and midnight dark, and a carried torch lights the eye") and ok
 		ok = _lane("SUCCESSION", _succession(scene), "a death hands the camera to an heir and the dead body is drawn") and ok
 		ok = _lane("LEGEND", _legend(scene), "F1 lists every key the scene handles and the scene handles every key it lists") and ok
+		ok = _lane("THIRD", _third_person(scene), "F2 steps the camera behind the eye and back, the own body is drawn and plays the sim's clip only in third person, and a wall pulls the camera in while an open line does not") and ok
 		ok = _lane("TALK", _talk(scene), "a colonist in reach talks in the read models' own words") and ok
 		ok = _lane("ANIM", _anim(scene), "every body names its animation state from the sim with a phase in 0..1") and ok
 		ok = _lane("RUN-OVER", _run_over(scene), "killing the colony opens the end panel and W sends nothing") and ok
@@ -689,6 +691,171 @@ func _blocked(scene: Node) -> bool:
 	if away.distance_to(centre) < 0.30:
 		ok = _fail("BLOCK", "the open direction did not move the body (%.3f m)" % away.distance_to(centre))
 	return ok
+
+
+# --- BOOT -----------------------------------------------------------------------------------
+
+# The default boot: project.godot names the first-person scene as its main scene, and the scene this gate
+# loads is that scene. The reader is proved on fabricated lines first, so "no match" and "a match that
+# happens to agree" cannot look the same.
+func _default_boot() -> bool:
+	if _main_scene_in("run/main_scene=\"res://presentation/main.tscn\"") == SCENE_PATH:
+		return _fail("BOOT", "the reader answers the first-person scene for a project that names the top-down one")
+	if _main_scene_in("[application]\nconfig/name=\"simplyZOMBIES\"") != "":
+		return _fail("BOOT", "the reader invented a main scene for a project file that names none")
+	var text: String = FileAccess.get_file_as_string("res://project.godot")
+	if text.is_empty():
+		return _fail("BOOT", "cannot read res://project.godot")
+	var booted: String = _main_scene_in(text)
+	if booted != SCENE_PATH:
+		return _fail("BOOT", "the game boots '%s', not the first-person scene %s" % [booted, SCENE_PATH])
+	return true
+
+
+func _main_scene_in(text: String) -> String:
+	for raw in text.split("\n"):
+		var line: String = String(raw).strip_edges()
+		if line.begins_with("run/main_scene="):
+			return line.substr("run/main_scene=".length()).strip_edges().trim_prefix("\"").trim_suffix("\"")
+	return ""
+
+
+# --- THIRD ----------------------------------------------------------------------------------
+
+# The testing view (docs/39). F2 toggles it. First person hides the player's own body and keeps the camera
+# at the eye. Third person draws survivor.glb, plays the clip the sim's state names, and steps the camera
+# back to the shoulder spot. A wall on that line pulls the camera in; an open line does not. Every case
+# reads the sim and the scene, never the key.
+func _third_person(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var body: Node3D = scene.get("own_body") as Node3D
+	var camera: Camera3D = scene.get("camera") as Camera3D
+	var rig: Node3D = scene.get("_rig") as Node3D
+	if body == null or camera == null or rig == null:
+		return _fail("THIRD", "the scene built no own body, no camera or no rig")
+	var player: AnimationPlayer = body.get("player") as AnimationPlayer
+	if player == null:
+		return _fail("THIRD", "the player's own body has no model with an AnimationPlayer: survivor.glb did not load")
+	var setup: Dictionary = _find_open_line(map)
+	if setup.is_empty():
+		return _fail("THIRD", "the district has no floor with three tiles of clear floor behind and ahead")
+	var tile: Vector2i = setup["tile"] as Vector2i
+	var dir: Vector2i = setup["dir"] as Vector2i
+	var centre: Vector2 = Vector2(float(tile.x) + 0.5, float(tile.y) + 0.5)
+	var face: float = atan2(-float(dir.x), -float(dir.y))
+
+	# First person: the body is hidden and the camera sits at the eye.
+	_place_player(scene, centre)
+	scene.call("set_look", face, 0.0)
+	_settle_eye(scene)
+	scene.call("_update_render", 1.0)
+	var eye_local: Vector3 = Vector3(0.0, float(scene.get("_eye_m")), 0.0)
+	if bool(scene.get("third_person")) or body.visible:
+		ok = _fail("THIRD", "a fresh first-person view shows the player's own body")
+	if camera.position.distance_to(eye_local) > 0.001:
+		ok = _fail("THIRD", "first person puts the camera at %s, not the eye %s" % [str(camera.position), str(eye_local)])
+
+	# F2 on: the body is drawn, and the camera is behind and above the eye, a little to the right.
+	_key(FirstPerson.VIEW_KEY, true)
+	_key(FirstPerson.VIEW_KEY, false)
+	scene.call("_update_render", 1.0)
+	if not bool(scene.get("third_person")):
+		return _fail("THIRD", "F2 did not switch to third person")
+	if not body.visible:
+		ok = _fail("THIRD", "third person hides the player's own body")
+	var want: Vector3 = Vector3(FirstPerson.THIRD_RIGHT_M, eye_local.y + FirstPerson.THIRD_UP_M, FirstPerson.THIRD_BACK_M)
+	if camera.position.distance_to(want) > 0.01:
+		ok = _fail("THIRD", "the open-line camera is at %s, not the shoulder spot %s" % [str(camera.position), str(want)])
+	if camera.position.z <= eye_local.z + 1.0:
+		ok = _fail("THIRD", "the camera is not behind the eye (z %.3f)" % camera.position.z)
+
+	# The clip is the sim's: standing names the sim's state, walking names walk, and standing again names
+	# the standing clip rather than walk.
+	var player_id: int = int(world.player)
+	var state_now: String = AnimState.state_of(world, player_id)
+	var want_clip: String = AnimState.clip_for(AnimState.kind_of(world, player_id), state_now)
+	if String(player.current_animation) != want_clip:
+		ok = _fail("THIRD", "the own body plays '%s' while the sim's %s state names '%s'" % [String(player.current_animation), state_now, want_clip])
+	_key(KEY_W, true)
+	for _i in 6:
+		scene.call("_process", TICK_SECONDS)
+	# Read while W is still held: the tick after a release sends a zero move, and the body stops.
+	var moving_state: String = AnimState.state_of(world, player_id)
+	var moving_clip: String = String(player.current_animation)
+	if not ["walk", "run"].has(moving_state):
+		ok = _fail("THIRD", "a survivor walking forward reads '%s', not walk or run" % moving_state)
+	if moving_clip != AnimState.clip_for(AnimState.kind_of(world, player_id), moving_state):
+		ok = _fail("THIRD", "the own body plays '%s' while the sim's walking state is '%s'" % [moving_clip, moving_state])
+	_key(KEY_W, false)
+	for _i in 12:
+		scene.call("_process", TICK_SECONDS)
+	var still_state: String = AnimState.state_of(world, player_id)
+	var still_clip: String = String(player.current_animation)
+	if ["walk", "run"].has(still_state) or still_clip == "walk" or still_clip == "run":
+		ok = _fail("THIRD", "a standing survivor still reads '%s' and plays '%s'" % [still_state, still_clip])
+	if still_clip != AnimState.clip_for(AnimState.kind_of(world, player_id), still_state):
+		ok = _fail("THIRD", "the own body plays '%s' for the sim's '%s' state" % [still_clip, still_state])
+
+	# F2 off: the body is hidden again and the camera returns to the eye.
+	_key(FirstPerson.VIEW_KEY, true)
+	_key(FirstPerson.VIEW_KEY, false)
+	scene.call("_update_render", 1.0)
+	if bool(scene.get("third_person")) or body.visible:
+		ok = _fail("THIRD", "F2 back to first person still shows the own body")
+	if camera.position.distance_to(eye_local) > 0.001:
+		ok = _fail("THIRD", "the camera did not return to the eye (%s)" % str(camera.position))
+
+	# A wall on the line from the eye to the shoulder spot pulls the camera in. The sim's own sight line
+	# to the full spot is blocked, and the camera stops short of the full distance.
+	var wall: Dictionary = _find_blocked_setup(map)
+	if wall.is_empty():
+		return _fail("THIRD", "the district has no floor tile with a wall behind it to test the pull-in against")
+	var wtile: Vector2i = wall["tile"] as Vector2i
+	var wdir: Vector2i = wall["dir"] as Vector2i
+	_place_player(scene, Vector2(float(wtile.x) + 0.5, float(wtile.y) + 0.5))
+	# Facing away from the wall, so the shoulder spot lies toward it.
+	scene.call("set_look", atan2(float(wdir.x), float(wdir.y)), 0.0)
+	_settle_eye(scene)
+	_key(FirstPerson.VIEW_KEY, true)
+	_key(FirstPerson.VIEW_KEY, false)
+	scene.call("_update_render", 1.0)
+	if not bool(scene.get("third_person")):
+		return _fail("THIRD", "F2 did not switch to third person at the wall")
+	var pulled: float = camera.position.z
+	if pulled >= FirstPerson.THIRD_BACK_M - 1.0:
+		ok = _fail("THIRD", "a wall behind the body left the camera at %.3f m, not pulled in" % pulled)
+	var eye_w: Vector3 = rig.global_transform * eye_local
+	var spot_w: Vector3 = rig.global_transform * want
+	var from: Dictionary = {"x": eye_w.x, "y": eye_w.z, "h": roundi(eye_w.y * 1000.0)}
+	var to: Dictionary = {"x": spot_w.x, "y": spot_w.z, "h": roundi(spot_w.y * 1000.0)}
+	if SimSpace.segment_clear(SimSpace.map_of(world), from, to, SimSpace.SIGHT):
+		ok = _fail("THIRD", "the sim's sight line to the full shoulder spot is clear, so the pull-in had no wall to answer")
+	_key(FirstPerson.VIEW_KEY, true)
+	_key(FirstPerson.VIEW_KEY, false)
+	scene.call("_update_render", 1.0)
+	return ok
+
+
+# A floor tile with clear floor three tiles behind and ahead along one cardinal direction, so the shoulder
+# spot and a short walk both have room. `dir` is the sim direction the body faces.
+func _find_open_line(map: Variant) -> Dictionary:
+	var dirs: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
+	for ty in range(4, int(map.h) - 4):
+		for tx in range(4, int(map.w) - 4):
+			if not _walkable_floor(map, tx, ty):
+				continue
+			for d in dirs:
+				var clear: bool = true
+				for k in [-3, -2, -1, 1, 2, 3]:
+					var t: Vector2i = Vector2i(tx, ty) + d * int(k)
+					if not _walkable_floor(map, t.x, t.y):
+						clear = false
+						break
+				if clear:
+					return {"tile": Vector2i(tx, ty), "dir": d}
+	return {}
 
 
 # --- CONTAINER ------------------------------------------------------------------------------
@@ -2542,7 +2709,7 @@ func _write_wrong_glb() -> String:
 # this map is a failure, so a new key cannot slip past the check unnamed.
 const KEY_NAMES: Dictionary = {
 	"KEY_A": KEY_A, "KEY_D": KEY_D, "KEY_E": KEY_E, "KEY_ENTER": KEY_ENTER, "KEY_ESCAPE": KEY_ESCAPE,
-	"KEY_F": KEY_F, "KEY_F1": KEY_F1, "KEY_F5": KEY_F5, "KEY_F9": KEY_F9, "KEY_G": KEY_G,
+	"KEY_F": KEY_F, "KEY_F1": KEY_F1, "KEY_F2": KEY_F2, "KEY_F5": KEY_F5, "KEY_F9": KEY_F9, "KEY_G": KEY_G,
 	"KEY_KP_ENTER": KEY_KP_ENTER, "KEY_P": KEY_P, "KEY_R": KEY_R, "KEY_S": KEY_S, "KEY_SHIFT": KEY_SHIFT,
 	"KEY_W": KEY_W, "KEY_MINUS": KEY_MINUS, "KEY_KP_SUBTRACT": KEY_KP_SUBTRACT, "KEY_EQUAL": KEY_EQUAL,
 	"KEY_KP_ADD": KEY_KP_ADD,

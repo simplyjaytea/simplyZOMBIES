@@ -102,14 +102,16 @@ When your survivor dies, the run can carry on through whoever is left.
 
 Sleeping fast-forwards the night, and stops when a zombie comes close.
 
-## First person (experimental)
+## First person
 
-The title screen has a row, **first person (experimental)**, above quit. It opens the same district
-and colony in a first-person view. `Esc` frees the mouse, and a second `Esc` takes you back to the
-title. The top-down game is still the default: New run starts the top-down game, as before.
+The game boots into a first-person view of the district and colony. `Esc` frees the mouse, and a
+second `Esc` takes you back to the title. The top-down game is kept as the testing build:
+`npm run godot:run:topdown` opens it directly, and New run on the title starts it.
 
 - **Look and walk:** the mouse turns you, `W` `A` `S` `D` walk, `Shift` sprints. `Ctrl+Z`, `Ctrl+C`,
   `Ctrl+S` and `Ctrl+V` go prone, crouch, stand and jog. Your eye height follows your stance.
+- **Testing view:** `F2` steps the camera back behind your own body (third person), and `F2` again
+  returns to your eye. It is for testing only; first person is the game, and the view is not saved.
 - **Act:** `E` works on whatever you face: the ledger at the desk, a cupboard, shelf or chest, a door,
   or one of your colonists. A prompt at the bottom of the screen names what `E` will do. `LMB` or `F`
   swings, `G` fires, `R` reloads.
@@ -156,7 +158,8 @@ Node.js 22 for the project's scripts.
 git clone https://github.com/simplyjaytea/simplyZOMBIES.git
 cd simplyZOMBIES
 bash scripts/setup-web-session.sh   # Linux: installs the pinned engine and npm packages
-npm run godot:run                   # play
+npm run godot:run                   # play (the default boot: first person)
+npm run godot:run:topdown           # the top-down game, for testing
 npm run godot:editor                # open the project in the Godot editor
 ```
 

@@ -13,7 +13,8 @@ reaches `main`, the shared folder, what is open) is [docs/38, the playbook](docs
 bash scripts/setup-web-session.sh   # verify or install the pinned engine and npm packages
 npm run godot:smoke                 # the project boots
 npm run check:routing               # the routing table below, and every gate reachable
-npm run godot:run                   # play it (DISPLAY=:1 on a headless VM; docs/34)
+npm run godot:run                   # play it, first person (DISPLAY=:1 on a headless VM; docs/34)
+npm run godot:run:topdown           # the top-down testing game
 npm run godot:m2:needs              # one gate while iterating: any godot:m2:<name> or godot:check:<name>
 npm run godot:m2 -- --shard=1/4     # one of CI's four shards of the full chain
 npx vitest run test/unit/<file>     # one test file of the frozen oracle
@@ -38,7 +39,8 @@ Then read, in order:
 **Current direction: the first-person survival colony pivot, authorized 2026-11-01.**
 Read [docs/39](docs/39-first-person-pivot.md) before new presentation or art work.
 The owner has superseded the flat-top-down art direction for the conversion;
-the current default build remains top-down until the replacement is verified.
+the default boot has been first person since the owner's call of 2026-11-01 (docs/30); the
+top-down game remains as the testing build (`npm run godot:run:topdown`).
 Colony systems, skills, authored/generated people and the captive roadmap remain.
 Management moves to physical ledgers and conversations. Earlier projection and
 sprite rules describe the preserved baseline, not constraints on new 3D assets.
@@ -321,7 +323,7 @@ row when a system gains a home; the gate goes red when a route stops being true.
 | Shipped runtime performance | [docs/22](docs/22-performance.md#shipped-godot-runtime-measurements) | `godot/bench/runtime_tick.gd`, `godot/bench/runtime_frame.gd`, `godot/bench/measured_main.gd`, `scripts/runtime-budget.mjs`, `scripts/run-godot.mjs` | `npm run check:runtime-budget` judges the production runner contract; `npm run godot:m2:tick` (`godot/check_m2_tick.gd`) holds each tick speed-up to the slow answer it replaced; `npm run godot:bench:runtime` and `npm run godot:bench:frame` measure actual timing on a quiet machine (frame needs a display). Existing overruns remain product debt; the real timing commands are not yet CI shipping gates. | docs/22's dated measurements and the record |
 | Driving a pull request | `.claude/skills/steward/SKILL.md`, then [Pushing and pull requests](CLAUDE.md#pushing-and-pull-requests) | -- | whatever CI reports; the touched gates before every push, per [Verifying a change](CLAUDE.md#verifying-a-change) | the PR itself |
 | The survivor body in the game's renderer: a candidate GLB under the first-person scene's sky, lens and eye, beside the concept | The header of `godot/review/survivor_shots.gd`, then the first-person loader `godot/presentation/first_person/models.gd` | `godot/review/survivor_shots.gd` (the driver; `--glb=` or `SURVIVOR_GLB` picks the model, `--out=` the folder), `godot/presentation/first_person/sky_view.gd` (the light the shots use) | `npm run godot:shots:survivor` renders and composes the sheet; it is a render, not a gate, and needs a display | the PR itself |
-| Playing it, or a screenshot | [Running the game](docs/34-agents-and-environment.md#running-the-game-gui) below | `godot/presentation/main.tscn` | `npm run godot:run` | -- |
+| Playing it, or a screenshot | [Running the game](docs/34-agents-and-environment.md#running-the-game-gui) below | `godot/presentation/first_person/first_person.tscn` (the default boot), `godot/presentation/main.tscn` (the top-down testing game) | `npm run godot:run` (first person), `npm run godot:run:topdown` | -- |
 | Art review: before and after screenshots of fixed scenes at both windows | the header of `godot/review/shots.gd`, then `godot/review/scenes.gd` | `godot/review/scenes.gd` (each scene and its verify), `godot/review/shots.gd` (the capture driver, run with `DISPLAY=:1 npm run godot:shots`) | `npm run godot:check:shots` (`godot/check_shots.gd`); its PIXELS lane skips without a display | the record |
 
 **By system** -- the spec, the code, and the gate that proves it. Where a row names several
