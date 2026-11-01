@@ -1,423 +1,73 @@
 # Playbook
 
-**Owner amendment, 2026-11-01:** the first-person survival colony pivot in
-[docs/39](39-first-person-pivot.md) supersedes this playbook's flat-top-down art
-direction and adds conversion work ahead of the previous release sequence.
-The existing game is preserved by the GitHub source archive linked there.
-The default boot is first person since the owner's call of 2026-11-01 (docs/30); the top-down
-game is the testing build. Colony mechanics and the standing verification/merge rules remain.
-
-For any agent joining this project cold: Claude, Codex, Cursor, or a person. `CLAUDE.md` holds
-the rules of the repository. This file is about how the project around it runs: who decides
-what, how a piece of work gets from a request onto `main`, where the shared material lives, and
-what is open right now. It links rather than repeats. Where it states a fact about the build, it
-names the file or gate that proves it. Where it says how the owner works, it records the owner's
-standing instructions as of 2026-10-27.
-
-Read `CLAUDE.md` first, top to bottom. Come back here before you pick up a piece.
+This file merged into the root [PLAYBOOK.md](../PLAYBOOK.md) on 2026-11-01, the owner's call
+(docs/30, "The playbook, one file"), together with `CLAUDE.md` and `AGENTS.md`. The headings
+below are kept so old links still land; each points at the section that holds its content now.
 
 ## What the game is
 
-A hardcore zombie survival colony sim. It takes RimWorld's colony management and work
-priorities, Project Zomboid's unforgiving survival, and Zero Sievert's top-down pixel art. One
-attention system (noise, scent, light) ties survival to the pressure the dead put on the colony:
-the better you live, the harder they come. [docs/00](00-vision.md) is the vision and
-[docs/01](01-hardcore-contract.md) is the hardcore contract.
+[What the project is](../PLAYBOOK.md#what-the-project-is).
 
-Only the Godot build ships (`godot/`, Godot 4.7.1, typed GDScript). The TypeScript under `src/`
-is a frozen oracle: CI keeps it green, and nothing new goes into it.
+## Where it stands
 
-## Where it stands (2026-10-26)
+[Where the work is](../PLAYBOOK.md#where-the-work-is).
 
-- **Milestone 2, the vertical slice.** The exit criterion is ten in-game days, permanent loss,
-  succession, and still wanting another run.
-- **The alpha plan has landed.** All of its pieces, A0 to A24 (written 2026-10-19), are in
-  [the record, by system](23-roadmap.md#the-record-by-system), each with its gate.
-- **The alpha stopped at a balance wall on 2026-10-21.** The target was a colony alive on day 10
-  on 2 of 3 seeds, and it was not met. The numbers, the traces and the next measurement are in
-  docs/23's "Balance after the alpha" (under
-  [what's left](23-roadmap.md#whats-left-in-milestone-2)). The next measurement is ten seeds and
-  a median wipe day, on `main` and on each candidate. No lever is judged on three seeds again.
-- **What is open** is [what's left](23-roadmap.md#whats-left-in-milestone-2): the UI overhaul's
-  later slices, the balance follow-ups, the content arcs, and the named pieces under them. Which
-  stage each belongs to is [the release plan](#the-release-plan) below.
-- **For the current `main`,** run `git log origin/main -1` and look at its CI. This file carries
-  no commit hash on purpose, because a hash written here is out of date after the next merge.
+## Where we left off
 
-## Where we left off (2026-11-01, paused by the owner)
-
-The first-person conversion ([docs/39](39-first-person-pivot.md)) is the work in hand. The
-default boot is the first-person scene; the top-down game is reached with
-`npm run godot:run:topdown`, and the title's "first person" row returns to first person. This section is a
-handoff: read it, then `gh pr list` and each pull request's CI, because both move.
-
-**On `main`.** The pivot plan (docs/39), the spatial contract
-([docs/40](40-first-person-spatial-contract.md)), the first-person foundation and its
-integration (containers, save and load, death and succession, doors, stance and gait, interim
-fighting, the title row, day, night and the carried light, the ledger's Reports page, the shipped
-district size, art that loads from a clean checkout), spatial slice 1 (`SimSpace`'s height
-profile) and slice 2 (melee and zombie reach stop at walls), game speed, the Blender starter kit
-and the weapon kit, the README's first-person section, the owner cards in docs/33, and the
-review follow-ups in docs/23's first-person group.
-
-**Open pull requests, in the order they should merge.** Each merges `main` in and waits for CI
-on its new head first (How work flows, step 5); the conflicts so far have been docs/23's record
-list (keep both entries) and the lane list and OK sentence of `godot/check_first_person.gd`
-(keep both lanes).
-
-1. #292 the starter kit drawn in the scene (walls, boards, shelves), and #290 aim pitch
-   (spatial slice 3; the save stays at its version, reasoned in docs/30 "A pitch with no yaw").
-2. #294 body animation state, then #297 talking to a colonist (stacked on #294); #295 the F1
-   key reference; #296 the end-to-end expedition gate.
-3. #299 the loot-item kit (art review clear after three rounds), then #301 the model loader
-   (reads every `*.manifest.json`, shares one mipmapped texture per atlas, draws loose items),
-   then #300 the held weapon assembled from the sim's installed parts (being moved onto #301's
-   real API when paused).
-4. #288 the survivor and shambler: round 3 of its fixes is pushed; it needs the independent art
-   review's round 3 (the last full round) before it merges. Then the body view plays its clips
-   from #294's animation state.
-5. #302, docs only: the weapon and item kit polish minors.
-
-**In flight when paused.** The Kimi terminal was researching and prototyping better buildings
-and walls (the owner: they look rather large and not good enough; make them look like Project
-Zomboid). Its brief: a proposal at the coordinator's scratch path, a prototype on branch
-`kimi/fp-buildings-proto` (no pull request), and before-and-after captures. The likely cause is
-that a wall is a whole 1 m tile 2.55 m tall where Zomboid's walls are thin and on tile edges;
-the proposal separates art-only fixes from sim changes (edge walls, a finer grid, a lower wall
-band), which touch shared modules and may be owner calls. Read the branch and its report before
-starting anything on buildings.
-
-**Next, in order.** Land the queue above. Run round 3 of #288's art review. Review Kimi's
-buildings proposal with the owner. Then [docs/41](41-weapons-characters-world-plan.md), the
-plan for weapons, characters and a bigger world: the bodies and the held weapon in the scene
-first, then a dressed and furnished town, modular weapons, and docs/40's slices 4 to 7. The
-seven zombie kinds are the art lead's next piece after the characters clear. A small cleanup is
-owed: `check_first_person.gd` prints one hand-written OK sentence that every parallel branch
-edits; generate it from the lane list so it stops conflicting.
-
-**Waiting on the owner.** docs/33's first-person cards (the seven questions from docs/40 and the
-pause policy), and docs/41's "For the owner" list. Every one has a default already being built.
-
-**How this session ran.** One coordinator in the Orca app dispatched work into three live agent
-terminals (a fast general worker, a coding worker, and the art and 3D lead) with
-`orca orchestration task-create` and `dispatch --inject`, and used subagents on the strongest
-tier for shared sim modules, art kits and every independent art review. What held up:
-
-- Each worker gets its own `git worktree` under `.claude/worktrees/` (ignored by git) on a
-  branch named `<agent>/<piece>`; every terminal shares the main checkout, so nobody switches
-  branches there.
-- **No OS-level input and no desktop screenshots, ever.** Drive Godot from inside (the gate
-  harness, `Input.parse_input_event`, a throwaway GDScript driver) and capture only the game
-  viewport. A worker's synthetic keys once landed in the owner's browser.
-- CI capacity is the bottleneck. When pieces stack and collide in code, one integration pull
-  request that names the pieces it closes saves many merge-and-rerun cycles (#289 did twelve).
-  Docs-only pull requests were merged after a clean local merge and `check:routing`, since no
-  Godot gate reads them.
-- Art kits follow one shape: a reproducible Blender builder with `-- --check` and planted-error
-  modes, a `<kit>.manifest.json` in `godot/assets/first_person/`, and an independent in-engine
-  review before merge. The reviews keep finding the same faults (camouflage-like noise, paint
-  that follows atlas cells, density claims the check did not measure, bodies that float or sink),
-  so a new kit's builder should check those from the start.
+[Where we left off (2026-11-01, paused by the owner)](../PLAYBOOK.md#where-we-left-off-2026-11-01-paused-by-the-owner),
+then [What the session of 2026-11-01 did](../PLAYBOOK.md#what-the-session-of-2026-11-01-did),
+[To do](../PLAYBOOK.md#to-do) and [Known bugs](../PLAYBOOK.md#known-bugs).
 
 ## Who decides what
 
-- **The owner decides design.** That covers new mechanics, changed rules a player would notice,
-  the look, and everything under
-  [Waiting on the owner](33-owner-decisions.md#waiting-on-the-owner). Examples of new mechanics
-  that went to the owner: quiet hours, noise-free repairs, a new water source, a held colonist
-  striking back.
-- **Agents decide engineering.** That includes tuning numbers that come out of a measurement. A
-  call that is taken gets an entry in [docs/30](30-decisions.md).
-- **Ask once, with a default, and keep going.** In a Claude project, a design question goes to
-  the owner as a decision card with one recommended option. Elsewhere, put it in the pull
-  request. The card never blocks work: build the default, say that you did, and change it if
-  the owner picks something else.
-- **Steps that cannot be undone wait for the owner's own words.** Merging under the owner's
-  standing authorization (below) is the one exception.
+[Who decides what](../PLAYBOOK.md#who-decides-what).
 
 ## How the owner works
 
-- Mostly autonomous. The owner wants results and decision cards, not progress reports or
-  numbered lists of questions.
-- The alpha target is "basic mechanics playable, not polished". Sound is not a priority.
-- Art follows Zero Sievert, and the outpost pack sets the quality floor. Animation must be
-  fluid. A one-sided bob or a loop that pops blocks a merge.
-- A colony wiped at home in its first days is an alpha blocker. Ten-day playtest numbers are a
-  measurement, not a merge gate.
-- `README.md` is for players and `CLAUDE.md` is for agents.
-- The owner closes idle threads, and threads whose pull requests have merged get resolved.
+[How the owner works](../PLAYBOOK.md#how-the-owner-works).
 
 ## How work flows
 
-In a Claude project, a coordinator talks with the owner in the project chat and opens one thread
-per piece of work. The rules below hold for any agent. [docs/34](34-agents-and-environment.md)
-covers branch naming and worktrees for agents working outside a project.
-
-1. **One piece, one branch, one pull request.** Branch off `main`, base the pull request on
-   `main`, and push only your own branch. Fill in `.github/pull_request_template.md`. In a Claude
-   project the rule is enforced: a thread's git proxy refuses (403) a push to any ref but the
-   thread's own branch.
-2. **A fix to someone else's open pull request is a pull request onto its branch.** Branch off
-   that pull request's head, push your own branch, and open a pull request whose base is its
-   branch. CI runs on it, because `ci.yml` runs on every pull request whatever its base. It merges
-   into that branch under the same rules as a merge into `main` (step 4). #230 onto #228's branch
-   was the first.
-3. **Drive it green** by `.claude/skills/steward/SKILL.md`. Never skip, disable or loosen a gate.
-4. **Claude merges, with a merge commit, and never the thread that wrote it.** The owner
-   authorized merging. The coordinator, or a thread it names on the strongest tier, does it; the
-   thread that wrote a pull request does not merge its own. Re-check the head commit and CI right
-   before you merge. After a merge, tell the open threads the new `main`.
-5. **Pieces built side by side merge one by one, each as it goes green** (the owner's call,
-   2026-10-27). Merge the first green one. The next one then merges `main` in, waits for CI on
-   its new head, and merges in turn. Conflicts in the tails of docs/23 and docs/30 are settled in
-   that merge of `main`, by keeping both entries. A bundle of pieces in one integration pull
-   request is only for two pieces that conflict in code, and it names the pull requests it
-   closes. A piece that waits on another names it in its body and merges after it.
-6. **Follow-ups start fresh.** A merged pull request is finished. New work goes on a fresh branch
-   from `main` with a new pull request, never on top of merged history.
-7. **Cloud sessions cannot delete remote branches.** The git proxy returns 403 for every ref but
-   the session's own. Name the branches that should go, and the owner deletes them. Merged head
-   branches come back after each merge unless "Automatically delete head branches" is on in the
-   repository settings.
-8. **Usage limits and restarts.** Containers restart, and sessions pause at usage limits. Push
-   at a clean point before a long run. A thread revived after days can wake with stale context:
-   brief it on the current `main` before it acts.
-
-**Briefing a thread.** docs/23 and docs/30 are far too large to read whole at the start of a
-piece; "read in order" in `CLAUDE.md` means the parts that bear on it. A brief that opens a thread
-names them: the piece's entry in docs/23's what's left, its row in `CLAUDE.md`'s routing table,
-the record entries of the systems it touches, and the docs/30 entries for those systems (search
-by the system's name). The thread reads `CLAUDE.md`, docs/37, and those parts. A thread that finds
-it needs more reads more; the brief is a floor, not a fence.
-
-**Art and placement review.** Before an art or placement pull request merges, an independent
-read-only reviewer checks it (the owner's call, 2026-10-27):
-
-- **The coordinator spawns the reviewer, never the thread that made the art.** Its brief is
-  fixed: the pull request, its head commit, its base commit, and the shared folder for the
-  report. A confirmation pass also gets the previous report. It is not told the thread's account
-  of what changed or the decisions so far: those are what it checks.
-- **The reviewer makes its own shots.** It runs `godot:shots` on the base and on the head commit
-  and compares them, and it does not judge from the thread's exports. It measures the noise
-  floor (base against base) before calling a difference. The report names both commits; a push
-  after the verdict voids it.
-- **Rounds.** Findings land as commits on the same pull request, and the review repeats until it
-  is clear. Round 3 is the last full round. A later pass is a confirmation pass: it checks only
-  the previous findings and raises only blockers. Minor findings in a clear round go into
-  docs/23.
-- Docs-only, gate-only and 1 to 2 px gate-verified follow-ups need no review.
-
-**Model routing.** The owner assigns models by role. Nothing pushed names a model (`CLAUDE.md`,
-Pushing and pull requests), so the current model names live in the project's memory and the
-owner's project-chat instruction, not here. The roles:
-
-- The coordinator, and the end review of a feature, on the coordinator's model.
-- Working threads, on the fast tier at high effort.
-- On the strongest tier at high effort, from the start: planning threads; anything that cannot
-  be undone (merges, deletes); all art, design and visual placement, and the art reviewers; and
-  any piece that touches a shared sim module (`godot/sim/modules/jobs.gd`,
-  `godot/sim/modules/stockpile.gd`, `godot/sim/modules/needs.gd` and the like) or the save format
-  (the owner's call, 2026-10-27).
+[How work flows](../PLAYBOOK.md#how-work-flows), and the Orca side of it under
+[The Orca workflow](../PLAYBOOK.md#the-orca-workflow). Model routing by role is under
+[The team](../PLAYBOOK.md#the-team).
 
 ## Verifying a change
 
-[Verifying a change](../CLAUDE.md#verifying-a-change) is the policy, and
-[docs/35](35-gates.md) has the commands and timings. In short:
-
-- Run the gates for what you touched, locally. CI runs the full `npm run godot:m2` chain on four
-  shards for every pull request.
-- Run the full chain locally only for a change to a shared sim module or the save format.
-- A new gate goes into the `godot:m2:chain` script and into `scripts/m2-shards.mjs` in the same
-  commit. `npm run check:shards` fails otherwise.
+[Verifying a change](../PLAYBOOK.md#verifying-a-change).
 
 ## Where things are written down
 
-| Question | Answer |
-|---|---|
-| What is open, and what landed with what evidence | [docs/23](23-roadmap.md) |
-| Why something is shaped the way it is | [docs/30](30-decisions.md), oldest first |
-| What only the owner decides | [docs/33](33-owner-decisions.md) |
-| Containers, MCP servers, running the game, screenshots | [docs/34](34-agents-and-environment.md) |
-| Every gate, its command, its timing, the CI shards | [docs/35](35-gates.md) |
-| The state of the build, and the dead-socket list | [docs/36](36-state-of-the-build.md) |
-| Traps that already cost someone a session | [docs/37](37-traps.md) |
-| Performance targets and dated measurements | [docs/22](22-performance.md) |
-| Where a system's code lives, and the gate that judges it | `CLAUDE.md`'s routing table |
+[The docs map](../PLAYBOOK.md#the-docs-map).
 
 ## The release plan
 
-Decided by the owner on 2026-10-26 ([docs/30](30-decisions.md#the-release-plan-and-the-content-arcs-2026-10-26)).
-Five stages, each with the thing it has to prove. Pieces are named in docs/23's what's left;
-this section says which stage each group belongs to, and nothing here is ticked. The art style
-does not change between stages: flat top-down, 32 px a tile at 2x, the outpost pack as the
-floor, the Dungeon Settlers mood (docs/30, 2026-09-03 and 2026-09-17). An isometric view was
-asked about and declined on 2026-10-26, for the third time; depth where wanted is oblique
-treatment inside this projection.
-
-1. **Alpha closed: it loops.** Milestone 2's exit criterion in code, not balance. Everything in
-   flight lands (colonist self-care, the buildables, the floodlight take-down, the Colony screen
-   nits), then the sim pieces that need no owner call: round choice and the magazine's memory,
-   the tourniquet, the purifier refill, the alarm and noisemaker priced, the plate that wears, the
-   ranged affix readers, the repair economy. UI overhaul bullets three to five. The first
-   worker-sized pieces of the content arcs below (the readers and the melee frames). Proof: the
-   `godot:m2` chain green, `godot:check:play` covering every shell state.
-2. **Alpha open: it survives.** The balance wall, judged only by ten seeds and a median wipe day.
-   The named levers (a well inside the wall, the antibiotic weight, the six-survivor checkpoint,
-   Guard and Scout, the night-3 table) and the speed pieces (sleep fast-forward, 3x and 10x, the
-   tick to its 8 ms budget) so ten days fit an evening. The first zombie kinds and raider doctrine
-   land here because they move the table. Release: the Windows build plus a Linux preset, and a
-   seed you can type on the web build.
-3. **The art pass: it looks finished.** Runs beside stage 2, on the art tier. The remaining pack
-   wall states, pictures for the buildables and every new kind, part and frame from stage 1,
-   remembered marks, the glimpse disc on the art grid, the last two held weapons, aim following
-   the cursor, stamina in the world, the re-illustrated anatomy and the 1280x720 drawer, a roster
-   for a large colony. Full before-and-after review at both windows. World draw to its 10 ms
-   budget by baking chunks.
-4. **Beta: people and the world.** Milestone 3A and the near half of 3B: relationships and grief,
-   the six attributes, the full work grid, scars and the blind eye, diagnosis by skill, procedural
-   people, the captive arc, explosives, the remaining zombie kinds and raider archetypes, the
-   camp's labour cost, evolving camps, outposts that draw raiders, the region as the default boot
-   if it plays. The save format freezes here and migrates from then on.
-5. **1.0: breadth.** The rest of 3B and Milestone 4: streaming and district tiers, breakdowns and
-   mobile bases, the industrial yard, factions and trade, the escape endgame, storyteller presets,
-   a signed macOS build. Multiplayer (3C) is off this track and is 1.x unless the owner pulls it
-   forward.
+[The release plan](../PLAYBOOK.md#the-release-plan).
 
 ## The content arcs
 
-Opened by the owner on 2026-10-26, the same entry. Four arcs, each a group in docs/23's what's
-left with one piece per line there; this is the shape and the order, not the list. The rule that
-binds all four: **readers before content, pictures a stage behind.** A stat nothing resolves is
-not authored; a kind, part or frame gets its picture in the stage after its sim piece.
-
-- **Zombies, seven to fourteen kinds.** Shipped: shambler, runner, stalker, screamer, bloater,
-  heavy, armored (`godot/content/zombies/`). Planned, in landing order, each a content file and
-  one behaviour hook with its own lane: the crawler (under sightline height, grabs ankles), the
-  bloodhound (follows scent alone, deaf to noise), the gassed bloater (a lingering tile cloud),
-  the lurker (dormant indoors, wakes on indoor noise), the juggernaut (shoves barricades), the
-  burner (spreads fire to timber; waits on fire as a sim fact), the feigner (lies among corpses,
-  rises on approach). Each re-baselines the ten-seed table and says so.
-- **Raiders, four to nine archetypes, and a doctrine on the band.** Shipped: scav, looter,
-  lookout, gunhand (`godot/content/raiders/`). A band gains a `doctrine` the director draws by
-  day: probe, raid, siege, trade. Siege camps outside the wall and waits; trade approaches
-  unarmed and offers barter, the one verb of Milestone 4's faction seam landed early. New
-  archetypes: breacher, marksman, medic, arsonist (waits on fire), dog handler (the hound is a
-  scent sensor and pairs with the bloodhound). A raider's weapon is assembled from the same part
-  tables, so a dead marksman yields the rifle as he built it. The captive arc already in docs/23
-  slots here unchanged.
-- **Firearms: every number is a sum of its parts.** The assembly model exists: a base is the
-  receiver, it spawns holding real parts, a conversion moves caliber, the bench and the field
-  swap are split (`godot/sim/modules/gunsmith.gd`, `attachments.gd`, docs/10). The arc deepens
-  it, readers first: the three stats that resolve against nothing (`noise_emission`,
-  `condition_loss`, `repair_cost`) gain readers in the shot, the wear event and the repair verb;
-  the barrel governs velocity, noise, accuracy and wear by length, quality and material;
-  conversions become kits (barrel, bolt or cylinder, magazine, all three or it jams) drawn from a
-  realism table in docs/10 keyed by receiver family, about twelve across the twelve receivers;
-  furniture reads into aim time, recoil recovery and stance; internals are parts with condition
-  and jam chance derives from the worst of them; magazines remember their load, the player picks
-  the round, hand-loads are worse; Gunsmithing decides what is field work and the botch chance.
-  The bench says it in words, never in numbers.
-- **Melee: frames, not weapons, and bespoke results.** The nineteen melee weapons become frames
-  in four families (club, blade, polearm, tool) and the slots widen from head, haft and wrap to
-  add stud (nails, screws, barbed wire, glass), guard and weight. About twenty-five physically
-  plausible recipes, each with what the modification costs the frame: nails split an aluminium
-  bat and want wood; a pitchfork head on a pipe wants cordage and a fixing; glass cuts the hand
-  without a wrap. Wear is specific: studs fall out on hits (the `hit` wear word, the attacker's
-  side; `struck` is the target's, worn by a plate), an edge dulls and wants a whetstone, a lashed
-  head flies off one swing in N. A weapon with three or more parts of the player's own may be
-  named by the player, which is how bespoke reads on a screen with no stat line. Finished
-  2026-10-27; its pictures are owed in stage 3.
-
-**Open owner calls from the arcs** (docs/33 carries them): the realism table for conversions
-(the coordinator writes it, the owner vetoes); whether fire becomes a sim fact in stage 1 or
-stage 4 (it unlocks the burner, the arsonist and timber walls that burn); whether raiders may
-trade before factions exist.
+[The content arcs](../PLAYBOOK.md#the-content-arcs).
 
 ## Open owner calls
 
-[docs/33](33-owner-decisions.md#waiting-on-the-owner) is the list, and the only one. This file
-names no card on purpose: a list copied here is out of date after the next card, the same reason
-it carries no commit hash. Every card has a default that is already built, so none of them blocks
-a piece.
+[Open owner calls](../PLAYBOOK.md#open-owner-calls).
 
 ## The shared folder
 
-A Claude project shares `/mnt/project-files/` between its threads. The folder is not in the
-repository, and agents outside the project do not have it. It holds evidence and plans, not
-instructions.
-
-| Folder | What is in it |
-|---|---|
-| `planning/` | Plans, one subfolder per topic. Dated plans (the 2026-10-19 alpha plan, the 2026-10-24 feature plans) sit at the top. |
-| `planning/balance/` | Playtest reports (`report.md`, `report-noise.md`, `report-ten-seed.md`), raw runs, and `ten-seed/`, one file per commit and seed |
-| `planning/<topic>/` | One per feature or slice (`stockpile/`, `night-torch/`, `ui-slice-N/` and so on): its review, its before and after shots, its QA rounds |
-| `planning/repo-cleanup/` | The branch audit and the 2026-10-23 cleanup plan |
-| `a7-animation/` | Walk exports |
-| `a8-actions/` | Action strips (`clothed/`, `clothed/falls-roundN/`, `zombies/roundN/`), each round with its QA report `qa-roundN.md` |
-| `a9-aim/` | Aim exports |
-
-- Put new files in a topic subfolder.
-- The folder is a network mount. Put a trailing slash on its path, and read a shared file again
-  before you change it, because the last write wins.
-- **Never cite a `/mnt/project-files` path inside `CLAUDE.md`'s routing table.**
-  `npm run check:routing` resolves every backticked path in that section against the repository,
-  so such a path turns the gate red.
+[The shared folder](../PLAYBOOK.md#the-shared-folder).
 
 ## Art and animation conventions
 
-In the game:
-
-- A tile is 32 art px, drawn at 2x on the boot zoom (`godot/project.godot`'s display comment).
-- A body canvas is 32x40 with the soles on row 39. The heavy's canvas is 40x48 with the soles on
-  row 47 (`godot/assets/sprites/README.md`).
-- A clothing sheet has one row per view (S, E, N, W). Column 0 is the rest picture, columns 1 to 8
-  are the walk, and column 9 is the breath (`godot/art/simplyzombies/clothing/README.md`).
-- `npm run godot:check:action` holds every fall, lunge and stagger to the art review's bounds.
-  Its header in `godot/check_action.gd` is the full list. The main ones:
-  - Per step, the mass changes at most 15%, the centre moves at most 4 columns, and no edge moves
-    more than 6 px.
-  - The sole row is held. A stagger may rise one row for the knock-back.
-  - A fall keeps at least half a head on every beat, and the head ends within 4 px of the
-    corpse's head.
-
-In the review exports in the shared folder:
-
-- Survivor reload strips use 48x56 cells, with the sole on row 43 and the head top on row 16. In
-  the game the same frames use the 32x40 canvas.
-- Zombie action strips use 112x60 cells at 4x, with the sole on row 55.
-
-Read the QA report of the previous round before you start a new one.
+[Art and animation conventions](../PLAYBOOK.md#art-and-animation-conventions).
 
 ## Performance
 
-The targets are in [docs/22](22-performance.md#targets):
-
-- **Tick:** at most 8 ms mean and 16 ms worst. `npm run godot:bench:runtime` measures it.
-- **Draw:** at most 10 ms mean. `npm run godot:bench:frame` measures it at 1280x720 and needs a
-  display.
-
-The shipped game is over both targets, which is recorded as product debt. CI does not run the
-two Godot timing commands. It runs only their exit contract (`npm run check:runtime-budget`).
-Measure performance on a quiet machine, and take the median of interleaved runs.
+[Performance](../PLAYBOOK.md#performance).
 
 ## Screenshots for review
 
-```bash
-xvfb-run -a npm run godot:shots     # every scene at 1280x720 and 1920x1080
-npm run godot:check:shots           # the gate; its PIXELS lane skips without a display
-```
-
-The scenes and window sizes are in `godot/review/scenes.gd`. Many branches edit that file, so it
-attracts merge conflicts. Add your scene in a small, separate hunk, and rebase onto `main` before
-you push.
+[Screenshots for review](../PLAYBOOK.md#screenshots-for-review).
 
 ## Known noise and traps
 
-- **The worldgen gate's own clock.** `godot:check:worldgen` fails past 90 seconds
-  (`BUDGET_SECONDS` in `godot/check_worldgen.gd`). On a loaded local machine it can trip on time
-  alone. CI is the judge.
-- **The Windows export job.** `godot-exports` sometimes crashes on import. A re-run settles it
-  (the steward skill).
-- **Engine shutdown noise.** `ObjectDB ... leaked at exit` after an `_OK` line is not a failure.
-  Read the `_OK` line and the exit code.
-- **Everything else.** [docs/37](37-traps.md), before you touch the sim.
+[Traps](../PLAYBOOK.md#traps).

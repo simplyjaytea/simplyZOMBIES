@@ -5,7 +5,7 @@ description: How to drive a pull request on this repository to green -- what CI 
 
 # Driving a pull request here
 
-The routing table in `CLAUDE.md` says where a change lives and which gate judges it; this file
+The routing table in `PLAYBOOK.md` says where a change lives and which gate judges it; this file
 is only about the pull request around it.
 
 ## What CI runs
@@ -27,7 +27,7 @@ is only about the pull request around it.
 
 ## Before every push
 
-The policy is CLAUDE.md's "Verifying a change" (the owner's 2026-10-19 call, docs/30): the gates
+The policy is PLAYBOOK.md's "Verifying a change" (the owner's 2026-10-19 call, docs/30): the gates
 for what the change touched, locally; the full chain in CI.
 
 - The `godot:m2:<name>` lane of each system touched. A change to a shared sim module or the save
@@ -55,11 +55,11 @@ for what the change touched, locally; the full chain in CI.
   and move the number in the workflow comment. Never bump the timeout blind.
 - A `godot:m2` gate that goes red on a branch that did not touch its system is still this PR's to
   root-cause: gate worlds share one process, and a `static var` or an unrestored flag in one lane
-  leaks into the next (the traps in `CLAUDE.md`).
+  leaks into the next (the traps in `PLAYBOOK.md`).
 
 ## Never
 
-- Never skip, disable or loosen a gate to get green. `CLAUDE.md`'s standing bans and the
+- Never skip, disable or loosen a gate to get green. `PLAYBOOK.md`'s standing bans and the
   "a gate that cannot fail is worse than no gate" convention are the reason each gate exists.
 - Never decide something docs/33-owner-decisions.md lists, even when a reviewer asks;
   reply with the measurement and leave the call.

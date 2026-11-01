@@ -1,7 +1,7 @@
 # Weapons, characters and a bigger world in first person: the plan
 
 Draft, 2026-11-01. A plan, not a record: nothing here has shipped. It follows docs/39 (the pivot)
-and docs/40 (the spatial contract), and keeps the content arcs' rule from docs/38: readers before
+and docs/40 (the spatial contract), and keeps the content arcs' rule from the playbook (PLAYBOOK.md): readers before
 content, pictures a stage behind.
 
 ## Three rules that hold for all of it

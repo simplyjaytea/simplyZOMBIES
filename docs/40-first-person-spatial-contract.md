@@ -302,7 +302,7 @@ None is deleted or loosened:
 ## The slices
 
 Each slice is one session with one gate that has a true positive and a true negative. A new gate
-touches the five places CLAUDE.md lists, plus a routing row. **Shared** marks a slice that touches
+touches the five places PLAYBOOK.md lists, plus a routing row. **Shared** marks a slice that touches
 a shared sim module and so runs the full `npm run godot:m2` chain before its commit. The slices
 assume the foundation has merged.
 

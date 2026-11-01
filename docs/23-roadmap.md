@@ -335,7 +335,7 @@ with thickness, roofs cut out where seen. The record below and
 they open is the art group below.)
 
 **Content arcs — opened by the owner, 2026-10-26.** The direction and the order are
-[docs/38's "The content arcs"](38-playbook.md#the-content-arcs); the decision is
+[the playbook's "The content arcs"](../PLAYBOOK.md#the-content-arcs); the decision is
 [docs/30](30-decisions.md#the-release-plan-and-the-content-arcs-2026-10-26). The rule for every
 piece: readers before content, pictures a stage behind. Each piece is one session with its gate
 red both ways; a piece that adds a body or a kind inside ten days re-baselines the ten-seed table
@@ -4307,6 +4307,20 @@ not a to-do list:
   merged head (fe6d3a60), `context_menu` at both windows, are in the project's
   `planning/ui-slice-3/c4/`; they match the shots the art review judged byte for byte.
 
+- **Kernel & tooling — the playbook, one file, 2026-11-01.** The owner's call (docs/30, "The
+  playbook, one file"): `CLAUDE.md`, `AGENTS.md` and docs/38 merged into one root `PLAYBOOK.md`,
+  in the order start here, the team and the Orca workflow, what the project is, how the code fits
+  together, where the work is, the slice workflow, verifying, pushing, the standing bans,
+  conventions, traps, then docs/38's content whole, then the session record, to-do, known bugs
+  and lessons, and the routing table last. Content moved and duplication between the three was
+  removed; no rule was rewritten. The three sources are stubs: `CLAUDE.md` an `@PLAYBOOK.md`
+  import, `AGENTS.md` a pointer with its first-commands block, docs/38 its old headings each
+  linking to the playbook's anchor. `scripts/check-routing.mjs` reads `PLAYBOOK.md`
+  (`TABLE_FILE`, and the self-test's fixture with it). The roster in the playbook names models
+  under the owner's amendment of the no-model-identifiers rule; authorship stays unnamed. Gates:
+  `npm run check:routing` (every path, script and anchor in the moved table resolves; the
+  self-test's true negatives hold), `check:timing`, `check:shards`, `format:check`, `typecheck`,
+  `lint`, `npm test`, `godot:smoke`. No game behaviour, sim code, gate or content changed.
 - **Kernel & tooling — the playbook and the init audit, 2026-10-23.** The owner asked for the
   repository to be initialised for agents and for one playbook every agent can read. An audit of
   the build, test and gate commands against `CLAUDE.md` added three things to it: the commands for
