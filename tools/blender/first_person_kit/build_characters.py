@@ -35,7 +35,7 @@ HEEL_Y, TOE_Y, ANKLE_Z = -0.07, 0.16, 0.12
 # The survivor walk: pelvis centre and bob, heel-strike toe-up and toe-off heel-up pitch, the
 # cycle points where the foot goes flat and the heel lifts, the heel's body-space start, swing lift.
 WALK = {
-    "pelvis": 0.84,
+    "pelvis": 0.844,
     "bob": 0.010,
     "heel_pitch": math.radians(28),
     "toe_pitch": math.radians(45),
@@ -289,7 +289,7 @@ class MeshBuilder:
         return obj
 
 
-def triangle_density(points, uvs):
+def triangle_density(points, uvs, atlas_size=ATLAS_SIZE):
     a, b, c = points
     e1 = b - a
     e2 = c - a
@@ -301,8 +301,8 @@ def triangle_density(points, uvs):
     l2 = (e2 - x_axis * along).length
     if l2 < 1e-7 or l1 * l2 < 2e-8:
         return None
-    du1 = ((uvs[1][0] - uvs[0][0]) * ATLAS_SIZE, (uvs[1][1] - uvs[0][1]) * ATLAS_SIZE)
-    du2 = ((uvs[2][0] - uvs[0][0]) * ATLAS_SIZE, (uvs[2][1] - uvs[0][1]) * ATLAS_SIZE)
+    du1 = ((uvs[1][0] - uvs[0][0]) * atlas_size, (uvs[1][1] - uvs[0][1]) * atlas_size)
+    du2 = ((uvs[2][0] - uvs[0][0]) * atlas_size, (uvs[2][1] - uvs[0][1]) * atlas_size)
     m00 = du1[0] / l1
     m10 = du1[1] / l1
     m01 = (du2[0] - du1[0] * along / l1) / l2
@@ -1212,7 +1212,7 @@ def set_pelvis(armature, edge, contact, theta):
     bpy.context.view_layer.update()
 
 
-def death_curves(character, final, edge):
+def death_curves(character, final, edge, mesh):
     land = DEATH[character]["land"]
     theta, spine, neck = final["theta"], final["spine"], final["neck"]
     curves = {
@@ -1228,13 +1228,14 @@ def death_curves(character, final, edge):
         pitch = final["arm_pitch." + side]
         curves["arm_pitch." + side] = [(0.0, 0.0), (0.35, 0.55), (0.62, 0.70), (0.86, pitch + 0.25), (0.95, pitch), (1.0, pitch)]
         curves["elbow." + side] = [(0.0, 0.0), (0.40, 0.40), (1.0, final["elbow." + side])]
-        curves["splay." + side] = [(0.0, 0.0), (0.45, 0.0), (0.90, final["splay." + side]), (1.0, final["splay." + side])]
+        knee_land = 0.75 if character == "survivor" else 0.90
+        curves["splay." + side] = [(0.0, 0.0), (0.45, 0.0), (knee_land, final["splay." + side]), (1.0, final["splay." + side])]
     return curves
 
 
-def death_pose(armature, character, u, final, edge):
+def death_pose(armature, character, u, final, edge, mesh):
     reset_pose(armature)
-    curves = death_curves(character, final, edge)
+    curves = death_curves(character, final, edge, mesh)
 
     def value(name):
         return pchip(curves[name], u)
@@ -1256,6 +1257,14 @@ def death_pose(armature, character, u, final, edge):
         )
         rotate_world(armature, "forearm." + side, (1, 0, 0), value("elbow." + side))
     bpy.context.view_layer.update()
+    if mesh is not None and character == "survivor":
+        lowest = min(point.z for point in evaluated_points(mesh))
+        lift = max(0.0, -lowest)
+        if lift:
+            translate_world(armature, "root", (0, 0, lift))
+            for side in ("L", "R"):
+                translate_world(armature, "foot." + side, (0, 0, -lift))
+            bpy.context.view_layer.update()
 
 
 def lowest_of(points, indices):
@@ -1301,23 +1310,25 @@ def solve_death(character, armature, mesh, edge):
 
     def measure(name, value, indices):
         final[name] = value
-        death_pose(armature, character, 1.0, final, edge)
+        death_pose(armature, character, 1.0, final, edge, None)
         return lowest_of(evaluated_points(mesh), indices)
 
     def knee_height(name, value, side):
         final[name] = value
-        death_pose(armature, character, 1.0, final, edge)
+        death_pose(armature, character, 1.0, final, edge, None)
         return armature.pose.bones["shin." + side].head.z
 
-    final["theta"] = bisect(lambda value: measure("theta", value, [back_top]), 1.0, 1.9, 0.0)
-    final["spine"] = bisect(lambda value: measure("spine", value, groups["chest"]), -0.6, 1.2, 0.0)
+    pelvis_contact = groups["pelvis"] if character == "survivor" else [back_top]
     head = groups["head"] + groups["neck"]
-    final["neck"] = bisect(lambda value: measure("neck", value, head), -1.4, 1.4, 0.0)
-    for side in ("L", "R"):
-        arm = groups["upper_arm." + side] + groups["forearm." + side] + groups["hand." + side]
-        final["arm_pitch." + side] = bisect(lambda value: measure("arm_pitch." + side, value, arm), -1.5, 1.0, 0.003)
-    for side in ("L", "R"):
-        final["splay." + side] = bisect(lambda value: knee_height("splay." + side, value, side), 0.0, 1.4, settings["knee." + side])
+    for _ in range(3 if character == "survivor" else 1):
+        final["theta"] = bisect(lambda value: measure("theta", value, pelvis_contact), 1.0, 1.9, 0.0)
+        final["spine"] = bisect(lambda value: measure("spine", value, groups["chest"]), -0.6, 1.2, 0.0)
+        final["neck"] = bisect(lambda value: measure("neck", value, head), -1.4, 1.4, 0.0)
+        for side in ("L", "R"):
+            arm = groups["upper_arm." + side] + groups["forearm." + side] + groups["hand." + side]
+            final["arm_pitch." + side] = bisect(lambda value: measure("arm_pitch." + side, value, arm), -1.5, 1.0, 0.003)
+        for side in ("L", "R"):
+            final["splay." + side] = bisect(lambda value: knee_height("splay." + side, value, side), 0.0, 1.4, settings["knee." + side])
     return final
 
 
@@ -1394,7 +1405,7 @@ def build_actions(character, armature, mesh):
             phase = 0.0 if index == frames and animation in LOOPS else index / frames
             reset_pose(armature)
             if animation == "death" and final is not None:
-                death_pose(armature, character, phase, final, edge)
+                death_pose(armature, character, phase, final, edge, mesh)
             elif animation == "death":
                 legacy_death_pose(armature, character, phase, mesh)
             else:
@@ -1600,7 +1611,8 @@ def validate_death(character, frames, groups, weights, fail, metrics):
         fail("death-centroid", f"death centroid ({centroid[0]:.3f}, {centroid[1]:.3f}) is {-margin:.3f} m outside its support")
     slide, index, frame = contact_slide(frames)
     if slide > 0.03:
-        fail("death-slide", f"death drags vertex {index} {slide:.3f} m across the floor by frame {frame + 1}")
+        parts = [name for name, indices in groups.items() if index in indices]
+        fail("death-slide", f"death drags vertex {index} ({','.join(parts)}) {slide:.4f} m across the floor by frame {frame + 1}")
     metrics.append(
         "death rests head {head:.3f}, chest {chest:.3f}, pelvis {pelvis:.3f}, boot {boot:.3f} m".format(**lows)
         + f"; centroid {margin:.3f} m inside support; contact slide {slide * 1000:.1f} mm"
@@ -1649,29 +1661,42 @@ def validate_export(path, character):
         raise ValueError(f"{path.name}: expected exactly one material")
     if document["materials"][0].get("doubleSided", False):
         raise ValueError(f"{path.name}: character meshes must be single-sided")
-    if len(document.get("images", [])) != 1 or document["images"][0].get("name") != "characters_atlas":
-        raise ValueError(f"{path.name}: expected only characters_atlas")
+    expected_image = "survivor_atlas" if character == "survivor" else "characters_atlas"
+    if len(document.get("images", [])) != 1 or document["images"][0].get("name") != expected_image:
+        raise ValueError(f"{path.name}: expected only {expected_image}")
     primitives = [primitive for mesh in document.get("meshes", []) for primitive in mesh["primitives"]]
     if not primitives or any(primitive.get("material") != 0 for primitive in primitives):
         raise ValueError(f"{path.name}: every primitive must use the shared material")
     positions = []
     triangles = 0
     densities = []
+    blended = 0
+    weighted = 0
     for primitive in primitives:
         points = [Vector(point) for point in accessor(document, binary, primitive["attributes"]["POSITION"])]
         uvs = accessor(document, binary, primitive["attributes"]["TEXCOORD_0"])
         indices = [row[0] for row in accessor(document, binary, primitive["indices"])]
+        if character == "survivor":
+            weights = accessor(document, binary, primitive["attributes"]["WEIGHTS_0"])
+            weighted += len(weights)
+            blended += sum(sum(value > 0.001 for value in row) > 1 for row in weights)
         positions.extend(points)
         triangles += len(indices) // 3
         for i in range(0, len(indices), 3):
             corners = indices[i : i + 3]
-            measured = triangle_density([points[c] for c in corners], [uvs[c] for c in corners])
+            measured = triangle_density([points[c] for c in corners], [uvs[c] for c in corners], 512 if character == "survivor" else ATLAS_SIZE)
             if measured is not None:
                 densities.extend(measured)
-    if not densities or min(densities) < DENSITY_RANGE[0] or max(densities) > DENSITY_RANGE[1]:
-        raise ValueError(f"[density] {path.name}: exported texel density {min(densities):.1f}..{max(densities):.1f} px/m outside 64 +/-25%")
-    if not 200 <= triangles <= 1500:
-        raise ValueError(f"{path.name}: {triangles} triangles outside the character budget")
+    density_range = (40.0, 600.0) if character == "survivor" else DENSITY_RANGE
+    if not densities or min(densities) < density_range[0] or max(densities) > density_range[1]:
+        raise ValueError(f"[density] {path.name}: exported texel density {min(densities):.1f}..{max(densities):.1f} px/m outside {density_range}")
+    if character == "survivor" and (not any(100 <= value <= 160 for value in densities) or not any(200 <= value <= 310 for value in densities)):
+        raise ValueError(f"[density] {path.name}: missing the authored 128 px/m body or 256 px/m head density band")
+    budget = (1000, 8000) if character == "survivor" else (200, 1500)
+    if not budget[0] <= triangles <= budget[1]:
+        raise ValueError(f"{path.name}: {triangles} triangles outside the character budget {budget}")
+    if character == "survivor" and (not weighted or blended / weighted < 0.25):
+        raise ValueError(f"{path.name}: smooth skin requires blended weights on at least 25% of vertices")
     minima = [min(point[i] for point in positions) for i in range(3)]
     maxima = [max(point[i] for point in positions) for i in range(3)]
     height = maxima[1] - minima[1]
@@ -1925,7 +1950,10 @@ def render_characters(characters, actions, render_dir):
                 compose_sheet(feet, render_dir / f"{character}_{animation}_feet.png", count)
 
 
-def build_all(export_dir, blend_path, render_dir=None):
+def build_all(export_dir, blend_path, render_dir=None, layout_dir=None, clay=False):
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from organic_survivor import build_survivor, render_review
+
     export_dir.mkdir(parents=True, exist_ok=True)
     blend_path.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.object.select_all(action="SELECT")
@@ -1943,12 +1971,13 @@ def build_all(export_dir, blend_path, render_dir=None):
     pixels = layout_atlas([builders["survivor"], builders["shambler"]], knees)
     image = build_atlas_image(pixels, export_dir / "characters_atlas.png")
     material = build_material(image)
-    characters = {}
+    paint_path = Path(__file__).with_name("survivor_paint.png")
+    survivor_mesh = build_survivor(rigs["survivor"], export_dir, layout_dir, PLANT, paint_path)
+    shambler_mesh = builders["shambler"].object("shambler", material, rigs["shambler"])
+    characters = {"survivor": (rigs["survivor"], survivor_mesh), "shambler": (rigs["shambler"], shambler_mesh)}
     actions = {}
     for character in ("survivor", "shambler"):
-        rig = rigs[character]
-        mesh = builders[character].object(character, material, rig)
-        characters[character] = (rig, mesh)
+        rig, mesh = characters[character]
         actions[character] = build_actions(character, rig, mesh)
         validate_motion(character, rig, mesh, actions[character])
         export_character(character, rig, mesh, export_dir / f"{character}.glb")
@@ -1958,8 +1987,8 @@ def build_all(export_dir, blend_path, render_dir=None):
     bpy.context.view_layer.objects.active = None
     bpy.ops.wm.save_as_mainfile(filepath=str(blend_path), check_existing=False)
     if render_dir:
-        render_characters(characters, actions, render_dir)
-    for filename in ("survivor.glb", "shambler.glb", "characters_atlas.png"):
+        render_review(rigs["survivor"], survivor_mesh, actions["survivor"], render_dir, clay)
+    for filename in ("survivor.glb", "shambler.glb", "characters_atlas.png", "survivor_atlas.png"):
         print(f"SHA256 {filename} {sha256(export_dir / filename)}")
 
 
@@ -1968,7 +1997,7 @@ def check(repo):
     with tempfile.TemporaryDirectory(prefix="first-person-characters-check-") as temporary:
         temp = Path(temporary)
         build_all(temp, temp / "characters.blend")
-        for filename in ("survivor.glb", "shambler.glb", "characters_atlas.png"):
+        for filename in ("survivor.glb", "shambler.glb", "characters_atlas.png", "survivor_atlas.png"):
             rebuilt = temp / filename
             committed = repo / "godot" / "assets" / "first_person" / filename
             if not committed.is_file() or sha256(rebuilt) != sha256(committed):
@@ -2004,6 +2033,8 @@ def main():
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--plant", choices=sorted(PLANTS))
     parser.add_argument("--render-dir", type=Path)
+    parser.add_argument("--uv-layout-dir", type=Path)
+    parser.add_argument("--clay", action="store_true")
     args = parser.parse_args(arguments)
     repo = Path(__file__).resolve().parents[3]
     try:
@@ -2016,6 +2047,8 @@ def main():
                 repo / "godot" / "assets" / "first_person",
                 repo / "tools" / "blender" / "first_person_kit" / "characters.blend",
                 args.render_dir.resolve() if args.render_dir else None,
+                args.uv_layout_dir.resolve() if args.uv_layout_dir else None,
+                args.clay,
             )
             print("CHARACTER_BUILD_OK")
     except Exception as error:
