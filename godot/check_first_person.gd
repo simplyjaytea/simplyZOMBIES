@@ -152,12 +152,14 @@ func _run() -> void:
 		ok = _verbs(scene) and ok
 		ok = _stance(scene) and ok
 		ok = _reports(scene) and ok
+		# The speed lane reads keys, so it runs before the run-over lane, which leaves input swallowed.
 		# Save before the lanes that kill the colony: the run-over lane leaves input swallowed.
 		ok = _save(scene) and ok
 		ok = _art(scene) and ok
 		ok = _preview() and ok
 		ok = _light(scene) and ok
 		ok = _succession(scene) and ok
+		ok = _speed(scene) and ok
 		ok = _run_over(scene) and ok
 	scene.queue_free()
 	await process_frame
@@ -2271,6 +2273,77 @@ func _write_wrong_glb() -> String:
 	var err: Error = document.write_to_filesystem(state, ProjectSettings.globalize_path(path))
 	root.free()
 	return path if err == OK else ""
+
+
+# --- SPEED ----------------------------------------------------------------------------------
+
+# The clock's keys are the top-down game's: "faster" (=) and "slower" (-) step the ladder 1x and 3x, P holds
+# the world at zero. Over a fixed span of frames, 3x advances three times the ticks of 1x. A key that is not
+# a speed key changes nothing, and the ledger refuses the speed keys, as main.gd refuses them under a sheet.
+func _speed(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	if bool(scene.get("menu_open")):
+		scene.call("close_ledger_menu")
+	if bool(scene.get("paused")):
+		_key(KEY_P, true)
+	_place_player(scene, _find_open_area((scene.get("map") as Variant), 2))
+	_key(KEY_MINUS, true)
+	_key(KEY_MINUS, true)
+	if int(scene.get("speed")) != 1:
+		return _fail("SPEED", "the slower key did not settle the clock at 1x (speed %d)" % int(scene.get("speed")))
+
+	# True positive: three times the ticks at 3x as at 1x, over the same frames.
+	var at_1x: int = _frames_ticks(scene, world, 60)
+	_key(KEY_EQUAL, true)
+	if int(scene.get("speed")) != 3:
+		return _fail("SPEED", "the faster key did not step the clock to 3x (speed %d)" % int(scene.get("speed")))
+	var at_3x: int = _frames_ticks(scene, world, 60)
+	if at_1x < 15:
+		ok = _fail("SPEED", "1x advanced only %d ticks in 60 frames, so the ratio proves nothing" % at_1x)
+	elif absi(at_3x - 3 * at_1x) > 2:
+		ok = _fail("SPEED", "3x advanced %d ticks where 1x advanced %d: wanted about three times as many" % [at_3x, at_1x])
+
+	# True positive: P holds the clock at zero, and the same key lets it run again.
+	_key(KEY_P, true)
+	if not bool(scene.get("paused")):
+		ok = _fail("SPEED", "P did not pause the clock")
+	if _frames_ticks(scene, world, 60) != 0:
+		ok = _fail("SPEED", "the clock advanced while P held it")
+	_key(KEY_P, true)
+
+	# True negative: a key that is not a speed key changes nothing (Q is bound to nothing here).
+	var before: int = int(scene.get("speed"))
+	_key(KEY_Q, true)
+	if int(scene.get("speed")) != before or bool(scene.get("paused")):
+		ok = _fail("SPEED", "a key that is not a speed key changed the clock")
+
+	# True negative: the ledger refuses the speed keys.
+	scene.call("open_ledger_menu")
+	_key(KEY_MINUS, true)
+	var under_ledger: int = int(scene.get("speed"))
+	scene.call("close_ledger_menu")
+	if under_ledger != 3:
+		ok = _fail("SPEED", "the slower key changed the clock while the ledger was open")
+
+	# The HUD says the clock in words, with no digit.
+	var words: String = _joined_hud(scene)
+	if not words.contains("Time is normal speed") and not words.contains("Time is fast"):
+		ok = _fail("SPEED", "the HUD does not say the clock in words")
+	for line in scene.call("hud_lines") as Array:
+		if _has_digit(String(line)):
+			ok = _fail("SPEED", "the HUD draws a digit: %s" % String(line))
+
+	_key(KEY_MINUS, true)
+	return ok
+
+
+# Frames of the scene's own frame function, each a 60th of a second; returns the sim ticks that ran.
+func _frames_ticks(scene: Node, world: Variant, frames: int) -> int:
+	var start: int = int(world.tick)
+	for i in frames:
+		scene.call("_process", 1.0 / 60.0)
+	return int(world.tick) - start
 
 
 # --- fixtures -------------------------------------------------------------------------------
