@@ -174,9 +174,10 @@ conversion. The source baseline is archived on GitHub at
 - **First-person people and settlement operation.** Ledger animations, reports,
   conversations, delegation and construction access; the captive arc stays
   separately scoped planned work under its existing group.
-- **First-person expedition and default switch.** Prepare, scavenge, encounter
-  danger, return, treat, save/reload, die and succeed; measured performance,
-  regression proof, campaign balance and human play before changing the default.
+- **First-person expedition.** Prepare, scavenge, encounter danger, return, treat,
+  save/reload, die and succeed; measured performance, regression proof, campaign
+  balance and human play. The default switch landed 2026-11-01 (docs/30, "First person
+  is the default boot"), so the boot is first person and the top-down game is the testing build.
 - **Starter-kit polish (#275 round 2).** In `tools/blender/first_person_kit/build_kit.py`: plaster
   cloud noise reads as camouflage blocks up close; oak grain steps every 8 texels, like brickwork;
   paint chips follow atlas cells, not mesh edges; barricade planks float 6 mm off the brace; wall
@@ -3078,6 +3079,35 @@ not a to-do list:
     `godot:export` was skipped locally because this machine has no export templates; the preset
     exports all resources, so the scene is in the PCK.
   - **Record.** `docs/planning/first-person-title-report.md`.
+
+- **Default boot and the third-person testing view, 2026-11-01.** Advances "First-person
+  expedition and default switch" by the owner's call (docs/30, "First person is the default boot").
+  - **The door, moved.** `project.godot`'s `run/main_scene` names
+    `presentation/first_person/first_person.tscn`, so `npm run godot:run` and the exported builds
+    boot first person. The top-down game is reached with `npm run godot:run:topdown` (a new
+    `--topdown-run` mode opening `presentation/main.tscn`) or from the first-person scene's Escape,
+    which lands on that title. The title row is relabelled "first person" (was "first person
+    (experimental)"). Save slots are unchanged: the first-person slot is its own.
+  - **The testing view.** `first_person.gd` takes F2 (`VIEW_KEY`) to toggle `third_person`, a
+    presentation flag the sim never reads and the save never holds. Third person places the camera
+    at (0.25, eye + 0.4, 2.75) in the rig's frame, and `_camera_local` pulls it in by walking
+    `SimSpace.segment_clear` (SIGHT) from the eye toward that spot in 30 steps. The player's own body
+    is `presentation/first_person/own_body.gd`: `survivor.glb`, shown only in third person, turned to
+    the sim's facing and playing the clip `anim_state.gd` names for the sim's state. Movement, aim and
+    interaction are unchanged; they still come from the eye.
+  - **The gate.** `npm run godot:check:first_person` gains BOOT (project.godot's main scene is the
+    first-person scene; a fabricated project that names the top-down scene is refused) and THIRD
+    (first person hides the body and puts the camera at the eye; F2 shows the body, steps the camera
+    to the shoulder spot and plays the sim's clip, which is `walk` or `run` while W is held and
+    standing again after release; a wall behind the body pulls the camera in while the sim's sight
+    line to the full spot is blocked; F2 back restores first person). LEGEND holds F2 in the key
+    reference. `npm run godot:check:play` SCENE lane now asserts the boot is first person, and
+    FIRST-PERSON reads the relabelled row.
+  - **Not in this piece.** The held weapon is drawn at the camera in third person; the body carries
+    no weapon yet. Third person is not a player-facing mode.
+  - **Captures.** Two in-engine captures (default boot, third-person survivor) are in
+    `C:/Users/jtf/orca/sz-shared/fp-default/`. They were taken with a temporary driver that is not
+    committed.
 
 - **First-person succession and the end of a run, 2026-11-01.** Advances "First-person expedition
   and default switch": dying can hand the camera to an heir, and the last death ends the run on a

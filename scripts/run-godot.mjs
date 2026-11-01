@@ -66,7 +66,12 @@ switch (mode) {
     args = ["--editor", "--path", resolve(root, "godot")];
     break;
   case "--run":
+    // The default boot: project.godot's main scene, which is the first-person scene (docs/39).
     args = ["--path", resolve(root, "godot")];
+    break;
+  case "--topdown-run":
+    // The top-down game, for testing: its own title, reached directly rather than from the default boot.
+    args = ["--path", resolve(root, "godot"), "--scene", "res://presentation/main.tscn"];
     break;
   case "--first-person":
     args = [

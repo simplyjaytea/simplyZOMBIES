@@ -36,6 +36,7 @@ const SessionRes = preload("res://presentation/session.gd")
 const RenderInterp = preload("res://presentation/interp.gd")
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
+const OwnBody = preload("res://presentation/first_person/own_body.gd")
 const HeldWeapon = preload("res://presentation/first_person/held_weapon.gd")
 const PropView = preload("res://presentation/first_person/prop_view.gd")
 const ContainerView = preload("res://presentation/first_person/container_view.gd")
@@ -58,6 +59,15 @@ const TICK_SECONDS: float = 1.0 / float(TICK_HZ)
 const SPEED_LADDER: Array[int] = [1, 3]
 # The game's own title lives in this scene; leaving the experiment means going back to it.
 const TITLE_SCENE: String = "res://presentation/main.tscn"
+# The third-person testing view (docs/39): a key steps the camera back behind the player's own body and
+# back again. Metres, in the rig's frame, where +z is behind the body. The camera's height is the eye's
+# plus THIRD_UP_M; THIRD_RIGHT_M is the small shoulder offset. A wall between the eye and the full spot
+# pulls the camera in, found by walking THIRD_RAY_STEPS steps along the sim's own sight line.
+const THIRD_BACK_M: float = 2.75
+const THIRD_UP_M: float = 0.4
+const THIRD_RIGHT_M: float = 0.25
+const THIRD_RAY_STEPS: int = 30
+const VIEW_KEY: int = KEY_F2
 
 # The camera's eye eases to the sim's eye height (`SimSpace.eye_of`) with this time constant, so a
 # crouch is not a teleport: within 1 cm of its target in about 0.15 s.
@@ -86,6 +96,11 @@ var map: Variant = null
 # The district size this scene boots. Set before the scene enters the tree (the gate's small override).
 var district_tiles: int = DISTRICT_TILES
 var camera: Camera3D = null
+# The testing view's flag. Presentation only: the sim never reads it and the save never holds it, so a
+# fresh boot is always first person.
+var third_person: bool = false
+# The player's own body, drawn only in third person (`own_body.gd`). Null only if the scene never built.
+var own_body: Node3D = null
 var yaw: float = 0.0
 var pitch: float = 0.0
 var menu_open: bool = false
@@ -239,6 +254,11 @@ func _build_views() -> void:
 	add_child(_bodies)
 	_bodies.call("build")
 	_bodies.call("reset", world)
+
+	own_body = OwnBody.new()
+	own_body.name = "OwnBody"
+	add_child(own_body)
+	own_body.call("build")
 
 
 func _build_rig() -> void:
@@ -440,9 +460,42 @@ func _update_render(alpha: float) -> void:
 		_rig.rotation = Vector3(0.0, yaw, 0.0)
 	if camera != null:
 		camera.rotation = Vector3(pitch + _kick, 0.0, 0.0)
-		camera.position = Vector3(0.0, _eye_m, 0.0)
+		camera.position = _camera_local()
+	if own_body != null:
+		own_body.call("update", world, int(world.player), at)
+		own_body.visible = third_person
 	if _bodies != null:
 		_bodies.call("apply", world, alpha)
+
+
+# The camera's place in the rig's frame. First person is the eye. Third person is the shoulder: behind,
+# a little above and a little right, pulled in where the sim's own sight line meets a wall. The sim's
+# SIGHT question is asked read-only; nothing here writes the world.
+func _camera_local() -> Vector3:
+	var eye: Vector3 = Vector3(0.0, _eye_m, 0.0)
+	if not third_person or _rig == null or world == null:
+		return eye
+	var want: Vector3 = Vector3(THIRD_RIGHT_M, _eye_m + THIRD_UP_M, THIRD_BACK_M)
+	var rig_xf: Transform3D = _rig.global_transform
+	var eye_w: Vector3 = rig_xf * eye
+	var from: Dictionary = {"x": eye_w.x, "y": eye_w.z, "h": roundi(eye_w.y * 1000.0)}
+	var best: Vector3 = eye
+	for step in range(1, THIRD_RAY_STEPS + 1):
+		var local: Vector3 = eye.lerp(want, float(step) / float(THIRD_RAY_STEPS))
+		var at_w: Vector3 = rig_xf * local
+		var to: Dictionary = {"x": at_w.x, "y": at_w.z, "h": roundi(at_w.y * 1000.0)}
+		if not SimSpace.segment_clear(SimSpace.map_of(world), from, to, SimSpace.SIGHT):
+			break
+		best = local
+	return best
+
+
+## The testing view: first person to third and back. Presentation only; movement, aim and interaction
+## are unchanged, because they still come from the eye.
+func toggle_view() -> void:
+	third_person = not third_person
+	if own_body != null:
+		own_body.visible = third_person
 
 
 func _update_hud() -> void:
@@ -524,6 +577,10 @@ func _input(event: InputEvent) -> void:
 		return
 	if ke.pressed and code == KEY_F1:
 		open_legend()
+		get_viewport().set_input_as_handled()
+		return
+	if ke.pressed and code == VIEW_KEY:
+		toggle_view()
 		get_viewport().set_input_as_handled()
 		return
 	if inventory_open:
@@ -1937,6 +1994,7 @@ const KEY_REFERENCE: Array = [
 		["- / =", "slower, faster", [KEY_MINUS, KEY_KP_SUBTRACT, KEY_EQUAL, KEY_KP_ADD]],
 		["P", "hold the world still", [KEY_P]],
 		["F5 / F9", "save and load, in the first-person slot", [KEY_F5, KEY_F9]],
+		["F2", "testing only: step the camera back behind your own body, and back to your eye; first person is the game, and this view is not saved", [KEY_F2]],
 		["Esc", "free the pointer, then back to the title; in the ledger or the sheet, back a step", [KEY_ESCAPE]],
 		["Enter", "on the end panel, back to the title", [KEY_ENTER, KEY_KP_ENTER]],
 		["F1", "these keys", [KEY_F1]],

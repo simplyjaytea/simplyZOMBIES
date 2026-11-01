@@ -4,8 +4,8 @@
 [docs/39](39-first-person-pivot.md) supersedes this playbook's flat-top-down art
 direction and adds conversion work ahead of the previous release sequence.
 The existing game is preserved by the GitHub source archive linked there.
-The default build is still top-down while an opt-in first-person foundation
-is developed. Colony mechanics and the standing verification/merge rules remain.
+The default boot is first person since the owner's call of 2026-11-01 (docs/30); the top-down
+game is the testing build. Colony mechanics and the standing verification/merge rules remain.
 
 For any agent joining this project cold: Claude, Codex, Cursor, or a person. `CLAUDE.md` holds
 the rules of the repository. This file is about how the project around it runs: who decides
@@ -47,8 +47,8 @@ is a frozen oracle: CI keeps it green, and nothing new goes into it.
 ## Where we left off (2026-11-01, paused by the owner)
 
 The first-person conversion ([docs/39](39-first-person-pivot.md)) is the work in hand. The
-top-down game is still the default boot; the first-person scene is reached from the title's
-"first person (experimental)" row or `npm run godot:run:first_person`. This section is a
+default boot is the first-person scene; the top-down game is reached with
+`npm run godot:run:topdown`, and the title's "first person" row returns to first person. This section is a
 handoff: read it, then `gh pr list` and each pull request's CI, because both move.
 
 **On `main`.** The pivot plan (docs/39), the spatial contract
