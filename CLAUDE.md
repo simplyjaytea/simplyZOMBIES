@@ -35,6 +35,14 @@ Then read, in order:
 
 ## What the project is
 
+**Current direction: the first-person survival colony pivot, authorized 2026-11-01.**
+Read [docs/39](docs/39-first-person-pivot.md) before new presentation or art work.
+The owner has superseded the flat-top-down art direction for the conversion;
+the current default build remains top-down until the replacement is verified.
+Colony systems, skills, authored/generated people and the captive roadmap remain.
+Management moves to physical ledgers and conversations. Earlier projection and
+sprite rules describe the preserved baseline, not constraints on new 3D assets.
+
 A hardcore zombie survival colony sim: RimWorld's colony management, Project Zomboid's survival,
 Zero Sievert's top-down pixel art. One attention system (noise, scent, light) ties survival to
 the pressure the dead put on the colony. [docs/00](docs/00-vision.md) is the vision and
@@ -122,6 +130,7 @@ The longer state notes, the art history and the full dead-socket list are in
 | Need | Read |
 |---|---|
 | How the project runs: the owner, threads, merging, the shared folder, open calls | [docs/38, the playbook](docs/38-playbook.md) |
+| First-person conversion: approved direction, phases, spatial contracts and archive | [docs/39](docs/39-first-person-pivot.md) |
 | What is open, what landed, with evidence | [docs/23, the roadmap](docs/23-roadmap.md) |
 | Which release stage a piece belongs to, and the four content arcs | [docs/38's release plan](docs/38-playbook.md#the-release-plan) |
 | Why something is shaped the way it is | [docs/30, the decisions](docs/30-decisions.md), oldest first |
@@ -297,6 +306,7 @@ row when a system gains a home; the gate goes red when a route stops being true.
 | Content (an item, a zombie, a loot table, a weather kind) | [docs/20 Part 2](docs/20-ecs-and-content.md#part-2-content) and the schema under `godot/content/schemas/` | `godot/content/` | `npm run godot:validate` **and** `npm test` (only the oracle's Ajv recurses), plus the nested-shape gate for that block | the record |
 | How a thing looks | [the Dungeon Settlers look](docs/30-decisions.md#the-dungeon-settlers-look-2026-09-03), `godot/assets/sprites/README.md` | `godot/presentation/`, `godot/assets/sprites/`, `tools/sprites/` | the `godot:check:<look>` gate for that layer; `npm run sprites:check` after touching `tools/sprites/` | the record |
 | The first-person Blender starter kit | [the kit's README](tools/blender/first_person_kit/README.md) | `tools/blender/first_person_kit/`, `godot/assets/first_person/` | `blender --background --factory-startup --python tools/blender/first_person_kit/build_kit.py -- --check` proves dimensions, origins, atlas use and byte reproducibility | the record |
+| First-person presentation | [the foundation report](docs/planning/first-person-foundation-report.md), [docs/37](docs/37-traps.md) | `godot/presentation/first_person/`, `godot/check_first_person.gd` | `npm run godot:check:first_person` runs the headless gate; `npm run godot:run:first_person` launches the opt-in scene | the report |
 | Art somebody drew for us | [the brief](godot/assets/sprites/README.md), [art we did not generate](docs/30-decisions.md#art-we-did-not-generate-2026-09-09) | `godot/assets/sprites/authored.json` declares it; the PNG sits beside it | `npm run godot:check:authored` holds it to the published bounds and refuses art nothing reads; `npm run sprites:check` proves it is present at the canvas it declares | the record |
 | Art from the outpost pack | [the pack's own README](godot/art/simplyzombies/README.md), [the outpost pack, adopted](docs/30-decisions.md#the-outpost-pack-adopted-2026-09-17) | `godot/assets/sprites/authored.json` declares it, with a `source` (a path, optional `crop`/`pad`) under `godot/art/simplyzombies/`, or as a member of a `source`-carrying `members` family | `npm run sprites:check` reproduces the committed PNG from its source and compares decoded pixels; `npm run godot:check:authored`'s MANIFEST, TIER and SOURCE lanes hold the declaration to shape and the READS lane to a real reader; the look gate of whichever family it lands in (`godot:check:<look>`) once that piece exists | the record |
 | The screens' frames, glyphs, cursors and motion: the UI Field Kit | [the kit's own README](godot/art/simplyzombies-ui/README.md), [the UI Field Kit, live](docs/30-decisions.md#the-ui-field-kit-live-2026-09-25) | the approved kit under `godot/art/simplyzombies-ui/` (`godot/art/simplyzombies-ui/manifest.json` and `godot/art/simplyzombies-ui/styles/*.tres` are the spec, read as text; the game never loads a kit `.tres`), resolved by `godot/ui/kit.gd` and worn through `godot/ui/chrome.gd`'s helpers | `npm run godot:check:ui_skin` (`godot/check_ui_skin.gd`): KIT holds `Kit.NINE` to the manifest and the `.tres`, RESOLVE proves every consumed PNG loads headless, PANEL follows `Chrome.panel` to the kit, HELPERS refuses a chrome helper nothing calls, FONT holds every screen to `Chrome.font()` (the kit's VT323, `godot/art/simplyzombies-ui/fonts/VT323-Pixel.res`) and every text size to `Chrome.LADDER` | the record |
