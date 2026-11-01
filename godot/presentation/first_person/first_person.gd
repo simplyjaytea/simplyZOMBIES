@@ -36,6 +36,7 @@ const BodyView = preload("res://presentation/first_person/body_view.gd")
 const HeldWeapon = preload("res://presentation/first_person/held_weapon.gd")
 const PropView = preload("res://presentation/first_person/prop_view.gd")
 const ContainerView = preload("res://presentation/first_person/container_view.gd")
+const LooseView = preload("res://presentation/first_person/loose_view.gd")
 const SkyView = preload("res://presentation/first_person/sky_view.gd")
 const Hud = preload("res://presentation/first_person/hud.gd")
 const WorkPanel = preload("res://ui/work_panel.gd")
@@ -93,6 +94,7 @@ var _district: Node3D = null
 var _bodies: Node3D = null
 var _props: Node3D = null
 var _containers: Node3D = null
+var _loose: Node3D = null
 var _sky: Node3D = null
 var _hud: Control = null
 var _work_layer: CanvasLayer = null
@@ -210,6 +212,10 @@ func _build_views() -> void:
 	_containers.name = "Containers"
 	add_child(_containers)
 	_containers.call("build", world)
+
+	_loose = LooseView.new()
+	_loose.name = "LooseItems"
+	add_child(_loose)
 
 	_bodies = BodyView.new()
 	_bodies.name = "Bodies"
@@ -371,6 +377,8 @@ func _process(delta: float) -> void:
 				who = int(_work_panel.call("selected"))
 			_work_panel.call("set_world", world, who)
 	_ease_eye(delta)
+	if _loose != null:
+		_loose.call("refresh", world)
 	var alpha: float = clampf(_accumulator / TICK_SECONDS, 0.0, 1.0)
 	_kick = move_toward(_kick, 0.0, delta * KICK_DECAY_PER_SECOND)
 	_update_held_weapon()
@@ -1287,6 +1295,16 @@ func ledger_approach_position() -> Vector2:
 	return _ledger_approach
 
 
+func loose_view_count() -> int:
+	return int(_loose.call("count")) if _loose != null else 0
+
+
+func loose_node_for(entity: int) -> Node3D:
+	if _loose == null:
+		return null
+	return _loose.call("node_for", entity) as Node3D
+
+
 func container_view_count() -> int:
 	return int(_containers.call("count")) if _containers != null else 0
 
@@ -1600,6 +1618,8 @@ func _after_load() -> void:
 	_push_zero_move()
 	_push_aim()
 	_bodies.call("reset", world)
+	if _loose != null:
+		_loose.call("invalidate")
 	snap_render_to_sim()
 
 
