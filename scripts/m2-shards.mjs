@@ -63,6 +63,8 @@ export const M2_SHARDS = [
     "godot:check:camera",
     "godot:check:motion",
     "godot:check:action",
+    "godot:check:first_person",
+    "godot:check:fp_geometry",
   ],
   [
     "godot:m2:needs",

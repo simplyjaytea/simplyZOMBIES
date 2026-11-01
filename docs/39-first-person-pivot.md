@@ -111,6 +111,8 @@ reach, body-part hits and NPC perception. Camera geometry and simulation
 must agree on doors, windows and low cover. Retain weapon handling, skills,
 ammunition, wear, wounds and commitment while adapting aiming and impact.
 Any new height state or command field includes save and replay implications.
+The engineering contract and its slices are in
+[docs/40](40-first-person-spatial-contract.md).
 
 Proof: paired hit/miss and blocked/open scenarios, stance and cover cases,
 NPC perception, reproducibility and full shared-sim gates. Do not ship a
