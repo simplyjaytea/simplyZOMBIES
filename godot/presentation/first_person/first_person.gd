@@ -23,6 +23,7 @@ const SimSave = preload("res://sim/save.gd")
 const SaveSlot = preload("res://presentation/first_person/save_slot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
+const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
 const SimContext = preload("res://sim/context.gd")
@@ -39,6 +40,7 @@ const WorkPanel = preload("res://ui/work_panel.gd")
 const WebPanel = preload("res://ui/web_panel.gd")
 const InventoryPanel = preload("res://ui/inventory_panel.gd")
 const ReportsPanel = preload("res://ui/reports_panel.gd")
+const TalkPanel = preload("res://ui/talk_panel.gd")
 
 const SEED: int = SimBoot.DISTRICT_SEED
 # The shipped district size, the one `session.gd` boots by default. The gate overrides
@@ -82,6 +84,9 @@ var pitch: float = 0.0
 var menu_open: bool = false
 var paused: bool = false
 var inventory_open: bool = false
+# The conversation panel is up. A public flag because the gate reads it: every key is swallowed
+# while it is true, exactly as the inventory does, and the clock keeps running.
+var talk_open: bool = false
 
 var _rig: Node3D = null
 var _district: Node3D = null
@@ -96,6 +101,11 @@ var _web_panel: Control = null
 var _web_open: bool = false
 var _inventory_layer: CanvasLayer = null
 var _inventory_panel: Control = null
+# The conversation panel: one of your colonists, E in reach and on the aim. `_talk_entity` is the
+# body being spoken to; the panel reads the sim each frame while it is up.
+var _talk_layer: CanvasLayer = null
+var _talk: Control = null
+var _talk_entity: int = -1
 # The ledger's Reports page. `_reports_read` is the chronicle's read mark: entries before it have been read.
 # Presentation state only -- the sim is never written -- and it starts at 0 on every boot.
 var _reports_open: bool = false
@@ -354,6 +364,8 @@ func _process(delta: float) -> void:
 			_accumulator = 0.0
 	if inventory_open:
 		_refresh_inventory()
+	if talk_open:
+		_refresh_talk()
 	if menu_open:
 		if _web_open and _web_panel != null and _web_panel.visible:
 			_web_panel.call("set_world", world, int(_web_panel.get("_who")))
@@ -412,6 +424,9 @@ func _update_hud() -> void:
 	if inventory_open:
 		# The sheet is over the world and takes the words with it; Escape is the way back.
 		prompt = ""
+	elif talk_open:
+		# The conversation panel carries every word; the HUD is hidden while it is up.
+		prompt = ""
 	elif not menu_open and not _mouse_captured:
 		prompt = "Mouse released. Click to look again."
 	elif not menu_open:
@@ -422,20 +437,26 @@ func _update_hud() -> void:
 			var box_verdict: String = container_verdict()
 			var box_name: String = _container_kind(container_focus())
 			var verb: String = verb_prompt()
+			var person_verdict: String = talk_verdict()
+			var person_name: String = _talk_name(talk_focus())
 			if box_verdict == "ok":
 				prompt = "E open the %s" % box_name
+			elif person_verdict == "ok":
+				prompt = "E talk to %s" % person_name
 			elif verb != "":
 				prompt = verb
 			elif box_verdict == "away":
 				prompt = "Turn to the %s." % box_name
 			elif box_verdict == "spent":
 				prompt = "You have already been through this %s." % box_name
+			elif person_verdict == "away":
+				prompt = "Turn to %s." % person_name
 			elif verdict == "away":
 				prompt = "Turn to the ledger."
 			elif _curr_player.distance_to(_ledger_sim) < 4.5:
 				prompt = "The ledger stands near."
 	_hud.call("set_state", world, int(world.player), prompt, _live_alert(), menu_open, paused, inventory_open, _live_news())
-	_hud.visible = not inventory_open
+	_hud.visible = not inventory_open and not talk_open
 
 
 # --- input ----------------------------------------------------------------------------------
@@ -478,6 +499,13 @@ func _input(event: InputEvent) -> void:
 					close_inventory()
 			elif code == KEY_R and _inventory_panel.has_method("rotate"):
 				_inventory_panel.call("rotate")
+		get_viewport().set_input_as_handled()
+		return
+	if talk_open:
+		# The conversation takes every key while it is up: walking, the aim, the fight buttons, the
+		# stance ladder and the save keys never reach the world. Goodbye is the one action.
+		if ke.pressed and code == KEY_ESCAPE:
+			close_talk()
 		get_viewport().set_input_as_handled()
 		return
 	if menu_open:
@@ -563,6 +591,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _run_over_open or _waiting_for_heir():
 		# No mouse look and no click-to-recapture under the end panel or between a death and an
 		# heir. The pointer stays where `_release_mouse` left it.
+		return
+	if talk_open:
+		# The conversation has the mouse: a click is the panel's Goodbye, never a recapture or a
+		# swing. The panel's own `_gui_input` handles it.
 		return
 	if event is InputEventMouseMotion and _mouse_captured and not menu_open and not inventory_open:
 		var motion: InputEventMouseMotion = event as InputEventMouseMotion
@@ -733,7 +765,7 @@ func reload_weapon() -> void:
 
 
 func _can_fight() -> bool:
-	return world != null and not menu_open and not inventory_open and not _run_over_open and not _waiting_for_heir()
+	return world != null and not menu_open and not inventory_open and not talk_open and not _run_over_open and not _waiting_for_heir()
 
 
 func _kick_camera() -> void:
@@ -889,12 +921,13 @@ func container_world_point(entity: int) -> Vector3:
 	return Vector3(at.x, CONTAINER_AIM_HEIGHT_M, at.y)
 
 
-## The one interaction. The order is the ledger, then an openable container, then the world's first
-## tile verb (a door or window), then the container's and the ledger's refusals -- so a higher rung
-## always wins, an aimed door is not blocked by a box merely standing near it, and every refusal says
-## which rule failed in the ledger's words.
+## The one interaction. The order is the ledger, then an openable container, then a colonist in reach
+## and on the aim, then the world's first tile verb (a door or window), then the container's, the
+## person's and the ledger's refusals -- so a higher rung always wins, an aimed door is not blocked
+## by a box or a body merely standing near it, and every refusal says which rule failed in the
+## ledger's words.
 func try_interact() -> bool:
-	if menu_open or inventory_open:
+	if menu_open or inventory_open or talk_open:
 		return false
 	if interaction_verdict() == "ok":
 		open_ledger_menu()
@@ -902,6 +935,10 @@ func try_interact() -> bool:
 	var box_verdict: String = container_verdict()
 	if box_verdict == "ok":
 		open_container(container_focus())
+		return true
+	var person_verdict: String = talk_verdict()
+	if person_verdict == "ok":
+		open_talk(talk_focus())
 		return true
 	var row: Dictionary = verb_row()
 	if not row.is_empty():
@@ -921,6 +958,18 @@ func try_interact() -> bool:
 				return false
 			"spent":
 				_set_alert("You have already been through this %s." % box_name)
+				return false
+	if person_verdict != "none":
+		var person_name: String = _talk_name(talk_focus())
+		match person_verdict:
+			"far":
+				_set_alert("Nothing within reach. Walk closer to %s." % person_name)
+				return false
+			"blocked":
+				_set_alert("%s is behind a wall." % person_name)
+				return false
+			"away":
+				_set_alert("You are near %s, but not looking at them." % person_name)
 				return false
 	match interaction_verdict():
 		"far":
@@ -1031,6 +1080,211 @@ func _container_openable(entity: int) -> bool:
 	if bool((state as Dictionary).get("searched", false)):
 		return not SimContainers.contents_of(world, entity).is_empty()
 	return true
+
+
+# --- talking to a colonist -------------------------------------------------------------------
+#
+# The first slice of docs/39's conversations: E at one of your own people, in reach and on the aim,
+# opens a small panel that says how they are and what they are doing. Every word is a read model's
+# (`TalkPanel`), so the conversation cannot know more than the Colony drawer does. It decides
+# nothing: the one action is Goodbye. Raiders, settlers and zombies are never talkable --
+# `SimAllegiance.is_colony` is the faction gate, and the identity requirement is what makes it a
+# person with a name rather than any body the sim owns.
+#
+# THE PAUSE POLICY is the inventory's, the same reversible default docs/33 leaves open: this panel
+# does not stop the clock. `_clear_held` + `_push_zero_move` stop the body, `_input` swallows every
+# key while it is open, and the sim keeps stepping. If the owner later chooses time-stopped
+# conversations, the one change is to hold the accumulator.
+
+## True for a body the player can talk to: alive, not a corpse, not the player, not a zombie, and a
+## named member of the colony. A raider or a settler has an identity and is still not one of yours.
+func talkable(entity: int) -> bool:
+	if world == null or entity < 0:
+		return false
+	if entity == int(world.player):
+		return false
+	if not world.entities.is_alive(entity):
+		return false
+	if world.components.has_component(entity, "corpse"):
+		return false
+	if world.components.has_component(entity, "zombieType") or world.components.has_component(entity, "shambler"):
+		return false
+	if not world.components.has_component(entity, "identity"):
+		return false
+	return SimAllegiance.is_colony(world, entity)
+
+
+## The colonist the eye is on, or -1: the nearest talkable body inside the same narrow cone the
+## ledger and the containers use.
+func talk_target() -> int:
+	if world == null:
+		return -1
+	var eye: Vector3 = Vector3(_rendered_player().x, _eye_m, _rendered_player().y)
+	var look: Vector3 = look_direction()
+	var best: int = -1
+	var best_distance: float = 1.0e9
+	for entity in world.components.query(["position", "body"]):
+		var e: int = int(entity)
+		if not talkable(e):
+			continue
+		var to: Vector3 = _talk_point(e) - eye
+		var distance: float = to.length()
+		if distance <= 0.000001:
+			continue
+		if look.dot(to / distance) < LEDGER_AIM_DOT:
+			continue
+		if distance < best_distance:
+			best_distance = distance
+			best = e
+	return best
+
+
+## The nearest talkable body within reach whatever the aim, for the "turn to them" refusal.
+func talk_near() -> int:
+	if world == null:
+		return -1
+	var best: int = -1
+	var best_distance: float = LEDGER_REACH_M
+	for entity in world.components.query(["position", "body"]):
+		var e: int = int(entity)
+		if not talkable(e):
+			continue
+		var distance: float = _curr_player.distance_to(_entity_position(e))
+		if distance <= best_distance:
+			best_distance = distance
+			best = e
+	return best
+
+
+## "ok", "far", "away", "blocked" or "none", the same ladder the containers use: the aimed person is
+## measured against the reach, then the sim's own sight. A person in reach but not aimed at reads
+## "away", so the refusal says to turn rather than to walk closer.
+func talk_verdict() -> String:
+	if world == null:
+		return "none"
+	var target: int = talk_target()
+	var near: int = talk_near()
+	if target < 0:
+		return "away" if near >= 0 else "none"
+	if _curr_player.distance_to(_entity_position(target)) > LEDGER_REACH_M:
+		return "away" if near >= 0 else "far"
+	if not talk_in_sight(target):
+		return "blocked"
+	return "ok"
+
+
+## The person the verdict is speaking about: the near one for "away", the aimed one otherwise.
+func talk_focus() -> int:
+	var target: int = talk_target()
+	var near: int = talk_near()
+	if near >= 0 and (target < 0 or _curr_player.distance_to(_entity_position(target)) > LEDGER_REACH_M):
+		return near
+	return target
+
+
+## A person through an opaque wall is not in reach, however close the geometry is -- the same
+## `vision.detail` read the ledger and the boxes make.
+func talk_in_sight(entity: int) -> bool:
+	if world == null or world.vision == null or entity < 0:
+		return false
+	var at: Vector2 = _entity_position(entity)
+	return int(world.vision.call("detail", int(world.player), at.x, at.y)) != 0
+
+
+## The point a look is judged against: the colonist's own eye, the height the sim gives them.
+func _talk_point(entity: int) -> Vector3:
+	var at: Vector2 = _entity_position(entity)
+	return Vector3(at.x, float(SimSpace.eye_of(world, entity)) / 1000.0, at.y)
+
+
+func _entity_position(entity: int) -> Vector2:
+	if world == null or entity < 0:
+		return Vector2.ZERO
+	var pos: Variant = world.components.get_component(entity, "position")
+	if not (pos is Dictionary):
+		return Vector2.ZERO
+	return Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
+
+
+func _talk_name(entity: int) -> String:
+	if entity < 0:
+		return "them"
+	return TalkPanel.name_of(world, entity)
+
+
+func _ensure_talk_panel() -> void:
+	if _talk != null:
+		return
+	_talk_layer = CanvasLayer.new()
+	_talk_layer.name = "TalkUI"
+	add_child(_talk_layer)
+	_talk = TalkPanel.new()
+	_talk.name = "TalkPanel"
+	_talk.visible = false
+	_talk_layer.add_child(_talk)
+	if _talk.has_signal("closed"):
+		_talk.connect("closed", close_talk)
+
+
+## Opens the conversation with `entity`. The panel reads the sim; this only shows it and stops the
+## body, exactly as the inventory sheet does.
+func open_talk(entity: int) -> void:
+	if world == null or entity < 0 or menu_open or inventory_open or talk_open:
+		return
+	_ensure_talk_panel()
+	if _talk == null:
+		return
+	talk_open = true
+	_talk_entity = entity
+	_talk.call("show_colonist", world, entity)
+	_place_talk()
+	_talk.visible = true
+	_clear_held()
+	_push_zero_move()
+	_release_mouse()
+	_alert = ""
+	if _hud != null:
+		_hud.visible = false
+
+
+func close_talk() -> void:
+	if not talk_open:
+		return
+	talk_open = false
+	_talk_entity = -1
+	if _talk != null:
+		_talk.visible = false
+	_clear_held()
+	_push_zero_move()
+	_capture_mouse()
+	_alert = ""
+	if _hud != null:
+		_hud.visible = true
+
+
+# Every frame the conversation is up: the read models again, so a need or an injury that changes
+# while the player listens is said as it is now. A colonist who dies or walks away closes it.
+func _refresh_talk() -> void:
+	if not talk_open or _talk == null:
+		return
+	if not talkable(_talk_entity):
+		close_talk()
+		return
+	_talk.call("show_colonist", world, _talk_entity)
+	_place_talk()
+
+
+func _place_talk() -> void:
+	if _talk == null:
+		return
+	var view: Vector2 = get_viewport().get_visible_rect().size
+	var want: Vector2 = _talk.size
+	var at: Vector2 = Vector2(floorf((view.x - want.x) * 0.5), view.y - want.y - 96.0)
+	_talk.position = Vector2(maxf(16.0, at.x), maxf(96.0, at.y))
+
+
+func talk_panel_node() -> Control:
+	return _talk
 
 
 # --- the ledger ------------------------------------------------------------------------------
@@ -1193,6 +1447,8 @@ func _watch_identity() -> void:
 func _on_succession() -> void:
 	if inventory_open:
 		close_inventory()
+	if talk_open:
+		close_talk()
 	if menu_open:
 		close_ledger_menu()
 	_clear_held()
@@ -1245,6 +1501,8 @@ func _show_run_over() -> void:
 	_run_over_open = true
 	if inventory_open:
 		close_inventory()
+	if talk_open:
+		close_talk()
 	if menu_open:
 		close_ledger_menu()
 	_clear_held()

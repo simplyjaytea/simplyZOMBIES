@@ -2413,6 +2413,37 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Talking to a colonist, 2026-11-01.** Advances "First-person people and settlement operation", its
+  conversations: look at one of your colonists, press E, and they say how they are and what they are
+  doing, in words the read models already own.
+  - **The panel.** `godot/ui/talk_panel.gd`, in the kit chrome (`Chrome`/`Locker`): the colonist's
+    name as the header, one feeling line, one "now" line, and the one action `Goodbye` (Escape, or a
+    click on the button). No numbers and no new information: every line is one the top-down screens
+    already show.
+  - **The words.** The name is `identity.name`. The feeling line composes `SimCondition.view`'s
+    worst part in the first-person HUD's own words ("hurt", "badly hurt", "barely standing", plus
+    "bleeding") with the worst need's own line: `SimNeeds.worst_band` chooses the band, the
+    colonist's first-person mutter in `content/speech/lines.json` is used when it exists, and
+    `SimNeeds.hud_clause(world, ent, true)` is the fallback, the same panel sentence the top-down
+    drawer shows. A body with nothing wrong says "I feel steady.", the first-person HUD's fallback.
+    The doing line is `WorkRead.doing` (`sim/work_read.gd`), the Colony row's own phrase.
+  - **E's ladder.** Ledger, then an openable container, then a colonist in reach and on the aim, then
+    the tile verb. Reach is 1.8 m from the sim's position, the aim cone is the ledger's, and the
+    sim's own `vision.detail` refuses a person through a wall. `SimAllegiance.is_colony` plus an
+    identity makes a body talkable: raiders, settlers and zombies never are.
+  - **Capture.** The panel swallows every key (walking, aim, fight, stance, save); Escape closes it
+    and recaptures the mouse. The clock keeps running, the inventory's reversible default: the body
+    is stopped with `_clear_held` + `_push_zero_move`, and nothing pauses.
+  - **The gate.** `npm run godot:check:first_person` (TALK lane) prints `FIRST_PERSON_OK`. True
+    positive: E on a colonist in reach and on the aim opens the panel with the sim's name, the steady
+    feeling line and the read model's doing phrase; a hungry colonist says one of the mutter lines;
+    every line is digit-free; walking is swallowed; Escape closes and recaptures. True negatives: out
+    of reach, off the aim, through a wall, at a shambler and at a raider no panel opens.
+  - **Not in this piece.** No orders, recruitment, delegation or foreman: the one action is Goodbye,
+    and docs/39's foreman stays undecided. No speech content was added. The panel does not stop the
+    clock, and a survivor's own conversations with the player are a later slice.
+  - **Record.** `docs/planning/first-person-talk-report.md`.
+
 - **Animation state from the sim, 2026-11-01.** Advances "First-person people and settlement
   operation", the body art: every drawn body now names the animation it should play, read from the
   sim, before the character GLBs land.
