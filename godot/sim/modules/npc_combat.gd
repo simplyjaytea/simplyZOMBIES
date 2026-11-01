@@ -25,6 +25,7 @@ const SimHealth = preload("res://sim/modules/health.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimShamblerRes = preload("res://sim/modules/shambler.gd")
 const SimSightingsRes = preload("res://sim/modules/sightings.gd")
+const SimSpaceRes = preload("res://sim/space/space.gd")
 
 # How close a threat comes before an NPC decides to spend a shot on it, capped again by the
 # weapon's own `rangeMetres`. This is a *pacing* constant -- "close enough to be worth the noise"
@@ -346,13 +347,17 @@ static func _ordered_target(world: Variant, ent: int, metres: float) -> int:
 
 
 # Whether `target` is inside the blow or the shot this colonist would land right now: the melee reach
-# `_engage` swings with, or the ranged envelope with a sightline. Asked by the attack walk, so the
-# colonist stops exactly where the fight begins.
+# `_engage` swings with, with nothing in the way of the blow (`SimSpace.reach_clear`, the question
+# `_resolve_strike` asks), or the ranged envelope with a sightline. Asked by the attack walk, so the
+# colonist stops exactly where the fight begins -- and not with a wall between them and it.
 static func can_strike(world: Variant, ent: int, target: int) -> bool:
 	var d: float = _distance(world, ent, target)
 	var reach: float = _melee_reach(world, ent)
 	if reach > 0.0 and d <= reach:
-		return true
+		var here: Variant = world.components.get_component(ent, "position")
+		var at: Variant = world.components.get_component(target, "position")
+		if here is Dictionary and at is Dictionary and SimSpaceRes.reach_clear(world, here as Dictionary, at as Dictionary, ent, target):
+			return true
 	var range_metres: float = _ranged_range(world, ent)
 	if range_metres <= 0.0 or d > range_metres:
 		return false

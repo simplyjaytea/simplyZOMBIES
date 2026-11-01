@@ -14,6 +14,70 @@ world includes jumping or walkable upper floors. The foundation stays planar
 and may use labelled reversible interaction defaults; first person alone does
 not authorize multilevel simulation.
 
+The inventory/ledger pause question has a default built today: the clock keeps
+running while the ledger or a container sheet is open, and the body stops (held
+keys clear and one zero move is queued), the same as the top-down inventory
+(`main.gd` does not stop the clock for its sheet). The containers slice built
+it as a reversible default, marked in `first_person.gd`, so it is not a decision
+and the owner may pick a time-stopped inventory instead; the change is one place,
+the accumulator hold in the first-person `_process`. The pivot's plan is
+[docs/39](39-first-person-pivot.md).
+
+The next seven cards come from the "What the owner decides" list in
+[docs/40](40-first-person-spatial-contract.md#what-the-owner-decides), the first-person
+spatial contract. Their numbers from that list are kept, so the two can be read
+side by side. Each has one recommended default, and none is taken here.
+
+**Does a round go where it is pointed, or to the nearest body in the cone?** Today the
+shot takes the nearest living body inside the cone and hits it for certain, so a
+shot cannot miss what it is aimed at. In first person a round would travel the
+ray, and a ray can miss everything. The recommended default is the ray, with the
+spread tuned by measurement so a steady, skilled shot at a standing torso at
+fifteen metres usually lands. The trade-off: a careful player can miss a body the
+old rule would have hit, and a sloppy shot can hit a body nobody saw in the line.
+(docs/40 question 1.)
+
+**Does aim choose the body part?** The recommended default is yes for shots, with
+the part read from where the ray meets the body (head, torso, arm or leg, by height
+and side). Melee and bites keep their weighted tables, and pitch does not steer a
+swing. The trade-off: free headshots become possible, bounded only by dispersion,
+and lethality changes, so the balance is re-measured once the choice lands.
+(docs/40 question 2.)
+
+**Do Low cover and windows work by height?** The recommended default is yes: a
+crouched survivor sees standing heads over a car, a standing zombie loses a
+crouched survivor behind one, and a crouched body under a window sill is hidden.
+The trade-off: docs/28's Low row changes from "blocks a crouched eye" to "blocks the
+line below its top", and the starting heights (Low 1.10 m, sill 1.00 m, crouched
+eye 0.95 m) become numbers the owner has seen. (docs/40 question 3.)
+
+**Can a body walk through a car?** It can today, and in first person it will look
+broken. The recommended default is that Low becomes solid for movement, with
+climbing over as the timed action docs/29 already names, built later. The
+trade-off: it is a save-format bump, because a body standing on a car in an older
+save would load inside a solid tile, and it changes pathing across every Low tile
+in the district. (docs/40 question 4.)
+
+**What does looking away from your run cost in first person?** At a jog the sim
+snaps the aim to the heading. The recommended default is to keep that: the weapon
+lowers and fire is refused while the camera looks off the heading, so no hidden
+aim fires. The trade-off: running and looking sideways cannot also shoot, where
+the alternative keeps the aim on the camera while the body runs. (docs/40
+question 5.)
+
+**Is there anything at the centre of the screen?** docs/09 bans a reticle that
+reports accuracy. The recommended default is no screen reticle; a raised weapon's
+drawn sights, swaying with the cone, are the aim, which is docs/09's sway made
+literal. The trade-off: a centre dot would have to be decorative, while drawn sights
+keep the player reading the sway rather than a number. (docs/40 question 6.)
+
+**Glass, and shots through foliage.** Windows have no glass state, and a screen stops
+sight but not a body. Today a screen also stops a round, because the shooter's
+cast cannot see through it. The recommended default is unchanged for now: windows
+are open apertures, and a screen stops a round and passes a reach. The trade-off:
+a shot that tears through foliage, or a glass state that stops a bullet, would each
+be a piece of its own with its own design. (docs/40 question 7.)
+
 This is what only the owner decides. Never pick one of these up unilaterally. Items keep the
 numbers they had in the retired `HANDOFF.md` (removed 2026-10-19, see docs/30), so a record that
 says "HANDOFF item N" means item N here.
