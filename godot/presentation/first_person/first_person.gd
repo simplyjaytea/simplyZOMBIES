@@ -180,7 +180,12 @@ func _ready() -> void:
 	_build_views()
 	_build_rig()
 	_build_hud()
-	_capture_mouse()
+	# A web build refuses pointer lock without a user gesture (the export smoke's page error), so there the
+	# pointer starts released and the first click takes it, as it does after an Escape. Desktop captures now.
+	if OS.has_feature("web"):
+		_release_mouse()
+	else:
+		_capture_mouse()
 	# The export smoke's readiness line for the default boot (scripts/smoke-godot-exports.mjs). The
 	# top-down scene prints GODOT_R1_READY; this is the first-person scene's own marker.
 	print("GODOT_FIRST_PERSON_READY")
