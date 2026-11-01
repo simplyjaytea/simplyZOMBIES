@@ -2413,6 +2413,43 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **First-person containers and the inventory sheet, 2026-11-01.** Advances "First-person
+  scavenging and personal equipment": a player can walk up to a world container, open it, and take
+  real items through the existing grid inventory.
+  - **The scene.** `first_person.gd` draws one labelled placeholder per sim `searchable` entity at
+    its sim position (`container_view.gd`). E in reach and in the eye's cone pushes the top-down
+    context menu's `container.open` command; the real `ui/inventory_panel.gd` opens on the player's
+    own bags with the box as its first column, and a take is the sheet's ordinary `item.move`.
+    Reach, the first-open table roll and every fit rule stay the sim's.
+  - **Refusals.** Out of reach, off the aim and through an opaque wall are refused in the ledger's
+    own words; a searched-and-empty box says it has already been through. Escape sends
+    `container.close`, closes the sheet and gives the mouse back. The body stands still under the
+    sheet while the clock runs, copying `main.gd` -- marked a reversible default, because docs/33
+    still leaves the inventory pause policy open.
+  - **The gate.** `npm run godot:check:first_person` (CONTAINER lane) prints `FIRST_PERSON_OK`.
+    True positive: E opens a real box, a take moves an item through `item.move`, and the
+    box-plus-player item total is unchanged. True negatives: off-aim, out-of-reach and through-wall
+    refusals with words; a walking key does not move the body under the sheet.
+  - **Not in this piece.** The boxes are placeholders with no furniture collision; the screen is
+    the full sheet, not the top-down game's small transfer window; equipment is later.
+  - **Record.** `docs/planning/first-person-containers-report.md`.
+
+- **First-person scene on the shipped district size, 2026-11-01.** Advances "First-person
+  simulation and ledger foundation": the opt-in scene now boots the district the top-down game boots.
+  - **The boot.** `first_person.gd` boots `SimBoot.playable(SimBoot.DISTRICT_SEED, district_tiles)`,
+    with `district_tiles` defaulting to `SimTileMap.DISTRICT_TILES` (256), the size `session.gd`
+    boots. The gate sets a 64-tile override before it adds the scene, so it stays fast.
+  - **Measured.** Headed at 1280x720, standing at spawn, 300 frames, three runs per side, on a Ryzen 7
+    7800X3D and an RTX 5090 (Windows 11, Godot 4.7.1, 2026-11-01). Build went from 121 ms at 64 tiles
+    to 1032 ms at 256, and mean frame wall from 0.69 ms to 0.97 ms. Both sit under the 2 s and 10 ms
+    thresholds, so the district meshes were not split into chunks. The table is in
+    `docs/planning/first-person-district-report.md`.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, DISTRICT lane)
+    prints `FIRST_PERSON_OK`. True positive: a fresh instance defaults to the shipped size and seed.
+    True negative: the gate's 64-tile override really boots a smaller map. Both were mutation-tested.
+  - **Not in this piece.** Chunking. The scene still draws the whole district as one ground mesh and
+    one solid mesh.
+
 - **The first-person foundation, 2026-11-01.** docs/23's "First-person simulation and ledger
   foundation", the first delivery of [docs/39](39-first-person-pivot.md).
   - **The scene.** `godot/presentation/first_person/first_person.tscn` boots `SimBoot.playable` on
