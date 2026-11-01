@@ -102,6 +102,33 @@ When your survivor dies, the run can carry on through whoever is left.
 
 Sleeping fast-forwards the night, and stops when a zombie comes close.
 
+## First person (experimental)
+
+*This section describes the first-person pieces that land with the first-person integration PR;
+it is merged after that PR.*
+
+The title screen has a row, **first person (experimental)**, above quit. It opens the same district
+and colony in a first-person view. `Esc` frees the mouse, and a second `Esc` takes you back to the
+title. The top-down game is still the default: New run starts the top-down game, as before.
+
+- **Look and walk:** the mouse turns you, `W` `A` `S` `D` walk, `Shift` sprints. `Ctrl+Z`, `Ctrl+C`,
+  `Ctrl+S` and `Ctrl+V` go prone, crouch, stand and jog. Your eye height follows your stance.
+- **Act:** `E` opens the ledger when you stand in front of the desk, opens a cupboard you are
+  facing, or opens or shuts a door you are facing. A prompt at the bottom of the screen names what
+  `E` will do. `LMB` or `F` swings, `G` fires, `R` reloads.
+- **The ledger:** the work grid, with the skill web one button away. The Reports button lists what
+  happened while you were away, in the chronicle's own words, and marks what is new. `Esc` goes
+  back from Reports to the grid, and from the grid to the street.
+- **Save and load:** `F5` saves and `F9` loads, in a slot of its own, so the first-person save never
+  replaces your top-down one.
+- **When your survivor dies:** the camera moves to whoever is left. If nobody is left, the run ends
+  and an end panel shows the last things that happened. `Esc` or `Enter` returns to the title.
+- **Night:** the sky follows the day, and a carried torch lights a cone in front of you.
+
+What is still placeholder: walls, desks and cupboards are plain boxes with labels, and bodies are
+capsules. There is no crosshair, by design. Combat is interim: you aim with the mouse, and the sim
+decides hits on the ground plane, so a shot does not yet travel the way you see it. Sound is minimal.
+
 ## Where it stands
 
 The alpha is playable end to end: scavenging, needs, wounds and infection, a colony that works
