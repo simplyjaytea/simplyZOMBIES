@@ -163,10 +163,6 @@ plan and spatial/art contract. The existing default remains top-down during
 conversion. The source baseline is archived on GitHub at
 `archive/topdown-colony-pre-first-person-2026-11-01`. Planned pieces:
 
-- **First-person simulation and ledger foundation.** An opt-in scene driven by
-  the real sim, mouse look and camera-relative movement, sim-owned collision,
-  NPC bodies and a nearby ledger opening functional work priorities; a scene
-  gate with positive and negative interaction/input paths, fully routed.
 - **Blender pixel-textured colony starter kit.** Original desk, ledger, shelf,
   barricade and modular wall, editable source, builder, atlas, GLBs and preview.
 - **First-person starter-kit integration.** Consume the kit in the foundation,
@@ -2485,6 +2481,44 @@ not a to-do list:
     above 1100 mm.
   - **Not yet.** Movement is still `SimTileMap.is_solid`, so Low is open to a body (docs/40 question
     4); no sim module reads `PROFILE`; the eye is not in the camera.
+
+- **First-person scene on the shipped district size, 2026-11-01.** Advances "First-person
+  simulation and ledger foundation": the opt-in scene now boots the district the top-down game boots.
+  - **The boot.** `first_person.gd` boots `SimBoot.playable(SimBoot.DISTRICT_SEED, district_tiles)`,
+    with `district_tiles` defaulting to `SimTileMap.DISTRICT_TILES` (256), the size `session.gd`
+    boots. The gate sets a 64-tile override before it adds the scene, so it stays fast.
+  - **Measured.** Headed at 1280x720, standing at spawn, 300 frames, three runs per side, on a Ryzen 7
+    7800X3D and an RTX 5090 (Windows 11, Godot 4.7.1, 2026-11-01). Build went from 121 ms at 64 tiles
+    to 1032 ms at 256, and mean frame wall from 0.69 ms to 0.97 ms. Both sit under the 2 s and 10 ms
+    thresholds, so the district meshes were not split into chunks. The table is in
+    `docs/planning/first-person-district-report.md`.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, DISTRICT lane)
+    prints `FIRST_PERSON_OK`. True positive: a fresh instance defaults to the shipped size and seed.
+    True negative: the gate's 64-tile override really boots a smaller map. Both were mutation-tested.
+  - **Not in this piece.** Chunking. The scene still draws the whole district as one ground mesh and
+    one solid mesh.
+
+- **The first-person foundation, 2026-11-01.** docs/23's "First-person simulation and ledger
+  foundation", the first delivery of [docs/39](39-first-person-pivot.md).
+  - **The scene.** `godot/presentation/first_person/first_person.tscn` boots `SimBoot.playable` on
+    a fixed seed and a 64-tile district and steps it on the same 20 Hz accumulator. Input is the
+    existing `move` and `aim` commands, camera-relative; the sim owns position and collision, and
+    the camera follows the interpolated sim position. `district_view.gd` builds one floor quad per
+    tile and one box per solid tile from `SimTileMap.is_solid`, sim x/y on Godot x/z at one metre a
+    tile. `body_view.gd` draws placeholder capsules only where `world.vision.detail` says the
+    player sees a body; the player has no third-person body.
+  - **The ledger.** A desk and ledger stand near the safe spawn (`prop_view.gd`, at the published
+    sizes in `assets.gd`, or the GLB when it exists). E in reach and on the aim opens the real
+    `ui/work_panel.gd`, whose priority clicks send `job.priority`; its Skills button opens the
+    read-only `ui/web_panel.gd`. There is no key that opens the panel elsewhere.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, shard 1)
+    prints `FIRST_PERSON_OK`. It drives the real scene with key events and asserts the axis map,
+    sim stepping, sim collision, E refused out of reach, off the aim and through a wall, the
+    priority mutation, input capture and release, a digit-free HUD, and no physics body (a planted
+    `CharacterBody3D` proves the scanner fails).
+  - **Not in this piece.** Art (placeholder boxes and capsules), containers, combat, the shipped
+    district size. The desk has no sim collision of its own. The default boot stays top-down.
+    `docs/planning/first-person-foundation-report.md` has the full lane list and limits.
 
 - **The round you load, 2026-10-28.** docs/23's "Choosing which round to fire" and "The magazine
   remembers what you loaded", together (firearms batch piece F2; docs/30's "The round you load").
