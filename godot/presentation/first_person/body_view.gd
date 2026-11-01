@@ -1,38 +1,29 @@
 extends Node3D
-# Sim-driven bodies as placeholders. One capsule per living body the sim owns, placed at the sim's
-# position between ticks. Nothing here moves anything: the body's `position` component is the only
-# truth, and this view reads it after `world.step()`.
+# Sim-driven bodies as placeholders. One cylinder per living body the sim owns, placed at the sim's
+# position between ticks and sized from `SimSpace.body_of`: the radius is the hit radius and the
+# height follows the body's posture, or a zombie's state. Nothing here moves anything: the body's
+# `position` component is the only truth, and this view reads it after `world.step()`.
 #
 # The player's own body is deliberately absent -- in first person the camera is the body's eyes,
-# and a capsule at the eye would be a blue screen. `body_node_for(player)` returning null is the
+# and a cylinder at the eye would be a blue screen. `body_node_for(player)` returning null is the
 # structural half of "the camera is the player", asserted by the gate.
 
 const SimHealth = preload("res://sim/modules/health.gd")
+const SimSpace = preload("res://sim/space/space.gd")
 
 const COLONIST_COLOUR: Color = Color(0.33, 0.62, 0.56)
 const ZOMBIE_COLOUR: Color = Color(0.58, 0.32, 0.28)
 const CORPSE_COLOUR: Color = Color(0.30, 0.27, 0.24)
-const COLONIST_HEIGHT_M: float = 1.70
-const ZOMBIE_HEIGHT_M: float = 1.55
-const BODY_RADIUS_M: float = 0.30
 
 var _views: Dictionary = {}
 var _prev: Dictionary = {}
 var _curr: Dictionary = {}
-var _colonist_mesh: CapsuleMesh = null
-var _zombie_mesh: CapsuleMesh = null
 var _colonist_material: StandardMaterial3D = null
 var _zombie_material: StandardMaterial3D = null
 var _corpse_material: StandardMaterial3D = null
 
 
 func build() -> void:
-	_colonist_mesh = CapsuleMesh.new()
-	_colonist_mesh.radius = BODY_RADIUS_M
-	_colonist_mesh.height = COLONIST_HEIGHT_M
-	_zombie_mesh = CapsuleMesh.new()
-	_zombie_mesh.radius = BODY_RADIUS_M
-	_zombie_mesh.height = ZOMBIE_HEIGHT_M
 	_colonist_material = _material(COLONIST_COLOUR)
 	_zombie_material = _material(ZOMBIE_COLOUR)
 	_corpse_material = _material(CORPSE_COLOUR)
@@ -114,6 +105,7 @@ func _sync_views(world: Variant, alpha: float) -> void:
 		if view == null:
 			view = _make_view(e, world)
 			_views[e] = view
+		_fit(view, world, e)
 		var then: Vector2 = _prev.get(e, _curr[e]) as Vector2
 		var now: Vector2 = _curr[e] as Vector2
 		var at: Vector2 = then.lerp(now, a)
@@ -130,14 +122,28 @@ func _in_sight(world: Variant, at: Vector2) -> bool:
 	return int(world.vision.call("detail", int(world.player), at.x, at.y)) != 0
 
 
+# The cylinder follows the body's volume from the sim: its height is re-read every frame, because a
+# stance change (or a zombie losing its legs) changes it between ticks.
+func _fit(view: MeshInstance3D, world: Variant, entity: int) -> void:
+	var cylinder: CylinderMesh = view.mesh as CylinderMesh
+	if cylinder == null:
+		return
+	var volume: Dictionary = SimSpace.body_of(world, entity)
+	var height: float = float(int(volume["height"])) / 1000.0
+	var radius: float = float(int(volume["radius"])) / 1000.0
+	if cylinder.height != height or cylinder.top_radius != radius:
+		cylinder.height = height
+		cylinder.top_radius = radius
+		cylinder.bottom_radius = radius
+		view.position.y = height * 0.5
+
+
 func _make_view(entity: int, world: Variant) -> MeshInstance3D:
 	var zombie: bool = world.components.has_component(entity, "zombieType")
 	var view: MeshInstance3D = MeshInstance3D.new()
 	view.name = "Body%d" % entity
-	view.mesh = _zombie_mesh if zombie else _colonist_mesh
+	view.mesh = CylinderMesh.new()
 	view.material_override = _zombie_material if zombie else _colonist_material
-	var height: float = ZOMBIE_HEIGHT_M if zombie else COLONIST_HEIGHT_M
-	view.position = Vector3(0.0, height * 0.5, 0.0)
 	add_child(view)
 	return view
 

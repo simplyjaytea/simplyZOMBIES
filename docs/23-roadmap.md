@@ -2417,6 +2417,31 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **First-person profile, drawn, 2026-11-01.** Slice 1 of docs/40, the spatial contract's "The
+  profile, drawn": the one height table the first-person view draws and, from slice 2, the sim reads.
+  - **The record.** `SimSpace` (`godot/sim/space/space.gd`, pure and static) owns `PROFILE`: for each
+    tile class, overlay kind and stage, the height bands the tile occupies in integer millimetres over
+    a full-tile footprint, each band naming the purposes it stops (movement, sight, shot, reach).
+    `body_of` is a body's cylinder (radius 300 mm; height from the stance rung, or from a zombie's
+    legs) and `eye_of` its eye height. Nothing in the sim calls either yet. `district_view.gd` builds
+    every tile from its bands: a window is a sill and a lintel with the aperture between, Low and
+    screen tiles are drawn, a doorway has a lintel, and a wire fence is its own see-through mesh.
+    `body_view.gd` sizes each body from `body_of` every frame, so a stance change shows at once. The
+    camera does not read the eye yet (slice 7).
+  - **The gate.** `godot:check:fp_geometry`: FIXTURE (a map holding every class, overlay and stage,
+    with every PROFILE key reached), BANDS (each tile's built mesh has exactly its bands' height
+    levels and its full footprint, and the built district's opaque and fence meshes agree), OLD WAY (a
+    window drawn as one box and an undrawn Low tile are refused by the same comparison), and BODIES
+    (a standing, crouched and crawling survivor and a whole and a crawling zombie have the cylinder
+    `body_of` gives, and a capsule is refused). Mutation-tested: a window drawn as its sill only, a Low
+    tile not drawn, and capsule bodies each turn it red.
+  - **The readings.** Where docs/40's table is ambiguous, the piece took the reading that makes the
+    stated screen rule true and wrote it in `docs/planning/first-person-profile-report.md`. The one
+    that matters: a stage-3 board's top band stops movement only, because its sight column passes
+    above 1100 mm.
+  - **Not yet.** Movement is still `SimTileMap.is_solid`, so Low is open to a body (docs/40 question
+    4); no sim module reads `PROFILE`; the eye is not in the camera.
+
 - **The round you load, 2026-10-28.** docs/23's "Choosing which round to fire" and "The magazine
   remembers what you loaded", together (firearms batch piece F2; docs/30's "The round you load").
   - **The record.** The weapon item carries `loaded {rounds, tiers, choice}`: round base ids in
