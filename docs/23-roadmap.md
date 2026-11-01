@@ -2423,6 +2423,17 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **The first-person key reference, 2026-11-01.** F1 opens the top-down legend, shown with the
+  first-person scene's own rows; Escape or F1 again puts it down, and walking keys do nothing while it
+  is up. The rows come from one table, `KEY_REFERENCE` in `godot/presentation/first_person/first_person.gd`,
+  and the legend draws from it. `godot/ui/legend.gd` takes the rows from a `key_rows` list, defaulting
+  to its top-down `GROUPS`, so the top-down screen is unchanged. The LEGEND lane of
+  `godot/check_first_person.gd` (`npm run godot:check:first_person`) reads the keys the scene names,
+  plus the stance bindings from `godot/presentation/input_map.gd`, and compares them both ways with the
+  table's codes. It proves three things: every handled key is listed, no listed key is unhandled
+  (a planted phantom row was run and failed with "lists keys the scene does not handle"), and the
+  toggle and the walking block hold. The speed keys (1x and 3x, P) arrive with #291 and are not in
+  this legend.
 - **Talking to a colonist, 2026-11-01.** Advances "First-person people and settlement operation", its
   conversations: look at one of your colonists, press E, and they say how they are and what they are
   doing, in words the read models already own.

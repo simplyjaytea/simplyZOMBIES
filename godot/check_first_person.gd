@@ -37,6 +37,10 @@ extends SceneTree
 #             reload with nothing to load is the sim's refusal with no words from the scene.
 #   PRIORITY  a click on the panel's first priority cell dispatches a real `job.priority`, the
 #             colonist's row changes and turns Manual, and the player is never one of the rows.
+#   LEGEND    the key reference (F1) lists every key the scene handles and no other: the handled keys are
+#             read from the scene's own source and from input_map's stance bindings, and compared both ways
+#             with the codes the legend is built from; a planted phantom code is refused. F1 opens and closes
+#             it, Escape closes it, and walking keys do nothing while it is up.
 #   SPEECH    every line the first-person HUD draws is digit-free, it names the controls and the
 #             ledger, there is no progress bar in the tree, and the digit scanner is proved against
 #             a fabricated line.
@@ -108,6 +112,7 @@ const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const ReportsPanel = preload("res://ui/reports_panel.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const FirstPerson = preload("res://presentation/first_person/first_person.gd")
+const InputMapRes = preload("res://presentation/input_map.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
 const SaveSlot = preload("res://presentation/first_person/save_slot.gd")
 
@@ -174,6 +179,7 @@ func _run() -> void:
 		ok = _preview() and ok
 		ok = _light(scene) and ok
 		ok = _succession(scene) and ok
+		ok = _legend(scene) and ok
 		ok = _speed(scene) and ok
 		ok = _talk(scene) and ok
 		ok = _anim(scene) and ok
@@ -188,7 +194,6 @@ func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)
-		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, swings a bat into a shambler and fires a round through the top-down commands while the ledger refuses both, misses a body behind the look, and leaves a refused reload wordless, opens and shuts a door through the sim's own verb from the tile the eye is on while a door out of reach or looked away from sends nothing, takes the top-down stance keys and eases the eye to the sim's posture height while the ledger refuses the keys, reads the chronicle's own lines on the ledger's Reports page and moves the read mark, lights noon by the sim's clock and darkens midnight, turns a carried torch into the eye's spot at the sim's range and cone and out when it burns, and keeps a body behind a wall undrawn, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, saves and loads through the sim's own save in its own slot, loads the desk and ledger from their GLBs at the published sizes with nearest-filtered materials and stands every preview prop on its base, names every body's animation state from the sim (stand, walk, run, crouch, crawl, swing, lunge, grab, stagger, death) with a phase in 0..1 while a corpse stays dead and a living body never does, talks to a colonist in reach and on the aim in the read models' own words while a walk is swallowed and Escape gives the mouse back, and refuses a colonist out of reach, off the aim, through a wall, a shambler and a raider, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
 		quit(0)
 		return
 	for failure in _failures:
@@ -2290,6 +2295,115 @@ func _write_wrong_glb() -> String:
 	var err: Error = document.write_to_filesystem(state, ProjectSettings.globalize_path(path))
 	root.free()
 	return path if err == OK else ""
+
+
+# --- LEGEND ---------------------------------------------------------------------------------
+
+# The engine's key constants the first-person source names. A key the source names that is missing from
+# this map is a failure, so a new key cannot slip past the check unnamed.
+const KEY_NAMES: Dictionary = {
+	"KEY_A": KEY_A, "KEY_D": KEY_D, "KEY_E": KEY_E, "KEY_ENTER": KEY_ENTER, "KEY_ESCAPE": KEY_ESCAPE,
+	"KEY_F": KEY_F, "KEY_F1": KEY_F1, "KEY_F5": KEY_F5, "KEY_F9": KEY_F9, "KEY_G": KEY_G,
+	"KEY_KP_ENTER": KEY_KP_ENTER, "KEY_P": KEY_P, "KEY_R": KEY_R, "KEY_S": KEY_S, "KEY_SHIFT": KEY_SHIFT,
+	"KEY_W": KEY_W, "KEY_MINUS": KEY_MINUS, "KEY_KP_SUBTRACT": KEY_KP_SUBTRACT, "KEY_EQUAL": KEY_EQUAL,
+	"KEY_KP_ADD": KEY_KP_ADD,
+}
+
+
+func _legend(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	if bool(scene.get("menu_open")):
+		scene.call("close_ledger_menu")
+	if bool(scene.get("inventory_open")):
+		scene.call("close_inventory")
+	if bool(scene.call("legend_open")):
+		scene.call("close_legend")
+	var source: String = FileAccess.get_file_as_string("res://presentation/first_person/first_person.gd")
+	var handled: Array = []
+	for name in _handled_key_names(source):
+		if not KEY_NAMES.has(name):
+			return _fail("LEGEND", "the scene names %s, which the LEGEND lane's key map does not know" % name)
+		if not handled.has(int(KEY_NAMES[name])):
+			handled.append(int(KEY_NAMES[name]))
+	# The stance keys reach the scene through input_map's BINDINGS, not a name in the source.
+	for action in InputMapRes.BINDINGS.keys():
+		var row: Dictionary = InputMapRes.BINDINGS[action] as Dictionary
+		if row.has("stance") and not handled.has(int((row["keys"] as Array)[0])):
+			handled.append(int((row["keys"] as Array)[0]))
+	# So do the clock's keys: the scene reads input_map's "slower" and "faster" rows, every key of each.
+	for action in ["slower", "faster"]:
+		if not source.contains("\"%s\"" % action):
+			continue
+		for code in (InputMapRes.BINDINGS[action] as Dictionary)["keys"] as Array:
+			if not handled.has(int(code)):
+				handled.append(int(code))
+	var listed: Array = FirstPerson.reference_codes()
+	# Both ways: every key the scene handles is listed, and no listed key is one the scene does not handle.
+	if not _codes_missing(handled, listed).is_empty():
+		ok = _fail("LEGEND", "the scene handles keys the key reference does not list: %s" % str(_codes_missing(handled, listed)))
+	if not _codes_missing(listed, handled).is_empty():
+		ok = _fail("LEGEND", "the key reference lists keys the scene does not handle: %s" % str(_codes_missing(listed, handled)))
+	# True negative: a planted phantom row (a key nothing handles) is refused by the same comparison.
+	var planted: Array = listed.duplicate()
+	planted.append(KEY_BRACKETLEFT)
+	if _codes_missing(planted, handled).is_empty():
+		ok = _fail("LEGEND", "a planted phantom key passed the comparison")
+
+	# The toggle: F1 opens the reference, F1 again and Escape each put it down.
+	_key(KEY_F1, true)
+	if not bool(scene.call("legend_open")) or not (scene.call("legend_node") as Control).visible:
+		ok = _fail("LEGEND", "F1 did not open the key reference")
+	_place_player(scene, _find_open_area((scene.get("map") as Variant), 2))
+	var before: Vector2 = _player_pos(world)
+	_key(KEY_W, true)
+	for i in 20:
+		scene.call("_process", 1.0 / 60.0)
+	_key(KEY_W, false)
+	if _player_pos(world).distance_to(before) > 0.01:
+		ok = _fail("LEGEND", "walking moved the body while the key reference was open")
+	_key(KEY_ESCAPE, true)
+	if bool(scene.call("legend_open")) or (scene.call("legend_node") as Control).visible:
+		ok = _fail("LEGEND", "Escape did not close the key reference")
+	_key(KEY_F1, true)
+	_key(KEY_F1, true)
+	if bool(scene.call("legend_open")):
+		ok = _fail("LEGEND", "a second F1 did not close the key reference")
+	return ok
+
+
+# The key names a source file's code compares or names: KEY_ identifiers on lines that are not comments,
+# and not in the KEY_REFERENCE table (the table is what is checked, so it is not evidence of handling).
+func _handled_key_names(source: String) -> Array:
+	var names: Array = []
+	var in_table: bool = false
+	var pattern: RegEx = RegEx.new()
+	pattern.compile("KEY_[A-Z0-9_]+")
+	for line in source.split("\n"):
+		if line.begins_with("const KEY_REFERENCE"):
+			in_table = true
+			continue
+		if in_table:
+			if line == "]":
+				in_table = false
+			continue
+		if line.strip_edges().begins_with("#"):
+			continue
+		for hit in pattern.search_all(line):
+			var name: String = hit.get_string()
+			if name == "KEY_REFERENCE" or names.has(name):
+				continue
+			names.append(name)
+	return names
+
+
+# The codes in `a` that `b` does not hold.
+func _codes_missing(a: Array, b: Array) -> Array:
+	var out: Array = []
+	for code in a:
+		if not b.has(int(code)):
+			out.append(int(code))
+	return out
 
 
 # --- SPEED ----------------------------------------------------------------------------------
