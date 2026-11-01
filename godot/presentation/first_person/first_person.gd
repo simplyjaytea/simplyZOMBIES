@@ -21,6 +21,7 @@ extends Node3D
 const SimBoot = preload("res://sim/boot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
+const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
 const PropView = preload("res://presentation/first_person/prop_view.gd")
@@ -82,6 +83,13 @@ var _ledger_approach: Vector2 = Vector2.ZERO
 var _mouse_captured: bool = true
 var _alert: String = ""
 var _alert_until_ms: int = 0
+# Succession and the end of the run: which entity the camera is riding, whether the end panel is
+# up, the chronicle's succession sentence, and the epitaph the panel speaks.
+var _player_seen: int = -1
+var _run_over_open: bool = false
+var _news: String = ""
+var _news_until_ms: int = 0
+var _epitaph: Array[String] = []
 
 
 func _ready() -> void:
@@ -120,6 +128,7 @@ func _boot() -> void:
 	if pos is Dictionary:
 		_curr_player = Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
 	_prev_player = _curr_player
+	_player_seen = int(world.player)
 	_choose_ledger_site()
 	# Open on the desk rather than a random wall: the foundation's one interaction should be in
 	# front of the player on the first frame.
@@ -286,6 +295,15 @@ func _approach_for(tile: Vector2i, start: Vector2i) -> Vector2i:
 func _process(delta: float) -> void:
 	if world == null:
 		return
+	# A death the gate (or any caller) triggers outside a step is seen on this frame, not when the
+	# accumulator next reaches a tick: succession and the end panel are edges, not per-tick state.
+	_watch_identity()
+	if _run_over_open:
+		# The top-down end screen holds the clock still; so does this one. Input is swallowed in
+		# `_input`, and no move or aim is proposed.
+		_update_render(clampf(_accumulator / TICK_SECONDS, 0.0, 1.0))
+		_update_hud()
+		return
 	if not paused:
 		_accumulator += delta
 		var guard: int = 0
@@ -313,7 +331,10 @@ func _process(delta: float) -> void:
 ## One deterministic sim tick. The gate calls this directly; `_process` calls it on the 20 Hz
 ## accumulator, so there is one stepper and not a second loop in the test.
 func step_sim_once() -> void:
-	if world == null:
+	if world == null or _run_over_open:
+		return
+	_watch_identity()
+	if _run_over_open:
 		return
 	_prev_player = _curr_player
 	_bodies.call("begin_tick")
@@ -322,6 +343,9 @@ func step_sim_once() -> void:
 	if pos is Dictionary:
 		_curr_player = Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
 	_bodies.call("end_tick", world)
+	# A death inside the tick moves `world.player`; the camera jumps here, before the next frame's
+	# interpolation could glide it across the map.
+	_watch_identity()
 	# Keep the views and their sim-gated visibility current even when the gate drives ticks
 	# without a frame; `_process` overlays the interpolated position afterwards.
 	_bodies.call("apply", world, 1.0)
@@ -364,7 +388,7 @@ func _update_hud() -> void:
 				prompt = "You have already been through this %s." % box_name
 			elif _curr_player.distance_to(_ledger_sim) < 4.5:
 				prompt = "The ledger stands near."
-	_hud.call("set_state", world, int(world.player), prompt, _live_alert(), menu_open, paused, inventory_open)
+	_hud.call("set_state", world, int(world.player), prompt, _live_alert(), menu_open, paused, inventory_open, _live_news())
 	_hud.visible = not inventory_open
 
 
@@ -377,6 +401,17 @@ func _input(event: InputEvent) -> void:
 	if ke.echo:
 		return
 	var code: int = ke.keycode if ke.keycode != 0 else ke.physical_keycode
+	if _run_over_open:
+		# One action, and it is the top-down over screen's own quiet exit: leave the run. Nothing
+		# else reaches the world, so W cannot walk a body that is no longer anybody's.
+		if ke.pressed and (code == KEY_ESCAPE or code == KEY_ENTER or code == KEY_KP_ENTER):
+			get_tree().quit()
+		get_viewport().set_input_as_handled()
+		return
+	if _waiting_for_heir():
+		# The gap between a death and the handoff: no command is proposed and no key is remembered.
+		get_viewport().set_input_as_handled()
+		return
 	if inventory_open:
 		# The sheet takes every key while it is up, exactly as `input_map.gd`'s "sheet" focus does:
 		# walking keys are swallowed (the body was stopped when the sheet opened), the name field
@@ -428,6 +463,10 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _run_over_open or _waiting_for_heir():
+		# No mouse look and no click-to-recapture under the end panel or between a death and an
+		# heir. The pointer stays where `_release_mouse` left it.
+		return
 	if event is InputEventMouseMotion and _mouse_captured and not menu_open and not inventory_open:
 		var motion: InputEventMouseMotion = event as InputEventMouseMotion
 		look_by(motion.relative.x, motion.relative.y)
@@ -488,7 +527,7 @@ func _right_horizontal() -> Vector3:
 
 
 func _push_aim() -> void:
-	if world == null:
+	if world == null or _run_over_open or _waiting_for_heir():
 		return
 	var dir: Vector3 = _forward_horizontal()
 	var radians: float = atan2(dir.z, dir.x)
@@ -514,7 +553,7 @@ func _push_move_from_held() -> void:
 
 
 func _push_move_axes(forward: float, strafe: float) -> void:
-	if world == null:
+	if world == null or _run_over_open or _waiting_for_heir():
 		return
 	var direction: Vector3 = _forward_horizontal() * forward + _right_horizontal() * strafe
 	if direction.length_squared() > 0.000001:
@@ -895,6 +934,119 @@ func web_panel_node() -> Control:
 
 func inventory_panel_node() -> Control:
 	return _inventory_panel
+
+
+# --- succession and the end of a run ---------------------------------------------------------
+#
+# The sim owns both facts. `SimRecruits._handoff` moves `world.player` to an heir and clears
+# `runOver`; `SimRecruits.handle_death` sets `runOver` when nobody is left. This file only watches
+# those two fields after every tick and at the top of every frame -- no subscription and no second
+# death check, because `runOver` is read once the tick that set it has finished (main.gd's own
+# rule at its `world.runOver` read).
+#
+# The camera jumps rather than glides: a handoff is a cut, and interpolating from the dead body's
+# last position to an heir across the district would be a lie about where the eye went. The dead
+# body is collected by `body_view.gd` as a corpse from that frame on.
+
+func _watch_identity() -> void:
+	if world == null:
+		return
+	var now: int = int(world.player)
+	if now != _player_seen:
+		_player_seen = now
+		_on_succession()
+	if bool(world.runOver) and not _run_over_open:
+		_show_run_over()
+
+
+## The camera is the new survivor now. Any screen that was talking to the dead body goes, held
+## keys are cleared, and the chronicle's own succession sentence is put on the HUD.
+func _on_succession() -> void:
+	if inventory_open:
+		close_inventory()
+	if menu_open:
+		close_ledger_menu()
+	_clear_held()
+	_push_zero_move()
+	_snap_to_player()
+	# Collect again with the heir as the eye, so the dead body is drawn on this frame when the
+	# heir can see it rather than waiting for the next `end_tick`.
+	if _bodies != null:
+		_bodies.call("reset", world)
+	_set_news(_succession_words())
+	_alert = ""
+
+
+## Puts the rig and both interpolation ends on the heir's sim position in one step. The public
+## `snap_render_to_sim` is the gate's read-only snap; this is the same arithmetic at a handoff.
+func _snap_to_player() -> void:
+	var pos: Variant = world.components.get_component(int(world.player), "position")
+	if pos is Dictionary:
+		_curr_player = Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
+	_prev_player = _curr_player
+	_accumulator = 0.0
+	_update_render(0.0)
+	_push_aim()
+
+
+## The top-down chronicle's own succession line -- "You are Mara Sato now." or "You are someone
+## else now." -- read back from the record rather than written a second time.
+func _succession_words() -> String:
+	for line in SimChronicle.epitaph(world, 6):
+		var text: String = String(line)
+		if text.begins_with("You are ") and text.ends_with(" now."):
+			return text
+	return "You are someone else now."
+
+
+## The run-over screen in words. `ui/shell.gd` is the top-down screen; this scene has no title
+## flow yet, so the one action is to leave (Escape or Enter quits), which is the over screen's
+## "quit" half. The epitaph is `SimChronicle.epitaph`, the same lines the shell draws.
+func _show_run_over() -> void:
+	if _run_over_open:
+		return
+	_run_over_open = true
+	if inventory_open:
+		close_inventory()
+	if menu_open:
+		close_ledger_menu()
+	_clear_held()
+	_push_zero_move()
+	_release_mouse()
+	_alert = ""
+	_news = ""
+	_epitaph = SimChronicle.epitaph(world, 5)
+	if _epitaph.is_empty():
+		# The chronicle's own run-over line, and the shell's fallback when the record is empty.
+		_epitaph.append("There is nobody left to be.")
+	elif not _epitaph.has("There is nobody left to be."):
+		# The screen can be asked for on the frame a death lands, before the tick's events have
+		# drained into the record; the run-over sentence is still the reason it is up.
+		_epitaph.append("There is nobody left to be.")
+	if _hud != null:
+		_hud.visible = true
+		_hud.call("set_run_over", _epitaph)
+
+
+## True only in the gap the sim does not currently leave: a frame with the player entity already
+## a corpse and the heir not yet assigned. Input is ignored and no command is proposed.
+func _waiting_for_heir() -> bool:
+	return world != null and world.components.has_component(int(world.player), "corpse")
+
+
+func _set_news(text: String, seconds: float = 8.0) -> void:
+	_news = text
+	_news_until_ms = Time.get_ticks_msec() + int(seconds * 1000.0)
+
+
+func _live_news() -> String:
+	if _news != "" and Time.get_ticks_msec() > _news_until_ms:
+		_news = ""
+	return _news
+
+
+func run_over_open() -> bool:
+	return _run_over_open
 
 
 # --- small read-only answers the gate and the HUD use ----------------------------------------

@@ -35,6 +35,12 @@ extends SceneTree
 #   SPEECH    every line the first-person HUD draws is digit-free, it names the controls and the
 #             ledger, there is no progress bar in the tree, and the digit scanner is proved against
 #             a fabricated line.
+#   SUCCESSION a killing of somebody who is not the player moves nothing; killing the player with
+#             an heir alive hands the camera to the heir on the next frame with no glide, says the
+#             chronicle's succession sentence on the HUD, walks the heir, and draws the dead body
+#             when the heir can see it.
+#   RUN-OVER  killing every colony body opens the end panel in the chronicle's words, releases the
+#             mouse, and W proposes no move or aim.
 
 const SCENE_PATH: String = "res://presentation/first_person/first_person.tscn"
 const WorkPanel = preload("res://ui/work_panel.gd")
@@ -43,6 +49,9 @@ const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimHealth = preload("res://sim/modules/health.gd")
+const SimAllegiance = preload("res://sim/modules/allegiance.gd")
+const SimRecruits = preload("res://sim/modules/recruits.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
 
 const TICK_SECONDS: float = 1.0 / 20.0
@@ -82,6 +91,8 @@ func _run() -> void:
 		ok = _priority(scene) and ok
 		ok = _menu(scene) and ok
 		ok = _speech(scene) and ok
+		ok = _succession(scene) and ok
+		ok = _run_over(scene) and ok
 	scene.queue_free()
 	await process_frame
 	_finish(old_size, ok)
@@ -92,7 +103,7 @@ func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)
-		print("FIRST_PERSON_OK the opt-in scene boots the real sim, maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, and draws a digit-free prose HUD")
+		print("FIRST_PERSON_OK the opt-in scene boots the real sim, maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
 		quit(0)
 		return
 	for failure in _failures:
@@ -1031,6 +1042,205 @@ func _has_digit(text: String) -> bool:
 		if text[i].is_valid_int():
 			return true
 	return false
+
+
+# --- SUCCESSION -----------------------------------------------------------------------------
+
+## An heir takes the camera in one cut, the HUD says so in the chronicle's words, the heir walks,
+## and the dead body is drawn when the heir can see it. The true negative is a body that is not the
+## player: killing it moves nothing.
+func _succession(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var camera: Camera3D = scene.get("camera") as Camera3D
+	if camera == null:
+		return _fail("SUCCESSION", "the scene has no camera to hand over")
+
+	# True negative: somebody else's death is not the player's, and the eye does not move.
+	var npc: int = _non_player_body(world)
+	if npc < 0:
+		_skips.append("SUCCESSION: no non-player body was left to kill, so the camera's stillness on somebody else's death is unjudged")
+	else:
+		var player_before: int = int(world.player)
+		var camera_before: Vector3 = camera.global_position
+		SimHealth.finish_death(world, npc)
+		scene.call("_process", TICK_SECONDS)
+		if int(world.player) != player_before:
+			ok = _fail("SUCCESSION", "an NPC death moved the player to %d" % int(world.player))
+		if not camera.global_position.is_equal_approx(camera_before):
+			ok = _fail("SUCCESSION", "an NPC death moved the camera")
+
+	if _other_colonists(world).is_empty():
+		return _fail("SUCCESSION", "the booted colony has no heir alive, so the player's death cannot hand over")
+	var dead: int = int(world.player)
+	var dead_pos: Vector2 = _player_pos(world)
+	SimHealth.finish_death(world, dead)
+	# Drive the tick the handoff landed in, as the game does: the chronicle writes the succession
+	# line at drain, and the scene reads it on the next frame.
+	world.step()
+	if bool(world.runOver):
+		return _fail("SUCCESSION", "the player died with an heir alive and the run ended anyway")
+	var heir: int = int(world.player)
+	if heir == dead:
+		return _fail("SUCCESSION", "the player's death left world.player on the dead body")
+	if not world.components.has_component(heir, "controlled"):
+		ok = _fail("SUCCESSION", "the heir is not controlled")
+
+	# The next frame, the camera is on the heir's sim position -- a cut, not a glide.
+	scene.call("_process", TICK_SECONDS)
+	var heir_pos: Vector2 = _player_pos(world)
+	var rendered: Vector2 = scene.call("rendered_player_position")
+	if not rendered.is_equal_approx(heir_pos):
+		ok = _fail("SUCCESSION", "the rendered eye is at %s, not the heir at %s" % [str(rendered), str(heir_pos)])
+	if not is_equal_approx(camera.global_position.x, heir_pos.x) or not is_equal_approx(camera.global_position.z, heir_pos.y):
+		ok = _fail("SUCCESSION", "the camera glided to (%.2f, %.2f), not the heir's (%.2f, %.2f)" % [camera.global_position.x, camera.global_position.z, heir_pos.x, heir_pos.y])
+
+	# The top-down game's own succession sentence, from the chronicle.
+	var joined: String = _hud_words(scene)
+	if not joined.contains("You are ") or not joined.contains(" now."):
+		ok = _fail("SUCCESSION", "the HUD did not name the succession: %s" % joined.strip_edges())
+	var identity: Variant = world.components.get_component(heir, "identity")
+	var heir_name: String = String((identity as Dictionary).get("name", "")) if identity is Dictionary else ""
+	if heir_name != "" and not joined.contains("You are %s now." % heir_name):
+		ok = _fail("SUCCESSION", "the HUD said %s, not the chronicle's \"You are %s now.\"" % [joined.strip_edges(), heir_name])
+
+	# The heir is the one who walks now.
+	var area: Vector2 = _find_open_area(map, 2)
+	if area != Vector2(-1.0, -1.0):
+		_place_player(scene, area)
+	scene.call("set_look", 0.0, 0.0)
+	var walk_from: Vector2 = _player_pos(world)
+	_key(KEY_W, true)
+	scene.call("_process", TICK_SECONDS)
+	scene.call("_process", TICK_SECONDS)
+	_key(KEY_W, false)
+	scene.call("_process", TICK_SECONDS)
+	if _player_pos(world).distance_to(walk_from) < 0.15:
+		ok = _fail("SUCCESSION", "W did not walk the heir")
+
+	# The dead body is a body the screen draws, when the heir can see it.
+	if not world.components.has_component(dead, "corpse"):
+		ok = _fail("SUCCESSION", "the dead player did not become a corpse")
+	else:
+		_place_player(scene, dead_pos)
+		scene.call("look_toward", Vector3(dead_pos.x, 0.90, dead_pos.y))
+		_settle_vision(scene, 6)
+		var corpse: MeshInstance3D = scene.call("body_node_for", dead) as MeshInstance3D
+		if corpse == null:
+			ok = _fail("SUCCESSION", "the dead body has no body view")
+		elif not corpse.visible:
+			ok = _fail("SUCCESSION", "the dead body was not drawn with the heir looking at it")
+	return ok
+
+
+## A living body that is not the player. A shambler first, because killing it cannot shrink the
+## heir pool; a colonist only when at least two others are alive (so one is left to succeed).
+func _non_player_body(world: Variant) -> int:
+	var fallback: int = -1
+	var spare: bool = _other_colonists(world).size() >= 2
+	for entity in world.components.query(["position", "body"]):
+		var ent: int = int(entity)
+		if ent == int(world.player) or not world.entities.is_alive(ent):
+			continue
+		if world.components.has_component(ent, "corpse"):
+			continue
+		if world.components.has_component(ent, "shambler"):
+			return ent
+		if fallback < 0:
+			fallback = ent
+	return fallback if spare else -1
+
+
+func _other_colonists(world: Variant) -> Array[int]:
+	var out: Array[int] = []
+	for entity in world.components.query(["position", "body"]):
+		var ent: int = int(entity)
+		if ent == int(world.player) or not world.entities.is_alive(ent):
+			continue
+		if world.components.has_component(ent, "corpse"):
+			continue
+		if world.components.has_component(ent, "recruit"):
+			continue
+		if not world.components.has_component(ent, "needs") and not world.components.has_component(ent, "identity"):
+			continue
+		if not SimAllegiance.is_colony(world, ent):
+			continue
+		out.append(ent)
+	return out
+
+
+func _hud_words(scene: Node) -> String:
+	var raw: Variant = scene.call("hud_lines")
+	var out: String = ""
+	if raw is Array:
+		for line in raw as Array:
+			out += String(line) + "\n"
+	return out
+
+
+# --- RUN OVER -------------------------------------------------------------------------------
+
+## Kill every colony body. The end panel is up, the mouse is out, the words are the chronicle's,
+## and W proposes nothing at all.
+func _run_over(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var camera: Camera3D = scene.get("camera") as Camera3D
+	for entity in world.components.query(["needs", "body"]):
+		var ent: int = int(entity)
+		if ent == int(world.player) or not world.entities.is_alive(ent):
+			continue
+		SimHealth.finish_death(world, ent)
+	# The player is last. The loop also takes any heir the sim finds (a body with an identity but
+	# no needs, a recruit) so "every colony body" means every one.
+	for _i in 8:
+		if bool(world.runOver):
+			break
+		var current: int = int(world.player)
+		if not world.entities.is_alive(current):
+			break
+		SimHealth.finish_death(world, current)
+	if not bool(world.runOver):
+		return _fail("RUN-OVER", "killing every colony body did not end the run")
+	# Drain the tick that ended it, as the game does, so the chronicle has the run-over line.
+	world.step()
+
+	scene.call("_process", TICK_SECONDS)
+	if not bool(scene.call("run_over_open")):
+		ok = _fail("RUN-OVER", "the end-of-run panel did not open")
+	if bool(scene.call("mouse_captured")):
+		ok = _fail("RUN-OVER", "the mouse stayed captured on the end screen")
+	var joined: String = _hud_words(scene)
+	if not joined.contains("the run is over"):
+		ok = _fail("RUN-OVER", "the end screen has no heading: %s" % joined.strip_edges())
+	if not joined.contains("There is nobody left to be."):
+		ok = _fail("RUN-OVER", "the end screen does not speak the chronicle's run-over line: %s" % joined.strip_edges())
+	var raw: Variant = scene.call("hud_lines")
+	if raw is Array:
+		for line in raw as Array:
+			if _has_digit(String(line)):
+				ok = _fail("RUN-OVER", "the end screen drew a digit: %s" % String(line))
+
+	# W is not a command and the eye does not move.
+	if camera == null:
+		return _fail("RUN-OVER", "the scene lost its camera")
+	var camera_before: Vector3 = camera.global_position
+	world.commands.record = true
+	world.commands.recorded.clear()
+	var tick_before: int = int(world.tick)
+	_key(KEY_W, true)
+	scene.call("_process", TICK_SECONDS)
+	scene.call("_process", TICK_SECONDS)
+	_key(KEY_W, false)
+	scene.call("_process", TICK_SECONDS)
+	if not _last_command(world, "move", tick_before).is_empty():
+		ok = _fail("RUN-OVER", "W sent a move command on the end screen")
+	if not _last_command(world, "aim", tick_before).is_empty():
+		ok = _fail("RUN-OVER", "the end screen sent an aim command")
+	if not camera.global_position.is_equal_approx(camera_before):
+		ok = _fail("RUN-OVER", "the camera moved on the end screen")
+	return ok
 
 
 # --- fixtures -------------------------------------------------------------------------------
