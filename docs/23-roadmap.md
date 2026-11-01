@@ -177,6 +177,16 @@ conversion. The source baseline is archived on GitHub at
 - **First-person expedition and default switch.** Prepare, scavenge, encounter
   danger, return, treat, save/reload, die and succeed; measured performance,
   regression proof, campaign balance and human play before changing the default.
+- **Starter-kit polish (#275 round 2).** In `tools/blender/first_person_kit/build_kit.py`: plaster
+  cloud noise reads as camouflage blocks up close; oak grain steps every 8 texels, like brickwork;
+  paint chips follow atlas cells, not mesh edges; barricade planks float 6 mm off the brace; wall
+  end faces and a shelf-board sparkle.
+- **Zombie target by distance alone (#282 review).** `SimShambler._contact_target`
+  (`godot/sim/modules/shambler.gd`) takes the nearest survivor with no reach test, unlike the player's
+  nearest-reachable swing in `melee.gd`. A shared sim module; needs a READS lane in `godot:m2:space`.
+- **Colonist swings it cannot land (#282 record).** `npc_combat.gd` `_engage` and
+  `npc.instinct-defense` start a swing on distance alone, and `_resolve_strike` then refuses it at a
+  window. Ask `SimSpace.reach_clear` before starting, as `can_strike` does.
 
 ##### UI overhaul
 
@@ -2474,6 +2484,51 @@ not a to-do list:
     manifest JSON is outside the filter `assets/first_person/*.glb`, and the export build was not
     run. CI has no Blender, so the check is run by hand, like the starter kit's.
 
+
+- **The segment, and melee stops going through walls, 2026-11-01.** Slice 2 of docs/40: the first
+  question the sim asks of the height profile, and the three blows that now ask it.
+  - **The record.** `SimSpace.segment_clear(map, a, b, purpose)` (`godot/sim/space/space.gd`) walks
+    the 2D segment tile by tile in integer steps and, inside each tile, tests the segment's height
+    between its two crossing heights against every `PROFILE` band that stops `SIGHT`, `SHOT` or
+    `REACH`, in integer millimetres, with no RNG. The tiles the two points stand in are skipped unless
+    they stop movement, an exact corner tests both tiles beside it, and it runs from the lesser
+    endpoint so either direction gives one answer. `SimSpace.reach_clear` is the blow: from the
+    attacker's shoulder (eye less 400 mm) to the target's mid-height or chest. `SimMelee._resolve_strike`
+    counts a candidate only if its blow is clear, so the nearest reachable body wins.
+    `SimShambler._clear_contact` is now that call for the swipe, the grab, the hold check and the
+    rescue, with each caller passing its two bodies. `SimNpcCombat.can_strike`'s melee arm asks it,
+    so the attack walk does not stop beside a wall. A survivor 1.70 m from a zombie across a one-metre
+    wall no longer lands the swing; through an open window, an open door or a doorway it does.
+  - **The gate.** `godot:m2:space` (`godot/check_m2_space.gd`): PAIRS (33 one-tile cases, from walls,
+    windows, sills, lintels and board stages to doors, Low, screen, fence, tree and water, each
+    answered for all three purposes and paired with the height or tile that flips it), ENDS, CORNER,
+    MIRROR (600 seeded segments over a map of every class and overlay: asked twice, backwards and
+    reflected, with both answers seen), SWING (the live swing through a wall, a closed door, a
+    window, a doorway, an open door and open ground, crouched under a sill, and a blocked nearer body
+    passed over for a clear farther one), and READS. READS plants a Low tile, which
+    `world.is_blocked_tile` reports open, between a crouched body and its mark. The swing, the live
+    shambler's claw and grab, and `can_strike` each refuse it crouched, land standing, and land
+    crouched once the tile is floor. Mutation-tested: dropping the call from each of the three
+    callers, the chest point, the corner rule or the endpoint rule turns it red.
+  - **Verified.** The full `godot:m2` chain, all 99 gates, run locally as its four CI shards side by
+    side: 98 green. `godot:check:shots` exited 1 with no failure line under that load and was green
+    when run alone. `godot:m2:swipe`, `contact`, `npc`, `hands` and `balance` stayed green with
+    their assertions unchanged.
+  - **What moved.** Survivor, colonist, raider and settler swings no longer land through walls, closed
+    doors, boarded windows below stage 3, barricades, trees or wire fences. A crouched swing over Low cover or under a
+    window sill is refused (it used to land). A zombie's reach now passes a window's aperture and
+    deep water where it used to be refused as solid, and it stops at a Low tile between it and a
+    crouched survivor. At grab and swipe range across a full tile, neither can happen, because
+    bodies either side of a tile are 1.70 m apart; only a line clipping a tile's corner, or the
+    3.2 m hold check, sees the difference. The traversal is exact where the old check took three
+    samples, so a claw, a grab or a hold check whose line clips a wall corner between the samples
+    is now refused (`godot:m2:space` CLIPPED). The walk is decided in integer millimetres. All
+    of this is balance-relevant and unmeasured here: docs/40's slice 8 owns the before and after.
+  - **The readings.** docs/40 named the target's mid-height alone; on its own heights that dips under
+    a window's sill, so the chest was added (docs/30, "The reach arrives at the chest as well as the
+    middle", which also records the endpoint, corner and wall-list readings).
+  - **Not yet.** `_engage` still starts an NPC's swing on distance, so a colonist crouched at a
+    window can waste one; perception, the shot and pitch do not read the segment (slices 3 to 5).
 - **First-person game speed, 2026-11-01.** Advances "First-person simulation and ledger
   foundation": the clock's keys work in the first-person scene, so a day's work can be reached sooner.
   - **The keys and ladder.** `first_person.gd` reads the "slower" and "faster" bindings from
