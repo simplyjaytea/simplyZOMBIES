@@ -1626,8 +1626,12 @@ func body_view_visible_count() -> int:
 	return int(_bodies.call("visible_count")) if _bodies != null else 0
 
 
-func body_node_for(entity: int) -> MeshInstance3D:
-	return _bodies.call("node_for", entity) as MeshInstance3D
+func body_node_for(entity: int) -> Node3D:
+	return _bodies.call("node_for", entity) as Node3D
+
+
+func body_player_for(entity: int) -> AnimationPlayer:
+	return _bodies.call("player_of", entity) as AnimationPlayer if _bodies != null else null
 
 
 ## Re-reads the player's sim position into the render state. Read-only by construction: a gate
