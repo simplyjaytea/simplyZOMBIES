@@ -2462,6 +2462,17 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Art — the survivor review driver, 2026-11-01.** `npm run godot:shots:survivor` photographs a
+  candidate survivor GLB in the first-person scene's own sky, sun and lens: `SkyView` for the
+  light, the first-person 75-degree lens at the 1.62 m eye, and `models.gd` for the loader. It
+  writes full body front, back and three-quarter; head front, three-quarter, profile and back;
+  first-person ranges at 0.9, 2 and 5 m; the `walk` clip at eight phases; and a sheet with the
+  owner's concept beside them. `review.json` records the GLB's SHA-256, so two sets can be told
+  apart. It is a render, not a gate, and it needs a display. It serves the headed shots and
+  independent art review of the first-person starter-kit bullet above. The driver is
+  `godot/review/survivor_shots.gd`, with a mode in `scripts/run-godot.mjs` and a routing row. Its
+  first capture came back blank at the wrong size from the root viewport, so the stage draws in its
+  own `SubViewport`. The baseline of the current blocky survivor lives outside the repository.
 - **Pitch on the aim, 2026-11-01.** Slice 3 of docs/40: the aim has a pitch as well as a yaw.
   - **The record.** The `aim` command takes an optional `pitch` in radians, positive up. It goes
     through `SimAim.propose` (`godot/sim/aim.gd`) with the yaw, so both take or neither does. The
