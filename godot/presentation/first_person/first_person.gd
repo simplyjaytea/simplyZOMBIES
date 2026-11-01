@@ -14,6 +14,8 @@ extends Node3D
 # This scene is opt-in (`npm run godot:run:first_person`); the shipped main scene is untouched.
 
 const SimBoot = preload("res://sim/boot.gd")
+const SimSave = preload("res://sim/save.gd")
+const SaveSlot = preload("res://presentation/first_person/save_slot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
@@ -375,6 +377,14 @@ func _input(event: InputEvent) -> void:
 		_push_move_from_held()
 		get_viewport().set_input_as_handled()
 		return
+	if ke.pressed and code == KEY_F5:
+		save_game()
+		get_viewport().set_input_as_handled()
+		return
+	if ke.pressed and code == KEY_F9:
+		load_game()
+		get_viewport().set_input_as_handled()
+		return
 	if ke.pressed and code == KEY_P:
 		paused = not paused
 		if paused:
@@ -724,3 +734,50 @@ func _capture_mouse() -> void:
 	_mouse_captured = true
 	if DisplayServer.get_name() != "headless":
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+
+# --- save and load (F5 and F9) ----------------------------------------------------------------
+
+# The top-down game's sim API (`SimSave`), in the first-person slot. The ledger consumes every key
+# while it is open, so F5 and F9 are refused there exactly as the other keys are.
+func save_game() -> bool:
+	if world == null:
+		return false
+	if not SaveSlot.write(SimSave.encode_save(SimSave.create_save(world))):
+		_set_alert("The save did not write.")
+		return false
+	_set_alert("Saved.")
+	return true
+
+
+func load_game() -> bool:
+	if world == null:
+		return false
+	var raw: String = SaveSlot.read()
+	if raw.is_empty():
+		_set_alert("Nothing to load.")
+		return false
+	var parsed: Dictionary = SimSave.decode_save(raw)
+	var snap: Variant = parsed.get("snapshot", {})
+	# The same two refusals the top-down load makes: a finished run is not a run to go back to.
+	if parsed.has("__error") or (snap is Dictionary and bool((snap as Dictionary).get("runOver", false))) or bool(world.runOver):
+		_set_alert("That save will not load.")
+		return false
+	SimSave.apply_save(world, parsed)
+	_after_load()
+	_set_alert("Loaded.")
+	return true
+
+
+# The restored sim is the same world object, so the view is re-read from it: the camera snaps to the
+# restored position with no interpolation from the old one, the body views are rebuilt from the
+# restored entities, and an open ledger closes.
+func _after_load() -> void:
+	if menu_open:
+		close_ledger_menu()
+	_clear_held()
+	_last_aim = 1.0e9
+	_push_zero_move()
+	_push_aim()
+	_bodies.call("reset", world)
+	snap_render_to_sim()
