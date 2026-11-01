@@ -177,6 +177,16 @@ conversion. The source baseline is archived on GitHub at
 - **First-person expedition and default switch.** Prepare, scavenge, encounter
   danger, return, treat, save/reload, die and succeed; measured performance,
   regression proof, campaign balance and human play before changing the default.
+- **Starter-kit polish (#275 round 2).** In `tools/blender/first_person_kit/build_kit.py`: plaster
+  cloud noise reads as camouflage blocks up close; oak grain steps every 8 texels, like brickwork;
+  paint chips follow atlas cells, not mesh edges; barricade planks float 6 mm off the brace; wall
+  end faces and a shelf-board sparkle.
+- **Zombie target by distance alone (#282 review).** `SimShambler._contact_target`
+  (`godot/sim/modules/shambler.gd`) takes the nearest survivor with no reach test, unlike the player's
+  nearest-reachable swing in `melee.gd`. A shared sim module; needs a READS lane in `godot:m2:space`.
+- **Colonist swings it cannot land (#282 record).** `npc_combat.gd` `_engage` and
+  `npc.instinct-defense` start a swing on distance alone, and `_resolve_strike` then refuses it at a
+  window. Ask `SimSpace.reach_clear` before starting, as `can_strike` does.
 
 ##### UI overhaul
 
@@ -2462,6 +2472,58 @@ not a to-do list:
     boot world's modifier table already holds negative zeros, which are written silently as `0`.
     They are named here, not changed.
 
+- **The first-person weapon kit: the socket contract and its first models, 2026-11-01.** Art
+  piece 1 of the weapon plan, the piece that blocks the modular-firearm assembly code. The
+  socket contract and its first models are built in Blender, reproducibly. The README beside
+  the builder is the contract.
+  - **The models.**
+    - `item.pistol.service`: a receiver with one socket for each of its ten slots and `grip_r`.
+      Its slide has a real ejection port, and the barrel hood shows through it.
+    - The receiver's six `defaultParts`: barrel, magazine, action, recoil spring, sear and
+      extractor. The barrel carries its own `socket_muzzle`.
+    - Three alternatives: a suppressor (muzzle), a red-dot optic (optic) and an extended magazine
+      (magazine).
+    - Four whole melee weapons at real-world sizes, each with a socket for every slot the item
+      declares: the wooden bat (stud, weight, wrap), the kitchen knife (edge, wrap), the crowbar
+      (weight, wrap) and the fire axe (head, haft, wrap).
+    - One 512-pixel atlas shared by all of them. It is 128 texels per metre on every hand-held
+      surface and 64 on the three internals the receiver hides.
+    - `godot/assets/first_person/weapons.manifest.json`, in the shared kit-manifest format.
+  - **The gate.** `build_weapons.py -- --check` prints `WEAPONS_CHECK_OK`. It holds:
+    - bounds within 1 cm of the declared `sizeM`;
+    - every manifest socket present, and one socket per content slot;
+    - `grip_r` at the origin, and each part's origin on the part;
+    - one single-sided, nearest-filtered material per model;
+    - consistent winding;
+    - no same-facing coplanar overlap, within a model or across the default and alternate
+      assemblies;
+    - every triangle within 25% of its declared texel density, with every atlas region used;
+    - every placed part touching the receiver;
+    - the barrel's chained muzzle socket on the receiver's;
+    - the default assembly equal to the content's `defaultParts`;
+    - all 16 outputs byte-identical on rebuild.
+  - **True negatives.** `-- --prove` plants fifteen errors, one build each, and prints
+    `PLANT <name> CAUGHT` for every one, then `WEAPONS_PROVE_OK`.
+  - **Measured.**
+    - The default pistol assembly is 1,430 triangles, 324 of them hidden internals. With the
+      suppressor, red dot and extended magazine it is 2,002.
+    - A Godot 4.7.1 scratch script loaded the GLBs with `GLTFDocument` and parented each part
+      under its socket node. The assembled bounds came out at 0.0288 x 0.1432 x 0.1925 m
+      (default) and 0.0324 x 0.1904 x 0.3508 m (alternate). The melee weapons loaded at their
+      declared sizes.
+    - Viewport renders at 0.45 m (held) and 2 m (on the floor) were made for the art review,
+      outside the repository.
+  - **Not in this piece.**
+    - Anything that reads these files. The assembler and the held view are code pieces, so until
+      they land the GLBs are a socket nothing reads.
+    - `export_presets.cfg` packs only `assets/first_person/*.glb`, so the `weapons/` folder and
+      the manifest need adding to it when a reader lands.
+    - The shared manifest matches by item id, but the standard parts are shared by every
+      receiver. These part models are pistol-scale, and a second receiver needs a match keyed by
+      receiver; that is noted in the README for the coordinator.
+    - The melee models are whole, and their part models are art piece 6.
+    - CI has no Blender, so the check runs by hand.
+    - The independent art review.
 - **The segment, and melee stops going through walls, 2026-11-01.** Slice 2 of docs/40: the first
   question the sim asks of the height profile, and the three blows that now ask it.
   - **The record.** `SimSpace.segment_clear(map, a, b, purpose)` (`godot/sim/space/space.gd`) walks
