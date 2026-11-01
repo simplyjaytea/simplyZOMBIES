@@ -16,10 +16,18 @@ extends Node3D
 
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimSpace = preload("res://sim/space/space.gd")
+const AnimState = preload("res://presentation/first_person/anim_state.gd")
 
 const COLONIST_COLOUR: Color = Color(0.33, 0.62, 0.56)
 const ZOMBIE_COLOUR: Color = Color(0.58, 0.32, 0.28)
 const CORPSE_COLOUR: Color = Color(0.30, 0.27, 0.24)
+# The placeholder's pose, until the character GLBs play the named clip. A swing or a lunge leans
+# forward, a hold leans a little, a stagger tips sideways and death lies the cylinder down. The lean
+# is about the feet (the centre drops by cos), so a tilted body does not float.
+const SWING_LEAN_RADIANS: float = 0.35
+const LUNGE_LEAN_RADIANS: float = 0.55
+const GRAB_LEAN_RADIANS: float = 0.25
+const STAGGER_ROLL_RADIANS: float = 0.45
 
 var _views: Dictionary = {}
 var _prev: Dictionary = {}
@@ -117,11 +125,12 @@ func _sync_views(world: Variant, alpha: float) -> void:
 		# and a stance change or a lost leg re-sizes the cylinder the same frame.
 		if world.components.has_component(e, "corpse") and view.material_override != _corpse_material:
 			view.material_override = _corpse_material
-		_fit(view, world, e)
+		var height: float = _fit(view, world, e)
 		var then: Vector2 = _prev.get(e, _curr[e]) as Vector2
 		var now: Vector2 = _curr[e] as Vector2
 		var at: Vector2 = then.lerp(now, a)
 		view.position = Vector3(at.x, view.position.y, at.y)
+		_pose(view, world, e, height)
 		# The screen may not know more than the sim does: a body behind a wall or beyond the
 		# player's range is not drawn, even though the 3D depth buffer would hide some of them.
 		# `vision.detail` is the same read model the top-down screen and the work read use.
@@ -135,11 +144,12 @@ func _in_sight(world: Variant, at: Vector2) -> bool:
 
 
 # The cylinder follows the body's volume from the sim: its height is re-read every frame, because a
-# stance change (or a zombie losing its legs) changes it between ticks.
-func _fit(view: MeshInstance3D, world: Variant, entity: int) -> void:
+# stance change (or a zombie losing its legs) changes it between ticks. Returns the height in metres,
+# which `_pose` needs for the lean's pivot.
+func _fit(view: MeshInstance3D, world: Variant, entity: int) -> float:
 	var cylinder: CylinderMesh = view.mesh as CylinderMesh
 	if cylinder == null:
-		return
+		return 0.0
 	var volume: Dictionary = SimSpace.body_of(world, entity)
 	var height: float = float(int(volume["height"])) / 1000.0
 	var radius: float = float(int(volume["radius"])) / 1000.0
@@ -148,6 +158,33 @@ func _fit(view: MeshInstance3D, world: Variant, entity: int) -> void:
 		cylinder.top_radius = radius
 		cylinder.bottom_radius = radius
 		view.position.y = height * 0.5
+	return height
+
+
+# The placeholder's pose for the state `anim_state.gd` names: a lean into a swing, lunge or hold, a
+# sideways roll for a stagger, and the cylinder on its side for a corpse. The cylinder's own height
+# already carries crouch and crawl, so those need no pose. Rotation is reset every frame; a body
+# that stops swinging stands straight again. The phase is not drawn yet -- the character GLBs will
+# play the clip at it.
+func _pose(view: MeshInstance3D, world: Variant, entity: int, height: float) -> void:
+	var state: String = AnimState.state_of(world, entity)
+	if state == AnimState.DEATH:
+		var radius: float = float(SimSpace.HIT_RADIUS_MM) / 1000.0
+		view.rotation = Vector3(0.0, 0.0, PI * 0.5)
+		view.position.y = radius
+		return
+	var rotation: Vector3 = Vector3.ZERO
+	if state == AnimState.SWING:
+		rotation.x = -SWING_LEAN_RADIANS
+	elif state == AnimState.LUNGE:
+		rotation.x = -LUNGE_LEAN_RADIANS
+	elif state == AnimState.GRAB:
+		rotation.x = -GRAB_LEAN_RADIANS
+	elif state == AnimState.STAGGER:
+		rotation.z = STAGGER_ROLL_RADIANS
+	view.rotation = rotation
+	var tilt: float = sqrt(rotation.x * rotation.x + rotation.z * rotation.z)
+	view.position.y = height * 0.5 * cos(tilt)
 
 
 func _make_view(entity: int, world: Variant) -> MeshInstance3D:

@@ -5,9 +5,18 @@ extends Node3D
 # a height. The bands are the sim's, and this view draws them and nothing else (docs/40, "The one
 # authority": "the presentation builds its geometry from SimSpace.PROFILE and from nothing else").
 #
+# The one exception is the wall: when the kit's `wall_module.glb` is on disk, a full-height wall tile
+# is drawn by that module instead of its band box, so a street is built rooms rather than grey boxes.
+# The module is still placed from the sim's wall band: its top is scaled to the band's 2550 mm, its
+# 1.00 m width spans the tile along the wall run, and its 0.12 m depth is the drawn thickness, its
+# outer face on the tile edge toward open ground. `godot:check:fp_geometry`'s KIT lane measures the
+# drawn AABB against those numbers. Boarded windows keep their band boxes and gain a barricade
+# instance on the open face, so the boards cannot open a tile the sim says blocks sight.
+#
 # The meshes stay merged by category: one ground mesh, one opaque solid mesh and one see-through
-# mesh for the wire fence. The per-tile geometry comes from `tile_boxes`, which is also what
-# `tile_mesh` builds for the gate to judge a tile against its bands.
+# mesh for the wire fence, plus one MultiMeshInstance3D per wall-module variant and one for the
+# barricades. The per-tile geometry comes from `tile_boxes`, which is also what `tile_mesh` builds
+# for the gate to judge a tile against its bands.
 #
 # Sim x/y maps to Godot x/z, one tile to one metre (`SimTileMap.TILE_METRES`). There is no second
 # map and no second collision pass here.
@@ -15,7 +24,13 @@ extends Node3D
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const SimSpace = preload("res://sim/space/space.gd")
+const Assets = preload("res://presentation/first_person/assets.gd")
 
+# Two placement variants of the wall module: as authored, and turned half a turn about its own
+# centre, so a long row does not repeat one face. The kit's three plaster variants live inside the
+# mesh's atlas and cannot be re-picked per instance, so the turn is the per-tile variation the
+# geometry offers.
+const WALL_MODULE_VARIANTS: int = 2
 const WATER_Y: float = -0.08
 
 const WALL_COLOUR: Color = Color(0.42, 0.40, 0.36)
@@ -45,17 +60,43 @@ var map: Variant = null
 var ground: MeshInstance3D = null
 var solids: MeshInstance3D = null
 var fence: MeshInstance3D = null
+# The kit art this build drew: one instance record per wall tile {tile, variant, transform}, and one
+# per barricade {tile, transform}. The gate reads these to measure the drawn geometry; the lists are
+# empty when the GLBs are missing, which is how the KIT lane knows to skip.
+var wall_instances: Array = []
+var barricade_instances: Array = []
 
 
-func build(map_ref: Variant) -> void:
+## Builds the district. `salt` is mixed with each tile's index to pick a wall-module variant; the
+## scene passes its district seed, because the map is regenerated from that seed and does not carry
+## one. It is not a sim value and nothing reads it but this placement.
+func build(map_ref: Variant, salt: int = 0) -> void:
 	map = map_ref
 	for child in get_children():
+		remove_child(child)
 		child.queue_free()
+	wall_instances.clear()
+	barricade_instances.clear()
 	if map == null:
 		return
+	var wall_mesh: Mesh = _loaded_mesh(Assets.WALL_MODULE)
 	ground = _build_mesh("GroundTiles", _ground_surface(), false)
-	solids = _build_mesh("SolidTiles", _band_surface(false), false)
-	fence = _build_mesh("FenceTiles", _band_surface(true), true)
+	solids = _build_mesh("SolidTiles", _band_surface(false, wall_mesh != null), false)
+	fence = _build_mesh("FenceTiles", _band_surface(true, false), true)
+	if wall_mesh != null:
+		_build_wall_modules(wall_mesh, salt)
+	_build_barricades(_loaded_mesh(Assets.BARRICADE))
+
+
+# The mesh of a kit model, or null when the file is missing. The loaded node is only a carrier: the
+# mesh keeps the material `load_model` filtered, and the node is freed here.
+func _loaded_mesh(path: String) -> Mesh:
+	var loaded: Dictionary = Assets.load_model(path)
+	var node: Node = loaded["node"] as Node
+	var mesh: Mesh = Assets.first_mesh(node)
+	if node != null:
+		node.free()
+	return mesh
 
 
 func _build_mesh(node_name: String, mesh: Mesh, see_through: bool) -> MeshInstance3D:
@@ -104,13 +145,16 @@ func _ground_surface() -> ArrayMesh:
 
 
 # The opaque bands (or, with `see_through`, the fence's bands) of every tile, as one mesh. Null when
-# there is nothing to draw, so the node exists without a mesh.
-func _band_surface(see_through: bool) -> ArrayMesh:
+# there is nothing to draw, so the node exists without a mesh. `skip_walls` leaves full-height wall
+# tiles to their modules; the KIT lane proves the module draws the same band.
+func _band_surface(see_through: bool, skip_walls: bool) -> ArrayMesh:
 	var st: SurfaceTool = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var drew: bool = false
 	for ty in int(map.h):
 		for tx in int(map.w):
+			if skip_walls and not see_through and SimSpace.profile_key(map, tx, ty) == "wall":
+				continue
 			for box in tile_boxes(map, tx, ty):
 				if bool(box["transparent"]) != see_through:
 					continue
@@ -120,6 +164,145 @@ func _band_surface(see_through: bool) -> ArrayMesh:
 		return null
 	st.generate_normals()
 	return st.commit()
+
+
+# --- kit art: walls and barricades ----------------------------------------------------------
+
+func _build_wall_modules(mesh: Mesh, salt: int) -> void:
+	var size: Vector3 = mesh.get_aabb().size
+	if size.y <= 0.0:
+		return
+	var groups: Array = []
+	for variant in WALL_MODULE_VARIANTS:
+		groups.append([])
+	for ty in int(map.h):
+		for tx in int(map.w):
+			if SimSpace.profile_key(map, tx, ty) != "wall":
+				continue
+			var variant: int = _tile_hash(salt, tx, ty) % WALL_MODULE_VARIANTS
+			var xform: Transform3D = wall_placement(map, tx, ty, size, variant)
+			(groups[variant] as Array).append(xform)
+			wall_instances.append({"tile": Vector2i(tx, ty), "variant": variant, "transform": xform})
+	for variant in WALL_MODULE_VARIANTS:
+		_multimesh_node("WallModules%d" % variant, mesh, groups[variant])
+
+
+func _build_barricades(mesh: Mesh) -> void:
+	if mesh == null:
+		return
+	var size: Vector3 = mesh.get_aabb().size
+	var transforms: Array = []
+	for ty in int(map.h):
+		for tx in int(map.w):
+			if not SimSpace.profile_key(map, tx, ty).begins_with("board:"):
+				continue
+			var xform: Transform3D = barricade_placement(map, tx, ty, size)
+			transforms.append(xform)
+			barricade_instances.append({"tile": Vector2i(tx, ty), "transform": xform})
+	_multimesh_node("Barricades", mesh, transforms)
+
+
+func _multimesh_node(node_name: String, mesh: Mesh, transforms: Array) -> MultiMeshInstance3D:
+	if transforms.is_empty():
+		return null
+	var multimesh: MultiMesh = MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.mesh = mesh
+	multimesh.instance_count = transforms.size()
+	for i in transforms.size():
+		multimesh.set_instance_transform(i, transforms[i] as Transform3D)
+	var instance: MultiMeshInstance3D = MultiMeshInstance3D.new()
+	instance.name = node_name
+	instance.multimesh = multimesh
+	# The scene draws no shadows, so the modules do not pay for them.
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(instance)
+	return instance
+
+
+## Where one wall module stands for tile (tx, ty), given the module's authored size. The module's top
+## is scaled to the wall band's top; its width spans the tile along the run; its depth is its own
+## authored thickness, with the outer face on the tile edge toward open ground and the body inside the
+## tile. Shared with `godot:check:fp_geometry`'s KIT lane, which plants a wrong-size mesh here and
+## expects the same measurement to refuse it.
+static func wall_placement(map: Variant, tx: int, ty: int, module_size: Vector3, variant: int = 0) -> Transform3D:
+	var top_m: float = _band_top_m("wall")
+	var scale_y: float = top_m / module_size.y if module_size.y > 0.0 else 1.0
+	var along_x: bool = _runs_along_x(map, tx, ty)
+	var face: Vector2i = _open_face(map, tx, ty, along_x)
+	var angle: float = 0.0 if along_x else PI * 0.5
+	if variant % 2 == 1:
+		angle += PI
+	var depth: float = module_size.z
+	# Local +Z is the depth axis; the width (local X) is one metre along the run. The module's origin
+	# is its floor centre, so the Y translation is zero and the scale is applied before the turn.
+	var centre: Vector3 = Vector3(float(tx) + 0.5, 0.0, float(ty) + 0.5)
+	centre.x += float(face.x) * (0.5 - depth * 0.5)
+	centre.z += float(face.y) * (0.5 - depth * 0.5)
+	return Transform3D(Basis(Vector3.UP, angle).scaled(Vector3(1.0, scale_y, 1.0)), centre)
+
+
+## Where one barricade stands for a boarded tile. Its back face is flush with the tile edge toward
+## open ground and the boards hang outside the tile, as boards nailed over a window do; the band boxes
+## underneath are unchanged and stay the occlusion authority.
+static func barricade_placement(map: Variant, tx: int, ty: int, module_size: Vector3) -> Transform3D:
+	var along_x: bool = _runs_along_x(map, tx, ty)
+	var face: Vector2i = _open_face(map, tx, ty, along_x)
+	var angle: float = 0.0 if along_x else PI * 0.5
+	var depth: float = module_size.z
+	var centre: Vector3 = Vector3(float(tx) + 0.5, 0.0, float(ty) + 0.5)
+	centre.x += float(face.x) * (0.5 + depth * 0.5)
+	centre.z += float(face.y) * (0.5 + depth * 0.5)
+	return Transform3D(Basis(Vector3.UP, angle), centre)
+
+
+# A wall run is along X when more of its neighbours in X are walls; a tie (an isolated tile) runs X.
+static func _runs_along_x(map: Variant, tx: int, ty: int) -> bool:
+	var x: int = 0
+	for d in [Vector2i(-1, 0), Vector2i(1, 0)]:
+		if _is_wall(map, tx + d.x, ty + d.y):
+			x += 1
+	var y: int = 0
+	for d in [Vector2i(0, -1), Vector2i(0, 1)]:
+		if _is_wall(map, tx + d.x, ty + d.y):
+			y += 1
+	return x >= y
+
+
+static func _is_wall(map: Variant, tx: int, ty: int) -> bool:
+	if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
+		return false
+	return SimSpace.profile_key(map, tx, ty) == "wall"
+
+
+# The perpendicular side of the tile that faces open ground: the first one in a fixed order, so a
+# boot is repeatable. A tile with no open side uses the first side anyway.
+static func _open_face(map: Variant, tx: int, ty: int, along_x: bool) -> Vector2i:
+	var sides: Array = [Vector2i(0, -1), Vector2i(0, 1)] if along_x else [Vector2i(-1, 0), Vector2i(1, 0)]
+	for side in sides:
+		var n: Vector2i = side as Vector2i
+		var nx: int = tx + n.x
+		var ny: int = ty + n.y
+		if nx >= 0 and ny >= 0 and nx < int(map.w) and ny < int(map.h) and not SimTileMap.is_solid(map, nx, ny):
+			return n
+	return sides[0] as Vector2i
+
+
+# A stable per-tile choice from the scene's seed salt and the tile index. Not a sim RNG: this is
+# placement only, so it never draws from a world stream that another system measures.
+static func _tile_hash(salt: int, tx: int, ty: int) -> int:
+	var h: int = (salt * 73856093) ^ (tx * 19349663) ^ (ty * 83492791)
+	h = h & 0x7fffffff
+	h = h ^ (h >> 13)
+	return h & 0x7fffffff
+
+
+# The top of a profile key's highest band, in metres: 2.55 for the wall.
+static func _band_top_m(key: String) -> float:
+	var top: int = 0
+	for band in SimSpace.bands(key):
+		top = maxi(top, int(band[1]))
+	return float(top) / 1000.0
 
 
 ## Every band of one tile as a box: {min, max, colour, transparent}, in Godot metres. This is the
