@@ -6359,7 +6359,7 @@ pack, a tile, or a despawn. `godot:m2:stockpile` EMPTY and FULL hold the two pat
 ## The release plan and the content arcs, 2026-10-26
 
 Decided by the owner, 2026-10-26, from a proposal in the coordinator's chat. Four calls, each
-recorded once here; the plan itself is [docs/38's "The release plan"](38-playbook.md#the-release-plan)
+recorded once here; the plan itself is [the playbook's "The release plan"](../PLAYBOOK.md#the-release-plan)
 and the pieces it opens are in docs/23's what's left under "Content arcs".
 
 - **The projection stays flat top-down.** An isometric view in Project Zomboid's manner was
@@ -7731,3 +7731,52 @@ NPC's chest. What follows is what it left open.
   because NaN passes `canonical`. It now refuses one whole, so the yaw, the feet and the pitch stay
   as they were, the way `clamp_pitch` already read a NaN pitch as level. `godot:m2:aim` PITCH holds
   it, with the comparison written so a NaN cannot pass it.
+
+## The playbook, one file, 2026-11-01
+
+The owner's call: `CLAUDE.md`, `AGENTS.md` and docs/38 merge into one root `PLAYBOOK.md`. In
+the owner's words, "the playbook file is going to have both the AGENTS.md file and all that
+stuff inside of it. It's going to include workflows, a plan of what we did, a to-do list, some
+bugs, and just things we need to work on. Most crucially it's going to include our workflow
+inside of Orca." This reverses the 2026-10-23 split ("The playbook, and AGENTS.md as a
+pointer", above), which kept the repository's rules in `CLAUDE.md` and the project's running in
+docs/38: with every agent now a terminal inside Orca, the rules, the roster and the dispatch loop
+are read by the same reader at the same moment, and two files that each said "read the other
+first" cost every session a second orientation.
+
+- **One file, in one order.** Start here; the team and the Orca workflow (the owner's "most
+  crucial" part, so it sits near the top); what the project is; how the code fits together;
+  where the work is; the slice workflow; verifying; pushing; the standing bans; conventions;
+  the traps pointer; then docs/38's content whole (who decides what, how the owner works, how
+  work flows, the release plan, the content arcs, the shared folder, art conventions,
+  performance, screenshots, the pause handoff); then the session record, the to-do list, the
+  known bugs and the lessons; and the routing table last, because `check:routing` reads it by
+  its heading and it is the longest section. Content moved; no rule was rewritten in the move,
+  and duplication between the three sources was removed rather than repeated.
+- **The three sources are stubs.** `CLAUDE.md` is an `@PLAYBOOK.md` import plus one sentence,
+  so Claude Code still loads the rules on every session. `AGENTS.md` says read the playbook
+  first and keeps its first-commands block, because Codex, Cursor and Kimi look for that name.
+  docs/38 keeps every old section heading, each a link to the matching playbook anchor, so the
+  links written against it in docs/23, docs/30 and the project chat still land.
+- **`check:routing` reads `PLAYBOOK.md`.** `TABLE_FILE` moved with the table; the self-test's
+  fixture moved with it. The routing table's own links say `PLAYBOOK.md#...`. Every link in
+  `docs/` and `README.md` that pointed at a `CLAUDE.md` or docs/38 anchor now points at the
+  playbook's, and the pointers in the steward skill, the pull request template, the CI comment
+  and the scripts' comments followed.
+- **The roster may name models; authorship may not.** The owner's amendment to the
+  no-model-identifiers rule: the team table in the playbook names the model each role runs on
+  (coordinator, workhorse, modeler, art, the strong tier and the writer on demand), because a
+  roster says who runs what. Nothing else changed: a commit message, a pull request title or
+  body, a code comment or a doc never says which model wrote it, and no `Co-Authored-By`
+  trailer names one. That entry's "model routing is described by role, not by name"
+  is superseded in that one place and holds everywhere else.
+- **The session record is a section, not a ledger.** What the session did, the to-do list, the
+  known bugs and the lessons are prose and bullets with no checkboxes, per the convention that
+  retired `HANDOFF.md`; docs/23 stays the authority on what landed with what evidence, and a
+  bullet in the playbook that outlives its fact is deleted, not ticked.
+
+**How to apply:** a reader starts at `PLAYBOOK.md` and nowhere else. A rule goes into the
+playbook's section for it; a fact about the build goes in the doc that owns it (docs/23 for
+status, docs/30 for a call, docs/33 for an open owner question) and the playbook links to it.
+The session record, to-do and bugs sections are rewritten at the end of a session, not appended
+to forever.
