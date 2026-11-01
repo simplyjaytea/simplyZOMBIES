@@ -752,7 +752,8 @@ pause policy), and docs/41's "For the owner" list. Every one has a default alrea
 - **PR #310** (building finishes) failed its first independent review (windows drawn as
   solid wall, inside-out hip roofs, a CRLF manifest), was fixed by an Opus worker with a
   real-worldgen window gate, and passed its confirmation pass.
-- **The queue:** #312 and #308 merged; #307, #313, #309, #310, #311 in the merge train.
+- **The merge train, done.** #312, #308, #307, #313, #309, #310 and #311 merged, in that order.
+  The owner chose to merge the last five without waiting for CI on their final heads.
 - **Repo cleanup:** 41 merged worktrees removed, 37 merged local branches deleted, local main
   fast-forwarded.
 - **This playbook.** `CLAUDE.md`, `AGENTS.md` and docs/38 merged into one root file, the
@@ -760,7 +761,8 @@ pause policy), and docs/41's "For the owner" list. Every one has a default alrea
 
 ## To do
 
-- Finish the merge train: #307, #313, #309, #310, #311 (last: shared sim and save format).
+- Confirm CI green on `main` after the merge train (#307, #313, #309, #310 and #311 merged on the
+  owner's call without waiting for CI), and fix forward whatever is red.
 - Push `kimi/fp-survivor-base` as its own PR (independent art review first), then improve the
   survivor further (the owner: "a lot").
 - First-person arms: art (in flight on `claude/fp-arms`, Codex paints its atlas), then the
