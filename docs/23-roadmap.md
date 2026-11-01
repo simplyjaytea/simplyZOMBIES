@@ -2463,6 +2463,37 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **The gunsmith bench as a place in first person, 2026-11-01.** W5 of docs/41: walk up to a bench,
+  press E, and the assembly screen opens on the weapon carried. `godot/presentation/first_person/bench_view.gd`
+  draws every sim `workbench` whose kind is the gunsmith's at its own position: the starter kit's desk
+  model, a vice and a tool tray as code placeholders on top (a bench model is a later art piece), and a
+  label carrying the sim's kind word, "gunsmith bench". The scene keeps the drawn set in step with the
+  component each tick and rebuilds only when an id or a position moves.
+  - **E.** A bench is the fourth rung of the scene's E ladder, after the ledger and the containers and
+    before a colonist and the tile verb, as the piece asks. The verdict mirrors the sim's own open: the
+    sim's reach, the same aim cone the ledger and the boxes use, the sim's `vision.detail` for a wall,
+    and a workpiece, because a bench with nothing that comes apart offers no screen. Reach and horizon
+    refusals speak in the scene's own words. The screen itself is the top-down `godot/ui/bench_panel.gd`,
+    which already reads `benchFocus` and pushes `item.attach`, `item.detach` and `item.improvise`.
+  - **The sim keeps running.** While the screen is up the body is stopped, the mouse is released, the
+    HUD is hidden, and every key is the panel's: Escape pushes the sim's `bench.close`, and the panel's
+    arrows, WASD and Enter never reach the street. The clock is not paused -- the same reversible
+    default as the other screens -- and a handoff or the end panel hides the screen and drops the focus.
+  - **The held weapon.** A fit, strip or make goes through the sim, and the lower-right view redraws
+    from the installed parts on their sockets on the next frame, so the gun on the bench is the gun in
+    hand. A swap leaves the pistol's installed set and the drawn set each holding the suppressor.
+  - **Both benches.** A player's `bench.build` channel and a colonist's Construct job both end in
+    `SimGunsmith.make_bench`, so the drawing never asks who built the bench.
+  - **The gate.** The BENCH lane of `godot/check_first_person.gd` registers as a row in the generated
+    lane table (the OK line now lists 30 lanes). It builds a bench through the sim's own `bench.build`
+    when the small district has none, then: E in reach and on the aim opens the screen on the held
+    pistol; a walking key moves nothing while the clock ticks; a suppressor fitted through the screen's
+    command changes the sim's installed parts and the held view's drawn set; Escape closes through the
+    sim; a recipe the sim refuses -- the pack emptied of build materials, and the pistol's slots take
+    no improvised recipe, so the gate opens the screen on a bat -- leaves the parts unchanged, and the
+    screen's needs words are the sim's own; and out of reach, off the aim, or through a wall opens no
+    screen. A bench made by the sim outside the player's build is drawn too.
+
 - **Bodies drawn with the character models, 2026-11-01.** docs/41's piece C1: the first-person
   scene draws each body with the character GLB its kind names, in place of the placeholder cylinder.
   Survivors, colonists and raiders are `survivor.glb`; every zombie is `shambler.glb` until zombie kinds

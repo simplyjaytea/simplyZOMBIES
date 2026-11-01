@@ -43,6 +43,11 @@ extends SceneTree
 #             receiver, barrel and magazine; fitting the suppressor through `item.attach` puts it on
 #             the barrel's socket_muzzle; a view that no longer matches the sim fails its own check;
 #             bare hands show nothing; the bat is drawn whole with no added head.
+#   BENCH     a gunsmith bench is drawn where the sim has one; E at it in reach and on the aim opens
+#             the sim's own assembly screen on the held pistol, a part fitted through the screen
+#             moves the sim's installed parts and the held view, a refused recipe leaves the parts
+#             unchanged with the sim's words, and out of reach, off the aim or through a wall opens
+#             no screen.
 #   PRIORITY  a click on the panel's first priority cell dispatches a real `job.priority`, the
 #             colonist's row changes and turns Manual, and the player is never one of the rows.
 #   LEGEND    the key reference (F1) lists every key the scene handles and no other: the handled keys are
@@ -118,6 +123,7 @@ const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
+const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
 const Clock = preload("res://sim/time/clock.gd")
@@ -194,6 +200,7 @@ func _run() -> void:
 		ok = _lane("CONTAINER", _container(scene), "a sim container opens through container.open into the real sheet and a take moves one item") and ok
 		ok = _lane("FIGHT", _fight(scene), "a bat swing lands and a gun spends a round while the ledger refuses both") and ok
 		ok = _lane("HELD", _held(scene), "the equipped weapon is drawn from the sim's installed parts on their sockets and a mismatch fails") and ok
+		ok = _lane("BENCH", _bench(scene), "E at a bench opens the sim's own assembly screen and a swap moves the sim and the held view") and ok
 		ok = _lane("LEDGER", _ledger(scene, spawn), "the ledger opens in reach and on the aim and refuses a look away") and ok
 		ok = _lane("PRIORITY", _priority(scene), "a priority click dispatches a real job.priority and the row turns Manual") and ok
 		ok = _lane("MENU", _menu(scene), "the ledger's screens open and close on Escape") and ok
@@ -1418,6 +1425,271 @@ func _held_socket_ok(held: Node3D, slot: String, want_id: String, want_socket: S
 	if String(socket.name) != want_socket:
 		return _fail("HELD", "%s is on '%s', not '%s'" % [slot, String(socket.name), want_socket])
 	return true
+
+
+# --- BENCH -----------------------------------------------------------------------------------
+#
+# The gunsmith bench as a physical place. A bench is built through the sim's own `bench.build`
+# channel when the small district has none, which is exactly the path a player's 3 scrap and a
+# colonist's Construct job both end in (`SimGunsmith.make_bench`). E at it opens the sim's own
+# `benchFocus`; the assembly screen is `ui/bench_panel.gd`, and every operation it pushes is a sim
+# command. A bench is the E ladder's fourth rung, after the ledger and the boxes, before a colonist.
+func _bench(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var player: int = int(world.player)
+	if bool(scene.get("bench_open")):
+		world.commands.push({"type": "bench.close"})
+		scene.call("step_sim_once")
+	var bench: int = _bench_first(world)
+	if bench < 0:
+		bench = _bench_build(scene, world, map)
+	if bench < 0:
+		return _fail("BENCH", "no gunsmith bench exists and the sim would not build one")
+	scene.call("_process", TICK_SECONDS)
+	# Drawn where the sim has it.
+	var node: Node3D = scene.call("bench_node_for", bench) as Node3D
+	if node == null:
+		ok = _fail("BENCH", "the sim's bench %d has no node in the scene" % bench)
+	else:
+		var at: Vector2 = _entity_pos(world, bench)
+		if absf(node.position.x - at.x) > EPSILON or absf(node.position.z - at.y) > EPSILON:
+			ok = _fail("BENCH", "the bench is drawn at (%.3f, %.3f), not its sim position (%.3f, %.3f)" % [node.position.x, node.position.z, at.x, at.y])
+
+	# The pistol on the bench: the equipped weapon is the first workpiece, as top-down takes it.
+	# The HELD lane leaves a bat in the primary hand; the bench would rightly offer that first, so
+	# the gate puts it away to make the pistol the workpiece under test.
+	world.components.remove(player, "rangedWeapon")
+	world.components.remove(player, "meleeWeapon")
+	if world.components.has_component(player, "equipment"):
+		SimInventory.unequip(world, player, "primary")
+	var pistol: int = int(SimItems.spawn_item(world, "item.pistol.service", {"tier": "scavenged"}))
+	if pistol < 0 or not SimInventory.equip(world, player, pistol):
+		return _fail("BENCH", "the service pistol would not spawn and equip")
+	scene.call("step_sim_once")
+	var bench_at: Vector2 = _entity_pos(world, bench)
+	var stand: Vector2 = _bench_stand(map, bench_at)
+	_place_player(scene, stand)
+	scene.call("look_toward", scene.call("bench_world_point", bench))
+	_settle_vision(scene, 6)
+	if String(scene.call("bench_verdict")) != "ok":
+		ok = _fail("BENCH", "a bench in reach and on the aim reads '%s', not ok" % String(scene.call("bench_verdict")))
+	_key(KEY_E, true)
+	scene.call("step_sim_once")
+	scene.call("_process", TICK_SECONDS)
+	if not bool(scene.get("bench_open")):
+		ok = _fail("BENCH", "E at a bench did not open the assembly screen")
+	if SimGunsmith.focus_of(world, player) != pistol:
+		ok = _fail("BENCH", "the bench opened on %d, not the held pistol %d" % [SimGunsmith.focus_of(world, player), pistol])
+	var panel: Control = scene.call("bench_panel_node") as Control
+	if panel == null or not panel.visible:
+		ok = _fail("BENCH", "the bench panel is not visible")
+	# Input capture and the clock.
+	var before: Vector2 = _player_pos(world)
+	var tick: int = int(world.tick)
+	_key(KEY_W, true)
+	scene.call("step_sim_once")
+	scene.call("_process", TICK_SECONDS)
+	_key(KEY_W, false)
+	if _player_pos(world).distance_to(before) > EPSILON:
+		ok = _fail("BENCH", "a walking key moved the body under the bench screen")
+	if int(world.tick) <= tick:
+		ok = _fail("BENCH", "the clock stopped under the bench screen")
+
+	# A swap through the screen's command: the suppressor into the empty muzzle slot.
+	var can: int = int(SimItems.spawn_item(world, "item.attach.suppressor", {"tier": "scavenged"}))
+	if can < 0 or not _stow_with_room(world, player, can):
+		ok = _fail("BENCH", "the suppressor would not spawn and stow")
+	else:
+		world.commands.push({"type": "item.attach", "host": pistol, "item": can, "slot": "muzzle"})
+		scene.call("step_sim_once")
+		scene.call("_process", TICK_SECONDS)
+		if SimAttachments.in_slot(world, pistol, "muzzle") != can:
+			ok = _fail("BENCH", "the screen's fit did not put the suppressor on the pistol")
+		var held: Node3D = scene.call("held_weapon_node") as Node3D
+		if held == null:
+			ok = _fail("BENCH", "the scene has no held-weapon view")
+		elif String((held.call("drawn") as Dictionary).get("muzzle", "")) != "item.attach.suppressor":
+			ok = _fail("BENCH", "the held view did not redraw with the fitted suppressor")
+
+	# Escape pushes the sim's own close; the screen goes with the focus.
+	_key(KEY_ESCAPE, true)
+	scene.call("step_sim_once")
+	scene.call("_process", TICK_SECONDS)
+	if bool(scene.get("bench_open")) or SimGunsmith.focus_of(world, player) != -1:
+		ok = _fail("BENCH", "Escape did not close the bench through the sim")
+
+	# A refused operation: the pistol's slots take no improvised recipe (the parts are made for
+	# melee studs, weights and wraps), so the gate opens the screen on a bat and asks for a part
+	# with the pack emptied of every build material. The screen's words must be the sim's, and the
+	# bat's parts must not move.
+	for item_v in SimInventory.carried_items(world, player) as Array:
+		if SimFortify.material_of(world, int(item_v)) != "":
+			SimInventory.drop_at_feet(world, player, int(item_v))
+	var bat: int = int(SimItems.spawn_item(world, "item.bat.wood", {"tier": "scavenged"}))
+	if bat < 0 or not _stow_with_room(world, player, bat) or not SimInventory.equip(world, player, bat):
+		ok = _fail("BENCH", "a bat would not spawn, stow and equip for the refusal")
+	else:
+		scene.call("step_sim_once")
+		_key(KEY_E, true)
+		scene.call("step_sim_once")
+		scene.call("_process", TICK_SECONDS)
+		if not bool(scene.get("bench_open")) or SimGunsmith.focus_of(world, player) != bat:
+			ok = _fail("BENCH", "E did not open the bench on the bat the survivor carries")
+		var screen: Dictionary = panel.get("_view") as Dictionary
+		var refused: Dictionary = {}
+		for row_v in screen.get("recipes", []) as Array:
+			var row: Dictionary = row_v as Dictionary
+			if not bool(row.get("makeable", true)) and String(row.get("needs", "")) != "":
+				refused = row
+				break
+		if refused.is_empty():
+			ok = _fail("BENCH", "the bench offers no recipe the sim refuses, so the refusal is unjudged")
+		else:
+			var slot: String = String(refused.get("slot", ""))
+			var recipe: String = String(refused.get("recipe", ""))
+			var reason: String = SimAttachments.improvise_refusal(world, player, bat, slot, recipe)
+			if reason == "":
+				ok = _fail("BENCH", "the row the screen calls unmakeable is not refused by the sim")
+			if String(refused.get("needs", "")) != SimAttachments.improvise_needs(world, player, recipe, reason):
+				ok = _fail("BENCH", "the screen's needs words are not the sim's")
+			var fitted_before: Dictionary = SimAttachments.attached(world, bat)
+			world.commands.push({"type": "item.improvise", "host": bat, "slot": slot, "recipe": recipe})
+			scene.call("step_sim_once")
+			if SimAttachments.attached(world, bat) != fitted_before:
+				ok = _fail("BENCH", "a refused recipe changed the bat's parts")
+			var refused_event: bool = false
+			for event_v in world.events.drained as Array:
+				var event: Dictionary = event_v as Dictionary
+				if String(event.get("type", "")) == "attachment.refused" and String(event.get("reason", "")) == reason:
+					refused_event = true
+			if not refused_event:
+				ok = _fail("BENCH", "the refused recipe published no attachment.refused with the sim's reason")
+		_key(KEY_ESCAPE, true)
+		scene.call("step_sim_once")
+		scene.call("_process", TICK_SECONDS)
+		if bool(scene.get("bench_open")) or SimGunsmith.focus_of(world, player) != -1:
+			ok = _fail("BENCH", "Escape did not close the bench after the refusal")
+
+	# True negatives: out of reach, off the aim, and through a wall.
+	_place_player(scene, bench_at + Vector2(0.0, 4.0))
+	scene.call("look_toward", scene.call("bench_world_point", bench))
+	scene.call("step_sim_once")
+	if String(scene.call("bench_verdict")) != "far":
+		ok = _fail("BENCH", "a bench four metres away reads '%s', not far" % String(scene.call("bench_verdict")))
+	_key(KEY_E, true)
+	scene.call("step_sim_once")
+	if SimGunsmith.focus_of(world, player) != -1 or bool(scene.get("bench_open")):
+		ok = _fail("BENCH", "E opened a bench out of reach")
+	_place_player(scene, stand)
+	scene.call("look_toward", scene.call("bench_world_point", bench) + Vector3(4.0, 0.0, 0.0))
+	scene.call("step_sim_once")
+	if String(scene.call("bench_verdict")) != "away":
+		ok = _fail("BENCH", "a bench in reach but off the aim reads '%s', not away" % String(scene.call("bench_verdict")))
+	_key(KEY_E, true)
+	scene.call("step_sim_once")
+	if SimGunsmith.focus_of(world, player) != -1 or bool(scene.get("bench_open")):
+		ok = _fail("BENCH", "E opened a bench the look was turned away from")
+	var setup: Dictionary = _find_blocked_setup(map)
+	if setup.is_empty():
+		ok = _fail("BENCH", "no wall with open floor beyond it for the sight negative")
+	else:
+		var tile: Vector2i = setup["tile"] as Vector2i
+		var dir: Vector2i = setup["dir"] as Vector2i
+		var here: Vector2 = Vector2(float(tile.x) + 0.5, float(tile.y) + 0.5)
+		_place_player(scene, here)
+		scene.call("set_look", 0.0, 0.0)
+		_settle_vision(scene, 6)
+		var beyond: Vector2 = here + Vector2(float(dir.x), float(dir.y)) * 1.4
+		var walled: int = SimGunsmith.make_bench(world, beyond.x, beyond.y)
+		scene.call("_process", TICK_SECONDS)
+		scene.call("look_toward", Vector3(beyond.x, 0.8, beyond.y))
+		if String(scene.call("bench_verdict")) != "blocked":
+			ok = _fail("BENCH", "a bench through a wall reads '%s', not blocked" % String(scene.call("bench_verdict")))
+		_key(KEY_E, true)
+		scene.call("step_sim_once")
+		if SimGunsmith.focus_of(world, player) != -1 or bool(scene.get("bench_open")):
+			ok = _fail("BENCH", "E opened a bench through a wall")
+		world.despawn(walled)
+		scene.call("_process", TICK_SECONDS)
+
+	# The other way a bench arrives: a colonist's Construct job ends in the same `make_bench`, so a
+	# bench the player did not build is drawn too.
+	var free: Vector2 = _find_open_area(map, 2)
+	var built_elsewhere: int = SimGunsmith.make_bench(world, free.x, free.y)
+	scene.call("_process", TICK_SECONDS)
+	if scene.call("bench_node_for", built_elsewhere) == null:
+		ok = _fail("BENCH", "a bench made outside the player's build is not drawn")
+	world.despawn(built_elsewhere)
+	scene.call("_process", TICK_SECONDS)
+	return ok
+
+
+# Stows an item, making room by dropping the carried item in the first pocket when the pack is full.
+# The gate is deep in a run by this lane and the player's kit is already settled, so one drop is the
+# honest way to hold the sim's own three scrap; the dropped item stays in the world.
+func _stow_with_room(world: Variant, player: int, item: int) -> bool:
+	if SimInventory.stow(world, player, item):
+		return true
+	for _i in 8:
+		var carried: Array = SimInventory.contents_of(world, player) as Array
+		if carried.is_empty():
+			return false
+		SimInventory.drop_at_feet(world, player, int(carried[0]))
+		if SimInventory.stow(world, player, item):
+			return true
+	return false
+
+
+# The first walkable floor tile orthogonally beside a bench, as its stand point, or the bench's own
+# position when every side is solid.
+func _bench_stand(map: Variant, at: Vector2) -> Vector2:
+	var base: Vector2i = Vector2i(floori(at.x), floori(at.y))
+	for d in [Vector2i(0, 1), Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 0)]:
+		var t: Vector2i = base + d
+		if _walkable_floor(map, t.x, t.y):
+			return Vector2(float(t.x) + 0.5, float(t.y) + 0.5)
+	return at
+
+
+# The first gunsmith bench in the world, or -1.
+func _bench_first(world: Variant) -> int:
+	for entity in world.components.query(["workbench", "position"]):
+		var state: Variant = world.components.get_component(int(entity), "workbench")
+		if state is Dictionary and String((state as Dictionary).get("kind", "")) == SimGunsmith.KIND:
+			return int(entity)
+	return -1
+
+
+# Builds a bench through the sim's own bench channel: an adjacent empty floor tile, the sim's own
+# BENCH_SCRAP of metal in the pack, `bench.build`, then the 160 ticks the channel takes.
+func _bench_build(scene: Node, world: Variant, map: Variant) -> int:
+	var player: int = int(world.player)
+	var area: Vector2 = _find_open_area(map, 2)
+	if area == Vector2(-1.0, -1.0):
+		return -1
+	_place_player(scene, area)
+	scene.call("set_look", 0.0, 0.0)
+	var base: Vector2i = Vector2i(floori(area.x), floori(area.y))
+	var tile: Vector2i = Vector2i(-1, -1)
+	for d in [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]:
+		var t: Vector2i = base + d
+		if _walkable_floor(map, t.x, t.y):
+			tile = t
+			break
+	if tile == Vector2i(-1, -1):
+		return -1
+	var scrap: int = int(SimItems.spawn_item(world, "item.scrap.metal", {"tier": "scavenged", "count": int(SimGunsmith.BENCH_SCRAP)}))
+	if scrap < 0 or not _stow_with_room(world, player, scrap):
+		return -1
+	world.commands.push({"type": "bench.build", "tx": tile.x, "ty": tile.y})
+	for _i in 220:
+		scene.call("step_sim_once")
+		var built: int = _bench_first(world)
+		if built >= 0:
+			return built
+	return -1
 
 
 # --- LEDGER ---------------------------------------------------------------------------------
