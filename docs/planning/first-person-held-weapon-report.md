@@ -37,20 +37,15 @@ only: nothing under `godot/sim/` or `godot/assets/` changed, and the sim still d
 
 ## The model seam
 
-The manifest loader is `godot/presentation/first_person/models.gd`, written in parallel
-(`claude/fp-manifest`). It was not on origin when this piece needed it, so this branch calls only
-the agreed interface:
+The manifest loader is `godot/presentation/first_person/models.gd` (PR #301). `held_weapon.gd`
+calls only its two functions:
 
-- `resolve(item_id) -> {glb: String, sockets: {slot: node name}, grip: String, ...}`, empty for an
-  unknown id.
-- `instance(item_id) -> Node3D`, a fresh instance (or null).
+- `Models.resolve(item_id, item_class)` -> the manifest entry (its `sockets` and `grip`), or null.
+- `Models.model_for(item_id, item_class)` -> a fresh instance, or null.
 
-There is no second loader in the committed branch. If `models.gd` is absent, `held_weapon.gd`
-models nothing, the placeholder box stays, and the HELD lane prints
-`FIRST_PERSON_SKIP HELD: models.gd (the manifest loader) is not on this branch, so the placeholder
-box is under test`. For local verification and the captures an untracked stand-in implementing only
-that interface was used; it is not part of the commit. On the merged branch the real loader runs
-the same two functions.
+The item's class is read from its content base (`SimItems.item_base_of(...).class`), exactly as
+`loose_view.gd` reads it. There is no stand-in, no second loader and no fallback: an item the
+manifests do not name keeps the placeholder box.
 
 ## The gate
 
@@ -75,15 +70,15 @@ with the service pistol held, same driver both sides:
 
 | Run | Before, placeholder (ms) | After, assembled model (ms) |
 |---|---:|---:|
-| 1 | 1.464 | 1.785 |
-| 2 | 1.456 | 1.716 |
-| 3 | 1.724 | 1.530 |
-| Median | **1.464** | **1.716** |
-| Mean | **1.548** | **1.677** |
+| 1 | 1.464 | 1.748 |
+| 2 | 1.456 | 2.069 |
+| 3 | 1.724 | 1.740 |
+| Median | **1.464** | **1.748** |
+| Mean | **1.548** | **1.852** |
 
-The assembled pistol costs about 0.25 ms at spawn (three textured meshes and a small node tree in
-place of one box), and both sides are far under docs/22's 10 ms draw target. A fourth after run with
-the captures in the same process measured 1.838 ms.
+The assembled pistol costs about 0.3 ms at spawn (three textured meshes and a small node tree in
+place of one box), through the real loader, and both sides are far under docs/22's 10 ms draw
+target.
 
 ## Captures
 

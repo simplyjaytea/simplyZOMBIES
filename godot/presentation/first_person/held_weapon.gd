@@ -21,19 +21,18 @@ extends Node3D
 # profile, so the screen still says something is in hand.
 #
 # Presentation only: no sim component is written. The model is visual; the sim decides every hit.
-# Materials come from the manifest loader (`models.gd`) and are already nearest-with-mipmaps.
+# Materials come from the manifest loader (`models.gd`): one shared, mipmapped texture per atlas.
 #
-# THE MODEL SEAM. The manifest loader is `godot/presentation/first_person/models.gd`, written in
-# parallel. Until it lands, this file only calls its two functions: `resolve(item_id)` ->
-# {glb, sockets, grip, ...} and `instance(item_id)` -> Node3D (or an empty Dictionary / null for an
-# unknown item). There is no second loader here; when `models.gd` is absent the model is absent and
-# the placeholder stays.
+# THE MODEL SEAM. `godot/presentation/first_person/models.gd` (the manifest loader) is the only
+# loader. This file calls `Models.resolve(item_id, item_class)` for the manifest entry (sockets and
+# grip) and `Models.model_for(item_id, item_class)` for a fresh instance; the item's class is read
+# from its content base, exactly as `loose_view.gd` reads it. There is no second loader here, and no
+# fallback: an item the manifests do not name keeps the placeholder box.
 
 const SimItems = preload("res://sim/modules/items.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
-
-const MODELS_PATH: String = "res://presentation/first_person/models.gd"
+const Models = preload("res://presentation/first_person/models.gd")
 
 # The held anchor: lower right, a little below the eye, angled inward. The model is real scale
 # (a service pistol is 192 mm), so it sits close to the eye.
@@ -65,9 +64,6 @@ var _missing: Array[String] = []
 var _signature: String = ""
 var _armed: bool = false
 var _ranged_drawn: bool = false
-# The loader: an instance of models.gd when it exists, null otherwise. Resolved once.
-var _models: Object = null
-var _models_checked: bool = false
 
 
 func _ready() -> void:
@@ -224,11 +220,11 @@ func _rebuild(world: Variant, item: int, base_id: String, is_ranged: bool) -> vo
 	_missing = []
 	if base_id == "":
 		return
-	var spec: Dictionary = _resolve(base_id)
+	var spec: Dictionary = _resolve(world, item, base_id)
 	if spec.is_empty():
 		_missing.append(base_id)
 		return
-	var receiver: Node3D = _instance(base_id)
+	var receiver: Node3D = _instance(world, item, base_id)
 	if receiver == null:
 		_missing.append(base_id)
 		return
@@ -270,11 +266,11 @@ func _place_part(world: Variant, host: int, slot: String, part_item: int, receiv
 	if part_id == "":
 		_missing.append("slot:%s" % slot)
 		return null
-	var part_spec: Dictionary = _resolve(part_id)
+	var part_spec: Dictionary = _resolve(world, part_item, part_id)
 	if part_spec.is_empty():
 		_missing.append(part_id)
 		return null
-	var part: Node3D = _instance(part_id)
+	var part: Node3D = _instance(world, part_item, part_id)
 	if part == null:
 		_missing.append(part_id)
 		return null
@@ -372,30 +368,17 @@ func _size_placeholder(is_ranged: bool, range_metres: float, reach: float) -> vo
 
 # --- the manifest loader seam ---------------------------------------------------------------
 
-func _models_object() -> Object:
-	if _models_checked:
-		return _models
-	_models_checked = true
-	if not ResourceLoader.exists(MODELS_PATH):
-		_models = null
-		return null
-	var script: GDScript = load(MODELS_PATH) as GDScript
-	if script == null:
-		return null
-	_models = script.new()
-	return _models
+func _resolve(world: Variant, item: int, item_id: String) -> Dictionary:
+	var entry: Variant = Models.resolve(item_id, _class_of(world, item))
+	return entry as Dictionary if entry is Dictionary else {}
 
 
-func _resolve(item_id: String) -> Dictionary:
-	var source: Object = _models_object()
-	if source == null or not source.has_method("resolve"):
-		return {}
-	var got: Variant = source.call("resolve", item_id)
-	return got as Dictionary if got is Dictionary else {}
+func _instance(world: Variant, item: int, item_id: String) -> Node3D:
+	return Models.model_for(item_id, _class_of(world, item))
 
 
-func _instance(item_id: String) -> Node3D:
-	var source: Object = _models_object()
-	if source == null or not source.has_method("instance"):
-		return null
-	return source.call("instance", item_id) as Node3D
+func _class_of(world: Variant, item: int) -> String:
+	if world == null or item < 0:
+		return ""
+	var base: Variant = SimItems.item_base_of(world, item)
+	return String((base as Dictionary).get("class", "")) if base is Dictionary else ""
