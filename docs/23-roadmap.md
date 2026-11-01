@@ -2413,6 +2413,25 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **First-person game speed, 2026-11-01.** Advances "First-person simulation and ledger
+  foundation": the clock's keys work in the first-person scene, so a day's work can be reached sooner.
+  - **The keys and ladder.** `first_person.gd` reads the "slower" and "faster" bindings from
+    `input_map.gd`'s BINDINGS (`-` and `=`, and the keypad keys) and steps `SPEED_LADDER`, 1x and 3x,
+    as `main.gd` does. There is no 10x, which waits on the tick budget. `P` still holds the world.
+  - **The clamp.** The frame loop follows `main.gd`'s rule: the accumulator gains `delta` times the
+    rate (`SessionRes.run_rate`), is clamped to what one frame may run with `RenderInterp.clamp_debt`,
+    and at most five ticks per speed step run in a frame. The old fixed eight-tick guard is gone.
+  - **Refusal.** The speed keys sit below the ledger, sheet and end-panel branches of `_input`, which
+    consume every key first, so they are refused under those screens as `main.gd` refuses them.
+  - **The HUD.** `hud.gd` shows `Time is <words>.` from `SessionRes.speed_words`, the top-down words
+    ("normal speed", "fast", "paused"), with no digit.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, SPEED lane) prints
+    `FIRST_PERSON_OK`. True positive: over 60 frames, 3x advances three times the ticks of 1x, and P holds
+    the clock at zero. True negatives: a key that is not a speed key changes nothing, and the slower key
+    does nothing while the ledger is open. Mutation-tested: no speed keys, no 3x, and P ignored each turn
+    the lane red.
+  - **Not in this piece.** 10x. Speed in the save file (the clock is presentation state and resets on boot).
+
 - **First-person art loads from a clean checkout, 2026-11-01.** Advances "First-person
   starter-kit integration": the desk and ledger GLBs load at runtime, and the review's M3 and M4 are
   fixed. The kit's art itself arrives with its own PR.
