@@ -7787,3 +7787,27 @@ default, "yes", behind one switch, `SimVisibility.SIGHT_BY_HEIGHT`. The question
   first-person `body_view.gd`) still ask `detail` at the body's spot. Drawing bodies through
   `detail_body` is docs/40's slice 7. Until then a crouched player's screen can draw a crouched or
   crawling body behind a car that the sim's sightings do not record.
+
+## First person is the default boot; third person is a testing view, 2026-11-01
+
+The owner's call, 2026-11-01: "let's make the default mode be first person. From first person you
+can switch to 3rd. This is only for testing." It is recorded as what it is: first person is the game,
+and third person is a view for testing, not a game mode.
+
+- **The default.** `project.godot`'s `run/main_scene` names `presentation/first_person/first_person.tscn`.
+  `npm run godot:run` and the exported builds open first person. The top-down game is kept for testing:
+  `npm run godot:run:topdown` opens `presentation/main.tscn` directly, and the first-person scene's
+  Escape leads to that title, where New run starts the top-down game. The title row is now "first
+  person". Save slots are unchanged, and the first-person slot stays separate from the top-down one.
+- **The testing view.** F2 toggles third person: the camera steps back 2.75 m behind the eye, 0.4 m
+  up and 0.25 m right. A wall on the line from the eye pulls it in, read as the sim's own sight line
+  (`SimSpace.segment_clear`, SIGHT). The player's own body is drawn only in third person, with
+  `survivor.glb` playing the clip the sim's state names. The flag is presentation only: the sim never
+  reads it and the save never holds it. Movement, aim and interaction still come from the eye.
+- **The held weapon stays at the camera in third person.** The body carries no weapon yet, so a
+  third-person screen shows the first-person weapon. This is a known limit of the testing view.
+- **Gates.** `godot:check:first_person` holds BOOT (the boot scene, and a refused top-down line) and
+  THIRD (the body hidden in first person; shown, placed and animated in third; the camera pulled in
+  by a wall, and not pulled in on an open line). `godot:check:play`'s SCENE lane asserts the first-person boot.
+- **Left open.** Whether third person ever becomes a player-facing mode is not decided here; docs/39
+  does not name one.

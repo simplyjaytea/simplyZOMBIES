@@ -19,12 +19,28 @@ extends SceneTree
 #             0.12 m thickness, inside the tile and flush to an edge. A wrong-size module planted
 #             through the same placement is refused. Without the GLBs the lane skips and the band
 #             boxes are under test.
+#   FINISHES  every content template resolves to one manifest model whose spatial vertices stay in
+#             full wall tiles and within 0..2550 mm, with every wall tile capped over its footprint
+#             exactly once: by the always-drawn mesh, or by its own per-tile wall piece when worldgen
+#             may open it. Every per-tile piece the manifest counts is a node the view parses. Finish
+#             vertices below the roof stay in solid template tiles, except floor overlays; glazing is
+#             transparent and nearest-filtered. Planted open-tile and high-wall vertices are refused,
+#             and a stamped house really draws its finish instance.
+#   WORLDGEN  the four districts generated for real (`SimBoot.bare`, occluder pass included): every
+#             sim wall in a finished building is drawn as a wall, and every sim window is drawn as
+#             one, rays across its aperture (1.25 and 1.85 m) passing every opaque face the building
+#             draws and rays at its sill and lintel (0.5 and 2.3 m) hitting one. No legacy band box
+#             is left under a tile the building draws. A solid wall planted over a window worldgen
+#             opened is refused by the same rays, and a baseline that still draws the band boxes is
+#             refused by the same box count.
 
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
+const BuildingView = preload("res://presentation/first_person/building_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
 const SimSpace = preload("res://sim/space/space.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimTemplates = preload("res://sim/map/templates.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimStances = preload("res://sim/stances.gd")
 
@@ -45,12 +61,13 @@ func _run() -> void:
 	ok = _old_way(fixture) and ok
 	ok = _bodies() and ok
 	ok = _kit(fixture) and ok
+	ok = _finishes() and ok
 	_finish(ok)
 
 
 func _finish(ok: bool) -> void:
 	if ok:
-		print("FP_GEOMETRY_OK every tile's built mesh has exactly its profile bands and every body its cylinder, wall tiles are drawn by the kit module with the band's height inside their tile, and the old-way window, Low tile and a wrong-size module are refused")
+		print("FP_GEOMETRY_OK every tile and all 22 building finishes keep their profile bands, every body keeps its cylinder, finish skins stay within 25 mm of a solid host, every sim window in four generated districts is drawn open, and planted wall-over-window, band-box, window, Low-tile, module, open-tile and high-wall errors are refused")
 		quit(0)
 		return
 	for failure in _failures:
@@ -222,7 +239,10 @@ func _bodies() -> bool:
 			survivor = e
 	if survivor < 0 or zombie < 0:
 		return _fail("BODIES", "the boot has no survivor and no zombie to measure")
+	# The capsule is the fallback this lane measures: the models are off here, and the models lane in
+	# check_first_person.gd holds the character models.
 	var view: BodyView = BodyView.new()
+	view.models_enabled = false
 	root.add_child(view)
 	view.build()
 	view.reset(world)
@@ -364,6 +384,437 @@ func _kit_mesh(path: String) -> Mesh:
 
 func _size_close(a: Vector3, b: Vector3) -> bool:
 	return absf(a.x - b.x) <= 0.01 and absf(a.y - b.y) <= 0.01 and absf(a.z - b.z) <= 0.01
+
+
+# --- FINISHES -------------------------------------------------------------------------------
+
+func _finishes() -> bool:
+	var templates: Dictionary = _building_templates()
+	var manifest: Dictionary = BuildingView.read_manifest()
+	var models: Array = manifest.get("models", []) as Array
+	var ok: bool = true
+	if models.size() != templates.size():
+		ok = _fail("FINISHES", "manifest has %d models for %d content templates" % [models.size(), templates.size()])
+	var wall_looks: Dictionary = {}
+	var roof_looks: Dictionary = {}
+	for template_v in templates.values():
+		var template: Dictionary = template_v as Dictionary
+		wall_looks[String((template.get("look", {}) as Dictionary).get("wall", ""))] = true
+		roof_looks[String((template.get("look", {}) as Dictionary).get("roof", ""))] = true
+	var manifest_walls: Dictionary = (manifest.get("looks", {}) as Dictionary).get("wall", {}) as Dictionary
+	var manifest_roofs: Dictionary = (manifest.get("looks", {}) as Dictionary).get("roof", {}) as Dictionary
+	for look in wall_looks:
+		if not manifest_walls.has(look):
+			ok = _fail("FINISHES", "wall look %s has no atlas variants" % look)
+	for look in roof_looks:
+		if not manifest_roofs.has(look):
+			ok = _fail("FINISHES", "roof look %s has no atlas variants" % look)
+	for id in templates:
+		var template: Dictionary = templates[id] as Dictionary
+		var entry: Dictionary = BuildingView.entry_for(id)
+		if entry.is_empty():
+			ok = _fail("FINISHES", "%s does not resolve to a model" % id)
+			continue
+		var loaded: Dictionary = Assets.load_model(String(entry.get("glb", "")))
+		var node: Node3D = loaded["node"] as Node3D
+		if node == null:
+			ok = _fail("FINISHES", "%s model did not load" % id)
+			continue
+		var spatial: MeshInstance3D = _named_mesh(node, "spatial_bands")
+		var finish: MeshInstance3D = _named_mesh(node, "finish")
+		if spatial == null or finish == null:
+			ok = _fail("FINISHES", "%s lacks spatial or finish geometry" % id)
+			node.free()
+			continue
+		var glass_found: bool = false
+		var counts: Dictionary = {"jamb": 0, "wall": 0, "window": 0}
+		var wall_pieces: Dictionary = {}
+		var window_pieces: Dictionary = {}
+		for mesh_node in BuildingView.mesh_nodes(node):
+			var instance: MeshInstance3D = mesh_node as MeshInstance3D
+			var piece: Dictionary = BuildingView.parse_piece(String(instance.name))
+			if not piece.is_empty():
+				counts[piece["kind"]] = int(counts[piece["kind"]]) + 1
+				if String(piece["kind"]) == "wall":
+					wall_pieces[piece["tile"]] = true
+				elif String(piece["kind"]) == "window":
+					window_pieces[piece["tile"]] = true
+			elif instance != spatial and instance != finish:
+				ok = _fail("FINISHES", "%s has an unnamed mesh node %s the view would draw on every instance" % [id, instance.name])
+			for surface in instance.mesh.get_surface_count():
+				var material: BaseMaterial3D = instance.get_active_material(surface) as BaseMaterial3D
+				if material == null or material.texture_filter != BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS:
+					ok = _fail("FINISHES", "%s has an unfiltered or missing atlas material" % id)
+				if material != null and material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+					glass_found = true
+				var arrays: Array = instance.mesh.surface_get_arrays(surface)
+				var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+				for vertex in vertices:
+					if instance == spatial:
+						if not _spatial_vertex_allowed(template, vertex):
+							ok = _fail("FINISHES", "%s spatial vertex %s leaves a wall band or tile" % [id, vertex])
+					elif not _finish_vertex_allowed(template, vertex):
+						ok = _fail("FINISHES", "%s finish vertex %s enters an open tile or sinks" % [id, vertex])
+		if _template_has_window(template) and not glass_found:
+			ok = _fail("FINISHES", "%s has windows but no transparent glazing" % id)
+		var box: AABB = spatial.mesh.get_aabb()
+		if absf(box.position.y) > EPSILON_M or absf(box.end.y - 2.55) > EPSILON_M:
+			ok = _fail("FINISHES", "%s spatial height is %s, not 0..2.55" % [id, box])
+		var expected: Dictionary = entry.get("pieces", {}) as Dictionary
+		for kind in counts:
+			if int(counts[kind]) != int(expected.get(kind, -1)):
+				ok = _fail("FINISHES", "%s parsed %d %s pieces, the manifest counts %s" % [id, counts[kind], kind, expected.get(kind, "none")])
+		var capped: Dictionary = {}
+		for tile_v in BuildingView.capped_tiles(node, "spatial_bands"):
+			capped[tile_v] = true
+		for y in range(int((template["size"] as Dictionary)["h"])):
+			for x in range(int((template["size"] as Dictionary)["w"])):
+				var tile: Vector2i = Vector2i(x, y)
+				var value: int = _template_tile(template, x, y)
+				if value == 2 and not window_pieces.has(tile):
+					ok = _fail("FINISHES", "%s window %d,%d has no window piece" % [id, x, y])
+				if value != 1:
+					continue
+				if capped.has(tile) == wall_pieces.has(tile):
+					ok = _fail("FINISHES", "%s wall %d,%d is capped %s" % [id, x, y, "twice" if capped.has(tile) else "by nothing"])
+				elif wall_pieces.has(tile) and not window_pieces.has(tile):
+					ok = _fail("FINISHES", "%s wall %d,%d can be taken away but has no window to draw instead" % [id, x, y])
+		node.free()
+	var house: Dictionary = templates.get("building.house.small", {}) as Dictionary
+	if not house.is_empty():
+		if _spatial_vertex_allowed(house, Vector3(1.5, 2.56, 0.5)):
+			ok = _fail("FINISHES", "a planted vertex above the wall band was accepted")
+		if _finish_vertex_allowed(house, Vector3(1.5, 1.2, 1.5)):
+			ok = _fail("FINISHES", "a planted finish vertex in an open indoor tile was accepted")
+		if not _finish_vertex_allowed(house, Vector3(1.5, 0.004, 1.5)):
+			ok = _fail("FINISHES", "the valid indoor floor overlay was refused")
+		ok = _finish_placement(house) and ok
+	ok = _finish_worldgen(templates) and ok
+	return ok
+
+
+func _building_templates() -> Dictionary:
+	var out: Dictionary = {}
+	for filename in DirAccess.get_files_at("res://content/buildings"):
+		if not filename.ends_with(".json"):
+			continue
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://content/buildings/" + filename))
+		if parsed is Dictionary:
+			out[String((parsed as Dictionary).get("id", ""))] = parsed
+	return out
+
+
+func _named_mesh(node: Node, prefix: String) -> MeshInstance3D:
+	if node is MeshInstance3D and node.name.begins_with(prefix):
+		return node as MeshInstance3D
+	for child in node.get_children():
+		var found: MeshInstance3D = _named_mesh(child, prefix)
+		if found != null:
+			return found
+	return null
+
+
+func _template_tile(template: Dictionary, x: int, y: int) -> int:
+	var size: Dictionary = template["size"] as Dictionary
+	if x < 0 or y < 0 or x >= int(size["w"]) or y >= int(size["h"]):
+		return 0
+	for door_v in template.get("doors", []) as Array:
+		var door: Dictionary = door_v as Dictionary
+		if int(door["x"]) == x and int(door["y"]) == y:
+			return 6
+	return int((template["tiles"] as Array)[y * int(size["w"]) + x])
+
+
+func _template_indoors(template: Dictionary, x: int, y: int) -> bool:
+	var size: Dictionary = template["size"] as Dictionary
+	if x < 0 or y < 0 or x >= int(size["w"]) or y >= int(size["h"]):
+		return false
+	return int((template["indoors"] as Array)[y * int(size["w"]) + x]) != 0
+
+
+func _candidate_tiles(x: float, z: float) -> Array:
+	var xs: Array = [floori(x)]
+	var ys: Array = [floori(z)]
+	if absf(x - roundf(x)) <= EPSILON_M:
+		xs.append(floori(x) - 1)
+		xs.append(floori(x) + 1)
+	if absf(z - roundf(z)) <= EPSILON_M:
+		ys.append(floori(z) - 1)
+		ys.append(floori(z) + 1)
+	var out: Array = []
+	for tx in xs:
+		for ty in ys:
+			out.append(Vector2i(tx, ty))
+	return out
+
+
+func _spatial_vertex_allowed(template: Dictionary, point: Vector3) -> bool:
+	if point.y < -EPSILON_M or point.y > 2.55 + EPSILON_M:
+		return false
+	for tile_v in _candidate_tiles(point.x, point.z):
+		var tile: Vector2i = tile_v as Vector2i
+		if _template_tile(template, tile.x, tile.y) == 1:
+			return true
+	return false
+
+
+func _finish_vertex_allowed(template: Dictionary, point: Vector3) -> bool:
+	if point.y < -EPSILON_M:
+		return false
+	if point.y >= 2.50:
+		return true
+	for tile_v in _candidate_tiles(point.x, point.z):
+		var tile: Vector2i = tile_v as Vector2i
+		if point.y <= 0.005 and _template_indoors(template, tile.x, tile.y):
+			return true
+		if _template_tile(template, tile.x, tile.y) in [1, 2, 6]:
+			return true
+	var centre: Vector2i = Vector2i(floori(point.x), floori(point.z))
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			var tile: Vector2i = centre + Vector2i(dx, dy)
+			if _template_tile(template, tile.x, tile.y) not in [1, 2, 6]:
+				continue
+			var nearest: Vector2 = Vector2(clampf(point.x, tile.x, tile.x + 1), clampf(point.z, tile.y, tile.y + 1))
+			if nearest.distance_to(Vector2(point.x, point.z)) <= 0.025:
+				return true
+	return false
+
+
+func _template_has_window(template: Dictionary) -> bool:
+	for tile in template.get("tiles", []) as Array:
+		if int(tile) == 2:
+			return true
+	return false
+
+
+func _finish_placement(template: Dictionary) -> bool:
+	var map: Variant = SimTileMap.blank_map(16, 14)
+	SimTemplates.stamp(map, template, 3, 2)
+	map.tiles[8 * int(map.w) + 6] = SimTileMap.Tile.Door
+	map.buildings.append({"id": "building.house.small", "x": 3, "y": 2, "w": 9, "h": 7, "doors": [{"x": 6, "y": 8}]})
+	var view: Node3D = DistrictView.new()
+	root.add_child(view)
+	view.call("build", map, 20261101)
+	var ok: bool = true
+	var dresser: Node3D = view.get("building_finishes") as Node3D
+	var instances: Array = dresser.get("instances") as Array if dresser != null else []
+	if instances.size() != 1:
+		ok = _fail("FINISHES", "stamped house drew %d finish instances, not one" % instances.size())
+	elif int((instances[0] as Dictionary)["variant"]) != BuildingView.placement_hash(20261101, map.buildings[0]) % 3:
+		ok = _fail("FINISHES", "stamped house variant is not the seeded manifest choice")
+	if not (view.get("wall_instances") as Array).is_empty():
+		ok = _fail("FINISHES", "finished house also drew fallback wall modules")
+	view.queue_free()
+	var baseline: Node3D = DistrictView.new()
+	baseline.set("building_finishes_enabled", false)
+	root.add_child(baseline)
+	baseline.call("build", map, 20261101)
+	if baseline.get("building_finishes") != null or (baseline.get("wall_instances") as Array).is_empty():
+		ok = _fail("FINISHES", "disabled finishes did not restore the exact wall-module baseline")
+	baseline.queue_free()
+	return ok
+
+
+# --- WORLDGEN -------------------------------------------------------------------------------
+
+const FINISH_DISTRICTS: Array[String] = [
+	"district.residential_suburb",
+	"district.town_center",
+	"district.industrial_park",
+	"district.forest_edge",
+]
+const SIDE_OFFSETS: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
+
+
+func _finish_worldgen(templates: Dictionary) -> bool:
+	var ok: bool = true
+	var windows: int = 0
+	var opened: int = 0
+	var planted: bool = false
+	for district_id in FINISH_DISTRICTS:
+		var boot: Dictionary = SimBoot.bare(SimBoot.DISTRICT_SEED, SimTileMap.DISTRICT_TILES, district_id)
+		var map: Variant = boot["map"]
+		var view: Node3D = DistrictView.new()
+		root.add_child(view)
+		view.call("build", map, SimBoot.DISTRICT_SEED)
+		var judged: Dictionary = _judge_windows(view, map, templates)
+		for failure in judged["failures"] as Array:
+			ok = _fail("WORLDGEN", "%s: %s" % [district_id, failure])
+		windows += int(judged["windows"])
+		opened += int(judged["opened"])
+		var target: Variant = judged["opened_tile"]
+		if not planted and target != null:
+			planted = true
+			# True negative: the review's defect, a wall drawn over a window worldgen opened.
+			var wrong: Node3D = DistrictView.new()
+			wrong.set("building_force_wall", {target: true})
+			root.add_child(wrong)
+			wrong.call("build", map, SimBoot.DISTRICT_SEED)
+			var refused: Dictionary = _judge_windows(wrong, map, templates)
+			var blocked: bool = false
+			for failure in refused["failures"] as Array:
+				if String(failure).begins_with("window %s is blocked" % [target]):
+					blocked = true
+			if not blocked:
+				ok = _fail("WORLDGEN", "a solid wall planted over sim window %s was accepted" % [target])
+			wrong.free()
+			# True negative: the baseline still draws its band boxes under every finished tile.
+			var baseline: Node3D = DistrictView.new()
+			baseline.set("building_finishes_enabled", false)
+			root.add_child(baseline)
+			baseline.call("build", map, SimBoot.DISTRICT_SEED)
+			var drawn: Dictionary = (view.get("building_finishes") as Node3D).get("drawn") as Dictionary
+			if _legacy_boxes(baseline, map, drawn) == 0:
+				ok = _fail("WORLDGEN", "the band-box count found nothing in a baseline that draws the boxes")
+			baseline.free()
+		view.free()
+	print("FP_GEOMETRY WORLDGEN judged %d sim windows in finished buildings across %d districts, %d of them opened by worldgen" % [windows, FINISH_DISTRICTS.size(), opened])
+	if windows == 0 or opened == 0:
+		ok = _fail("WORLDGEN", "judged %d sim windows, %d opened by worldgen: nothing to judge" % [windows, opened])
+	if not planted:
+		ok = _fail("WORLDGEN", "no window worldgen opened, so the planted wall was never tried")
+	return ok
+
+
+# Every footprint tile of every finished building in a built district view, against the sim's
+# profile there. Returns {failures, windows, opened, opened_tile}.
+func _judge_windows(view: Node3D, map: Variant, templates: Dictionary) -> Dictionary:
+	var failures: Array = []
+	var windows: int = 0
+	var opened: int = 0
+	var opened_tile: Variant = null
+	var dresser: Node3D = view.get("building_finishes") as Node3D
+	if dresser == null:
+		return {"failures": ["no finished buildings were built"], "windows": 0, "opened": 0, "opened_tile": null}
+	var drawn: Dictionary = dresser.get("drawn") as Dictionary
+	for instance_v in dresser.get("instances") as Array:
+		var instance: Dictionary = instance_v as Dictionary
+		var record: Dictionary = instance["building"] as Dictionary
+		var template: Dictionary = templates.get(String(record.get("id", "")), {}) as Dictionary
+		var origin: Vector2i = Vector2i(int(record["x"]), int(record["y"]))
+		var buckets: Dictionary = _opaque_buckets(instance["node"] as Node3D)
+		for y in range(origin.y, origin.y + int(record["h"])):
+			for x in range(origin.x, origin.x + int(record["w"])):
+				var tile: Vector2i = Vector2i(x, y)
+				var key: String = SimSpace.profile_key(map, x, y)
+				var kind: String = String(drawn.get(tile, ""))
+				if key == "wall" and kind != "wall":
+					failures.append("sim wall %s is drawn as %s" % [tile, kind if kind != "" else "nothing"])
+				if key != "window":
+					continue
+				windows += 1
+				if _template_tile(template, x - origin.x, y - origin.y) == 1:
+					opened += 1
+					if opened_tile == null:
+						opened_tile = tile
+				if kind != "window":
+					failures.append("sim window %s is drawn as %s" % [tile, kind if kind != "" else "nothing"])
+				failures.append_array(_window_rays(map, tile, buckets))
+	var boxes: int = _legacy_boxes(view, map, drawn)
+	if boxes > 0:
+		failures.append("%d band-box faces are still drawn under tiles the buildings draw" % boxes)
+	return {"failures": failures, "windows": windows, "opened": opened, "opened_tile": opened_tile}
+
+
+# Rays across one window tile from each face that meets open ground: from 5 cm outside to past the
+# centre, at two points along the face. The aperture heights must pass, the sill and lintel must not.
+func _window_rays(map: Variant, tile: Vector2i, buckets: Dictionary) -> Array:
+	var failures: Array = []
+	var near: Array = []
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			near.append_array(buckets.get(tile + Vector2i(dx, dy), []) as Array)
+	var sides: int = 0
+	for side in 4:
+		var offset: Vector2i = SIDE_OFFSETS[side]
+		var neighbour: int = SimTileMap.tile_at(map, tile.x + offset.x, tile.y + offset.y)
+		if neighbour in [SimTileMap.Tile.Wall, SimTileMap.Tile.Window, SimTileMap.Tile.Tree, SimTileMap.Tile.Water]:
+			continue
+		sides += 1
+		var normal: Vector3 = Vector3(float(offset.x), 0.0, float(offset.y))
+		var origin: Vector3 = Vector3(float(tile.x + (1 if side == 1 else 0)), 0.0, float(tile.y + (1 if side == 2 else 0)))
+		var along_axis: Vector3 = Vector3(1, 0, 0) if side in [0, 2] else Vector3(0, 0, 1)
+		for along in [0.3, 0.7]:
+			for probe in [[0.5, true], [1.25, false], [1.85, false], [2.3, true]]:
+				var base: Vector3 = origin + along_axis * float(along) + Vector3(0.0, float(probe[0]), 0.0)
+				var hit: bool = _segment_hits(base + normal * 0.05, base - normal * 0.6, near)
+				if hit != bool(probe[1]):
+					var what: String = "is open in its sill or lintel" if bool(probe[1]) else "is blocked in its aperture"
+					failures.append("window %s %s at %.2f m, side %d" % [tile, what, float(probe[0]), side])
+	if sides == 0:
+		failures.append("window %s has no face on open ground to look through" % [tile])
+	return failures
+
+
+func _segment_hits(from: Vector3, to: Vector3, triangles: Array) -> bool:
+	for triangle_v in triangles:
+		var t: PackedVector3Array = triangle_v as PackedVector3Array
+		if Geometry3D.segment_intersects_triangle(from, to, t[0], t[1], t[2]) != null:
+			return true
+	return false
+
+
+# Every opaque triangle a finished instance draws, in world space, bucketed by each tile its bounds
+# touch. Glass is left out: it is transparent and the sim's aperture is clear.
+func _opaque_buckets(node: Node3D) -> Dictionary:
+	var buckets: Dictionary = {}
+	for mesh_node in BuildingView.mesh_nodes(node):
+		var instance: MeshInstance3D = mesh_node as MeshInstance3D
+		var xform: Transform3D = instance.global_transform
+		for surface in instance.mesh.get_surface_count():
+			var material: BaseMaterial3D = instance.get_active_material(surface) as BaseMaterial3D
+			if material != null and material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+				continue
+			var arrays: Array = instance.mesh.surface_get_arrays(surface)
+			var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var indices: PackedInt32Array = PackedInt32Array()
+			if arrays[Mesh.ARRAY_INDEX] != null:
+				indices = arrays[Mesh.ARRAY_INDEX]
+			var count: int = indices.size() if not indices.is_empty() else vertices.size()
+			for i in range(0, count, 3):
+				var a: Vector3 = xform * vertices[indices[i] if not indices.is_empty() else i]
+				var b: Vector3 = xform * vertices[indices[i + 1] if not indices.is_empty() else i + 1]
+				var c: Vector3 = xform * vertices[indices[i + 2] if not indices.is_empty() else i + 2]
+				if a.y > 2.56 and b.y > 2.56 and c.y > 2.56:
+					continue
+				var triangle: PackedVector3Array = PackedVector3Array([a, b, c])
+				for tx in range(floori(minf(a.x, minf(b.x, c.x)) - 0.001), floori(maxf(a.x, maxf(b.x, c.x)) + 0.001) + 1):
+					for tz in range(floori(minf(a.z, minf(b.z, c.z)) - 0.001), floori(maxf(a.z, maxf(b.z, c.z)) + 0.001) + 1):
+						var key: Vector2i = Vector2i(tx, tz)
+						if not buckets.has(key):
+							buckets[key] = []
+						(buckets[key] as Array).append(triangle)
+	return buckets
+
+
+# How many of the district's band-box faces sit under a tile a finished building drew as its sim
+# profile. Every box has a top face over its whole tile, so a horizontal triangle's centroid names
+# the tile its box belongs to.
+func _legacy_boxes(view: Node3D, map: Variant, drawn: Dictionary) -> int:
+	var solids: MeshInstance3D = view.get("solids") as MeshInstance3D
+	if solids == null or solids.mesh == null:
+		return 0
+	var count: int = 0
+	for surface in solids.mesh.get_surface_count():
+		var arrays: Array = solids.mesh.surface_get_arrays(surface)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var indices: PackedInt32Array = PackedInt32Array()
+		if arrays[Mesh.ARRAY_INDEX] != null:
+			indices = arrays[Mesh.ARRAY_INDEX]
+		var total: int = indices.size() if not indices.is_empty() else vertices.size()
+		for i in range(0, total, 3):
+			var a: Vector3 = vertices[indices[i] if not indices.is_empty() else i]
+			var b: Vector3 = vertices[indices[i + 1] if not indices.is_empty() else i + 1]
+			var c: Vector3 = vertices[indices[i + 2] if not indices.is_empty() else i + 2]
+			if absf(a.y - b.y) > EPSILON_M or absf(a.y - c.y) > EPSILON_M:
+				continue
+			var centre: Vector3 = (a + b + c) / 3.0
+			var tile: Vector2i = Vector2i(floori(centre.x), floori(centre.z))
+			var kind: String = String(drawn.get(tile, ""))
+			if kind != "" and kind == SimSpace.profile_key(map, tile.x, tile.y):
+				count += 1
+	return count
 
 
 # --- helpers --------------------------------------------------------------------------------

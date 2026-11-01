@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="simplyZOMBIES"
-run/main_scene="res://presentation/main.tscn"
+run/main_scene="res://presentation/first_person/first_person.tscn"
 config/features=PackedStringArray("4.7")
 
 [debug]
