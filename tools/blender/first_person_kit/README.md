@@ -163,7 +163,7 @@ were revised in the open, for the survivor only; the shambler keeps every origin
 - **Texel density:** the per-triangle 64 px/m +/-25% rule cannot hold on a smooth body painted
   on cylindrical islands: the islands pinch at their poles (the crown under the hair, boot
   soles, finger ends). The rule is now area-weighted against each island's own authored density
-  (above), so a global drop is still refused: drawn at 0.35x, the survivor has 17% of its
+  (above), so a global drop is still refused: drawn at 0.35x, the survivor has under 20% of its
   surface at density and is refused. (In the `cap-density` plant run, the shambler's atlas
   check, which runs earlier in the same build, refuses first.)
 - **Weights:** rigid one-bone weights are replaced by blended weights across every joint, and
