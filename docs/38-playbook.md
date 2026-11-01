@@ -44,6 +44,81 @@ is a frozen oracle: CI keeps it green, and nothing new goes into it.
 - **For the current `main`,** run `git log origin/main -1` and look at its CI. This file carries
   no commit hash on purpose, because a hash written here is out of date after the next merge.
 
+## Where we left off (2026-11-01, paused by the owner)
+
+The first-person conversion ([docs/39](39-first-person-pivot.md)) is the work in hand. The
+top-down game is still the default boot; the first-person scene is reached from the title's
+"first person (experimental)" row or `npm run godot:run:first_person`. This section is a
+handoff: read it, then `gh pr list` and each pull request's CI, because both move.
+
+**On `main`.** The pivot plan (docs/39), the spatial contract
+([docs/40](40-first-person-spatial-contract.md)), the first-person foundation and its
+integration (containers, save and load, death and succession, doors, stance and gait, interim
+fighting, the title row, day, night and the carried light, the ledger's Reports page, the shipped
+district size, art that loads from a clean checkout), spatial slice 1 (`SimSpace`'s height
+profile) and slice 2 (melee and zombie reach stop at walls), game speed, the Blender starter kit
+and the weapon kit, the README's first-person section, the owner cards in docs/33, and the
+review follow-ups in docs/23's first-person group.
+
+**Open pull requests, in the order they should merge.** Each merges `main` in and waits for CI
+on its new head first (How work flows, step 5); the conflicts so far have been docs/23's record
+list (keep both entries) and the lane list and OK sentence of `godot/check_first_person.gd`
+(keep both lanes).
+
+1. #292 the starter kit drawn in the scene (walls, boards, shelves), and #290 aim pitch
+   (spatial slice 3; the save stays at its version, reasoned in docs/30 "A pitch with no yaw").
+2. #294 body animation state, then #297 talking to a colonist (stacked on #294); #295 the F1
+   key reference; #296 the end-to-end expedition gate.
+3. #299 the loot-item kit (art review clear after three rounds), then #301 the model loader
+   (reads every `*.manifest.json`, shares one mipmapped texture per atlas, draws loose items),
+   then #300 the held weapon assembled from the sim's installed parts (being moved onto #301's
+   real API when paused).
+4. #288 the survivor and shambler: round 3 of its fixes is pushed; it needs the independent art
+   review's round 3 (the last full round) before it merges. Then the body view plays its clips
+   from #294's animation state.
+5. #302, docs only: the weapon and item kit polish minors.
+
+**In flight when paused.** The Kimi terminal was researching and prototyping better buildings
+and walls (the owner: they look rather large and not good enough; make them look like Project
+Zomboid). Its brief: a proposal at the coordinator's scratch path, a prototype on branch
+`kimi/fp-buildings-proto` (no pull request), and before-and-after captures. The likely cause is
+that a wall is a whole 1 m tile 2.55 m tall where Zomboid's walls are thin and on tile edges;
+the proposal separates art-only fixes from sim changes (edge walls, a finer grid, a lower wall
+band), which touch shared modules and may be owner calls. Read the branch and its report before
+starting anything on buildings.
+
+**Next, in order.** Land the queue above. Run round 3 of #288's art review. Review Kimi's
+buildings proposal with the owner. Then [docs/41](41-weapons-characters-world-plan.md), the
+plan for weapons, characters and a bigger world: the bodies and the held weapon in the scene
+first, then a dressed and furnished town, modular weapons, and docs/40's slices 4 to 7. The
+seven zombie kinds are the art lead's next piece after the characters clear. A small cleanup is
+owed: `check_first_person.gd` prints one hand-written OK sentence that every parallel branch
+edits; generate it from the lane list so it stops conflicting.
+
+**Waiting on the owner.** docs/33's first-person cards (the seven questions from docs/40 and the
+pause policy), and docs/41's "For the owner" list. Every one has a default already being built.
+
+**How this session ran.** One coordinator in the Orca app dispatched work into three live agent
+terminals (a fast general worker, a coding worker, and the art and 3D lead) with
+`orca orchestration task-create` and `dispatch --inject`, and used subagents on the strongest
+tier for shared sim modules, art kits and every independent art review. What held up:
+
+- Each worker gets its own `git worktree` under `.claude/worktrees/` (ignored by git) on a
+  branch named `<agent>/<piece>`; every terminal shares the main checkout, so nobody switches
+  branches there.
+- **No OS-level input and no desktop screenshots, ever.** Drive Godot from inside (the gate
+  harness, `Input.parse_input_event`, a throwaway GDScript driver) and capture only the game
+  viewport. A worker's synthetic keys once landed in the owner's browser.
+- CI capacity is the bottleneck. When pieces stack and collide in code, one integration pull
+  request that names the pieces it closes saves many merge-and-rerun cycles (#289 did twelve).
+  Docs-only pull requests were merged after a clean local merge and `check:routing`, since no
+  Godot gate reads them.
+- Art kits follow one shape: a reproducible Blender builder with `-- --check` and planted-error
+  modes, a `<kit>.manifest.json` in `godot/assets/first_person/`, and an independent in-engine
+  review before merge. The reviews keep finding the same faults (camouflage-like noise, paint
+  that follows atlas cells, density claims the check did not measure, bodies that float or sink),
+  so a new kit's builder should check those from the start.
+
 ## Who decides what
 
 - **The owner decides design.** That covers new mechanics, changed rules a player would notice,
