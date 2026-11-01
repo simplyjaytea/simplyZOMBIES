@@ -1,11 +1,14 @@
 extends Node3D
-# Sim-driven bodies as placeholders. One capsule per living body the sim owns, placed at the sim's
-# position between ticks. Nothing here moves anything: the body's `position` component is the only
-# truth, and this view reads it after `world.step()`.
+# Sim-driven bodies as placeholders. One capsule per living body and per human corpse the sim
+# owns, placed at the sim's position between ticks. Nothing here moves anything: the body's
+# `position` component is the only truth, and this view reads it after `world.step()`. A corpse is
+# what the dead body becomes at a succession, and it is drawn in the corpse's own colour if the
+# living eye can see it.
 #
 # The player's own body is deliberately absent -- in first person the camera is the body's eyes,
 # and a capsule at the eye would be a blue screen. `body_node_for(player)` returning null is the
-# structural half of "the camera is the player", asserted by the gate.
+# structural half of "the camera is the player", asserted by the gate. After a handoff the dead
+# body is no longer `world.player`, so it comes back as the corpse it now is.
 
 const SimHealth = preload("res://sim/modules/health.gd")
 
@@ -86,11 +89,13 @@ func _collect(world: Variant) -> Dictionary:
 			continue
 		if not world.entities.is_alive(e):
 			continue
-		if world.components.has_component(e, "corpse"):
-			continue
-		var body: Variant = world.components.get_component(e, "body")
-		if body is Dictionary and not SimHealth.is_alive(body as Dictionary):
-			continue
+		# A corpse stays a body the screen draws: on a succession the dead player is the first
+		# one the heir can see, and a body that vanished would be the camera changing without a
+		# reason on screen. A corpse has no living body left to test; the living still must.
+		if not world.components.has_component(e, "corpse"):
+			var body: Variant = world.components.get_component(e, "body")
+			if body is Dictionary and not SimHealth.is_alive(body as Dictionary):
+				continue
 		var pos: Variant = world.components.get_component(e, "position")
 		if not (pos is Dictionary):
 			continue
@@ -114,6 +119,9 @@ func _sync_views(world: Variant, alpha: float) -> void:
 		if view == null:
 			view = _make_view(e, world)
 			_views[e] = view
+		# A body that died since the view was made wears the corpse's colour from that frame on.
+		if world.components.has_component(e, "corpse") and view.material_override != _corpse_material:
+			view.material_override = _corpse_material
 		var then: Vector2 = _prev.get(e, _curr[e]) as Vector2
 		var now: Vector2 = _curr[e] as Vector2
 		var at: Vector2 = then.lerp(now, a)
@@ -132,10 +140,14 @@ func _in_sight(world: Variant, at: Vector2) -> bool:
 
 func _make_view(entity: int, world: Variant) -> MeshInstance3D:
 	var zombie: bool = world.components.has_component(entity, "zombieType")
+	var corpse: bool = world.components.has_component(entity, "corpse")
 	var view: MeshInstance3D = MeshInstance3D.new()
 	view.name = "Body%d" % entity
 	view.mesh = _zombie_mesh if zombie else _colonist_mesh
-	view.material_override = _zombie_material if zombie else _colonist_material
+	if corpse:
+		view.material_override = _corpse_material
+	else:
+		view.material_override = _zombie_material if zombie else _colonist_material
 	var height: float = ZOMBIE_HEIGHT_M if zombie else COLONIST_HEIGHT_M
 	view.position = Vector3(0.0, height * 0.5, 0.0)
 	add_child(view)

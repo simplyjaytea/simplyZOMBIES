@@ -23,11 +23,33 @@ extends SceneTree
 #             says so; E within reach and looking at the ledger opens the real work panel. J is not
 #             a way to open it, before or after. Escape closes it and gives the mouse and walking
 #             back.
+#   CONTAINER every sim container has a labelled placeholder at its sim position; E in reach and
+#             in aim sends the top-down `container.open` command and opens the real grid inventory
+#             sheet with the box beside the player's own bags; a take moves one real item into the
+#             player's inventory through `item.move`, and the box-plus-player total is unchanged.
+#             E out of reach, off the aim and through an opaque wall is refused with words, and a
+#             walking key does not move the body behind the open sheet. Escape closes it and gives
+#             the mouse back.
+#   FIGHT     the top-down buttons' own commands: left click/F swing, G fire, R reload; a bat hits
+#             a shambler in front and its body changes, a loaded gun spends a round, the HUD gets a
+#             camera kick and no reticle or centre dot, the placeholder weapon shows only with
+#             something in hand, the ledger refuses the same press, a look away misses, and a
+#             reload with nothing to load is the sim's refusal with no words from the scene.
 #   PRIORITY  a click on the panel's first priority cell dispatches a real `job.priority`, the
 #             colonist's row changes and turns Manual, and the player is never one of the rows.
 #   SPEECH    every line the first-person HUD draws is digit-free, it names the controls and the
 #             ledger, there is no progress bar in the tree, and the digit scanner is proved against
 #             a fabricated line.
+#   LIGHT     noon is bright and midnight is dark by named thresholds, rain darkens the grade and
+#             fog turns the depth fog on from the sim's own sight multiplier, an equipped and lit
+#             torch becomes the eye's spot at the sim's range and cone, the sim burning it out turns
+#             it off, and a body behind a wall is not drawn inside the torch's cone.
+#   SUCCESSION a killing of somebody who is not the player moves nothing; killing the player with
+#             an heir alive hands the camera to the heir on the next frame with no glide, says the
+#             chronicle's succession sentence on the HUD, walks the heir, and draws the dead body
+#             when the heir can see it.
+#   RUN-OVER  killing every colony body opens the end panel in the chronicle's words, releases the
+#             mouse, and W proposes no move or aim.
 #   DISTRICT  a fresh scene boots the shipped district size and seed (true positive), and the
 #             gate's small override really boots a smaller district, the one every lane above
 #             walks (true negative). Only a fresh, unparented instance is read for the default: no
@@ -35,8 +57,21 @@ extends SceneTree
 
 const SCENE_PATH: String = "res://presentation/first_person/first_person.tscn"
 const WorkPanel = preload("res://ui/work_panel.gd")
+const InventoryPanel = preload("res://ui/inventory_panel.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimContainers = preload("res://sim/modules/containers.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimHealth = preload("res://sim/modules/health.gd")
+const SimAllegiance = preload("res://sim/modules/allegiance.gd")
+const SimRecruits = preload("res://sim/modules/recruits.gd")
+const SimRoster = preload("res://sim/modules/roster.gd")
+const SimMelee = preload("res://sim/modules/melee.gd")
+const SimRanged = preload("res://sim/modules/ranged.gd")
+const SimItems = preload("res://sim/modules/items.gd")
+const SimLightMod = preload("res://sim/modules/light.gd")
+const SimWeather = preload("res://sim/modules/weather.gd")
+const Clock = preload("res://sim/time/clock.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const FirstPerson = preload("res://presentation/first_person/first_person.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
@@ -44,6 +79,12 @@ const Assets = preload("res://presentation/first_person/assets.gd")
 # The district the gate boots. Small on purpose: every lane walks the sim, and the shipped 256 district
 # is for the player, not for a gate. DISTRICT proves this is really smaller than the shipped default.
 const SMALL_DISTRICT_TILES: int = 64
+# The LIGHT lane's named thresholds. The sun and ambient must be well up at noon and well down at
+# midnight; these are the numbers the presentation constants are judged against.
+const LIGHT_NOON_SUN_MIN: float = 0.5
+const LIGHT_NOON_AMBIENT_MIN: float = 0.5
+const LIGHT_NIGHT_SUN_MAX: float = 0.05
+const LIGHT_NIGHT_AMBIENT_MAX: float = 0.15
 const TICK_SECONDS: float = 1.0 / 20.0
 const EPSILON: float = 0.0001
 
@@ -79,10 +120,15 @@ func _run() -> void:
 		ok = _movement(scene) and ok
 		ok = _yaw(scene) and ok
 		ok = _blocked(scene) and ok
+		ok = _container(scene) and ok
+		ok = _fight(scene) and ok
 		ok = _ledger(scene, spawn) and ok
 		ok = _priority(scene) and ok
 		ok = _menu(scene) and ok
 		ok = _speech(scene) and ok
+		ok = _light(scene) and ok
+		ok = _succession(scene) and ok
+		ok = _run_over(scene) and ok
 	scene.queue_free()
 	await process_frame
 	_finish(old_size, ok)
@@ -93,7 +139,7 @@ func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)
-		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, refuses E out of reach, off the aim and through a wall, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, and draws a digit-free prose HUD")
+		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, swings a bat into a shambler and fires a round through the top-down commands while the ledger refuses both, misses a body behind the look, and leaves a refused reload wordless, lights noon by the sim's clock and darkens midnight, turns a carried torch into the eye's spot at the sim's range and cone and out when it burns, and keeps a body behind a wall undrawn, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
 		quit(0)
 		return
 	for failure in _failures:
@@ -495,6 +541,425 @@ func _blocked(scene: Node) -> bool:
 	return ok
 
 
+# --- CONTAINER ------------------------------------------------------------------------------
+
+## The district's sim cupboards are drawn, opened through the top-down command, scavenged through
+## the real sheet, and refused by the same three rules the ledger uses.
+func _container(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var listed: Array = world.components.query(["searchable", "position"])
+	if listed.is_empty():
+		return _fail("CONTAINER", "the booted district stands no sim containers")
+	if int(scene.call("container_view_count")) != listed.size():
+		ok = _fail("CONTAINER", "the scene drew %d placeholders for %d sim containers" % [int(scene.call("container_view_count")), listed.size()])
+
+	# Every sim container is a labelled box at its own sim position.
+	for entity in listed:
+		var ent: int = int(entity)
+		var node: Node3D = scene.call("container_node_for", ent) as Node3D
+		if node == null:
+			ok = _fail("CONTAINER", "sim container %d has no placeholder" % ent)
+			continue
+		var at: Vector2 = scene.call("container_sim_position", ent)
+		if not is_equal_approx(node.position.x, at.x) or not is_equal_approx(node.position.z, at.y):
+			ok = _fail("CONTAINER", "container %d is drawn at (%.2f, %.2f), not its sim position (%.2f, %.2f)" % [ent, node.position.x, node.position.z, at.x, at.y])
+		var state: Variant = world.components.get_component(ent, "searchable")
+		var kind: String = String((state as Dictionary).get("kind", "")) if state is Dictionary else ""
+		if String(scene.call("container_label_for", ent)) != kind:
+			ok = _fail("CONTAINER", "container %d is labelled \"%s\", not \"%s\"" % [ent, String(scene.call("container_label_for", ent)), kind])
+
+	# A real box, in reach, with the eye on it.
+	var spot: Dictionary = _find_container_approach(scene)
+	if spot.is_empty():
+		return _fail("CONTAINER", "no sim container has a standable spot in reach with a clear line")
+	var box: int = int(spot["entity"])
+	var stand: Vector2 = spot["at"] as Vector2
+	_place_player(scene, stand)
+	scene.call("look_toward", scene.call("container_world_point", box))
+	_settle_vision(scene, 6)
+	if int(scene.call("container_target")) != box:
+		ok = _fail("CONTAINER", "aiming at container %d selected %d" % [box, int(scene.call("container_target"))])
+	if String(scene.call("container_verdict")) != "ok":
+		ok = _fail("CONTAINER", "a container in reach and in aim did not read as usable (%s)" % String(scene.call("container_verdict")))
+
+	# E sends the context menu's own command and opens the real inventory sheet.
+	world.commands.record = true
+	world.commands.recorded.clear()
+	var tick_before: int = int(world.tick)
+	_key(KEY_E, true)
+	_key(KEY_E, false)
+	if not bool(scene.get("inventory_open")):
+		ok = _fail("CONTAINER", "E at a container did not open the inventory")
+	var panel: Control = scene.call("inventory_panel_node") as Control
+	if panel == null or not panel.visible:
+		ok = _fail("CONTAINER", "the inventory panel was not visible after E")
+	elif panel.get_script() != InventoryPanel:
+		ok = _fail("CONTAINER", "E opened something other than the real inventory sheet")
+	if bool(scene.call("mouse_captured")):
+		ok = _fail("CONTAINER", "the mouse stayed captured with the inventory open")
+	# The scene's own frame steps the sim and refreshes the sheet, so the box is a column.
+	scene.call("_process", TICK_SECONDS)
+	var open_cmd: Dictionary = _last_command(world, "container.open", tick_before)
+	if open_cmd.is_empty():
+		ok = _fail("CONTAINER", "no container.open command reached the sim")
+	elif int(open_cmd.get("container", -1)) != box:
+		ok = _fail("CONTAINER", "container.open named %d, not the aimed %d" % [int(open_cmd.get("container", -1)), box])
+	if int(SimContainers.opened_by(world, int(world.player))) != box:
+		ok = _fail("CONTAINER", "the sim does not have that container open")
+	var loot: Dictionary = SimContainers.open_view(world, int(world.player))
+	if loot.is_empty():
+		ok = _fail("CONTAINER", "the open container has no grid view for the sheet")
+	if panel != null:
+		if not bool(panel.call("is_open")):
+			ok = _fail("CONTAINER", "the inventory sheet is not open")
+		var labels: Array = panel.call("column_labels") as Array
+		if labels.is_empty() or String(labels[0]) != String(loot.get("label", "")):
+			ok = _fail("CONTAINER", "the open box is not the sheet's first column: %s" % str(labels))
+		if not labels.has("pockets"):
+			ok = _fail("CONTAINER", "the sheet does not show the player's own pockets")
+
+	# A take is the sheet's own quick move: one real item crosses by `item.move`, and nothing is
+	# duplicated -- the box-plus-player total is exactly what it was.
+	var box_items: Array = SimContainers.contents_of(world, box)
+	if box_items.is_empty():
+		ok = _fail("CONTAINER", "the opened container rolled no items to take")
+	elif panel == null:
+		ok = _fail("CONTAINER", "no sheet to take an item with")
+	else:
+		var item: int = int(box_items[0])
+		var before_total: int = box_items.size() + SimInventory.contents_of(world, int(world.player)).size()
+		world.commands.recorded.clear()
+		var transfer_tick: int = int(world.tick)
+		panel.call("_act", "take", item)
+		scene.call("_process", TICK_SECONDS)
+		var move_cmd: Dictionary = _last_command(world, "item.move", transfer_tick)
+		if move_cmd.is_empty() or int(move_cmd.get("container", -1)) != int(world.player):
+			ok = _fail("CONTAINER", "the take did not go through an item.move into the player")
+		if not SimInventory.owns(world, int(world.player), item):
+			ok = _fail("CONTAINER", "the taken item is not in the player's inventory")
+		if SimContainers.contents_of(world, box).has(item):
+			ok = _fail("CONTAINER", "the taken item is still in the container")
+		var after_total: int = SimContainers.contents_of(world, box).size() + SimInventory.contents_of(world, int(world.player)).size()
+		if after_total != before_total:
+			ok = _fail("CONTAINER", "the transfer changed the box-plus-player count from %d to %d" % [before_total, after_total])
+
+	# The body stands still under the sheet, and the clock runs -- main.gd's own inventory
+	# default (only P stops the world), marked reversible in first_person.gd and the report.
+	var still: Vector2 = _player_pos(world)
+	var clock_before: int = int(world.tick)
+	_key(KEY_W, true)
+	scene.call("_process", TICK_SECONDS)
+	scene.call("_process", TICK_SECONDS)
+	_key(KEY_W, false)
+	if not _player_pos(world).is_equal_approx(still):
+		ok = _fail("CONTAINER", "a walking key moved the body behind the open inventory")
+	if int(world.tick) <= clock_before:
+		ok = _fail("CONTAINER", "the clock stopped under the open inventory, which main.gd does not do")
+
+	# Escape closes it, tells the sim, and gives the mouse and walking back.
+	world.commands.recorded.clear()
+	var close_tick: int = int(world.tick)
+	_key(KEY_ESCAPE, true)
+	_key(KEY_ESCAPE, false)
+	if bool(scene.get("inventory_open")):
+		ok = _fail("CONTAINER", "Escape did not close the inventory")
+	if panel != null and panel.visible:
+		ok = _fail("CONTAINER", "the inventory panel stayed visible after Escape")
+	if not bool(scene.call("mouse_captured")):
+		ok = _fail("CONTAINER", "Escape did not give the mouse back")
+	var held: Variant = scene.get("_held")
+	if held is Dictionary and not (held as Dictionary).is_empty():
+		ok = _fail("CONTAINER", "Escape left a movement key held")
+	scene.call("_process", TICK_SECONDS)
+	if _last_command(world, "container.close", close_tick).is_empty():
+		ok = _fail("CONTAINER", "Escape did not send container.close")
+	if int(SimContainers.opened_by(world, int(world.player))) != -1:
+		ok = _fail("CONTAINER", "the sim still has the container open after Escape")
+
+	# Off the aim, in reach: refused in the ledger's words.
+	_place_player(scene, stand)
+	scene.call("look_toward", scene.call("container_world_point", box))
+	_settle_vision(scene, 6)
+	scene.call("set_look", float(scene.get("yaw")) + PI, 0.0)
+	if String(scene.call("container_verdict")) != "away":
+		ok = _fail("CONTAINER", "a container in reach but off the aim did not read as away")
+	scene.set("_alert", "")
+	_key(KEY_E, true)
+	_key(KEY_E, false)
+	if bool(scene.get("inventory_open")):
+		ok = _fail("CONTAINER", "E opened a container while looking away from it")
+	var away_alert: String = String(scene.get("_alert"))
+	if away_alert == "" or not away_alert.contains("not looking at it"):
+		ok = _fail("CONTAINER", "the off-aim refusal did not say so: \"%s\"" % away_alert)
+
+	# Out of reach: refused with words, and the sim is never asked.
+	var box_at: Vector2 = scene.call("container_sim_position", box)
+	_place_player(scene, box_at + Vector2(5.0, 0.0))
+	scene.call("look_toward", scene.call("container_world_point", box))
+	if String(scene.call("container_verdict")) != "far":
+		ok = _fail("CONTAINER", "a container five metres away did not read as far (%s)" % String(scene.call("container_verdict")))
+	scene.set("_alert", "")
+	_key(KEY_E, true)
+	_key(KEY_E, false)
+	if bool(scene.get("inventory_open")):
+		ok = _fail("CONTAINER", "E opened a container from five metres away")
+	var far_alert: String = String(scene.get("_alert"))
+	if far_alert == "" or not far_alert.contains("Nothing within reach"):
+		ok = _fail("CONTAINER", "the out-of-reach refusal did not say so: \"%s\"" % far_alert)
+
+	# Through an opaque wall, still inside the sim's own reach. A whole wall tile is two metres
+	# between tile centres and SEARCH_REACH is 1.5, so the fixture slides the box 0.3 m toward
+	# the wall and stands the body just past it: close enough to reach, blind because of the wall.
+	var walled: Dictionary = _find_walled_container(scene)
+	if walled.is_empty():
+		ok = _fail("CONTAINER", "no container stands beside an opaque wall with floor beyond it")
+	else:
+		var wall_ent: int = int(walled["entity"])
+		var direction: Vector2i = walled["dir"] as Vector2i
+		var original: Vector2 = scene.call("container_sim_position", wall_ent)
+		var axis: Vector2 = Vector2(float(direction.x), float(direction.y))
+		var nudged: Vector2 = original + axis * 0.30
+		var behind: Vector2 = original + axis * 1.55
+		if behind.distance_to(nudged) > float(SimContainers.SEARCH_REACH):
+			ok = _fail("CONTAINER", "the through-wall fixture is outside reach")
+		world.components.set_component(wall_ent, "position", {"x": nudged.x, "y": nudged.y})
+		_place_player(scene, behind)
+		scene.call("look_toward", scene.call("container_world_point", wall_ent))
+		_settle_vision(scene, 6)
+		if String(scene.call("container_verdict")) != "blocked":
+			ok = _fail("CONTAINER", "a container through an opaque wall did not read as blocked (%s)" % String(scene.call("container_verdict")))
+		scene.set("_alert", "")
+		_key(KEY_E, true)
+		_key(KEY_E, false)
+		if bool(scene.get("inventory_open")):
+			ok = _fail("CONTAINER", "E opened a container through a wall")
+		var wall_alert: String = String(scene.get("_alert"))
+		if wall_alert == "" or not wall_alert.contains("behind a wall"):
+			ok = _fail("CONTAINER", "the through-wall refusal did not say so: \"%s\"" % wall_alert)
+		world.components.set_component(wall_ent, "position", {"x": original.x, "y": original.y})
+	scene.set("_alert", "")
+	return ok
+
+
+## A box and a standable floor tile within the sim's own reach from which the eye has a clear
+## line to it. Places the player and settles the sim's sight, because that is what "in reach and
+## in sight" means to the presentation.
+func _find_container_approach(scene: Node) -> Dictionary:
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	for entity in world.components.query(["searchable", "position"]):
+		var ent: int = int(entity)
+		var at: Vector2 = scene.call("container_sim_position", ent)
+		var base: Vector2i = Vector2i(floori(at.x), floori(at.y))
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				if dx == 0 and dy == 0:
+					continue
+				var tx: int = base.x + dx
+				var ty: int = base.y + dy
+				if not _walkable_floor(map, tx, ty):
+					continue
+				var stand: Vector2 = Vector2(float(tx) + 0.5, float(ty) + 0.5)
+				if stand.distance_to(at) > float(SimContainers.SEARCH_REACH) - 0.05:
+					continue
+				_place_player(scene, stand)
+				scene.call("look_toward", scene.call("container_world_point", ent))
+				_settle_vision(scene, 6)
+				if int(scene.call("container_target")) == ent and String(scene.call("container_verdict")) == "ok":
+					return {"entity": ent, "at": stand}
+	return {}
+
+
+## A container with an opaque wall directly beside it and walkable floor on the wall's far side.
+func _find_walled_container(scene: Node) -> Dictionary:
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var directions: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
+	for entity in world.components.query(["searchable", "position"]):
+		var ent: int = int(entity)
+		var at: Vector2 = scene.call("container_sim_position", ent)
+		var base: Vector2i = Vector2i(floori(at.x), floori(at.y))
+		for direction in directions:
+			var wall: Vector2i = base + direction
+			var beyond: Vector2i = wall + direction
+			if not SimTileMap.is_solid(map, wall.x, wall.y):
+				continue
+			if not SimTileMap.blocks_sight(map, wall.x, wall.y):
+				continue
+			if not _walkable_floor(map, beyond.x, beyond.y):
+				continue
+			return {"entity": ent, "dir": direction}
+	return {}
+
+
+# --- FIGHT -----------------------------------------------------------------------------------
+
+## The interim combat input: the top-down buttons' own commands, the sim's melee hit and a spent
+## round, the ledger refusing everything, a look away not hitting, and a reload the sim refuses
+## without the scene inventing words.
+func _fight(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var camera: Camera3D = scene.get("camera") as Camera3D
+	if camera == null:
+		return _fail("FIGHT", "the scene has no camera to kick")
+	var area: Vector2 = _find_open_area(map, 2)
+	if area == Vector2(-1.0, -1.0):
+		return _fail("FIGHT", "the district has no open area for a swing")
+	_place_player(scene, area)
+	scene.call("set_look", 0.0, 0.0)
+	scene.call("_process", TICK_SECONDS)
+
+	# The viewmodel: hidden for bare hands, shown with a bat in hand.
+	var player: int = int(world.player)
+	world.components.remove(player, "rangedWeapon")
+	world.components.remove(player, "meleeWeapon")
+	SimMelee.ensure_hands(world, player)
+	scene.call("_process", TICK_SECONDS)
+	if bool(scene.call("held_weapon_visible")):
+		ok = _fail("FIGHT", "the placeholder weapon is drawn for bare hands")
+	SimMelee.make_melee_armed(world, player)
+	SimHealth.make_stamina(world, player, 100)
+	scene.call("_process", TICK_SECONDS)
+	if not bool(scene.call("held_weapon_visible")):
+		ok = _fail("FIGHT", "the placeholder weapon is not drawn with a bat in hand")
+
+	# A shambler in front, inside the bat's reach, held still so the swing is the only thing that
+	# can move it.
+	var rng: Variant = world.rng.stream("shambler")
+	var front: int = int(SimRoster.spawn_zombie(world, area.x, area.y - 1.2, SimRoster.TYPE_SHAMBLER, rng))
+	_zero_shambler(world, front)
+	var body_before: Dictionary = _body_of(world, front)
+	world.commands.record = true
+	world.commands.recorded.clear()
+	var tick_before: int = int(world.tick)
+	_key(KEY_F, true)
+	_key(KEY_F, false)
+	scene.call("_process", TICK_SECONDS)
+	if absf(camera.rotation.x - float(scene.get("pitch"))) <= 0.0001:
+		ok = _fail("FIGHT", "a swing produced no camera kick")
+	var hit: bool = false
+	for _i in range(39):
+		scene.call("_process", TICK_SECONDS)
+		for event in world.events.drained:
+			var e: Dictionary = event as Dictionary
+			if String(e.get("type", "")) == "attack.connected" and int(e.get("attacker", -1)) == player and int(e.get("target", -1)) == front:
+				hit = true
+	if not hit:
+		ok = _fail("FIGHT", "the swing button produced no attack.connected on the shambler in front")
+	if _last_command(world, "swing", tick_before).is_empty():
+		ok = _fail("FIGHT", "the swing button sent no swing command")
+	if _body_total(_body_of(world, front)) >= _body_total(body_before):
+		ok = _fail("FIGHT", "the shambler's body did not change on a landed swing")
+	world.despawn(front)
+
+	# A ranged weapon with six rounds in the magazine: the fire button spends one. The left click
+	# is the top-down trigger; the profile names no ammo id, so the counter is the magazine.
+	SimRanged.make_ranged_armed(world, player, {"magSize": 6, "rangeMetres": 12.0, "damage": 12.0, "weight": 1.0, "handling": 1.0, "reloadTicks": 20})
+	scene.call("_process", TICK_SECONDS)
+	var ranged: Dictionary = world.components.get_component(player, "rangedWeapon") as Dictionary
+	var mag_before: int = int(ranged.get("mag", 0))
+	if mag_before != 6:
+		ok = _fail("FIGHT", "the ranged fixture did not start with six rounds (%d)" % mag_before)
+	if not bool(scene.call("mouse_captured")):
+		_click_mouse()
+	world.commands.recorded.clear()
+	tick_before = int(world.tick)
+	_click_mouse()
+	for _i in 60:
+		scene.call("_process", TICK_SECONDS)
+	if _last_command(world, "fire", tick_before).is_empty():
+		ok = _fail("FIGHT", "the left mouse button sent no fire command with a firearm in hand")
+	var mag_after: int = int((world.components.get_component(player, "rangedWeapon") as Dictionary).get("mag", -1))
+	if mag_after != mag_before - 1:
+		ok = _fail("FIGHT", "the fire button did not spend a round (%d -> %d)" % [mag_before, mag_after])
+
+	# Behind the player, with the look turned away: the same press does not hit it.
+	var back: int = int(SimRoster.spawn_zombie(world, area.x, area.y + 1.2, SimRoster.TYPE_SHAMBLER, rng))
+	_zero_shambler(world, back)
+	var back_before: Dictionary = _body_of(world, back)
+	_place_player(scene, area)
+	scene.call("set_look", 0.0, 0.0)
+	scene.call("_process", TICK_SECONDS)
+	world.commands.recorded.clear()
+	_key(KEY_F, true)
+	_key(KEY_F, false)
+	var back_hit: bool = false
+	for _i in 40:
+		scene.call("_process", TICK_SECONDS)
+		for event in world.events.drained:
+			var e2: Dictionary = event as Dictionary
+			if String(e2.get("type", "")) == "attack.connected" and int(e2.get("attacker", -1)) == player and int(e2.get("target", -1)) == back:
+				back_hit = true
+	if back_hit:
+		ok = _fail("FIGHT", "a swing at a shambler behind the player hit it anyway")
+	if _body_total(_body_of(world, back)) != _body_total(back_before):
+		ok = _fail("FIGHT", "the shambler behind the player lost health to a swing aimed away")
+	world.despawn(back)
+
+	# The ledger open: the same press sends nothing.
+	scene.call("open_ledger_menu")
+	world.commands.recorded.clear()
+	var ledger_tick: int = int(world.tick)
+	_key(KEY_F, true)
+	_key(KEY_F, false)
+	_click_mouse()
+	scene.call("_process", TICK_SECONDS)
+	if not _last_command(world, "swing", ledger_tick).is_empty():
+		ok = _fail("FIGHT", "a swing was sent with the ledger open")
+	if not _last_command(world, "fire", ledger_tick).is_empty():
+		ok = _fail("FIGHT", "a shot was sent with the ledger open")
+	scene.call("close_ledger_menu")
+	scene.call("_process", TICK_SECONDS)
+
+	# Reload with nothing to load: the sim refuses and the scene says nothing of its own. A fed
+	# weapon (an ammo id) with no rounds in the pack opens with an empty magazine and no reload.
+	SimRanged.make_ranged_armed(world, player, {"magSize": 6, "ammo": "ammo.9mm", "rangeMetres": 12.0, "damage": 12.0, "weight": 1.0, "handling": 1.0, "reloadTicks": 20})
+	scene.call("_process", TICK_SECONDS)
+	scene.set("_alert", "")
+	world.commands.recorded.clear()
+	var reload_tick: int = int(world.tick)
+	var reloaded: bool = false
+	_key(KEY_R, true)
+	_key(KEY_R, false)
+	for _i in 30:
+		scene.call("_process", TICK_SECONDS)
+		for event in world.events.drained:
+			if String((event as Dictionary).get("type", "")) == "weapon.reloaded":
+				reloaded = true
+	if _last_command(world, "reload", reload_tick).is_empty():
+		ok = _fail("FIGHT", "the reload key sent no reload command")
+	if reloaded:
+		ok = _fail("FIGHT", "a reload with nothing to load completed")
+	if String(scene.get("_alert")) != "":
+		ok = _fail("FIGHT", "the scene invented a reload refusal: %s" % String(scene.get("_alert")))
+	scene.set("_kick", 0.0)
+	return ok
+
+
+func _zero_shambler(world: Variant, entity: int) -> void:
+	var state: Variant = world.components.get_component(entity, "shambler")
+	if state is Dictionary:
+		(state as Dictionary)["seekSpeed"] = 0.0
+		(state as Dictionary)["wanderSpeed"] = 0.0
+		(state as Dictionary)["millSpeed"] = 0.0
+
+
+func _body_of(world: Variant, entity: int) -> Dictionary:
+	var body: Variant = world.components.get_component(entity, "body")
+	return (body as Dictionary).duplicate() if body is Dictionary else {}
+
+
+func _body_total(body: Dictionary) -> float:
+	var total: float = 0.0
+	for value in body.values():
+		if value is float or value is int:
+			total += float(value)
+	return total
+
+
 # --- LEDGER ---------------------------------------------------------------------------------
 
 func _ledger(scene: Node, spawn: Vector2) -> bool:
@@ -811,6 +1276,333 @@ func _has_digit(text: String) -> bool:
 		if text[i].is_valid_int():
 			return true
 	return false
+
+
+# --- LIGHT -----------------------------------------------------------------------------------
+
+## The sim's day, night, weather and carried light on the 3D screen, and the rule that a torch
+## never draws a body the sim says is unseen.
+func _light(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var sky: Node3D = scene.call("sky_view") as Node3D
+	if sky == null:
+		return _fail("LIGHT", "the scene has no sky view")
+	var player: int = int(world.player)
+
+	# Noon: the sun and the ambient are up; an unlit torch leaves the eye light off.
+	world.tick = Clock.tick_on_day(1, 0.5)
+	scene.call("_process", TICK_SECONDS)
+	var noon_sun: float = float(sky.call("sun_energy"))
+	var noon_ambient: float = float(sky.call("ambient_energy"))
+	if noon_sun <= LIGHT_NOON_SUN_MIN:
+		ok = _fail("LIGHT", "the noon sun is %.3f, not above %.2f" % [noon_sun, LIGHT_NOON_SUN_MIN])
+	if noon_ambient <= LIGHT_NOON_AMBIENT_MIN:
+		ok = _fail("LIGHT", "the noon ambient is %.3f, not above %.2f" % [noon_ambient, LIGHT_NOON_AMBIENT_MIN])
+	if bool(sky.call("eye_light_on")):
+		ok = _fail("LIGHT", "the eye light is on at noon with nothing lit")
+
+	# Rain darkens the same noon grade, and fog turns the depth fog on.
+	SimWeather.set_kind(world, "rain", int(world.tick) + 100)
+	scene.call("_process", TICK_SECONDS)
+	var rain_sun: float = float(sky.call("sun_energy"))
+	if String(sky.call("weather_kind")) != "rain" or rain_sun >= noon_sun * 0.9:
+		ok = _fail("LIGHT", "rain did not darken the noon grade (sun %.3f from %.3f)" % [rain_sun, noon_sun])
+	SimWeather.set_kind(world, "fog", int(world.tick) + 100)
+	scene.call("_process", TICK_SECONDS)
+	if not bool(sky.call("fog_enabled")):
+		ok = _fail("LIGHT", "the sim's fog did not turn the depth fog on")
+	SimWeather.set_kind(world, SimWeather.CLEAR, int(world.tick) + 100)
+	scene.call("_process", TICK_SECONDS)
+
+	# Midnight: the sun and the ambient fall below the named thresholds. Pin the sky clear first:
+	# jumping the clock lands past the previous span and would otherwise roll a new one.
+	world.tick = Clock.tick_on_day(1, 0.8)
+	SimWeather.set_kind(world, SimWeather.CLEAR, int(world.tick) + 100)
+	scene.call("_process", TICK_SECONDS)
+	var night_sun: float = float(sky.call("sun_energy"))
+	var night_ambient: float = float(sky.call("ambient_energy"))
+	if night_sun >= LIGHT_NIGHT_SUN_MAX:
+		ok = _fail("LIGHT", "the midnight sun is %.3f, not below %.2f" % [night_sun, LIGHT_NIGHT_SUN_MAX])
+	if night_ambient >= LIGHT_NIGHT_AMBIENT_MAX:
+		ok = _fail("LIGHT", "the midnight ambient is %.3f, not below %.2f" % [night_ambient, LIGHT_NIGHT_AMBIENT_MAX])
+	if bool(sky.call("eye_light_on")):
+		ok = _fail("LIGHT", "the eye light is on at midnight with nothing lit")
+
+	# A torch in hand: the sim's 25 m and 22 degrees become the eye's own spot.
+	var torch: int = int(SimItems.spawn_item(world, "item.torch.handheld", {"tier": "scavenged"}))
+	if not SimInventory.equip(world, player, torch):
+		ok = _fail("LIGHT", "the torch would not go in a hand")
+	# One frame drains the equip event, the next reads the light component it wrote.
+	scene.call("_process", TICK_SECONDS)
+	scene.call("_process", TICK_SECONDS)
+	if not bool(sky.call("eye_light_on")):
+		ok = _fail("LIGHT", "an equipped, lit torch did not turn the eye light on")
+	if absf(float(sky.call("eye_light_range")) - 25.0) > 0.01:
+		ok = _fail("LIGHT", "the eye light range is %.2f, not the torch's 25 m" % float(sky.call("eye_light_range")))
+	if not bool(sky.call("eye_light_is_spot")):
+		ok = _fail("LIGHT", "the torch's beam is not a spot")
+	if absf(float(sky.call("eye_light_angle_degrees")) - 22.0) > 0.01:
+		ok = _fail("LIGHT", "the eye spot's angle is %.2f, not the torch's 22" % float(sky.call("eye_light_angle_degrees")))
+
+	# An unseen body inside the torch's cone is still not drawn: a wall is the sim's refusal.
+	var setup: Dictionary = _find_wall_room(map)
+	if setup.is_empty():
+		ok = _fail("LIGHT", "no wall with open floor beyond it for the unseen-body negative")
+	else:
+		var near: Vector2i = setup["tile"] as Vector2i
+		var dir: Vector2i = setup["dir"] as Vector2i
+		var here: Vector2 = Vector2(float(near.x) + 0.5, float(near.y) + 0.5)
+		var far: Vector2 = here + Vector2(float(dir.x), float(dir.y)) * 2.0
+		var body: int = int(SimRoster.spawn_zombie(world, far.x, far.y, SimRoster.TYPE_SHAMBLER, world.rng.stream("shambler")))
+		_zero_shambler(world, body)
+		_place_player(scene, here)
+		scene.call("look_toward", Vector3(far.x, 0.9, far.y))
+		_settle_vision(scene, 6)
+		var detail: int = int(world.vision.call("detail", player, far.x, far.y))
+		if detail != 0:
+			ok = _fail("LIGHT", "a body behind a wall is seen (%d), so the negative judges nothing" % detail)
+		var node: MeshInstance3D = scene.call("body_node_for", body) as MeshInstance3D
+		if node == null:
+			ok = _fail("LIGHT", "the unseen shambler has no body view, so visibility is unjudged")
+		elif node.visible:
+			ok = _fail("LIGHT", "the eye light drew a body the sim says is unseen")
+		world.despawn(body)
+
+	# The sim burns the torch out; the eye light follows on the next frame.
+	var fuel: Variant = world.components.get_component(torch, "lightFuel")
+	if not (fuel is Dictionary):
+		ok = _fail("LIGHT", "the torch carries no burn clock")
+	else:
+		(fuel as Dictionary)["ticksLeft"] = 1
+		scene.call("_process", TICK_SECONDS)
+		scene.call("_process", TICK_SECONDS)
+		if bool(sky.call("eye_light_on")):
+			ok = _fail("LIGHT", "the eye light stayed on after the torch burnt out")
+
+	# Leave the scene at noon for the lanes after this one.
+	world.tick = Clock.tick_on_day(1, 0.5)
+	scene.call("_process", TICK_SECONDS)
+	return ok
+
+
+func _find_wall_room(map: Variant) -> Dictionary:
+	var directions: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
+	for ty in range(2, int(map.h) - 2):
+		for tx in range(2, int(map.w) - 2):
+			if not _walkable_floor(map, tx, ty):
+				continue
+			for direction in directions:
+				var wall: Vector2i = Vector2i(tx, ty) + direction
+				var far: Vector2i = wall + direction
+				if not SimTileMap.is_solid(map, wall.x, wall.y):
+					continue
+				if not SimTileMap.blocks_sight(map, wall.x, wall.y):
+					continue
+				if not _walkable_floor(map, far.x, far.y):
+					continue
+				return {"tile": Vector2i(tx, ty), "dir": direction}
+	return {}
+
+
+# --- SUCCESSION -----------------------------------------------------------------------------
+
+## An heir takes the camera in one cut, the HUD says so in the chronicle's words, the heir walks,
+## and the dead body is drawn when the heir can see it. The true negative is a body that is not the
+## player: killing it moves nothing.
+func _succession(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var camera: Camera3D = scene.get("camera") as Camera3D
+	if camera == null:
+		return _fail("SUCCESSION", "the scene has no camera to hand over")
+
+	# True negative: somebody else's death is not the player's, and the eye does not move.
+	var npc: int = _non_player_body(world)
+	if npc < 0:
+		_skips.append("SUCCESSION: no non-player body was left to kill, so the camera's stillness on somebody else's death is unjudged")
+	else:
+		var player_before: int = int(world.player)
+		var camera_before: Vector3 = camera.global_position
+		SimHealth.finish_death(world, npc)
+		scene.call("_process", TICK_SECONDS)
+		if int(world.player) != player_before:
+			ok = _fail("SUCCESSION", "an NPC death moved the player to %d" % int(world.player))
+		if not camera.global_position.is_equal_approx(camera_before):
+			ok = _fail("SUCCESSION", "an NPC death moved the camera")
+
+	if _other_colonists(world).is_empty():
+		return _fail("SUCCESSION", "the booted colony has no heir alive, so the player's death cannot hand over")
+	var dead: int = int(world.player)
+	var dead_pos: Vector2 = _player_pos(world)
+	SimHealth.finish_death(world, dead)
+	# Drive the tick the handoff landed in, as the game does: the chronicle writes the succession
+	# line at drain, and the scene reads it on the next frame.
+	world.step()
+	if bool(world.runOver):
+		return _fail("SUCCESSION", "the player died with an heir alive and the run ended anyway")
+	var heir: int = int(world.player)
+	if heir == dead:
+		return _fail("SUCCESSION", "the player's death left world.player on the dead body")
+	if not world.components.has_component(heir, "controlled"):
+		ok = _fail("SUCCESSION", "the heir is not controlled")
+
+	# The next frame, the camera is on the heir's sim position -- a cut, not a glide.
+	scene.call("_process", TICK_SECONDS)
+	var heir_pos: Vector2 = _player_pos(world)
+	var rendered: Vector2 = scene.call("rendered_player_position")
+	if not rendered.is_equal_approx(heir_pos):
+		ok = _fail("SUCCESSION", "the rendered eye is at %s, not the heir at %s" % [str(rendered), str(heir_pos)])
+	if not is_equal_approx(camera.global_position.x, heir_pos.x) or not is_equal_approx(camera.global_position.z, heir_pos.y):
+		ok = _fail("SUCCESSION", "the camera glided to (%.2f, %.2f), not the heir's (%.2f, %.2f)" % [camera.global_position.x, camera.global_position.z, heir_pos.x, heir_pos.y])
+
+	# The top-down game's own succession sentence, from the chronicle.
+	var joined: String = _hud_words(scene)
+	if not joined.contains("You are ") or not joined.contains(" now."):
+		ok = _fail("SUCCESSION", "the HUD did not name the succession: %s" % joined.strip_edges())
+	var identity: Variant = world.components.get_component(heir, "identity")
+	var heir_name: String = String((identity as Dictionary).get("name", "")) if identity is Dictionary else ""
+	if heir_name != "" and not joined.contains("You are %s now." % heir_name):
+		ok = _fail("SUCCESSION", "the HUD said %s, not the chronicle's \"You are %s now.\"" % [joined.strip_edges(), heir_name])
+
+	# The heir is the one who walks now.
+	var area: Vector2 = _find_open_area(map, 2)
+	if area != Vector2(-1.0, -1.0):
+		_place_player(scene, area)
+	scene.call("set_look", 0.0, 0.0)
+	var walk_from: Vector2 = _player_pos(world)
+	_key(KEY_W, true)
+	scene.call("_process", TICK_SECONDS)
+	scene.call("_process", TICK_SECONDS)
+	_key(KEY_W, false)
+	scene.call("_process", TICK_SECONDS)
+	if _player_pos(world).distance_to(walk_from) < 0.15:
+		ok = _fail("SUCCESSION", "W did not walk the heir")
+
+	# The dead body is a body the screen draws, when the heir can see it.
+	if not world.components.has_component(dead, "corpse"):
+		ok = _fail("SUCCESSION", "the dead player did not become a corpse")
+	else:
+		_place_player(scene, dead_pos)
+		scene.call("look_toward", Vector3(dead_pos.x, 0.90, dead_pos.y))
+		_settle_vision(scene, 6)
+		var corpse: MeshInstance3D = scene.call("body_node_for", dead) as MeshInstance3D
+		if corpse == null:
+			ok = _fail("SUCCESSION", "the dead body has no body view")
+		elif not corpse.visible:
+			ok = _fail("SUCCESSION", "the dead body was not drawn with the heir looking at it")
+	return ok
+
+
+## A living body that is not the player. A shambler first, because killing it cannot shrink the
+## heir pool; a colonist only when at least two others are alive (so one is left to succeed).
+func _non_player_body(world: Variant) -> int:
+	var fallback: int = -1
+	var spare: bool = _other_colonists(world).size() >= 2
+	for entity in world.components.query(["position", "body"]):
+		var ent: int = int(entity)
+		if ent == int(world.player) or not world.entities.is_alive(ent):
+			continue
+		if world.components.has_component(ent, "corpse"):
+			continue
+		if world.components.has_component(ent, "shambler"):
+			return ent
+		if fallback < 0:
+			fallback = ent
+	return fallback if spare else -1
+
+
+func _other_colonists(world: Variant) -> Array[int]:
+	var out: Array[int] = []
+	for entity in world.components.query(["position", "body"]):
+		var ent: int = int(entity)
+		if ent == int(world.player) or not world.entities.is_alive(ent):
+			continue
+		if world.components.has_component(ent, "corpse"):
+			continue
+		if world.components.has_component(ent, "recruit"):
+			continue
+		if not world.components.has_component(ent, "needs") and not world.components.has_component(ent, "identity"):
+			continue
+		if not SimAllegiance.is_colony(world, ent):
+			continue
+		out.append(ent)
+	return out
+
+
+func _hud_words(scene: Node) -> String:
+	var raw: Variant = scene.call("hud_lines")
+	var out: String = ""
+	if raw is Array:
+		for line in raw as Array:
+			out += String(line) + "\n"
+	return out
+
+
+# --- RUN OVER -------------------------------------------------------------------------------
+
+## Kill every colony body. The end panel is up, the mouse is out, the words are the chronicle's,
+## and W proposes nothing at all.
+func _run_over(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var camera: Camera3D = scene.get("camera") as Camera3D
+	for entity in world.components.query(["needs", "body"]):
+		var ent: int = int(entity)
+		if ent == int(world.player) or not world.entities.is_alive(ent):
+			continue
+		SimHealth.finish_death(world, ent)
+	# The player is last. The loop also takes any heir the sim finds (a body with an identity but
+	# no needs, a recruit) so "every colony body" means every one.
+	for _i in 8:
+		if bool(world.runOver):
+			break
+		var current: int = int(world.player)
+		if not world.entities.is_alive(current):
+			break
+		SimHealth.finish_death(world, current)
+	if not bool(world.runOver):
+		return _fail("RUN-OVER", "killing every colony body did not end the run")
+	# Drain the tick that ended it, as the game does, so the chronicle has the run-over line.
+	world.step()
+
+	scene.call("_process", TICK_SECONDS)
+	if not bool(scene.call("run_over_open")):
+		ok = _fail("RUN-OVER", "the end-of-run panel did not open")
+	if bool(scene.call("mouse_captured")):
+		ok = _fail("RUN-OVER", "the mouse stayed captured on the end screen")
+	var joined: String = _hud_words(scene)
+	if not joined.contains("the run is over"):
+		ok = _fail("RUN-OVER", "the end screen has no heading: %s" % joined.strip_edges())
+	if not joined.contains("There is nobody left to be."):
+		ok = _fail("RUN-OVER", "the end screen does not speak the chronicle's run-over line: %s" % joined.strip_edges())
+	var raw: Variant = scene.call("hud_lines")
+	if raw is Array:
+		for line in raw as Array:
+			if _has_digit(String(line)):
+				ok = _fail("RUN-OVER", "the end screen drew a digit: %s" % String(line))
+
+	# W is not a command and the eye does not move.
+	if camera == null:
+		return _fail("RUN-OVER", "the scene lost its camera")
+	var camera_before: Vector3 = camera.global_position
+	world.commands.record = true
+	world.commands.recorded.clear()
+	var tick_before: int = int(world.tick)
+	_key(KEY_W, true)
+	scene.call("_process", TICK_SECONDS)
+	scene.call("_process", TICK_SECONDS)
+	_key(KEY_W, false)
+	scene.call("_process", TICK_SECONDS)
+	if not _last_command(world, "move", tick_before).is_empty():
+		ok = _fail("RUN-OVER", "W sent a move command on the end screen")
+	if not _last_command(world, "aim", tick_before).is_empty():
+		ok = _fail("RUN-OVER", "the end screen sent an aim command")
+	if not camera.global_position.is_equal_approx(camera_before):
+		ok = _fail("RUN-OVER", "the camera moved on the end screen")
+	return ok
 
 
 # --- fixtures -------------------------------------------------------------------------------

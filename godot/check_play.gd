@@ -53,6 +53,9 @@ extends SceneTree
 #   AUTOSAVE   the first tick of a day writes the slot; an ordinary tick and a finished run do not
 #   LEGEND     a dismissed legend stays dismissed across a boot, and F1 brings it back
 #   TITLE      the game opens on a menu over a world that is not ticking, and "new run" plays it
+#   FIRST-PERSON the title's experimental row opens the first-person scene and its sim; new run
+#              still boots the top-down game and loads no first-person scene; Escape with the
+#              mouse already released, and the end panel's action, both return to the title
 #   CLOSE      the window's close request writes a save from a run, and nothing from the title
 #   RUN-OVER   the run ends on a screen that speaks the chronicle, and new run yields a live world
 #   DRAW       `_draw` completes by day and by night, and does not when the node is hidden
@@ -271,6 +274,9 @@ func _run() -> void:
 	# Its own scene: it puts a rifle and a pack on the survivor and a bench in the house.
 	var bench_ok: bool = await _the_bench_opens_fits_and_closes()
 	ok = bench_ok and ok
+	# Last, because it swaps the whole scene for the first-person one and back again.
+	var fp_ok: bool = await _the_first_person_entry()
+	ok = fp_ok and ok
 
 	_restore_user_files()
 	var elapsed: int = Time.get_ticks_msec() - _started_ms
@@ -278,7 +284,7 @@ func _run() -> void:
 
 	if ok:
 		var skipped: String = "no lane skipped" if _skips.is_empty() else "skipped: %s" % ", ".join(PackedStringArray(_skips))
-		print("PLAY_OK the scene boots to a title over a still world, ticks, walks, opens its screens, saves and loads, camps on C and crouches on Ctrl+C, refuses the street's keys under an open sheet, gives the name field every key, pauses to a menu on Escape, moves the audio bus, names its speed and sleeps through the night unless something is near, writes the slot at dawn and on the window's close, ends on a screen that speaks the chronicle and starts again, keeps a dismissed legend dismissed, offers a first-day hint that a click clears and a save keeps seen, and draws by day and by night in %d ms (%s)" % [elapsed, skipped])
+		print("PLAY_OK the scene boots to a title over a still world, ticks, walks, opens its screens, saves and loads, camps on C and crouches on Ctrl+C, refuses the street's keys under an open sheet, gives the name field every key, pauses to a menu on Escape, moves the audio bus, names its speed and sleeps through the night unless something is near, writes the slot at dawn and on the window's close, ends on a screen that speaks the chronicle and starts again, opens the first-person experiment from the title and comes back, keeps a dismissed legend dismissed, offers a first-day hint that a click clears and a save keeps seen, and draws by day and by night in %d ms (%s)" % [elapsed, skipped])
 		quit(0)
 	else:
 		push_error("PLAY_FAIL")
@@ -1899,6 +1905,172 @@ func _the_title_waits_over_a_still_world() -> bool:
 	print("TITLE OK the game opens on a menu over a world that is not ticking, the continue row follows the slot three ways, and Enter starts a run that moves")
 	print("CLOSE OK the window's close writes a decodable save from a live run and nothing from the title, and the web build is excused in the handler")
 	return true
+
+
+# --- FIRST PERSON ---------------------------------------------------------------------------
+
+# The pivot's only door: the title's experimental row. It swaps the whole scene for the
+# first-person one, which boots its own sim. The lane proves the row works, that the ordinary
+# new-run row is untouched and loads no first-person scene, and that both ways back -- Escape
+# with the mouse already released, and the run-over panel's one action -- return to this title.
+func _the_first_person_entry() -> bool:
+	_remove_save()
+	var main: Node = await _boot_scene()
+	if main == null:
+		return false
+	# The tree replaces the *current* scene; the gate added this one by hand.
+	current_scene = main
+	var shell: Variant = main.get("_shell")
+	if shell == null:
+		main.queue_free()
+		return _skip("FIRST-PERSON", "the scene built no shell to carry the experimental row")
+
+	# True negative: new run is still the top-down game, and the first-person scene is not loaded.
+	_tap(KEY_ENTER)
+	await process_frame
+	if _state(main) != Session.State.PLAYING:
+		main.queue_free()
+		push_error("FIRST-PERSON: new run left the session in state %d" % _state(main))
+		return false
+	if current_scene != main or not _is_main_scene(current_scene):
+		main.queue_free()
+		push_error("FIRST-PERSON: new run changed the scene away from the top-down game")
+		return false
+	if main.get("world") == null:
+		main.queue_free()
+		push_error("FIRST-PERSON: new run left a scene with no top-down world")
+		return false
+	if _first_person_node() != null:
+		main.queue_free()
+		push_error("FIRST-PERSON: new run loaded the first-person scene")
+		return false
+
+	# Back to the title, then the experimental row.
+	main.call("_enter_state", Session.State.TITLE)
+	await process_frame
+	var rows: Array = _shell_rows(main)
+	var at: int = rows.find("first person (experimental)")
+	if at < 0:
+		main.queue_free()
+		push_error("FIRST-PERSON: the title offers no experimental row: %s" % str(rows))
+		return false
+	for _i in range(at):
+		_tap(KEY_S)
+	await process_frame
+	_tap(KEY_ENTER)
+	await process_frame
+	await process_frame
+	var fp: Node = current_scene
+	if not _is_first_person_scene(fp):
+		if fp != null:
+			fp.queue_free()
+		push_error("FIRST-PERSON: the experimental row did not change the scene to the first-person one")
+		return false
+	var world: Variant = fp.get("world")
+	if world == null or int(world.player) < 0:
+		fp.queue_free()
+		push_error("FIRST-PERSON: the first-person scene opened without a sim")
+		return false
+	var camera: Camera3D = fp.get("camera") as Camera3D
+	if camera == null or not camera.current:
+		fp.queue_free()
+		push_error("FIRST-PERSON: the first-person scene has no current camera")
+		return false
+
+	# The quiet retreat: one Escape frees the mouse, the next returns to the title.
+	_tap(KEY_ESCAPE)
+	await process_frame
+	if not _is_first_person_scene(current_scene) or bool(fp.call("mouse_captured")):
+		fp.queue_free()
+		push_error("FIRST-PERSON: the first Escape did not simply release the mouse")
+		return false
+	_tap(KEY_ESCAPE)
+	await process_frame
+	await process_frame
+	var back: Node = current_scene
+	if not _is_main_scene(back):
+		if back != null:
+			back.queue_free()
+		push_error("FIRST-PERSON: the second Escape did not return to the title")
+		return false
+	var back_shell: Variant = back.get("_shell")
+	if back_shell == null or not bool((back_shell as CanvasItem).visible) or _state(back) != Session.State.TITLE:
+		back.queue_free()
+		push_error("FIRST-PERSON: the scene came back but the title is not up")
+		return false
+
+	# In again, and out by the end panel's action this time.
+	rows = _shell_rows(back)
+	at = rows.find("first person (experimental)")
+	if at < 0:
+		back.queue_free()
+		push_error("FIRST-PERSON: the returned title lost its experimental row")
+		return false
+	for _i in range(at):
+		_tap(KEY_S)
+	await process_frame
+	_tap(KEY_ENTER)
+	await process_frame
+	await process_frame
+	var again: Node = current_scene
+	if not _is_first_person_scene(again):
+		if again != null:
+			again.queue_free()
+		push_error("FIRST-PERSON: the experimental row did not reopen the first-person scene")
+		return false
+	var second: Variant = again.get("world")
+	if second == null:
+		again.queue_free()
+		push_error("FIRST-PERSON: the reopened first-person scene has no world")
+		return false
+	# The death that ends a run is the first-person gate's OWN lane; here the flag is enough to
+	# raise this scene's own end panel, whose action this lane is judging.
+	second.runOver = true
+	again.call("_process", TICK_SECONDS)
+	if not bool(again.call("run_over_open")):
+		again.queue_free()
+		push_error("FIRST-PERSON: the end panel did not come up in the first-person scene")
+		return false
+	_tap(KEY_ESCAPE)
+	await process_frame
+	await process_frame
+	var title: Node = current_scene
+	if not _is_main_scene(title):
+		if title != null:
+			title.queue_free()
+		push_error("FIRST-PERSON: the end panel's action did not return to the title")
+		return false
+	var title_shell: Variant = title.get("_shell")
+	if title_shell == null or not bool((title_shell as CanvasItem).visible) or _state(title) != Session.State.TITLE:
+		title.queue_free()
+		push_error("FIRST-PERSON: the end panel returned but the title is not up")
+		return false
+	title.queue_free()
+	current_scene = null
+	await process_frame
+	print("FIRST-PERSON OK the title's experimental row opens the first-person scene and its sim, new run still boots the top-down game and loads no first-person scene, and both Escape with the mouse released and the end panel's action return to the title")
+	return true
+
+
+func _is_main_scene(node: Node) -> bool:
+	if node == null:
+		return false
+	var script: GDScript = node.get_script() as GDScript
+	return script != null and script.resource_path == MAIN_GD
+
+
+func _is_first_person_scene(node: Node) -> bool:
+	if node == null:
+		return false
+	var script: GDScript = node.get_script() as GDScript
+	return script != null and script.resource_path == "res://presentation/first_person/first_person.gd"
+
+
+func _first_person_node() -> Node:
+	for child in root.get_children():
+		if _is_first_person_scene(child):
+			return child
+	return null
 
 
 # --- PAUSE --------------------------------------------------------------------------------------
