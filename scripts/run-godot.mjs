@@ -66,7 +66,12 @@ switch (mode) {
     args = ["--editor", "--path", resolve(root, "godot")];
     break;
   case "--run":
+    // The default boot: project.godot's main scene, which is the first-person scene (docs/39).
     args = ["--path", resolve(root, "godot")];
+    break;
+  case "--topdown-run":
+    // The top-down game, for testing: its own title, reached directly rather than from the default boot.
+    args = ["--path", resolve(root, "godot"), "--scene", "res://presentation/main.tscn"];
     break;
   case "--first-person":
     args = [
@@ -684,6 +689,20 @@ switch (mode) {
     break;
   case "--shots-check":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_shots.gd"];
+    break;
+  case "--shots-survivor":
+    // The survivor review: a candidate GLB photographed under the first-person scene's own sky and lens.
+    // Needs a display, like --shots. Anything after the mode is handed to the driver (`--glb=`, `--out=`).
+    args = [
+      "--fixed-fps",
+      "60",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://review/survivor_shots.gd",
+      "--",
+      ...process.argv.slice(3),
+    ];
     break;
   case "--export":
     args = [];

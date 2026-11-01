@@ -239,7 +239,10 @@ func _bodies() -> bool:
 			survivor = e
 	if survivor < 0 or zombie < 0:
 		return _fail("BODIES", "the boot has no survivor and no zombie to measure")
+	# The capsule is the fallback this lane measures: the models are off here, and the models lane in
+	# check_first_person.gd holds the character models.
 	var view: BodyView = BodyView.new()
+	view.models_enabled = false
 	root.add_child(view)
 	view.build()
 	view.reset(world)
