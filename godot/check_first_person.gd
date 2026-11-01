@@ -68,10 +68,16 @@ extends SceneTree
 #             published sizes on the floor and the desk top, with nearest-filtered materials; the
 #             prop preview stands every prop on its authored base. Missing art skips to the boxes,
 #             and a planted wrong-size GLB and a raised prop are refused by the same tests.
+#   ANIM      the animation read model names the pose from sim facts: standing, a walk, a run, a
+#             crouch, a crouch walk, a crawl, a swing (wind-up and recover), a shambler's armed swipe
+#             as a lunge, a hold as a grab, a stagger, and a corpse as death. A body that stops is
+#             idle on the next tick; a corpse stays death after many ticks; a living body is never
+#             death. Every phase is 0..1.
 
 const SCENE_PATH: String = "res://presentation/first_person/first_person.tscn"
 const WorkPanel = preload("res://ui/work_panel.gd")
 const InventoryPanel = preload("res://ui/inventory_panel.gd")
+const AnimState = preload("res://presentation/first_person/anim_state.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
@@ -81,6 +87,7 @@ const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
+const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
@@ -158,6 +165,7 @@ func _run() -> void:
 		ok = _preview() and ok
 		ok = _light(scene) and ok
 		ok = _succession(scene) and ok
+		ok = _anim(scene) and ok
 		ok = _run_over(scene) and ok
 	scene.queue_free()
 	await process_frame
@@ -169,7 +177,7 @@ func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)
-		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, swings a bat into a shambler and fires a round through the top-down commands while the ledger refuses both, misses a body behind the look, and leaves a refused reload wordless, opens and shuts a door through the sim's own verb from the tile the eye is on while a door out of reach or looked away from sends nothing, takes the top-down stance keys and eases the eye to the sim's posture height while the ledger refuses the keys, reads the chronicle's own lines on the ledger's Reports page and moves the read mark, lights noon by the sim's clock and darkens midnight, turns a carried torch into the eye's spot at the sim's range and cone and out when it burns, and keeps a body behind a wall undrawn, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, saves and loads through the sim's own save in its own slot, loads the desk and ledger from their GLBs at the published sizes with nearest-filtered materials and stands every preview prop on its base, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
+		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, swings a bat into a shambler and fires a round through the top-down commands while the ledger refuses both, misses a body behind the look, and leaves a refused reload wordless, opens and shuts a door through the sim's own verb from the tile the eye is on while a door out of reach or looked away from sends nothing, takes the top-down stance keys and eases the eye to the sim's posture height while the ledger refuses the keys, reads the chronicle's own lines on the ledger's Reports page and moves the read mark, lights noon by the sim's clock and darkens midnight, turns a carried torch into the eye's spot at the sim's range and cone and out when it burns, and keeps a body behind a wall undrawn, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, saves and loads through the sim's own save in its own slot, loads the desk and ledger from their GLBs at the published sizes with nearest-filtered materials and stands every preview prop on its base, names every body's animation state from the sim (stand, walk, run, crouch, crawl, swing, lunge, grab, stagger, death) with a phase in 0..1 while a corpse stays dead and a living body never does, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
 		quit(0)
 		return
 	for failure in _failures:
@@ -2269,6 +2277,168 @@ func _write_wrong_glb() -> String:
 	var err: Error = document.write_to_filesystem(state, ProjectSettings.globalize_path(path))
 	root.free()
 	return path if err == OK else ""
+
+
+# --- ANIM -----------------------------------------------------------------------------------
+
+# The animation read model, driven from the sim's own facts. A stance command and a move command are
+# the sim's own routes; a swing is the scene's F; a shambler's swipe, hold and stagger are set as the
+# sim stores them (they have no command); a death is `finish_death`. A body that stops is idle on the
+# next tick, a corpse stays death, and a living body is never death. Every phase is 0..1.
+func _anim(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var player: int = int(world.player)
+	var area: Vector2 = _find_open_area(map, 2)
+	if area == Vector2(-1.0, -1.0):
+		return _fail("ANIM", "the district has no open area to stand in")
+	_place_player(scene, area)
+	scene.call("set_look", 0.0, 0.0)
+
+	# Standing, then walking on the sim's own move command.
+	_push_stance(world, SimStances.Stance.Walk)
+	_push_move(world, 0.0, 0.0)
+	_step_ticks(scene, 10)
+	ok = _expect_state(world, player, AnimState.IDLE, "standing") and ok
+	_push_move(world, 1.0, 0.0)
+	scene.call("step_sim_once")
+	ok = _expect_state(world, player, AnimState.WALK, "a walk command") and ok
+
+	# A jog is a run; the stance changes on the ladder before the step is asked for.
+	_push_stance(world, SimStances.Stance.Jog)
+	_push_move(world, 0.0, 0.0)
+	_step_ticks(scene, 10)
+	_push_move(world, 1.0, 0.0)
+	scene.call("step_sim_once")
+	ok = _expect_state(world, player, AnimState.RUN, "a jog") and ok
+
+	# Crouched, still and moving.
+	_push_stance(world, SimStances.Stance.Crouch)
+	_push_move(world, 0.0, 0.0)
+	_step_ticks(scene, 10)
+	ok = _expect_state(world, player, AnimState.CROUCH_IDLE, "a crouch at rest") and ok
+	_push_move(world, 1.0, 0.0)
+	scene.call("step_sim_once")
+	ok = _expect_state(world, player, AnimState.CROUCH_WALK, "a crouched step") and ok
+
+	# Prone.
+	_push_stance(world, SimStances.Stance.Crawl)
+	_push_move(world, 0.0, 0.0)
+	_step_ticks(scene, 10)
+	ok = _expect_state(world, player, AnimState.CRAWL, "a crawl") and ok
+
+	# A swing: the top-down button's own F, read in its wind-up and in its recover.
+	_push_stance(world, SimStances.Stance.Walk)
+	_step_ticks(scene, 10)
+	SimMelee.make_melee_armed(world, player)
+	SimHealth.make_stamina(world, player, 100)
+	_key(KEY_F, true)
+	_key(KEY_F, false)
+	scene.call("step_sim_once")
+	var swing: Variant = world.components.get_component(player, "swing")
+	if swing is Dictionary and int((swing as Dictionary).get("state", 0)) == SimMelee.SwingState.WindUp:
+		ok = _expect_state(world, player, AnimState.SWING, "a swing's wind-up") and ok
+		(world.components.get_component(player, "swing") as Dictionary)["state"] = SimMelee.SwingState.Recover
+		ok = _expect_state(world, player, AnimState.SWING, "a swing's recover") and ok
+	else:
+		ok = _fail("ANIM", "F did not put the body in a swing wind-up")
+	world.components.set_component(player, "swing", {"state": SimMelee.SwingState.Idle, "ticksLeft": 0})
+
+	# Stopping returns to idle within one tick: the move command stops the body, and the next step
+	# zeroes its velocity.
+	_push_move(world, 1.0, 0.0)
+	scene.call("step_sim_once")
+	ok = _expect_state(world, player, AnimState.WALK, "a walk before the stop") and ok
+	_push_move(world, 0.0, 0.0)
+	scene.call("step_sim_once")
+	ok = _expect_state(world, player, AnimState.IDLE, "a stop, one tick later") and ok
+
+	# A shambler's armed swipe is a lunge, its hold is a grab, and its Staggered state is a stagger.
+	var zombie: int = _living_zombie(world)
+	if zombie < 0:
+		ok = _fail("ANIM", "the colony has no living shambler to pose")
+	else:
+		var original: Dictionary = (world.components.get_component(zombie, "shambler") as Dictionary).duplicate()
+		var shambler: Dictionary = world.components.get_component(zombie, "shambler") as Dictionary
+		world.components.remove(zombie, "grabState")
+		world.components.remove(zombie, "grabbed")
+		shambler["state"] = SimShambler.ShamblerState["Pursue"]
+		shambler["ticksToSwipe"] = SimShambler.SWIPE_FIRST_TICKS - 5
+		ok = _expect_state(world, zombie, AnimState.LUNGE, "a shambler's armed swipe") and ok
+		world.components.set_component(zombie, "grabState", {"victim": player, "ticksUntilBite": SimShambler.FIRST_BITE_TICKS - 4})
+		ok = _expect_state(world, zombie, AnimState.GRAB, "a shambler's hold") and ok
+		world.components.remove(zombie, "grabState")
+		shambler["state"] = SimShambler.ShamblerState["Staggered"]
+		shambler["ticksStaggered"] = 10
+		ok = _expect_state(world, zombie, AnimState.STAGGER, "a shambler's stagger") and ok
+		world.components.set_component(zombie, "shambler", original)
+
+	# A death: a colonist who is not the player dies into a corpse and stays death.
+	var victim: int = _living_colonist(world, player)
+	if victim < 0:
+		ok = _fail("ANIM", "the colony has no second survivor to kill")
+	else:
+		SimHealth.finish_death(world, victim)
+		ok = _expect_state(world, victim, AnimState.DEATH, "a corpse") and ok
+		_step_ticks(scene, 30)
+		ok = _expect_state(world, victim, AnimState.DEATH, "a corpse after thirty ticks") and ok
+		if AnimState.state_of(world, victim) == AnimState.IDLE:
+			ok = _fail("ANIM", "a corpse returned to idle")
+
+	# A living body is never death, and every named phase lies in 0..1.
+	for ent in world.components.query(["position", "body"]):
+		var e: int = int(ent)
+		if not world.entities.is_alive(e) or world.components.has_component(e, "corpse"):
+			continue
+		var answer: Dictionary = AnimState.of(world, e)
+		var state: String = String(answer["state"])
+		if state == AnimState.DEATH:
+			ok = _fail("ANIM", "living body %d reports death" % e)
+		var phase: float = float(answer["phase"])
+		if phase < 0.0 or phase > 1.0:
+			ok = _fail("ANIM", "body %d's %s phase is %.3f, outside 0..1" % [e, state, phase])
+		if not AnimState.STATES.has(state):
+			ok = _fail("ANIM", "body %d names an unknown state %s" % [e, state])
+	return ok
+
+
+func _expect_state(world: Variant, entity: int, want: String, what: String) -> bool:
+	var answer: Dictionary = AnimState.of(world, entity)
+	var got: String = String(answer["state"])
+	var phase: float = float(answer["phase"])
+	if got != want:
+		return _fail("ANIM", "%s reads %s, not %s" % [what, got, want])
+	if phase < 0.0 or phase > 1.0:
+		return _fail("ANIM", "%s names %s with phase %.3f, outside 0..1" % [what, got, phase])
+	return true
+
+
+func _push_stance(world: Variant, stance: int) -> void:
+	world.commands.push({"type": "stance", "stance": stance})
+
+
+func _push_move(world: Variant, dx: float, dy: float) -> void:
+	world.commands.push({"type": "move", "dx": dx, "dy": dy})
+
+
+func _living_zombie(world: Variant) -> int:
+	for ent in world.components.query(["position", "body", "shambler"]):
+		var e: int = int(ent)
+		if world.entities.is_alive(e) and not world.components.has_component(e, "corpse"):
+			return e
+	return -1
+
+
+func _living_colonist(world: Variant, exclude: int) -> int:
+	for ent in world.components.query(["position", "body", "identity"]):
+		var e: int = int(ent)
+		if e == exclude or not world.entities.is_alive(e):
+			continue
+		if world.components.has_component(e, "corpse") or world.components.has_component(e, "zombieType"):
+			continue
+		return e
+	return -1
 
 
 # --- fixtures -------------------------------------------------------------------------------

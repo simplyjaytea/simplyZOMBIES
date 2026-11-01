@@ -2413,6 +2413,34 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Animation state from the sim, 2026-11-01.** Advances "First-person people and settlement
+  operation", the body art: every drawn body now names the animation it should play, read from the
+  sim, before the character GLBs land.
+  - **The read model.** `presentation/first_person/anim_state.gd` is pure and static:
+    `state_of(world, entity)` returns one of idle, walk, run, crouch_idle, crouch_walk, crawl, swing,
+    lunge, grab, stagger, death, from corpse, grabbed/grabState, swing.state,
+    shambler.state/ticksToSwipe, posture, velocity and the body's legs. `phase_of` returns 0..1 in the
+    chosen clip: loops advance on the sim tick with a per-entity seat, one-shots use the sim's own
+    countdown (a swipe's wind-up, a hold's next bite), and a held pose is 1.
+  - **The clip table.** `clip_for(kind, state)` names the nearest existing character clip, so the art
+    can grow without a caller change: survivor run -> walk, crouch_walk -> crouch_idle, crawl ->
+    crouch_idle, swing/lunge -> walk, grab/stagger -> idle; shambler walk -> shamble, swing/lunge/grab
+    -> lunge, stagger -> idle. The table and why each is nearest are in the report.
+  - **The placeholder.** `body_view.gd` poses the cylinder from the state: a lean into a swing, a
+    lunge or a hold, a sideways roll on a stagger, and lying flat for a corpse; crouch and crawl are
+    already the sim's own body height. Rotation is reset each frame, the lean pivots at the feet, and
+    the hot path calls `state_of`/`phase_of`, so no Dictionary is built per body per frame.
+  - **Read-only.** The sim is never written; the gate stages the components for the states the sim has
+    no command for (a shambler's swipe, hold and stagger) and restores them. A survivor's stagger is
+    event-only (`entity.staggered`) with no component to read, so it is not named; a survivor in that
+    moment reads as its locomotion state.
+  - **The gate.** `npm run godot:check:first_person` (ANIM lane) prints `FIRST_PERSON_OK`. True
+    positives: stand, walk, run, crouch, crouch walk, crawl, a swing's wind-up and recover, a
+    shambler's armed swipe as lunge, a hold as grab, a stagger, and a death. True negatives: a body
+    that stops is idle one tick later; a corpse is still death after thirty ticks; no living body
+    reports death. Every named state's phase is 0..1.
+  - **Record.** `docs/planning/first-person-anim-state-report.md`.
+
 - **First-person art loads from a clean checkout, 2026-11-01.** Advances "First-person
   starter-kit integration": the desk and ledger GLBs load at runtime, and the review's M3 and M4 are
   fixed. The kit's art itself arrives with its own PR.
