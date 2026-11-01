@@ -13,10 +13,12 @@ blender --background --factory-startup --python tools/blender/first_person_kit/b
 ```
 
 The rebuild writes `kit.blend`, `kit_atlas.png`, and all five GLBs. It uses fixed procedural
-patterns and no external inputs, so repeated exports are byte-identical. `--check` builds in
-a temporary directory, checks every exported bounding box within 1 cm, checks origins and
-single-material atlas use, requires nearest magnification filtering, and compares the GLBs
-and atlas byte-for-byte with the committed assets. It exits non-zero on any failure.
+patterns and no external inputs, so repeated GLB and atlas exports are byte-identical. The
+Python builder is the canonical editable source; Blender's `kit.blend` is a convenience scene,
+not a byte-reproducible file. `--check` builds in a temporary directory, checks every exported
+bounding box within 1 cm, checks origins, single-sided single-material atlas use, and nearest
+magnification filtering, and compares only the GLBs and atlas byte-for-byte with the committed
+assets. It deliberately skips `kit.blend`. Any failure exits non-zero.
 
 Optional 512 px preview renders:
 
@@ -48,11 +50,15 @@ and editable, arranged in a row. The GLBs are exported before that presentation 
 
 `godot/assets/first_person/kit_atlas.png` is 256 x 256 px, representing 4 x 4 m at **64 texels
 per metre**. UVs preserve that density on every face. One-metre atlas cells repeat at mesh
-boundaries rather than stretching or crossing into neighbouring cells. Use NEAREST filtering;
-the GLB sampler explicitly requests nearest magnification.
+boundaries rather than stretching or crossing into neighbouring cells. Three plaster variants
+break up vertical repetition, three oak variants distinguish neighbouring boards, and vertical
+members rotate the grain UVs. Use NEAREST filtering; the GLB sampler explicitly requests nearest
+magnification.
 
-The atlas contains horizontal oak grain, dark timber, chipped sage paint, stained cracked
-plaster, ruled paper, paper edges, worn leather, and oxidised metal. Its muted base tones are:
+The standalone PNG is the canonical atlas for review and rebuild comparison. Each GLB embeds a
+self-contained copy for its material, so the game reads those embedded textures rather than the
+standalone PNG. The atlas contains oak grain, dark timber, edge-chipped sage paint, subdued
+plaster wear, ruled paper, paper edges, worn leather, and oxidised metal. Its muted base tones are:
 
 - Oak: `#342d27`, `#4a3c30`, `#62503e`, `#78634b`, `#8b7558`.
 - Dark timber: `#242526`, `#34302c`, `#463a30`, `#5b4938`, `#6c5640`.

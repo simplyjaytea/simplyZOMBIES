@@ -49,37 +49,41 @@ def tone(colours, index):
 
 def atlas_pixel(style, x, y):
     n = noise(x, y, 731)
-    if style == "wood":
+    if style in ("wood", "wood_alt", "wood_third"):
+        variant = ("wood", "wood_alt", "wood_third").index(style)
         colours = PALETTE["wood"]
-        grain = (y + int(2 * math.sin(x * math.tau / 32))) % 16
+        grain = (y + noise(x // 8, variant, 177) % 5) % 17
         index = 2 + (1 if grain in (3, 4, 11) else 0) - (1 if grain == 8 else 0)
-        index += 1 if n % 17 == 0 else 0
-        if (x - 19) ** 2 / 42 + (y - 37) ** 2 / 8 < 1:
-            index = 1 if (x + y) % 3 else 0
+        index += 1 if n % 29 == 0 else 0
+        knot = (x - (19 + 13 * variant)) ** 2 / 42 + (y - (37 - 7 * variant)) ** 2 / 8
+        if knot < 1:
+            index = 1 if knot < 0.45 else 2
         return tone(colours, index)
     if style == "dark_wood":
         colours = PALETTE["dark_wood"]
-        grain = (y + int(3 * math.sin(x * math.tau / 64))) % 13
+        grain = (y + noise(x // 9, 0, 281) % 5) % 13
         index = 2 + (1 if grain in (2, 7) else 0) - (1 if grain == 10 else 0)
-        if n % 19 == 0:
+        if n % 29 == 0:
             index = 1
         return tone(colours, index)
     if style == "paint":
         colours = PALETTE["paint"]
-        index = 2 + (1 if n % 13 == 0 else 0) - (1 if n % 11 == 0 else 0)
-        chip = n % 41 in (0, 1) or ((x + 2 * y) % 37 == 0 and y % 5 < 2)
+        cloud = noise(x // 8, y // 8, 733)
+        index = 2 + (1 if cloud % 5 == 0 else 0) - (1 if cloud % 7 == 0 else 0)
+        edge = min(x, 63 - x, y, 63 - y)
+        chip = (edge < 4 and n % 9 < 2) or noise(x // 4, y // 4, 991) % 43 == 0
         if chip:
             return tone(PALETTE["wood"], 1 + n % 2)
         return tone(colours, index)
-    if style == "plaster":
+    if style in ("plaster", "plaster_alt", "plaster_third"):
+        variant = ("plaster", "plaster_alt", "plaster_third").index(style)
         colours = PALETTE["plaster"]
-        index = 2 + (1 if n % 9 == 0 else 0) - (1 if n % 7 == 0 else 0)
-        stain = int(7 * math.sin(x * math.tau / 64)) + 51
-        if abs(y - stain) < 3 and 8 < x < 42:
+        cloud = noise(x // 4, y // 4, 731 + variant * 97)
+        index = 2 + (1 if cloud % 9 == 0 else 0) - (1 if cloud % 7 == 0 else 0)
+        if noise(x // 8, y // 8, 811 + variant * 43) % 19 == 0:
             index = 1
-        crack_x = 45 + (y // 9) % 3
-        if 17 < y < 48 and x == crack_x:
-            index = 0
+        if n % 47 == 0:
+            index = max(1, index - 1)
         return tone(colours, index)
     if style == "paper":
         colours = PALETTE["paper"]
@@ -113,11 +117,15 @@ STYLES = {
     "wood": (0, 3),
     "dark_wood": (1, 3),
     "paint": (2, 3),
+    "wood_alt": (3, 3),
     "plaster": (0, 2),
     "paper": (1, 2),
     "paper_edge": (2, 2),
     "leather": (3, 2),
     "metal": (0, 1),
+    "plaster_alt": (1, 1),
+    "plaster_third": (2, 1),
+    "wood_third": (3, 1),
 }
 
 
@@ -142,6 +150,7 @@ def build_atlas(path):
 def build_material(image):
     material = bpy.data.materials.new("KitAtlas")
     material.use_nodes = True
+    material.use_backface_culling = True
     nodes = material.node_tree.nodes
     shader = nodes.get("Principled BSDF")
     shader.inputs["Roughness"].default_value = 0.9
@@ -160,34 +169,38 @@ class MeshBuilder:
         self.faces = []
         self.uvs = []
 
-    def face(self, points, widths, style):
+    def face(self, points, widths, style, variants=None, rotate_uv=False):
         u_bounds = [0.0] + [float(i) for i in range(1, math.ceil(widths[0]))] + [widths[0]]
         v_bounds = [0.0] + [float(i) for i in range(1, math.ceil(widths[1]))] + [widths[1]]
         origin, u_axis, v_axis = points
-        cell_x, cell_y = STYLES[style]
         for ui in range(len(u_bounds) - 1):
             for vi in range(len(v_bounds) - 1):
                 u0, u1 = u_bounds[ui : ui + 2]
                 v0, v1 = v_bounds[vi : vi + 2]
                 u_tile, v_tile = math.floor(u0), math.floor(v0)
+                tile_index = int(u_tile + v_tile)
+                cell_style = variants[tile_index % len(variants)] if variants else style
+                cell_x, cell_y = STYLES[cell_style]
                 quad = [
                     origin + u_axis * (u0 / widths[0]) + v_axis * (v0 / widths[1]),
                     origin + u_axis * (u1 / widths[0]) + v_axis * (v0 / widths[1]),
                     origin + u_axis * (u1 / widths[0]) + v_axis * (v1 / widths[1]),
                     origin + u_axis * (u0 / widths[0]) + v_axis * (v1 / widths[1]),
                 ]
+                a0, a1 = (v0 - v_tile, v1 - v_tile) if rotate_uv else (u0 - u_tile, u1 - u_tile)
+                b0, b1 = (u0 - u_tile, u1 - u_tile) if rotate_uv else (v0 - v_tile, v1 - v_tile)
                 uv = [
-                    (cell_x + u0 - u_tile, cell_y + v0 - v_tile),
-                    (cell_x + u1 - u_tile, cell_y + v0 - v_tile),
-                    (cell_x + u1 - u_tile, cell_y + v1 - v_tile),
-                    (cell_x + u0 - u_tile, cell_y + v1 - v_tile),
+                    (cell_x + a0, cell_y + b0),
+                    (cell_x + a1, cell_y + b0),
+                    (cell_x + a1, cell_y + b1),
+                    (cell_x + a0, cell_y + b1),
                 ]
                 start = len(self.vertices)
                 self.vertices.extend(tuple(point) for point in quad)
                 self.faces.append((start, start + 1, start + 2, start + 3))
                 self.uvs.append(tuple((x / ATLAS_METRES, y / ATLAS_METRES) for x, y in uv))
 
-    def box(self, centre, size, style, rotation=None, face_styles=None):
+    def box(self, centre, size, style, rotation=None, face_styles=None, variants=None, rotate_uv=False):
         hx, hy, hz = (value / 2 for value in size)
         transform = Matrix.Translation(Vector(centre))
         if rotation is not None:
@@ -210,7 +223,7 @@ class MeshBuilder:
                 rotation @ Vector(v_axis) if rotation is not None else v_axis,
             )
             face_style = (face_styles or {}).get(face_name, style)
-            self.face(points, widths, face_style)
+            self.face(points, widths, face_style, variants if face_style == style else None, rotate_uv)
 
     def object(self, name, material):
         mesh = bpy.data.meshes.new(name + "_mesh")
@@ -229,11 +242,11 @@ class MeshBuilder:
 
 def desk(material):
     mesh = MeshBuilder()
-    mesh.box((0, 0, 0.75), (1.20, 0.62, 0.06), "wood", face_styles={"bottom": "dark_wood"})
+    mesh.box((0, 0, 0.75), (1.20, 0.62, 0.06), "wood", face_styles={"bottom": "dark_wood"}, variants=("wood", "wood_alt"))
     for x in (-0.515, 0.515):
         for y in (-0.235, 0.235):
             mesh.box((x, y, 0.36), (0.07, 0.07, 0.72), "paint")
-    for y in (-0.245, 0.245):
+    for y in (-0.244, 0.244):
         mesh.box((0, y, 0.665), (1.04, 0.05, 0.11), "paint")
     for x in (-0.515, 0.515):
         mesh.box((x, 0, 0.665), (0.05, 0.43, 0.11), "paint")
@@ -247,28 +260,30 @@ def ledger(material):
     for x in (-0.076, 0.076):
         mesh.box((x, 0, 0.003), (0.148, 0.22, 0.006), "leather")
     mesh.box((0, 0, 0.004), (0.008, 0.22, 0.008), "leather")
-    for x in (-0.078, 0.078):
-        mesh.box((x, 0, 0.016), (0.14, 0.212, 0.02), "paper_edge", face_styles={"top": "paper"})
+    for x in (-0.073, 0.073):
+        mesh.box((x, 0, 0.016), (0.124, 0.184, 0.02), "paper_edge", face_styles={"top": "paper"})
     return mesh.object("ledger", material)
 
 
 def shelf(material):
     mesh = MeshBuilder()
     for x in (-0.425, 0.425):
-        mesh.box((x, 0, 0.925), (0.05, 0.32, 1.85), "dark_wood")
-    mesh.box((0, 0.151, 0.925), (0.80, 0.018, 1.70), "dark_wood")
-    for z in (0.09, 0.52, 0.96, 1.40, 1.815):
+        mesh.box((x, 0, 0.925), (0.05, 0.32, 1.85), "dark_wood", rotate_uv=True)
+    mesh.box((0, 0.151, 0.925), (0.80, 0.018, 1.70), "dark_wood", rotate_uv=True)
+    woods = ("wood", "wood_alt", "wood_third", "wood_alt", "wood")
+    for index, z in enumerate((0.09, 0.52, 0.96, 1.40, 1.815)):
         height = 0.07 if z == 1.815 else 0.06
-        mesh.box((0, -0.005, z), (0.90, 0.30, height), "wood")
+        mesh.box((0, -0.005, z), (0.80, 0.30, height), woods[index])
     return mesh.object("shelf", material)
 
 
 def barricade(material):
     mesh = MeshBuilder()
-    for z in (0.105, 0.335, 0.565, 0.795, 1.02):
-        mesh.box((0, -0.04, z), (1.20, 0.06, 0.16), "wood")
+    woods = ("wood", "wood_alt", "wood_third", "wood_alt", "wood")
+    for index, z in enumerate((0.105, 0.335, 0.565, 0.795, 1.02)):
+        mesh.box((0, -0.056, z), (1.20, 0.06, 0.16), woods[index])
     for x in (-0.40, 0.40):
-        mesh.box((x, 0.05, 0.55), (0.11, 0.08, 1.10), "dark_wood")
+        mesh.box((x, 0.05, 0.55), (0.11, 0.08, 1.10), "dark_wood", rotate_uv=True)
         for z in (0.105, 0.565, 1.02):
             mesh.box((x, -0.088, z), (0.018, 0.004, 0.018), "metal")
     angle = -math.atan2(0.72, 0.94)
@@ -284,7 +299,7 @@ def barricade(material):
 
 def wall_module(material):
     mesh = MeshBuilder()
-    mesh.box((0, 0, 1.30), (1.00, 0.12, 2.60), "plaster")
+    mesh.box((0, 0.001, 1.30), (1.00, 0.118, 2.60), "plaster", variants=("plaster", "plaster_alt", "plaster_third"))
     mesh.box((0, -0.054, 0.08), (1.00, 0.012, 0.16), "paint")
     mesh.box((0, -0.054, 2.54), (1.00, 0.012, 0.12), "paint")
     return mesh.object("wall_module", material)
@@ -314,6 +329,8 @@ def validate_export(path, expected):
     document = gltf_json(path)
     if len(document.get("materials", [])) != 1:
         raise ValueError(f"{path.name}: expected exactly one material")
+    if document["materials"][0].get("doubleSided", False):
+        raise ValueError(f"{path.name}: closed prop meshes must be single-sided")
     if len(document.get("images", [])) != 1 or document["images"][0].get("name") != "kit_atlas":
         raise ValueError(f"{path.name}: material does not use only kit_atlas")
     primitives = [p for mesh in document.get("meshes", []) for p in mesh["primitives"]]
