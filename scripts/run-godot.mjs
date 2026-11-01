@@ -532,6 +532,15 @@ switch (mode) {
       "res://check_fp_geometry.gd",
     ];
     break;
+  case "--check-fp-expedition":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_fp_expedition.gd",
+    ];
+    break;
   case "--context":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_context.gd"];
     break;

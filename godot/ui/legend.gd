@@ -39,6 +39,10 @@ const KEY_INDENT: float = 20.0
 const FONT_SIZE: int = 25
 const FONT_SIZE_TIGHT: int = 20
 
+# The rows this legend shows, when a screen supplies its own (the first-person key reference does).
+# Empty means the top-down GROUPS below.
+var key_rows: Array = []
+
 const GROUPS: Array = [
 	["Move", [
 		["WASD", "walk"],
@@ -162,8 +166,9 @@ func _layout(font: Font, font_size: int, col_w: float) -> Array:
 	# Blocks: a key with its wrapped words, and how many lines it takes. A group's heading rides in
 	# the block of its first key, so a heading can never be the last line of a column.
 	var blocks: Array = []
-	for g in GROUPS.size():
-		var group: Array = GROUPS[g] as Array
+	var groups_now: Array = key_rows if not key_rows.is_empty() else GROUPS
+	for g in groups_now.size():
+		var group: Array = groups_now[g] as Array
 		var rows: Array = group[1] as Array
 		for k in rows.size():
 			var r: Array = rows[k] as Array

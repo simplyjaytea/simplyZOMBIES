@@ -24,24 +24,29 @@ const SaveSlot = preload("res://presentation/first_person/save_slot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimAim = preload("res://sim/aim.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
+const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
 const SimContext = preload("res://sim/context.gd")
 const SimStances = preload("res://sim/stances.gd")
 const SimSpace = preload("res://sim/space/space.gd")
 const InputMapRes = preload("res://presentation/input_map.gd")
+const Legend = preload("res://ui/legend.gd")
 const SessionRes = preload("res://presentation/session.gd")
 const RenderInterp = preload("res://presentation/interp.gd")
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
+const HeldWeapon = preload("res://presentation/first_person/held_weapon.gd")
 const PropView = preload("res://presentation/first_person/prop_view.gd")
 const ContainerView = preload("res://presentation/first_person/container_view.gd")
+const LooseView = preload("res://presentation/first_person/loose_view.gd")
 const SkyView = preload("res://presentation/first_person/sky_view.gd")
 const Hud = preload("res://presentation/first_person/hud.gd")
 const WorkPanel = preload("res://ui/work_panel.gd")
 const WebPanel = preload("res://ui/web_panel.gd")
 const InventoryPanel = preload("res://ui/inventory_panel.gd")
 const ReportsPanel = preload("res://ui/reports_panel.gd")
+const TalkPanel = preload("res://ui/talk_panel.gd")
 
 const SEED: int = SimBoot.DISTRICT_SEED
 # The shipped district size, the one `session.gd` boots by default. The gate overrides
@@ -65,12 +70,10 @@ const LEDGER_REACH_M: float = 1.80
 const LEDGER_AIM_DOT: float = 0.866
 # Where the eye aims on a container box: its middle, not its top or its foot.
 const CONTAINER_AIM_HEIGHT_M: float = 0.92
-# Interim combat feedback: a short view kick on a swing or shot, and the placeholder viewmodel's
-# anchor in the lower right. No reticle and no centre dot -- docs/40 owner question 6's default.
+# Interim combat feedback: a short view kick on a swing or shot. No reticle and no centre dot --
+# docs/40 owner question 6's default. The view model itself is `held_weapon.gd`.
 const KICK_RADIANS: float = 0.022
 const KICK_DECAY_PER_SECOND: float = 0.15
-const HELD_WEAPON_POSITION: Vector3 = Vector3(0.33, -0.24, -0.58)
-const HELD_WEAPON_ROTATION_DEG: Vector3 = Vector3(-6.0, 14.0, 0.0)
 # How finely the look ray is walked through the tile grid when it looks for a door or window (metres).
 const VERB_STEP_M: float = 0.02
 
@@ -87,15 +90,22 @@ var yaw: float = 0.0
 var pitch: float = 0.0
 var menu_open: bool = false
 var paused: bool = false
+# The key reference (F1): the top-down legend, shown with this scene's own rows.
+var _legend: Control = null
+var _legend_open: bool = false
 # The clock's speed: one of SPEED_LADDER. Presentation state, the same ladder main.gd keeps.
 var speed: int = 1
 var inventory_open: bool = false
+# The conversation panel is up. A public flag because the gate reads it: every key is swallowed
+# while it is true, exactly as the inventory does, and the clock keeps running.
+var talk_open: bool = false
 
 var _rig: Node3D = null
 var _district: Node3D = null
 var _bodies: Node3D = null
 var _props: Node3D = null
 var _containers: Node3D = null
+var _loose: Node3D = null
 var _sky: Node3D = null
 var _hud: Control = null
 var _work_layer: CanvasLayer = null
@@ -104,6 +114,11 @@ var _web_panel: Control = null
 var _web_open: bool = false
 var _inventory_layer: CanvasLayer = null
 var _inventory_panel: Control = null
+# The conversation panel: one of your colonists, E in reach and on the aim. `_talk_entity` is the
+# body being spoken to; the panel reads the sim each frame while it is up.
+var _talk_layer: CanvasLayer = null
+var _talk: Control = null
+var _talk_entity: int = -1
 # The ledger's Reports page. `_reports_read` is the chronicle's read mark: entries before it have been read.
 # Presentation state only -- the sim is never written -- and it starts at 0 on every boot.
 var _reports_open: bool = false
@@ -131,9 +146,10 @@ var _run_over_open: bool = false
 var _news: String = ""
 var _news_until_ms: int = 0
 var _epitaph: Array[String] = []
-# The placeholder viewmodel in the lower right, and the kick it answers a swing or shot with.
-var _held_weapon: MeshInstance3D = null
-var _held_weapon_size: Vector3 = Vector3.ZERO
+# The equipped weapon in the lower right: the equipped item's model, assembled from the sim's parts,
+# or the interim placeholder for an item with no model. It also answers the kick, which it inherits
+# from the camera.
+var _held_weapon: Node3D = null
 var _kick: float = 0.0
 # The camera's eye height in metres, eased toward the sim's posture eye. Presentation only.
 var _eye_m: float = 1.62
@@ -202,7 +218,7 @@ func _build_views() -> void:
 	_district = DistrictView.new()
 	_district.name = "District"
 	add_child(_district)
-	_district.call("build", map)
+	_district.call("build", map, SEED)
 
 	_props = PropView.new()
 	_props.name = "SafeSpawnProps"
@@ -213,6 +229,10 @@ func _build_views() -> void:
 	_containers.name = "Containers"
 	add_child(_containers)
 	_containers.call("build", world)
+
+	_loose = LooseView.new()
+	_loose.name = "LooseItems"
+	add_child(_loose)
 
 	_bodies = BodyView.new()
 	_bodies.name = "Bodies"
@@ -246,6 +266,11 @@ func _build_hud() -> void:
 	_hud = Hud.new()
 	_hud.name = "Words"
 	layer.add_child(_hud)
+	_legend = Legend.new()
+	_legend.name = "KeyReference"
+	_legend.visible = false
+	_legend.set("key_rows", _legend_rows())
+	layer.add_child(_legend)
 
 
 # --- the ledger site ------------------------------------------------------------------------
@@ -365,6 +390,8 @@ func _process(delta: float) -> void:
 			guard += 1
 	if inventory_open:
 		_refresh_inventory()
+	if talk_open:
+		_refresh_talk()
 	if menu_open:
 		if _web_open and _web_panel != null and _web_panel.visible:
 			_web_panel.call("set_world", world, int(_web_panel.get("_who")))
@@ -374,6 +401,8 @@ func _process(delta: float) -> void:
 				who = int(_work_panel.call("selected"))
 			_work_panel.call("set_world", world, who)
 	_ease_eye(delta)
+	if _loose != null:
+		_loose.call("refresh", world)
 	var alpha: float = clampf(_accumulator / TICK_SECONDS, 0.0, 1.0)
 	_kick = move_toward(_kick, 0.0, delta * KICK_DECAY_PER_SECOND)
 	_update_held_weapon()
@@ -423,6 +452,9 @@ func _update_hud() -> void:
 	if inventory_open:
 		# The sheet is over the world and takes the words with it; Escape is the way back.
 		prompt = ""
+	elif talk_open:
+		# The conversation panel carries every word; the HUD is hidden while it is up.
+		prompt = ""
 	elif not menu_open and not _mouse_captured:
 		prompt = "Mouse released. Click to look again."
 	elif not menu_open:
@@ -433,21 +465,27 @@ func _update_hud() -> void:
 			var box_verdict: String = container_verdict()
 			var box_name: String = _container_kind(container_focus())
 			var verb: String = verb_prompt()
+			var person_verdict: String = talk_verdict()
+			var person_name: String = _talk_name(talk_focus())
 			if box_verdict == "ok":
 				prompt = "E open the %s" % box_name
+			elif person_verdict == "ok":
+				prompt = "E talk to %s" % person_name
 			elif verb != "":
 				prompt = verb
 			elif box_verdict == "away":
 				prompt = "Turn to the %s." % box_name
 			elif box_verdict == "spent":
 				prompt = "You have already been through this %s." % box_name
+			elif person_verdict == "away":
+				prompt = "Turn to %s." % person_name
 			elif verdict == "away":
 				prompt = "Turn to the ledger."
 			elif _curr_player.distance_to(_ledger_sim) < 4.5:
 				prompt = "The ledger stands near."
 	_hud.set("time_words", SessionRes.speed_words(speed, paused, world))
 	_hud.call("set_state", world, int(world.player), prompt, _live_alert(), menu_open, paused, inventory_open, _live_news())
-	_hud.visible = not inventory_open
+	_hud.visible = not inventory_open and not talk_open
 
 
 # --- input ----------------------------------------------------------------------------------
@@ -477,6 +515,17 @@ func _input(event: InputEvent) -> void:
 		# The gap between a death and the handoff: no command is proposed and no key is remembered.
 		get_viewport().set_input_as_handled()
 		return
+	if _legend_open:
+		# The key reference takes every key while it is up: F1 or Escape puts it down, and nothing
+		# else reaches the world -- no walking, no looking, no action.
+		if ke.pressed and (code == KEY_F1 or code == KEY_ESCAPE):
+			close_legend()
+		get_viewport().set_input_as_handled()
+		return
+	if ke.pressed and code == KEY_F1:
+		open_legend()
+		get_viewport().set_input_as_handled()
+		return
 	if inventory_open:
 		# The sheet takes every key while it is up, exactly as `input_map.gd`'s "sheet" focus does:
 		# walking keys are swallowed (the body was stopped when the sheet opened), the name field
@@ -490,6 +539,13 @@ func _input(event: InputEvent) -> void:
 					close_inventory()
 			elif code == KEY_R and _inventory_panel.has_method("rotate"):
 				_inventory_panel.call("rotate")
+		get_viewport().set_input_as_handled()
+		return
+	if talk_open:
+		# The conversation takes every key while it is up: walking, the aim, the fight buttons, the
+		# stance ladder and the save keys never reach the world. Goodbye is the one action.
+		if ke.pressed and code == KEY_ESCAPE:
+			close_talk()
 		get_viewport().set_input_as_handled()
 		return
 	if menu_open:
@@ -580,9 +636,13 @@ func _input(event: InputEvent) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_inside_tree() or get_viewport() == null:
 		return
-	if _run_over_open or _waiting_for_heir():
+	if _run_over_open or _waiting_for_heir() or _legend_open:
 		# No mouse look and no click-to-recapture under the end panel or between a death and an
 		# heir. The pointer stays where `_release_mouse` left it.
+		return
+	if talk_open:
+		# The conversation has the mouse: a click is the panel's Goodbye, never a recapture or a
+		# swing. The panel's own `_gui_input` handles it.
 		return
 	if event is InputEventMouseMotion and _mouse_captured and not menu_open and not inventory_open:
 		var motion: InputEventMouseMotion = event as InputEventMouseMotion
@@ -759,7 +819,7 @@ func reload_weapon() -> void:
 
 
 func _can_fight() -> bool:
-	return world != null and not menu_open and not inventory_open and not _run_over_open and not _waiting_for_heir()
+	return world != null and not menu_open and not inventory_open and not talk_open and not _run_over_open and not _waiting_for_heir()
 
 
 func _kick_camera() -> void:
@@ -769,56 +829,28 @@ func _kick_camera() -> void:
 	_kick = -KICK_RADIANS
 
 
-# The placeholder viewmodel: a box in the lower right, sized by the weapon's own class cue (a
-# firearm's range, a melee weapon's reach), hidden for bare hands. Art comes later; this is the
-# shape that says something is in hand. It has no collision and never moves on its own.
+# The equipped weapon view: the item's own model assembled from the sim's installed parts, or the
+# placeholder box for an item this kit has no model for. `held_weapon.gd` owns both; this scene
+# only hands it the world each frame. No collision, and it never moves on its own.
 func _build_held_weapon() -> void:
-	_held_weapon = MeshInstance3D.new()
-	_held_weapon.name = "HeldWeaponPlaceholder"
-	var box: BoxMesh = BoxMesh.new()
-	box.size = Vector3(0.08, 0.09, 0.45)
-	_held_weapon.mesh = box
-	var material: StandardMaterial3D = StandardMaterial3D.new()
-	material.albedo_color = Color(0.36, 0.31, 0.24)
-	material.roughness = 1.0
-	_held_weapon.material_override = material
-	_held_weapon.position = HELD_WEAPON_POSITION
-	_held_weapon.rotation_degrees = HELD_WEAPON_ROTATION_DEG
-	_held_weapon.visible = false
+	_held_weapon = HeldWeapon.new()
+	_held_weapon.name = "HeldWeapon"
 	camera.add_child(_held_weapon)
 
 
 func _update_held_weapon() -> void:
 	if _held_weapon == null or world == null:
 		return
-	if _run_over_open:
-		_held_weapon.visible = false
-		return
-	var player: int = int(world.player)
-	var armed: bool = not SimMelee.is_unarmed(world, player)
-	_held_weapon.visible = armed
-	if not armed:
-		return
-	# `SimMelee.is_unarmed` is the one predicate for "fighting with nothing" (BARE_HANDS carries
-	# the `unarmed` flag; a ranged weapon always counts). The box's length follows the profile's
-	# own reach: a rifle reads longer than a pistol, a bat shorter than a spear.
-	var size: Vector3 = Vector3(0.07, 0.08, 0.45)
-	var ranged: Variant = world.components.get_component(player, "rangedWeapon")
-	if ranged is Dictionary:
-		var range_metres: float = float((ranged as Dictionary).get("rangeMetres", 12.0))
-		size = Vector3(0.09, 0.10, clampf(0.30 + range_metres * 0.018, 0.38, 0.95))
-	else:
-		var melee: Variant = world.components.get_component(player, "meleeWeapon")
-		if melee is Dictionary:
-			var reach: float = float((melee as Dictionary).get("reachMetres", 1.0))
-			size = Vector3(0.07, 0.07, clampf(0.18 + reach * 0.35, 0.30, 0.85))
-	if not size.is_equal_approx(_held_weapon_size):
-		_held_weapon_size = size
-		(_held_weapon.mesh as BoxMesh).size = size
+	_held_weapon.call("update", world, Time.get_ticks_msec() / 1000.0, _run_over_open)
 
 
 func held_weapon_visible() -> bool:
-	return _held_weapon != null and _held_weapon.visible
+	return _held_weapon != null and bool(_held_weapon.call("visible_any"))
+
+
+## The held-weapon view for the gate: the assembled model, its drawn set and its sockets.
+func held_weapon_node() -> Node3D:
+	return _held_weapon
 
 
 # --- containers and the inventory sheet ------------------------------------------------------
@@ -915,12 +947,13 @@ func container_world_point(entity: int) -> Vector3:
 	return Vector3(at.x, CONTAINER_AIM_HEIGHT_M, at.y)
 
 
-## The one interaction. The order is the ledger, then an openable container, then the world's first
-## tile verb (a door or window), then the container's and the ledger's refusals -- so a higher rung
-## always wins, an aimed door is not blocked by a box merely standing near it, and every refusal says
-## which rule failed in the ledger's words.
+## The one interaction. The order is the ledger, then an openable container, then a colonist in reach
+## and on the aim, then the world's first tile verb (a door or window), then the container's, the
+## person's and the ledger's refusals -- so a higher rung always wins, an aimed door is not blocked
+## by a box or a body merely standing near it, and every refusal says which rule failed in the
+## ledger's words.
 func try_interact() -> bool:
-	if menu_open or inventory_open:
+	if menu_open or inventory_open or talk_open:
 		return false
 	if interaction_verdict() == "ok":
 		open_ledger_menu()
@@ -928,6 +961,10 @@ func try_interact() -> bool:
 	var box_verdict: String = container_verdict()
 	if box_verdict == "ok":
 		open_container(container_focus())
+		return true
+	var person_verdict: String = talk_verdict()
+	if person_verdict == "ok":
+		open_talk(talk_focus())
 		return true
 	var row: Dictionary = verb_row()
 	if not row.is_empty():
@@ -947,6 +984,18 @@ func try_interact() -> bool:
 				return false
 			"spent":
 				_set_alert("You have already been through this %s." % box_name)
+				return false
+	if person_verdict != "none":
+		var person_name: String = _talk_name(talk_focus())
+		match person_verdict:
+			"far":
+				_set_alert("Nothing within reach. Walk closer to %s." % person_name)
+				return false
+			"blocked":
+				_set_alert("%s is behind a wall." % person_name)
+				return false
+			"away":
+				_set_alert("You are near %s, but not looking at them." % person_name)
 				return false
 	match interaction_verdict():
 		"far":
@@ -1057,6 +1106,211 @@ func _container_openable(entity: int) -> bool:
 	if bool((state as Dictionary).get("searched", false)):
 		return not SimContainers.contents_of(world, entity).is_empty()
 	return true
+
+
+# --- talking to a colonist -------------------------------------------------------------------
+#
+# The first slice of docs/39's conversations: E at one of your own people, in reach and on the aim,
+# opens a small panel that says how they are and what they are doing. Every word is a read model's
+# (`TalkPanel`), so the conversation cannot know more than the Colony drawer does. It decides
+# nothing: the one action is Goodbye. Raiders, settlers and zombies are never talkable --
+# `SimAllegiance.is_colony` is the faction gate, and the identity requirement is what makes it a
+# person with a name rather than any body the sim owns.
+#
+# THE PAUSE POLICY is the inventory's, the same reversible default docs/33 leaves open: this panel
+# does not stop the clock. `_clear_held` + `_push_zero_move` stop the body, `_input` swallows every
+# key while it is open, and the sim keeps stepping. If the owner later chooses time-stopped
+# conversations, the one change is to hold the accumulator.
+
+## True for a body the player can talk to: alive, not a corpse, not the player, not a zombie, and a
+## named member of the colony. A raider or a settler has an identity and is still not one of yours.
+func talkable(entity: int) -> bool:
+	if world == null or entity < 0:
+		return false
+	if entity == int(world.player):
+		return false
+	if not world.entities.is_alive(entity):
+		return false
+	if world.components.has_component(entity, "corpse"):
+		return false
+	if world.components.has_component(entity, "zombieType") or world.components.has_component(entity, "shambler"):
+		return false
+	if not world.components.has_component(entity, "identity"):
+		return false
+	return SimAllegiance.is_colony(world, entity)
+
+
+## The colonist the eye is on, or -1: the nearest talkable body inside the same narrow cone the
+## ledger and the containers use.
+func talk_target() -> int:
+	if world == null:
+		return -1
+	var eye: Vector3 = Vector3(_rendered_player().x, _eye_m, _rendered_player().y)
+	var look: Vector3 = look_direction()
+	var best: int = -1
+	var best_distance: float = 1.0e9
+	for entity in world.components.query(["position", "body"]):
+		var e: int = int(entity)
+		if not talkable(e):
+			continue
+		var to: Vector3 = _talk_point(e) - eye
+		var distance: float = to.length()
+		if distance <= 0.000001:
+			continue
+		if look.dot(to / distance) < LEDGER_AIM_DOT:
+			continue
+		if distance < best_distance:
+			best_distance = distance
+			best = e
+	return best
+
+
+## The nearest talkable body within reach whatever the aim, for the "turn to them" refusal.
+func talk_near() -> int:
+	if world == null:
+		return -1
+	var best: int = -1
+	var best_distance: float = LEDGER_REACH_M
+	for entity in world.components.query(["position", "body"]):
+		var e: int = int(entity)
+		if not talkable(e):
+			continue
+		var distance: float = _curr_player.distance_to(_entity_position(e))
+		if distance <= best_distance:
+			best_distance = distance
+			best = e
+	return best
+
+
+## "ok", "far", "away", "blocked" or "none", the same ladder the containers use: the aimed person is
+## measured against the reach, then the sim's own sight. A person in reach but not aimed at reads
+## "away", so the refusal says to turn rather than to walk closer.
+func talk_verdict() -> String:
+	if world == null:
+		return "none"
+	var target: int = talk_target()
+	var near: int = talk_near()
+	if target < 0:
+		return "away" if near >= 0 else "none"
+	if _curr_player.distance_to(_entity_position(target)) > LEDGER_REACH_M:
+		return "away" if near >= 0 else "far"
+	if not talk_in_sight(target):
+		return "blocked"
+	return "ok"
+
+
+## The person the verdict is speaking about: the near one for "away", the aimed one otherwise.
+func talk_focus() -> int:
+	var target: int = talk_target()
+	var near: int = talk_near()
+	if near >= 0 and (target < 0 or _curr_player.distance_to(_entity_position(target)) > LEDGER_REACH_M):
+		return near
+	return target
+
+
+## A person through an opaque wall is not in reach, however close the geometry is -- the same
+## `vision.detail` read the ledger and the boxes make.
+func talk_in_sight(entity: int) -> bool:
+	if world == null or world.vision == null or entity < 0:
+		return false
+	var at: Vector2 = _entity_position(entity)
+	return int(world.vision.call("detail", int(world.player), at.x, at.y)) != 0
+
+
+## The point a look is judged against: the colonist's own eye, the height the sim gives them.
+func _talk_point(entity: int) -> Vector3:
+	var at: Vector2 = _entity_position(entity)
+	return Vector3(at.x, float(SimSpace.eye_of(world, entity)) / 1000.0, at.y)
+
+
+func _entity_position(entity: int) -> Vector2:
+	if world == null or entity < 0:
+		return Vector2.ZERO
+	var pos: Variant = world.components.get_component(entity, "position")
+	if not (pos is Dictionary):
+		return Vector2.ZERO
+	return Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
+
+
+func _talk_name(entity: int) -> String:
+	if entity < 0:
+		return "them"
+	return TalkPanel.name_of(world, entity)
+
+
+func _ensure_talk_panel() -> void:
+	if _talk != null:
+		return
+	_talk_layer = CanvasLayer.new()
+	_talk_layer.name = "TalkUI"
+	add_child(_talk_layer)
+	_talk = TalkPanel.new()
+	_talk.name = "TalkPanel"
+	_talk.visible = false
+	_talk_layer.add_child(_talk)
+	if _talk.has_signal("closed"):
+		_talk.connect("closed", close_talk)
+
+
+## Opens the conversation with `entity`. The panel reads the sim; this only shows it and stops the
+## body, exactly as the inventory sheet does.
+func open_talk(entity: int) -> void:
+	if world == null or entity < 0 or menu_open or inventory_open or talk_open:
+		return
+	_ensure_talk_panel()
+	if _talk == null:
+		return
+	talk_open = true
+	_talk_entity = entity
+	_talk.call("show_colonist", world, entity)
+	_place_talk()
+	_talk.visible = true
+	_clear_held()
+	_push_zero_move()
+	_release_mouse()
+	_alert = ""
+	if _hud != null:
+		_hud.visible = false
+
+
+func close_talk() -> void:
+	if not talk_open:
+		return
+	talk_open = false
+	_talk_entity = -1
+	if _talk != null:
+		_talk.visible = false
+	_clear_held()
+	_push_zero_move()
+	_capture_mouse()
+	_alert = ""
+	if _hud != null:
+		_hud.visible = true
+
+
+# Every frame the conversation is up: the read models again, so a need or an injury that changes
+# while the player listens is said as it is now. A colonist who dies or walks away closes it.
+func _refresh_talk() -> void:
+	if not talk_open or _talk == null:
+		return
+	if not talkable(_talk_entity):
+		close_talk()
+		return
+	_talk.call("show_colonist", world, _talk_entity)
+	_place_talk()
+
+
+func _place_talk() -> void:
+	if _talk == null:
+		return
+	var view: Vector2 = get_viewport().get_visible_rect().size
+	var want: Vector2 = _talk.size
+	var at: Vector2 = Vector2(floorf((view.x - want.x) * 0.5), view.y - want.y - 96.0)
+	_talk.position = Vector2(maxf(16.0, at.x), maxf(96.0, at.y))
+
+
+func talk_panel_node() -> Control:
+	return _talk
 
 
 # --- the ledger ------------------------------------------------------------------------------
@@ -1219,6 +1473,8 @@ func _watch_identity() -> void:
 func _on_succession() -> void:
 	if inventory_open:
 		close_inventory()
+	if talk_open:
+		close_talk()
 	if menu_open:
 		close_ledger_menu()
 	_clear_held()
@@ -1271,6 +1527,8 @@ func _show_run_over() -> void:
 	_run_over_open = true
 	if inventory_open:
 		close_inventory()
+	if talk_open:
+		close_talk()
 	if menu_open:
 		close_ledger_menu()
 	_clear_held()
@@ -1322,6 +1580,16 @@ func ledger_sim_position() -> Vector2:
 
 func ledger_approach_position() -> Vector2:
 	return _ledger_approach
+
+
+func loose_view_count() -> int:
+	return int(_loose.call("count")) if _loose != null else 0
+
+
+func loose_node_for(entity: int) -> Node3D:
+	if _loose == null:
+		return null
+	return _loose.call("node_for", entity) as Node3D
 
 
 func container_view_count() -> int:
@@ -1637,7 +1905,85 @@ func _after_load() -> void:
 	_push_zero_move()
 	_push_aim()
 	_bodies.call("reset", world)
+	if _loose != null:
+		_loose.call("invalidate")
 	snap_render_to_sim()
+
+
+# --- the key reference (F1) ----------------------------------------------------------------------
+
+# Every key this scene handles, with the words the key reference shows. The legend draws these rows,
+# and the LEGEND lane of check_first_person.gd reads the codes back against the keys the input code
+# compares to, both ways, so a key handled but not listed, or listed but not handled, is red.
+const KEY_REFERENCE: Array = [
+	["Move", [
+		["WASD", "walk, relative to where you look", [KEY_W, KEY_A, KEY_S, KEY_D]],
+		["Shift", "sprint: fast, and loud; it latches while held", [KEY_SHIFT]],
+		["Ctrl+Z / Ctrl+C / Ctrl+S / Ctrl+V", "crawl, crouch, stand, jog; your eye follows your stance", [KEY_Z, KEY_C, KEY_S, KEY_V]],
+	]],
+	["Act", [
+		["Mouse", "turn to look; click to look again once Esc has freed the pointer", []],
+		["Click", "swing, or fire a gun in hand", []],
+		["F", "swing, or struggle out of a grab", [KEY_F]],
+		["G", "fire", [KEY_G]],
+		["R", "reload; in the sheet, turns the item you lift", [KEY_R]],
+		["E", "use the ledger, a cupboard or a door you face; the prompt at the bottom says which", [KEY_E]],
+	]],
+	["Run", [
+		["- / =", "slower, faster", [KEY_MINUS, KEY_KP_SUBTRACT, KEY_EQUAL, KEY_KP_ADD]],
+		["P", "hold the world still", [KEY_P]],
+		["F5 / F9", "save and load, in the first-person slot", [KEY_F5, KEY_F9]],
+		["Esc", "free the pointer, then back to the title; in the ledger or the sheet, back a step", [KEY_ESCAPE]],
+		["Enter", "on the end panel, back to the title", [KEY_ENTER, KEY_KP_ENTER]],
+		["F1", "these keys", [KEY_F1]],
+	]],
+]
+
+
+# The key reference's codes, in table order and without repeats: what the LEGEND lane compares.
+static func reference_codes() -> Array:
+	var out: Array = []
+	for group in KEY_REFERENCE:
+		for row in (group[1] as Array):
+			for code in (row[2] as Array):
+				if not out.has(int(code)):
+					out.append(int(code))
+	return out
+
+
+# The rows the legend draws: the label and the words of each key, grouped as the table is.
+func _legend_rows() -> Array:
+	var out: Array = []
+	for group in KEY_REFERENCE:
+		var shown: Array = []
+		for row in (group[1] as Array):
+			shown.append([String(row[0]), String(row[1])])
+		out.append([String(group[0]), shown])
+	return out
+
+
+func open_legend() -> void:
+	if _legend == null:
+		return
+	# A key held when the reference opens is let go, and the body stops: nothing walks while it is up.
+	_clear_held()
+	_push_zero_move()
+	_legend.visible = true
+	_legend_open = true
+
+
+func close_legend() -> void:
+	_legend_open = false
+	if _legend != null:
+		_legend.visible = false
+
+
+func legend_open() -> bool:
+	return _legend_open
+
+
+func legend_node() -> Control:
+	return _legend
 
 
 # --- the clock's speed: the top-down game's keys and ladder ---------------------------------------
