@@ -30,6 +30,8 @@ const SimContext = preload("res://sim/context.gd")
 const SimStances = preload("res://sim/stances.gd")
 const SimSpace = preload("res://sim/space/space.gd")
 const InputMapRes = preload("res://presentation/input_map.gd")
+const SessionRes = preload("res://presentation/session.gd")
+const RenderInterp = preload("res://presentation/interp.gd")
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
 const PropView = preload("res://presentation/first_person/prop_view.gd")
@@ -47,6 +49,8 @@ const SEED: int = SimBoot.DISTRICT_SEED
 const DISTRICT_TILES: int = SimTileMap.DISTRICT_TILES
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / float(TICK_HZ)
+# The clock's ladder, as main.gd has it: 1x and 3x. 10x waits on the tick budget.
+const SPEED_LADDER: Array[int] = [1, 3]
 # The game's own title lives in this scene; leaving the experiment means going back to it.
 const TITLE_SCENE: String = "res://presentation/main.tscn"
 
@@ -83,6 +87,8 @@ var yaw: float = 0.0
 var pitch: float = 0.0
 var menu_open: bool = false
 var paused: bool = false
+# The clock's speed: one of SPEED_LADDER. Presentation state, the same ladder main.gd keeps.
+var speed: int = 1
 var inventory_open: bool = false
 
 var _rig: Node3D = null
@@ -347,14 +353,16 @@ func _process(delta: float) -> void:
 		_update_hud()
 		return
 	if not paused:
-		_accumulator += delta
+		# main.gd's rule: the clock runs at the speed, the debt is clamped to what one frame may run,
+		# and the ticks per frame are capped the same way (five ticks at each speed step).
+		var rate: int = SessionRes.run_rate(speed, world)
+		var cap: int = maxi(1, 5 * rate)
+		_accumulator = RenderInterp.clamp_debt(_accumulator + delta * float(rate), TICK_SECONDS, cap)
 		var guard: int = 0
-		while _accumulator + 0.000001 >= TICK_SECONDS and guard < 8:
+		while _accumulator + 0.000001 >= TICK_SECONDS and guard < cap:
 			_accumulator -= TICK_SECONDS
 			step_sim_once()
 			guard += 1
-		if guard >= 8:
-			_accumulator = 0.0
 	if inventory_open:
 		_refresh_inventory()
 	if menu_open:
@@ -437,6 +445,7 @@ func _update_hud() -> void:
 				prompt = "Turn to the ledger."
 			elif _curr_player.distance_to(_ledger_sim) < 4.5:
 				prompt = "The ledger stands near."
+	_hud.set("time_words", SessionRes.speed_words(speed, paused, world))
 	_hud.call("set_state", world, int(world.player), prompt, _live_alert(), menu_open, paused, inventory_open, _live_news())
 	_hud.visible = not inventory_open
 
@@ -525,6 +534,14 @@ func _input(event: InputEvent) -> void:
 		return
 	if ke.pressed and code == KEY_R:
 		reload_weapon()
+		get_viewport().set_input_as_handled()
+		return
+	# The clock's keys, the top-down game's own (`input_map.gd`'s "slower" and "faster"). Refused under the
+	# ledger, the sheet and the end panel, which consume every key before this point, as main.gd refuses them.
+	var step: int = _speed_step_of(ke)
+	if step != 0:
+		if ke.pressed:
+			_step_speed(step)
 		get_viewport().set_input_as_handled()
 		return
 	# The stance keys are the top-down game's, read from input_map.gd's BINDINGS. Shift is the sprint
@@ -1621,3 +1638,25 @@ func _after_load() -> void:
 	_push_aim()
 	_bodies.call("reset", world)
 	snap_render_to_sim()
+
+
+# --- the clock's speed: the top-down game's keys and ladder ---------------------------------------
+
+# -1 for "slower", +1 for "faster", 0 for any other key. The keys are read from input_map.gd's BINDINGS,
+# the table the top-down game reads, with the Ctrl state matched the same way.
+func _speed_step_of(ke: InputEventKey) -> int:
+	for action in ["slower", "faster"]:
+		var row: Dictionary = InputMapRes.BINDINGS[action] as Dictionary
+		if bool(row["ctrl"]) != ke.ctrl_pressed:
+			continue
+		if (row["keys"] as Array).has(ke.keycode):
+			return -1 if action == "slower" else 1
+	return 0
+
+
+# One rung along SPEED_LADDER, clamped at both ends (main.gd's _step_speed).
+func _step_speed(step: int) -> void:
+	var at: int = SPEED_LADDER.find(speed)
+	if at < 0:
+		at = 0
+	speed = SPEED_LADDER[clampi(at + step, 0, SPEED_LADDER.size() - 1)]
