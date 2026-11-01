@@ -2484,7 +2484,7 @@ not a to-do list:
   - **Both benches.** A player's `bench.build` channel and a colonist's Construct job both end in
     `SimGunsmith.make_bench`, so the drawing never asks who built the bench.
   - **The gate.** The BENCH lane of `godot/check_first_person.gd` registers as a row in the generated
-    lane table (the OK line now lists 29 lanes). It builds a bench through the sim's own `bench.build`
+    lane table (the OK line now lists 30 lanes). It builds a bench through the sim's own `bench.build`
     when the small district has none, then: E in reach and on the aim opens the screen on the held
     pistol; a walking key moves nothing while the clock ticks; a suppressor fitted through the screen's
     command changes the sim's installed parts and the held view's drawn set; Escape closes through the
