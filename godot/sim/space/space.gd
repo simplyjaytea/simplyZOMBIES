@@ -1,7 +1,8 @@
 class_name SimSpace
 extends RefCounted
-# The first-person spatial authority, slice 1 of docs/40 ("The profile, drawn"). Pure and static: no
-# state, no RNG, and nothing in the sim calls it yet (slice 2 starts that). It owns two things:
+# The first-person spatial authority, docs/40. Slice 1 ("The profile, drawn") gave it the table and
+# the bodies; slice 2 ("The segment") gave it the first question the sim asks of them. Pure and
+# static: no state and no RNG. It owns:
 #
 #   PROFILE   for each tile class, overlay kind and stage, the height bands the tile occupies, in
 #             integer millimetres over a full-tile footprint. Each band names the purposes it stops
@@ -9,6 +10,11 @@ extends RefCounted
 #             and from nothing else, so what the screen draws is what the sim will trace.
 #   body_of / eye_of   the cylinder a body occupies and the eye height it looks from, read from the
 #             stance (survivors) or the zombie's state (zombies). Millimetres, as integers.
+#   segment_clear   whether a segment between two points passes every band that stops a purpose.
+#   reach_clear     the reach question in bodies: a blow from the attacker's shoulder to the target.
+#             `SimMelee._resolve_strike`, `SimShambler._clear_contact` and `SimNpcCombat.can_strike`
+#             all ask it, so a survivor's swing, a zombie's claw and a colonist's walk to the fight
+#             have one answer about what is in the way (docs/40, "Melee reach").
 #
 # Sim x/y are metres on the ground; height is millimetres above the floor at 0. A tile that is solid
 # for movement is a full-footprint band from 0 upward, and movement itself stays in
@@ -77,6 +83,20 @@ const ZOMBIE_HEIGHT_MM: int = 1650
 const CRAWLER_EYE_MM: int = 300
 const CRAWLER_HEIGHT_MM: int = 450
 
+# A blow starts at the attacker's shoulder, this far below its eye (docs/40, "Melee reach").
+const SHOULDER_DROP_MM: int = 400
+# Where on the target's axis a blow may arrive, in thousandths of its cylinder height: the
+# mid-height docs/40 names, and the chest. A reach clears if either point does. The second point is
+# what makes docs/40's own claim true: a standing survivor's shoulder (1220) to a zombie's
+# mid-height (825) dips under a window's 1000 mm sill before it reaches the far side of the tile, so
+# with mid-height alone no swing through a window could ever land. The chest (1237 on a zombie) is
+# level with the shoulder and passes the aperture; a crouched shoulder (550) still meets the sill.
+# docs/30, "The reach arrives at the chest as well as the middle".
+const REACH_TARGET_PERMILLE: Array[int] = [500, 750]
+
+# One tile in millimetres, the unit the segment walk is decided in.
+const TILE_MM: int = SimTileMap.TILE_METRES * 1000
+
 
 ## The profile key of a tile: the overlay's key when it has one, otherwise the tile class's.
 static func profile_key(map: Variant, tx: int, ty: int) -> String:
@@ -140,3 +160,194 @@ static func _volume(world: Variant, entity: int) -> Dictionary:
 	elif stance != SimStances.Stance.Crawl:
 		rung = "walk"
 	return {"eye": int(SURVIVOR_EYE_MM[rung]), "height": int(SURVIVOR_HEIGHT_MM[rung])}
+
+
+## The map a world's spatial questions read: its tile map when it has adopted one, and otherwise the
+## world itself, whose `map_cells` wall list is all the geometry an R1 fixture world has. A wall-list
+## cell reads as a full-height wall and every other cell as open floor (`_key_at`).
+static func map_of(world: Variant) -> Variant:
+	var tilemap: Variant = world.tilemap
+	return tilemap if tilemap != null else world
+
+
+## Whether the segment from `a` to `b` passes every band that stops `purpose` (SIGHT, SHOT or REACH).
+## Each point is {"x": metres, "y": metres, "h": millimetres above the floor}. `map` is a SimTileMap,
+## or a world without one (see `map_of`).
+##
+## Both points are taken to the nearest millimetre, and from there every decision is made in integers:
+## the 2D segment is walked tile by tile (the Amanatides-Woo traversal), each tile edge it crosses is a
+## rational t = n/d along it, and which edge comes first, whether two come at once (a corner), and
+## whether a band is in the way are all decided by cross-multiplying those integers. No float
+## comparison decides a boundary (docs/37), so a segment and the same segment written backwards or
+## reflected walk the same tiles. A band stops the segment when its heights and the segment's heights
+## inside the tile overlap strictly: touching a band's top or bottom face is passing it, so a line
+## level with a 1000 mm sill clears it.
+##
+## The two tiles holding the endpoints are where the bodies stand, and a body is not obstructed by
+## the ground it is standing on: they are skipped unless they stop movement (a point inside a wall is
+## inside the wall). That is the shadowcast's own convention, where the observer's tile and the
+## tile seen are both visible.
+##
+## Where the segment passes exactly through a tile corner, both tiles beside the corner are tested
+## at that one height, so a line cannot slip between two walls that meet diagonally. The traversal
+## runs from the lesser endpoint to the greater, so swapping `a` and `b` is the same walk.
+static func segment_clear(map: Variant, a: Dictionary, b: Dictionary, purpose: int) -> bool:
+	if purpose & (SIGHT | SHOT | REACH) == 0:
+		push_error("SimSpace.segment_clear: purpose %d is not SIGHT, SHOT or REACH" % purpose)
+		return false
+	var p: Array[int] = _mm_point(a)
+	var q: Array[int] = _mm_point(b)
+	if _after(p, q):
+		var swap: Array[int] = p
+		p = q
+		q = swap
+	var ax: int = p[0]
+	var ay: int = p[1]
+	var ah: int = p[2]
+	var rise: int = q[2] - ah
+	var dx: int = q[0] - ax
+	var dy: int = q[1] - ay
+	var tx: int = _tile_of(ax)
+	var ty: int = _tile_of(ay)
+	var ends: Array[int] = [tx, ty, _tile_of(q[0]), _tile_of(q[1])]
+	var step_x: int = signi(dx)
+	var step_y: int = signi(dy)
+	var den_x: int = absi(dx)
+	var den_y: int = absi(dy)
+	# How far along each axis, in millimetres, the next tile edge lies; it is crossed at t = num / den.
+	var num_x: int = 0
+	var num_y: int = 0
+	if step_x > 0:
+		num_x = (tx + 1) * TILE_MM - ax
+	elif step_x < 0:
+		num_x = ax - tx * TILE_MM
+	if step_y > 0:
+		num_y = (ty + 1) * TILE_MM - ay
+	elif step_y < 0:
+		num_y = ay - ty * TILE_MM
+	var in_n: int = 0
+	var in_d: int = 1
+	# An exact integer walk visits at most one tile per edge crossed, plus the first.
+	for _i in absi(ends[2] - tx) + absi(ends[3] - ty) + 1:
+		var at_end: bool = tx == ends[2] and ty == ends[3]
+		# 0: the segment ends in this tile. 1: it leaves across an x edge. 2: a y edge. 3: a corner.
+		var leaves: int = 0
+		if not at_end:
+			if step_x != 0 and step_y != 0:
+				var order: int = num_x * den_y - num_y * den_x
+				leaves = 1 if order < 0 else (2 if order > 0 else 3)
+			elif step_x != 0:
+				leaves = 1
+			else:
+				leaves = 2
+			# An edge at or past t = 1 is beyond the segment's end, which then lies in this tile.
+			if (leaves != 2 and num_x >= den_x) or (leaves == 2 and num_y >= den_y):
+				leaves = 0
+		var out_n: int = 1
+		var out_d: int = 1
+		if leaves == 1 or leaves == 3:
+			out_n = num_x
+			out_d = den_x
+		elif leaves == 2:
+			out_n = num_y
+			out_d = den_y
+		if _tile_stops(map, tx, ty, purpose, ah, rise, in_n, in_d, out_n, out_d, ends):
+			return false
+		if leaves == 0:
+			return true
+		if leaves == 3:
+			if _tile_stops(map, tx + step_x, ty, purpose, ah, rise, out_n, out_d, out_n, out_d, ends):
+				return false
+			if _tile_stops(map, tx, ty + step_y, purpose, ah, rise, out_n, out_d, out_n, out_d, ends):
+				return false
+		if leaves != 2:
+			tx += step_x
+			num_x += TILE_MM
+		if leaves != 1:
+			ty += step_y
+			num_y += TILE_MM
+		in_n = out_n
+		in_d = out_d
+	# Unreachable: the integer walk always arrives at the end tile within its bound. Refuse rather than
+	# pass a segment whose last tile was never tested.
+	push_error("SimSpace.segment_clear: the walk from %s to %s ran out before its end tile" % [str(p), str(q)])
+	return false
+
+
+## Whether a blow from `attacker` standing at `from` arrives at `target` standing at `to`: the segment
+## from the attacker's shoulder (its eye less SHOULDER_DROP_MM) to the target's mid-height or its
+## chest (REACH_TARGET_PERMILLE) passes every band that stops a reach. Distance and arc are the
+## caller's; this answers only what is in the way. An entity of -1 is a body the caller cannot name
+## (a bare position): a zombie's shoulder, and a standing survivor's height.
+static func reach_clear(world: Variant, from: Dictionary, to: Dictionary, attacker: int = -1, target: int = -1) -> bool:
+	var map: Variant = map_of(world)
+	var eye: int = eye_of(world, attacker) if attacker >= 0 else ZOMBIE_EYE_MM
+	var a: Dictionary = {"x": float(from["x"]), "y": float(from["y"]), "h": maxi(0, eye - SHOULDER_DROP_MM)}
+	var height: int = int(body_of(world, target)["height"]) if target >= 0 else int(SURVIVOR_HEIGHT_MM["walk"])
+	for permille in REACH_TARGET_PERMILLE:
+		@warning_ignore("integer_division")
+		var h: int = height * int(permille) / 1000
+		if segment_clear(map, a, {"x": float(to["x"]), "y": float(to["y"]), "h": h}, REACH):
+			return true
+	return false
+
+
+# A point in integer millimetres, [x, y, h]: the plane coordinates to the nearest millimetre.
+static func _mm_point(point: Dictionary) -> Array[int]:
+	return [roundi(float(point["x"]) * 1000.0), roundi(float(point["y"]) * 1000.0), int(point.get("h", 0))]
+
+
+# The tile a millimetre coordinate lies in: floor division by the tile, in integers.
+static func _tile_of(mm: int) -> int:
+	@warning_ignore("integer_division")
+	var tile: int = (mm - posmod(mm, TILE_MM)) / TILE_MM
+	return tile
+
+
+# The canonical order of two endpoints: x, then y, then height. Ties on all three are one point.
+static func _after(a: Array[int], b: Array[int]) -> bool:
+	if a[0] != b[0]:
+		return a[0] > b[0]
+	if a[1] != b[1]:
+		return a[1] > b[1]
+	return a[2] > b[2]
+
+
+# Whether tile (tx, ty), crossed between t = n0/d0 and t = n1/d1 (denominators positive), holds a band
+# that stops `purpose`. The height at t = n/d is (ah * d + rise * n) / d, so every comparison with a
+# band's integer edge is made on whole numbers. The endpoint tiles, `ends` = [sx, sy, ex, ey], count
+# only when they stop movement.
+static func _tile_stops(map: Variant, tx: int, ty: int, purpose: int, ah: int, rise: int, n0: int, d0: int, n1: int, d1: int, ends: Array[int]) -> bool:
+	var tile_bands: Array = bands(_key_at(map, tx, ty))
+	if tile_bands.is_empty():
+		return false
+	if (tx == ends[0] and ty == ends[1]) or (tx == ends[2] and ty == ends[3]):
+		var solid: bool = false
+		for band in tile_bands:
+			if int((band as Array)[2]) & MOVE != 0:
+				solid = true
+				break
+		if not solid:
+			return false
+	var h0: int = ah * d0 + rise * n0
+	var h1: int = ah * d1 + rise * n1
+	for band in tile_bands:
+		var bnd: Array = band as Array
+		if int(bnd[2]) & purpose == 0:
+			continue
+		var bottom: int = int(bnd[0])
+		var top: int = int(bnd[1])
+		# Strict overlap: the lower of the two heights is under the band's top, and the higher is over
+		# its bottom.
+		var under_top: bool = h0 < top * d0 or h1 < top * d1
+		var over_bottom: bool = h0 > bottom * d0 or h1 > bottom * d1
+		if under_top and over_bottom:
+			return true
+	return false
+
+
+# The profile key at a tile, for either kind of map `map_of` returns.
+static func _key_at(map: Variant, tx: int, ty: int) -> String:
+	if map is SimTileMap:
+		return profile_key(map, tx, ty)
+	return "wall" if bool(map.is_blocked_tile(tx, ty)) else "floor"
