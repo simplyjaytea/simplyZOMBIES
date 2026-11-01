@@ -35,6 +35,7 @@ RES_DIR = "res://assets/first_person/items/"
 ATLAS_NAME = "items_atlas"
 CLASSES = ("consumable", "material", "tool", "container", "armor", "attachment")
 TAU = math.tau
+ROOT = Path(__file__).resolve().parents[3]
 
 
 # ---------------------------------------------------------------------------------------------
@@ -260,6 +261,9 @@ class Model:
             for group in shell:
                 group[2] = [tuple(p + shift for p in poly) for poly in group[2]]
         self.offset = shift
+        # The main body is the first shell a model builds. It must rest on the floor itself, so a
+        # strap or a handle cannot hold it up (the duffel's 18 mm float in the first review).
+        self.main_floor = min(p.z for group in self.shells[0] for poly in group[2] for p in poly)
         self.size = (hi.x - lo.x, hi.y - lo.y, hi.z - lo.z)
         self.tpm = SMALL_TPM if max(self.size) <= SMALL_LIMIT_M else LARGE_TPM
         self.islands = []
@@ -278,15 +282,15 @@ class Model:
             island = Island(self, tag)
             normal = _newell(polys[0])
             origin = polys[0][0]
+            # Align the texel grid with the object's own axes: the world axis that lies most in this
+            # plane, projected onto it. A cap's first edge can be a diagonal corner segment, and a grid
+            # taken from it stair-steps every straight stripe, label and edge on the face.
             axis_u = None
-            for poly in polys:
-                for i in range(len(poly)):
-                    edge = poly[(i + 1) % len(poly)] - poly[i]
-                    if edge.length > 1e-7:
-                        axis_u = edge.normalized()
-                        break
-                if axis_u is not None:
-                    break
+            for world in (Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1))):
+                projected = world - normal * world.dot(normal)
+                if axis_u is None or projected.length > axis_u.length + 1e-9:
+                    axis_u = projected
+            axis_u = axis_u.normalized()
             axis_v = normal.cross(axis_u).normalized()
             for poly in polys:
                 island.polys.append((list(poly), [((p - origin).dot(axis_u), (p - origin).dot(axis_v)) for p in poly]))
@@ -322,7 +326,8 @@ class Model:
                 continue
             mid = (a + b) / 2
             convex = (cb - mid).dot(na) < 0
-            sharp.append((a.copy(), b.copy(), convex))
+            hard = na.dot(nb) < math.cos(math.radians(60))
+            sharp.append((a.copy(), b.copy(), convex, hard))
         self.sharp = sharp
 
 
@@ -478,7 +483,7 @@ def at(x, y, z):
 
 
 class Texel:
-    __slots__ = ("p", "n", "tag", "dcx", "dcv", "m")
+    __slots__ = ("p", "n", "tag", "dcx", "dcv", "dhx", "m")
 
 
 def texel_m(c):
@@ -500,8 +505,13 @@ def jitter(c, amp=0.15, seed=0):
 
 
 def wear(c, value, light=1.0, dark=1.0):
+    """Lighten the texel row on a hard convex edge (60 degrees or more) and darken a concave crease.
+
+    Soft bevels on rounded shapes get nothing: a one-texel highlight wandering across a narrow
+    bevel is what turned into zigzag camouflage in the first review.
+    """
     t = texel_m(c)
-    if c.dcx < 0.85 * t:
+    if c.dhx < 0.85 * t:
         value += light
     if c.dcv < 1.1 * t:
         value -= dark
@@ -509,8 +519,9 @@ def wear(c, value, light=1.0, dark=1.0):
 
 
 def floor_grime(c, value, height=0.015, amount=0.7):
-    if c.p.z < height:
-        value -= amount * (1.0 - c.p.z / height)
+    """One crisp darker row where the item meets the floor, not a noisy band."""
+    if c.p.z < 0.85 * texel_m(c):
+        value -= 1.0 if amount >= 0.5 else 0.0
     return value
 
 
@@ -544,14 +555,14 @@ def painted(c, ramp, under="steel", base=2.5, chip=0.5, seed=0, rust=0.4):
 
 
 def cloth(c, ramp, base=2.5, seed=0, stain=0.35, grime=0.8):
-    t = texel_m(c)
-    v = round(base) + mottle(c, 26, 0.32, seed) + jitter(c, 0.08, seed)
-    if stain > 0 and nz(c, 30, 500 + seed, 2) > 0.78 - stain * 0.1:
-        v -= 0.9
-    if c.dcx < 0.85 * t and nz(c, 4, 520 + seed) > 0.55:
-        v += 0.8
-    v = wear(c, v, 0.0, 1.1)
-    v = floor_grime(c, v, 4 * t, grime)
+    """Flat woven colour, a crease line in concave folds, rare small scuffs, a floor contact row."""
+    v = round(base) + mottle(c, 26, 0.3, seed) + jitter(c, 0.06, seed)
+    if stain > 0 and nz(c, 3.0, 510 + seed, 1) > 0.93 - stain * 0.03:
+        v -= 1.0
+    if c.dhx < 2.0 * texel_m(c) and nz(c, 3.0, 520 + seed, 1) > 0.88:
+        v += 1.0
+    v = wear(c, v, 0.0, 1.0)
+    v = floor_grime(c, v, 0.0, grime)
     return tone(ramp, v)
 
 
@@ -568,10 +579,7 @@ def card(c, ramp, base=2.6, seed=0):
     v = round(base) + mottle(c, 20, 0.3, seed) + jitter(c, 0.08, seed)
     if nz(c, 25, 700 + seed, 2) > 0.74:
         v -= 0.8
-    if c.dcx < 0.85 * t:
-        v += 0.8
-    if c.dcv < 1.1 * t:
-        v -= 1.0
+    v = wear(c, v, 0.8, 1.0)
     v = floor_grime(c, v, 2 * t, 0.6)
     return tone(ramp, v)
 
@@ -638,14 +646,14 @@ def m_food_canned(m):
                     return tone("red", 1.4 + jitter(c, 0.2))
                 if -4 <= i <= 4 and 4 <= j <= 10:
                     if (i * i) / 9.0 + ((j - 8) * (j - 8)) / 3.2 < 1.0:
-                        return tone("ochre", 2.0 + mottle(c, 4.0, 0.36))
+                        return tone("ochre", 2.0 + mottle(c, 16, 0.25))
                     if (i, j) in text_rows(m, "panel", [(5, -3, 4)], 11):
                         return tone("red", 0.8)
-                    return tone("paper", 3.2 + mottle(c, 4.0, 0.3) + jitter(c, 0.2))
+                    return tone("paper", 3.2 + mottle(c, 16, 0.21) + jitter(c, 0.2))
                 if (i, j) in text_rows(m, "side", [(4, 6, 12), (6, 6, 11), (8, 6, 12), (4, -12, -6), (6, -11, -6)], 12):
                     return tone("paper", 3.0)
-                v = 2.4 + mottle(c, 4.0, 0.3) + mottle(c, 21, 0.24, 2, 2) + jitter(c, 0.15)
-                if c.dcx < 0.9 / d:
+                v = 2.4 + mottle(c, 16, 0.21) + mottle(c, 21, 0.24, 2, 2) + jitter(c, 0.15)
+                if c.dhx < 0.9 / d:
                     v += 0.8
                 return tone("red", v)
             return metal(c, "tin", 2.2, rust=0.55)
@@ -671,17 +679,18 @@ def m_soda_can(m):
             s = front_arc(c, 0.033)
             d = m.tpm
             i, j = math.floor(s * d), math.floor(z * d)
-            wave = 6 + round(1.5 * math.sin(s * 70.0))
-            scuff = nz(c, 2.0, 61, 1) > 0.93 or c.dcx < 0.9 / d
+            scuff = nz(c, 2.0, 61, 1) > 0.93 or c.dhx < 0.9 / d
             if scuff:
                 return metal(c, "alu", 2.6)
-            if j < wave:
-                return tone("teal", 1.6 + mottle(c, 4.0, 0.3) + jitter(c, 0.15))
+            if j < 6:
+                return tone("teal", 2.0 + mottle(c, 26, 0.2))
+            if j == 6:
+                return tone("red", 2.0)
             if (i, j) in text_rows(m, "soda", [(9, -4, 5), (11, -3, 4)], 21):
                 return tone("teal", 1.0)
             if abs(i) <= 2 and 7 <= j <= 8:
                 return tone("red", 2.6)
-            return tone("white", 2.8 + mottle(c, 4.0, 0.3) + mottle(c, 26, 0.24, 3, 2) + jitter(c, 0.15))
+            return tone("white", 2.8 + mottle(c, 16, 0.21) + mottle(c, 26, 0.24, 3, 2) + jitter(c, 0.15))
         return metal(c, "alu", 2.8)
 
     m.painter = paint
@@ -715,11 +724,11 @@ def m_water_bottle(m):
                 return tone("blue", 1.6)
             if -2 <= i <= 2 and 14 <= j <= 15:
                 return tone("blue", 2.6)
-            return tone("white", 3.4 + mottle(c, 4.0, 0.3) + jitter(c, 0.15))
+            return tone("white", 3.4 + mottle(c, 16, 0.21) + jitter(c, 0.15))
         filled = z < 0.205
         s = front_arc(c, max(r, 0.01))
         streak = -0.020 < s - 0.014 < -0.010 and z > 0.02
-        v = (2.0 if filled else 3.0) + mottle(c, 6, 0.24) + jitter(c, 0.15)
+        v = (2.0 if filled else 3.0) + mottle(c, 16, 0.17) + jitter(c, 0.15)
         if streak:
             v += 1.6
         v = wear(c, v, 1.0, 0.8)
@@ -750,8 +759,8 @@ def m_pill_bottle(m):
                     return tone("card", 1.0)
                 if j == 4:
                     return tone("red", 2.2)
-                return tone("paper", 3.4 + mottle(c, 4.0, 0.3) + jitter(c, 0.15))
-        v = 2.4 + mottle(c, 5, 0.24) + jitter(c, 0.15)
+                return tone("paper", 3.4 + mottle(c, 16, 0.21) + jitter(c, 0.15))
+        v = 2.4 + mottle(c, 16, 0.17) + jitter(c, 0.15)
         s = front_arc(c, max(r, 0.01))
         if -0.010 < s - 0.007 < -0.004 and z > 0.006:
             v += 1.5
@@ -764,7 +773,7 @@ def m_bandage(m):
     roll = rot("Y", 90) @ at(0, 0, 0)
     profile = [(0.0060, -0.0275), (0.0250, -0.0275), (0.0250, 0.0275), (0.0060, 0.0275)]
     m.lathe(profile, 24, "roll", xf=at(0, 0, 0.025) @ roll, closed=True)
-    m.rbox((0.050, 0.070, 0.0022), "tail", centre=(0.0, -0.040, 0.0013), radius=0.003, corner_steps=2)
+    m.rbox((0.050, 0.110, 0.0022), "tail", centre=(0.0, -0.060, 0.0013), radius=0.003, corner_steps=2)
 
     def paint(c):
         x = c.p.x
@@ -773,15 +782,16 @@ def m_bandage(m):
             r = math.hypot(c.p.y, c.p.z - 0.025)
             if r < 0.0075:
                 return tone("card", 1.5)
-            layer = math.floor((r - 0.006) * 400.0 + 1.5 * fbm(c.p, 120, 5, 2)) % 2
-            return tone("bandage", 2.6 + (0.7 if layer else -0.3) + jitter(c, 0.15))
-        v = 3.0 + mottle(c, 4.0, 0.3) + mottle(c, 16, 0.24, 3, 2) + jitter(c, 0.2)
-        if fbm(c.p, 12, 91, 2) > 0.74:
-            v -= 1.2
-        if c.tag == "tail" and c.p.y < -0.068:
-            v -= 0.6
-        v = wear(c, v, 0.5, 1.0)
-        v = floor_grime(c, v, 0.006, 0.8)
+            return tone("bandage", 2.0 if r > 0.0235 else 2.6)
+        # The selvedge thread: a faded blue line near each edge of the gauze, round the roll and
+        # along the loose tail, which is what says "bandage" rather than "paper roll".
+        if math.floor(x * d) in (2, -3):
+            return tone("blue", 4.0)
+        v = 3.0 + mottle(c, 20, 0.25) + jitter(c, 0.06)
+        if c.tag == "tail" and c.p.y < -0.108:
+            v -= 1.0
+        v = wear(c, v, 0.0, 1.0)
+        v = floor_grime(c, v, 0.0, 0.8)
         return tone("bandage", v)
 
     m.painter = paint
@@ -850,8 +860,7 @@ def m_ration(m):
     def paint(c):
         d = m.tpm
         if c.tag == "seal":
-            v = 2.2 + (0.8 if math.floor(c.p.x * d) % 2 else 0.0) + jitter(c, 0.15)
-            return tone("khaki", wear(c, v, 0.6, 0.8))
+            return tone("khaki", 2.0 if abs(c.p.y) < 0.130 else 1.4)
         if c.p.z > 0.028:
             i, j = math.floor(c.p.x * d), math.floor(c.p.y * d)
             if (i, j) in text_rows(m, "ration", [(5, -5, 6), (3, -4, 4), (1, -6, 5), (-1, -5, 3)], 61):
@@ -864,28 +873,36 @@ def m_ration(m):
 
 
 def m_ammo_pistol(m):
-    m.rbox((0.084, 0.060, 0.036), "box", centre=(0, 0, 0.018), radius=0.002, bevel=0.0015, corner_steps=1)
-    m.rbox((0.0812, 0.020, 0.0030), "flap", centre=(0.0, 0.0215, 0.0372), radius=0.0015, corner_steps=1)
+    # A plain card box of pistol rounds, with a few rounds loose in front of it.
+    m.rbox((0.084, 0.060, 0.034), "box", centre=(0, 0, 0.017), radius=0.0015, bevel=0.001, corner_steps=1)
+    rounds = [((0.010, 0.050), 15.0), ((0.032, 0.066), -30.0), ((-0.022, 0.052), 80.0)]
+    frames = []
+    for index, ((x, y), yaw) in enumerate(rounds):
+        xf = at(x, y, 0.0049) @ rot("Z", yaw) @ rot("Y", 90) @ at(0, 0, -0.0145)
+        m.lathe(nine_mm_profile(), 12, "round%d" % index, xf=xf, phase=0.3 * index)
+        frames.append(xf.inverted())
 
     def paint(c):
         d = m.tpm
         x, y, z = c.p
-        if c.tag == "flap":
-            return card(c, "card", 2.0)
-        if z > 0.0355:
-            i, j = math.floor(x * d), math.floor(y * d)
-            if -3 <= j <= -1 and -4 <= i <= 4:
-                if i == 4 or (i == 3 and j == -2):
-                    return tone("brass", 3.0)
-                return tone("brass", 2.0 + (0.6 if j == -2 else 0.0))
-            return card(c, "ochre", 2.6)
+        if c.tag.startswith("round"):
+            along = (frames[int(c.tag[5:])] @ c.p).z
+            if along > 0.0196:
+                return metal(c, "copper", 2.6)
+            return metal(c, "brass", 2.8 if along > 0.002 else 2.0)
         if y > 0.0295:
             i, j = math.floor(x * d), math.floor(z * d)
-            if (i, j) in text_rows(m, "front", [(2, -4, 4), (1, -3, 2)], 72):
-                return tone("card", 0.6)
-            if j == 3:
-                return tone("red", 2.2)
-        return card(c, "ochre", 2.3)
+            if -5 <= i <= 4 and 1 <= j <= 3:
+                if j == 2 and -4 <= i <= -2:
+                    return tone("brass", 3.0)
+                if j == 2 and i == -1:
+                    return tone("copper", 2.6)
+                if j == 2 and i >= 1 and (i, j) in text_rows(m, "end", [(2, 1, 4)], 72):
+                    return tone("card", 0.6)
+                return tone("paper", 3.2)
+        if z > 0.0335 and abs(y - 0.018) < 0.5 / d:
+            return tone("card", 1.2)
+        return card(c, "blue", 2.0)
 
     m.painter = paint
 
@@ -922,7 +939,7 @@ def m_ammo_12g(m):
             return metal(c, "brass", 2.8 if along > 0.002 else 2.0, rust=0.0)
         if along > 0.0690:
             return tone("red", 0.9 + jitter(c, 0.25))
-        v = 2.2 + mottle(c, 4.0, 0.24) + jitter(c, 0.15)
+        v = 2.2 + mottle(c, 16, 0.17) + jitter(c, 0.15)
         if math.floor(along * m.tpm) % 4 == 0:
             v -= 0.5
         return tone("red", wear(c, v, 0.9, 0.8))
@@ -976,7 +993,7 @@ def m_lighter(m):
             return metal(c, "tin", 2.8)
         if c.tag == "lever":
             return plastic(c, "rubber", 2.4)
-        v = 2.4 + mottle(c, 4.0, 0.21) + jitter(c, 0.12)
+        v = 2.4 + mottle(c, 16, 0.15) + jitter(c, 0.12)
         if c.p.y < -0.004 and along < 0.040:
             v -= 0.8
         return tone("teal", wear(c, v, 1.0, 0.8))
@@ -1032,10 +1049,10 @@ def m_battery(m):
         if j >= 5:
             if (i, j) in text_rows(m, "cell", [(6, -3, 4)], 81):
                 return tone("ochre", 3.6)
-            return tone("copper", 2.2 + mottle(c, 4.0, 0.24) + jitter(c, 0.15))
+            return tone("copper", 2.2 + mottle(c, 16, 0.17) + jitter(c, 0.15))
         if (i, j) in text_rows(m, "cell2", [(2, -2, 3)], 82):
             return tone("white", 3.0)
-        return tone("webbing", wear(c, 2.0 + mottle(c, 4.0, 0.24) + jitter(c, 0.15), 1.0, 0.6))
+        return tone("webbing", wear(c, 2.0 + mottle(c, 16, 0.17) + jitter(c, 0.15), 1.0, 0.6))
 
     m.painter = paint
 
@@ -1093,46 +1110,49 @@ def m_plank(m):
     m.painter = paint
 
 
-def m_nails_jar(m):
-    profile = [
-        (0.0, 0.0022), (0.0360, 0.0), (0.0400, 0.0050), (0.0400, 0.0780), (0.0352, 0.0870),
-        (0.0332, 0.0895), (0.0362, 0.0895), (0.0362, 0.1030), (0.0348, 0.1045), (0.0, 0.1045),
-    ]
-    m.lathe(profile, 24, "jar")
+def m_nails_box(m):
+    # An open card box of nails: walls round a heaped pile, the back flap folded open, a few nails
+    # lying on top of the heap and two loose on the floor in front.
+    m.rbox((0.097, 0.067, 0.0020), "box", centre=(0.0, 0.0, 0.0010))
+    for sy in (-1, 1):
+        m.rbox((0.100, 0.0020, 0.0440), "box", centre=(0.0, sy * 0.0340, 0.0230))
+    for sx in (-1, 1):
+        m.rbox((0.0020, 0.0660, 0.0440), "box", centre=(sx * 0.0489, 0.0, 0.0230))
+    m.rbox((0.098, 0.0020, 0.0350), "flap", centre=(0.0, 0.0, 0.0175), xf=at(0.0, -0.0340, 0.0440) @ rot("X", 25))
+    rings = []
+    for z, hx, hy in ((0.0300, 0.0485, 0.0335), (0.0360, 0.0400, 0.0260), (0.0390, 0.0300, 0.0180)):
+        rings.append([Vector((x, y, z)) for x, y in rounded_rect(hx, hy, 0.006, 2)])
+    m.loft(rings, "pile")
+    shank = [(-0.0011, -0.0011), (0.0011, -0.0011), (0.0011, 0.0011), (-0.0011, 0.0011)]
+    nails = [((0.0, 0.004), 8.0, 0.0401), ((0.002, -0.006), -32.0, 0.0423), ((-0.004, 0.002), 95.0, 0.0445), ((0.010, 0.052), 12.0, 0.0030), ((-0.028, 0.068), -20.0, 0.0030)]
+    for (x, y), yaw, z in nails:
+        a = math.radians(yaw)
+        ax, ay = math.cos(a) * 0.025, math.sin(a) * 0.025
+        m.sweep([(x - ax, y - ay, z), (x + ax, y + ay, z)], shank, "nail")
+        m.lathe([(0.0, -0.0008), (0.0030, -0.0008), (0.0030, 0.0008), (0.0, 0.0008)], 10, "head", xf=at(x + ax, y + ay, z) @ rot("Z", yaw) @ rot("Y", 90))
 
     def paint(c):
-        z = c.p.z
-        r = math.hypot(c.p.x, c.p.y)
         d = m.tpm
-        if z > 0.0894:
-            ridge = z < 0.1028 and math.floor((math.atan2(c.p.y, c.p.x) / TAU) * 48) % 2
-            return painted(c, "green", under="tin", base=2.4 + (0.5 if ridge else 0.0), chip=0.3, rust=0.4)
-        s = front_arc(c, max(r, 0.01))
-        streak = -0.018 < s - 0.012 < -0.010 and 0.012 < z < 0.075
-        if z < 0.066 and r > 0.0395 or (z < 0.003 and r < 0.036):
-            u, w = s * d, z * d
-            if streak:
-                return tone("glass", 4.4)
-            for grid in range(2):
-                gu, gw = u / 4.0 + grid * 0.5, w / 4.0 + grid * 0.5
-                cu, cw = math.floor(gu), math.floor(gw)
-                h = ihash(cu, cw, grid, 913)
-                if h % 100 < 55:
-                    angle = (h >> 8) % 4 * (math.pi / 4)
-                    lu, lw = (gu - cu - 0.5) * 4.0, (gw - cw - 0.5) * 4.0
-                    along = lu * math.cos(angle) + lw * math.sin(angle)
-                    across = -lu * math.sin(angle) + lw * math.cos(angle)
-                    if abs(across) < 0.5 and abs(along) < 2.0:
-                        if along > 1.0:
-                            return tone("steel", 4.0)
-                        return tone("rust" if (h >> 12) % 5 == 0 else "steel", 2.6)
-            return tone("glass", 1.2 + mottle(c, 10, 0.4))
-        v = 2.2 + mottle(c, 5, 0.3) + jitter(c, 0.15)
-        if streak:
-            v += 2.0
-        if fbm(c.p, 14, 77, 2) > 0.7:
-            v -= 0.8
-        return tone("glass", wear(c, v, 1.2, 0.8))
+        x, y, z = c.p
+        if c.tag in ("nail", "head"):
+            return metal(c, "steel", 4.0 if c.tag == "head" else 3.4, rust=0.2)
+        if c.tag == "pile":
+            h = ihash(math.floor(x * d), math.floor(y * d), math.floor(z * d), 919)
+            if h % 3 == 0:
+                return tone("steel", 4.0)
+            if h % 11 == 1:
+                return tone("rust", 2.2)
+            return tone("steel", 1.6 + (0.8 if h % 2 else 0.0))
+        inside = (abs(x) < 0.0479 and abs(y) < 0.0330) or c.tag == "flap" and c.n.y > 0
+        if inside:
+            return tone("card", 1.4)
+        if y > 0.0349 and 0.008 < z < 0.036:
+            i, j = math.floor(x * d), math.floor(z * d)
+            if -4 <= i <= 4 and 2 <= j <= 3:
+                if j == 3 and -3 <= i <= 2:
+                    return tone("steel", 3.4 if i < 2 else 4.2)
+                return tone("paper", 3.2)
+        return card(c, "card", 2.4)
 
     m.painter = paint
 
@@ -1155,7 +1175,7 @@ def m_duct_tape(m):
             return card(c, "card", 1.8)
         if c.tag == "roll" and (z < 0.0004 or z > 0.0476):
             return tone("tape", 1.4 + (0.8 if math.floor(r * 900) % 2 else 0.0) + jitter(c, 0.15))
-        v = 2.8 + mottle(c, 4.0, 0.3) + jitter(c, 0.17)
+        v = 2.8 + mottle(c, 16, 0.21) + jitter(c, 0.17)
         return tone("tape", wear(c, v, 1.0, 1.0))
 
     m.painter = paint
@@ -1191,7 +1211,7 @@ def m_rope(m):
             beta = math.atan2(radial.z, radial.dot(Vector((seg.y, -seg.x, 0.0)).normalized()))
             ends = 1.0 if along < (b - a).length - 0.004 else 0.0
         strand = ((beta / TAU) * 3.0 + along / 0.020) % 1.0
-        v = 2.7 + mottle(c, 4.0, 0.24) + jitter(c, 0.17)
+        v = 2.7 + mottle(c, 16, 0.17) + jitter(c, 0.17)
         if strand < 0.24:
             v -= 1.3
         elif strand > 0.75:
@@ -1217,6 +1237,17 @@ def m_pack_hiking(m):
     for y, hx, hz, r in ((0.096, 0.118, 0.128, 0.040), (0.140, 0.112, 0.122, 0.036), (0.152, 0.096, 0.106, 0.030)):
         pocket.append([Vector((x, y, z + 0.200)) for x, z in reversed(rounded_rect(hx, hz, r, 3))])
     m.loft(pocket, "pocket")
+    # The front pocket's flap, two compression straps from the lid down over it, and buckles.
+    m.rbox((0.206, 0.014, 0.058), "flap", centre=(0.0, 0.1575, 0.2920), radius=0.010, bevel=0.004, corner_steps=2)
+    web = [(-0.0125, -0.0016), (0.0125, -0.0016), (0.0125, 0.0016), (-0.0125, 0.0016)]
+    for sx in (-1, 1):
+        x = sx * 0.062
+        path = [(x, 0.090, 0.5768), (x, 0.1282, 0.5520), (x, 0.1282, 0.5040), (x, 0.1170, 0.4500), (x, 0.1460, 0.3480), (x, 0.1662, 0.3000), (x, 0.1662, 0.2400)]
+        m.sweep(path, web, "webbing", up=(0, 1, 0))
+        m.rbox((0.032, 0.0060, 0.0200), "buckle", centre=(x, 0.1680, 0.2720), radius=0.002, corner_steps=1)
+    # Side pockets.
+    for sx in (-1, 1):
+        m.rbox((0.040, 0.130, 0.170), "side", centre=(sx * 0.178, 0.0, 0.140), radius=0.014, bevel=0.007, corner_steps=2)
     strap = [(-0.024, -0.005), (0.024, -0.005), (0.024, 0.005), (-0.024, 0.005)]
     for sign in (-1, 1):
         path = [(sign * 0.070, -0.100, 0.470), (sign * 0.075, -0.140, 0.420), (sign * 0.082, -0.150, 0.300), (sign * 0.090, -0.142, 0.160), (sign * 0.100, -0.118, 0.060)]
@@ -1224,20 +1255,15 @@ def m_pack_hiking(m):
     m.sweep([(-0.030, -0.080, 0.540), (-0.020, -0.098, 0.570), (0.020, -0.098, 0.570), (0.030, -0.080, 0.540)], [(-0.010, -0.003), (0.010, -0.003), (0.010, 0.003), (-0.010, 0.003)], "loop", up=(0, 1, 0))
 
     def paint(c):
-        d = m.tpm
-        x, y, z = c.p
-        if c.tag in ("strap", "loop"):
-            v = 2.4 + jitter(c, 0.15) + mottle(c, 4.0, 0.18)
-            if c.dcx < 1.2 / d:
-                v += 0.8
-            return tone("webbing", v)
-        if c.tag == "pocket":
-            if y > 0.150 and abs(z - 0.300) < 0.6 / d and abs(x) < 0.090:
-                return tone("webbing", 1.4)
-            return cloth(c, "khaki", 2.3, seed=3)
+        if c.tag in ("strap", "loop", "webbing"):
+            return tone("webbing", 2.3 + mottle(c, 20, 0.2))
+        if c.tag == "buckle":
+            return plastic(c, "rubber", 2.4)
+        if c.tag in ("pocket", "flap"):
+            return cloth(c, "khaki", 2.0 if c.tag == "flap" else 2.4, seed=3)
+        if c.tag == "side":
+            return cloth(c, "khaki", 2.2, seed=7)
         if c.tag == "lid":
-            if z > 0.570 and abs(x) < 0.030 and abs(y) < 0.020:
-                return tone("webbing", 2.0)
             return cloth(c, "olive", 2.6, seed=5)
         return cloth(c, "olive", 2.4)
 
@@ -1278,27 +1304,23 @@ def m_book(m):
         x, y, z = c.p
         if c.tag == "pages":
             if abs(y) > 0.0705 or x > 0.104:
-                v = 3.0 + (0.8 if math.floor(z * d * 2.0) % 2 else 0.0) + jitter(c, 0.2)
-                if fbm(c.p, 20, 5, 2) > 0.65:
-                    v -= 1.0
-                return tone("paper", v)
+                return tone("paper", 3.0 + (0.8 if math.floor(z * d * 2.0) % 2 else 0.0))
             return tone("paper", 3.2)
         if c.tag == "spine" or x < -0.0985:
             i, j = math.floor(y * d), math.floor(z * d)
-            if j == 1 and -6 <= i <= 6 and i % 4 != 0:
-                return tone("paper", 3.0)
-            return cloth(c, "red", 2.2, stain=0.2, grime=0.4)
-        if z > 0.0200:
-            i, j = math.floor(x * d), math.floor(y * d)
-            if j in (6, -7) and -11 <= i <= 11:
+            if j == 1 and -6 <= i <= 6:
                 return tone("paper", 2.6)
-            if (i, j) in text_rows(m, "title", [(3, -8, 8), (1, -6, 6)], 91):
-                return tone("paper", 3.4)
-            if -1 <= i <= 1 and -4 <= j <= -2 or (i == 0 and -5 <= j <= -1) or (j == -3 and -2 <= i <= 2):
-                return tone("paper", 3.2)
-        v = 2.6 + mottle(c, 5, 0.3) + mottle(c, 26, 0.3, 2, 2) + jitter(c, 0.15)
-        if fbm(c.p, 9, 33, 2) > 0.7:
-            v -= 0.9
+            return cloth(c, "red", 2.2, stain=0.0, grime=0.4)
+        if z > 0.0200:
+            # A cloth-bound manual: a plain cover, a ruled band by the spine and a pale title label.
+            i, j = math.floor(x * d), math.floor(y * d)
+            if i == -11:
+                return tone("red", 1.0)
+            if -5 <= i <= 6 and 1 <= j <= 5:
+                if (i, j) in text_rows(m, "title", [(4, -4, 6), (2, -3, 4)], 91):
+                    return tone("red", 1.2)
+                return tone("paper", 3.0)
+        v = 2.0 + mottle(c, 26, 0.3) + jitter(c, 0.06)
         v = wear(c, v, 1.0, 1.0)
         return tone("red", v)
 
@@ -1359,9 +1381,9 @@ def m_lantern(m):
             z = c.p.z
             r = math.hypot(c.p.x, c.p.y)
             s = front_arc(c, max(r, 0.01))
-            v = 2.2 + mottle(c, 6, 0.3) + jitter(c, 0.15)
+            v = 2.2 + mottle(c, 16, 0.21) + jitter(c, 0.15)
             if z > 0.140:
-                return tone("soot", 2.4 + mottle(c, 4.0, 0.6) + jitter(c, 0.3))
+                return tone("soot", 2.4 + mottle(c, 16, 0.42) + jitter(c, 0.3))
             if -0.024 < s - 0.018 < -0.016:
                 v += 2.0
             return tone("amber", v + 1.0)
@@ -1388,7 +1410,7 @@ def m_fallback_consumable(m):
             j = math.floor(z * d)
             if j in (1, 4):
                 return tone("ochre", 1.6)
-            return tone("ochre", 2.6 + mottle(c, 4.0, 0.3) + mottle(c, 26, 0.24, 2, 2) + jitter(c, 0.15))
+            return tone("ochre", 2.6 + mottle(c, 16, 0.21) + mottle(c, 26, 0.24, 2, 2) + jitter(c, 0.15))
         return metal(c, "tin", 2.8, rust=0.3)
 
     m.painter = paint
@@ -1427,7 +1449,7 @@ def m_fallback_tool(m):
     lie = rot("Y", 90)
     m.lathe([(0.0, -0.160), (0.0360, -0.160), (0.0400, -0.155), (0.0400, 0.155), (0.0360, 0.160), (0.0, 0.160)], 20, "roll", xf=at(0, 0, 0.040) @ lie)
     for x in (-0.085, 0.085):
-        m.lathe([(0.0405, -0.011), (0.0425, -0.011), (0.0425, 0.011), (0.0405, 0.011)], 20, "strap", xf=at(x, 0, 0.040) @ lie, closed=True)
+        m.lathe([(0.0405, -0.011), (0.0415, -0.011), (0.0415, 0.011), (0.0405, 0.011)], 20, "strap", xf=at(x, 0, 0.040) @ lie, closed=True)
         m.rbox((0.026, 0.006, 0.020), "buckle", centre=(x, 0.0435, 0.046), radius=0.002, corner_steps=1)
     m.rbox((0.300, 0.004, 0.030), "flap", centre=(0.0, 0.0390, 0.050), radius=0.002, corner_steps=1, xf=None)
 
@@ -1453,21 +1475,26 @@ def m_fallback_container(m):
         down = max(0.0, math.cos(th))
         return r * (1.0 - 0.16 * down * down) * (1.0 + 0.025 * math.sin(4 * th))
 
+    # The body's lowest ring vertex (theta 0, straight down) is 0.145 * 0.84 below the axis, so the
+    # axis sits at that height and the slumped bottom rests on the floor.
     lie = rot("Y", 90)
+    axis_z = 0.145 * 0.84
     profile = [(0.0, -0.300), (0.090, -0.300), (0.125, -0.288), (0.142, -0.262), (0.145, -0.230), (0.145, 0.230), (0.142, 0.262), (0.125, 0.288), (0.090, 0.300), (0.0, 0.300)]
-    m.lathe(profile, 24, "duffel", xf=at(0, 0, 0.145) @ lie, rfn=slump)
+    m.lathe(profile, 24, "duffel", xf=at(0, 0, axis_z) @ lie, rfn=slump)
     strap = [(-0.020, -0.004), (0.020, -0.004), (0.020, 0.004), (-0.020, 0.004)]
     for sx in (-1, 1):
-        m.sweep([(sx * 0.090, -0.060, 0.268), (sx * 0.090, -0.040, 0.322), (sx * 0.090, 0.040, 0.322), (sx * 0.090, 0.060, 0.268)], strap, "handle", up=(1, 0, 0))
-    m.sweep([(-0.295, 0.0, 0.180), (-0.280, 0.080, 0.150), (-0.150, 0.150, 0.050), (0.000, 0.165, 0.008), (0.150, 0.150, 0.050), (0.280, 0.080, 0.150), (0.295, 0.0, 0.180)], [(-0.019, -0.003), (0.019, -0.003), (0.019, 0.003), (-0.019, 0.003)], "strap", up=(0, 0, 1))
+        m.sweep([(sx * 0.090, -0.060, 0.245), (sx * 0.090, -0.040, 0.300), (sx * 0.090, 0.040, 0.300), (sx * 0.090, 0.060, 0.245)], strap, "handle", up=(1, 0, 0))
+    # The shoulder strap, clipped to both ends and draped on the floor in front of the bag.
+    path = [(-0.285, 0.0, 0.160), (-0.315, 0.070, 0.120), (-0.280, 0.150, 0.040), (-0.180, 0.192, 0.0038), (0.000, 0.206, 0.0038), (0.180, 0.192, 0.0038), (0.280, 0.150, 0.040), (0.315, 0.070, 0.120), (0.285, 0.0, 0.160)]
+    m.sweep(path, [(-0.019, -0.003), (0.019, -0.003), (0.019, 0.003), (-0.019, 0.003)], "strap", up=(0, 0, 1))
 
     def paint(c):
         d = m.tpm
         if c.tag in ("handle", "strap"):
-            return cloth(c, "webbing", 2.6, stain=0.0, grime=0.5)
+            return tone("webbing", 2.3 + mottle(c, 20, 0.2))
         p = c.p
-        if p.z > 0.270 and abs(p.y) < 0.6 / d and abs(p.x) < 0.24:
-            return tone("webbing", 1.0 + (1.2 if math.floor(p.x * d) % 2 else 0.0))
+        if p.z > 0.250 and abs(p.y) < 0.6 / d and abs(p.x) < 0.24:
+            return tone("webbing", 1.2)
         return cloth(c, "canvas", 2.4, seed=2)
 
     m.painter = paint
@@ -1515,15 +1542,59 @@ def m_fallback_attachment(m):
     m.painter = paint
 
 
+def nine_mm_profile():
+    return [
+        (0.0, 0.0), (0.0049, 0.0), (0.0049, 0.0008), (0.0044, 0.0012), (0.0044, 0.0018),
+        (0.0049, 0.0022), (0.0048, 0.0190), (0.0045, 0.0196), (0.0042, 0.0220), (0.0030, 0.0262),
+        (0.0015, 0.0284), (0.0, 0.0290),
+    ]
+
+
+def m_pouch(m):
+    # The small container: a belt pouch with a lid flap, a tongue and a buckle.
+    m.rbox((0.150, 0.060, 0.130), "body", centre=(0.0, 0.0, 0.065), radius=0.012, bevel=0.008, corner_steps=2)
+    m.rbox((0.154, 0.066, 0.012), "flap", centre=(0.0, 0.0, 0.1270), radius=0.013, bevel=0.003, corner_steps=2)
+    m.rbox((0.100, 0.0060, 0.045), "tongue", centre=(0.0, 0.0315, 0.1050), radius=0.010, corner_steps=2)
+    m.rbox((0.022, 0.0040, 0.014), "buckle", centre=(0.0, 0.0355, 0.0880), radius=0.002, corner_steps=1)
+    m.rbox((0.050, 0.0060, 0.080), "loop", centre=(0.0, -0.0315, 0.0700), radius=0.004, corner_steps=1)
+
+    def paint(c):
+        if c.tag == "buckle":
+            return metal(c, "tin", 2.6)
+        if c.tag in ("tongue", "loop"):
+            return tone("webbing", 2.3 + mottle(c, 20, 0.2))
+        return cloth(c, "olive", 2.0 if c.tag == "flap" else 2.4, seed=11)
+
+    m.painter = paint
+
+
+def m_armor_small(m):
+    # The small wearable: a folded knit with a rolled cuff on top (a hat, gloves, a mask).
+    m.rbox((0.140, 0.100, 0.022), "knit0", centre=(0.0, 0.0, 0.011), radius=0.015, bevel=0.007, corner_steps=3)
+    m.rbox((0.120, 0.085, 0.018), "knit1", centre=(0.0, 0.0, 0.0), radius=0.013, bevel=0.006, corner_steps=3, xf=at(0.008, -0.004, 0.0285) @ rot("Z", 8))
+    m.lathe([(0.0040, -0.040), (0.0110, -0.040), (0.0110, 0.040), (0.0040, 0.040)], 16, "cuff", xf=at(0.0, 0.012, 0.0465) @ rot("Y", 90), closed=True)
+
+    def paint(c):
+        if c.tag == "cuff":
+            rib = math.floor((math.atan2(c.p.z - 0.0465, c.p.y - 0.012) / TAU) * 16) % 2
+            return tone("khaki", 2.0 + (0.8 if rib else 0.0))
+        return cloth(c, "khaki", 2.2 if c.tag == "knit0" else 2.6, seed=21)
+
+    m.painter = paint
+
+
 # ---------------------------------------------------------------------------------------------
 # The kit: which model draws which item. "ids" are exact matches; "classes" are the fallbacks.
 
 MODELS = [
-    ("food_canned", m_food_canned, 11, ["item.food.canned", "item.food.beans.tin", "item.food.soup.tin", "item.food.fruit.tin", "item.food.dogfood.tin"], []),
+    ("food_canned", m_food_canned, 11, ["item.food.canned", "item.food.beans.tin", "item.food.soup.tin", "item.food.fruit.tin", "item.food.dogfood.tin", "item.food.fish.tin"], []),
     ("soda_can", m_soda_can, 12, ["item.soda.can", "item.drink.beer.can", "item.drink.energy"], []),
     ("water_bottle", m_water_bottle, 13, ["item.water.bottle", "item.water.bottle.untreated", "item.water.bottle.empty"], []),
-    ("pill_bottle", m_pill_bottle, 14, ["item.painkillers.strong", "item.antibiotics.veterinary"], []),
-    ("bandage_roll", m_bandage, 15, ["item.bandage.cloth", "item.wrap.elastic"], []),
+    ("pill_bottle", m_pill_bottle, 14, [
+        "item.painkillers.strong", "item.antibiotics.veterinary", "item.painkillers.blister",
+        "item.antibiotics.course", "item.antibiotics.expired",
+    ], []),
+    ("bandage_roll", m_bandage, 15, ["item.bandage.cloth", "item.wrap.elastic", "item.gauze.sterile"], []),
     ("antiseptic", m_antiseptic, 16, ["item.antiseptic.bottle", "item.peroxide.bottle", "item.sanitiser.gel"], []),
     ("medkit", m_medkit, 17, ["item.medkit.field"], []),
     ("ration_pack", m_ration, 18, ["item.food.ration"], []),
@@ -1535,28 +1606,61 @@ MODELS = [
     ("ammo_shotshells", m_ammo_12g, 20, ["item.ammo.12g", "item.ammo.12g.slug", "item.ammo.12g.bird", "item.ammo.12g.handload"], []),
     ("ammo_rifle_clip", m_ammo_rifle, 21, ["item.ammo.rifle", "item.ammo.rifle.match", "item.ammo.rifle.surplus", "item.ammo.rifle.handload"], []),
     ("lighter", m_lighter, 22, ["item.lighter.disposable"], []),
-    ("torch", m_torch, 23, ["item.torch.handheld"], []),
+    ("torch", m_torch, 23, ["item.torch.handheld", "item.torch.steel", "item.torch.penlight"], []),
     ("battery", m_battery, 24, ["item.battery"], []),
     ("scrap_metal", m_scrap, 25, ["item.scrap.metal"], []),
-    ("plank", m_plank, 26, ["item.plank.sawn"], []),
-    ("nails_jar", m_nails_jar, 27, ["item.fixings.nails"], []),
+    ("plank", m_plank, 26, ["item.plank.sawn", "item.plank.pallet", "item.wood.salvaged"], []),
+    ("nails_box", m_nails_box, 27, ["item.fixings.nails", "item.fixings.screws", "item.fixings.bolts"], []),
     ("duct_tape", m_duct_tape, 28, ["item.tape.duct"], []),
-    ("rope_coil", m_rope, 29, ["item.cordage.rope"], []),
+    ("rope_coil", m_rope, 29, ["item.cordage.rope", "item.cordage.paracord", "item.cordage.twine"], []),
     ("hiking_pack", m_pack_hiking, 30, ["item.pack.hiking"], []),
     ("toolbox", m_toolbox, 31, ["item.toolbox.steel"], []),
     ("book", m_book, 32, [
         "item.book.firstaid", "item.book.closequarters", "item.book.marksmanship",
         "item.book.bushcraft", "item.book.conditioning", "item.book.gunsmithing",
+        "item.book.repairs", "item.book.surgery", "item.book.ballistics", "item.book.longwalk",
+        "item.paperback.dogeared",
     ], []),
     ("jerrycan", m_jerrycan, 33, ["item.jerrycan.fuel", "item.jerrycan.empty"], []),
-    ("storm_lantern", m_lantern, 34, ["item.lantern.storm", "item.lantern.oil"], []),
+    ("storm_lantern", m_lantern, 34, ["item.lantern.storm", "item.lantern.oil", "item.lantern.camping"], []),
     ("fallback_consumable", m_fallback_consumable, 41, [], ["consumable"]),
     ("fallback_material", m_fallback_material, 42, [], ["material"]),
     ("fallback_tool", m_fallback_tool, 43, [], ["tool"]),
-    ("fallback_container", m_fallback_container, 44, [], ["container"]),
+    ("fallback_container", m_fallback_container, 44, ["item.duffel.canvas"], []),
     ("fallback_armor", m_fallback_armor, 45, [], ["armor"]),
     ("fallback_attachment", m_fallback_attachment, 46, [], ["attachment"]),
+    ("pouch", m_pouch, 47, [], ["container"]),
+    ("armor_small", m_armor_small, 48, [], []),
 ]
+
+# Every other item of the six classes is routed by id to the model of its class whose size is
+# nearest its own expected size (log scale). The ladders hold neutral shapes only: a tin, a pouch
+# and a sack for things to eat; a parts case, scrap, a sack and a plank for materials.
+LADDER = {
+    "consumable": ["fallback_consumable", "ration_pack", "fallback_material"],
+    "material": ["fallback_attachment", "scrap_metal", "fallback_material", "plank"],
+    "tool": ["fallback_attachment", "fallback_tool", "toolbox"],
+    "container": ["pouch", "hiking_pack", "fallback_container"],
+    "armor": ["armor_small", "fallback_armor"],
+    "attachment": ["fallback_attachment", "fallback_tool"],
+}
+# The scale check: a laddered or class-fallback model must be within 2x of the item's expected
+# size; a hand-chosen shared model (a penlight drawn as the torch) within 4x.
+SCALE_LADDER = 2.0
+SCALE_HAND = 4.0
+
+
+def expected_size(item):
+    """The item's expected largest dimension in metres, from its content grid size and mass.
+
+    One grid cell reads as about 7.5 cm, and a long thin footprint (one side three times the other)
+    as 20 cm per cell. Mass gives a floor: the side of a cube of the item's mass at 400 kg/m3,
+    times 1.5 for a shape that is not a cube. The larger of the two wins.
+    """
+    w, h = item["size"]["w"], item["size"]["h"]
+    long = max(w, h) >= 3 * min(w, h)
+    return max((0.20 if long else 0.075) * max(w, h), 1.5 * (item["massKg"] / 400.0) ** (1.0 / 3.0))
+
 
 # Declared world-pose sizes, Godot axes [x width, y height, z depth] in metres. --check measures
 # each exported GLB against these within 1 cm; they are authored, not copied from the geometry.
@@ -1565,11 +1669,11 @@ SIZES = {
     "soda_can": (0.066, 0.122, 0.066),
     "water_bottle": (0.086, 0.260, 0.086),
     "pill_bottle": (0.041, 0.080, 0.041),
-    "bandage_roll": (0.055, 0.05, 0.1),
+    "bandage_roll": (0.055, 0.05, 0.14),
     "antiseptic": (0.06, 0.1435, 0.034),
     "medkit": (0.26, 0.1185, 0.1755),
     "ration_pack": (0.140, 0.034, 0.268),
-    "ammo_pistol_box": (0.084, 0.0387, 0.0615),
+    "ammo_pistol_box": (0.0868, 0.034, 0.1074),
     "ammo_shotshells": (0.124, 0.023, 0.122),
     "ammo_rifle_clip": (0.0712, 0.012, 0.066),
     "lighter": (0.0841, 0.011, 0.025),
@@ -1577,20 +1681,22 @@ SIZES = {
     "battery": (0.033, 0.062, 0.033),
     "scrap_metal": (0.218, 0.03, 0.1465),
     "plank": (1.000, 0.035, 0.140),
-    "nails_jar": (0.080, 0.1045, 0.080),
+    "nails_box": (0.1019, 0.0761, 0.1273),
     "duct_tape": (0.1056, 0.048, 0.092),
     "rope_coil": (0.392, 0.066, 0.357),
-    "hiking_pack": (0.33, 0.579, 0.307),
+    "hiking_pack": (0.396, 0.579, 0.326),
     "toolbox": (0.467, 0.209, 0.213),
     "book": (0.217, 0.0206, 0.152),
     "jerrycan": (0.345, 0.458, 0.165),
     "storm_lantern": (0.14, 0.247, 0.146),
     "fallback_consumable": (0.084, 0.045, 0.084),
     "fallback_material": (0.268, 0.354, 0.261),
-    "fallback_tool": (0.32, 0.085, 0.089),
-    "fallback_container": (0.628, 0.333, 0.329),
+    "fallback_tool": (0.32, 0.083, 0.088),
+    "fallback_container": (0.668, 0.316, 0.37),
     "fallback_armor": (0.32, 0.071, 0.2525),
     "fallback_attachment": (0.1224, 0.0477, 0.0862),
+    "pouch": (0.154, 0.133, 0.072),
+    "armor_small": (0.1415, 0.0575, 0.1026),
 }
 
 
@@ -1610,6 +1716,9 @@ def build_models(plant):
             disk = [Vector((0.030 * math.cos(TAU * k / 12), 0.030 * math.sin(TAU * k / 12), 0.1065 + 0.0001)) for k in range(12)]
             low = [p - Vector((0, 0, 0.004)) for p in disk]
             model.loft([low, disk], "tin")
+        if plant == "float" and name == "fallback_container":
+            lift = Vector((0.0, 0.0, 0.018))
+            model.shells[0] = [[k, t, [tuple(p + lift for p in poly) for poly in polys]] for k, t, polys in model.shells[0]]
         model.finish()
         models.append(model)
     return models
@@ -1700,8 +1809,8 @@ def paint_island(island, pixels, width):
     hi = Vector((max(p.x for t in triangles for p in t[0]), max(p.y for t in triangles for p in t[0]), max(p.z for t in triangles for p in t[0])))
     reach = 3.0 / model.tpm
     edges = [
-        (a, b, convex)
-        for a, b, convex in model.sharp
+        (a, b, convex, hard)
+        for a, b, convex, hard in model.sharp
         if min(a.x, b.x) <= hi.x + reach and max(a.x, b.x) >= lo.x - reach
         and min(a.y, b.y) <= hi.y + reach and max(a.y, b.y) >= lo.y - reach
         and min(a.z, b.z) <= hi.z + reach and max(a.z, b.z) >= lo.z - reach
@@ -1741,17 +1850,20 @@ def paint_island(island, pixels, width):
                 tri_index, bary = hit
             points, _, normal = triangles[tri_index]
             point = points[0] * bary[0] + points[1] * bary[1] + points[2] * bary[2]
-            dcx = dcv = 1.0
-            for a, b, convex in edges:
+            dcx = dcv = dhx = 1.0
+            for a, b, convex, hard in edges:
                 dist = _segment_distance(point, a, b)
                 if convex:
                     dcx = min(dcx, dist)
+                    if hard:
+                        dhx = min(dhx, dist)
                 else:
                     dcv = min(dcv, dist)
             texel.p = point - model.offset
             texel.n = normal
             texel.dcx = dcx
             texel.dcv = dcv
+            texel.dhx = dhx
             colour = model.painter(texel)
             base = (ty * width + tx) * 4
             pixels[base] = colour[0] / 255.0
@@ -1861,16 +1973,47 @@ def export_object(obj, path):
     )
 
 
-def manifest_document(plant):
+def item_records(repo):
+    records = {}
+    for path in sorted((repo / "godot" / "content" / "items").glob("*.json")):
+        for item in json.loads(path.read_text(encoding="utf-8")):
+            records[item["id"]] = item
+    return records
+
+
+def hand_ids():
+    return {item_id: name for name, _, _, ids, _ in MODELS for item_id in ids}
+
+
+def ladder_route(item):
+    target = expected_size(item)
+    return min(LADDER[item["class"]], key=lambda name: (abs(math.log(max(SIZES[name]) / target)), name))
+
+
+def manifest_document(plant, repo):
+    records = item_records(repo)
+    hand = hand_ids()
     models = []
-    for name, _, _, ids, classes in MODELS:
+
+    def entry(match, name):
         size = [round(value, 4) for value in SIZES[name]]
+        return {"match": match, "glb": RES_DIR + name + ".glb", "pose": "world", "sizeM": size}
+
+    for name, _, _, ids, _ in MODELS:
         for item_id in ids:
             if plant == "id" and item_id == "item.food.canned":
                 item_id = "item.food.caned"
-            models.append({"match": {"id": item_id}, "glb": RES_DIR + name + ".glb", "pose": "world", "sizeM": size})
+            models.append(entry({"id": item_id}, name))
+    for item_id in sorted(records):
+        item = records[item_id]
+        if item["class"] in CLASSES and item_id not in hand:
+            name = ladder_route(item)
+            if plant == "scale" and item_id == "item.food.flour.sack":
+                name = "fallback_consumable"
+            models.append(entry({"id": item_id}, name))
+    for name, _, _, _, classes in MODELS:
         for item_class in classes:
-            models.append({"match": {"class": item_class}, "glb": RES_DIR + name + ".glb", "pose": "world", "sizeM": size})
+            models.append(entry({"class": item_class}, name))
     return {"kit": KIT, "models": models}
 
 
@@ -1889,7 +2032,7 @@ def build_all(asset_root, blend_path, plant=None):
         obj = model_object(model, material, width, height, plant, second)
         export_object(obj, export_dir / (model.name + ".glb"))
         objects.append(obj)
-    document = manifest_document(plant)
+    document = manifest_document(plant, ROOT)
     (asset_root / (KIT + ".manifest.json")).write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8", newline="\n")
     if blend_path is not None:
         for k, obj in enumerate(objects):
@@ -2072,9 +2215,9 @@ def item_catalogue(repo):
     return ids, classes
 
 
-def validate(asset_root, repo):
+def validate(asset_root, repo, floors=None):
     """Every check, against the files under asset_root. Returns {check: [failures]}."""
-    failures = {name: [] for name in ("bounds", "origin", "ids", "coverage", "material", "single_sided", "coplanar", "density", "manifest")}
+    failures = {name: [] for name in ("bounds", "origin", "floor", "ids", "coverage", "scale", "material", "single_sided", "coplanar", "density", "manifest")}
     manifest_path = asset_root / (KIT + ".manifest.json")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     ids, classes = item_catalogue(repo)
@@ -2106,6 +2249,24 @@ def validate(asset_root, repo):
     for item_id, item_class in sorted(ids.items()):
         if item_class in CLASSES and item_id not in matched_ids and item_class not in matched_classes:
             failures["coverage"].append(f"{item_id} draws nothing")
+    records = item_records(repo)
+    hand = hand_ids()
+    resolved = {e["match"]["id"]: e for e in manifest["models"] if "id" in e["match"]}
+    by_class = {e["match"]["class"]: e for e in manifest["models"] if "class" in e["match"]}
+    for item_id in sorted(records):
+        item = records[item_id]
+        if item["class"] not in CLASSES:
+            continue
+        chosen = resolved.get(item_id) or by_class.get(item["class"])
+        if chosen is None:
+            continue
+        ratio = max(chosen["sizeM"]) / expected_size(item)
+        limit = SCALE_HAND if item_id in hand else SCALE_LADDER
+        if ratio > limit or ratio < 1.0 / limit:
+            failures["scale"].append(f"{item_id} ({item['name']}) is drawn by {chosen['glb'].rsplit('/', 1)[-1]} at {ratio:.2f}x its expected size (limit {limit:g}x)")
+    for name, height in sorted((floors or {}).items()):
+        if height > 0.002:
+            failures["floor"].append(f"{name}: the main body rests {height * 1000:.1f} mm above the floor")
     on_disk = sorted(p.name for p in (asset_root / KIT).glob("*.glb"))
     if on_disk != sorted(glbs):
         failures["manifest"].append(f"GLBs on disk {on_disk} do not match the manifest {sorted(glbs)}")
@@ -2188,8 +2349,8 @@ def check(repo, plant=None):
     committed_root = repo / "godot" / "assets" / "first_person"
     with tempfile.TemporaryDirectory(prefix="first-person-items-check-") as temporary:
         root = Path(temporary)
-        build_all(root, None, plant)
-        failures, report = validate(root, repo)
+        models, _ = build_all(root, None, plant)
+        failures, report = validate(root, repo, {model.name: model.main_floor for model in models})
         mismatches = []
         rebuilt = outputs(root)
         committed = {}
@@ -2207,7 +2368,7 @@ def main():
     arguments = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--plant", choices=("bounds", "id", "material", "doublesided", "winding", "coplanar", "density", "bytes"))
+    parser.add_argument("--plant", choices=("bounds", "float", "id", "scale", "material", "doublesided", "winding", "coplanar", "density", "bytes"))
     args = parser.parse_args(arguments)
     repo = Path(__file__).resolve().parents[3]
     try:
@@ -2221,8 +2382,8 @@ def main():
             print("ITEMS_CHECK_OK")
             return 0
         asset_root = repo / "godot" / "assets" / "first_person"
-        build_all(asset_root, repo / "tools" / "blender" / "first_person_items" / "items.blend", args.plant)
-        failures, report = validate(asset_root, repo)
+        models, _ = build_all(asset_root, repo / "tools" / "blender" / "first_person_items" / "items.blend", args.plant)
+        failures, report = validate(asset_root, repo, {model.name: model.main_floor for model in models})
         print_report(failures, report)
         for rel, path in outputs(asset_root).items():
             print(f"SHA256 {rel} {sha256(path)}")
