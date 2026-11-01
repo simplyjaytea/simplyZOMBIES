@@ -20,7 +20,7 @@ const MARGIN: float = 28.0
 # Worst-part states from condition.gd, as a sentence rather than a grade. Kept local because it is
 # wording, not a sim fact, and `ui/hud.gd` owns the top-down screen's own copy of the same words.
 const CONDITION_WORDS: Array[String] = ["", "hurt", "badly hurt", "barely standing"]
-const HELP: String = "WASD walk   mouse look   E ledger or open   P hold   Esc release or title   click to look"
+const HELP: String = "WASD walk   mouse look   E use/ledger   LMB/F swing   G fire   R reload   P hold   Esc release or title   click to look"
 # The end-of-run panel: the shell's heading and frame, held to this screen's own size. One action,
 # and it goes back to the game's title rather than quitting the process.
 const RUN_OVER_HEADING: String = "the run is over"
@@ -142,7 +142,8 @@ func _draw() -> void:
 	var view_size: Vector2 = size
 	if view_size == Vector2.ZERO:
 		view_size = get_viewport_rect().size
-	draw_circle(view_size * 0.5, 2.0, Color(0.94, 0.92, 0.82, 0.85))
+	# No reticle and no centre dot: docs/40 owner question 6's default, and docs/09 bans a reticle
+	# that reports certainty. The placeholder weapon in the hand is the only aiming furniture.
 
 	var help_at: Vector2 = Vector2(MARGIN, view_size.y - MARGIN - 26.0)
 	draw_rect(Rect2(MARGIN - 12.0, help_at.y - 24.0, view_size.x - (MARGIN - 12.0) * 2.0, 44.0), Color(0.04, 0.05, 0.05, 0.58))

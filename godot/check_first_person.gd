@@ -30,6 +30,11 @@ extends SceneTree
 #             E out of reach, off the aim and through an opaque wall is refused with words, and a
 #             walking key does not move the body behind the open sheet. Escape closes it and gives
 #             the mouse back.
+#   FIGHT     the top-down buttons' own commands: left click/F swing, G fire, R reload; a bat hits
+#             a shambler in front and its body changes, a loaded gun spends a round, the HUD gets a
+#             camera kick and no reticle or centre dot, the placeholder weapon shows only with
+#             something in hand, the ledger refuses the same press, a look away misses, and a
+#             reload with nothing to load is the sim's refusal with no words from the scene.
 #   PRIORITY  a click on the panel's first priority cell dispatches a real `job.priority`, the
 #             colonist's row changes and turns Manual, and the player is never one of the rows.
 #   SPEECH    every line the first-person HUD draws is digit-free, it names the controls and the
@@ -56,6 +61,9 @@ const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
+const SimRoster = preload("res://sim/modules/roster.gd")
+const SimMelee = preload("res://sim/modules/melee.gd")
+const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const FirstPerson = preload("res://presentation/first_person/first_person.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
@@ -99,6 +107,7 @@ func _run() -> void:
 		ok = _yaw(scene) and ok
 		ok = _blocked(scene) and ok
 		ok = _container(scene) and ok
+		ok = _fight(scene) and ok
 		ok = _ledger(scene, spawn) and ok
 		ok = _priority(scene) and ok
 		ok = _menu(scene) and ok
@@ -115,7 +124,7 @@ func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)
-		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
+		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, swings a bat into a shambler and fires a round through the top-down commands while the ledger refuses both, misses a body behind the look, and leaves a refused reload wordless, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
 		quit(0)
 		return
 	for failure in _failures:
@@ -767,6 +776,173 @@ func _find_walled_container(scene: Node) -> Dictionary:
 				continue
 			return {"entity": ent, "dir": direction}
 	return {}
+
+
+# --- FIGHT -----------------------------------------------------------------------------------
+
+## The interim combat input: the top-down buttons' own commands, the sim's melee hit and a spent
+## round, the ledger refusing everything, a look away not hitting, and a reload the sim refuses
+## without the scene inventing words.
+func _fight(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var camera: Camera3D = scene.get("camera") as Camera3D
+	if camera == null:
+		return _fail("FIGHT", "the scene has no camera to kick")
+	var area: Vector2 = _find_open_area(map, 2)
+	if area == Vector2(-1.0, -1.0):
+		return _fail("FIGHT", "the district has no open area for a swing")
+	_place_player(scene, area)
+	scene.call("set_look", 0.0, 0.0)
+	scene.call("_process", TICK_SECONDS)
+
+	# The viewmodel: hidden for bare hands, shown with a bat in hand.
+	var player: int = int(world.player)
+	world.components.remove(player, "rangedWeapon")
+	world.components.remove(player, "meleeWeapon")
+	SimMelee.ensure_hands(world, player)
+	scene.call("_process", TICK_SECONDS)
+	if bool(scene.call("held_weapon_visible")):
+		ok = _fail("FIGHT", "the placeholder weapon is drawn for bare hands")
+	SimMelee.make_melee_armed(world, player)
+	SimHealth.make_stamina(world, player, 100)
+	scene.call("_process", TICK_SECONDS)
+	if not bool(scene.call("held_weapon_visible")):
+		ok = _fail("FIGHT", "the placeholder weapon is not drawn with a bat in hand")
+
+	# A shambler in front, inside the bat's reach, held still so the swing is the only thing that
+	# can move it.
+	var rng: Variant = world.rng.stream("shambler")
+	var front: int = int(SimRoster.spawn_zombie(world, area.x, area.y - 1.2, SimRoster.TYPE_SHAMBLER, rng))
+	_zero_shambler(world, front)
+	var body_before: Dictionary = _body_of(world, front)
+	world.commands.record = true
+	world.commands.recorded.clear()
+	var tick_before: int = int(world.tick)
+	_key(KEY_F, true)
+	_key(KEY_F, false)
+	scene.call("_process", TICK_SECONDS)
+	if absf(camera.rotation.x - float(scene.get("pitch"))) <= 0.0001:
+		ok = _fail("FIGHT", "a swing produced no camera kick")
+	var hit: bool = false
+	for _i in range(39):
+		scene.call("_process", TICK_SECONDS)
+		for event in world.events.drained:
+			var e: Dictionary = event as Dictionary
+			if String(e.get("type", "")) == "attack.connected" and int(e.get("attacker", -1)) == player and int(e.get("target", -1)) == front:
+				hit = true
+	if not hit:
+		ok = _fail("FIGHT", "the swing button produced no attack.connected on the shambler in front")
+	if _last_command(world, "swing", tick_before).is_empty():
+		ok = _fail("FIGHT", "the swing button sent no swing command")
+	if _body_total(_body_of(world, front)) >= _body_total(body_before):
+		ok = _fail("FIGHT", "the shambler's body did not change on a landed swing")
+	world.despawn(front)
+
+	# A ranged weapon with six rounds in the magazine: the fire button spends one. The left click
+	# is the top-down trigger; the profile names no ammo id, so the counter is the magazine.
+	SimRanged.make_ranged_armed(world, player, {"magSize": 6, "rangeMetres": 12.0, "damage": 12.0, "weight": 1.0, "handling": 1.0, "reloadTicks": 20})
+	scene.call("_process", TICK_SECONDS)
+	var ranged: Dictionary = world.components.get_component(player, "rangedWeapon") as Dictionary
+	var mag_before: int = int(ranged.get("mag", 0))
+	if mag_before != 6:
+		ok = _fail("FIGHT", "the ranged fixture did not start with six rounds (%d)" % mag_before)
+	if not bool(scene.call("mouse_captured")):
+		_click_mouse()
+	world.commands.recorded.clear()
+	tick_before = int(world.tick)
+	_click_mouse()
+	for _i in 60:
+		scene.call("_process", TICK_SECONDS)
+	if _last_command(world, "fire", tick_before).is_empty():
+		ok = _fail("FIGHT", "the left mouse button sent no fire command with a firearm in hand")
+	var mag_after: int = int((world.components.get_component(player, "rangedWeapon") as Dictionary).get("mag", -1))
+	if mag_after != mag_before - 1:
+		ok = _fail("FIGHT", "the fire button did not spend a round (%d -> %d)" % [mag_before, mag_after])
+
+	# Behind the player, with the look turned away: the same press does not hit it.
+	var back: int = int(SimRoster.spawn_zombie(world, area.x, area.y + 1.2, SimRoster.TYPE_SHAMBLER, rng))
+	_zero_shambler(world, back)
+	var back_before: Dictionary = _body_of(world, back)
+	_place_player(scene, area)
+	scene.call("set_look", 0.0, 0.0)
+	scene.call("_process", TICK_SECONDS)
+	world.commands.recorded.clear()
+	_key(KEY_F, true)
+	_key(KEY_F, false)
+	var back_hit: bool = false
+	for _i in 40:
+		scene.call("_process", TICK_SECONDS)
+		for event in world.events.drained:
+			var e2: Dictionary = event as Dictionary
+			if String(e2.get("type", "")) == "attack.connected" and int(e2.get("attacker", -1)) == player and int(e2.get("target", -1)) == back:
+				back_hit = true
+	if back_hit:
+		ok = _fail("FIGHT", "a swing at a shambler behind the player hit it anyway")
+	if _body_total(_body_of(world, back)) != _body_total(back_before):
+		ok = _fail("FIGHT", "the shambler behind the player lost health to a swing aimed away")
+	world.despawn(back)
+
+	# The ledger open: the same press sends nothing.
+	scene.call("open_ledger_menu")
+	world.commands.recorded.clear()
+	var ledger_tick: int = int(world.tick)
+	_key(KEY_F, true)
+	_key(KEY_F, false)
+	_click_mouse()
+	scene.call("_process", TICK_SECONDS)
+	if not _last_command(world, "swing", ledger_tick).is_empty():
+		ok = _fail("FIGHT", "a swing was sent with the ledger open")
+	if not _last_command(world, "fire", ledger_tick).is_empty():
+		ok = _fail("FIGHT", "a shot was sent with the ledger open")
+	scene.call("close_ledger_menu")
+	scene.call("_process", TICK_SECONDS)
+
+	# Reload with nothing to load: the sim refuses and the scene says nothing of its own. A fed
+	# weapon (an ammo id) with no rounds in the pack opens with an empty magazine and no reload.
+	SimRanged.make_ranged_armed(world, player, {"magSize": 6, "ammo": "ammo.9mm", "rangeMetres": 12.0, "damage": 12.0, "weight": 1.0, "handling": 1.0, "reloadTicks": 20})
+	scene.call("_process", TICK_SECONDS)
+	scene.set("_alert", "")
+	world.commands.recorded.clear()
+	var reload_tick: int = int(world.tick)
+	var reloaded: bool = false
+	_key(KEY_R, true)
+	_key(KEY_R, false)
+	for _i in 30:
+		scene.call("_process", TICK_SECONDS)
+		for event in world.events.drained:
+			if String((event as Dictionary).get("type", "")) == "weapon.reloaded":
+				reloaded = true
+	if _last_command(world, "reload", reload_tick).is_empty():
+		ok = _fail("FIGHT", "the reload key sent no reload command")
+	if reloaded:
+		ok = _fail("FIGHT", "a reload with nothing to load completed")
+	if String(scene.get("_alert")) != "":
+		ok = _fail("FIGHT", "the scene invented a reload refusal: %s" % String(scene.get("_alert")))
+	scene.set("_kick", 0.0)
+	return ok
+
+
+func _zero_shambler(world: Variant, entity: int) -> void:
+	var state: Variant = world.components.get_component(entity, "shambler")
+	if state is Dictionary:
+		(state as Dictionary)["seekSpeed"] = 0.0
+		(state as Dictionary)["wanderSpeed"] = 0.0
+		(state as Dictionary)["millSpeed"] = 0.0
+
+
+func _body_of(world: Variant, entity: int) -> Dictionary:
+	var body: Variant = world.components.get_component(entity, "body")
+	return (body as Dictionary).duplicate() if body is Dictionary else {}
+
+
+func _body_total(body: Dictionary) -> float:
+	var total: float = 0.0
+	for value in body.values():
+		if value is float or value is int:
+			total += float(value)
+	return total
 
 
 # --- LEDGER ---------------------------------------------------------------------------------

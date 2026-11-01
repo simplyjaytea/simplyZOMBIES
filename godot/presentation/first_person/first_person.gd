@@ -22,6 +22,7 @@ const SimBoot = preload("res://sim/boot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
+const SimMelee = preload("res://sim/modules/melee.gd")
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
 const PropView = preload("res://presentation/first_person/prop_view.gd")
@@ -48,6 +49,12 @@ const LEDGER_REACH_M: float = 1.80
 const LEDGER_AIM_DOT: float = 0.866
 # Where the eye aims on a container box: its middle, not its top or its foot.
 const CONTAINER_AIM_HEIGHT_M: float = 0.92
+# Interim combat feedback: a short view kick on a swing or shot, and the placeholder viewmodel's
+# anchor in the lower right. No reticle and no centre dot -- docs/40 owner question 6's default.
+const KICK_RADIANS: float = 0.022
+const KICK_DECAY_PER_SECOND: float = 0.15
+const HELD_WEAPON_POSITION: Vector3 = Vector3(0.33, -0.24, -0.58)
+const HELD_WEAPON_ROTATION_DEG: Vector3 = Vector3(-6.0, 14.0, 0.0)
 
 const MOVE_KEYS: Array[int] = [KEY_W, KEY_A, KEY_S, KEY_D]
 
@@ -96,6 +103,10 @@ var _run_over_open: bool = false
 var _news: String = ""
 var _news_until_ms: int = 0
 var _epitaph: Array[String] = []
+# The placeholder viewmodel in the lower right, and the kick it answers a swing or shot with.
+var _held_weapon: MeshInstance3D = null
+var _held_weapon_size: Vector3 = Vector3.ZERO
+var _kick: float = 0.0
 
 
 func _ready() -> void:
@@ -199,6 +210,7 @@ func _build_rig() -> void:
 	camera.far = 240.0
 	camera.current = true
 	_rig.add_child(camera)
+	_build_held_weapon()
 
 
 func _build_hud() -> void:
@@ -330,6 +342,8 @@ func _process(delta: float) -> void:
 				who = int(_work_panel.call("selected"))
 			_work_panel.call("set_world", world, who)
 	var alpha: float = clampf(_accumulator / TICK_SECONDS, 0.0, 1.0)
+	_kick = move_toward(_kick, 0.0, delta * KICK_DECAY_PER_SECOND)
+	_update_held_weapon()
 	_update_render(alpha)
 	_update_hud()
 
@@ -363,7 +377,7 @@ func _update_render(alpha: float) -> void:
 		_rig.position = Vector3(at.x, 0.0, at.y)
 		_rig.rotation = Vector3(0.0, yaw, 0.0)
 	if camera != null:
-		camera.rotation = Vector3(pitch, 0.0, 0.0)
+		camera.rotation = Vector3(pitch + _kick, 0.0, 0.0)
 	if _bodies != null:
 		_bodies.call("apply", world, alpha)
 
@@ -470,6 +484,18 @@ func _input(event: InputEvent) -> void:
 		try_interact()
 		get_viewport().set_input_as_handled()
 		return
+	if ke.pressed and code == KEY_F:
+		swing()
+		get_viewport().set_input_as_handled()
+		return
+	if ke.pressed and code == KEY_G:
+		fire()
+		get_viewport().set_input_as_handled()
+		return
+	if ke.pressed and code == KEY_R:
+		reload_weapon()
+		get_viewport().set_input_as_handled()
+		return
 	if code in MOVE_KEYS:
 		_held[code] = ke.pressed
 		_push_move_from_held()
@@ -494,10 +520,17 @@ func _unhandled_input(event: InputEvent) -> void:
 		look_by(motion.relative.x, motion.relative.y)
 		get_viewport().set_input_as_handled()
 		return
-	if event is InputEventMouseButton and not menu_open and not inventory_open and not _mouse_captured:
+	if event is InputEventMouseButton and not menu_open and not inventory_open:
 		var button: InputEventMouseButton = event as InputEventMouseButton
-		if button.pressed:
-			_capture_mouse()
+		if not _mouse_captured:
+			# The first click is the way back into mouse look, and only that.
+			if button.pressed:
+				_capture_mouse()
+				get_viewport().set_input_as_handled()
+			return
+		if button.pressed and button.button_index == MOUSE_BUTTON_LEFT:
+			# The top-down left click: the trigger with a firearm in hand, the swing otherwise.
+			attack()
 			get_viewport().set_input_as_handled()
 
 
@@ -548,14 +581,14 @@ func _right_horizontal() -> Vector3:
 	return Vector3(cos(yaw), 0.0, -sin(yaw))
 
 
-func _push_aim() -> void:
+func _push_aim(force: bool = false) -> void:
 	if world == null or _run_over_open or _waiting_for_heir():
 		return
 	var dir: Vector3 = _forward_horizontal()
 	var radians: float = atan2(dir.z, dir.x)
 	if radians == 0.0:
 		radians = 0.0
-	if _last_aim > 1.0e8 or absf(angle_difference(radians, _last_aim)) > 0.0005:
+	if force or _last_aim > 1.0e8 or absf(angle_difference(radians, _last_aim)) > 0.0005:
 		_last_aim = radians
 		world.commands.push({"type": "aim", "radians": radians})
 
@@ -598,6 +631,119 @@ func _push_zero_move() -> void:
 
 func _clear_held() -> void:
 	_held.clear()
+
+
+# --- interim combat input --------------------------------------------------------------------
+#
+# INTERIM. docs/40-first-person-spatial-contract slices 3 ("Pitch on the aim"), 5 ("The shot as a
+# ray") and 6 ("Parts from geometry") replace all of this. Until then the planar sim is still the
+# authority and it takes one bearing: the camera's look yaw is pushed as the ordinary `aim`
+# command, and the sim projects that bearing itself -- melee selects a body at the weapon's
+# `reachMetres`, ranged at `rangeMetres`, both through `SimAim.radians_of`. The look direction's
+# floor projection (`_forward_horizontal`) IS the aim; no target point and no pitch crosses this
+# boundary, because the sim has neither a height nor a ray yet. Slice 3 adds pitch to `aim`, slice
+# 5 makes the shot a ray with a contact point, and slice 6 takes the body part from that contact.
+#
+# The buttons and keys are the top-down screen's own (`input_map.gd`): the left mouse click is
+# "the trigger if a firearm is in hand, the swing otherwise", F is swing, G is fire, R is reload.
+# A refused action is the sim's refusal; the scene adds no words for it.
+
+func attack() -> void:
+	if not _can_fight():
+		return
+	# The aim is pushed with the press, as the top-down click does, so the bearing the sim resolves
+	# is the bearing the camera shows even if the last look event was a while ago.
+	_push_aim(true)
+	if world.components.has_component(int(world.player), "rangedWeapon"):
+		world.commands.push({"type": "fire"})
+	else:
+		world.commands.push({"type": "swing"})
+	_kick_camera()
+
+
+func swing() -> void:
+	if not _can_fight():
+		return
+	_push_aim(true)
+	world.commands.push({"type": "swing"})
+	_kick_camera()
+
+
+func fire() -> void:
+	if not _can_fight():
+		return
+	_push_aim(true)
+	world.commands.push({"type": "fire"})
+	_kick_camera()
+
+
+func reload_weapon() -> void:
+	if not _can_fight():
+		return
+	world.commands.push({"type": "reload"})
+
+
+func _can_fight() -> bool:
+	return world != null and not menu_open and not inventory_open and not _run_over_open and not _waiting_for_heir()
+
+
+func _kick_camera() -> void:
+	# A short view kick, not a shake and not a number: the one piece of felt feedback a swing or a
+	# shot gets here. The top-down screen shows a hit flash and a shake on the body; it shows no
+	# hit or miss word, so this scene adds none either.
+	_kick = -KICK_RADIANS
+
+
+# The placeholder viewmodel: a box in the lower right, sized by the weapon's own class cue (a
+# firearm's range, a melee weapon's reach), hidden for bare hands. Art comes later; this is the
+# shape that says something is in hand. It has no collision and never moves on its own.
+func _build_held_weapon() -> void:
+	_held_weapon = MeshInstance3D.new()
+	_held_weapon.name = "HeldWeaponPlaceholder"
+	var box: BoxMesh = BoxMesh.new()
+	box.size = Vector3(0.08, 0.09, 0.45)
+	_held_weapon.mesh = box
+	var material: StandardMaterial3D = StandardMaterial3D.new()
+	material.albedo_color = Color(0.36, 0.31, 0.24)
+	material.roughness = 1.0
+	_held_weapon.material_override = material
+	_held_weapon.position = HELD_WEAPON_POSITION
+	_held_weapon.rotation_degrees = HELD_WEAPON_ROTATION_DEG
+	_held_weapon.visible = false
+	camera.add_child(_held_weapon)
+
+
+func _update_held_weapon() -> void:
+	if _held_weapon == null or world == null:
+		return
+	if _run_over_open:
+		_held_weapon.visible = false
+		return
+	var player: int = int(world.player)
+	var armed: bool = not SimMelee.is_unarmed(world, player)
+	_held_weapon.visible = armed
+	if not armed:
+		return
+	# `SimMelee.is_unarmed` is the one predicate for "fighting with nothing" (BARE_HANDS carries
+	# the `unarmed` flag; a ranged weapon always counts). The box's length follows the profile's
+	# own reach: a rifle reads longer than a pistol, a bat shorter than a spear.
+	var size: Vector3 = Vector3(0.07, 0.08, 0.45)
+	var ranged: Variant = world.components.get_component(player, "rangedWeapon")
+	if ranged is Dictionary:
+		var range_metres: float = float((ranged as Dictionary).get("rangeMetres", 12.0))
+		size = Vector3(0.09, 0.10, clampf(0.30 + range_metres * 0.018, 0.38, 0.95))
+	else:
+		var melee: Variant = world.components.get_component(player, "meleeWeapon")
+		if melee is Dictionary:
+			var reach: float = float((melee as Dictionary).get("reachMetres", 1.0))
+			size = Vector3(0.07, 0.07, clampf(0.18 + reach * 0.35, 0.30, 0.85))
+	if not size.is_equal_approx(_held_weapon_size):
+		_held_weapon_size = size
+		(_held_weapon.mesh as BoxMesh).size = size
+
+
+func held_weapon_visible() -> bool:
+	return _held_weapon != null and _held_weapon.visible
 
 
 # --- containers and the inventory sheet ------------------------------------------------------
@@ -1043,6 +1189,8 @@ func _show_run_over() -> void:
 	_clear_held()
 	_push_zero_move()
 	_release_mouse()
+	if _held_weapon != null:
+		_held_weapon.visible = false
 	_alert = ""
 	_news = ""
 	_epitaph = SimChronicle.epitaph(world, 5)

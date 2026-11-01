@@ -2413,6 +2413,30 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Fight back in first person, 2026-11-01.** Advances "First-person spatial combat and
+  perception" with the interim input layer the alpha needs before docs/40's shot-as-a-ray slices:
+  the top-down controls now swing, fire and reload against the planar sim.
+  - **The controls.** Left mouse is the top-down click -- fire with a firearm in hand, swing
+    otherwise; `F` swing, `G` fire, `R` reload. Aim is the camera's look yaw pushed as the ordinary
+    `aim` command; the sim projects it through the weapon's own reach or range. Marked INTERIM:
+    docs/40 slices 3 (pitch on the aim), 5 (the shot as a ray) and 6 (parts from geometry) replace
+    the projection.
+  - **Feedback.** A short camera kick on a swing or shot. No reticle and no centre dot (docs/40
+    owner question 6's default), and no hit/miss word because the top-down screen shows none. A
+    placeholder box viewmodel sits in the lower right, sized by the weapon's reach or range and
+    hidden for bare hands; art comes later.
+  - **Refusals.** The ledger, the inventory sheet, the end panel and the dead-and-waiting gap
+    swallow the press. A body behind the look is not hit because the melee arc is the sim's own
+    aim; a reload with nothing to load is the sim's refusal and the scene adds no words of its own.
+  - **The gate.** `npm run godot:check:first_person` (FIGHT lane) prints `FIRST_PERSON_OK`. True
+    positive: a bat swing lands on a shambler in front (the sim's `attack.connected` fires and its
+    body changes) and a loaded gun spends a round from the magazine. True negatives: the same press
+    with the ledger open sends nothing, a shambler behind the look is not hit, and a refused reload
+    adds no words. `godot:m2:swipe` and `godot:m2:ranged` stay green unchanged.
+  - **Not in this piece.** No pitch, no ray, no height, no body-part geometry and no obstruction
+    change -- those are docs/40 slices 3, 5 and 6. The viewmodel is a placeholder box.
+  - **Record.** `docs/planning/first-person-fight-report.md`.
+
 - **First person from the title, 2026-11-01.** Advances "First-person expedition and default
   switch" with the playable on-ramp: the owner can reach the experiment from the game's own title
   and come back, without the default itself changing.
