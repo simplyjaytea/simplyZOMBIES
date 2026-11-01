@@ -13,8 +13,7 @@ extends RefCounted
 #
 # The names are the seam: `desk.glb`, `ledger.glb`, `shelf.glb`, `barricade.glb`, `wall_module.glb`.
 # The desk and ledger are read by `prop_view.gd`, the shelf by `container_view.gd`, and the barricade
-# and wall module by `district_view.gd`. This branch's `house_small_finish.glb` is a one-template
-# building-art prototype; its origin is the template's north-west floor corner rather than its centre.
+# and wall module by `district_view.gd`. Building finishes use the manifest in `building_view.gd`.
 
 const DIR: String = "res://assets/first_person/"
 const DESK: String = DIR + "desk.glb"
@@ -22,7 +21,6 @@ const LEDGER: String = DIR + "ledger.glb"
 const SHELF: String = DIR + "shelf.glb"
 const BARRICADE: String = DIR + "barricade.glb"
 const WALL_MODULE: String = DIR + "wall_module.glb"
-const HOUSE_SMALL_FINISH: String = DIR + "house_small_finish.glb"
 
 const DESK_HEIGHT_M: float = 0.78
 const DESK_WIDTH_M: float = 1.20

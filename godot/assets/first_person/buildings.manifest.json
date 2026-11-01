@@ -1,0 +1,854 @@
+{
+  "atlas": "res://assets/first_person/buildings_atlas.png",
+  "interiors": {
+    "cabin": {
+      "floor": [
+        "floor_boards",
+        "floor_boards_alt"
+      ],
+      "wall": [
+        "panelling"
+      ]
+    },
+    "civic": {
+      "floor": [
+        "tile",
+        "tile_alt"
+      ],
+      "wall": [
+        "render_ivory"
+      ]
+    },
+    "commercial": {
+      "floor": [
+        "lino",
+        "tile"
+      ],
+      "wall": [
+        "render_ivory",
+        "render_grey"
+      ]
+    },
+    "industrial": {
+      "floor": [
+        "concrete"
+      ],
+      "wall": [
+        "block",
+        "block_alt"
+      ]
+    },
+    "residential": {
+      "floor": [
+        "floor_boards",
+        "floor_boards_alt"
+      ],
+      "wall": [
+        "wallpaper",
+        "wallpaper_alt"
+      ]
+    },
+    "shed": {
+      "floor": [
+        "concrete"
+      ],
+      "wall": [
+        "panelling"
+      ]
+    }
+  },
+  "kit": "first-person-building-finishes",
+  "looks": {
+    "roof": {
+      "shingle": [
+        "shingle",
+        "shingle_alt"
+      ],
+      "tar": [
+        "tar"
+      ],
+      "tin": [
+        "tin",
+        "tin_alt"
+      ]
+    },
+    "wall": {
+      "block": [
+        "block",
+        "block_alt"
+      ],
+      "brick": [
+        "brick",
+        "brick_alt"
+      ],
+      "render": [
+        "render_ivory",
+        "render_grey",
+        "render_stain"
+      ],
+      "timber": [
+        "timber_sage",
+        "timber_grey",
+        "timber_worn"
+      ]
+    }
+  },
+  "models": [
+    {
+      "bounds": {
+        "max": [
+          18.18,
+          2.81,
+          13.18
+        ],
+        "min": [
+          -0.18,
+          0.0,
+          -0.18
+        ]
+      },
+      "floor": [
+        "lino",
+        "tile"
+      ],
+      "glb": "res://assets/first_person/buildings/arcade_retail.glb",
+      "interior": "commercial",
+      "interiorWall": [
+        "render_ivory",
+        "render_grey"
+      ],
+      "match": {
+        "id": "building.arcade.retail"
+      },
+      "roof": "tar",
+      "roofForm": "flat",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "brick"
+    },
+    {
+      "bounds": {
+        "max": [
+          11.3,
+          4.19,
+          8.305
+        ],
+        "min": [
+          -0.3,
+          0.0,
+          -0.305
+        ]
+      },
+      "floor": [
+        "floor_boards",
+        "floor_boards_alt"
+      ],
+      "glb": "res://assets/first_person/buildings/bungalow_flat.glb",
+      "interior": "residential",
+      "interiorWall": [
+        "wallpaper",
+        "wallpaper_alt"
+      ],
+      "match": {
+        "id": "building.bungalow.flat"
+      },
+      "roof": "shingle",
+      "roofForm": "gable",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "render"
+    },
+    {
+      "bounds": {
+        "max": [
+          11.3,
+          3.82,
+          5.305
+        ],
+        "min": [
+          -0.3,
+          0.0,
+          -0.305
+        ]
+      },
+      "floor": [
+        "floor_boards",
+        "floor_boards_alt"
+      ],
+      "glb": "res://assets/first_person/buildings/cabin_long.glb",
+      "interior": "cabin",
+      "interiorWall": [
+        "panelling"
+      ],
+      "match": {
+        "id": "building.cabin.long"
+      },
+      "roof": "shingle",
+      "roofForm": "gable",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "timber"
+    },
+    {
+      "bounds": {
+        "max": [
+          7.3,
+          3.82,
+          5.305
+        ],
+        "min": [
+          -0.3,
+          0.0,
+          -0.305
+        ]
+      },
+      "floor": [
+        "floor_boards",
+        "floor_boards_alt"
+      ],
+      "glb": "res://assets/first_person/buildings/cabin_small.glb",
+      "interior": "cabin",
+      "interiorWall": [
+        "panelling"
+      ],
+      "match": {
+        "id": "building.cabin.small"
+      },
+      "roof": "shingle",
+      "roofForm": "gable",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "timber"
+    },
+    {
+      "bounds": {
+        "max": [
+          12.18,
+          2.81,
+          8.18
+        ],
+        "min": [
+          -0.18,
+          0.0,
+          -0.18
+        ]
+      },
+      "floor": [
+        "tile",
+        "tile_alt"
+      ],
+      "glb": "res://assets/first_person/buildings/clinic_storefront.glb",
+      "interior": "civic",
+      "interiorWall": [
+        "render_ivory"
+      ],
+      "match": {
+        "id": "building.clinic.storefront"
+      },
+      "roof": "tar",
+      "roofForm": "flat",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "render"
+    },
+    {
+      "bounds": {
+        "max": [
+          8.3,
+          4.02,
+          6.305
+        ],
+        "min": [
+          -0.3,
+          0.0,
+          -0.305
+        ]
+      },
+      "floor": [
+        "concrete"
+      ],
+      "glb": "res://assets/first_person/buildings/gatehouse_yard.glb",
+      "interior": "industrial",
+      "interiorWall": [
+        "block",
+        "block_alt"
+      ],
+      "match": {
+        "id": "building.gatehouse.yard"
+      },
+      "roof": "tin",
+      "roofForm": "gable",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "render"
+    },
+    {
+      "bounds": {
+        "max": [
+          15.18,
+          2.81,
+          11.18
+        ],
+        "min": [
+          -0.18,
+          0.0,
+          -0.18
+        ]
+      },
+      "floor": [
+        "tile",
+        "tile_alt"
+      ],
+      "glb": "res://assets/first_person/buildings/hall_civic.glb",
+      "interior": "civic",
+      "interiorWall": [
+        "render_ivory"
+      ],
+      "match": {
+        "id": "building.hall.civic"
+      },
+      "roof": "tar",
+      "roofForm": "flat",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "brick"
+    },
+    {
+      "bounds": {
+        "max": [
+          12.3,
+          4.19,
+          10.305
+        ],
+        "min": [
+          -0.3,
+          0.0,
+          -0.305
+        ]
+      },
+      "floor": [
+        "floor_boards",
+        "floor_boards_alt"
+      ],
+      "glb": "res://assets/first_person/buildings/house_corner.glb",
+      "interior": "residential",
+      "interiorWall": [
+        "wallpaper",
+        "wallpaper_alt"
+      ],
+      "match": {
+        "id": "building.house.corner"
+      },
+      "roof": "shingle",
+      "roofForm": "hip",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "timber"
+    },
+    {
+      "bounds": {
+        "max": [
+          11.3,
+          4.19,
+          8.305
+        ],
+        "min": [
+          -0.3,
+          0.0,
+          -0.305
+        ]
+      },
+      "floor": [
+        "carpet"
+      ],
+      "glb": "res://assets/first_person/buildings/house_gable.glb",
+      "interior": "residential",
+      "interiorWall": [
+        "wallpaper",
+        "wallpaper_alt"
+      ],
+      "match": {
+        "id": "building.house.gable"
+      },
+      "roof": "shingle",
+      "roofForm": "gable",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "timber"
+    },
+    {
+      "bounds": {
+        "max": [
+          14.3,
+          4.19,
+          11.305
+        ],
+        "min": [
+          -0.3,
+          0.0,
+          -0.305
+        ]
+      },
+      "floor": [
+        "floor_boards",
+        "floor_boards_alt"
+      ],
+      "glb": "res://assets/first_person/buildings/house_large.glb",
+      "interior": "residential",
+      "interiorWall": [
+        "wallpaper",
+        "wallpaper_alt"
+      ],
+      "match": {
+        "id": "building.house.large"
+      },
+      "roof": "shingle",
+      "roofForm": "hip",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "brick"
+    },
+    {
+      "bounds": {
+        "max": [
+          8.3,
+          4.19,
+          10.305
+        ],
+        "min": [
+          -0.3,
+          0.0,
+          -0.305
+        ]
+      },
+      "floor": [
+        "carpet"
+      ],
+      "glb": "res://assets/first_person/buildings/house_narrow.glb",
+      "interior": "residential",
+      "interiorWall": [
+        "wallpaper",
+        "wallpaper_alt"
+      ],
+      "match": {
+        "id": "building.house.narrow"
+      },
+      "roof": "shingle",
+      "roofForm": "gable",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "render"
+    },
+    {
+      "bounds": {
+        "max": [
+          9.3,
+          4.19,
+          7.305
+        ],
+        "min": [
+          -0.3,
+          0.0,
+          -0.305
+        ]
+      },
+      "floor": [
+        "floor_boards",
+        "floor_boards_alt"
+      ],
+      "glb": "res://assets/first_person/buildings/house_small.glb",
+      "interior": "residential",
+      "interiorWall": [
+        "wallpaper",
+        "wallpaper_alt"
+      ],
+      "match": {
+        "id": "building.house.small"
+      },
+      "roof": "shingle",
+      "roofForm": "gable",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "timber"
+    },
+    {
+      "bounds": {
+        "max": [
+          8.18,
+          2.81,
+          7.18
+        ],
+        "min": [
+          -0.18,
+          0.0,
+          -0.18
+        ]
+      },
+      "floor": [
+        "lino",
+        "tile"
+      ],
+      "glb": "res://assets/first_person/buildings/kiosk_corner.glb",
+      "interior": "commercial",
+      "interiorWall": [
+        "render_ivory",
+        "render_grey"
+      ],
+      "match": {
+        "id": "building.kiosk.corner"
+      },
+      "roof": "tar",
+      "roofForm": "flat",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "render"
+    },
+    {
+      "bounds": {
+        "max": [
+          7.3,
+          3.82,
+          5.305
+        ],
+        "min": [
+          -0.3,
+          0.0,
+          -0.305
+        ]
+      },
+      "floor": [
+        "concrete"
+      ],
+      "glb": "res://assets/first_person/buildings/shed_garage.glb",
+      "interior": "shed",
+      "interiorWall": [
+        "panelling"
+      ],
+      "match": {
+        "id": "building.shed.garage"
+      },
+      "roof": "tin",
+      "roofForm": "gable",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "block"
+    },
+    {
+      "bounds": {
+        "max": [
+          6.3,
+          4.02,
+          6.305
+        ],
+        "min": [
+          -0.3,
+          0.0,
+          -0.305
+        ]
+      },
+      "floor": [
+        "concrete"
+      ],
+      "glb": "res://assets/first_person/buildings/shed_lockup.glb",
+      "interior": "shed",
+      "interiorWall": [
+        "panelling"
+      ],
+      "match": {
+        "id": "building.shed.lockup"
+      },
+      "roof": "tin",
+      "roofForm": "gable",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "block"
+    },
+    {
+      "bounds": {
+        "max": [
+          5.3,
+          3.82,
+          5.305
+        ],
+        "min": [
+          -0.3,
+          0.0,
+          -0.305
+        ]
+      },
+      "floor": [
+        "concrete"
+      ],
+      "glb": "res://assets/first_person/buildings/shed_tin.glb",
+      "interior": "shed",
+      "interiorWall": [
+        "panelling"
+      ],
+      "match": {
+        "id": "building.shed.tin"
+      },
+      "roof": "tin",
+      "roofForm": "gable",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "block"
+    },
+    {
+      "bounds": {
+        "max": [
+          14.18,
+          2.81,
+          10.18
+        ],
+        "min": [
+          -0.18,
+          0.0,
+          -0.18
+        ]
+      },
+      "floor": [
+        "lino",
+        "tile"
+      ],
+      "glb": "res://assets/first_person/buildings/shop_corner.glb",
+      "interior": "commercial",
+      "interiorWall": [
+        "render_ivory",
+        "render_grey"
+      ],
+      "match": {
+        "id": "building.shop.corner"
+      },
+      "roof": "tar",
+      "roofForm": "flat",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "brick"
+    },
+    {
+      "bounds": {
+        "max": [
+          16.18,
+          2.81,
+          12.18
+        ],
+        "min": [
+          -0.18,
+          0.0,
+          -0.18
+        ]
+      },
+      "floor": [
+        "lino",
+        "tile"
+      ],
+      "glb": "res://assets/first_person/buildings/store_grocery.glb",
+      "interior": "commercial",
+      "interiorWall": [
+        "render_ivory",
+        "render_grey"
+      ],
+      "match": {
+        "id": "building.store.grocery"
+      },
+      "roof": "tar",
+      "roofForm": "flat",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "render"
+    },
+    {
+      "bounds": {
+        "max": [
+          12.3,
+          4.19,
+          8.305
+        ],
+        "min": [
+          -0.3,
+          0.0,
+          -0.305
+        ]
+      },
+      "floor": [
+        "floor_boards",
+        "floor_boards_alt"
+      ],
+      "glb": "res://assets/first_person/buildings/terrace_pair.glb",
+      "interior": "residential",
+      "interiorWall": [
+        "wallpaper",
+        "wallpaper_alt"
+      ],
+      "match": {
+        "id": "building.terrace.pair"
+      },
+      "roof": "shingle",
+      "roofForm": "hip",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "brick"
+    },
+    {
+      "bounds": {
+        "max": [
+          14.3,
+          4.12,
+          10.305
+        ],
+        "min": [
+          -0.3,
+          0.0,
+          -0.305
+        ]
+      },
+      "floor": [
+        "concrete"
+      ],
+      "glb": "res://assets/first_person/buildings/unit_industrial.glb",
+      "interior": "industrial",
+      "interiorWall": [
+        "block",
+        "block_alt"
+      ],
+      "match": {
+        "id": "building.unit.industrial"
+      },
+      "roof": "tin",
+      "roofForm": "gable",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "block"
+    },
+    {
+      "bounds": {
+        "max": [
+          22.18,
+          2.81,
+          14.18
+        ],
+        "min": [
+          -0.18,
+          0.0,
+          -0.18
+        ]
+      },
+      "floor": [
+        "concrete"
+      ],
+      "glb": "res://assets/first_person/buildings/warehouse_brick.glb",
+      "interior": "industrial",
+      "interiorWall": [
+        "block",
+        "block_alt"
+      ],
+      "match": {
+        "id": "building.warehouse.brick"
+      },
+      "roof": "tar",
+      "roofForm": "flat",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "brick"
+    },
+    {
+      "bounds": {
+        "max": [
+          12.3,
+          4.12,
+          9.305
+        ],
+        "min": [
+          -0.3,
+          0.0,
+          -0.305
+        ]
+      },
+      "floor": [
+        "lino",
+        "tile"
+      ],
+      "glb": "res://assets/first_person/buildings/workshop_unit.glb",
+      "interior": "commercial",
+      "interiorWall": [
+        "render_ivory",
+        "render_grey"
+      ],
+      "match": {
+        "id": "building.workshop.unit"
+      },
+      "roof": "tin",
+      "roofForm": "gable",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "block"
+    }
+  ],
+  "texelsPerMetre": 64
+}

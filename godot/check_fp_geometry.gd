@@ -19,12 +19,19 @@ extends SceneTree
 #             0.12 m thickness, inside the tile and flush to an edge. A wrong-size module planted
 #             through the same placement is refused. Without the GLBs the lane skips and the band
 #             boxes are under test.
+#   FINISHES  every content template resolves to one manifest model whose spatial vertices stay in
+#             full wall tiles and within 0..2550 mm, with every wall tile capped over its footprint.
+#             Finish vertices below the roof stay in solid template tiles, except floor overlays;
+#             glazing is transparent and nearest-filtered. Planted open-tile and high-wall vertices
+#             are refused, and a stamped house really draws its finish instance.
 
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
+const BuildingView = preload("res://presentation/first_person/building_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
 const SimSpace = preload("res://sim/space/space.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimTemplates = preload("res://sim/map/templates.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimStances = preload("res://sim/stances.gd")
 
@@ -45,12 +52,13 @@ func _run() -> void:
 	ok = _old_way(fixture) and ok
 	ok = _bodies() and ok
 	ok = _kit(fixture) and ok
+	ok = _finishes() and ok
 	_finish(ok)
 
 
 func _finish(ok: bool) -> void:
 	if ok:
-		print("FP_GEOMETRY_OK every tile's built mesh has exactly its profile bands and every body its cylinder, wall tiles are drawn by the kit module with the band's height inside their tile, and the old-way window, Low tile and a wrong-size module are refused")
+		print("FP_GEOMETRY_OK every tile and all 22 building finishes keep their profile bands, every body keeps its cylinder, finish skins stay within 25 mm of a solid host, and planted window, Low-tile, module, open-tile and high-wall errors are refused")
 		quit(0)
 		return
 	for failure in _failures:
@@ -364,6 +372,214 @@ func _kit_mesh(path: String) -> Mesh:
 
 func _size_close(a: Vector3, b: Vector3) -> bool:
 	return absf(a.x - b.x) <= 0.01 and absf(a.y - b.y) <= 0.01 and absf(a.z - b.z) <= 0.01
+
+
+# --- FINISHES -------------------------------------------------------------------------------
+
+func _finishes() -> bool:
+	var templates: Dictionary = _building_templates()
+	var manifest: Dictionary = BuildingView.read_manifest()
+	var models: Array = manifest.get("models", []) as Array
+	var ok: bool = true
+	if models.size() != templates.size():
+		ok = _fail("FINISHES", "manifest has %d models for %d content templates" % [models.size(), templates.size()])
+	var wall_looks: Dictionary = {}
+	var roof_looks: Dictionary = {}
+	for template_v in templates.values():
+		var template: Dictionary = template_v as Dictionary
+		wall_looks[String((template.get("look", {}) as Dictionary).get("wall", ""))] = true
+		roof_looks[String((template.get("look", {}) as Dictionary).get("roof", ""))] = true
+	var manifest_walls: Dictionary = (manifest.get("looks", {}) as Dictionary).get("wall", {}) as Dictionary
+	var manifest_roofs: Dictionary = (manifest.get("looks", {}) as Dictionary).get("roof", {}) as Dictionary
+	for look in wall_looks:
+		if not manifest_walls.has(look):
+			ok = _fail("FINISHES", "wall look %s has no atlas variants" % look)
+	for look in roof_looks:
+		if not manifest_roofs.has(look):
+			ok = _fail("FINISHES", "roof look %s has no atlas variants" % look)
+	for id in templates:
+		var template: Dictionary = templates[id] as Dictionary
+		var entry: Dictionary = BuildingView.entry_for(id)
+		if entry.is_empty():
+			ok = _fail("FINISHES", "%s does not resolve to a model" % id)
+			continue
+		var loaded: Dictionary = Assets.load_model(String(entry.get("glb", "")))
+		var node: Node3D = loaded["node"] as Node3D
+		if node == null:
+			ok = _fail("FINISHES", "%s model did not load" % id)
+			continue
+		var spatial: MeshInstance3D = _named_mesh(node, "spatial_bands")
+		var finish: MeshInstance3D = _named_mesh(node, "finish")
+		if spatial == null or finish == null:
+			ok = _fail("FINISHES", "%s lacks spatial or finish geometry" % id)
+			node.free()
+			continue
+		var cap_points: Dictionary = {}
+		var glass_found: bool = false
+		for mesh_node in [spatial, finish]:
+			var instance: MeshInstance3D = mesh_node as MeshInstance3D
+			for surface in instance.mesh.get_surface_count():
+				var material: BaseMaterial3D = instance.get_active_material(surface) as BaseMaterial3D
+				if material == null or material.texture_filter != BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS:
+					ok = _fail("FINISHES", "%s has an unfiltered or missing atlas material" % id)
+				if material != null and material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+					glass_found = true
+				var arrays: Array = instance.mesh.surface_get_arrays(surface)
+				var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+				for vertex in vertices:
+					if instance == spatial:
+						if not _spatial_vertex_allowed(template, vertex):
+							ok = _fail("FINISHES", "%s spatial vertex %s leaves a wall band or tile" % [id, vertex])
+						if absf(vertex.y - 2.55) <= EPSILON_M:
+							cap_points[Vector2i(roundi(vertex.x * 1000.0), roundi(vertex.z * 1000.0))] = true
+					elif not _finish_vertex_allowed(template, vertex):
+						ok = _fail("FINISHES", "%s finish vertex %s enters an open tile or sinks" % [id, vertex])
+		if _template_has_window(template) and not glass_found:
+			ok = _fail("FINISHES", "%s has windows but no transparent glazing" % id)
+		var box: AABB = spatial.mesh.get_aabb()
+		if absf(box.position.y) > EPSILON_M or absf(box.end.y - 2.55) > EPSILON_M:
+			ok = _fail("FINISHES", "%s spatial height is %s, not 0..2.55" % [id, box])
+		for y in range(int((template["size"] as Dictionary)["h"])):
+			for x in range(int((template["size"] as Dictionary)["w"])):
+				if _template_tile(template, x, y) != 1:
+					continue
+				for corner in [Vector2i(x * 1000, y * 1000), Vector2i((x + 1) * 1000, y * 1000), Vector2i(x * 1000, (y + 1) * 1000), Vector2i((x + 1) * 1000, (y + 1) * 1000)]:
+					if not cap_points.has(corner):
+						ok = _fail("FINISHES", "%s wall %d,%d lacks its full-footprint cap" % [id, x, y])
+		node.free()
+	var house: Dictionary = templates.get("building.house.small", {}) as Dictionary
+	if not house.is_empty():
+		if _spatial_vertex_allowed(house, Vector3(1.5, 2.56, 0.5)):
+			ok = _fail("FINISHES", "a planted vertex above the wall band was accepted")
+		if _finish_vertex_allowed(house, Vector3(1.5, 1.2, 1.5)):
+			ok = _fail("FINISHES", "a planted finish vertex in an open indoor tile was accepted")
+		if not _finish_vertex_allowed(house, Vector3(1.5, 0.004, 1.5)):
+			ok = _fail("FINISHES", "the valid indoor floor overlay was refused")
+		ok = _finish_placement(house) and ok
+	return ok
+
+
+func _building_templates() -> Dictionary:
+	var out: Dictionary = {}
+	for filename in DirAccess.get_files_at("res://content/buildings"):
+		if not filename.ends_with(".json"):
+			continue
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://content/buildings/" + filename))
+		if parsed is Dictionary:
+			out[String((parsed as Dictionary).get("id", ""))] = parsed
+	return out
+
+
+func _named_mesh(node: Node, prefix: String) -> MeshInstance3D:
+	if node is MeshInstance3D and node.name.begins_with(prefix):
+		return node as MeshInstance3D
+	for child in node.get_children():
+		var found: MeshInstance3D = _named_mesh(child, prefix)
+		if found != null:
+			return found
+	return null
+
+
+func _template_tile(template: Dictionary, x: int, y: int) -> int:
+	var size: Dictionary = template["size"] as Dictionary
+	if x < 0 or y < 0 or x >= int(size["w"]) or y >= int(size["h"]):
+		return 0
+	for door_v in template.get("doors", []) as Array:
+		var door: Dictionary = door_v as Dictionary
+		if int(door["x"]) == x and int(door["y"]) == y:
+			return 6
+	return int((template["tiles"] as Array)[y * int(size["w"]) + x])
+
+
+func _template_indoors(template: Dictionary, x: int, y: int) -> bool:
+	var size: Dictionary = template["size"] as Dictionary
+	if x < 0 or y < 0 or x >= int(size["w"]) or y >= int(size["h"]):
+		return false
+	return int((template["indoors"] as Array)[y * int(size["w"]) + x]) != 0
+
+
+func _candidate_tiles(x: float, z: float) -> Array:
+	var xs: Array = [floori(x)]
+	var ys: Array = [floori(z)]
+	if absf(x - roundf(x)) <= EPSILON_M:
+		xs.append(floori(x) - 1)
+		xs.append(floori(x) + 1)
+	if absf(z - roundf(z)) <= EPSILON_M:
+		ys.append(floori(z) - 1)
+		ys.append(floori(z) + 1)
+	var out: Array = []
+	for tx in xs:
+		for ty in ys:
+			out.append(Vector2i(tx, ty))
+	return out
+
+
+func _spatial_vertex_allowed(template: Dictionary, point: Vector3) -> bool:
+	if point.y < -EPSILON_M or point.y > 2.55 + EPSILON_M:
+		return false
+	for tile_v in _candidate_tiles(point.x, point.z):
+		var tile: Vector2i = tile_v as Vector2i
+		if _template_tile(template, tile.x, tile.y) == 1:
+			return true
+	return false
+
+
+func _finish_vertex_allowed(template: Dictionary, point: Vector3) -> bool:
+	if point.y < -EPSILON_M:
+		return false
+	if point.y >= 2.50:
+		return true
+	for tile_v in _candidate_tiles(point.x, point.z):
+		var tile: Vector2i = tile_v as Vector2i
+		if point.y <= 0.005 and _template_indoors(template, tile.x, tile.y):
+			return true
+		if _template_tile(template, tile.x, tile.y) in [1, 2, 6]:
+			return true
+	var centre: Vector2i = Vector2i(floori(point.x), floori(point.z))
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			var tile: Vector2i = centre + Vector2i(dx, dy)
+			if _template_tile(template, tile.x, tile.y) not in [1, 2, 6]:
+				continue
+			var nearest: Vector2 = Vector2(clampf(point.x, tile.x, tile.x + 1), clampf(point.z, tile.y, tile.y + 1))
+			if nearest.distance_to(Vector2(point.x, point.z)) <= 0.025:
+				return true
+	return false
+
+
+func _template_has_window(template: Dictionary) -> bool:
+	for tile in template.get("tiles", []) as Array:
+		if int(tile) == 2:
+			return true
+	return false
+
+
+func _finish_placement(template: Dictionary) -> bool:
+	var map: Variant = SimTileMap.blank_map(16, 14)
+	SimTemplates.stamp(map, template, 3, 2)
+	map.tiles[8 * int(map.w) + 6] = SimTileMap.Tile.Door
+	map.buildings.append({"id": "building.house.small", "x": 3, "y": 2, "w": 9, "h": 7, "doors": [{"x": 6, "y": 8}]})
+	var view: Node3D = DistrictView.new()
+	root.add_child(view)
+	view.call("build", map, 20261101)
+	var ok: bool = true
+	var dresser: Node3D = view.get("building_finishes") as Node3D
+	var instances: Array = dresser.get("instances") as Array if dresser != null else []
+	if instances.size() != 1:
+		ok = _fail("FINISHES", "stamped house drew %d finish instances, not one" % instances.size())
+	elif int((instances[0] as Dictionary)["variant"]) != BuildingView.placement_hash(20261101, map.buildings[0]) % 3:
+		ok = _fail("FINISHES", "stamped house variant is not the seeded manifest choice")
+	if not (view.get("wall_instances") as Array).is_empty():
+		ok = _fail("FINISHES", "finished house also drew fallback wall modules")
+	view.queue_free()
+	var baseline: Node3D = DistrictView.new()
+	baseline.set("building_finishes_enabled", false)
+	root.add_child(baseline)
+	baseline.call("build", map, 20261101)
+	if baseline.get("building_finishes") != null or (baseline.get("wall_instances") as Array).is_empty():
+		ok = _fail("FINISHES", "disabled finishes did not restore the exact wall-module baseline")
+	baseline.queue_free()
+	return ok
 
 
 # --- helpers --------------------------------------------------------------------------------

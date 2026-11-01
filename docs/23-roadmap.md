@@ -2423,6 +2423,32 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **First-person building finishes, 2026-11-01.** Advances the generated-world dressing in
+  [docs/41](41-weapons-characters-world-plan.md), P1 and art piece 17: every one of the 22 authored
+  building templates now has a deterministic architectural shell in the playable first-person district.
+  - **Kit and data.** `tools/blender/first_person_buildings/build_finishes.py` builds 22 GLBs, one
+    64-texel/m atlas and `buildings.manifest.json`. All four wall looks and three roof looks resolve;
+    roofs are gable, hip or flat from the look and footprint. With no room tags in content, interior
+    plaster/wallpaper/panelling and boards/lino/tile/carpet/concrete follow the building tag. Foundation,
+    skirting, corner boards, ceilings, floors, eaves and opening casings are included.
+  - **Windows.** Two transparent sashes, a thin muntin, edge grime and some side curtains read as
+    glazing without changing the sim's open sight/shot aperture. Residential glazing is about 0.72 m
+    wide, industrial/shed 0.80 m, and shopfronts stay broad. No template's window count changed.
+  - **Runtime.** `building_view.gd` caches models and picks a subtle tint from district seed, template
+    id and stamped position, never runtime randomness. Each template has one merged full-wall spatial
+    mesh and one merged finish mesh; dynamic doors, windows and boards keep their old band boxes.
+  - **Checks.** Builder `--check` prints `BUILDINGS_CHECK_OK` and compares every output byte. Planted
+    bounds, coplanar, density, floor-contact, missing-look and missing-template modes all fail.
+    `godot:check:fp_geometry` gains FINISHES: all 22 models load, every full wall keeps its 0..2550 mm
+    band and footprint cap, finish skins stay within 25 mm of a solid host, glass is transparent and
+    nearest-filtered, and planted open-room/above-wall vertices fail. `FIRST_PERSON_OK` and
+    `GODOT_PROJECT_SMOKE_OK` pass.
+  - **Measured.** Headed 1280x720, uncapped, 300 frames after 30 warmup on the shipped 256 district:
+    before/after spawn mean 0.340/0.429 ms (4/36 draw calls), inside the small house 0.334/0.550 ms
+    (4/106 draw calls). Both after views stay under docs/22's 10 ms target.
+  - **Not changed.** SimSpace bands, template window counts and wall footprints are untouched. The
+    1 m-deep reveals remain; edge walls stay an owner/shared-sim decision. Room-specific finishes wait
+    for room-tag data.
 - **First-person starter-kit integration, 2026-11-01.** Advances "First-person starter-kit
   integration": the playable scene draws walls, boarded windows and shelf containers from the kit's
   GLBs, not only the desk and ledger.

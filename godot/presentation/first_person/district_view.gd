@@ -5,22 +5,19 @@ extends Node3D
 # a height. The bands are the sim's, and this view draws them and nothing else (docs/40, "The one
 # authority": "the presentation builds its geometry from SimSpace.PROFILE and from nothing else").
 #
-# The one exception is the wall: when the kit's `wall_module.glb` is on disk, a full-height wall tile
-# is drawn by that module instead of its band box, so a street is built rooms rather than grey boxes.
-# The module is still placed from the sim's wall band: its top is scaled to the band's 2550 mm, its
-# 1.00 m width spans the tile along the wall run, and its 0.12 m depth is the drawn thickness, its
-# outer face on the tile edge toward open ground. `godot:check:fp_geometry`'s KIT lane measures the
-# drawn AABB against those numbers. Boarded windows keep their band boxes and gain a barricade
-# instance on the open face, so the boards cannot open a tile the sim says blocks sight.
-# This branch also prototypes one authored finish shell for `building.house.small`: when its GLB is
-# present, that building's walls, windows, and open-door bands come from the shell at the same heights
-# and its roof/ceiling/floors/trim are presentation-only additions. Closed doors and boards keep their
-# ordinary band boxes. `house_finishes_enabled` lets the capture driver retain an exact baseline.
+# Full wall tiles in a manifested building use that template's merged spatial mesh at the same
+# 0..2550 mm band and full tile footprint. Other full walls use `wall_module.glb`, scaled to the same
+# band and flush with a tile edge. `godot:check:fp_geometry` measures both paths.
+#
+# Doors, windows and boards always keep their ordinary dynamic band boxes. Their textured faces,
+# casings, glazing and curtains are presentation-only surfaces inside the same tiles. Roofs, ceilings,
+# floors and trim add no collision and never choose a height the sim does not publish.
+# `building_finishes_enabled` lets the capture and benchmark drivers retain an exact baseline.
 #
 # The meshes stay merged by category: one ground mesh, one opaque solid mesh and one see-through
-# mesh for the wire fence, plus one MultiMeshInstance3D per wall-module variant and one for the
-# barricades. The per-tile geometry comes from `tile_boxes`, which is also what `tile_mesh` builds
-# for the gate to judge a tile against its bands.
+# mesh for the wire fence, MultiMesh wall modules and barricades, and two merged atlas meshes per
+# manifested building (spatial bands and finishes). The per-tile geometry comes from `tile_boxes`,
+# which is also what `tile_mesh` builds for the gate to judge a tile against its bands.
 #
 # Sim x/y maps to Godot x/z, one tile to one metre (`SimTileMap.TILE_METRES`). There is no second
 # map and no second collision pass here.
@@ -29,6 +26,7 @@ const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const SimSpace = preload("res://sim/space/space.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
+const BuildingView = preload("res://presentation/first_person/building_view.gd")
 
 # Two placement variants of the wall module: as authored, and turned half a turn about its own
 # centre, so a long row does not repeat one face. The kit's three plaster variants live inside the
@@ -69,8 +67,9 @@ var fence: MeshInstance3D = null
 # empty when the GLBs are missing, which is how the KIT lane knows to skip.
 var wall_instances: Array = []
 var barricade_instances: Array = []
-var house_finish_instances: Array = []
-var house_finishes_enabled: bool = true
+var building_finishes: Node3D = null
+var building_finishes_enabled: bool = true
+var _finish_tiles: Dictionary = {}
 
 
 ## Builds the district. `salt` is mixed with each tile's index to pick a wall-module variant; the
@@ -83,9 +82,12 @@ func build(map_ref: Variant, salt: int = 0) -> void:
 		child.queue_free()
 	wall_instances.clear()
 	barricade_instances.clear()
-	house_finish_instances.clear()
+	_finish_tiles.clear()
+	building_finishes = null
 	if map == null:
 		return
+	if building_finishes_enabled:
+		_index_finish_tiles()
 	var wall_mesh: Mesh = _loaded_mesh(Assets.WALL_MODULE)
 	ground = _build_mesh("GroundTiles", _ground_surface(), false)
 	solids = _build_mesh("SolidTiles", _band_surface(false, wall_mesh != null), false)
@@ -93,7 +95,11 @@ func build(map_ref: Variant, salt: int = 0) -> void:
 	if wall_mesh != null:
 		_build_wall_modules(wall_mesh, salt)
 	_build_barricades(_loaded_mesh(Assets.BARRICADE))
-	_build_house_finishes()
+	if building_finishes_enabled:
+		building_finishes = BuildingView.new()
+		building_finishes.name = "BuildingFinishes"
+		add_child(building_finishes)
+		building_finishes.call("build", map, salt)
 
 
 # The mesh of a kit model, or null when the file is missing. The loaded node is only a carrier: the
@@ -153,8 +159,8 @@ func _ground_surface() -> ArrayMesh:
 
 
 # The opaque bands (or, with `see_through`, the fence's bands) of every tile, as one mesh. Null when
-# there is nothing to draw, so the node exists without a mesh. `skip_walls` leaves full-height wall
-# tiles to their modules; the KIT lane proves the module draws the same band.
+# there is nothing to draw, so the node exists without a mesh. Full walls yield to either their kit
+# module or their manifested spatial mesh; dynamic openings always keep these band boxes.
 func _band_surface(see_through: bool, skip_walls: bool) -> ArrayMesh:
 	var st: SurfaceTool = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -162,9 +168,7 @@ func _band_surface(see_through: bool, skip_walls: bool) -> ArrayMesh:
 	for ty in int(map.h):
 		for tx in int(map.w):
 			var key: String = SimSpace.profile_key(map, tx, ty)
-			if skip_walls and not see_through and key == "wall":
-				continue
-			if house_finishes_enabled and not see_through and _house_finish_tile(map, tx, ty) and key in ["wall", "window", "door.open"]:
+			if not see_through and key == "wall" and (skip_walls or _finish_tiles.has(Vector2i(tx, ty))):
 				continue
 			for box in tile_boxes(map, tx, ty):
 				if bool(box["transparent"]) != see_through:
@@ -190,7 +194,7 @@ func _build_wall_modules(mesh: Mesh, salt: int) -> void:
 		for tx in int(map.w):
 			if SimSpace.profile_key(map, tx, ty) != "wall":
 				continue
-			if house_finishes_enabled and _house_finish_tile(map, tx, ty):
+			if _finish_tiles.has(Vector2i(tx, ty)):
 				continue
 			var variant: int = _tile_hash(salt, tx, ty) % WALL_MODULE_VARIANTS
 			var xform: Transform3D = wall_placement(map, tx, ty, size, variant)
@@ -200,33 +204,19 @@ func _build_wall_modules(mesh: Mesh, salt: int) -> void:
 		_multimesh_node("WallModules%d" % variant, mesh, groups[variant])
 
 
-static func _house_finish_tile(map: Variant, tx: int, ty: int) -> bool:
-	if not FileAccess.file_exists(Assets.HOUSE_SMALL_FINISH):
-		return false
+func _index_finish_tiles() -> void:
+	var entries: Dictionary = {}
+	for entry_v in BuildingView.read_manifest().get("models", []) as Array:
+		var entry: Dictionary = entry_v as Dictionary
+		entries[String((entry.get("match", {}) as Dictionary).get("id", ""))] = entry
 	for record_v in map.buildings as Array:
 		var record: Dictionary = record_v as Dictionary
-		if String(record.get("id", "")) != "building.house.small":
+		var entry: Dictionary = entries.get(String(record.get("id", "")), {}) as Dictionary
+		if entry.is_empty() or not FileAccess.file_exists(String(entry.get("glb", ""))):
 			continue
-		if tx >= int(record["x"]) and tx < int(record["x"]) + int(record["w"]) and ty >= int(record["y"]) and ty < int(record["y"]) + int(record["h"]):
-			return true
-	return false
-
-
-func _build_house_finishes() -> void:
-	if not house_finishes_enabled:
-		return
-	for record_v in map.buildings as Array:
-		var record: Dictionary = record_v as Dictionary
-		if String(record.get("id", "")) != "building.house.small":
-			continue
-		var loaded: Dictionary = Assets.load_model(Assets.HOUSE_SMALL_FINISH)
-		var node: Node3D = loaded["node"] as Node3D
-		if node == null:
-			continue
-		node.name = "HouseSmallFinish"
-		node.position = Vector3(float(int(record["x"])), 0.0, float(int(record["y"])))
-		add_child(node)
-		house_finish_instances.append({"building": record, "node": node})
+		for y in range(int(record["y"]), int(record["y"]) + int(record["h"])):
+			for x in range(int(record["x"]), int(record["x"]) + int(record["w"])):
+				_finish_tiles[Vector2i(x, y)] = true
 
 
 func _build_barricades(mesh: Mesh) -> void:
