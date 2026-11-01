@@ -11,7 +11,7 @@ own wrapper exists it is named as a wrapper around the plain command, never as t
 
 - **Orient the same way regardless of who you are.** `CLAUDE.md` top to bottom (it is the
   project's rules, not a Claude-only file), then docs/23's
-  [what's left](23-roadmap.md#whats-left-in-milestone-2). The [routing table](../CLAUDE.md#routing-table)
+  [what's left](23-roadmap.md#whats-left-in-milestone-2). The [routing table](../PLAYBOOK.md#routing-table)
   below is the map of which files belong to which system and which gate judges them; `npm run
   check:routing` keeps it true.
 - **Claim a piece by branch name and separate checkout.** `<agent>/<piece-slug>` — `astra/dev-menu-raiders`,
@@ -34,7 +34,7 @@ own wrapper exists it is named as a wrapper around the plain command, never as t
   files) does not overlap a branch already pushed. Some tracks are serial by construction — the
   alpha shell's pieces two to five all edit `godot/presentation/main.gd` and land one after
   another on one branch — and a second agent takes a piece beside them rather than one of them.
-- **The gates are the same for everyone.** Before any commit: the gates for what you touched, as [Verifying a change](../CLAUDE.md#verifying-a-change) lists them; the full `npm run godot:m2` chain runs in CI on every pull request; `npm test` as
+- **The gates are the same for everyone.** Before any commit: the gates for what you touched, as [Verifying a change](../PLAYBOOK.md#verifying-a-change) lists them; the full `npm run godot:m2` chain runs in CI on every pull request; `npm test` as
   well for anything under `godot/content/`; `npm run check:routing` for anything touching
   `package.json` scripts, `scripts/run-godot.mjs`, a `godot/check_*.gd` or this table;
   `npm run sprites:check` after touching `tools/sprites/` or a PNG it generates. The engine

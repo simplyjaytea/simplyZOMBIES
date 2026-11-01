@@ -334,7 +334,7 @@ with thickness, roofs cut out where seen. The record below and
 they open is the art group below.)
 
 **Content arcs — opened by the owner, 2026-10-26.** The direction and the order are
-[docs/38's "The content arcs"](38-playbook.md#the-content-arcs); the decision is
+[PLAYBOOK.md's "The content arcs"](../PLAYBOOK.md#the-content-arcs); the decision is
 [docs/30](30-decisions.md#the-release-plan-and-the-content-arcs-2026-10-26). The rule for every
 piece: readers before content, pictures a stage behind. Each piece is one session with its gate
 red both ways; a piece that adds a body or a kind inside ten days re-baselines the ten-seed table

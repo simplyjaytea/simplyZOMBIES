@@ -1,4 +1,4 @@
-// The routing gate: proves that the agent routing table in CLAUDE.md points at things that
+// The routing gate: proves that the agent routing table in PLAYBOOK.md points at things that
 // exist, and that every gate in the tree is reachable from an npm script.
 //
 // Why a gate and not a convention: every copy of "where things are" in this repo has drifted --
@@ -23,7 +23,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const TABLE_FILE = "CLAUDE.md";
+const TABLE_FILE = "PLAYBOOK.md";
 const TABLE_HEADING = "## Routing table";
 
 // Check scripts that exist, are read by nothing, and stay by name. Each needs a reason; an
@@ -273,7 +273,7 @@ function selfTest() {
       ["godot:m2:a:full", "FULL=1 node scripts/run-godot.mjs --m2-a"],
       ["test", "vitest run"],
     ]),
-    exists: (p) => ["docs/x.md", "godot/sim", "godot/sim/a.gd", "CLAUDE.md"].includes(p),
+    exists: (p) => ["docs/x.md", "godot/sim", "godot/sim/a.gd", "PLAYBOOK.md"].includes(p),
     list: (dir) => (dir === "godot" ? ["check_a.gd", "check_b.gd"] : null),
     slugs: (file) =>
       file.endsWith(".md")
@@ -309,6 +309,15 @@ function selfTest() {
     "link target does not exist: docs/missing.md",
     "path glob matches nothing: godot/probe_*.gd",
   ]);
+  // The table moved to PLAYBOOK.md: a route that still points at CLAUDE.md, now a stub, must fail.
+  expect(
+    "link into the retired table file",
+    judgeSection(
+      routingSection(good.replace("[self](#routing-table)", "[old](CLAUDE.md#routing-table)")),
+      fakeFs,
+    ),
+    ["link target does not exist: CLAUDE.md#routing-table"],
+  );
   expect("missing section", judgeSection(routingSection("# Nothing here\n"), fakeFs), ["has no"]);
   expect("empty table", judgeSection(`${TABLE_HEADING}\n\nprose only\n`, fakeFs), [
     "names no paths",

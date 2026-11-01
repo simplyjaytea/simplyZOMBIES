@@ -6359,7 +6359,7 @@ pack, a tile, or a despawn. `godot:m2:stockpile` EMPTY and FULL hold the two pat
 ## The release plan and the content arcs, 2026-10-26
 
 Decided by the owner, 2026-10-26, from a proposal in the coordinator's chat. Four calls, each
-recorded once here; the plan itself is [docs/38's "The release plan"](38-playbook.md#the-release-plan)
+recorded once here; the plan itself is [PLAYBOOK.md's "The release plan"](../PLAYBOOK.md#the-release-plan)
 and the pieces it opens are in docs/23's what's left under "Content arcs".
 
 - **The projection stays flat top-down.** An isometric view in Project Zomboid's manner was
@@ -7731,3 +7731,27 @@ NPC's chest. What follows is what it left open.
   because NaN passes `canonical`. It now refuses one whole, so the yaw, the feet and the pitch stay
   as they were, the way `clamp_pitch` already read a NaN pitch as level. `godot:m2:aim` PITCH holds
   it, with the comparison written so a NaN cannot pass it.
+
+## The playbook is one root file, and the roster may name models, 2026-11-01
+
+The owner, 2026-11-01: "the playbook file is going to have both the AGENTS.md file and all that stuff
+inside of it. It's going to include workflows, a plan of what we did, a to-do list, some bugs, and
+just things we need to work on. Most crucially it's going to include our workflow inside of Orca."
+
+- **One root file.** `PLAYBOOK.md` holds what `CLAUDE.md`, `AGENTS.md` and docs/38 held, plus the team
+  roster, the Orca workflow, the session record, the to-do list, known bugs and lessons. `CLAUDE.md` is
+  now a stub whose body imports `PLAYBOOK.md`, so Claude Code still loads the rules automatically.
+  `AGENTS.md` is a stub that sends any agent to `PLAYBOOK.md` first and keeps its first-commands block.
+  docs/38 is a stub whose headings point at the matching `PLAYBOOK.md` sections, so old links still land.
+  The routing table moved with the rules, and `npm run check:routing` judges `PLAYBOOK.md`. This
+  supersedes the choice in "The playbook, and AGENTS.md as a pointer, 2026-10-23" that `CLAUDE.md` stays
+  the rule file.
+- **The model-identifier rule is amended.** The team roster in `PLAYBOOK.md` may name the models the
+  roles run on. Authorship never names one: commit messages, PR titles and bodies, code comments and
+  docs say nothing about which model wrote them. The owner's call, 2026-11-01.
+- **Links follow the move.** Markdown links into `CLAUDE.md#...` and `docs/38-playbook.md#...` now point
+  at `PLAYBOOK.md#...` (docs/23, docs/30, docs/34 and the README's entry link). Prose that says
+  "CLAUDE.md's trap" in code comments and records was left as written: the stub still names the file
+  that imports the rules.
+- **Gate.** `scripts/check-routing.mjs` reads `PLAYBOOK.md`, and its self-test refuses a route that still
+  points at `CLAUDE.md#routing-table`.
