@@ -18,7 +18,11 @@ extends SceneTree
 #             segment with the walls gone is clear.
 #   MIRROR    over a seeded map of every class and overlay, each segment gives the same answer
 #             asked twice, asked backwards, and asked of the map and segment reflected left to
-#             right. Both answers occur, so the lane is not judging one kind.
+#             right, including segments exactly through a tile corner and one millimetre off one.
+#             Both answers occur, so the lane is not judging one kind.
+#   CLIPPED   a line that clips a wall tile's corner between the three points the old contact test
+#             sampled: the old test let it through, `segment_clear` and `_clear_contact` refuse it,
+#             and with the wall gone both are clear.
 #   SWING     the live swing: a survivor 1.70 m from a zombie with a one-metre wall between does not
 #             land (it did before this slice); the same swing through an open window, an open
 #             doorway and open ground lands; crouched, the window's sill refuses it; and a blocked
@@ -60,6 +64,7 @@ func _run() -> void:
 	ok = _ends() and ok
 	ok = _corner() and ok
 	ok = _mirror() and ok
+	ok = _clipped() and ok
 	ok = _swing() and ok
 	ok = _reads() and ok
 	if ok:
@@ -89,6 +94,11 @@ func _one_tile(tile: int, overlay: Variant) -> Variant:
 
 func _pt(x: float, y: float, h: int) -> Dictionary:
 	return {"x": x, "y": y, "h": h}
+
+
+# A point given in whole millimetres.
+func _mm(x_mm: int, y_mm: int, h: int) -> Dictionary:
+	return _pt(float(x_mm) / 1000.0, float(y_mm) / 1000.0, h)
 
 
 # A fixture world on a real tile map: open ground, with `tile` (and `overlay`) down column 16 on
@@ -268,15 +278,34 @@ func _mirror() -> bool:
 			if over != null:
 				map.overlays[ty * size + tx] = over
 				flipped.overlays[ty * size + (size - 1 - tx)] = over
-	var ok: bool = true
-	var clear: int = 0
-	var refused: int = 0
+	var segments: Array = []
 	for i in 600:
-		# Sixteenths offset by a thirty-second: never on a tile edge, often exactly through a corner.
+		# Sixteenths offset by a thirty-second: never on a tile edge, sometimes exactly through a corner.
 		var a: Dictionary = _pt(float(rng.randi_range(0, size * 16 - 1)) / 16.0 + 1.0 / 32.0, float(rng.randi_range(0, size * 16 - 1)) / 16.0 + 1.0 / 32.0, rng.randi_range(0, 2600))
 		var b: Dictionary = _pt(float(a["x"]) + float(rng.randi_range(-64, 64)) / 16.0, float(a["y"]) + float(rng.randi_range(-64, 64)) / 16.0, rng.randi_range(0, 2600))
 		b["x"] = clampf(float(b["x"]), 1.0 / 32.0, float(size) - 1.0 / 32.0)
 		b["y"] = clampf(float(b["y"]), 1.0 / 32.0, float(size) - 1.0 / 32.0)
+		segments.append([a, b])
+	# Exactly through a tile corner, on a slant no grid of sixteenths reaches, and the same line moved
+	# one millimetre off the corner: the two places a walk decided in floats could split.
+	for i in 300:
+		var cx: int = rng.randi_range(3, size - 3) * 1000
+		var cy: int = rng.randi_range(3, size - 3) * 1000
+		var px: int = rng.randi_range(37, 1400) * (1 if rng.randi_range(0, 1) == 0 else -1)
+		var py: int = rng.randi_range(37, 1400) * (1 if rng.randi_range(0, 1) == 0 else -1)
+		var m: int = rng.randi_range(1, 2)
+		var h0: int = rng.randi_range(0, 2600)
+		var h1: int = rng.randi_range(0, 2600)
+		segments.append([_mm(cx - px, cy - py, h0), _mm(cx + px * m, cy + py * m, h1)])
+		var ox: int = rng.randi_range(-1, 1)
+		var oy: int = 1 if ox == 0 else 0
+		segments.append([_mm(cx - px + ox, cy - py + oy, h0), _mm(cx + px * m + ox, cy + py * m + oy, h1)])
+	var ok: bool = true
+	var clear: int = 0
+	var refused: int = 0
+	for i in segments.size():
+		var a: Dictionary = (segments[i] as Array)[0] as Dictionary
+		var b: Dictionary = (segments[i] as Array)[1] as Dictionary
 		var ma: Dictionary = _pt(float(size) - float(a["x"]), float(a["y"]), int(a["h"]))
 		var mb: Dictionary = _pt(float(size) - float(b["x"]), float(b["y"]), int(b["h"]))
 		for p in PURPOSES:
@@ -295,7 +324,49 @@ func _mirror() -> bool:
 	if clear == 0 or refused == 0:
 		ok = _fail(lane, "%d clear and %d refused: the lane saw only one answer" % [clear, refused])
 	if ok:
-		print("  MIRROR 600 segments x 3 purposes agree twice, backwards and reflected (%d clear, %d refused)" % [clear, refused])
+		print("  MIRROR %d segments (300 exactly through a corner, 300 a millimetre off one) x 3 purposes agree twice, backwards and reflected (%d clear, %d refused)" % [segments.size(), clear, refused])
+	return ok
+
+
+# --- CLIPPED ---------------------------------------------------------------------------------
+
+# The old contact test, rebuilt here as the fabricated predicate the lane measures against: three
+# samples along the ground segment against `world.is_blocked_tile`.
+func _old_samples_clear(w: Variant, from: Dictionary, to: Dictionary) -> bool:
+	for fraction in [0.25, 0.5, 0.75]:
+		var x: float = float(from["x"]) + (float(to["x"]) - float(from["x"])) * float(fraction)
+		var y: float = float(from["y"]) + (float(to["y"]) - float(from["y"])) * float(fraction)
+		if w.is_blocked_tile(floori(x), floori(y)):
+			return false
+	return true
+
+
+# A line from a shambler to a survivor clips a wall tile's corner between the old three samples. The
+# old test let the claw through; the walk refuses it. With the wall gone, both are clear.
+func _clipped() -> bool:
+	var lane: String = "CLIPPED"
+	var ok: bool = true
+	var from: Dictionary = {"x": 10.5, "y": 10.5}
+	var to: Dictionary = {"x": 12.5, "y": 11.2}
+	for walled in [true, false]:
+		var fixture: Dictionary = {
+			"seed": 7500,
+			"tick_hz": 20,
+			"map": {"width": 24, "height": 24, "walls": [{"x": 11, "y": 11}] if walled else []},
+			"player": {"id": 0, "x": 5.5, "y": 5.5, "stance": 2},
+			"rng_probe": {"stream": "test", "samples": 0},
+		}
+		var w: Variant = World.new(fixture)
+		if not _old_samples_clear(w, from, to):
+			return _fail(lane, "the old three samples hit the wall, so this is not the clipped case")
+		var walk: bool = SimSpace.segment_clear(SimSpace.map_of(w), _pt(10.5, 10.5, 1050), _pt(12.5, 11.2, 1312), SimSpace.REACH)
+		var contact: bool = SimShambler._clear_contact(w, from, to)
+		if walled and (walk or contact):
+			ok = _fail(lane, "a line clipping the wall at (11, 11) between the old samples was let through (walk %s, _clear_contact %s)" % [str(walk), str(contact)])
+		if not walled and not (walk and contact):
+			ok = _fail(lane, "with no wall the same line was refused (walk %s, _clear_contact %s)" % [str(walk), str(contact)])
+	if ok:
+		print("  CLIPPED a claw whose line clips a wall corner between the old three samples is refused, and clear with the wall gone")
 	return ok
 
 

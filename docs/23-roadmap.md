@@ -2449,7 +2449,8 @@ not a to-do list:
     crouched survivor. At grab and swipe range across a full tile, neither can happen, because
     bodies either side of a tile are 1.70 m apart; only a line clipping a tile's corner, or the
     3.2 m hold check, sees the difference. The traversal is exact where the old check took three
-    samples, so a hold check whose line clips a wall corner between the samples now releases. All
+    samples, so a claw, a grab or a hold check whose line clips a wall corner between the samples
+    is now refused (`godot:m2:space` CLIPPED). The walk is decided in integer millimetres. All
     of this is balance-relevant and unmeasured here: docs/40's slice 8 owns the before and after.
   - **The readings.** docs/40 named the target's mid-height alone; on its own heights that dips under
     a window's sill, so the chest was added (docs/30, "The reach arrives at the chest as well as the

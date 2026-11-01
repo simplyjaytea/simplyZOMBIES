@@ -191,8 +191,10 @@ to the mid-height alone, a standing shoulder dips under the sill inside the wind
 window swing could land (docs/30, "The reach arrives at the chest as well as the middle"). Swings
 through walls stop. A swing through an unboarded window
 works, because the window passes `Reach` at 1000–2100 mm. A crouched swing under a sill does not.
-`SimShambler._clear_contact` becomes the same call; for every full-height band it already gives
-the same answer, and `godot:m2:swipe` and `godot:m2:contact` must stay green unchanged to prove it.
+`SimShambler._clear_contact` becomes the same call, and `godot:m2:swipe` and `godot:m2:contact`
+must stay green unchanged. It is not the same answer everywhere a full-height band stands: the old
+test sampled three points on the line, so a wall corner the line clipped between them did not stop
+a claw or a grab, and the tile walk now does (slice 2, `godot:m2:space` CLIPPED).
 `npc_combat.can_strike`'s melee arm asks the same test, so a colonist stops walking where the blow
 will actually land. Pitch does not move a swing's target **(owner)**, question 2.
 
