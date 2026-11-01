@@ -181,6 +181,17 @@ conversion. The source baseline is archived on GitHub at
   cloud noise reads as camouflage blocks up close; oak grain steps every 8 texels, like brickwork;
   paint chips follow atlas cells, not mesh edges; barricade planks float 6 mm off the brace; wall
   end faces and a shelf-board sparkle.
+- **Character kit polish (#288 round 3 minors).** In `tools/blender/first_person_kit/build_characters.py`,
+  which measures only the ankle slide and so misses the rest:
+  - the shambler's right boot slides up to 3.1 cm while it touches the floor, and 4 of 240 samples
+    have both soles more than 3 mm up; the README's "dragging right swing" reads as a scuff, not a
+    heel-and-toe roll, so the builder should measure the sole's height as well as its slide;
+  - the held death pose's hands hover above the floor: the survivor's by 2.3 and 5.7 cm, and the
+    shambler's right hand by 16.2 cm, because the elbows bend up while the upper arms lie flat at
+    3 mm;
+  - under 1 m the survivor's jacket mottling, in 2 to 4 pixel tonal clumps, still reads faintly as
+    camouflage; it reads as worn fabric from 2 m;
+  - under 1 m the survivor's brown face blotches read as skin marks rather than dirt.
 - **Zombie target by distance alone (#282 review).** `SimShambler._contact_target`
   (`godot/sim/modules/shambler.gd`) takes the nearest survivor with no reach test, unlike the player's
   nearest-reachable swing in `melee.gd`. A shared sim module; needs a READS lane in `godot:m2:space`.
