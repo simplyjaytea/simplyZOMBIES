@@ -146,6 +146,13 @@ The **Low** class is what makes [crouch and crawl](29-movement-and-stances.md) m
 cosmetic, and it is the only place a 2D map gets to have a height without
 [z-levels](23-roadmap.md#deferred-z-levels) existing.
 
+The built default since 2026-11-01 reads Low by height instead
+([docs/40](40-first-person-spatial-contract.md#perception), slice 4): the cast is standing for
+everyone, and Low blocks the line below its 1.10 m top, between this observer's eye and that
+body's eye or chest. It waits on the owner's question 3 in
+[docs/33](33-owner-decisions.md#waiting-on-the-owner), so the row above is unchanged, and
+`SimVisibility.SIGHT_BY_HEIGHT` false restores it as written.
+
 ## Shadowcasting, and when it runs
 
 Recursive shadowcasting over the tile grid, from the observer or emitter outward, bounded by range.
