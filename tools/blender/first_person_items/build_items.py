@@ -1137,12 +1137,19 @@ def m_nails_box(m):
         if c.tag in ("nail", "head"):
             return metal(c, "steel", 4.0 if c.tag == "head" else 3.4, rust=0.2)
         if c.tag == "pile":
-            h = ihash(math.floor(x * d), math.floor(y * d), math.floor(z * d), 919)
-            if h % 3 == 0:
-                return tone("steel", 4.0)
-            if h % 11 == 1:
-                return tone("rust", 2.2)
-            return tone("steel", 1.6 + (0.8 if h % 2 else 0.0))
+            # A jumble of nails: in each 3x3 texel cell one nail lies straight, across or on a
+            # diagonal, a bright head at one end; dark gaps between.
+            i, j = math.floor(x * d), math.floor(y * d)
+            h = ihash(i // 3, j // 3, 919)
+            a, b = i % 3, j % 3
+            kind = h % 4
+            on = (kind == 0 and b == 1) or (kind == 1 and a == 1) or (kind == 2 and a == b) or (kind == 3 and a == 2 - b)
+            if on:
+                head = (kind == 0 and a == 0) or (kind == 1 and b == 0) or (kind in (2, 3) and b == 0)
+                if head:
+                    return tone("steel", 4.6)
+                return tone("rust" if (h >> 8) % 6 == 0 else "steel", 3.0)
+            return tone("soot", 1.4)
         inside = (abs(x) < 0.0479 and abs(y) < 0.0330) or c.tag == "flap" and c.n.y > 0
         if inside:
             return tone("card", 1.4)
@@ -1559,11 +1566,23 @@ def m_pouch(m):
     m.rbox((0.050, 0.0060, 0.080), "loop", centre=(0.0, -0.0315, 0.0700), radius=0.004, corner_steps=1)
 
     def paint(c):
+        d = m.tpm
         if c.tag == "buckle":
             return metal(c, "tin", 2.6)
         if c.tag in ("tongue", "loop"):
-            return tone("webbing", 2.3 + mottle(c, 20, 0.2))
-        return cloth(c, "olive", 2.0 if c.tag == "flap" else 2.4, seed=11)
+            # Woven webbing: ribs across the strap, one texel apart.
+            return tone("webbing", 2.0 + (0.7 if math.floor(c.p.z * d) % 2 else 0.0))
+        i, j = math.floor(c.p.x * d), math.floor(c.p.z * d)
+        if c.tag == "flap":
+            if c.p.z < 0.1215 + 0.6 / d:
+                return tone("olive", 1.0)
+            return cloth(c, "olive", 2.0, seed=11)
+        # Stitched panel seams down the front and back, and a hem row under the flap.
+        if abs(c.n.y) > 0.5 and i in (-7, 6) and j < 15:
+            return tone("olive", 1.2 if j % 2 else 3.4)
+        if abs(c.n.z) < 0.5 and j == 14:
+            return tone("olive", 1.2)
+        return cloth(c, "olive", 2.4, seed=11)
 
     m.painter = paint
 
@@ -1575,10 +1594,231 @@ def m_armor_small(m):
     m.lathe([(0.0040, -0.040), (0.0110, -0.040), (0.0110, 0.040), (0.0040, 0.040)], 16, "cuff", xf=at(0.0, 0.012, 0.0465) @ rot("Y", 90), closed=True)
 
     def paint(c):
+        d = m.tpm
         if c.tag == "cuff":
-            rib = math.floor((math.atan2(c.p.z - 0.0465, c.p.y - 0.012) / TAU) * 16) % 2
-            return tone("khaki", 2.0 + (0.8 if rib else 0.0))
-        return cloth(c, "khaki", 2.2 if c.tag == "knit0" else 2.6, seed=21)
+            rib = math.floor((math.atan2(c.p.z - 0.0465, c.p.y - 0.012) / TAU) * 8) % 2
+            return tone("khaki", 2.0 + (1.0 if rib else 0.0))
+        # Knit: on each layer's top face a rib every other texel column, counted in that layer's
+        # own frame so a turned layer's ribs stay straight; a darker purl row along each fold.
+        if c.dcv < 1.1 / d:
+            return tone("khaki", 1.0)
+        ramp = "khaki" if c.tag == "knit0" else "canvas"
+        base = 2.0
+        if c.n.z > 0.95:
+            if c.tag == "knit1":
+                a = math.radians(-8)
+                lx = (c.p.x - 0.008) * math.cos(a) - (c.p.y + 0.004) * math.sin(a)
+            else:
+                lx = c.p.x
+            if math.floor(lx * d) % 2:
+                base += 1.0
+        return tone(ramp, base + mottle(c, 24, 0.2))
+
+    m.painter = paint
+
+
+def m_jar(m):
+    # The neutral jar: plain glass, a screw lid, a blank paper band, contents of no particular kind.
+    profile = [
+        (0.0, 0.0020), (0.0400, 0.0), (0.0450, 0.0050), (0.0450, 0.1000), (0.0400, 0.1100),
+        (0.0360, 0.1120), (0.0390, 0.1120), (0.0390, 0.1280), (0.0370, 0.1300), (0.0, 0.1300),
+    ]
+    m.lathe(profile, 24, "jar")
+
+    def paint(c):
+        z = c.p.z
+        r = math.hypot(c.p.x, c.p.y)
+        d = m.tpm
+        if z > 0.1118:
+            ridge = z < 0.1275 and math.floor((math.atan2(c.p.y, c.p.x) / TAU) * 48) % 2
+            return metal(c, "tin", 2.6 + (0.6 if ridge else 0.0))
+        s = front_arc(c, max(r, 0.01))
+        if 0.040 < z < 0.075 and abs(s) < 0.050 and r > 0.044:
+            return tone("paper", 3.0 + mottle(c, 20, 0.25))
+        if -0.020 < s - 0.016 < -0.012 and 0.010 < z < 0.098:
+            return tone("glass", 4.4)
+        if z < 0.088 and (r > 0.044 or z < 0.003):
+            return tone("amber", 1.6 + mottle(c, 18, 0.3))
+        return tone("glass", wear(c, 2.2 + mottle(c, 20, 0.3), 1.0, 0.8))
+
+    m.painter = paint
+
+
+def m_bottle(m):
+    # The neutral bottle: plain glass, a crimped cap, a blank label.
+    profile = [
+        (0.0, 0.0030), (0.0340, 0.0), (0.0400, 0.0060), (0.0400, 0.1600), (0.0360, 0.1800),
+        (0.0180, 0.2050), (0.0140, 0.2150), (0.0140, 0.2450), (0.0160, 0.2470), (0.0160, 0.2560),
+        (0.0140, 0.2600), (0.0, 0.2600),
+    ]
+    m.lathe(profile, 24, "bottle")
+
+    def paint(c):
+        z = c.p.z
+        r = math.hypot(c.p.x, c.p.y)
+        if z > 0.2465:
+            return metal(c, "tin", 2.4, rust=0.2)
+        s = front_arc(c, max(r, 0.01))
+        if 0.060 < z < 0.120 and abs(s) < 0.055 and r > 0.039:
+            return tone("paper", 2.8 + mottle(c, 20, 0.25))
+        if -0.022 < s - 0.018 < -0.014 and 0.010 < z < 0.170:
+            return tone("green", 4.2)
+        level = 0.150
+        return tone("green", wear(c, (1.2 if z < level else 2.2) + mottle(c, 20, 0.3), 1.0, 0.8))
+
+    m.painter = paint
+
+
+def m_bundle(m):
+    # The neutral parcel: something wrapped in brown paper and tied with twine, with a knot on top.
+    m.rbox((0.220, 0.150, 0.080), "parcel", centre=(0.0, 0.0, 0.040), radius=0.020, bevel=0.012, corner_steps=3)
+    m.lathe([(0.0, 0.0778), (0.0070, 0.0790), (0.0080, 0.0840), (0.0050, 0.0880), (0.0, 0.0890)], 10, "knot")
+
+    def paint(c):
+        d = m.tpm
+        if c.tag == "knot":
+            return tone("burlap", 3.0 + mottle(c, 16, 0.3))
+        i, j = math.floor(c.p.x * d), math.floor(c.p.y * d)
+        if i == 0 or j == 0:
+            return tone("burlap", 3.4)
+        return card(c, "card", 2.6, seed=3)
+
+    m.painter = paint
+
+
+def crate(m, sx, sy, sz, batten):
+    m.rbox((sx, sy, sz), "box", centre=(0.0, 0.0, sz / 2), radius=0.003, corner_steps=1)
+    lid_h = batten * 0.8
+    m.rbox((sx + 0.006, sy + 0.006, lid_h), "lid", centre=(0.0, 0.0, sz - 0.008 + lid_h / 2), radius=0.003, corner_steps=1)
+    inset = batten * 0.3
+    for px in (-1, 1):
+        for py in (-1, 1):
+            m.rbox((batten, batten, sz - 0.010), "batten", centre=(px * (sx / 2 - inset), py * (sy / 2 - inset), 0.002 + (sz - 0.010) / 2), radius=0.002, corner_steps=1)
+
+    def paint(c):
+        d = m.tpm
+        p = c.p
+        if c.tag == "batten":
+            return tone("pine", wear(c, 1.6 + mottle(c, 20, 0.3), 0.8, 1.0))
+        if c.tag == "lid" and c.p.z > sz - 0.008 + lid_h - 0.0005:
+            if math.floor(p.y * d) % 6 == 0:
+                return tone("pine", 1.0)
+        elif abs(c.n.z) < 0.5 and math.floor(p.z * d) % 5 == 0:
+            return tone("pine", 1.0)
+        v = 2.2 + mottle(c, 22, 0.35) + jitter(c, 0.06)
+        v = wear(c, v, 0.8, 1.0)
+        v = floor_grime(c, v, 0.0, 0.8)
+        return tone("pine", v)
+
+    m.painter = paint
+
+
+def m_crate_small(m):
+    crate(m, 0.250, 0.180, 0.150, 0.020)
+
+
+def m_crate_large(m):
+    crate(m, 0.500, 0.340, 0.300, 0.040)
+
+
+def m_long_bundle(m):
+    # The neutral long thing: a bar wrapped in canvas and tied in two places (a pipe, a pole, a rod).
+    lie = rot("Y", 90)
+    profile = [(0.0, -0.375), (0.016, -0.372), (0.024, -0.355), (0.026, -0.300), (0.026, 0.300), (0.024, 0.355), (0.016, 0.372), (0.0, 0.375)]
+    m.lathe(profile, 16, "wrap", xf=at(0, 0, 0.026) @ lie)
+    for x in (-0.25, 0.25):
+        m.lathe([(0.0255, -0.006), (0.0270, -0.006), (0.0270, 0.006), (0.0255, 0.006)], 16, "tie", xf=at(x, 0, 0.026) @ lie, closed=True)
+
+    def paint(c):
+        d = m.tpm
+        if c.tag == "tie":
+            return tone("burlap", 2.6 + mottle(c, 16, 0.3))
+        angle = math.atan2(c.p.z - 0.026, c.p.y)
+        turn = (c.p.x * d + angle * 0.026 * d) % 6
+        v = 2.4 + mottle(c, 22, 0.3)
+        if turn < 1.0:
+            v -= 1.0
+        return tone("canvas", floor_grime(c, wear(c, v, 0.0, 1.0), 0.0, 0.8))
+
+    m.painter = paint
+
+
+def m_bag(m):
+    # The neutral bag: a plain roll-top canvas bag with a carry strap; no pockets, nothing to name it.
+    rings = []
+    for z, hx, hy, r in ((0.000, 0.130, 0.062, 0.040), (0.020, 0.145, 0.072, 0.050), (0.300, 0.142, 0.070, 0.050), (0.330, 0.128, 0.058, 0.040)):
+        rings.append([Vector((x, y, z)) for x, y in rounded_rect(hx, hy, r, 4)])
+    m.loft(rings, "bag")
+    m.lathe([(0.0, -0.132), (0.030, -0.132), (0.030, 0.132), (0.0, 0.132)], 16, "roll", xf=at(0.0, 0.0, 0.345) @ rot("Y", 90))
+    web = [(-0.0125, -0.0016), (0.0125, -0.0016), (0.0125, 0.0016), (-0.0125, 0.0016)]
+    for sx in (-1, 1):
+        x = sx * 0.070
+        m.sweep([(x, 0.010, 0.3770), (x, 0.0320, 0.3600), (x, 0.0742, 0.3000), (x, 0.0742, 0.2300)], web, "webbing", up=(0, 1, 0))
+        m.rbox((0.032, 0.0060, 0.0200), "buckle", centre=(x, 0.0765, 0.2600), radius=0.002, corner_steps=1)
+    m.sweep([(-0.140, 0.0, 0.300), (-0.150, 0.0, 0.390), (-0.080, 0.0, 0.450), (0.080, 0.0, 0.450), (0.150, 0.0, 0.390), (0.140, 0.0, 0.300)],
+            [(-0.0020, -0.0125), (0.0020, -0.0125), (0.0020, 0.0125), (-0.0020, 0.0125)], "webbing", up=(0, 1, 0))
+
+    def paint(c):
+        d = m.tpm
+        if c.tag == "webbing":
+            return tone("webbing", 2.0 + (0.6 if math.floor(c.p.z * d) % 2 else 0.0))
+        if c.tag == "buckle":
+            return plastic(c, "rubber", 2.4)
+        if c.tag == "roll":
+            return cloth(c, "khaki", 1.8, seed=9)
+        if abs(c.n.z) < 0.5 and math.floor(c.p.z * d) == 1:
+            return tone("khaki", 1.0)
+        return cloth(c, "khaki", 2.4, seed=8)
+
+    m.painter = paint
+
+
+def m_headgear(m):
+    # The neutral headgear: a plain hard shell with a rolled rim, its chin strap trailing on the floor.
+    profile = [
+        (0.0, 0.1350), (0.0400, 0.1300), (0.0750, 0.1150), (0.0980, 0.0900), (0.1100, 0.0600),
+        (0.1150, 0.0300), (0.1180, 0.0120), (0.1250, 0.0100), (0.1250, 0.0), (0.1060, 0.0),
+        (0.1040, 0.0300), (0.0950, 0.0700), (0.0700, 0.1000), (0.0350, 0.1180), (0.0, 0.1220),
+    ]
+    m.lathe(profile, 24, "shell")
+    m.sweep([(-0.105, 0.0, 0.0120), (-0.090, 0.080, 0.0030), (0.000, 0.150, 0.0030), (0.090, 0.080, 0.0030), (0.105, 0.0, 0.0120)],
+            [(-0.0080, -0.0015), (0.0080, -0.0015), (0.0080, 0.0015), (-0.0080, 0.0015)], "strap")
+
+    def paint(c):
+        d = m.tpm
+        if c.tag == "strap":
+            return tone("webbing", 2.3 + mottle(c, 20, 0.2))
+        r = math.hypot(c.p.x, c.p.y)
+        if c.p.z < 0.0105 or r < 0.1065 and c.n.z < 0:
+            return tone("soot", 2.0)
+        return plastic(c, "green", 2.4, seed=4)
+
+    m.painter = paint
+
+
+def m_arrows(m):
+    # Three arrows lying side by side (arrows and crossbow bolts share them).
+    frames = []
+    for k in range(3):
+        y = (k - 1) * 0.0140
+        yaw = (k - 1) * 2.0
+        base = at(-0.352, y, 0.0040) @ rot("Z", yaw)
+        m.lathe([(0.0, 0.0), (0.0040, 0.0), (0.0040, 0.6600), (0.0, 0.6600)], 8, "shaft%d" % k, xf=base @ rot("Y", 90))
+        m.lathe([(0.0, 0.6550), (0.0055, 0.6620), (0.0, 0.7050)], 8, "head", xf=base @ rot("Y", 90))
+        for tilt, length in ((45, 0.070), (-45, 0.066)):
+            m.rbox((length, 0.0012, 0.0100), "fletch%d" % k, centre=(0.0, 0.0, 0.0), radius=0.0, xf=base @ at(0.060, 0.0, 0.0) @ rot("X", tilt))
+        frames.append(base.inverted())
+
+    def paint(c):
+        if c.tag == "head":
+            return metal(c, "steel", 3.0)
+        k = int(c.tag[-1])
+        if c.tag.startswith("fletch"):
+            return tone("red" if k != 1 else "paper", 2.6)
+        along = (frames[k] @ c.p).x
+        if along < 0.012:
+            return tone("card", 1.2)
+        return tone("pine", 2.6 + mottle(c, 20, 0.3))
 
     m.painter = paint
 
@@ -1613,7 +1853,7 @@ MODELS = [
     ("nails_box", m_nails_box, 27, ["item.fixings.nails", "item.fixings.screws", "item.fixings.bolts"], []),
     ("duct_tape", m_duct_tape, 28, ["item.tape.duct"], []),
     ("rope_coil", m_rope, 29, ["item.cordage.rope", "item.cordage.paracord", "item.cordage.twine"], []),
-    ("hiking_pack", m_pack_hiking, 30, ["item.pack.hiking"], []),
+    ("hiking_pack", m_pack_hiking, 30, ["item.pack.hiking", "item.pack.school", "item.pack.frame"], []),
     ("toolbox", m_toolbox, 31, ["item.toolbox.steel"], []),
     ("book", m_book, 32, [
         "item.book.firstaid", "item.book.closequarters", "item.book.marksmanship",
@@ -1626,28 +1866,70 @@ MODELS = [
     ("fallback_consumable", m_fallback_consumable, 41, [], ["consumable"]),
     ("fallback_material", m_fallback_material, 42, [], ["material"]),
     ("fallback_tool", m_fallback_tool, 43, [], ["tool"]),
-    ("fallback_container", m_fallback_container, 44, ["item.duffel.canvas"], []),
+    ("duffel", m_fallback_container, 44, ["item.duffel.canvas"], []),
     ("fallback_armor", m_fallback_armor, 45, [], ["armor"]),
     ("fallback_attachment", m_fallback_attachment, 46, [], ["attachment"]),
     ("pouch", m_pouch, 47, [], ["container"]),
     ("armor_small", m_armor_small, 48, [], []),
+    ("arrows", m_arrows, 49, ["item.ammo.arrow", "item.ammo.arrow.broadhead", "item.ammo.arrow.target", "item.ammo.bolt", "item.ammo.bolt.broadhead"], []),
+    ("jar", m_jar, 50, [], []),
+    ("bottle", m_bottle, 51, [], []),
+    ("bundle", m_bundle, 52, [], []),
+    ("crate_small", m_crate_small, 53, [], []),
+    ("crate_large", m_crate_large, 54, [], []),
+    ("long_bundle", m_long_bundle, 55, [], []),
+    ("bag", m_bag, 56, [], []),
+    ("headgear", m_headgear, 57, [], []),
 ]
 
-# Every other item of the six classes is routed by id to the model of its class whose size is
-# nearest its own expected size (log scale). The ladders hold neutral shapes only: a tin, a pouch
-# and a sack for things to eat; a parts case, scrap, a sack and a plank for materials.
+# Every other item of the six classes is routed by id to a neutral model: one that shows what kind
+# of thing the item is (a jar, a parcel, a crate, a bag, a wrapped bar) and nothing more. A model
+# that is any hand-chosen item's own picture never stands on a rung, so a laddered jar of honey can
+# never draw as the ration pouch, nor binoculars as scrap metal; the `rung` check holds this.
+# Each class has a default ladder and, where its items differ in kind, a family ladder.
 LADDER = {
-    "consumable": ["fallback_consumable", "ration_pack", "fallback_material"],
-    "material": ["fallback_attachment", "scrap_metal", "fallback_material", "plank"],
-    "tool": ["fallback_attachment", "fallback_tool", "toolbox"],
-    "container": ["pouch", "hiking_pack", "fallback_container"],
-    "armor": ["armor_small", "fallback_armor"],
-    "attachment": ["fallback_attachment", "fallback_tool"],
+    "consumable": {"default": ["fallback_consumable", "bundle", "fallback_material"], "liquid": ["jar", "bottle"]},
+    "material": {"default": ["fallback_attachment", "crate_small", "fallback_material", "crate_large"], "long": ["long_bundle"]},
+    "tool": {"default": ["fallback_attachment", "fallback_tool", "crate_large"], "long": ["long_bundle"]},
+    "container": {"default": ["pouch", "bag"]},
+    "armor": {"default": ["armor_small", "fallback_armor"], "headgear": ["headgear"], "eyewear": ["fallback_attachment"]},
+    "attachment": {"default": ["fallback_attachment", "fallback_tool"]},
 }
+# Hard headwear and eyewear (in the item id), and drinks and jarred food (in the item's name).
+# Eyewear draws as the small hard case it is carried in.
+HEADGEAR_WORDS = ("helmet", "hardhat", "mask.gas", "respirator")
+EYEWEAR_WORDS = ("goggles", "glasses")
+LIQUID_WORDS = ("bottle", "jar", "carton", "canteen", "flask", "drink")
+# Items whose one-cell grid footprint hides their length. Matched on the id and its variants.
+LENGTH_HINTS = {"item.ammo.arrow": 0.72, "item.ammo.bolt": 0.40}
 # The scale check: a laddered or class-fallback model must be within 2x of the item's expected
 # size; a hand-chosen shared model (a penlight drawn as the torch) within 4x.
 SCALE_LADDER = 2.0
 SCALE_HAND = 4.0
+
+
+def length_hint(item_id):
+    for prefix, length in sorted(LENGTH_HINTS.items()):
+        if item_id == prefix or item_id.startswith(prefix + "."):
+            return length
+    return None
+
+
+def is_long(item):
+    w, h = item["size"]["w"], item["size"]["h"]
+    return max(w, h) >= 3 * min(w, h) or length_hint(item["id"]) is not None
+
+
+def family(item):
+    if item["class"] == "armor" and any(word in item["id"] for word in HEADGEAR_WORDS):
+        return "headgear"
+    if item["class"] == "armor" and any(word in item["id"] for word in EYEWEAR_WORDS):
+        return "eyewear"
+    if item["class"] == "consumable" and any(word in item["name"].lower() for word in LIQUID_WORDS):
+        return "liquid"
+    if item["class"] in ("material", "tool") and is_long(item):
+        return "long"
+    return "default"
 
 
 def expected_size(item):
@@ -1655,11 +1937,14 @@ def expected_size(item):
 
     One grid cell reads as about 7.5 cm, and a long thin footprint (one side three times the other)
     as 20 cm per cell. Mass gives a floor: the side of a cube of the item's mass at 400 kg/m3,
-    times 1.5 for a shape that is not a cube. The larger of the two wins.
+    times 1.5 for a shape that is not a cube. The larger of the two wins. An item in
+    LENGTH_HINTS (an arrow is one cell and 72 cm) takes its hinted length.
     """
+    hint = length_hint(item["id"])
+    if hint is not None:
+        return hint
     w, h = item["size"]["w"], item["size"]["h"]
-    long = max(w, h) >= 3 * min(w, h)
-    return max((0.20 if long else 0.075) * max(w, h), 1.5 * (item["massKg"] / 400.0) ** (1.0 / 3.0))
+    return max((0.20 if is_long(item) else 0.075) * max(w, h), 1.5 * (item["massKg"] / 400.0) ** (1.0 / 3.0))
 
 
 # Declared world-pose sizes, Godot axes [x width, y height, z depth] in metres. --check measures
@@ -1692,11 +1977,20 @@ SIZES = {
     "fallback_consumable": (0.084, 0.045, 0.084),
     "fallback_material": (0.268, 0.354, 0.261),
     "fallback_tool": (0.32, 0.083, 0.088),
-    "fallback_container": (0.668, 0.316, 0.37),
+    "duffel": (0.668, 0.316, 0.37),
     "fallback_armor": (0.32, 0.071, 0.2525),
     "fallback_attachment": (0.1224, 0.0477, 0.0862),
     "pouch": (0.154, 0.133, 0.072),
     "armor_small": (0.1415, 0.0575, 0.1026),
+    "arrows": (0.7051, 0.011, 0.0852),
+    "jar": (0.090, 0.130, 0.090),
+    "bottle": (0.080, 0.260, 0.080),
+    "bundle": (0.220, 0.089, 0.150),
+    "crate_small": (0.258, 0.158, 0.188),
+    "crate_large": (0.516, 0.324, 0.356),
+    "long_bundle": (0.750, 0.054, 0.054),
+    "bag": (0.3037, 0.4519, 0.1515),
+    "headgear": (0.250, 0.135, 0.283),
 }
 
 
@@ -1716,7 +2010,7 @@ def build_models(plant):
             disk = [Vector((0.030 * math.cos(TAU * k / 12), 0.030 * math.sin(TAU * k / 12), 0.1065 + 0.0001)) for k in range(12)]
             low = [p - Vector((0, 0, 0.004)) for p in disk]
             model.loft([low, disk], "tin")
-        if plant == "float" and name == "fallback_container":
+        if plant == "float" and name == "duffel":
             lift = Vector((0.0, 0.0, 0.018))
             model.shells[0] = [[k, t, [tuple(p + lift for p in poly) for poly in polys]] for k, t, polys in model.shells[0]]
         model.finish()
@@ -1985,9 +2279,12 @@ def hand_ids():
     return {item_id: name for name, _, _, ids, _ in MODELS for item_id in ids}
 
 
-def ladder_route(item):
+def ladder_route(item, plant=None):
     target = expected_size(item)
-    return min(LADDER[item["class"]], key=lambda name: (abs(math.log(max(SIZES[name]) / target)), name))
+    rungs = list(LADDER[item["class"]][family(item)])
+    if plant == "rung" and item["class"] == "consumable" and family(item) == "default":
+        rungs.append("ration_pack")
+    return min(rungs, key=lambda name: (abs(math.log(max(SIZES[name]) / target)), name))
 
 
 def manifest_document(plant, repo):
@@ -2007,7 +2304,7 @@ def manifest_document(plant, repo):
     for item_id in sorted(records):
         item = records[item_id]
         if item["class"] in CLASSES and item_id not in hand:
-            name = ladder_route(item)
+            name = ladder_route(item, plant)
             if plant == "scale" and item_id == "item.food.flour.sack":
                 name = "fallback_consumable"
             models.append(entry({"id": item_id}, name))
@@ -2217,7 +2514,7 @@ def item_catalogue(repo):
 
 def validate(asset_root, repo, floors=None):
     """Every check, against the files under asset_root. Returns {check: [failures]}."""
-    failures = {name: [] for name in ("bounds", "origin", "floor", "ids", "coverage", "scale", "material", "single_sided", "coplanar", "density", "manifest")}
+    failures = {name: [] for name in ("bounds", "origin", "floor", "ids", "coverage", "scale", "rung", "material", "single_sided", "coplanar", "density", "manifest")}
     manifest_path = asset_root / (KIT + ".manifest.json")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     ids, classes = item_catalogue(repo)
@@ -2264,6 +2561,12 @@ def validate(asset_root, repo, floors=None):
         limit = SCALE_HAND if item_id in hand else SCALE_LADDER
         if ratio > limit or ratio < 1.0 / limit:
             failures["scale"].append(f"{item_id} ({item['name']}) is drawn by {chosen['glb'].rsplit('/', 1)[-1]} at {ratio:.2f}x its expected size (limit {limit:g}x)")
+    specific = {RES_DIR + name + ".glb" for name in set(hand.values())}
+    for item_id in sorted(records):
+        item = records[item_id]
+        chosen = resolved.get(item_id)
+        if item["class"] in CLASSES and item_id not in hand and chosen is not None and chosen["glb"] in specific:
+            failures["rung"].append(f"{item_id} ({item['name']}) is laddered to {chosen['glb'].rsplit('/', 1)[-1]}, a hand-chosen item's own model")
     for name, height in sorted((floors or {}).items()):
         if height > 0.002:
             failures["floor"].append(f"{name}: the main body rests {height * 1000:.1f} mm above the floor")
@@ -2368,7 +2671,7 @@ def main():
     arguments = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--plant", choices=("bounds", "float", "id", "scale", "material", "doublesided", "winding", "coplanar", "density", "bytes"))
+    parser.add_argument("--plant", choices=("bounds", "float", "id", "scale", "rung", "material", "doublesided", "winding", "coplanar", "density", "bytes"))
     args = parser.parse_args(arguments)
     repo = Path(__file__).resolve().parents[3]
     try:

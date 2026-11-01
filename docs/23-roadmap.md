@@ -2426,64 +2426,60 @@ not a to-do list:
 - **The first-person loot-item kit, 2026-11-01.** Advances "First-person scavenging and personal
   equipment": the things a player picks up now have world-pose models. Only the art lands here: no
   scene reads the manifest yet. Wiring it is a separate code piece.
-  - **The art.** 32 GLBs share one atlas: 24 hand-chosen models for 80 item ids, six neutral
-    class shapes and two small ones.
-    - The hand-chosen models are canned food, a soda can, a water bottle, a pill bottle, a bandage
+  - **The art.** 41 GLBs share one atlas: 26 particular things carry 87 hand-chosen item ids, and
+    15 neutral shapes carry the rest.
+    - The particular things are canned food, a soda can, a water bottle, a pill bottle, a bandage
       roll, an antiseptic flask, a medkit, a ration pack, a pistol-ammo box with loose rounds,
-      loose shotshells, rifle rounds in a clip, a lighter, a torch, a battery, scrap metal, a
-      plank, an open box of nails, duct tape, a rope coil, a hiking pack, a toolbox, a book, a
-      jerrycan and a storm lantern.
-    - The neutral shapes are a tin, a sack, a tool roll, a duffel, folded clothes and a parts case;
-      the small ones are a pouch and a knit bundle.
-    - Every other `consumable`, `material`, `tool`, `container`, `armor` and `attachment` item (284
-      of them) is routed by id along a per-class size ladder. The item's expected size comes from
-      its content grid and mass, and the ladder picks the nearest shape. A sack of flour is
-      therefore the sack, not an 8 cm tin, and a utility pouch is the pouch, not the 67 cm duffel.
+      loose shotshells, rifle rounds in a clip, arrows, a lighter, a torch, a battery, scrap
+      metal, a plank, an open box of nails, duct tape, a rope coil, a hiking pack, a toolbox, a
+      book, a jerrycan, a storm lantern and a duffel.
+    - The neutral shapes are a tin, a jar, a bottle, a wrapped parcel, a sack, two crates, a
+      wrapped bar, a parts case, a tool roll, a pouch, a bag, a knit bundle, folded clothes and a
+      helmet shell.
+    - Every other `consumable`, `material`, `tool`, `container`, `armor` and `attachment` item (277
+      of them) is routed by id. The route reads the item's kind (default, liquid, long, headgear
+      or eyewear) and its expected size (from its content grid and mass, with a length hint for
+      arrows), then takes the nearest neutral rung of its class's ladder.
     - Six class entries remain for items added later. Weapons are the weapon kit's.
   - **The files.** The builder is `tools/blender/first_person_items/build_items.py`. It writes the
-    GLBs and `items_atlas.png` (512 x 512) under `godot/assets/first_person/items/`, plus
+    GLBs and `items_atlas.png` (1024 x 512) under `godot/assets/first_person/items/`, plus
     `godot/assets/first_person/items.manifest.json` in the shared kit format: `match` by `id` or
-    `class`, `glb`, `pose: world`, `sizeM`. Items face -Z, and a placer turns them to the viewer;
-    the README says so.
-  - **Density.** 128 texels per metre for the 27 models up to 0.40 m, and 64 per metre above, the
+    `class`, `glb`, `pose: world`, `sizeM`. Items face -Z, and a placer turns them to the viewer.
+  - **Density.** 128 texels per metre for the 32 models up to 0.40 m, and 64 per metre above, the
     starter kit's density. The README gives the reason.
   - **The look.** The atlas is painted from each texel's 3D point and its distance to real mesh
     edges. Highlights mark only hard (60° or more) edges, and cloth is flat. Planar caps take a
     texel grid aligned to the object's axes. Labels carry no readable text or brands.
-  - **The check.** `blender ... build_items.py -- --check` prints `ITEMS_CHECK_OK`. Twelve checks
-    judge the exported files:
-    - bounds within 1 cm of `sizeM`; bottom-centre origins; each model's main body resting on the
-      floor within 2 mm;
-    - every manifest id present in `godot/content/items/*.json`, and every item of the six classes
-      covered;
+  - **The check.** `blender ... build_items.py -- --check` prints `ITEMS_CHECK_OK`. Thirteen
+    checks judge the exported files:
+    - bounds within 1 cm of `sizeM`; bottom-centre origins; each main body resting on the floor
+      within 2 mm;
+    - every manifest id present in `godot/content/items/*.json`, and every item covered;
     - every item within 2x of its expected size (4x for a hand-chosen shared model);
+    - no laddered item drawn by a hand-chosen item's own model (`rung`);
     - one material, single-sided and closed meshes, and no same-facing coplanar overlaps within
       0.5 mm;
     - each triangle's texel density within ±25% on both axes;
     - a byte-identical rebuild.
 
-    True negatives: ten `--plant` mutations, each turning its check red. They include the first
-    review's own failures: the duffel's 18 mm float on its strap, and the flour sack drawn as the
-    tin.
-  - **Review.** An independent art review of round 1 found four majors, all fixed in round 2:
-    - the nails jar, pack front and ammo box that did not read as themselves;
-    - the floating duffel;
-    - stair-stepped edge-wear camouflage;
-    - fallback mis-routing and mis-scale.
-
-    Of the minors: the book's cover motif, the bandage that read as a toilet roll, and the
-    undocumented facing are fixed. Mixed 64 and 128 densities, visible at a crouch, are noted. The
-    embedded atlas copy per GLB, sharing one texture and runtime mipmaps are left to the wiring
-    piece.
+    True negatives: eleven `--plant` mutations, each turning its check red. They include the
+    reviews' own failures: the duffel's 18 mm float, the flour sack drawn as the tin, and the
+    ration pouch standing on a rung.
+  - **Review.** Three rounds of independent art review.
+    - **Round 1:** the nails, pack and ammo box did not read as themselves; the duffel floated;
+      stepped edge wear read as camouflage; fallbacks were mis-routed and mis-scaled.
+    - **Round 2:** the size ladder drew 54 items as other, identifiable items.
+    - All fixed. The book motif, the bandage, the facing documentation, the flat pouch and knit,
+      and the nail heap are fixed.
+    - Noted: mixed 64 and 128 densities at a crouch, and the embedded atlas copy per GLB. Sharing
+      one texture and runtime mipmaps are left to the wiring piece.
   - **Measured.** A scratch Godot 4.7.1 harness (not committed) loaded every GLB through
-    `GLTFDocument`, as `assets.gd` does. Every AABB matches its `sizeM`, and every material is
-    culled and nearest-filtered. Headed SubViewport renders were taken of a shelf at 1 m and the
-    floor at 2 m. The GLBs are 65 to 150 KB, 2.8 MB in total, mostly the embedded atlas copy each
-    one needs.
+    `GLTFDocument`, as `assets.gd` does. Every AABB matches its `sizeM`. Headed SubViewport renders
+    were taken of a shelf at 1 m and the floor at 2 m. The GLBs are 76 to 161 KB, 4.0 MB in total,
+    mostly the embedded atlas copy each one needs.
   - **Not in this piece.** Any reader of the manifest. Packing for export is unverified: the
     manifest JSON is outside the filter `assets/first_person/*.glb`, and the export build was not
     run. CI has no Blender, so the check is run by hand, like the starter kit's.
-
 
 - **The segment, and melee stops going through walls, 2026-11-01.** Slice 2 of docs/40: the first
   question the sim asks of the height profile, and the three blows that now ask it.

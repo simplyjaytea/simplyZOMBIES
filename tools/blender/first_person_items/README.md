@@ -2,10 +2,14 @@
 
 The everyday things a player picks up, as world-pose GLBs that share one pixel atlas.
 
-- **Hand-chosen models.** 24 specific models carry 80 hand-chosen item ids.
-- **Size-laddered models.** Every other item of class `consumable`, `material`, `tool`,
-  `container`, `armor` or `attachment` in `godot/content/items/*.json` is routed by id to the
-  neutral model of its class whose size is nearest its own. That is 284 more ids.
+- **Hand-chosen models.** 26 models are particular things, and they carry 87 hand-chosen item
+  ids.
+- **Neutral models.** 15 models are neutral shapes: a tin, a jar, a bottle, a wrapped parcel, a
+  sack, two crates, a long wrapped bar, a parts case, a tool roll, a pouch, a plain bag, a knit
+  bundle, folded clothes and a helmet shell. Every other item of class `consumable`, `material`,
+  `tool`, `container`, `armor` or `attachment` in `godot/content/items/*.json` (277 ids) is
+  routed by id to a neutral model of its kind and size. The `rung` check guarantees a laddered
+  item never draws as another item's own picture.
 - **Class fallbacks.** One class entry per class stays in the manifest for items added after the
   last rebuild.
 
@@ -27,7 +31,7 @@ blender --background --factory-startup --python tools/blender/first_person_items
 
 A rebuild writes these files:
 
-- `godot/assets/first_person/items/*.glb`: 32 models.
+- `godot/assets/first_person/items/*.glb`: 41 models.
 - `godot/assets/first_person/items/items_atlas.png`: the shared atlas.
 - `godot/assets/first_person/items.manifest.json`: the manifest.
 - `items.blend`: the convenience scene.
@@ -51,6 +55,7 @@ starter kit's.
 | `ids` | A manifest `id` that is not an item id in `godot/content/items/*.json` (a typo fails), or a `class` that is not one of the six. |
 | `coverage` | A class with no class entry, or an item of those six classes that resolves to no model. |
 | `scale` | An item drawn by a model whose largest dimension is outside 2x of the item's expected size (below), or outside 4x for a hand-chosen shared model such as a penlight drawn as the torch. |
+| `rung` | A laddered item drawn by a hand-chosen item's own model: a jar of honey drawn as the ration pouch, or binoculars as scrap metal. No hand-chosen model may stand on a ladder rung. |
 | `material` | More than one material, any image other than `items_atlas`, a primitive off the sole material, or a sampler that is not nearest with nearest mipmaps. |
 | `single_sided` | A double-sided material, a triangle wound against its normal, or a mesh that is not closed (an unmatched edge). |
 | `coplanar` | Two same-facing triangles within 0.5 mm of one plane whose projections overlap. These are the z-fighting faces from the starter kit's review. The message gives their location. |
@@ -67,6 +72,7 @@ mutation during the temporary rebuild:
 | `float` | The duffel's body lifted 18 mm onto its strap (the first review's finding). | floor, bytes |
 | `id` | `item.food.canned` misspelt as `item.food.caned`. | ids, bytes |
 | `scale` | The sack of flour drawn as the 8 cm tin (the first review's finding). | scale, bytes |
+| `rung` | The ration pouch put on the consumable ladder (the second review's finding). | rung, bytes |
 | `material` | A second material on one medkit face. | material, bytes |
 | `doublesided` | Back-face culling off on the material. | single_sided, bytes |
 | `winding` | One battery face reversed. | single_sided, bytes |
@@ -125,37 +131,59 @@ uses. Close variants share a model.
 | `nails_box` | `item.fixings.nails`, `.screws`, `.bolts` | An open card box: a heaped pile of nails, three on top, two loose in front, the back flap folded open. A jar could not show its nails through opaque single-material glass. |
 | `duct_tape` | `item.tape.duct` | A half-used roll. |
 | `rope_coil` | `item.cordage.rope`, `.paracord`, `.twine` | A coil with a loose end. |
-| `hiking_pack` | `item.pack.hiking` | The backpack, with a lid, two buckled compression straps over a flapped front pocket, side pockets, and shoulder straps behind. |
+| `hiking_pack` | `item.pack.hiking`, `.school`, `.frame` | The backpack, with a lid, two buckled compression straps over a flapped front pocket, side pockets, and shoulder straps behind. |
 | `toolbox` | `item.toolbox.steel` | The toolkit, with no crowbar. |
 | `book` | `item.book.firstaid` and the nine other books, plus `item.paperback.dogeared` | The books share one cloth-bound manual with a pale title label. |
 | `jerrycan` | `item.jerrycan.fuel`, `item.jerrycan.empty` | Fuel. |
 | `storm_lantern` | `item.lantern.storm`, `item.lantern.oil`, `item.lantern.camping` | Oil and gas light. |
-| `fallback_container` | `item.duffel.canvas` | The duffel, resting on its own slumped bottom with the shoulder strap draped on the floor. |
+| `duffel` | `item.duffel.canvas` | The duffel, resting on its own slumped bottom with the shoulder strap draped on the floor. |
+| `arrows` | `item.ammo.arrow`, `.broadhead`, `.target`, `item.ammo.bolt`, `.broadhead` | Three fletched arrows lying side by side. An arrow is one grid cell and 72 cm long. |
 
 ## The size ladder
 
-Every other item of the six classes is routed by id. The builder takes the item's expected
-largest dimension from its content and picks, from its class's ladder, the model whose largest
-dimension is nearest in log scale.
+Every other item of the six classes is routed by id to a neutral model. The builder works out
+two things for the item:
 
-The expected dimension is the larger of two estimates:
+- **Its kind.**
+  - Hard headgear (helmet, hard hat, gas mask, respirator) and eyewear (glasses, goggles),
+    from the id.
+  - Drinks and jarred food (a name with bottle, jar, carton, canteen, flask or drink).
+  - Long things: a footprint one side three times the other, or an id in `LENGTH_HINTS`.
+  - Everything else.
+- **Its expected largest dimension.** This is the larger of two estimates. From the grid: 7.5 cm
+  per cell, or 20 cm per cell for a long footprint. From the mass: 1.5 times the side of a cube of
+  the item's mass at 400 kg/m³. `LENGTH_HINTS` overrides both for the few items whose grid hides
+  their length; an arrow is one cell and 72 cm.
 
-- **From the grid:** 7.5 cm per grid cell, or 20 cm per cell for a long footprint, where one side
-  is three times the other.
-- **From the mass:** 1.5 times the side of a cube of the item's mass at 400 kg/m³.
+The item then takes the rung of its class-and-kind ladder whose largest dimension is nearest in
+log scale:
 
-| Class | Ladder (smallest first) |
-|---|---|
-| consumable | squat tin `fallback_consumable` (8 cm), ration pouch (27 cm), sack `fallback_material` (35 cm) |
-| material | parts case `fallback_attachment` (12 cm), scrap metal (22 cm), sack (35 cm), plank (1 m) |
-| tool | parts case (12 cm), tool roll `fallback_tool` (32 cm), toolbox (47 cm) |
-| container | `pouch` (15 cm), hiking pack (58 cm), duffel (67 cm) |
-| armor | `armor_small`, a folded knit with a rolled cuff (14 cm); folded clothes `fallback_armor` (32 cm) |
-| attachment | parts case (12 cm), tool roll (32 cm) |
+| Class | Kind | Ladder (smallest first) |
+|---|---|---|
+| consumable | default | squat tin `fallback_consumable` (8 cm), wrapped parcel `bundle` (22 cm), sack `fallback_material` (35 cm) |
+| consumable | liquid | plain `jar` (13 cm), plain `bottle` (26 cm) |
+| material | default | parts case `fallback_attachment` (12 cm), `crate_small` (26 cm), sack (35 cm), `crate_large` (52 cm) |
+| material | long | `long_bundle`, a canvas-wrapped bar (75 cm) |
+| tool | default | parts case (12 cm), tool roll `fallback_tool` (32 cm), `crate_large` (52 cm) |
+| tool | long | `long_bundle` (75 cm) |
+| container | default | `pouch` (15 cm), plain roll-top `bag` (45 cm) |
+| armor | default | `armor_small`, a ribbed knit with a rolled cuff (14 cm); folded clothes `fallback_armor` (32 cm) |
+| armor | headgear | `headgear`, a plain hard shell with a chin strap (28 cm) |
+| armor | eyewear | parts case (12 cm), the case it is carried in |
+| attachment | default | parts case (12 cm), tool roll (32 cm) |
 
-The ladders hold neutral shapes only. As a result, a sack of flour is the sack, a utility pouch is
-the pouch, a scalpel is the parts case and a dome tent is the tool roll. `scale` holds every
-laddered item within 2x of its expected size.
+Every rung is a neutral shape. A model that is a hand-chosen item's own picture (the ration
+pouch, the scrap metal, the plank, the toolbox, the hiking pack) never stands on a rung, and
+`rung` checks this. As a result:
+
+- a jar of honey is a jar and a bottle of spirits a bottle;
+- apples or a block of cheese are a wrapped parcel;
+- binoculars or a camp stove are a small crate, and a floodlight a large one;
+- a steel pipe or rebar is a wrapped bar;
+- a gun case or dry bag is a plain bag;
+- a hard hat is a helmet shell.
+
+`scale` holds every laddered item within 2x of its expected size.
 
 The six class entries name the medium shape of each class: the tin, the sack, the tool roll, the
 pouch, the folded clothes and the parts case.
@@ -183,16 +211,16 @@ deliberate offsets of at least 1 mm.
 
 ## Atlas and density
 
-The atlas is one 512 × 512 PNG, with islands shelf-packed and a 1-texel gutter. The kit uses two
+The atlas is one 1024 × 512 PNG, with islands shelf-packed and a 1-texel gutter. The kit uses two
 densities, chosen per model by its largest dimension:
 
-- **128 texels per metre** for every model up to 0.40 m (27 of 32). At 64 texels per metre a 7.5 cm
+- **128 texels per metre** for every model up to 0.40 m (32 of 41). At 64 texels per metre a 7.5 cm
   can is 5 texels across and its label is 6 texels tall. At 0.5 m (about 1400 screen pixels per
   metre at 1080p and 75° FOV) that gives a smear rather than a label. At 128 the can is about 30
   texels round, the label has a panel, a print row and a torn edge, and a book's title label reads.
-- **64 texels per metre** above 0.40 m: the plank, backpack, toolbox, jerrycan and duffel. These
-  already get 20 to 64 texels across at 64, the same density as the starter kit's furniture they
-  stand beside.
+- **64 texels per metre** above 0.40 m: the plank, backpack, toolbox, jerrycan, duffel, arrows,
+  large crate, wrapped bar and bag. These already get 26 to 64 texels along their length at 64,
+  the same density as the starter kit's furniture they stand beside.
 
 At a crouch, a 64-texel item beside a 128-texel one shows texels twice the size. This is visible
 within about 0.6 m.
