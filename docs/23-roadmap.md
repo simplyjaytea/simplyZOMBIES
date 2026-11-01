@@ -163,10 +163,6 @@ plan and spatial/art contract. The existing default remains top-down during
 conversion. The source baseline is archived on GitHub at
 `archive/topdown-colony-pre-first-person-2026-11-01`. Planned pieces:
 
-- **First-person simulation and ledger foundation.** An opt-in scene driven by
-  the real sim, mouse look and camera-relative movement, sim-owned collision,
-  NPC bodies and a nearby ledger opening functional work priorities; a scene
-  gate with positive and negative interaction/input paths, fully routed.
 - **Blender pixel-textured colony starter kit.** Original desk, ledger, shelf,
   barricade and modular wall, editable source, builder, atlas, GLBs and preview.
 - **First-person starter-kit integration.** Consume the kit in the foundation,
@@ -2416,6 +2412,28 @@ What landed and what proved it, system by system (condensed from the retired bac
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **The first-person foundation, 2026-11-01.** docs/23's "First-person simulation and ledger
+  foundation", the first delivery of [docs/39](39-first-person-pivot.md).
+  - **The scene.** `godot/presentation/first_person/first_person.tscn` boots `SimBoot.playable` on
+    a fixed seed and a 64-tile district and steps it on the same 20 Hz accumulator. Input is the
+    existing `move` and `aim` commands, camera-relative; the sim owns position and collision, and
+    the camera follows the interpolated sim position. `district_view.gd` builds one floor quad per
+    tile and one box per solid tile from `SimTileMap.is_solid`, sim x/y on Godot x/z at one metre a
+    tile. `body_view.gd` draws placeholder capsules only where `world.vision.detail` says the
+    player sees a body; the player has no third-person body.
+  - **The ledger.** A desk and ledger stand near the safe spawn (`prop_view.gd`, at the published
+    sizes in `assets.gd`, or the GLB when it exists). E in reach and on the aim opens the real
+    `ui/work_panel.gd`, whose priority clicks send `job.priority`; its Skills button opens the
+    read-only `ui/web_panel.gd`. There is no key that opens the panel elsewhere.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, shard 1)
+    prints `FIRST_PERSON_OK`. It drives the real scene with key events and asserts the axis map,
+    sim stepping, sim collision, E refused out of reach, off the aim and through a wall, the
+    priority mutation, input capture and release, a digit-free HUD, and no physics body (a planted
+    `CharacterBody3D` proves the scanner fails).
+  - **Not in this piece.** Art (placeholder boxes and capsules), containers, combat, the shipped
+    district size. The desk has no sim collision of its own. The default boot stays top-down.
+    `docs/planning/first-person-foundation-report.md` has the full lane list and limits.
 
 - **The round you load, 2026-10-28.** docs/23's "Choosing which round to fire" and "The magazine
   remembers what you loaded", together (firearms batch piece F2; docs/30's "The round you load").
