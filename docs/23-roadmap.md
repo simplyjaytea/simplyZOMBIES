@@ -2423,6 +2423,64 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Talking to a colonist, 2026-11-01.** Advances "First-person people and settlement operation", its
+  conversations: look at one of your colonists, press E, and they say how they are and what they are
+  doing, in words the read models already own.
+  - **The panel.** `godot/ui/talk_panel.gd`, in the kit chrome (`Chrome`/`Locker`): the colonist's
+    name as the header, one feeling line, one "now" line, and the one action `Goodbye` (Escape, or a
+    click on the button). No numbers and no new information: every line is one the top-down screens
+    already show.
+  - **The words.** The name is `identity.name`. The feeling line composes `SimCondition.view`'s
+    worst part in the first-person HUD's own words ("hurt", "badly hurt", "barely standing", plus
+    "bleeding") with the worst need's own line: `SimNeeds.worst_band` chooses the band, the
+    colonist's first-person mutter in `content/speech/lines.json` is used when it exists, and
+    `SimNeeds.hud_clause(world, ent, true)` is the fallback, the same panel sentence the top-down
+    drawer shows. A body with nothing wrong says "I feel steady.", the first-person HUD's fallback.
+    The doing line is `WorkRead.doing` (`sim/work_read.gd`), the Colony row's own phrase.
+  - **E's ladder.** Ledger, then an openable container, then a colonist in reach and on the aim, then
+    the tile verb. Reach is 1.8 m from the sim's position, the aim cone is the ledger's, and the
+    sim's own `vision.detail` refuses a person through a wall. `SimAllegiance.is_colony` plus an
+    identity makes a body talkable: raiders, settlers and zombies never are.
+  - **Capture.** The panel swallows every key (walking, aim, fight, stance, save); Escape closes it
+    and recaptures the mouse. The clock keeps running, the inventory's reversible default: the body
+    is stopped with `_clear_held` + `_push_zero_move`, and nothing pauses.
+  - **The gate.** `npm run godot:check:first_person` (TALK lane) prints `FIRST_PERSON_OK`. True
+    positive: E on a colonist in reach and on the aim opens the panel with the sim's name, the steady
+    feeling line and the read model's doing phrase; a hungry colonist says one of the mutter lines;
+    every line is digit-free; walking is swallowed; Escape closes and recaptures. True negatives: out
+    of reach, off the aim, through a wall, at a shambler and at a raider no panel opens.
+  - **Not in this piece.** No orders, recruitment, delegation or foreman: the one action is Goodbye,
+    and docs/39's foreman stays undecided. No speech content was added. The panel does not stop the
+    clock, and a survivor's own conversations with the player are a later slice.
+  - **Record.** `docs/planning/first-person-talk-report.md`.
+
+- **Animation state from the sim, 2026-11-01.** Advances "First-person people and settlement
+  operation", the body art: every drawn body now names the animation it should play, read from the
+  sim, before the character GLBs land.
+  - **The read model.** `presentation/first_person/anim_state.gd` is pure and static:
+    `state_of(world, entity)` returns one of idle, walk, run, crouch_idle, crouch_walk, crawl, swing,
+    lunge, grab, stagger, death, from corpse, grabbed/grabState, swing.state,
+    shambler.state/ticksToSwipe, posture, velocity and the body's legs. `phase_of` returns 0..1 in the
+    chosen clip: loops advance on the sim tick with a per-entity seat, one-shots use the sim's own
+    countdown (a swipe's wind-up, a hold's next bite), and a held pose is 1.
+  - **The clip table.** `clip_for(kind, state)` names the nearest existing character clip, so the art
+    can grow without a caller change: survivor run -> walk, crouch_walk -> crouch_idle, crawl ->
+    crouch_idle, swing/lunge -> walk, grab/stagger -> idle; shambler walk -> shamble, swing/lunge/grab
+    -> lunge, stagger -> idle. The table and why each is nearest are in the report.
+  - **The placeholder.** `body_view.gd` poses the cylinder from the state: a lean into a swing, a
+    lunge or a hold, a sideways roll on a stagger, and lying flat for a corpse; crouch and crawl are
+    already the sim's own body height. Rotation is reset each frame, the lean pivots at the feet, and
+    the hot path calls `state_of`/`phase_of`, so no Dictionary is built per body per frame.
+  - **Read-only.** The sim is never written; the gate stages the components for the states the sim has
+    no command for (a shambler's swipe, hold and stagger) and restores them. A survivor's stagger is
+    event-only (`entity.staggered`) with no component to read, so it is not named; a survivor in that
+    moment reads as its locomotion state.
+  - **The gate.** `npm run godot:check:first_person` (ANIM lane) prints `FIRST_PERSON_OK`. True
+    positives: stand, walk, run, crouch, crouch walk, crawl, a swing's wind-up and recover, a
+    shambler's armed swipe as lunge, a hold as grab, a stagger, and a death. True negatives: a body
+    that stops is idle one tick later; a corpse is still death after thirty ticks; no living body
+    reports death. Every named state's phase is 0..1.
+  - **Record.** `docs/planning/first-person-anim-state-report.md`.
 - **First-person starter-kit integration, 2026-11-01.** Advances "First-person starter-kit
   integration": the playable scene draws walls, boarded windows and shelf containers from the kit's
   GLBs, not only the desk and ledger.
