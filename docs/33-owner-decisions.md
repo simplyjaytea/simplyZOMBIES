@@ -49,7 +49,11 @@ crouched survivor sees standing heads over a car, a standing zombie loses a
 crouched survivor behind one, and a crouched body under a window sill is hidden.
 The trade-off: docs/28's Low row changes from "blocks a crouched eye" to "blocks the
 line below its top", and the starting heights (Low 1.10 m, sill 1.00 m, crouched
-eye 0.95 m) become numbers the owner has seen. (docs/40 question 3.)
+eye 0.95 m) become numbers the owner has seen. (docs/40 question 3.) The default is
+built, as docs/40's slice 4, behind one switch: `SimVisibility.SIGHT_BY_HEIGHT`
+(`godot/sim/vision/visibility.gd`) ships true, and false gives back the planar rule
+exactly, which `godot:m2:sight` HEIGHT-OFF proves. It is a reversible default, not a
+decision; docs/28's Low row is left as written until the owner answers.
 
 **Can a body walk through a car?** It can today, and in first person it will look
 broken. The recommended default is that Low becomes solid for movement, with

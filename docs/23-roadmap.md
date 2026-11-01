@@ -2423,6 +2423,84 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Perception with heights, 2026-11-01.** Slice 4 of docs/40: sight works by height. It builds the
+  recommended default of the owner's question 3 (docs/33, "Do Low cover and windows work by
+  height?"), behind one switch, `SimVisibility.SIGHT_BY_HEIGHT`, which ships true. The question
+  stays the owner's.
+  - **The record.** The 2D shadowcast is cast for every observer as a standing eye, so Low no
+    longer blocks it, and crouching no longer recasts. `SimVisibility.detail` gains a target
+    height and a body: after its tile, range, light and arc tests pass, it asks
+    `SimSpace.sight_clear` (`godot/sim/space/space.gd`, new) from the observer's eye
+    (`SimSpace.eye_of`) to the point, or to the body's eye and chest (`SimSpace.sight_points`,
+    new), and the body is seen if either clears. `detail_body(observer, entity)` is the same
+    question for a caller without the position. `sight_clear` is `segment_clear`'s integer walk
+    with only the partial-height tiles counted (`SimSpace.SIGHT_PARTIAL`: Low, a window, a
+    stage-3 board, an open door's lintel); full-height tiles stay the 2D layer's. Its broadphase is
+    an open corridor, 1100 to 2100 mm, that no partial band reaches, so a line between two standing
+    bodies never walks. Outside it the walk reads the class byte off the map and builds a key only
+    for a partial tile. Sightings (`_observe_one`), the shambler's `_seen_target`, the screamer's
+    alarm, a colonist's order target (`jobs.gd` `_target_fresh`, `orders.gd` `_seen_by_either`)
+    and the Colony screen's `SimWorkRead.in_sight` ask about the body. Containers, lights and the
+    explored map keep `detail` as a place. With the switch false the planar rule comes back exactly.
+    The calls are in docs/30, "A body is seen at its eye and its chest".
+  - **The gate.** `godot:m2:sight` HEIGHT, in place of the EYE lane as docs/40 names, every pair a
+    hit and a miss on one fixture with one thing changed. Car: a standing zombie six metres off
+    loses a survivor crouched behind it and sees them stood up, and a crouched survivor in open
+    ground is seen. Over: a crouched survivor sees a standing head over a car and not a crouched
+    body behind it, and sees the ground behind it as a place. Window: crouched under the sill is
+    unseen from six metres outside, both ways, and seen stood up, both ways, and seen from half a
+    metre outside. Board: stage 3 hides a crouched body and not a standing one, and stage 2 hides
+    both. Door: open shows the room and closed does not, and a line rising through the doorway
+    meets the lintel while one just under it passes. Symmetry: two standing survivors across a car
+    see each other, and two crouched ones do not. The table: `SIGHT_PARTIAL` and the class bytes
+    equal what PROFILE says, and the corridor meets no partial band and is the widest such
+    corridor. HEIGHT-CONSUMERS proves the readers by behaviour: the shambler picks the standing
+    survivor and not the crouched one, the screamer stays quiet over a survivor under a sill and
+    screams once they stand, and sightings keep a standing zombie over a car and not a crawling
+    one. The source scan finds the body form in all six callers. HEIGHT-OFF pins the switch false
+    and finds the old answers, with the EYE lane run unchanged inside it. BEHIND-READER is
+    unchanged. `godot:m2:tick` VERTICAL holds `detail_body` and `detail` at a 500 mm point
+    against a fresh answer for every observer and every body in the stepped district. Every
+    survivor is crouched and every third zombie crawls. The fresh answer is the 2D detail and
+    `segment_clear(..., SIGHT)` on a copy of the map that keeps only the partial tiles, built
+    through `profile_key`, with no corridor and no byte table. 55 pairs agree, 10 hidden by height,
+    47 points walked, 18 inside the corridor. With the switch off the same comparison disagrees.
+  - **Measured.** Same machine (Ryzen 7 7800X3D, Windows, other agents' gates running), the base
+    commit in a throwaway worktree against this branch, alternating. `godot:bench:runtime`'s
+    shipped tick over four rounds: mean 6.528, 6.344, 5.899, 5.847 ms before and 5.991, 5.948,
+    5.916, 5.685 after. The colony tick: 6.847, 7.622, 6.726, 6.674 before and 7.372, 7.007,
+    6.848, 6.550 after. Both are flat inside the machine's noise. The worst tick is over 16 ms on
+    both sides, the existing debt. `godot:bench`'s four synthetic rows are within 0.15 ms of
+    the base both rounds; they do not exercise sight. A throwaway driver with every survivor held
+    crouched, the case that walks, put the switch on against off at 6.78 and 6.41 ms against 6.55
+    and 6.99: no rise above the noise. The boot district's world is byte-identical to the base
+    for 700 ticks (a position hash every 100), because nobody crouches and nothing crawls there.
+    The first cut cost about 0.3 ms a tick through an extra call per candidate and was refolded
+    before this record. The drivers were deleted.
+  - **Balance.** `godot:m2:balance` and `godot:m2:harness` are green. The balance gate's fast
+    tier, run on the base and on this branch: seeds 20260805, 31337 and 90210 print the same line
+    byte for byte. Seed 404 keeps its outcome, five deaths and one survivor of three, and moves in
+    its detail: grabs 162 to 164, broken struggles 53 to 54, the most alive at once 31 to 30.
+    Slice 8 owns the re-measure.
+  - **Verified.** The full `godot:m2` chain as its four CI shards side by side, all green, then
+    `godot:m2:sight` and `godot:m2:tick` again after the last change, which touched only
+    `visibility.gd` and its three hot callers. Also `godot:test` (R1 parity, byte-identical),
+    `godot:smoke`, `godot:check:first_person`, `check:routing`, `check:shards`, `lint` and
+    `format:check`.
+  - **What moved.** Who sees whom, where a body is crouched or crawling. A standing zombie loses a
+    crouched survivor behind a car, unless it is within about a metre and looking down over it. It
+    loses a survivor crouched under a sill, or behind a stage-3 board, except from close outside.
+    A crawling zombie behind a car is now hidden from everyone; before, only a crouched observer
+    lost it. A crouched survivor now sees over a car to standing heads, and sees the ground,
+    cupboards and lights behind it, which the planar rule blinded. The screamer, sightings and the
+    HUD's sighting line, a colonist's recall fire, an order's target and the Colony screen follow
+    the same rule. An older save's crouched `observer.eye` is reset to standing on the first
+    refresh. No `SAVE_VERSION` bump: nothing saved changed meaning.
+  - **Not in this slice.** The views (the top-down entity pass in `main.gd` and the first-person
+    `body_view.gd`) still draw a body by `detail` at its spot, so a crouched player's screen can
+    draw a crouched or crawling body behind a car that the sim does not record. Drawing through
+    `detail_body` is docs/40's slice 7. docs/28's Low row is left as written until the owner answers.
+
 - **Pitch on the aim, 2026-11-01.** Slice 3 of docs/40: the aim has a pitch as well as a yaw.
   - **The record.** The `aim` command takes an optional `pitch` in radians, positive up. It goes
     through `SimAim.propose` (`godot/sim/aim.gd`) with the yaw, so both take or neither does. The

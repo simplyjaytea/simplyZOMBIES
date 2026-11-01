@@ -7731,3 +7731,59 @@ NPC's chest. What follows is what it left open.
   because NaN passes `canonical`. It now refuses one whole, so the yaw, the feet and the pitch stay
   as they were, the way `clamp_pitch` already read a NaN pitch as level. `godot:m2:aim` PITCH holds
   it, with the comparison written so a NaN cannot pass it.
+
+## A body is seen at its eye and its chest, 2026-11-01
+
+Slice 4 of docs/40 ("Perception with heights") built the owner's question 3 at its recommended
+default, "yes", behind one switch, `SimVisibility.SIGHT_BY_HEIGHT`. The question stays the owner's
+(docs/33). These are the engineering calls the slice took; docs/40 fixes the rest.
+
+- **The head point is the body's eye.** docs/40 says a body is seen if its head point or its chest
+  point clears, and names no head height. The eye (`SimSpace.eye_of`) is the one that makes the
+  head test symmetric: A sees B's head exactly when B sees A's, at any two heights, so a crouched
+  survivor under a sill who cannot be seen from outside cannot see out either. The chest is
+  `SimSpace.CHEST_PERMILLE`, the point slice 3 already aims at. The top of the cylinder was the
+  other reading, and it fails docs/40's own case: a crouched head's top (1150 mm) is above a
+  1100 mm car, so no car would ever hide a crouched survivor from a standing zombie.
+- **The vertical test counts only the partial-height tiles.** `SimSpace.sight_clear` is
+  `segment_clear(..., SIGHT)` with only the tiles in `SimSpace.SIGHT_PARTIAL` counted (Low, a
+  window, a stage-3 board, an open door's lintel). A wall, a screen or a closed door is the 2D
+  layer's: the standing shadowcast already judged it, tile centre to tile centre. Counting it again
+  by the exact segment would hide a body at every corner the cast sees round, which is a second,
+  different sight rule and no part of this slice. `SIGHT_PARTIAL` is derived from PROFILE and
+  `godot:m2:sight` HEIGHT holds the two equal.
+- **The broadphase is the open corridor, not the cast's square.** docs/40 has the cast record
+  whether its square holds a partial tile. A 48 m square in the district holds a car almost always,
+  and cars move (`vehicles.gd` writes Low tiles as it drives), so a precomputed index would need its
+  own invalidation. Instead no partial tile's sight band lies between 1100 and 2100 mm, so a line
+  wholly inside that corridor needs no walk (`SimSpace.SIGHT_OPEN_FROM_MM`, `SIGHT_OPEN_TO_MM`).
+  Every line between standing bodies is inside it, so only a crouched or crawling eye or body pays.
+  Outside it, the walk reads each tile's class byte straight off the map and builds a key only for a
+  partial one. HEIGHT holds the corridor to PROFILE band by band, and that it is the widest one.
+- **The lintel is reached only by a place with a height.** No body point is above 1620 mm, so an
+  open door's 2200 mm lintel never hides a body on one floor. `detail(observer, x, y, h)` asks it
+  for a point, and HEIGHT holds a line rising through a doorway against one just under the lintel.
+- **`detail_body(observer, entity)` as docs/40 names it, and the body as `detail`'s fifth
+  argument.** The sightings loop, the dead's eyes and the screamer already hold the body's position
+  from the position table, and ask `detail(observer, x, y, -1, body)`: the 2D tests run first, and
+  nothing more is looked up for a body they refuse, which is most of the bodies in a square.
+  `detail_body` looks the position up and asks the same, for the order and Colony-screen callers.
+  The first cut had a separate body method in front of `detail`, and that one extra call per
+  candidate showed in the district's tick. As built, the tick is flat against the base (docs/23's
+  record has the numbers), and the BEHIND-READER lane's scan for `detail` in `_observe_one` stands
+  unchanged.
+- **The vision holds its world weakly.** `detail` has no world argument, and a body's height needs
+  one. `refresh` keeps a `WeakRef` to the world it read, because the world owns the vision and a
+  strong reference back would be a cycle neither could free.
+- **The switch gives back the planar rule exactly.** With `SIGHT_BY_HEIGHT` false a crouched
+  observer casts from `Eye.Crouched` again, the target's height is never asked, and `detail_body`
+  is `detail` at the body's position. The EYE lane runs in that state and passes unchanged. With it
+  true, the observer's `eye` names the cast it gets, which is now always `Eye.Standing`, so
+  `check_m2_tick.gd`'s recasts from it stay true, and a crouched eye from an older save is put right
+  on the first refresh.
+- **Jobs, orders and the Colony screen switch too.** docs/40 names them with sightings. A
+  colonist's order target and the Colony screen's "in sight" are questions about a body, so a
+  colonist crouched behind a car is not "in sight". The views (the top-down entity pass and the
+  first-person `body_view.gd`) still ask `detail` at the body's spot. Drawing bodies through
+  `detail_body` is docs/40's slice 7. Until then a crouched player's screen can draw a crouched or
+  crawling body behind a car that the sim's sightings do not record.
