@@ -15,6 +15,7 @@ extends Node3D
 
 const SimBoot = preload("res://sim/boot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimContext = preload("res://sim/context.gd")
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
 const PropView = preload("res://presentation/first_person/prop_view.gd")
@@ -35,6 +36,8 @@ const PITCH_LIMIT: float = 1.30
 const LEDGER_REACH_M: float = 1.80
 # cos(30 degrees): the ledger must be inside a narrow cone in front of the eye, not merely near.
 const LEDGER_AIM_DOT: float = 0.866
+# How finely the look ray is walked through the tile grid when it looks for a door or window (metres).
+const VERB_STEP_M: float = 0.02
 
 const MOVE_KEYS: Array[int] = [KEY_W, KEY_A, KEY_S, KEY_D]
 
@@ -72,6 +75,8 @@ var _ledger_approach: Vector2 = Vector2.ZERO
 var _mouse_captured: bool = true
 var _alert: String = ""
 var _alert_until_ms: int = 0
+var _verb_key: Array = []
+var _verb_row: Dictionary = {}
 
 
 func _ready() -> void:
@@ -331,6 +336,8 @@ func _update_hud() -> void:
 		var verdict: String = interaction_verdict()
 		if verdict == "ok":
 			prompt = "E read the ledger"
+		elif verb_prompt() != "":
+			prompt = verb_prompt()
 		elif verdict == "away":
 			prompt = "Turn to the ledger."
 		elif _curr_player.distance_to(_ledger_sim) < 4.5:
@@ -529,6 +536,14 @@ func ledger_in_sight() -> bool:
 func try_interact() -> bool:
 	if menu_open:
 		return false
+	# The ledger keeps priority when it is in reach and aimed at; otherwise the world's first verb.
+	if interaction_verdict() == "ok":
+		open_ledger_menu()
+		return true
+	var row: Dictionary = verb_row()
+	if not row.is_empty():
+		world.commands.push(row["command"])
+		return true
 	match interaction_verdict():
 		"far":
 			_set_alert("Nothing within reach. Walk closer to the ledger.")
@@ -539,9 +554,6 @@ func try_interact() -> bool:
 		"away":
 			_set_alert("You are near the ledger, but not looking at it.")
 			return false
-		"ok":
-			open_ledger_menu()
-			return true
 	_set_alert("There is nothing here to use.")
 	return false
 
@@ -724,3 +736,70 @@ func _capture_mouse() -> void:
 	_mouse_captured = true
 	if DisplayServer.get_name() != "headless":
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+
+# --- world verbs: E on a door or a window ------------------------------------------------------
+
+# The prompt E would answer with, in the first verb's own words, or "" when the sim offers nothing.
+func verb_prompt() -> String:
+	var row: Dictionary = verb_row()
+	if row.is_empty():
+		return ""
+	return "E " + String(row["text"])
+
+
+# The first verb `SimContext.verbs_at` offers for the tile the eye is on, as the right-click menu would
+# offer it there: the same rows, and E pushes the row's command verbatim (`main._context_pick`). No
+# verb is decided here. Cached per tick and tile, because the sim's answer changes only with those.
+func verb_row() -> Dictionary:
+	var hit: Dictionary = eye_tile_hit()
+	if hit.is_empty() or world == null:
+		return {}
+	var key: Array = [int(world.tick), hit["tile"], hit["kind"]]
+	if key != _verb_key:
+		_verb_key = key
+		_verb_row = {}
+		var offered: Array[Dictionary] = SimContext.verbs_at(world, int(world.player), {"kind": hit["kind"], "entity": -1, "tile": hit["tile"]})
+		for row in offered:
+			if not (row["command"] as Dictionary).is_empty():
+				_verb_row = row
+				break
+	return _verb_row
+
+
+# The tile the eye is on: the look ray walked through the tile grid from the sim's position to the
+# ledger's reach, and the first tile that is a door, a window or solid. Returns {tile, kind} with kind
+# "door" (a door tile, which `pick.gd` would name a door) or "ground", or {} when the ray meets none.
+# Presentation-side only: slice 2 of docs/40 moves this test into `SimSpace.segment_clear`, which
+# then answers it for the sim too. Until then this one small function is the only place it lives.
+func eye_tile_hit() -> Dictionary:
+	if world == null or map == null:
+		return {}
+	var look: Vector3 = look_direction()
+	var dir: Vector2 = Vector2(look.x, look.z)
+	if dir.length_squared() < 0.000001:
+		return {}
+	dir = dir.normalized()
+	var last: Vector2i = Vector2i(-1000000, -1000000)
+	var d: float = 0.0
+	while d <= LEDGER_REACH_M:
+		var p: Vector2 = _curr_player + dir * d
+		var t: Vector2i = Vector2i(floori(p.x), floori(p.y))
+		if t != last:
+			last = t
+			var kind: String = _verb_kind(t)
+			if kind != "":
+				return {"tile": t, "kind": kind}
+		d += VERB_STEP_M
+	return {}
+
+
+func _verb_kind(t: Vector2i) -> String:
+	if t.x < 0 or t.y < 0 or t.x >= int(map.w) or t.y >= int(map.h):
+		return ""
+	var tile: int = SimTileMap.tile_at(map, t.x, t.y)
+	if tile == SimTileMap.Tile.Door:
+		return "door"
+	if tile == SimTileMap.Tile.Window or SimTileMap.is_solid(map, t.x, t.y):
+		return "ground"
+	return ""

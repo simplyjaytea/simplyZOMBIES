@@ -28,6 +28,8 @@ extends SceneTree
 #   SPEECH    every line the first-person HUD draws is digit-free, it names the controls and the
 #             ledger, there is no progress bar in the tree, and the digit scanner is proved against
 #             a fabricated line.
+#   VERBS     E on a door in reach and aimed at, through the sim's own door verb, opens and shuts it; E
+#             out of reach or looking away changes nothing; a plain wall offers no prompt.
 #   DISTRICT  a fresh scene boots the shipped district size and seed (true positive), and the
 #             gate's small override really boots a smaller district, the one every lane above
 #             walks (true negative). Only a fresh, unparented instance is read for the default: no
@@ -37,6 +39,7 @@ const SCENE_PATH: String = "res://presentation/first_person/first_person.tscn"
 const WorkPanel = preload("res://ui/work_panel.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const FirstPerson = preload("res://presentation/first_person/first_person.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
@@ -83,6 +86,7 @@ func _run() -> void:
 		ok = _priority(scene) and ok
 		ok = _menu(scene) and ok
 		ok = _speech(scene) and ok
+		ok = _verbs(scene) and ok
 	scene.queue_free()
 	await process_frame
 	_finish(old_size, ok)
@@ -811,6 +815,120 @@ func _has_digit(text: String) -> bool:
 		if text[i].is_valid_int():
 			return true
 	return false
+
+
+# --- VERBS ----------------------------------------------------------------------------------
+
+# E at a door is the sim's own door verb (`SimContext.verbs_at`), reached from the tile the eye is on.
+# Each case is judged on the sim's door state, not on what the view draws.
+func _verbs(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	if bool(scene.get("menu_open")):
+		scene.call("close_ledger_menu")
+	var site: Dictionary = _find_door_site(world, map)
+	if site.is_empty():
+		return _fail("VERBS", "the district has no closed door with an open floor tile beside it")
+	var door: Vector2i = site["door"] as Vector2i
+	var stand: Vector2 = site["stand"] as Vector2
+	var centre: Vector2 = Vector2(float(door.x) + 0.5, float(door.y) + 0.5)
+	var toward: Vector2 = (centre - stand).normalized()
+	var was_shut: bool = not _door_open(world, door)
+
+	# True negative: the same door out of reach, three tiles back along the line, looking at it.
+	_place_player(scene, centre - toward * 3.0)
+	scene.call("look_toward", Vector3(centre.x, 1.0, centre.y))
+	scene.call("step_sim_once")
+	_key(KEY_E, true)
+	scene.call("step_sim_once")
+	if _door_open(world, door) != not was_shut:
+		ok = _fail("VERBS", "E out of reach changed the door")
+	if String(scene.call("verb_prompt")).contains("door"):
+		ok = _fail("VERBS", "a door out of reach was offered as a prompt")
+
+	# True negative: the door in reach, but the look turned away from it.
+	_place_player(scene, stand)
+	scene.call("look_toward", Vector3(stand.x - toward.x * 2.0, 1.0, stand.y - toward.y * 2.0))
+	scene.call("step_sim_once")
+	_key(KEY_E, true)
+	scene.call("step_sim_once")
+	if _door_open(world, door) != not was_shut:
+		ok = _fail("VERBS", "E with the look turned away changed the door")
+	if String(scene.call("verb_prompt")).contains("door"):
+		ok = _fail("VERBS", "a door the look is turned away from was offered as a prompt")
+
+	# True positive: in reach and aimed at, the prompt names the sim's row and E opens the door.
+	_place_player(scene, stand)
+	scene.call("look_toward", Vector3(centre.x, 1.0, centre.y))
+	scene.call("step_sim_once")
+	var first_prompt: String = String(scene.call("verb_prompt"))
+	var want_open: String = "E open the door" if was_shut else "E shut the door"
+	if first_prompt != want_open:
+		ok = _fail("VERBS", "the prompt at the door is '%s', not '%s'" % [first_prompt, want_open])
+	if _has_digit(first_prompt):
+		ok = _fail("VERBS", "the door prompt has a digit: %s" % first_prompt)
+	_key(KEY_E, true)
+	scene.call("step_sim_once")
+	if _door_open(world, door) != was_shut:
+		ok = _fail("VERBS", "E in reach and aimed at did not change the door")
+	# And again: the row flips, and E closes the door it opened.
+	var second_prompt: String = String(scene.call("verb_prompt"))
+	var want_shut: String = "E shut the door" if was_shut else "E open the door"
+	if second_prompt != want_shut:
+		ok = _fail("VERBS", "after E the prompt is '%s', not '%s'" % [second_prompt, want_shut])
+	_key(KEY_E, true)
+	scene.call("step_sim_once")
+	if _door_open(world, door) != not was_shut:
+		ok = _fail("VERBS", "the second E did not put the door back")
+
+	# True negative: a plain wall in reach and aimed at offers nothing.
+	var wall: Dictionary = _find_wall_site(map)
+	if wall.is_empty():
+		_skips.append("VERBS: no plain wall beside an open floor tile in this district")
+	else:
+		_place_player(scene, wall["stand"] as Vector2)
+		scene.call("look_toward", Vector3((wall["wall"] as Vector2).x, 1.0, (wall["wall"] as Vector2).y))
+		scene.call("step_sim_once")
+		if String(scene.call("verb_prompt")) != "":
+			ok = _fail("VERBS", "a plain wall offered a prompt: %s" % String(scene.call("verb_prompt")))
+	return ok
+
+
+func _door_open(world: Variant, door: Vector2i) -> bool:
+	var d: Variant = SimFortify.door_state(world, door.x, door.y)
+	return d is Dictionary and bool((d as Dictionary).get("open", false))
+
+
+# A closed door with an open floor tile orthogonally beside it: the player stands there, on the far side
+# of nothing, and looks across the door. The stand is the tile's centre.
+func _find_door_site(world: Variant, map: Variant) -> Dictionary:
+	for ent in world.components.query(["door"]):
+		var d: Variant = world.components.get_component(int(ent), "door")
+		if not (d is Dictionary) or bool((d as Dictionary).get("open", false)):
+			continue
+		var tx: int = int((d as Dictionary).get("tx", 0))
+		var ty: int = int((d as Dictionary).get("ty", 0))
+		for n in [Vector2i(tx - 1, ty), Vector2i(tx + 1, ty), Vector2i(tx, ty - 1), Vector2i(tx, ty + 1)]:
+			if _open_floor(map, n.x, n.y):
+				return {"door": Vector2i(tx, ty), "stand": Vector2(float(n.x) + 0.5, float(n.y) + 0.5)}
+	return {}
+
+
+# A plain wall (no overlay, not a door or window) with an open floor tile beside it, for the negative.
+func _find_wall_site(map: Variant) -> Dictionary:
+	for ty in range(1, int(map.h) - 1):
+		for tx in range(1, int(map.w) - 1):
+			if SimTileMap.tile_at(map, tx, ty) != SimTileMap.Tile.Wall or SimTileMap.overlay_at(map, tx, ty) != null:
+				continue
+			for n in [Vector2i(tx - 1, ty), Vector2i(tx + 1, ty), Vector2i(tx, ty - 1), Vector2i(tx, ty + 1)]:
+				if _open_floor(map, n.x, n.y):
+					return {"wall": Vector2(float(tx) + 0.5, float(ty) + 0.5), "stand": Vector2(float(n.x) + 0.5, float(n.y) + 0.5)}
+	return {}
+
+
+func _open_floor(map: Variant, tx: int, ty: int) -> bool:
+	return SimTileMap.tile_at(map, tx, ty) == SimTileMap.Tile.Floor and not SimTileMap.is_solid(map, tx, ty) and SimTileMap.overlay_at(map, tx, ty) == null
 
 
 # --- fixtures -------------------------------------------------------------------------------
