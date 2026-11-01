@@ -27,6 +27,7 @@ const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
 const PropView = preload("res://presentation/first_person/prop_view.gd")
 const ContainerView = preload("res://presentation/first_person/container_view.gd")
+const SkyView = preload("res://presentation/first_person/sky_view.gd")
 const Hud = preload("res://presentation/first_person/hud.gd")
 const WorkPanel = preload("res://ui/work_panel.gd")
 const WebPanel = preload("res://ui/web_panel.gd")
@@ -76,6 +77,7 @@ var _district: Node3D = null
 var _bodies: Node3D = null
 var _props: Node3D = null
 var _containers: Node3D = null
+var _sky: Node3D = null
 var _hud: Control = null
 var _work_layer: CanvasLayer = null
 var _work_panel: Control = null
@@ -156,22 +158,11 @@ func _boot() -> void:
 
 
 func _build_environment() -> void:
-	var environment: Environment = Environment.new()
-	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = Color(0.09, 0.11, 0.12)
-	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color(0.72, 0.75, 0.78)
-	environment.ambient_light_energy = 1.10
-	var world_env: WorldEnvironment = WorldEnvironment.new()
-	world_env.name = "FirstPersonEnvironment"
-	world_env.environment = environment
-	add_child(world_env)
-	var sun: DirectionalLight3D = DirectionalLight3D.new()
-	sun.name = "FirstPersonSun"
-	sun.rotation_degrees = Vector3(-52.0, -34.0, 0.0)
-	sun.light_energy = 1.0
-	sun.shadow_enabled = false
-	add_child(sun)
+	# The sky, the sun and the eye's light are `sky_view.gd`'s; the camera attaches them in
+	# `_build_rig`, once it exists.
+	_sky = SkyView.new()
+	_sky.name = "Sky"
+	add_child(_sky)
 
 
 func _build_views() -> void:
@@ -211,6 +202,8 @@ func _build_rig() -> void:
 	camera.current = true
 	_rig.add_child(camera)
 	_build_held_weapon()
+	if _sky != null:
+		_sky.call("build", camera)
 
 
 func _build_hud() -> void:
@@ -316,6 +309,10 @@ func _process(delta: float) -> void:
 	# A death the gate (or any caller) triggers outside a step is seen on this frame, not when the
 	# accumulator next reaches a tick: succession and the end panel are edges, not per-tick state.
 	_watch_identity()
+	if _sky != null:
+		# Day, night, weather and the carried light every frame -- the sim's tick and the light
+		# component can change between frames, and the end panel's dim still has a sky behind it.
+		_sky.call("update", world)
 	if _run_over_open:
 		# The top-down end screen holds the clock still; so does this one. Input is swallowed in
 		# `_input`, and no move or aim is proposed.
@@ -1102,6 +1099,10 @@ func web_panel_node() -> Control:
 
 func inventory_panel_node() -> Control:
 	return _inventory_panel
+
+
+func sky_view() -> Node3D:
+	return _sky
 
 
 # --- succession and the end of a run ---------------------------------------------------------

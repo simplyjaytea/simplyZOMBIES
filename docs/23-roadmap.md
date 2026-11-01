@@ -2413,6 +2413,30 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Light, night and weather in first person, 2026-11-01.** Advances "First-person expedition
+  and default switch": the 3D scene now reads the sim's clock, weather and carried light, and holds
+  the "spatial combat and perception" information rule while it does.
+  - **The sky.** `sky_view.gd` dresses the `WorldEnvironment` and sun from
+    `SimClock.ambient_light_at` -- muted and cool by day, dark at night -- with rain and storm as a
+    darker grade and depth fog whose far distance comes from `SimWeather.sight_mul` when the kind
+    is fog. No particles, no volumetric fog, no shadows.
+  - **The carried light.** The brightest lamp the sim says is lit and carried becomes a spot along
+    the look (the content's `beam` as the spot's half-angle) or an omni at the eye for a round
+    light, at `carried_magnitude` metres. It is off when `light_source` is absent -- nothing lit,
+    or the wick burnt out -- and for a corpse or the end panel.
+  - **Information.** Bodies stay gated by `vision.detail`; night ambient is low enough that unlit
+    geometry beyond the sim's sight is not readable, and a torch never draws a body behind a wall.
+  - **The gate.** `npm run godot:check:first_person` (LIGHT lane) prints `FIRST_PERSON_OK`. True
+    positives: noon is above named sun and ambient thresholds and midnight below them; a lit torch
+    becomes the eye's 25 m, 22-degree spot and the sim burning it out turns it off. True negatives:
+    no eye light at noon with nothing lit, and a body behind a wall inside the torch's cone is not
+    drawn. `godot:check:light` and `godot:m2:light_burn` stay green unchanged.
+  - **Measured.** Headed, 1280x720, 300 frames after 30 warmup: before this slice noon 1.144 ms and
+    night with a torch 1.145 ms; after it noon 1.220 ms and night with a torch 1.317 ms.
+  - **Not in this piece.** No particles, no volumetric fog, no shadowed lights, and no pitch,
+    height or ray in the light itself; docs/40 slices 3, 5 and 6 own the spatial contract.
+  - **Record.** `docs/planning/first-person-light-report.md`.
+
 - **Fight back in first person, 2026-11-01.** Advances "First-person spatial combat and
   perception" with the interim input layer the alpha needs before docs/40's shot-as-a-ray slices:
   the top-down controls now swing, fire and reload against the planar sim.

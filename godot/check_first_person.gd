@@ -40,6 +40,10 @@ extends SceneTree
 #   SPEECH    every line the first-person HUD draws is digit-free, it names the controls and the
 #             ledger, there is no progress bar in the tree, and the digit scanner is proved against
 #             a fabricated line.
+#   LIGHT     noon is bright and midnight is dark by named thresholds, rain darkens the grade and
+#             fog turns the depth fog on from the sim's own sight multiplier, an equipped and lit
+#             torch becomes the eye's spot at the sim's range and cone, the sim burning it out turns
+#             it off, and a body behind a wall is not drawn inside the torch's cone.
 #   SUCCESSION a killing of somebody who is not the player moves nothing; killing the player with
 #             an heir alive hands the camera to the heir on the next frame with no glide, says the
 #             chronicle's succession sentence on the HUD, walks the heir, and draws the dead body
@@ -64,6 +68,10 @@ const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
+const SimItems = preload("res://sim/modules/items.gd")
+const SimLightMod = preload("res://sim/modules/light.gd")
+const SimWeather = preload("res://sim/modules/weather.gd")
+const Clock = preload("res://sim/time/clock.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const FirstPerson = preload("res://presentation/first_person/first_person.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
@@ -71,6 +79,12 @@ const Assets = preload("res://presentation/first_person/assets.gd")
 # The district the gate boots. Small on purpose: every lane walks the sim, and the shipped 256 district
 # is for the player, not for a gate. DISTRICT proves this is really smaller than the shipped default.
 const SMALL_DISTRICT_TILES: int = 64
+# The LIGHT lane's named thresholds. The sun and ambient must be well up at noon and well down at
+# midnight; these are the numbers the presentation constants are judged against.
+const LIGHT_NOON_SUN_MIN: float = 0.5
+const LIGHT_NOON_AMBIENT_MIN: float = 0.5
+const LIGHT_NIGHT_SUN_MAX: float = 0.05
+const LIGHT_NIGHT_AMBIENT_MAX: float = 0.15
 const TICK_SECONDS: float = 1.0 / 20.0
 const EPSILON: float = 0.0001
 
@@ -112,6 +126,7 @@ func _run() -> void:
 		ok = _priority(scene) and ok
 		ok = _menu(scene) and ok
 		ok = _speech(scene) and ok
+		ok = _light(scene) and ok
 		ok = _succession(scene) and ok
 		ok = _run_over(scene) and ok
 	scene.queue_free()
@@ -124,7 +139,7 @@ func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)
-		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, swings a bat into a shambler and fires a round through the top-down commands while the ledger refuses both, misses a body behind the look, and leaves a refused reload wordless, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
+		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, swings a bat into a shambler and fires a round through the top-down commands while the ledger refuses both, misses a body behind the look, and leaves a refused reload wordless, lights noon by the sim's clock and darkens midnight, turns a carried torch into the eye's spot at the sim's range and cone and out when it burns, and keeps a body behind a wall undrawn, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
 		quit(0)
 		return
 	for failure in _failures:
@@ -1261,6 +1276,134 @@ func _has_digit(text: String) -> bool:
 		if text[i].is_valid_int():
 			return true
 	return false
+
+
+# --- LIGHT -----------------------------------------------------------------------------------
+
+## The sim's day, night, weather and carried light on the 3D screen, and the rule that a torch
+## never draws a body the sim says is unseen.
+func _light(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var sky: Node3D = scene.call("sky_view") as Node3D
+	if sky == null:
+		return _fail("LIGHT", "the scene has no sky view")
+	var player: int = int(world.player)
+
+	# Noon: the sun and the ambient are up; an unlit torch leaves the eye light off.
+	world.tick = Clock.tick_on_day(1, 0.5)
+	scene.call("_process", TICK_SECONDS)
+	var noon_sun: float = float(sky.call("sun_energy"))
+	var noon_ambient: float = float(sky.call("ambient_energy"))
+	if noon_sun <= LIGHT_NOON_SUN_MIN:
+		ok = _fail("LIGHT", "the noon sun is %.3f, not above %.2f" % [noon_sun, LIGHT_NOON_SUN_MIN])
+	if noon_ambient <= LIGHT_NOON_AMBIENT_MIN:
+		ok = _fail("LIGHT", "the noon ambient is %.3f, not above %.2f" % [noon_ambient, LIGHT_NOON_AMBIENT_MIN])
+	if bool(sky.call("eye_light_on")):
+		ok = _fail("LIGHT", "the eye light is on at noon with nothing lit")
+
+	# Rain darkens the same noon grade, and fog turns the depth fog on.
+	SimWeather.set_kind(world, "rain", int(world.tick) + 100)
+	scene.call("_process", TICK_SECONDS)
+	var rain_sun: float = float(sky.call("sun_energy"))
+	if String(sky.call("weather_kind")) != "rain" or rain_sun >= noon_sun * 0.9:
+		ok = _fail("LIGHT", "rain did not darken the noon grade (sun %.3f from %.3f)" % [rain_sun, noon_sun])
+	SimWeather.set_kind(world, "fog", int(world.tick) + 100)
+	scene.call("_process", TICK_SECONDS)
+	if not bool(sky.call("fog_enabled")):
+		ok = _fail("LIGHT", "the sim's fog did not turn the depth fog on")
+	SimWeather.set_kind(world, SimWeather.CLEAR, int(world.tick) + 100)
+	scene.call("_process", TICK_SECONDS)
+
+	# Midnight: the sun and the ambient fall below the named thresholds. Pin the sky clear first:
+	# jumping the clock lands past the previous span and would otherwise roll a new one.
+	world.tick = Clock.tick_on_day(1, 0.8)
+	SimWeather.set_kind(world, SimWeather.CLEAR, int(world.tick) + 100)
+	scene.call("_process", TICK_SECONDS)
+	var night_sun: float = float(sky.call("sun_energy"))
+	var night_ambient: float = float(sky.call("ambient_energy"))
+	if night_sun >= LIGHT_NIGHT_SUN_MAX:
+		ok = _fail("LIGHT", "the midnight sun is %.3f, not below %.2f" % [night_sun, LIGHT_NIGHT_SUN_MAX])
+	if night_ambient >= LIGHT_NIGHT_AMBIENT_MAX:
+		ok = _fail("LIGHT", "the midnight ambient is %.3f, not below %.2f" % [night_ambient, LIGHT_NIGHT_AMBIENT_MAX])
+	if bool(sky.call("eye_light_on")):
+		ok = _fail("LIGHT", "the eye light is on at midnight with nothing lit")
+
+	# A torch in hand: the sim's 25 m and 22 degrees become the eye's own spot.
+	var torch: int = int(SimItems.spawn_item(world, "item.torch.handheld", {"tier": "scavenged"}))
+	if not SimInventory.equip(world, player, torch):
+		ok = _fail("LIGHT", "the torch would not go in a hand")
+	# One frame drains the equip event, the next reads the light component it wrote.
+	scene.call("_process", TICK_SECONDS)
+	scene.call("_process", TICK_SECONDS)
+	if not bool(sky.call("eye_light_on")):
+		ok = _fail("LIGHT", "an equipped, lit torch did not turn the eye light on")
+	if absf(float(sky.call("eye_light_range")) - 25.0) > 0.01:
+		ok = _fail("LIGHT", "the eye light range is %.2f, not the torch's 25 m" % float(sky.call("eye_light_range")))
+	if not bool(sky.call("eye_light_is_spot")):
+		ok = _fail("LIGHT", "the torch's beam is not a spot")
+	if absf(float(sky.call("eye_light_angle_degrees")) - 22.0) > 0.01:
+		ok = _fail("LIGHT", "the eye spot's angle is %.2f, not the torch's 22" % float(sky.call("eye_light_angle_degrees")))
+
+	# An unseen body inside the torch's cone is still not drawn: a wall is the sim's refusal.
+	var setup: Dictionary = _find_wall_room(map)
+	if setup.is_empty():
+		ok = _fail("LIGHT", "no wall with open floor beyond it for the unseen-body negative")
+	else:
+		var near: Vector2i = setup["tile"] as Vector2i
+		var dir: Vector2i = setup["dir"] as Vector2i
+		var here: Vector2 = Vector2(float(near.x) + 0.5, float(near.y) + 0.5)
+		var far: Vector2 = here + Vector2(float(dir.x), float(dir.y)) * 2.0
+		var body: int = int(SimRoster.spawn_zombie(world, far.x, far.y, SimRoster.TYPE_SHAMBLER, world.rng.stream("shambler")))
+		_zero_shambler(world, body)
+		_place_player(scene, here)
+		scene.call("look_toward", Vector3(far.x, 0.9, far.y))
+		_settle_vision(scene, 6)
+		var detail: int = int(world.vision.call("detail", player, far.x, far.y))
+		if detail != 0:
+			ok = _fail("LIGHT", "a body behind a wall is seen (%d), so the negative judges nothing" % detail)
+		var node: MeshInstance3D = scene.call("body_node_for", body) as MeshInstance3D
+		if node == null:
+			ok = _fail("LIGHT", "the unseen shambler has no body view, so visibility is unjudged")
+		elif node.visible:
+			ok = _fail("LIGHT", "the eye light drew a body the sim says is unseen")
+		world.despawn(body)
+
+	# The sim burns the torch out; the eye light follows on the next frame.
+	var fuel: Variant = world.components.get_component(torch, "lightFuel")
+	if not (fuel is Dictionary):
+		ok = _fail("LIGHT", "the torch carries no burn clock")
+	else:
+		(fuel as Dictionary)["ticksLeft"] = 1
+		scene.call("_process", TICK_SECONDS)
+		scene.call("_process", TICK_SECONDS)
+		if bool(sky.call("eye_light_on")):
+			ok = _fail("LIGHT", "the eye light stayed on after the torch burnt out")
+
+	# Leave the scene at noon for the lanes after this one.
+	world.tick = Clock.tick_on_day(1, 0.5)
+	scene.call("_process", TICK_SECONDS)
+	return ok
+
+
+func _find_wall_room(map: Variant) -> Dictionary:
+	var directions: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
+	for ty in range(2, int(map.h) - 2):
+		for tx in range(2, int(map.w) - 2):
+			if not _walkable_floor(map, tx, ty):
+				continue
+			for direction in directions:
+				var wall: Vector2i = Vector2i(tx, ty) + direction
+				var far: Vector2i = wall + direction
+				if not SimTileMap.is_solid(map, wall.x, wall.y):
+					continue
+				if not SimTileMap.blocks_sight(map, wall.x, wall.y):
+					continue
+				if not _walkable_floor(map, far.x, far.y):
+					continue
+				return {"tile": Vector2i(tx, ty), "dir": direction}
+	return {}
 
 
 # --- SUCCESSION -----------------------------------------------------------------------------
