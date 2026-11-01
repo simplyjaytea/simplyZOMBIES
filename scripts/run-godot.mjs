@@ -690,6 +690,20 @@ switch (mode) {
   case "--shots-check":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_shots.gd"];
     break;
+  case "--shots-survivor":
+    // The survivor review: a candidate GLB photographed under the first-person scene's own sky and lens.
+    // Needs a display, like --shots. Anything after the mode is handed to the driver (`--glb=`, `--out=`).
+    args = [
+      "--fixed-fps",
+      "60",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://review/survivor_shots.gd",
+      "--",
+      ...process.argv.slice(3),
+    ];
+    break;
   case "--export":
     args = [];
     break;

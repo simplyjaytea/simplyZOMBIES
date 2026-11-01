@@ -106,6 +106,7 @@
     "godot:check:fp_expedition": "node scripts/run-godot.mjs --check-fp-expedition",
     "godot:check:shots": "node scripts/run-godot.mjs --shots-check",
     "godot:shots": "node scripts/run-godot.mjs --shots",
+    "godot:shots:survivor": "node scripts/run-godot.mjs --shots-survivor",
     "godot:check:context": "node scripts/run-godot.mjs --context",
     "godot:check:speech": "node scripts/run-godot.mjs --speech",
     "godot:check:inventory": "node scripts/run-godot.mjs --inventory",
