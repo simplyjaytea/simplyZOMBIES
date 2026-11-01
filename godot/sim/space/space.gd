@@ -99,6 +99,9 @@ const CHEST_PERMILLE: int = 750
 # docs/30, "The reach arrives at the chest as well as the middle".
 const REACH_TARGET_PERMILLE: Array[int] = [500, CHEST_PERMILLE]
 
+# One tile in millimetres, the unit the segment walk is decided in.
+const TILE_MM: int = SimTileMap.TILE_METRES * 1000
+
 
 ## The profile key of a tile: the overlay's key when it has one, otherwise the tile class's.
 static func profile_key(map: Variant, tx: int, ty: int) -> String:
@@ -184,10 +187,14 @@ static func map_of(world: Variant) -> Variant:
 ## Each point is {"x": metres, "y": metres, "h": millimetres above the floor}. `map` is a SimTileMap,
 ## or a world without one (see `map_of`).
 ##
-## The 2D segment is walked tile by tile in integer steps (the Amanatides-Woo traversal), and inside
-## each tile it crosses the segment's height runs between its two crossing heights, one
-## interpolation per tile. A band stops the segment when the two overlap strictly: touching a band's
-## top or bottom face is passing it, so a line level with a 1000 mm sill clears it.
+## Both points are taken to the nearest millimetre, and from there every decision is made in integers:
+## the 2D segment is walked tile by tile (the Amanatides-Woo traversal), each tile edge it crosses is a
+## rational t = n/d along it, and which edge comes first, whether two come at once (a corner), and
+## whether a band is in the way are all decided by cross-multiplying those integers. No float
+## comparison decides a boundary (docs/37), so a segment and the same segment written backwards or
+## reflected walk the same tiles. A band stops the segment when its heights and the segment's heights
+## inside the tile overlap strictly: touching a band's top or bottom face is passing it, so a line
+## level with a 1000 mm sill clears it.
 ##
 ## The two tiles holding the endpoints are where the bodies stand, and a body is not obstructed by
 ## the ground it is standing on: they are skipped unless they stop movement (a point inside a wall is
@@ -196,76 +203,88 @@ static func map_of(world: Variant) -> Variant:
 ##
 ## Where the segment passes exactly through a tile corner, both tiles beside the corner are tested
 ## at that one height, so a line cannot slip between two walls that meet diagonally. The traversal
-## always runs from the lesser endpoint to the greater, so swapping `a` and `b` gives the same
-## answer by construction rather than by luck.
+## runs from the lesser endpoint to the greater, so swapping `a` and `b` is the same walk.
 static func segment_clear(map: Variant, a: Dictionary, b: Dictionary, purpose: int) -> bool:
 	if purpose & (SIGHT | SHOT | REACH) == 0:
 		push_error("SimSpace.segment_clear: purpose %d is not SIGHT, SHOT or REACH" % purpose)
 		return false
-	var p: Dictionary = a
-	var q: Dictionary = b
-	if _after(a, b):
-		p = b
-		q = a
-	var ax: float = float(p["x"])
-	var ay: float = float(p["y"])
-	var ah: float = float(int(p.get("h", 0)))
-	var bx: float = float(q["x"])
-	var by: float = float(q["y"])
-	var rise: float = float(int(q.get("h", 0))) - ah
-	var tx: int = floori(ax)
-	var ty: int = floori(ay)
-	var sx: int = tx
-	var sy: int = ty
-	var ex: int = floori(bx)
-	var ey: int = floori(by)
-	var dx: float = bx - ax
-	var dy: float = by - ay
-	var step_x: int = 1 if dx > 0.0 else (-1 if dx < 0.0 else 0)
-	var step_y: int = 1 if dy > 0.0 else (-1 if dy < 0.0 else 0)
-	var t_max_x: float = INF
-	var t_max_y: float = INF
-	var t_delta_x: float = INF
-	var t_delta_y: float = INF
-	if step_x != 0:
-		t_max_x = (float(tx + 1 if step_x > 0 else tx) - ax) / dx
-		t_delta_x = 1.0 / absf(dx)
-	if step_y != 0:
-		t_max_y = (float(ty + 1 if step_y > 0 else ty) - ay) / dy
-		t_delta_y = 1.0 / absf(dy)
-	var t_in: float = 0.0
-	# A segment crosses at most one tile per unit step on each axis; the bound only guards against a
-	# traversal that float error has walked past its end.
-	var guard: int = absi(ex - tx) + absi(ey - ty) + 2
-	while guard > 0:
-		guard -= 1
-		var at_end: bool = tx == ex and ty == ey
-		var t_out: float = 1.0 if at_end else minf(minf(t_max_x, t_max_y), 1.0)
-		if _tile_stops(map, tx, ty, purpose, ah + rise * t_in, ah + rise * t_out, sx, sy, ex, ey):
+	var p: Array[int] = _mm_point(a)
+	var q: Array[int] = _mm_point(b)
+	if _after(p, q):
+		var swap: Array[int] = p
+		p = q
+		q = swap
+	var ax: int = p[0]
+	var ay: int = p[1]
+	var ah: int = p[2]
+	var rise: int = q[2] - ah
+	var dx: int = q[0] - ax
+	var dy: int = q[1] - ay
+	var tx: int = _tile_of(ax)
+	var ty: int = _tile_of(ay)
+	var ends: Array[int] = [tx, ty, _tile_of(q[0]), _tile_of(q[1])]
+	var step_x: int = signi(dx)
+	var step_y: int = signi(dy)
+	var den_x: int = absi(dx)
+	var den_y: int = absi(dy)
+	# How far along each axis, in millimetres, the next tile edge lies; it is crossed at t = num / den.
+	var num_x: int = 0
+	var num_y: int = 0
+	if step_x > 0:
+		num_x = (tx + 1) * TILE_MM - ax
+	elif step_x < 0:
+		num_x = ax - tx * TILE_MM
+	if step_y > 0:
+		num_y = (ty + 1) * TILE_MM - ay
+	elif step_y < 0:
+		num_y = ay - ty * TILE_MM
+	var in_n: int = 0
+	var in_d: int = 1
+	# An exact integer walk visits at most one tile per edge crossed, plus the first.
+	for _i in absi(ends[2] - tx) + absi(ends[3] - ty) + 1:
+		var at_end: bool = tx == ends[2] and ty == ends[3]
+		# 0: the segment ends in this tile. 1: it leaves across an x edge. 2: a y edge. 3: a corner.
+		var leaves: int = 0
+		if not at_end:
+			if step_x != 0 and step_y != 0:
+				var order: int = num_x * den_y - num_y * den_x
+				leaves = 1 if order < 0 else (2 if order > 0 else 3)
+			elif step_x != 0:
+				leaves = 1
+			else:
+				leaves = 2
+			# An edge at or past t = 1 is beyond the segment's end, which then lies in this tile.
+			if (leaves != 2 and num_x >= den_x) or (leaves == 2 and num_y >= den_y):
+				leaves = 0
+		var out_n: int = 1
+		var out_d: int = 1
+		if leaves == 1 or leaves == 3:
+			out_n = num_x
+			out_d = den_x
+		elif leaves == 2:
+			out_n = num_y
+			out_d = den_y
+		if _tile_stops(map, tx, ty, purpose, ah, rise, in_n, in_d, out_n, out_d, ends):
 			return false
-		if at_end or t_out >= 1.0:
+		if leaves == 0:
 			return true
-		if t_max_x < t_max_y:
-			tx += step_x
-			t_in = t_max_x
-			t_max_x += t_delta_x
-		elif t_max_y < t_max_x:
-			ty += step_y
-			t_in = t_max_y
-			t_max_y += t_delta_y
-		else:
-			# Exactly through a corner: the two tiles beside it are touched at one height.
-			var h_corner: float = ah + rise * t_max_x
-			if _tile_stops(map, tx + step_x, ty, purpose, h_corner, h_corner, sx, sy, ex, ey):
+		if leaves == 3:
+			if _tile_stops(map, tx + step_x, ty, purpose, ah, rise, out_n, out_d, out_n, out_d, ends):
 				return false
-			if _tile_stops(map, tx, ty + step_y, purpose, h_corner, h_corner, sx, sy, ex, ey):
+			if _tile_stops(map, tx, ty + step_y, purpose, ah, rise, out_n, out_d, out_n, out_d, ends):
 				return false
+		if leaves != 2:
 			tx += step_x
+			num_x += TILE_MM
+		if leaves != 1:
 			ty += step_y
-			t_in = t_max_x
-			t_max_x += t_delta_x
-			t_max_y += t_delta_y
-	return true
+			num_y += TILE_MM
+		in_n = out_n
+		in_d = out_d
+	# Unreachable: the integer walk always arrives at the end tile within its bound. Refuse rather than
+	# pass a segment whose last tile was never tested.
+	push_error("SimSpace.segment_clear: the walk from %s to %s ran out before its end tile" % [str(p), str(q)])
+	return false
 
 
 ## Whether a blow from `attacker` standing at `from` arrives at `target` standing at `to`: the segment
@@ -286,22 +305,36 @@ static func reach_clear(world: Variant, from: Dictionary, to: Dictionary, attack
 	return false
 
 
+# A point in integer millimetres, [x, y, h]: the plane coordinates to the nearest millimetre.
+static func _mm_point(point: Dictionary) -> Array[int]:
+	return [roundi(float(point["x"]) * 1000.0), roundi(float(point["y"]) * 1000.0), int(point.get("h", 0))]
+
+
+# The tile a millimetre coordinate lies in: floor division by the tile, in integers.
+static func _tile_of(mm: int) -> int:
+	@warning_ignore("integer_division")
+	var tile: int = (mm - posmod(mm, TILE_MM)) / TILE_MM
+	return tile
+
+
 # The canonical order of two endpoints: x, then y, then height. Ties on all three are one point.
-static func _after(a: Dictionary, b: Dictionary) -> bool:
-	if float(a["x"]) != float(b["x"]):
-		return float(a["x"]) > float(b["x"])
-	if float(a["y"]) != float(b["y"]):
-		return float(a["y"]) > float(b["y"])
-	return int(a.get("h", 0)) > int(b.get("h", 0))
+static func _after(a: Array[int], b: Array[int]) -> bool:
+	if a[0] != b[0]:
+		return a[0] > b[0]
+	if a[1] != b[1]:
+		return a[1] > b[1]
+	return a[2] > b[2]
 
 
-# Whether tile (tx, ty), crossed between heights h0 and h1, holds a band that stops `purpose`. The
-# endpoint tiles (sx, sy) and (ex, ey) count only when they stop movement.
-static func _tile_stops(map: Variant, tx: int, ty: int, purpose: int, h0: float, h1: float, sx: int, sy: int, ex: int, ey: int) -> bool:
+# Whether tile (tx, ty), crossed between t = n0/d0 and t = n1/d1 (denominators positive), holds a band
+# that stops `purpose`. The height at t = n/d is (ah * d + rise * n) / d, so every comparison with a
+# band's integer edge is made on whole numbers. The endpoint tiles, `ends` = [sx, sy, ex, ey], count
+# only when they stop movement.
+static func _tile_stops(map: Variant, tx: int, ty: int, purpose: int, ah: int, rise: int, n0: int, d0: int, n1: int, d1: int, ends: Array[int]) -> bool:
 	var tile_bands: Array = bands(_key_at(map, tx, ty))
 	if tile_bands.is_empty():
 		return false
-	if (tx == sx and ty == sy) or (tx == ex and ty == ey):
+	if (tx == ends[0] and ty == ends[1]) or (tx == ends[2] and ty == ends[3]):
 		var solid: bool = false
 		for band in tile_bands:
 			if int((band as Array)[2]) & MOVE != 0:
@@ -309,13 +342,19 @@ static func _tile_stops(map: Variant, tx: int, ty: int, purpose: int, h0: float,
 				break
 		if not solid:
 			return false
-	var lo: float = minf(h0, h1)
-	var hi: float = maxf(h0, h1)
+	var h0: int = ah * d0 + rise * n0
+	var h1: int = ah * d1 + rise * n1
 	for band in tile_bands:
 		var bnd: Array = band as Array
 		if int(bnd[2]) & purpose == 0:
 			continue
-		if lo < float(int(bnd[1])) and hi > float(int(bnd[0])):
+		var bottom: int = int(bnd[0])
+		var top: int = int(bnd[1])
+		# Strict overlap: the lower of the two heights is under the band's top, and the higher is over
+		# its bottom.
+		var under_top: bool = h0 < top * d0 or h1 < top * d1
+		var over_bottom: bool = h0 > bottom * d0 or h1 > bottom * d1
+		if under_top and over_bottom:
 			return true
 	return false
 

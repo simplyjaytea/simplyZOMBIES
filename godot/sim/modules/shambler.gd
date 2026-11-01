@@ -775,10 +775,13 @@ static func swipe_damage_for(body: Variant, part: String) -> float:
 # this is the one reach question every blow asks, `SimSpace.reach_clear`: the whole segment from
 # the reacher's shoulder to the reached body's middle or chest, traced through the height profile.
 # It used to be three samples against `world.is_blocked_tile` (the oracle's clearContact,
-# src/sim/modules/shambler.ts:628), which is solidity, not reach: for every full-height band the
-# two give the same answer, and they differ only where the profile has a height -- a window's
-# aperture, a car's top, a doorway's lintel. `reacher` and `reached` name the bodies when the
-# caller has them; a bare pair of positions reads as a shambler reaching a standing survivor.
+# src/sim/modules/shambler.ts:628), which asked solidity rather than reach, and only at three
+# points. The two differ in two ways. Where the profile has a height -- a window's aperture, deep
+# water, a car's top, a doorway's lintel -- the answer now follows the bands. And the walk tests
+# every tile the line crosses, so a wall corner the line clips between the old samples now refuses
+# a claw or a grab the samples let through (`godot:m2:space` CLIPPED pins one). `reacher` and
+# `reached` name the bodies when the caller has them; a bare pair of positions reads as a shambler
+# reaching a standing survivor.
 static func _clear_contact(world: Variant, from: Dictionary, to: Dictionary, reacher: int = -1, reached: int = -1) -> bool:
 	return SimSpaceRes.reach_clear(world, from, to, reacher, reached)
 
