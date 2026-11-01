@@ -1,0 +1,219 @@
+{
+  "kit": "weapons",
+  "models": [
+    {
+      "match": {
+        "id": "item.pistol.service"
+      },
+      "glb": "res://assets/first_person/weapons/pistol_service.glb",
+      "pose": "held",
+      "sockets": {
+        "barrel": "socket_barrel",
+        "extractor": "socket_extractor",
+        "furniture": "socket_furniture",
+        "internal": "socket_internal",
+        "magazine": "socket_magazine",
+        "muzzle": "socket_muzzle",
+        "optic": "socket_optic",
+        "sear": "socket_sear",
+        "spring": "socket_spring",
+        "underbarrel": "socket_underbarrel"
+      },
+      "grip": "grip_r",
+      "sizeM": [
+        0.029,
+        0.138,
+        0.192
+      ]
+    },
+    {
+      "match": {
+        "id": "item.part.barrel.standard"
+      },
+      "glb": "res://assets/first_person/weapons/pistol_barrel_standard.glb",
+      "pose": "held",
+      "sockets": {
+        "muzzle": "socket_muzzle"
+      },
+      "sizeM": [
+        0.016,
+        0.0195,
+        0.1145
+      ]
+    },
+    {
+      "match": {
+        "id": "item.part.magazine.standard"
+      },
+      "glb": "res://assets/first_person/weapons/pistol_magazine_standard.glb",
+      "pose": "held",
+      "sockets": {},
+      "sizeM": [
+        0.0256,
+        0.1,
+        0.0375
+      ]
+    },
+    {
+      "match": {
+        "id": "item.part.action.standard"
+      },
+      "glb": "res://assets/first_person/weapons/pistol_action_standard.glb",
+      "pose": "held",
+      "sockets": {},
+      "sizeM": [
+        0.011,
+        0.0105,
+        0.055
+      ]
+    },
+    {
+      "match": {
+        "id": "item.part.spring.standard"
+      },
+      "glb": "res://assets/first_person/weapons/pistol_spring_standard.glb",
+      "pose": "held",
+      "sockets": {},
+      "sizeM": [
+        0.0056,
+        0.0056,
+        0.082
+      ]
+    },
+    {
+      "match": {
+        "id": "item.part.sear.standard"
+      },
+      "glb": "res://assets/first_person/weapons/pistol_sear_standard.glb",
+      "pose": "held",
+      "sockets": {},
+      "sizeM": [
+        0.006,
+        0.0085,
+        0.013
+      ]
+    },
+    {
+      "match": {
+        "id": "item.part.extractor.standard"
+      },
+      "glb": "res://assets/first_person/weapons/pistol_extractor_standard.glb",
+      "pose": "held",
+      "sockets": {},
+      "sizeM": [
+        0.001,
+        0.0044,
+        0.019
+      ]
+    },
+    {
+      "match": {
+        "id": "item.attach.suppressor"
+      },
+      "glb": "res://assets/first_person/weapons/pistol_suppressor.glb",
+      "pose": "held",
+      "sockets": {},
+      "sizeM": [
+        0.0324,
+        0.0324,
+        0.149
+      ]
+    },
+    {
+      "match": {
+        "id": "item.attach.optic.red_dot"
+      },
+      "glb": "res://assets/first_person/weapons/pistol_optic_red_dot.glb",
+      "pose": "held",
+      "sockets": {},
+      "sizeM": [
+        0.022,
+        0.0215,
+        0.032
+      ]
+    },
+    {
+      "match": {
+        "id": "item.attach.magazine.extended"
+      },
+      "glb": "res://assets/first_person/weapons/pistol_magazine_extended.glb",
+      "pose": "held",
+      "sockets": {},
+      "sizeM": [
+        0.0256,
+        0.1345,
+        0.0375
+      ]
+    },
+    {
+      "match": {
+        "id": "item.bat.wood"
+      },
+      "glb": "res://assets/first_person/weapons/bat_wood.glb",
+      "pose": "held",
+      "sockets": {
+        "stud": "socket_stud",
+        "weight": "socket_weight",
+        "wrap": "socket_wrap"
+      },
+      "grip": "grip_r",
+      "sizeM": [
+        0.066,
+        0.066,
+        0.84
+      ]
+    },
+    {
+      "match": {
+        "id": "item.knife.kitchen"
+      },
+      "glb": "res://assets/first_person/weapons/knife_kitchen.glb",
+      "pose": "held",
+      "sockets": {
+        "edge": "socket_edge",
+        "wrap": "socket_wrap"
+      },
+      "grip": "grip_r",
+      "sizeM": [
+        0.019,
+        0.046,
+        0.322
+      ]
+    },
+    {
+      "match": {
+        "id": "item.crowbar.steel"
+      },
+      "glb": "res://assets/first_person/weapons/crowbar_steel.glb",
+      "pose": "held",
+      "sockets": {
+        "weight": "socket_weight",
+        "wrap": "socket_wrap"
+      },
+      "grip": "grip_r",
+      "sizeM": [
+        0.0275,
+        0.102,
+        0.6
+      ]
+    },
+    {
+      "match": {
+        "id": "item.axe.fire"
+      },
+      "glb": "res://assets/first_person/weapons/axe_fire.glb",
+      "pose": "held",
+      "sockets": {
+        "haft": "socket_haft",
+        "head": "socket_head",
+        "wrap": "socket_wrap"
+      },
+      "grip": "grip_r",
+      "sizeM": [
+        0.034,
+        0.334,
+        0.91
+      ]
+    }
+  ]
+}
