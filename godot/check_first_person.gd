@@ -2241,7 +2241,9 @@ func _nearest_everywhere(node: Node3D) -> bool:
 				material = m.material_override
 			if material is BaseMaterial3D:
 				judged += 1
-				if (material as BaseMaterial3D).texture_filter != BaseMaterial3D.TEXTURE_FILTER_NEAREST:
+				# Nearest magnification keeps the pixel art crisp; mipmaps keep a wall at 8 m from
+				# shimmering (the art review's note on #281). Linear magnification is still refused.
+				if (material as BaseMaterial3D).texture_filter != BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS:
 					return false
 	return judged > 0
 

@@ -193,7 +193,7 @@ func _build_views() -> void:
 	_district = DistrictView.new()
 	_district.name = "District"
 	add_child(_district)
-	_district.call("build", map)
+	_district.call("build", map, SEED)
 
 	_props = PropView.new()
 	_props.name = "SafeSpawnProps"
