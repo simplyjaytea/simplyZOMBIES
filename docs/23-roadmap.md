@@ -174,9 +174,10 @@ conversion. The source baseline is archived on GitHub at
 - **First-person people and settlement operation.** Ledger animations, reports,
   conversations, delegation and construction access; the captive arc stays
   separately scoped planned work under its existing group.
-- **First-person expedition and default switch.** Prepare, scavenge, encounter
-  danger, return, treat, save/reload, die and succeed; measured performance,
-  regression proof, campaign balance and human play before changing the default.
+- **First-person expedition.** Prepare, scavenge, encounter danger, return, treat,
+  save/reload, die and succeed; measured performance, regression proof, campaign
+  balance and human play. The default switch landed 2026-11-01 (docs/30, "First person
+  is the default boot"), so the boot is first person and the top-down game is the testing build.
 - **Starter-kit polish (#275 round 2).** In `tools/blender/first_person_kit/build_kit.py`: plaster
   cloud noise reads as camouflage blocks up close; oak grain steps every 8 texels, like brickwork;
   paint chips follow atlas cells, not mesh edges; barricade planks float 6 mm off the brace; wall
@@ -2493,6 +2494,59 @@ not a to-do list:
     screen's needs words are the sim's own; and out of reach, off the aim, or through a wall opens no
     screen. A bench made by the sim outside the player's build is drawn too.
 
+- **Bodies drawn with the character models, 2026-11-01.** docs/41's piece C1: the first-person
+  scene draws each body with the character GLB its kind names, in place of the placeholder cylinder.
+  Survivors, colonists and raiders are `survivor.glb`; every zombie is `shambler.glb` until zombie kinds
+  have models of their own. The loader is the one in `models.gd`, and the two GLBs are loaded by path,
+  not through a manifest: the kind is decided by the sim's `zombieType`, not by an item id, so a manifest
+  would add a lookup with nothing to resolve. `body_view.gd` gives each body its own instance (sharing the
+  template's meshes and textures) and its own AnimationPlayer. The clip is `anim_state.gd`'s
+  `clip_for(kind, state)`, and the pose is its phase, set every frame with the player at speed zero, so
+  the animation follows the sim and not its own clock. The loops are `idle`, `walk`, `crouch_idle` and
+  `shamble` (`LOOPING_CLIPS`); `lunge` and `death` are one-shots that hold their last frame. A body with no
+  model, a GLB that is missing or a GLB with no player, keeps the capsule. The model turns to the sim's
+  `facing`, and a body the sim cannot see is hidden.
+  - **The gate.** The BODIES lane of `godot/check_first_person.gd` runs in a fresh scene, because its 300
+    ticks change the colony the other lanes read. It holds that a walking colonist plays `walk` at the
+    sim's phase and faces the sim's heading (0 rad looks along +x, pi/2 along +z); that a shambler in its
+    armed swipe plays `lunge` at the swipe's phase; that a corpse plays `death`, and after 300 ticks still
+    plays it at its last frame; that loops are `LOOP_LINEAR` and one-shots `LOOP_NONE`, and a one-shot
+    seeked to its end holds its last frame; that a body the sim cannot see is not drawn; and that a missing
+    model falls back to the capsule, with no player.
+  - **True negatives, run by hand.** Each rule was broken once and the lane went red: the clip always idle
+    (`plays idle, not walk`), no loop flags (`does not loop`), always visible (`a body the sim cannot see
+    is drawn`), and a death at phase 0 (`death is at 0.000 s ... not held at its last frame`).
+  - **Found on the way.** An AnimationPlayer seeked to its exact end finishes, and a finished clip clears
+    `current_animation`. A held pose therefore sits 0.1 ms short of the end, and the lane checks that.
+  - **Measured.** A headed probe at a 1280 x 720 render size (`content_scale_size`; the OS window came back
+    1247 x 1320 on this machine), 40 shamblers in a block in view, 300 frames, three runs a side, before and
+    after this change:
+    - before (capsules): mean 5.708, 5.742, 5.594 ms; median 5.554, 5.556, 5.553 ms; p95 10.717, 10.793,
+      10.130 ms;
+    - after, first version (a seek every frame): mean 6.237, 6.280, 6.263 ms; p95 13.232, 13.291, 12.612 ms;
+    - after, seek only when the phase moves: mean 6.223, 6.223, 6.261 ms; median 5.556 to 5.558 ms; p95
+      12.465, 12.234, 12.530 ms.
+    The frame sits at the 180 Hz cap for the median, so the cost shows in the tail: about 0.5 ms a frame
+    in the mean and about 2 ms at p95 with 40 horde bodies. The rest is the skinned models themselves, not
+    the animation calls.
+  - **Viewport captures** at 1280 x 720, taken from inside Godot and kept outside the repository: a walking
+    survivor, a lunging shambler and a corpse. The walking survivor is hard to tell from the horde at this
+    size; the gate is what holds it.
+  - **Not in this piece.** Zombie kinds other than the shambler still draw the shambler model. A corpse is
+    made for survivors only (`recruits.gd`'s `_make_corpse`), so a zombie's death clip is set by the
+    gate, not the sim. Horde cost beyond 40 is unmeasured, and so is a horde at the shipped district's
+    density.
+- **Art — the survivor review driver, 2026-11-01.** `npm run godot:shots:survivor` photographs a
+  candidate survivor GLB in the first-person scene's own sky, sun and lens: `SkyView` for the
+  light, the first-person 75-degree lens at the 1.62 m eye, and `models.gd` for the loader. It
+  writes full body front, back and three-quarter; head front, three-quarter, profile and back;
+  first-person ranges at 0.9, 2 and 5 m; the `walk` clip at eight phases; and a sheet with the
+  owner's concept beside them. `review.json` records the GLB's SHA-256, so two sets can be told
+  apart. It is a render, not a gate, and it needs a display. It serves the headed shots and
+  independent art review of the first-person starter-kit bullet above. The driver is
+  `godot/review/survivor_shots.gd`, with a mode in `scripts/run-godot.mjs` and a routing row. Its
+  first capture came back blank at the wrong size from the root viewport, so the stage draws in its
+  own `SubViewport`. The baseline of the current blocky survivor lives outside the repository.
 - **Pitch on the aim, 2026-11-01.** Slice 3 of docs/40: the aim has a pitch as well as a yaw.
   - **The record.** The `aim` command takes an optional `pitch` in radians, positive up. It goes
     through `SimAim.propose` (`godot/sim/aim.gd`) with the yaw, so both take or neither does. The
@@ -2861,6 +2915,34 @@ not a to-do list:
     - The melee models are whole, and their part models are art piece 6.
     - CI has no Blender, so the check runs by hand.
     - The independent art review.
+
+- **Animation state from the sim, 2026-11-01.** Advances "First-person people and settlement
+  operation", the body art: every drawn body now names the animation it should play, read from the
+  sim, before the character GLBs land.
+  - **The read model.** `presentation/first_person/anim_state.gd` is pure and static:
+    `state_of(world, entity)` returns one of idle, walk, run, crouch_idle, crouch_walk, crawl, swing,
+    lunge, grab, stagger, death, from corpse, grabbed/grabState, swing.state,
+    shambler.state/ticksToSwipe, posture, velocity and the body's legs. `phase_of` returns 0..1 in the
+    chosen clip: loops advance on the sim tick with a per-entity seat, one-shots use the sim's own
+    countdown (a swipe's wind-up, a hold's next bite), and a held pose is 1.
+  - **The clip table.** `clip_for(kind, state)` names the nearest existing character clip, so the art
+    can grow without a caller change: survivor run -> walk, crouch_walk -> crouch_idle, crawl ->
+    crouch_idle, swing/lunge -> walk, grab/stagger -> idle; shambler walk -> shamble, swing/lunge/grab
+    -> lunge, stagger -> idle. The table and why each is nearest are in the report.
+  - **The placeholder.** `body_view.gd` poses the cylinder from the state: a lean into a swing, a
+    lunge or a hold, a sideways roll on a stagger, and lying flat for a corpse; crouch and crawl are
+    already the sim's own body height. Rotation is reset each frame, the lean pivots at the feet, and
+    the hot path calls `state_of`/`phase_of`, so no Dictionary is built per body per frame.
+  - **Read-only.** The sim is never written; the gate stages the components for the states the sim has
+    no command for (a shambler's swipe, hold and stagger) and restores them. A survivor's stagger is
+    event-only (`entity.staggered`) with no component to read, so it is not named; a survivor in that
+    moment reads as its locomotion state.
+  - **The gate.** `npm run godot:check:first_person` (ANIM lane) prints `FIRST_PERSON_OK`. True
+    positives: stand, walk, run, crouch, crouch walk, crawl, a swing's wind-up and recover, a
+    shambler's armed swipe as lunge, a hold as grab, a stagger, and a death. True negatives: a body
+    that stops is idle one tick later; a corpse is still death after thirty ticks; no living body
+    reports death. Every named state's phase is 0..1.
+  - **Record.** `docs/planning/first-person-anim-state-report.md`.
 - **The segment, and melee stops going through walls, 2026-11-01.** Slice 2 of docs/40: the first
   question the sim asks of the height profile, and the three blows that now ask it.
   - **The record.** `SimSpace.segment_clear(map, a, b, purpose)` (`godot/sim/space/space.gd`) walks
@@ -3039,6 +3121,39 @@ not a to-do list:
     `godot:export` was skipped locally because this machine has no export templates; the preset
     exports all resources, so the scene is in the PCK.
   - **Record.** `docs/planning/first-person-title-report.md`.
+
+- **Default boot and the third-person testing view, 2026-11-01.** Advances "First-person
+  expedition and default switch" by the owner's call (docs/30, "First person is the default boot").
+  - **The door, moved.** `project.godot`'s `run/main_scene` names
+    `presentation/first_person/first_person.tscn`, so `npm run godot:run` and the exported builds
+    boot first person. The top-down game is reached with `npm run godot:run:topdown` (a new
+    `--topdown-run` mode opening `presentation/main.tscn`) or from the first-person scene's Escape,
+    which lands on that title. The title row is relabelled "first person" (was "first person
+    (experimental)"). Save slots are unchanged: the first-person slot is its own.
+  - **The testing view.** `first_person.gd` takes F2 (`VIEW_KEY`) to toggle `third_person`, a
+    presentation flag the sim never reads and the save never holds. Third person places the camera
+    at (0.25, eye + 0.4, 2.75) in the rig's frame, and `_camera_local` pulls it in by walking
+    `SimSpace.segment_clear` (SIGHT) from the eye toward that spot in 30 steps. The player's own body
+    is `presentation/first_person/own_body.gd`: `survivor.glb`, shown only in third person, turned to
+    the sim's facing and playing the clip `anim_state.gd` names for the sim's state. Movement, aim and
+    interaction are unchanged; they still come from the eye.
+  - **The gate.** `npm run godot:check:first_person` gains BOOT (project.godot's main scene is the
+    first-person scene; a fabricated project that names the top-down scene is refused) and THIRD
+    (first person hides the body and puts the camera at the eye; F2 shows the body, steps the camera
+    to the shoulder spot and plays the sim's clip, which is `walk` or `run` while W is held and
+    standing again after release; a wall behind the body pulls the camera in while the sim's sight
+    line to the full spot is blocked; F2 back restores first person). LEGEND holds F2 in the key
+    reference. `npm run godot:check:play` SCENE lane now asserts the boot is first person, and
+    FIRST-PERSON reads the relabelled row.
+  - **The export smoke.** `scripts/smoke-godot-exports.mjs` waited for `GODOT_R1_READY`, which only
+    the top-down scene prints. It now waits for `GODOT_FIRST_PERSON_READY`, which
+    `first_person.gd`'s `_ready` prints. The top-down scene still prints R1 and R4. CI's
+    `godot-exports` job is the check that the exported default boot reaches it.
+  - **Not in this piece.** The held weapon is drawn at the camera in third person; the body carries
+    no weapon yet. Third person is not a player-facing mode.
+  - **Captures.** Two in-engine captures (default boot, third-person survivor) are in
+    `C:/Users/jtf/orca/sz-shared/fp-default/`. They were taken with a temporary driver that is not
+    committed.
 
 - **First-person succession and the end of a run, 2026-11-01.** Advances "First-person expedition
   and default switch": dying can hand the camera to an heir, and the last death ends the run on a

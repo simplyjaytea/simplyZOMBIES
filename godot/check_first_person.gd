@@ -85,6 +85,9 @@ extends SceneTree
 #             published sizes on the floor and the desk top, with nearest-filtered materials; the
 #             prop preview stands every prop on its authored base. Missing art skips to the boxes,
 #             and a planted wrong-size GLB and a raised prop are refused by the same tests.
+#   BODIES    a walking colonist plays walk at the sim's phase and faces the sim's heading; a lunging shambler
+#             plays lunge; a corpse plays death and holds its last frame after 300 ticks; loops loop and one-shots
+#             do not; a body the sim cannot see is not drawn; a missing model falls back to the capsule.
 #   ANIM      the animation read model names the pose from sim facts: standing, a walk, a run, a
 #             crouch, a crouch walk, a crawl, a swing (wind-up and recover), a shambler's armed swipe
 #             as a lunge, a hold as a grab, a stagger, and a corpse as death. A body that stops is
@@ -102,6 +105,7 @@ const SCENE_PATH: String = "res://presentation/first_person/first_person.tscn"
 const WorkPanel = preload("res://ui/work_panel.gd")
 const InventoryPanel = preload("res://ui/inventory_panel.gd")
 const AnimState = preload("res://presentation/first_person/anim_state.gd")
+const BodyView = preload("res://presentation/first_person/body_view.gd")
 const TalkPanel = preload("res://ui/talk_panel.gd")
 const WorkRead = preload("res://sim/work_read.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
@@ -153,6 +157,8 @@ const TICK_SECONDS: float = 1.0 / 20.0
 const EPSILON: float = 0.0001
 # A model's drawn box against its manifest sizeM, and a loose item against the floor: 1 cm.
 const MODEL_TOLERANCE_M: float = 0.01
+# A clip position against the sim's phase, in seconds: a frame of slack on a 1 s clip is far below a visible step.
+const PHASE_EPSILON: float = 0.001
 
 var _failures: Array[String] = []
 var _skips: Array[String] = []
@@ -174,6 +180,7 @@ func _run() -> void:
 		_finish(old_size)
 		return
 	var ok: bool = _lane("DISTRICT", _district_default(packed), "the scene boots the shipped district size and seed by default and the gate walks a smaller one")
+	ok = _lane("BOOT", _default_boot(), "project.godot boots the first-person scene, and a project that names the top-down scene is refused") and ok
 	var scene: Node = packed.instantiate()
 	scene.set("district_tiles", SMALL_DISTRICT_TILES)
 	root.add_child(scene)
@@ -211,10 +218,21 @@ func _run() -> void:
 		ok = _lane("LIGHT", _light(scene), "noon is bright and midnight dark, and a carried torch lights the eye") and ok
 		ok = _lane("SUCCESSION", _succession(scene), "a death hands the camera to an heir and the dead body is drawn") and ok
 		ok = _lane("LEGEND", _legend(scene), "F1 lists every key the scene handles and the scene handles every key it lists") and ok
+		ok = _lane("THIRD", _third_person(scene), "F2 steps the camera behind the eye and back, the own body is drawn and plays the sim's clip only in third person, and a wall pulls the camera in while an open line does not") and ok
 		ok = _lane("TALK", _talk(scene), "a colonist in reach talks in the read models' own words") and ok
 		ok = _lane("ANIM", _anim(scene), "every body names its animation state from the sim with a phase in 0..1") and ok
 		ok = _lane("RUN-OVER", _run_over(scene), "killing the colony opens the end panel and W sends nothing") and ok
 	scene.queue_free()
+	await process_frame
+	# The body lane runs its own 300 ticks, so it gets a fresh scene of its own: the colony the other lanes read
+	# is not changed by it, and the lane reads a colony that is all there.
+	var bodies_scene: Node = packed.instantiate()
+	bodies_scene.set("district_tiles", SMALL_DISTRICT_TILES)
+	root.add_child(bodies_scene)
+	bodies_scene.set_process(false)
+	await process_frame
+	ok = _lane("BODIES", _character_bodies(bodies_scene), "a walking colonist plays walk at the sim's phase, a lunging shambler plays lunge, a corpse holds death, loops loop and one-shots hold, a body the sim cannot see is hidden, and a missing model falls back to the capsule") and ok
+	bodies_scene.queue_free()
 	await process_frame
 	_finish(old_size, ok)
 
@@ -428,7 +446,7 @@ func _npc(scene: Node) -> bool:
 	if visible_ent < 0:
 		ok = _fail("NPC", "no body came into the sim's sight when the player looked at it")
 	else:
-		var visible_view: MeshInstance3D = scene.call("body_node_for", visible_ent) as MeshInstance3D
+		var visible_view: Node3D = scene.call("body_node_for", visible_ent) as Node3D
 		if visible_view == null or not visible_view.visible:
 			ok = _fail("NPC", "a body the sim can see was not drawn")
 	if int(scene.call("body_view_visible_count")) <= 0:
@@ -437,7 +455,7 @@ func _npc(scene: Node) -> bool:
 	# no such body says so rather than passing quietly.
 	var hidden: int = _first_out_of_sight_body(world)
 	if hidden >= 0:
-		var hidden_view: MeshInstance3D = scene.call("body_node_for", hidden) as MeshInstance3D
+		var hidden_view: Node3D = scene.call("body_node_for", hidden) as Node3D
 		if hidden_view == null:
 			ok = _fail("NPC", "an out-of-sight body had no view to hide")
 		elif hidden_view.visible:
@@ -680,6 +698,171 @@ func _blocked(scene: Node) -> bool:
 	if away.distance_to(centre) < 0.30:
 		ok = _fail("BLOCK", "the open direction did not move the body (%.3f m)" % away.distance_to(centre))
 	return ok
+
+
+# --- BOOT -----------------------------------------------------------------------------------
+
+# The default boot: project.godot names the first-person scene as its main scene, and the scene this gate
+# loads is that scene. The reader is proved on fabricated lines first, so "no match" and "a match that
+# happens to agree" cannot look the same.
+func _default_boot() -> bool:
+	if _main_scene_in("run/main_scene=\"res://presentation/main.tscn\"") == SCENE_PATH:
+		return _fail("BOOT", "the reader answers the first-person scene for a project that names the top-down one")
+	if _main_scene_in("[application]\nconfig/name=\"simplyZOMBIES\"") != "":
+		return _fail("BOOT", "the reader invented a main scene for a project file that names none")
+	var text: String = FileAccess.get_file_as_string("res://project.godot")
+	if text.is_empty():
+		return _fail("BOOT", "cannot read res://project.godot")
+	var booted: String = _main_scene_in(text)
+	if booted != SCENE_PATH:
+		return _fail("BOOT", "the game boots '%s', not the first-person scene %s" % [booted, SCENE_PATH])
+	return true
+
+
+func _main_scene_in(text: String) -> String:
+	for raw in text.split("\n"):
+		var line: String = String(raw).strip_edges()
+		if line.begins_with("run/main_scene="):
+			return line.substr("run/main_scene=".length()).strip_edges().trim_prefix("\"").trim_suffix("\"")
+	return ""
+
+
+# --- THIRD ----------------------------------------------------------------------------------
+
+# The testing view (docs/39). F2 toggles it. First person hides the player's own body and keeps the camera
+# at the eye. Third person draws survivor.glb, plays the clip the sim's state names, and steps the camera
+# back to the shoulder spot. A wall on that line pulls the camera in; an open line does not. Every case
+# reads the sim and the scene, never the key.
+func _third_person(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var body: Node3D = scene.get("own_body") as Node3D
+	var camera: Camera3D = scene.get("camera") as Camera3D
+	var rig: Node3D = scene.get("_rig") as Node3D
+	if body == null or camera == null or rig == null:
+		return _fail("THIRD", "the scene built no own body, no camera or no rig")
+	var player: AnimationPlayer = body.get("player") as AnimationPlayer
+	if player == null:
+		return _fail("THIRD", "the player's own body has no model with an AnimationPlayer: survivor.glb did not load")
+	var setup: Dictionary = _find_open_line(map)
+	if setup.is_empty():
+		return _fail("THIRD", "the district has no floor with three tiles of clear floor behind and ahead")
+	var tile: Vector2i = setup["tile"] as Vector2i
+	var dir: Vector2i = setup["dir"] as Vector2i
+	var centre: Vector2 = Vector2(float(tile.x) + 0.5, float(tile.y) + 0.5)
+	var face: float = atan2(-float(dir.x), -float(dir.y))
+
+	# First person: the body is hidden and the camera sits at the eye.
+	_place_player(scene, centre)
+	scene.call("set_look", face, 0.0)
+	_settle_eye(scene)
+	scene.call("_update_render", 1.0)
+	var eye_local: Vector3 = Vector3(0.0, float(scene.get("_eye_m")), 0.0)
+	if bool(scene.get("third_person")) or body.visible:
+		ok = _fail("THIRD", "a fresh first-person view shows the player's own body")
+	if camera.position.distance_to(eye_local) > 0.001:
+		ok = _fail("THIRD", "first person puts the camera at %s, not the eye %s" % [str(camera.position), str(eye_local)])
+
+	# F2 on: the body is drawn, and the camera is behind and above the eye, a little to the right.
+	_key(FirstPerson.VIEW_KEY, true)
+	_key(FirstPerson.VIEW_KEY, false)
+	scene.call("_update_render", 1.0)
+	if not bool(scene.get("third_person")):
+		return _fail("THIRD", "F2 did not switch to third person")
+	if not body.visible:
+		ok = _fail("THIRD", "third person hides the player's own body")
+	var want: Vector3 = Vector3(FirstPerson.THIRD_RIGHT_M, eye_local.y + FirstPerson.THIRD_UP_M, FirstPerson.THIRD_BACK_M)
+	if camera.position.distance_to(want) > 0.01:
+		ok = _fail("THIRD", "the open-line camera is at %s, not the shoulder spot %s" % [str(camera.position), str(want)])
+	if camera.position.z <= eye_local.z + 1.0:
+		ok = _fail("THIRD", "the camera is not behind the eye (z %.3f)" % camera.position.z)
+
+	# The clip is the sim's: standing names the sim's state, walking names walk, and standing again names
+	# the standing clip rather than walk.
+	var player_id: int = int(world.player)
+	var state_now: String = AnimState.state_of(world, player_id)
+	var want_clip: String = AnimState.clip_for(AnimState.kind_of(world, player_id), state_now)
+	if String(player.current_animation) != want_clip:
+		ok = _fail("THIRD", "the own body plays '%s' while the sim's %s state names '%s'" % [String(player.current_animation), state_now, want_clip])
+	_key(KEY_W, true)
+	for _i in 6:
+		scene.call("_process", TICK_SECONDS)
+	# Read while W is still held: the tick after a release sends a zero move, and the body stops.
+	var moving_state: String = AnimState.state_of(world, player_id)
+	var moving_clip: String = String(player.current_animation)
+	if not ["walk", "run"].has(moving_state):
+		ok = _fail("THIRD", "a survivor walking forward reads '%s', not walk or run" % moving_state)
+	if moving_clip != AnimState.clip_for(AnimState.kind_of(world, player_id), moving_state):
+		ok = _fail("THIRD", "the own body plays '%s' while the sim's walking state is '%s'" % [moving_clip, moving_state])
+	_key(KEY_W, false)
+	for _i in 12:
+		scene.call("_process", TICK_SECONDS)
+	var still_state: String = AnimState.state_of(world, player_id)
+	var still_clip: String = String(player.current_animation)
+	if ["walk", "run"].has(still_state) or still_clip == "walk" or still_clip == "run":
+		ok = _fail("THIRD", "a standing survivor still reads '%s' and plays '%s'" % [still_state, still_clip])
+	if still_clip != AnimState.clip_for(AnimState.kind_of(world, player_id), still_state):
+		ok = _fail("THIRD", "the own body plays '%s' for the sim's '%s' state" % [still_clip, still_state])
+
+	# F2 off: the body is hidden again and the camera returns to the eye.
+	_key(FirstPerson.VIEW_KEY, true)
+	_key(FirstPerson.VIEW_KEY, false)
+	scene.call("_update_render", 1.0)
+	if bool(scene.get("third_person")) or body.visible:
+		ok = _fail("THIRD", "F2 back to first person still shows the own body")
+	if camera.position.distance_to(eye_local) > 0.001:
+		ok = _fail("THIRD", "the camera did not return to the eye (%s)" % str(camera.position))
+
+	# A wall on the line from the eye to the shoulder spot pulls the camera in. The sim's own sight line
+	# to the full spot is blocked, and the camera stops short of the full distance.
+	var wall: Dictionary = _find_blocked_setup(map)
+	if wall.is_empty():
+		return _fail("THIRD", "the district has no floor tile with a wall behind it to test the pull-in against")
+	var wtile: Vector2i = wall["tile"] as Vector2i
+	var wdir: Vector2i = wall["dir"] as Vector2i
+	_place_player(scene, Vector2(float(wtile.x) + 0.5, float(wtile.y) + 0.5))
+	# Facing away from the wall, so the shoulder spot lies toward it.
+	scene.call("set_look", atan2(float(wdir.x), float(wdir.y)), 0.0)
+	_settle_eye(scene)
+	_key(FirstPerson.VIEW_KEY, true)
+	_key(FirstPerson.VIEW_KEY, false)
+	scene.call("_update_render", 1.0)
+	if not bool(scene.get("third_person")):
+		return _fail("THIRD", "F2 did not switch to third person at the wall")
+	var pulled: float = camera.position.z
+	if pulled >= FirstPerson.THIRD_BACK_M - 1.0:
+		ok = _fail("THIRD", "a wall behind the body left the camera at %.3f m, not pulled in" % pulled)
+	var eye_w: Vector3 = rig.global_transform * eye_local
+	var spot_w: Vector3 = rig.global_transform * want
+	var from: Dictionary = {"x": eye_w.x, "y": eye_w.z, "h": roundi(eye_w.y * 1000.0)}
+	var to: Dictionary = {"x": spot_w.x, "y": spot_w.z, "h": roundi(spot_w.y * 1000.0)}
+	if SimSpace.segment_clear(SimSpace.map_of(world), from, to, SimSpace.SIGHT):
+		ok = _fail("THIRD", "the sim's sight line to the full shoulder spot is clear, so the pull-in had no wall to answer")
+	_key(FirstPerson.VIEW_KEY, true)
+	_key(FirstPerson.VIEW_KEY, false)
+	scene.call("_update_render", 1.0)
+	return ok
+
+
+# A floor tile with clear floor three tiles behind and ahead along one cardinal direction, so the shoulder
+# spot and a short walk both have room. `dir` is the sim direction the body faces.
+func _find_open_line(map: Variant) -> Dictionary:
+	var dirs: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
+	for ty in range(4, int(map.h) - 4):
+		for tx in range(4, int(map.w) - 4):
+			if not _walkable_floor(map, tx, ty):
+				continue
+			for d in dirs:
+				var clear: bool = true
+				for k in [-3, -2, -1, 1, 2, 3]:
+					var t: Vector2i = Vector2i(tx, ty) + d * int(k)
+					if not _walkable_floor(map, t.x, t.y):
+						clear = false
+						break
+				if clear:
+					return {"tile": Vector2i(tx, ty), "dir": d}
+	return {}
 
 
 # --- CONTAINER ------------------------------------------------------------------------------
@@ -1912,7 +2095,7 @@ func _light(scene: Node) -> bool:
 		var detail: int = int(world.vision.call("detail", player, far.x, far.y))
 		if detail != 0:
 			ok = _fail("LIGHT", "a body behind a wall is seen (%d), so the negative judges nothing" % detail)
-		var node: MeshInstance3D = scene.call("body_node_for", body) as MeshInstance3D
+		var node: Node3D = scene.call("body_node_for", body) as Node3D
 		if node == null:
 			ok = _fail("LIGHT", "the unseen shambler has no body view, so visibility is unjudged")
 		elif node.visible:
@@ -2505,7 +2688,7 @@ func _succession(scene: Node) -> bool:
 		_place_player(scene, dead_pos)
 		scene.call("look_toward", Vector3(dead_pos.x, 0.90, dead_pos.y))
 		_settle_vision(scene, 6)
-		var corpse: MeshInstance3D = scene.call("body_node_for", dead) as MeshInstance3D
+		var corpse: Node3D = scene.call("body_node_for", dead) as Node3D
 		if corpse == null:
 			ok = _fail("SUCCESSION", "the dead body has no body view")
 		elif not corpse.visible:
@@ -2798,7 +2981,7 @@ func _write_wrong_glb() -> String:
 # this map is a failure, so a new key cannot slip past the check unnamed.
 const KEY_NAMES: Dictionary = {
 	"KEY_A": KEY_A, "KEY_D": KEY_D, "KEY_E": KEY_E, "KEY_ENTER": KEY_ENTER, "KEY_ESCAPE": KEY_ESCAPE,
-	"KEY_F": KEY_F, "KEY_F1": KEY_F1, "KEY_F5": KEY_F5, "KEY_F9": KEY_F9, "KEY_G": KEY_G,
+	"KEY_F": KEY_F, "KEY_F1": KEY_F1, "KEY_F2": KEY_F2, "KEY_F5": KEY_F5, "KEY_F9": KEY_F9, "KEY_G": KEY_G,
 	"KEY_KP_ENTER": KEY_KP_ENTER, "KEY_P": KEY_P, "KEY_R": KEY_R, "KEY_S": KEY_S, "KEY_SHIFT": KEY_SHIFT,
 	"KEY_W": KEY_W, "KEY_MINUS": KEY_MINUS, "KEY_KP_SUBTRACT": KEY_KP_SUBTRACT, "KEY_EQUAL": KEY_EQUAL,
 	"KEY_KP_ADD": KEY_KP_ADD,
@@ -3484,6 +3667,168 @@ func _filter_of(root: Node3D) -> int:
 			if mat is BaseMaterial3D:
 				return (mat as BaseMaterial3D).texture_filter
 	return -1
+
+
+# --- BODIES ----------------------------------------------------------------------------------------
+
+# The character models in the body view: the clip the sim's state names, held at the sim's phase; the loop
+# flags; the capsule fallback; and the unseen body. Each rule has its true positive and a true negative. The
+# gate writes the components a death or a lunge would write (setup, as the other lanes do): the sim makes a
+# corpse for a survivor only, through the private `_make_corpse`, so a zombie's death is set here.
+func _character_bodies(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var bodies: Node3D = scene.get("_bodies") as Node3D
+	if bodies == null:
+		return _fail("BODIES", "the scene has no body view")
+	var colonists: Array[int] = _other_colonists(world)
+	if colonists.is_empty():
+		return _fail("BODIES", "the boot has no colonist to draw")
+	var colonist: int = colonists[0]
+	var rng: Variant = world.rng.stream("shambler")
+
+	if scene.call("body_node_for", world.player) != null:
+		ok = _fail("BODIES", "the player has a body model")
+	var colonist_node: Node3D = scene.call("body_node_for", colonist) as Node3D
+	var colonist_player: AnimationPlayer = scene.call("body_player_for", colonist) as AnimationPlayer
+	if colonist_node == null or colonist_player == null:
+		return _fail("BODIES", "a colonist has no character model with an animation player")
+
+	# A walking colonist plays walk, held at the sim's phase, and its model turns to the sim's facing.
+	var posture_before: Variant = world.components.get_component(colonist, "posture")
+	var velocity_before: Variant = world.components.get_component(colonist, "velocity")
+	var facing_before: Variant = world.components.get_component(colonist, "facing")
+	world.components.set_component(colonist, "posture", SimStances.make_posture(SimStances.Stance.Walk))
+	world.components.set_component(colonist, "velocity", {"dx": 1.4, "dy": 0.0})
+	world.components.set_component(colonist, "facing", {"radians": 0.0})
+	bodies.call("end_tick", world)
+	bodies.call("apply", world, 1.0)
+	if AnimState.state_of(world, colonist) != "walk":
+		ok = _fail("BODIES", "a walking colonist reads %s, not walk" % AnimState.state_of(world, colonist))
+	if colonist_player.current_animation != "walk":
+		ok = _fail("BODIES", "a walking colonist plays %s, not walk" % colonist_player.current_animation)
+	var walk_length: float = colonist_player.get_animation("walk").length
+	var want_walk: float = AnimState.phase_of(world, colonist, "walk") * walk_length
+	if absf(colonist_player.current_animation_position - want_walk) > PHASE_EPSILON:
+		ok = _fail("BODIES", "walk is at %.3f s, the sim's phase says %.3f s" % [colonist_player.current_animation_position, want_walk])
+	var forward: Vector3 = Vector3(0.0, 0.0, -1.0).rotated(Vector3.UP, colonist_node.rotation.y)
+	if forward.distance_to(Vector3(1.0, 0.0, 0.0)) > 0.001:
+		ok = _fail("BODIES", "a model facing the sim's 0 rad looks along %s, not +x" % str(forward))
+	world.components.set_component(colonist, "facing", {"radians": PI * 0.5})
+	bodies.call("apply", world, 1.0)
+	forward = Vector3(0.0, 0.0, -1.0).rotated(Vector3.UP, colonist_node.rotation.y)
+	if forward.distance_to(Vector3(0.0, 0.0, 1.0)) > 0.001:
+		ok = _fail("BODIES", "a model facing the sim's pi/2 rad looks along %s, not +z" % str(forward))
+	_restore(world, colonist, "posture", posture_before)
+	_restore(world, colonist, "velocity", velocity_before)
+	_restore(world, colonist, "facing", facing_before)
+
+	# A shambler in the middle of a lunge plays lunge, held at the sim's swipe phase. Spawned for the lane.
+	var spot: Vector2 = _find_open_area(map, 2)
+	if spot == Vector2(-1.0, -1.0):
+		return _fail("BODIES", "the district has no open area for the body lane")
+	var zed: int = int(SimRoster.spawn_zombie(world, spot.x, spot.y - 1.2, SimRoster.TYPE_SHAMBLER, rng))
+	var zed_player: AnimationPlayer = null
+	var sd: Dictionary = (world.components.get_component(zed, "shambler") as Dictionary).duplicate()
+	sd["state"] = SimShambler.ShamblerState["Pursue"]
+	sd["ticksToSwipe"] = SimShambler.SWIPE_FIRST_TICKS - 6
+	world.components.set_component(zed, "shambler", sd)
+	bodies.call("end_tick", world)
+	bodies.call("apply", world, 1.0)
+	zed_player = scene.call("body_player_for", zed) as AnimationPlayer
+	if zed_player == null:
+		ok = _fail("BODIES", "a spawned shambler has no character model")
+	elif AnimState.state_of(world, zed) != "lunge":
+		ok = _fail("BODIES", "a shambler in its armed swipe reads %s, not lunge" % AnimState.state_of(world, zed))
+	elif zed_player.current_animation != "lunge":
+		ok = _fail("BODIES", "a lunging shambler plays %s, not lunge" % zed_player.current_animation)
+	else:
+		var want_lunge: float = AnimState.phase_of(world, zed, "lunge") * zed_player.get_animation("lunge").length
+		if absf(zed_player.current_animation_position - want_lunge) > PHASE_EPSILON:
+			ok = _fail("BODIES", "lunge is at %.3f s, the sim's phase says %.3f s" % [zed_player.current_animation_position, want_lunge])
+
+	# The lunging zombie is done with: removed before the hold runs, so it cannot reach a colonist in those ticks.
+	world.despawn(zed)
+	zed_player = null
+
+	# A dead body plays death, and holds the last frame after many ticks. The corpse component is what the
+	# sim's own death writes for a body that stays as a corpse.
+	var dead: int = int(SimRoster.spawn_zombie(world, spot.x, spot.y + 0.8, SimRoster.TYPE_SHAMBLER, rng))
+	world.components.set_component(dead, "corpse", {"sinceTick": int(world.tick)})
+	bodies.call("end_tick", world)
+	bodies.call("apply", world, 1.0)
+	var dead_player: AnimationPlayer = scene.call("body_player_for", dead) as AnimationPlayer
+	if dead_player == null:
+		ok = _fail("BODIES", "a corpse has no character model")
+	else:
+		var death_length: float = dead_player.get_animation("death").length
+		if dead_player.current_animation != "death":
+			ok = _fail("BODIES", "a corpse plays %s, not death" % dead_player.current_animation)
+		for i in 300:
+			scene.call("_process", TICK_SECONDS)
+		if dead_player.current_animation != "death":
+			ok = _fail("BODIES", "a corpse stopped on %s after 300 ticks, not death" % dead_player.current_animation)
+		if absf(dead_player.current_animation_position - death_length) > PHASE_EPSILON:
+			ok = _fail("BODIES", "death is at %.3f s after 300 ticks, not held at its last frame %.3f s" % [dead_player.current_animation_position, death_length])
+
+	# Loops loop and one-shots do not: the flags on the shared clips, and a one-shot seeked past its end stays
+	# at its last frame rather than wrapping.
+	for clip in ["idle", "walk", "crouch_idle"]:
+		if colonist_player.get_animation(clip).loop_mode != Animation.LOOP_LINEAR:
+			ok = _fail("BODIES", "the survivor's %s clip does not loop" % clip)
+	if colonist_player.get_animation("death").loop_mode != Animation.LOOP_NONE:
+		ok = _fail("BODIES", "the survivor's death clip loops")
+	if zed_player != null:
+		if zed_player.get_animation("shamble").loop_mode != Animation.LOOP_LINEAR:
+			ok = _fail("BODIES", "the shambler's shamble clip does not loop")
+		if zed_player.get_animation("lunge").loop_mode != Animation.LOOP_NONE:
+			ok = _fail("BODIES", "the shambler's lunge clip loops")
+		var lunge_end: float = zed_player.get_animation("lunge").length
+		zed_player.seek(lunge_end, true)
+		if absf(zed_player.current_animation_position - lunge_end) > PHASE_EPSILON:
+			ok = _fail("BODIES", "a one-shot seeked to its end did not hold its last frame")
+
+	# A body the sim cannot see is not drawn, and it is one that has a model to hide, so the negative judges
+	# something. A lane with no such body says so.
+	var hidden: int = _first_out_of_sight_body(world)
+	if hidden < 0:
+		_skips.append("BODIES: no body is out of the sim's sight in this district, so the unseen rule is not judged here")
+	else:
+		bodies.call("apply", world, 1.0)
+		var hidden_node: Node3D = scene.call("body_node_for", hidden) as Node3D
+		if hidden_node == null or scene.call("body_player_for", hidden) == null:
+			ok = _fail("BODIES", "an unseen body has no character model to hide")
+		elif hidden_node.visible:
+			ok = _fail("BODIES", "a body the sim cannot see is drawn")
+
+	# A missing model falls back to the capsule: the same body, with the GLBs pointed at files that are not
+	# there, is a cylinder with no player.
+	var fallback: Node3D = BodyView.new()
+	fallback.survivor_glb = "res://assets/first_person/no_such_survivor.glb"
+	fallback.shambler_glb = "res://assets/first_person/no_such_shambler.glb"
+	scene.add_child(fallback)
+	fallback.call("build")
+	fallback.call("reset", world)
+	var capsule: Node3D = fallback.call("node_for", colonist) as Node3D
+	if not (capsule is MeshInstance3D) or not ((capsule as MeshInstance3D).mesh is CylinderMesh):
+		ok = _fail("BODIES", "a missing model did not fall back to the capsule cylinder")
+	if fallback.call("player_of", colonist) != null or int(fallback.call("model_count")) != 0:
+		ok = _fail("BODIES", "a missing model still gave the body an animation player")
+	fallback.queue_free()
+
+	world.despawn(dead)
+	scene.call("_process", TICK_SECONDS)
+	return ok
+
+
+# Puts a component back the way the lane found it: a value that was there is written back, and one that was
+# not is removed.
+func _restore(world: Variant, entity: int, component: String, before: Variant) -> void:
+	if before == null:
+		world.components.remove(entity, component)
+	else:
+		world.components.set_component(entity, component, before)
 
 
 # --- fixtures -------------------------------------------------------------------------------
