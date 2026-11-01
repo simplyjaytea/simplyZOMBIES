@@ -520,6 +520,15 @@ switch (mode) {
       "res://check_first_person.gd",
     ];
     break;
+  case "--check-fp-geometry":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_fp_geometry.gd",
+    ];
+    break;
   case "--context":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_context.gd"];
     break;

@@ -2526,6 +2526,97 @@ not a to-do list:
     the full sheet, not the top-down game's small transfer window; equipment is later.
   - **Record.** `docs/planning/first-person-containers-report.md`.
 
+- **First-person Reports page, 2026-11-01.** Advances "First-person people and settlement
+  operation", its reports: what happened while the player was away, in the chronicle's words.
+  - **The page.** `godot/ui/reports_panel.gd` (`ReportsPanel`) lists the chronicle newest first, at most
+    12 lines, each from `SimChronicle._line_of`, the same line builder the HUD and the run-over screen
+    read. `ReportsPanel.rows` is pure and writes nothing. No day counter is shown, because the top-down
+    chronicle shows none. The page is opened by a Reports chip on the ledger (`ReportsPanel.Chip`,
+    drawn with `Locker.button`).
+  - **Read state.** `first_person.gd` keeps `_reports_read`, the chronicle index read up to. Entries at
+    or past it are marked new in words ("since you last looked", and a "new" tag per entry). Opening the
+    page moves the mark to the end of the record. The mark is presentation state, starts at 0 on every
+    boot, and the sim is not written. The save and load pieces are not on this branch, so no reset on
+    load is implemented.
+  - **The prompt.** The ledger's prompt reads "E read the ledger, new reports" while the record holds
+    entries past the mark, and "E read the ledger" otherwise.
+  - **Escape.** From the page, Escape returns to the work grid; from the grid, to the street.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, REPORTS lane)
+    prints `FIRST_PERSON_OK`. A survivor's death is published through the event bus the way
+    `health.gd` publishes a destroyed head, and the chronicle writes it. The prompt asks about new
+    reports, the chip opens the page with a real click, and the page shows the chronicle's "<name> is
+    dead." marked new. True negatives: with nothing new the prompt does not ask; every line the page
+    shows is one the chronicle holds; Escape from the page returns to the grid, not the street. Each
+    mutation (no read mark, no prompt, Escape to the street, an invented line) turns the lane red.
+  - **Not in this piece.** Paging beyond the 12 newest lines. A page for the run's epitaph. Save and
+    load of the read mark. The gate does not run the death itself: it publishes the event health.gd
+    publishes, and the body stays alive.
+
+- **First-person stance and gait, 2026-11-01.** Advances "First-person simulation and ledger
+  foundation": the scene's movement and camera now follow the body's posture.
+  - **The keys.** `first_person.gd` reads the stance rows of `input_map.gd`'s `BINDINGS`: Ctrl+Z
+    crawl, Ctrl+C crouch, Ctrl+S stand, Ctrl+V jog, and Shift held for the sprint latch, which
+    returns to the last Ctrl rung on release. Each pushes the sim's `stance` command (`_push_stance`,
+    `_stance_rung_of`). Ctrl+S is a stance and never a step back. The keys are refused under the
+    open ledger, and the sim's zero-stamina gate refuses a sprint on an empty tank.
+  - **The eye.** `_eye_target` reads `SimSpace.eye_of` in millimetres. `_ease_eye` eases `_eye_m`
+    toward it with a 35 ms time constant, so it is within 1 cm in about 0.15 s. The camera, the
+    ledger's aim and the door verb's eye tile all use `_eye_m`. `EYE_HEIGHT_M` is gone.
+  - **The HUD.** `hud.gd` adds `You are <posture>.`, with the word `SimStances.name_of` gives, the
+    same word the top-down paper doll prints. It has no digit.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, STANCE lane)
+    prints `FIRST_PERSON_OK`. True positive: Ctrl+C makes the sim's body crouch, and after the ease
+    the camera is within 1 cm of the crouched eye, 0.950 m. Ctrl+S stands it back up. True
+    negatives: Ctrl+C with the ledger open changes nothing, and a Shift sprint on an empty tank
+    leaves the body and the eye standing. Each mutation (keys ignored, no ease, no ease in time)
+    turns the lane red.
+  - **Not in this piece.** The first-person fire and swing path (the sim's `CAN_AIM` and
+    `CAN_SWING` rules are unchanged here, and no gate checks a shot from a crawl). Between-tick
+    eye interpolation. Naming the keys on the HUD. Slice 7 of docs/40.
+
+- **First-person world verbs: E on a door, 2026-11-01.** Advances "First-person people and
+  settlement operation", its construction access, for doors and windows only.
+  - **The verb.** `first_person.gd`: `eye_tile_hit` walks the look ray through the tile grid to the
+    ledger's 1.8 m reach and returns the first door, window or solid tile. `verb_row` asks
+    `SimContext.verbs_at` for that tile, as the right-click menu would, and keeps the first row with a
+    command. `verb_prompt` gives the HUD `E <row text>`. E pushes that row's command verbatim, as
+    `main._context_pick` does. The ledger keeps priority when it is in reach and aimed at. Presentation
+    decides no verb.
+  - **Reach.** The sim offers a door's rows only for the tile one step ahead or underfoot
+    (`SimFortify._door_in_reach`), so a door farther off gets no prompt.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, VERBS lane)
+    prints `FIRST_PERSON_OK`. True positive: beside a closed door and aimed at it, the prompt reads
+    `E open the door`, E opens the door in the sim, and E again shuts it. True negatives: the same door
+    out of reach, or looked away from, and a plain wall, change nothing and offer no door prompt. With
+    E made to push nothing, the lane fails.
+  - **Not in this piece.** Window verbs have no gate lane. The 1.8 m eye reach is not proven apart from
+    the sim's facing rule. Containers are not on this branch.
+
+- **First-person profile, drawn, 2026-11-01.** Slice 1 of docs/40, the spatial contract's "The
+  profile, drawn": the one height table the first-person view draws and, from slice 2, the sim reads.
+  - **The record.** `SimSpace` (`godot/sim/space/space.gd`, pure and static) owns `PROFILE`: for each
+    tile class, overlay kind and stage, the height bands the tile occupies in integer millimetres over
+    a full-tile footprint, each band naming the purposes it stops (movement, sight, shot, reach).
+    `body_of` is a body's cylinder (radius 300 mm; height from the stance rung, or from a zombie's
+    legs) and `eye_of` its eye height. Nothing in the sim calls either yet. `district_view.gd` builds
+    every tile from its bands: a window is a sill and a lintel with the aperture between, Low and
+    screen tiles are drawn, a doorway has a lintel, and a wire fence is its own see-through mesh.
+    `body_view.gd` sizes each body from `body_of` every frame, so a stance change shows at once. The
+    camera does not read the eye yet (slice 7).
+  - **The gate.** `godot:check:fp_geometry`: FIXTURE (a map holding every class, overlay and stage,
+    with every PROFILE key reached), BANDS (each tile's built mesh has exactly its bands' height
+    levels and its full footprint, and the built district's opaque and fence meshes agree), OLD WAY (a
+    window drawn as one box and an undrawn Low tile are refused by the same comparison), and BODIES
+    (a standing, crouched and crawling survivor and a whole and a crawling zombie have the cylinder
+    `body_of` gives, and a capsule is refused). Mutation-tested: a window drawn as its sill only, a Low
+    tile not drawn, and capsule bodies each turn it red.
+  - **The readings.** Where docs/40's table is ambiguous, the piece took the reading that makes the
+    stated screen rule true and wrote it in `docs/planning/first-person-profile-report.md`. The one
+    that matters: a stage-3 board's top band stops movement only, because its sight column passes
+    above 1100 mm.
+  - **Not yet.** Movement is still `SimTileMap.is_solid`, so Low is open to a body (docs/40 question
+    4); no sim module reads `PROFILE`; the eye is not in the camera.
+
 - **First-person scene on the shipped district size, 2026-11-01.** Advances "First-person
   simulation and ledger foundation": the opt-in scene now boots the district the top-down game boots.
   - **The boot.** `first_person.gd` boots `SimBoot.playable(SimBoot.DISTRICT_SEED, district_tiles)`,

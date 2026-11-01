@@ -40,6 +40,12 @@ extends SceneTree
 #   SPEECH    every line the first-person HUD draws is digit-free, it names the controls and the
 #             ledger, there is no progress bar in the tree, and the digit scanner is proved against
 #             a fabricated line.
+#   VERBS     E on a door in reach and aimed at, through the sim's own door verb, opens and shuts it; E
+#             out of reach or looking away changes nothing; a plain wall offers no prompt.
+#   STANCE    the top-down stance keys change the sim's posture, the camera's eye eases to SimSpace's
+#             eye for it, and the ledger refuses the keys.
+#   REPORTS   the ledger's Reports page shows the chronicle's own lines, marks the new ones, moves the
+#             read mark and returns through Escape; no row is an invented line or a digit.
 #   LIGHT     noon is bright and midnight is dark by named thresholds, rain darkens the grade and
 #             fog turns the depth fog on from the sim's own sight multiplier, an equipped and lit
 #             torch becomes the eye's spot at the sim's range and cone, the sim burning it out turns
@@ -72,6 +78,11 @@ const SimItems = preload("res://sim/modules/items.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
 const Clock = preload("res://sim/time/clock.gd")
+const SimFortify = preload("res://sim/modules/fortify.gd")
+const SimStances = preload("res://sim/stances.gd")
+const SimSpace = preload("res://sim/space/space.gd")
+const SimChronicle = preload("res://sim/modules/chronicle.gd")
+const ReportsPanel = preload("res://ui/reports_panel.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const FirstPerson = preload("res://presentation/first_person/first_person.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
@@ -126,6 +137,9 @@ func _run() -> void:
 		ok = _priority(scene) and ok
 		ok = _menu(scene) and ok
 		ok = _speech(scene) and ok
+		ok = _verbs(scene) and ok
+		ok = _stance(scene) and ok
+		ok = _reports(scene) and ok
 		ok = _light(scene) and ok
 		ok = _succession(scene) and ok
 		ok = _run_over(scene) and ok
@@ -139,7 +153,7 @@ func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)
-		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, swings a bat into a shambler and fires a round through the top-down commands while the ledger refuses both, misses a body behind the look, and leaves a refused reload wordless, lights noon by the sim's clock and darkens midnight, turns a carried torch into the eye's spot at the sim's range and cone and out when it burns, and keeps a body behind a wall undrawn, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
+		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, swings a bat into a shambler and fires a round through the top-down commands while the ledger refuses both, misses a body behind the look, and leaves a refused reload wordless, opens and shuts a door through the sim's own verb from the tile the eye is on while a door out of reach or looked away from sends nothing, takes the top-down stance keys and eases the eye to the sim's posture height while the ledger refuses the keys, reads the chronicle's own lines on the ledger's Reports page and moves the read mark, lights noon by the sim's clock and darkens midnight, turns a carried torch into the eye's spot at the sim's range and cone and out when it burns, and keeps a body behind a wall undrawn, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
 		quit(0)
 		return
 	for failure in _failures:
@@ -1404,6 +1418,383 @@ func _find_wall_room(map: Variant) -> Dictionary:
 					continue
 				return {"tile": Vector2i(tx, ty), "dir": direction}
 	return {}
+
+
+# --- VERBS ----------------------------------------------------------------------------------
+
+# E at a door is the sim's own door verb (`SimContext.verbs_at`), reached from the tile the eye is on.
+# Each case is judged on the sim's door state, not on what the view draws.
+func _verbs(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	if bool(scene.get("menu_open")):
+		scene.call("close_ledger_menu")
+	var site: Dictionary = _find_door_site(world, map)
+	if site.is_empty():
+		return _fail("VERBS", "the district has no closed door with an open floor tile beside it")
+	var door: Vector2i = site["door"] as Vector2i
+	var stand: Vector2 = site["stand"] as Vector2
+	var centre: Vector2 = Vector2(float(door.x) + 0.5, float(door.y) + 0.5)
+	var toward: Vector2 = (centre - stand).normalized()
+	var was_shut: bool = not _door_open(world, door)
+
+	# True negative: the same door out of reach, three tiles back along the line, looking at it.
+	_place_player(scene, centre - toward * 3.0)
+	scene.call("look_toward", Vector3(centre.x, 1.0, centre.y))
+	scene.call("step_sim_once")
+	_key(KEY_E, true)
+	scene.call("step_sim_once")
+	if _door_open(world, door) != not was_shut:
+		ok = _fail("VERBS", "E out of reach changed the door")
+	if String(scene.call("verb_prompt")).contains("door"):
+		ok = _fail("VERBS", "a door out of reach was offered as a prompt")
+
+	# True negative: the door in reach, but the look turned away from it.
+	_place_player(scene, stand)
+	scene.call("look_toward", Vector3(stand.x - toward.x * 2.0, 1.0, stand.y - toward.y * 2.0))
+	scene.call("step_sim_once")
+	_key(KEY_E, true)
+	scene.call("step_sim_once")
+	if _door_open(world, door) != not was_shut:
+		ok = _fail("VERBS", "E with the look turned away changed the door")
+	if String(scene.call("verb_prompt")).contains("door"):
+		ok = _fail("VERBS", "a door the look is turned away from was offered as a prompt")
+
+	# True positive: in reach and aimed at, the prompt names the sim's row and E opens the door.
+	_place_player(scene, stand)
+	scene.call("look_toward", Vector3(centre.x, 1.0, centre.y))
+	scene.call("step_sim_once")
+	var first_prompt: String = String(scene.call("verb_prompt"))
+	var want_open: String = "E open the door" if was_shut else "E shut the door"
+	if first_prompt != want_open:
+		ok = _fail("VERBS", "the prompt at the door is '%s', not '%s'" % [first_prompt, want_open])
+	if _has_digit(first_prompt):
+		ok = _fail("VERBS", "the door prompt has a digit: %s" % first_prompt)
+	_key(KEY_E, true)
+	scene.call("step_sim_once")
+	if _door_open(world, door) != was_shut:
+		ok = _fail("VERBS", "E in reach and aimed at did not change the door")
+	# And again: the row flips, and E closes the door it opened.
+	var second_prompt: String = String(scene.call("verb_prompt"))
+	var want_shut: String = "E shut the door" if was_shut else "E open the door"
+	if second_prompt != want_shut:
+		ok = _fail("VERBS", "after E the prompt is '%s', not '%s'" % [second_prompt, want_shut])
+	_key(KEY_E, true)
+	scene.call("step_sim_once")
+	if _door_open(world, door) != not was_shut:
+		ok = _fail("VERBS", "the second E did not put the door back")
+
+	# True negative: a plain wall in reach and aimed at offers nothing.
+	var wall: Dictionary = _find_wall_site(map)
+	if wall.is_empty():
+		_skips.append("VERBS: no plain wall beside an open floor tile in this district")
+	else:
+		_place_player(scene, wall["stand"] as Vector2)
+		scene.call("look_toward", Vector3((wall["wall"] as Vector2).x, 1.0, (wall["wall"] as Vector2).y))
+		scene.call("step_sim_once")
+		if String(scene.call("verb_prompt")) != "":
+			ok = _fail("VERBS", "a plain wall offered a prompt: %s" % String(scene.call("verb_prompt")))
+	return ok
+
+
+func _door_open(world: Variant, door: Vector2i) -> bool:
+	var d: Variant = SimFortify.door_state(world, door.x, door.y)
+	return d is Dictionary and bool((d as Dictionary).get("open", false))
+
+
+# A closed door with an open floor tile orthogonally beside it: the player stands there, on the far side
+# of nothing, and looks across the door. The stand is the tile's centre.
+func _find_door_site(world: Variant, map: Variant) -> Dictionary:
+	for ent in world.components.query(["door"]):
+		var d: Variant = world.components.get_component(int(ent), "door")
+		if not (d is Dictionary) or bool((d as Dictionary).get("open", false)):
+			continue
+		var tx: int = int((d as Dictionary).get("tx", 0))
+		var ty: int = int((d as Dictionary).get("ty", 0))
+		for n in [Vector2i(tx - 1, ty), Vector2i(tx + 1, ty), Vector2i(tx, ty - 1), Vector2i(tx, ty + 1)]:
+			if _open_floor(map, n.x, n.y):
+				return {"door": Vector2i(tx, ty), "stand": Vector2(float(n.x) + 0.5, float(n.y) + 0.5)}
+	return {}
+
+
+# A plain wall (no overlay, not a door or window) with an open floor tile beside it, for the negative.
+func _find_wall_site(map: Variant) -> Dictionary:
+	for ty in range(1, int(map.h) - 1):
+		for tx in range(1, int(map.w) - 1):
+			if SimTileMap.tile_at(map, tx, ty) != SimTileMap.Tile.Wall or SimTileMap.overlay_at(map, tx, ty) != null:
+				continue
+			for n in [Vector2i(tx - 1, ty), Vector2i(tx + 1, ty), Vector2i(tx, ty - 1), Vector2i(tx, ty + 1)]:
+				if _open_floor(map, n.x, n.y):
+					return {"wall": Vector2(float(tx) + 0.5, float(ty) + 0.5), "stand": Vector2(float(n.x) + 0.5, float(n.y) + 0.5)}
+	return {}
+
+
+func _open_floor(map: Variant, tx: int, ty: int) -> bool:
+	return SimTileMap.tile_at(map, tx, ty) == SimTileMap.Tile.Floor and not SimTileMap.is_solid(map, tx, ty) and SimTileMap.overlay_at(map, tx, ty) == null
+
+
+# --- STANCE ---------------------------------------------------------------------------------
+
+# The top-down stance keys (Ctrl+Z, Ctrl+C, Ctrl+S, Ctrl+V, and Shift for the sprint latch) push the sim's
+# stance command, and the camera's eye follows the posture the sim reports. Each case reads the sim and the
+# camera, not the key.
+func _stance(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var camera: Camera3D = scene.get("camera") as Camera3D
+	var player: int = int(world.player)
+	if bool(scene.get("menu_open")):
+		scene.call("close_ledger_menu")
+	var origin: Vector2 = _find_open_area(map, 2)
+	if origin == Vector2(-1.0, -1.0):
+		return _fail("STANCE", "the district has no open area to stand in")
+	_place_player(scene, origin)
+	scene.call("set_look", 0.0, 0.0)
+	_settle_eye(scene)
+	if SimStances.stance_of(world.components, player) != SimStances.Stance.Walk:
+		return _fail("STANCE", "the fixture did not start standing")
+	var eye_walk: float = _eye_of_m(world, player)
+	if absf(camera.position.y - eye_walk) > 0.01:
+		ok = _fail("STANCE", "the camera stands at %.3f m, not the sim's %.3f m" % [camera.position.y, eye_walk])
+
+	# True positive: Ctrl+C crouches; the eye eases there, and is not already there after one frame.
+	_key_ctrl(KEY_C, true)
+	_key_ctrl(KEY_C, false)
+	_step_ticks(scene, 10)
+	if SimStances.stance_of(world.components, player) != SimStances.Stance.Crouch:
+		return _fail("STANCE", "Ctrl+C did not make the body crouch")
+	var eye_crouch: float = _eye_of_m(world, player)
+	scene.call("_process", 1.0 / 60.0)
+	if absf(camera.position.y - eye_crouch) < 0.05:
+		ok = _fail("STANCE", "the eye jumped to the crouch in one frame, not an ease")
+	_settle_eye(scene)
+	if absf(camera.position.y - eye_crouch) > 0.01:
+		ok = _fail("STANCE", "the eye stands at %.3f m after the crouch, not the sim's %.3f m" % [camera.position.y, eye_crouch])
+	if absf(eye_crouch - 0.95) > 0.0001:
+		ok = _fail("STANCE", "the sim's crouched eye is %.3f m, not 0.950" % eye_crouch)
+
+	# True positive: Ctrl+S stands the body back up, and the eye comes back to standing height.
+	_key_ctrl(KEY_S, true)
+	_key_ctrl(KEY_S, false)
+	_step_ticks(scene, 10)
+	_settle_eye(scene)
+	if SimStances.stance_of(world.components, player) != SimStances.Stance.Walk:
+		ok = _fail("STANCE", "Ctrl+S did not stand the body back up")
+	if absf(camera.position.y - eye_walk) > 0.01:
+		ok = _fail("STANCE", "the eye stays at %.3f m after standing, not %.3f m" % [camera.position.y, eye_walk])
+
+	# True positive: Ctrl+Z goes prone, the crawl eye, and Ctrl+S brings it back.
+	_key_ctrl(KEY_Z, true)
+	_key_ctrl(KEY_Z, false)
+	_step_ticks(scene, 10)
+	_settle_eye(scene)
+	if SimStances.stance_of(world.components, player) != SimStances.Stance.Crawl:
+		ok = _fail("STANCE", "Ctrl+Z did not make the body prone")
+	elif absf(camera.position.y - _eye_of_m(world, player)) > 0.01:
+		ok = _fail("STANCE", "the eye is %.3f m prone, not the sim's crawl eye" % camera.position.y)
+	_key_ctrl(KEY_S, true)
+	_key_ctrl(KEY_S, false)
+	_step_ticks(scene, 10)
+	_settle_eye(scene)
+
+	# True negative: with the ledger open, Ctrl+C changes nothing.
+	scene.call("open_ledger_menu")
+	_key_ctrl(KEY_C, true)
+	_key_ctrl(KEY_C, false)
+	_step_ticks(scene, 10)
+	_settle_eye(scene)
+	if SimStances.stance_of(world.components, player) != SimStances.Stance.Walk:
+		ok = _fail("STANCE", "Ctrl+C with the ledger open changed the stance")
+	if absf(camera.position.y - eye_walk) > 0.01:
+		ok = _fail("STANCE", "Ctrl+C with the ledger open moved the eye")
+	scene.call("close_ledger_menu")
+
+	# True negative: a sprint the sim refuses on an empty tank leaves the body and the eye standing.
+	var stamina: Variant = world.components.get_component(player, "stamina")
+	if not (stamina is Dictionary):
+		_skips.append("STANCE: the player has no stamina component to empty")
+	else:
+		var saved: float = float((stamina as Dictionary)["current"])
+		(stamina as Dictionary)["current"] = 0.0
+		world.components.set_component(player, "stamina", stamina)
+		_key(KEY_SHIFT, true)
+		_step_ticks(scene, 10)
+		if SimStances.stance_of(world.components, player) == SimStances.Stance.Sprint:
+			ok = _fail("STANCE", "a sprint was granted on an empty tank")
+		_settle_eye(scene)
+		if absf(camera.position.y - eye_walk) > 0.01:
+			ok = _fail("STANCE", "a refused sprint moved the eye to %.3f m" % camera.position.y)
+		_key(KEY_SHIFT, false)
+		(stamina as Dictionary)["current"] = saved
+		world.components.set_component(player, "stamina", stamina)
+	# And with a full tank Shift does sprint, and releasing it returns to the walk.
+	_key(KEY_SHIFT, true)
+	_step_ticks(scene, 10)
+	if SimStances.stance_of(world.components, player) != SimStances.Stance.Sprint:
+		ok = _fail("STANCE", "Shift with a full tank did not sprint")
+	_key(KEY_SHIFT, false)
+	_step_ticks(scene, 10)
+	if SimStances.stance_of(world.components, player) != SimStances.Stance.Walk:
+		ok = _fail("STANCE", "releasing Shift did not return to the walk")
+	return ok
+
+
+func _eye_of_m(world: Variant, player: int) -> float:
+	return float(SimSpace.eye_of(world, player)) / 1000.0
+
+
+# Steps the sim by whole ticks, as the frame would, so a stance change lands.
+func _step_ticks(scene: Node, ticks: int) -> void:
+	for i in ticks:
+		scene.call("step_sim_once")
+
+
+# Lets the camera's eye ease to its target: 0.3 s of frames, several times the 0.15 s settle.
+func _settle_eye(scene: Node) -> void:
+	for i in 18:
+		scene.call("_process", 1.0 / 60.0)
+
+
+func _key_ctrl(code: Key, pressed: bool) -> void:
+	var ev: InputEventKey = InputEventKey.new()
+	ev.keycode = code
+	ev.physical_keycode = code
+	ev.ctrl_pressed = true
+	ev.pressed = pressed
+	root.push_input(ev)
+
+
+# --- REPORTS --------------------------------------------------------------------------------
+
+# The ledger's Reports page: a death written through the sim's event bus is read off the chronicle and shown
+# in its own words, marked new; the prompt asks about new reports until the page is read. Escape goes back
+# to the work grid, then to the street. The read mark is presentation state, set here as a fixture.
+func _reports(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	if bool(scene.get("menu_open")):
+		scene.call("close_ledger_menu")
+	var props: Node3D = scene.get_node_or_null("SafeSpawnProps") as Node3D
+	if props == null:
+		return _fail("REPORTS", "the scene has no ledger to stand at")
+	_place_player(scene, scene.call("ledger_approach_position") as Vector2)
+	scene.call("look_toward", props.call("ledger_world_point") as Vector3)
+	_settle_vision(scene)
+	var verdict: String = String(scene.call("interaction_verdict"))
+	if verdict != "ok":
+		return _fail("REPORTS", "the ledger is not in reach and aimed at from its approach (%s)" % verdict)
+
+	# True negative: nothing new, so the prompt does not ask about reports.
+	scene.set("_reports_read", (world.chronicle as Array).size())
+	scene.call("_update_hud")
+	var quiet: String = _joined_hud(scene)
+	if not quiet.contains("E read the ledger") or quiet.contains("new reports"):
+		ok = _fail("REPORTS", "with nothing new the ledger prompt is not the plain one")
+
+	# A survivor's death, through the event bus the sim's own health code publishes on.
+	var victim: int = -1
+	for ent in world.components.query(["identity"]):
+		var e: int = int(ent)
+		if e != int(world.player) and not world.components.has_component(e, "zombieType"):
+			victim = e
+			break
+	if victim < 0:
+		return _fail("REPORTS", "the boot has no colonist to write a death for")
+	var name: String = String((world.components.get_component(victim, "identity") as Dictionary).get("name", ""))
+	var before: int = (world.chronicle as Array).size()
+	world.events.publish({"type": "entity.killed", "entity": victim, "killer": -1})
+	scene.call("step_sim_once")
+	var wrote: bool = false
+	for i in range(before, (world.chronicle as Array).size()):
+		var rec: Dictionary = (world.chronicle as Array)[i] as Dictionary
+		if String(rec.get("kind", "")) == "died" and int(rec.get("e", -1)) == victim:
+			wrote = true
+	if not wrote:
+		return _fail("REPORTS", "the death of %s wrote no chronicle record" % name)
+	var expected: String = "%s is dead." % name
+
+	# The prompt asks, now that something is new.
+	scene.call("_update_hud")
+	if not _joined_hud(scene).contains("E read the ledger, new reports"):
+		ok = _fail("REPORTS", "the prompt did not ask about new reports after a death")
+
+	# Open the ledger with E, then the Reports page with a real click on its chip.
+	_key(KEY_E, true)
+	if not bool(scene.get("menu_open")):
+		return _fail("REPORTS", "E in reach and aimed at did not open the ledger")
+	var chip: Control = scene.call("reports_chip_node") as Control
+	if chip == null or not chip.visible:
+		return _fail("REPORTS", "the ledger has no Reports chip")
+	_click_at(chip.get_global_rect().get_center())
+	var page: Control = scene.call("reports_node") as Control
+	if page == null or not page.visible:
+		return _fail("REPORTS", "clicking the Reports chip did not show the page")
+	var rows: Array = page.call("shown") as Array
+	var found: bool = false
+	for row in rows:
+		var r: Dictionary = row as Dictionary
+		if String(r["text"]) == expected:
+			found = true
+			if not bool(r["new"]):
+				ok = _fail("REPORTS", "the page showed '%s' but not marked new" % expected)
+	if not found:
+		ok = _fail("REPORTS", "the page does not show the chronicle's '%s'" % expected)
+
+	# True negative: every line the page shows is one the chronicle holds; nothing is invented.
+	for row in rows:
+		var text: String = String((row as Dictionary)["text"])
+		if _has_digit(text):
+			ok = _fail("REPORTS", "the page shows a digit: %s" % text)
+		var held: bool = false
+		for rec in world.chronicle as Array:
+			if SimChronicle._line_of(world, rec as Dictionary) == text:
+				held = true
+		if not held:
+			ok = _fail("REPORTS", "the page shows a line the chronicle does not hold: %s" % text)
+
+	# Reading moved the mark: the prompt stops asking once the ledger is shut again.
+	if int(scene.get("_reports_read")) != (world.chronicle as Array).size():
+		ok = _fail("REPORTS", "reading the page did not move the read mark to the end of the record")
+
+	# True negative: Escape from Reports returns to the work grid, not the street.
+	_key(KEY_ESCAPE, true)
+	if page.visible or not bool(scene.get("menu_open")):
+		ok = _fail("REPORTS", "Escape from Reports left the ledger or the page up")
+	var grid: Control = scene.call("work_panel_node") as Control
+	if grid == null or not grid.visible:
+		ok = _fail("REPORTS", "Escape from Reports did not return to the work grid")
+	# The next Escape leaves the ledger for the street.
+	_key(KEY_ESCAPE, true)
+	if bool(scene.get("menu_open")):
+		ok = _fail("REPORTS", "the second Escape did not return to the street")
+	scene.call("_update_hud")
+	var after: String = _joined_hud(scene)
+	if after.contains("new reports"):
+		ok = _fail("REPORTS", "the prompt still asks about new reports after reading")
+	return ok
+
+
+# The words the HUD is drawing, joined. The scene frame is off in this gate, so the HUD is refreshed first.
+func _joined_hud(scene: Node) -> String:
+	scene.call("_update_hud")
+	var joined: String = ""
+	for line in scene.call("hud_lines") as Array:
+		joined += String(line) + "
+"
+	return joined
+
+
+# A left click at a screen point, through the engine's own input dispatch.
+func _click_at(point: Vector2) -> void:
+	var ev: InputEventMouseButton = InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = true
+	ev.position = point
+	ev.global_position = point
+	root.push_input(ev)
+
 
 
 # --- SUCCESSION -----------------------------------------------------------------------------

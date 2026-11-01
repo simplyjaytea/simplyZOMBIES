@@ -23,6 +23,10 @@ const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
+const SimContext = preload("res://sim/context.gd")
+const SimStances = preload("res://sim/stances.gd")
+const SimSpace = preload("res://sim/space/space.gd")
+const InputMapRes = preload("res://presentation/input_map.gd")
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
 const PropView = preload("res://presentation/first_person/prop_view.gd")
@@ -32,6 +36,7 @@ const Hud = preload("res://presentation/first_person/hud.gd")
 const WorkPanel = preload("res://ui/work_panel.gd")
 const WebPanel = preload("res://ui/web_panel.gd")
 const InventoryPanel = preload("res://ui/inventory_panel.gd")
+const ReportsPanel = preload("res://ui/reports_panel.gd")
 
 const SEED: int = SimBoot.DISTRICT_SEED
 # The shipped district size, the one `session.gd` boots by default. The gate overrides
@@ -42,7 +47,9 @@ const TICK_SECONDS: float = 1.0 / float(TICK_HZ)
 # The game's own title lives in this scene; leaving the experiment means going back to it.
 const TITLE_SCENE: String = "res://presentation/main.tscn"
 
-const EYE_HEIGHT_M: float = 1.62
+# The camera's eye eases to the sim's eye height (`SimSpace.eye_of`) with this time constant, so a
+# crouch is not a teleport: within 1 cm of its target in about 0.15 s.
+const EYE_EASE_TAU_S: float = 0.035
 const LOOK_SENSITIVITY: float = 0.0024
 const PITCH_LIMIT: float = 1.30
 const LEDGER_REACH_M: float = 1.80
@@ -56,6 +63,8 @@ const KICK_RADIANS: float = 0.022
 const KICK_DECAY_PER_SECOND: float = 0.15
 const HELD_WEAPON_POSITION: Vector3 = Vector3(0.33, -0.24, -0.58)
 const HELD_WEAPON_ROTATION_DEG: Vector3 = Vector3(-6.0, 14.0, 0.0)
+# How finely the look ray is walked through the tile grid when it looks for a door or window (metres).
+const VERB_STEP_M: float = 0.02
 
 const MOVE_KEYS: Array[int] = [KEY_W, KEY_A, KEY_S, KEY_D]
 
@@ -85,6 +94,12 @@ var _web_panel: Control = null
 var _web_open: bool = false
 var _inventory_layer: CanvasLayer = null
 var _inventory_panel: Control = null
+# The ledger's Reports page. `_reports_read` is the chronicle's read mark: entries before it have been read.
+# Presentation state only -- the sim is never written -- and it starts at 0 on every boot.
+var _reports_open: bool = false
+var _reports_read: int = 0
+var _reports: Control = null
+var _reports_chip: Control = null
 
 var _held: Dictionary = {}
 var _last_dx: float = 0.0
@@ -109,6 +124,12 @@ var _epitaph: Array[String] = []
 var _held_weapon: MeshInstance3D = null
 var _held_weapon_size: Vector3 = Vector3.ZERO
 var _kick: float = 0.0
+# The camera's eye height in metres, eased toward the sim's posture eye. Presentation only.
+var _eye_m: float = 1.62
+# The Ctrl-ladder rung last chosen; releasing Shift returns to it (as input_map.gd does).
+var _selected_stance: int = SimStances.Stance.Walk
+var _verb_key: Array = []
+var _verb_row: Dictionary = {}
 
 
 func _ready() -> void:
@@ -149,6 +170,7 @@ func _boot() -> void:
 	_prev_player = _curr_player
 	_player_seen = int(world.player)
 	_choose_ledger_site()
+	_eye_m = _eye_target()
 	# Open on the desk rather than a random wall: the foundation's one interaction should be in
 	# front of the player on the first frame.
 	var to_ledger: Vector2 = _ledger_sim - _curr_player
@@ -195,7 +217,7 @@ func _build_rig() -> void:
 	add_child(_rig)
 	camera = Camera3D.new()
 	camera.name = "Eye"
-	camera.position = Vector3(0.0, EYE_HEIGHT_M, 0.0)
+	camera.position = Vector3(0.0, _eye_m, 0.0)
 	camera.fov = 75.0
 	camera.near = 0.05
 	camera.far = 240.0
@@ -338,6 +360,7 @@ func _process(delta: float) -> void:
 			if _work_panel.has_method("selected"):
 				who = int(_work_panel.call("selected"))
 			_work_panel.call("set_world", world, who)
+	_ease_eye(delta)
 	var alpha: float = clampf(_accumulator / TICK_SECONDS, 0.0, 1.0)
 	_kick = move_toward(_kick, 0.0, delta * KICK_DECAY_PER_SECOND)
 	_update_held_weapon()
@@ -375,6 +398,7 @@ func _update_render(alpha: float) -> void:
 		_rig.rotation = Vector3(0.0, yaw, 0.0)
 	if camera != null:
 		camera.rotation = Vector3(pitch + _kick, 0.0, 0.0)
+		camera.position = Vector3(0.0, _eye_m, 0.0)
 	if _bodies != null:
 		_bodies.call("apply", world, alpha)
 
@@ -391,18 +415,21 @@ func _update_hud() -> void:
 	elif not menu_open:
 		var verdict: String = interaction_verdict()
 		if verdict == "ok":
-			prompt = "E read the ledger"
-		elif verdict == "away":
-			prompt = "Turn to the ledger."
+			prompt = _ledger_prompt()
 		else:
 			var box_verdict: String = container_verdict()
 			var box_name: String = _container_kind(container_focus())
+			var verb: String = verb_prompt()
 			if box_verdict == "ok":
 				prompt = "E open the %s" % box_name
+			elif verb != "":
+				prompt = verb
 			elif box_verdict == "away":
 				prompt = "Turn to the %s." % box_name
 			elif box_verdict == "spent":
 				prompt = "You have already been through this %s." % box_name
+			elif verdict == "away":
+				prompt = "Turn to the ledger."
 			elif _curr_player.distance_to(_ledger_sim) < 4.5:
 				prompt = "The ledger stands near."
 	_hud.call("set_state", world, int(world.player), prompt, _live_alert(), menu_open, paused, inventory_open, _live_news())
@@ -453,13 +480,15 @@ func _input(event: InputEvent) -> void:
 		return
 	if menu_open:
 		if ke.pressed and code == KEY_ESCAPE:
-			if _web_open:
+			if _reports_open:
+				close_reports()
+			elif _web_open:
 				_show_work_panel()
 			else:
 				close_ledger_menu()
 			get_viewport().set_input_as_handled()
 			return
-		if ke.pressed and _work_panel != null and _work_panel.has_method("key") and not _web_open:
+		if ke.pressed and _work_panel != null and _work_panel.has_method("key") and not _web_open and not _reports_open:
 			_work_panel.call("key", ke)
 		get_viewport().set_input_as_handled()
 		return
@@ -491,6 +520,19 @@ func _input(event: InputEvent) -> void:
 		return
 	if ke.pressed and code == KEY_R:
 		reload_weapon()
+		get_viewport().set_input_as_handled()
+		return
+	# The stance keys are the top-down game's, read from input_map.gd's BINDINGS. Shift is the sprint
+	# latch: press sprints, release returns to the last Ctrl rung. Ctrl+S is a stance, never a step back.
+	if code == KEY_SHIFT:
+		_push_stance(SimStances.Stance.Sprint if ke.pressed else _selected_stance)
+		get_viewport().set_input_as_handled()
+		return
+	var rung: int = _stance_rung_of(ke)
+	if rung >= 0:
+		if ke.pressed:
+			_selected_stance = rung
+			_push_stance(rung)
 		get_viewport().set_input_as_handled()
 		return
 	if code in MOVE_KEYS:
@@ -555,7 +597,7 @@ func set_look(new_yaw: float, new_pitch: float) -> void:
 ## Points the eye at a Godot-space point. Used by the gate and by nothing else in the frame loop;
 ## it is the inverse of `look_direction` and the same arithmetic a mouse could only reach slowly.
 func look_toward(point: Vector3) -> void:
-	var eye: Vector3 = Vector3(_rendered_player().x, EYE_HEIGHT_M, _rendered_player().y)
+	var eye: Vector3 = Vector3(_rendered_player().x, _eye_m, _rendered_player().y)
 	var d: Vector3 = point - eye
 	if d.length_squared() <= 0.000001:
 		return
@@ -771,7 +813,7 @@ func container_target() -> int:
 		return -1
 	if int(_containers.call("count")) <= 0:
 		return -1
-	var eye: Vector3 = Vector3(_rendered_player().x, EYE_HEIGHT_M, _rendered_player().y)
+	var eye: Vector3 = Vector3(_rendered_player().x, _eye_m, _rendered_player().y)
 	var look: Vector3 = look_direction()
 	var best: int = -1
 	var best_distance: float = 1.0e9
@@ -837,8 +879,10 @@ func container_world_point(entity: int) -> Vector3:
 	return Vector3(at.x, CONTAINER_AIM_HEIGHT_M, at.y)
 
 
-## The one interaction. An aimed, reachable container is opened with the top-down command and the
-## real inventory sheet; a refusal says which of the three rules failed, in the ledger's words.
+## The one interaction. The order is the ledger, then an openable container, then the world's first
+## tile verb (a door or window), then the container's and the ledger's refusals -- so a higher rung
+## always wins, an aimed door is not blocked by a box merely standing near it, and every refusal says
+## which rule failed in the ledger's words.
 func try_interact() -> bool:
 	if menu_open or inventory_open:
 		return false
@@ -846,6 +890,13 @@ func try_interact() -> bool:
 		open_ledger_menu()
 		return true
 	var box_verdict: String = container_verdict()
+	if box_verdict == "ok":
+		open_container(container_focus())
+		return true
+	var row: Dictionary = verb_row()
+	if not row.is_empty():
+		world.commands.push(row["command"])
+		return true
 	if box_verdict != "none":
 		var box_name: String = _container_kind(container_focus())
 		match box_verdict:
@@ -861,9 +912,6 @@ func try_interact() -> bool:
 			"spent":
 				_set_alert("You have already been through this %s." % box_name)
 				return false
-			"ok":
-				open_container(container_focus())
-				return true
 	match interaction_verdict():
 		"far":
 			_set_alert("Nothing within reach. Walk closer to the ledger.")
@@ -986,7 +1034,7 @@ func interaction_verdict() -> String:
 	if _curr_player.distance_to(_ledger_sim) > LEDGER_REACH_M:
 		return "far"
 	var point: Vector3 = _props.call("ledger_world_point")
-	var eye: Vector3 = Vector3(_rendered_player().x, EYE_HEIGHT_M, _rendered_player().y)
+	var eye: Vector3 = Vector3(_rendered_player().x, _eye_m, _rendered_player().y)
 	var to: Vector3 = point - eye
 	if to.length_squared() <= 0.000001:
 		return "away"
@@ -1028,6 +1076,7 @@ func open_ledger_menu() -> void:
 		_web_panel.visible = false
 	_web_open = false
 	menu_open = true
+	_reports_ensure()
 	_clear_held()
 	_push_zero_move()
 	_release_mouse()
@@ -1040,6 +1089,7 @@ func close_ledger_menu() -> void:
 	if _web_panel != null:
 		_web_panel.visible = false
 	_web_open = false
+	_reports_hide()
 	menu_open = false
 	_clear_held()
 	_push_zero_move()
@@ -1334,3 +1384,176 @@ func _capture_mouse() -> void:
 	_mouse_captured = true
 	if DisplayServer.get_name() != "headless":
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+
+# --- world verbs: E on a door or a window ------------------------------------------------------
+
+# The prompt E would answer with, in the first verb's own words, or "" when the sim offers nothing.
+func verb_prompt() -> String:
+	var row: Dictionary = verb_row()
+	if row.is_empty():
+		return ""
+	return "E " + String(row["text"])
+
+
+# The first verb `SimContext.verbs_at` offers for the tile the eye is on, as the right-click menu would
+# offer it there: the same rows, and E pushes the row's command verbatim (`main._context_pick`). No
+# verb is decided here. Cached per tick and tile, because the sim's answer changes only with those.
+func verb_row() -> Dictionary:
+	var hit: Dictionary = eye_tile_hit()
+	if hit.is_empty() or world == null:
+		return {}
+	var key: Array = [int(world.tick), hit["tile"], hit["kind"]]
+	if key != _verb_key:
+		_verb_key = key
+		_verb_row = {}
+		var offered: Array[Dictionary] = SimContext.verbs_at(world, int(world.player), {"kind": hit["kind"], "entity": -1, "tile": hit["tile"]})
+		for row in offered:
+			if not (row["command"] as Dictionary).is_empty():
+				_verb_row = row
+				break
+	return _verb_row
+
+
+# The tile the eye is on: the look ray walked through the tile grid from the sim's position to the
+# ledger's reach, and the first tile that is a door, a window or solid. Returns {tile, kind} with kind
+# "door" (a door tile, which `pick.gd` would name a door) or "ground", or {} when the ray meets none.
+# Presentation-side only: slice 2 of docs/40 moves this test into `SimSpace.segment_clear`, which
+# then answers it for the sim too. Until then this one small function is the only place it lives.
+func eye_tile_hit() -> Dictionary:
+	if world == null or map == null:
+		return {}
+	var look: Vector3 = look_direction()
+	var dir: Vector2 = Vector2(look.x, look.z)
+	if dir.length_squared() < 0.000001:
+		return {}
+	dir = dir.normalized()
+	var last: Vector2i = Vector2i(-1000000, -1000000)
+	var d: float = 0.0
+	while d <= LEDGER_REACH_M:
+		var p: Vector2 = _curr_player + dir * d
+		var t: Vector2i = Vector2i(floori(p.x), floori(p.y))
+		if t != last:
+			last = t
+			var kind: String = _verb_kind(t)
+			if kind != "":
+				return {"tile": t, "kind": kind}
+		d += VERB_STEP_M
+	return {}
+
+
+func _verb_kind(t: Vector2i) -> String:
+	if t.x < 0 or t.y < 0 or t.x >= int(map.w) or t.y >= int(map.h):
+		return ""
+	var tile: int = SimTileMap.tile_at(map, t.x, t.y)
+	if tile == SimTileMap.Tile.Door:
+		return "door"
+	if tile == SimTileMap.Tile.Window or SimTileMap.is_solid(map, t.x, t.y):
+		return "ground"
+	return ""
+
+
+# --- stance and gait: the top-down keys, and an eye that follows the posture ------------------
+
+# The stance command the top-down game pushes (`input_map.gd`'s `_push_stance`): the sim decides.
+func _push_stance(target: int) -> void:
+	if world == null:
+		return
+	world.commands.push({"type": "stance", "stance": target})
+
+
+# The Ctrl-ladder rung a key event asks for, read from `input_map.gd`'s BINDINGS -- the table the top-down
+# game reads -- or -1 when no stance binding matches the event's keycode and Ctrl state.
+func _stance_rung_of(ke: InputEventKey) -> int:
+	for action in InputMapRes.BINDINGS.keys():
+		var row: Dictionary = InputMapRes.BINDINGS[action] as Dictionary
+		if not row.has("stance"):
+			continue
+		if bool(row["ctrl"]) != ke.ctrl_pressed:
+			continue
+		if (row["keys"] as Array).has(ke.keycode):
+			return int(row["stance"])
+	return -1
+
+
+# The eye height the sim's posture gives, in metres (`SimSpace.eye_of` is millimetres).
+func _eye_target() -> float:
+	if world == null:
+		return _eye_m
+	return float(SimSpace.eye_of(world, int(world.player))) / 1000.0
+
+
+# Moves the eye toward its posture target with an exponential ease, so a stance change is not a jump.
+func _ease_eye(delta: float) -> void:
+	_eye_m = lerpf(_eye_m, _eye_target(), 1.0 - exp(-delta / EYE_EASE_TAU_S))
+
+
+# --- the ledger's Reports page --------------------------------------------------------------
+
+# "E read the ledger, new reports" while any entry is past the read mark; the plain ledger prompt otherwise.
+func _ledger_prompt() -> String:
+	if ReportsPanel.unread(world, _reports_read) > 0:
+		return "E read the ledger, new reports"
+	return "E read the ledger"
+
+
+# Builds the Reports page and its chip once, then shows the chip for the open ledger.
+func _reports_ensure() -> void:
+	if _reports == null:
+		_reports = ReportsPanel.new()
+		_reports.name = "ReportsPage"
+		_reports.visible = false
+		_work_layer.add_child(_reports)
+		_reports_chip = ReportsPanel.Chip.new()
+		_reports_chip.name = "ReportsChip"
+		_work_layer.add_child(_reports_chip)
+		_reports_chip.activated.connect(open_reports)
+	_reports_chip.visible = true
+	var view: Vector2 = get_viewport().get_visible_rect().size
+	_reports_chip.position = Vector2(view.x - _reports_chip.size.x - 16.0, 16.0)
+
+
+# The page is up: it shows what was written since the read mark, marks that as new, and then the whole
+# record is read -- the mark moves to the end, so the prompt stops asking.
+func open_reports() -> void:
+	if not menu_open or _reports == null:
+		return
+	_reports_open = true
+	if _work_panel != null:
+		_work_panel.visible = false
+	if _web_panel != null:
+		_web_panel.visible = false
+	_web_open = false
+	_reports.call("show_reports", world, _reports_read)
+	_reports.position = Vector2(16.0, 16.0)
+	_reports.visible = true
+	_reports_chip.visible = false
+	_reports_read = int((world.chronicle as Array).size())
+
+
+# Escape from the Reports page: back to the work grid, not the street.
+func close_reports() -> void:
+	if not _reports_open:
+		return
+	_reports_open = false
+	if _reports != null:
+		_reports.visible = false
+	if _reports_chip != null:
+		_reports_chip.visible = menu_open
+	_show_work_panel()
+
+
+func _reports_hide() -> void:
+	_reports_open = false
+	if _reports != null:
+		_reports.visible = false
+	if _reports_chip != null:
+		_reports_chip.visible = false
+
+
+func reports_node() -> Control:
+	return _reports
+
+
+func reports_chip_node() -> Control:
+	return _reports_chip
