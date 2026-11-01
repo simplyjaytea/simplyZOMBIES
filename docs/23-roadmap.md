@@ -2423,6 +2423,87 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **The model loader and loose items drawn with their models, 2026-11-01.** The first code that reads
+  the art kits. `godot/presentation/first_person/models.gd` reads every `assets/first_person/*.manifest.json`
+  (in file-name order, a malformed one skipped), resolves an item to a model by id and then by class, and
+  returns null when neither matches. It parses each GLB once from its bytes, shares one texture per
+  distinct atlas by a SHA-256 of its base-level pixels, generates mipmaps on that texture, and samples
+  it with nearest-with-mipmaps. `godot/presentation/first_person/loose_view.gd` draws each sim item that
+  has `position` and `itemBase` and no `stored`: at its position, lifted onto the floor, turned by a yaw
+  seeded from its entity, and with no node when its item has no model. It refreshes on a sim tick and is
+  invalidated by a load. `godot/export_presets.cfg` packs `assets/first_person/**.glb` and
+  `**.manifest.json` in both presets; the Windows export's pack lists all 14 weapon GLBs and the manifest.
+  - **The gate.** The MODELS lane of `godot/check_first_person.gd` holds it to:
+    - every entry in the weapons manifest loads, and its box is its `sizeM` within 1 cm per axis;
+    - the whole weapon kit holds one distinct texture, shared by two GLBs that embed the atlas, with a
+      mip chain;
+    - an id match beats a class match in either order, a class resolves an item with no id match, and an
+      unknown id or an empty id resolves to null (on fabricated manifests and on the committed kit);
+    - a copy of the atlas's pixels is handed back as the shared texture, and a different image is not;
+    - a loose bat dropped at the player's feet by the sim's own `drop_at_feet` has a node at the sim's
+      position, its lowest point on the floor within 1 cm, and its drawn height is its model's;
+    - an item with no model has no node, and a despawned item loses its node on the next refresh.
+  - **True negatives, run by hand.** Each rule was broken once and the lane went red: class-first
+    resolution (`an id match did not beat a class match`), no lift (`the loose bat's lowest point is
+    -0.0330 m`), no mipmaps (`0 mip level`), and no sharing (`14 distinct textures`). Each file was restored
+    and the lane passed again.
+  - **Measured.** A headed 300-frame probe at spawn, window 1280 x 720, the shipped district, the
+    first-person scene. Before is this branch's weapon-kit commit without the loader; after is with it.
+    Three runs each, alternating:
+    - before: mean 5.553, 5.574, 5.554 ms; median 5.558 ms; p95 7.222, 7.095, 7.159 ms;
+    - after: mean 5.557, 5.561, 5.554 ms; median 5.558 to 5.561 ms; p95 7.269, 7.123, 7.524 ms.
+    The frame sits at the 180 Hz cap at spawn, so the means do not move and the p95 spread overlaps.
+    Two runs with the window at 610 or 1247 pixels wide were dropped, because the window did not hold
+    1280 x 720. A first version that looked up items with no model on every refresh cost 1.4 ms a
+    refresh with 72 loose items in the district; it now costs about 0.1 ms, once per tick.
+  - **Measured, the item kit, uncommitted.** The item kit's manifest and GLBs were copied in for a
+    throwaway test and removed before the commit. With both manifests read there are 384 entries (14
+    weapon, 370 item), and a tin of food resolves by id to
+    `food_canned.glb`, draws at its sim position, and rests with its lowest point at 0. Of the 73 district
+    items, 69 resolve to a model and 4 have none.
+  - **Not in this piece.**
+    - The item kit's own manifest and GLBs, which are in review. When #299 merges, the same loader draws
+      them; nothing here changes.
+    - `assets.gd`'s `load_model`, which still loads the desk and ledger with nearest and no mipmaps. The
+      review's minor 8 is answered for the models this loader reads, not for those two.
+    - The horde cost. The shared atlas removes the 7 to 10 embedded copies per assembled pistol, but the
+      hidden internal parts are still drawn.
+    - Container contents, which are inside and not drawn.
+
+- **The held weapon from the sim's own parts, 2026-11-01.** Advances the weapon plan (W1 and W2,
+  the view model and the assembly): the first-person view draws the equipped item's kit model,
+  assembled from the parts the sim says are installed, in place of the interim placeholder box.
+  - **The model.** `presentation/first_person/held_weapon.gd` hangs off the camera at the lower
+    right. The kit's held pose puts each model's origin at `grip_r`, so the model is parented at the
+    grip anchor with a little sway; the existing camera kick still moves the whole view.
+  - **The assembly.** The equipped item comes from `rangedWeapon.source` / `meleeWeapon.source`. A
+    ranged weapon draws its receiver and each installed visible part under the receiver's
+    `socket_<slot>`; a muzzle device goes under the installed barrel's own `socket_muzzle` when the
+    barrel has one. The hidden slots (`internal`, `spring`, `sear`, `extractor`) are skipped -- 324
+    of a default pistol's 1,430 triangles. A melee weapon draws its whole model and adds no parts:
+    the fire axe already draws its head and haft, so the content's default parts are not stacked on
+    it. A part with no model leaves its socket empty and is listed; an item with no model keeps the
+    placeholder box.
+  - **The rebuild rule.** The drawn set is compared by base ids and rebuilt only when it changes, so
+    an equip, a field swap or a bench shows up and a still frame does no model work.
+  - **The seam.** The manifest loader is `presentation/first_person/models.gd` (the model-loader
+    piece). This file calls `Models.resolve(item_id, item_class)` for the manifest entry and
+    `Models.model_for(item_id, item_class)` for an instance, reading the class from the item's
+    content base exactly as `loose_view.gd` does. There is no second loader and no fallback: an
+    item the manifests do not name keeps the placeholder box. The HELD lane now runs fully.
+  - **The gate.** `godot:check:first_person` (HELD lane): a real service pistol equipped through
+    `SimInventory.equip` draws its receiver, barrel and magazine, each under its socket, and its
+    drawn set equals the sim's installed visible set; the suppressor fitted through `item.attach`
+    appears on the barrel's `socket_muzzle`; detaching it in the sim makes the view's own `verify`
+    fail until it repaints; bare hands draw nothing; the bat is drawn whole with no added head.
+  - **Measured.** Headed 1280x720 at spawn with the pistol held, 300 frames after 30 warmup, three
+    runs a side: before median 1.464 ms (1.464, 1.456, 1.724); after median 1.748 ms (1.748, 2.069,
+    1.740), through the real loader. About 0.3 ms more, and far under docs/22's 10 ms draw target.
+  - **Not in this piece.** No hands or arms (a later art piece); NPCs get no view model; the drawn
+    meshes stay separate nodes so each part's socket is visible to the gate (no merge); the bench
+    cutaway of the internals, and separate melee part models, are later.
+  - **Record.** `docs/planning/first-person-held-weapon-report.md`.
+
 - **The first-person loot-item kit, 2026-11-01.** Advances "First-person scavenging and personal
   equipment": the things a player picks up now have world-pose models. Only the art lands here: no
   scene reads the manifest yet. Wiring it is a separate code piece.

@@ -35,6 +35,11 @@ extends SceneTree
 #             camera kick and no reticle or centre dot, the placeholder weapon shows only with
 #             something in hand, the ledger refuses the same press, a look away misses, and a
 #             reload with nothing to load is the sim's refusal with no words from the scene.
+#   HELD      the equipped weapon in the lower right is the item's own model, assembled from the
+#             sim's installed visible parts, each under its socket: a service pistol shows its
+#             receiver, barrel and magazine; fitting the suppressor through `item.attach` puts it on
+#             the barrel's socket_muzzle; a view that no longer matches the sim fails its own check;
+#             bare hands show nothing; the bat is drawn whole with no added head.
 #   PRIORITY  a click on the panel's first priority cell dispatches a real `job.priority`, the
 #             colonist's row changes and turns Manual, and the player is never one of the rows.
 #   LEGEND    the key reference (F1) lists every key the scene handles and no other: the handled keys are
@@ -82,6 +87,9 @@ extends SceneTree
 #             walking is swallowed while it is up and Escape closes it and recaptures the mouse. Out
 #             of reach, off the aim, through a wall, at a zombie and at a raider: no panel.
 
+#   MODELS    every weapons-manifest entry loads and its box is its sizeM within 1 cm; an id match beats a class match and an unknown id resolves to null; two GLBs that embed the atlas share one mipmapped texture; a loose bat the sim drops is drawn with its model at its resting position, and an item with no model has no node.
+
+
 const SCENE_PATH: String = "res://presentation/first_person/first_person.tscn"
 const WorkPanel = preload("res://ui/work_panel.gd")
 const InventoryPanel = preload("res://ui/inventory_panel.gd")
@@ -102,6 +110,7 @@ const SimMelee = preload("res://sim/modules/melee.gd")
 const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimItems = preload("res://sim/modules/items.gd")
+const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
 const Clock = preload("res://sim/time/clock.gd")
@@ -115,6 +124,8 @@ const FirstPerson = preload("res://presentation/first_person/first_person.gd")
 const InputMapRes = preload("res://presentation/input_map.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
 const SaveSlot = preload("res://presentation/first_person/save_slot.gd")
+const Models = preload("res://presentation/first_person/models.gd")
+const Appearance = preload("res://presentation/appearance.gd")
 
 # The district the gate boots. Small on purpose: every lane walks the sim, and the shipped 256 district
 # is for the player, not for a gate. DISTRICT proves this is really smaller than the shipped default.
@@ -130,6 +141,8 @@ const LIGHT_NIGHT_AMBIENT_MAX: float = 0.15
 const GATE_SAVE_KEY: String = "first_person_save_gate.slot"
 const TICK_SECONDS: float = 1.0 / 20.0
 const EPSILON: float = 0.0001
+# A model's drawn box against its manifest sizeM, and a loose item against the floor: 1 cm.
+const MODEL_TOLERANCE_M: float = 0.01
 
 var _failures: Array[String] = []
 var _skips: Array[String] = []
@@ -168,6 +181,7 @@ func _run() -> void:
 		ok = _lane("BLOCK", _blocked(scene), "a wall stops the body in its tile and the other way crosses it") and ok
 		ok = _lane("CONTAINER", _container(scene), "a sim container opens through container.open into the real sheet and a take moves one item") and ok
 		ok = _lane("FIGHT", _fight(scene), "a bat swing lands and a gun spends a round while the ledger refuses both") and ok
+		ok = _lane("HELD", _held(scene), "the equipped weapon is drawn from the sim's installed parts on their sockets and a mismatch fails") and ok
 		ok = _lane("LEDGER", _ledger(scene, spawn), "the ledger opens in reach and on the aim and refuses a look away") and ok
 		ok = _lane("PRIORITY", _priority(scene), "a priority click dispatches a real job.priority and the row turns Manual") and ok
 		ok = _lane("MENU", _menu(scene), "the ledger's screens open and close on Escape") and ok
@@ -181,6 +195,7 @@ func _run() -> void:
 		ok = _lane("SAVE", _save(scene), "F5 and F9 save and load through the sim's own save in its own slot") and ok
 		ok = _lane("ART", _art(scene), "the desk and ledger load from their GLBs at the published sizes") and ok
 		ok = _lane("PREVIEW", _preview(), "the prop preview stands every prop on its base") and ok
+		ok = _lane("MODELS", _models(scene), "every weapons-manifest entry loads at its declared size with an id match beating a class match") and ok
 		ok = _lane("LIGHT", _light(scene), "noon is bright and midnight dark, and a carried torch lights the eye") and ok
 		ok = _lane("SUCCESSION", _succession(scene), "a death hands the camera to an heir and the dead body is drawn") and ok
 		ok = _lane("LEGEND", _legend(scene), "F1 lists every key the scene handles and the scene handles every key it lists") and ok
@@ -1027,6 +1042,149 @@ func _body_total(body: Dictionary) -> float:
 		if value is float or value is int:
 			total += float(value)
 	return total
+
+
+# --- HELD -----------------------------------------------------------------------------------
+
+# The equipped weapon view, read from the sim's own equipment. A real pistol item is spawned and
+# equipped through `SimInventory.equip`; the sim's equip handler builds `rangedWeapon` with its
+# `source`. The muzzle swap goes through the sim's own `item.attach` command. The negative detaches
+# the part in the sim and asks the view's own `verify` before it repaints.
+const HELD_HIDDEN_SLOTS: Array[String] = ["internal", "spring", "sear", "extractor"]
+
+func _held(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var player: int = int(world.player)
+	# Start from bare hands whatever the fight lane left.
+	world.components.remove(player, "rangedWeapon")
+	world.components.remove(player, "meleeWeapon")
+	SimMelee.ensure_hands(world, player)
+	scene.call("_process", TICK_SECONDS)
+	if bool(scene.call("held_weapon_visible")):
+		ok = _fail("HELD", "bare hands drew a weapon")
+	var held: Node3D = scene.call("held_weapon_node") as Node3D
+	if held == null:
+		return _fail("HELD", "the scene has no held-weapon view")
+
+	# The service pistol: the receiver plus exactly its installed visible parts.
+	var pistol: int = int(SimItems.spawn_item(world, "item.pistol.service", {"tier": "scavenged"}))
+	if pistol < 0:
+		return _fail("HELD", "the service pistol would not spawn")
+	if not SimInventory.equip(world, player, pistol):
+		return _fail("HELD", "the service pistol would not equip")
+	scene.call("step_sim_once")
+	scene.call("_process", TICK_SECONDS)
+	var want: Dictionary = _held_visible_parts(world, pistol)
+	var drawn: Dictionary = held.call("drawn") as Dictionary
+	if String(drawn.get("receiver", "")) != "item.pistol.service":
+		ok = _fail("HELD", "the pistol drew receiver '%s', not item.pistol.service" % String(drawn.get("receiver", "")))
+	var slots: Array = held.call("drawn_slots") as Array
+	var want_slots: Array = want.keys()
+	want_slots.sort()
+	if slots != want_slots:
+		ok = _fail("HELD", "the pistol drew slots %s, not the sim's visible %s" % [slots, want_slots])
+	for slot_v in want.keys():
+		var slot: String = String(slot_v)
+		ok = _held_socket_ok(held, slot, String(want[slot_v]), "socket_%s" % slot) and ok
+	if not (held.call("missing_parts") as Array).is_empty():
+		ok = _fail("HELD", "the default pistol has parts with no model: %s" % str(held.call("missing_parts")))
+	if not bool(held.call("verify", world)):
+		ok = _fail("HELD", "the pistol view does not match the sim's installed parts")
+
+	# The muzzle swap through the sim's own command: the can lands on the barrel's socket_muzzle.
+	var can: int = int(SimItems.spawn_item(world, "item.attach.suppressor", {"tier": "scavenged"}))
+	if can < 0:
+		return _fail("HELD", "the suppressor would not spawn")
+	world.commands.push({"type": "item.attach", "host": pistol, "item": can, "slot": "muzzle"})
+	scene.call("step_sim_once")
+	scene.call("_process", TICK_SECONDS)
+	drawn = held.call("drawn") as Dictionary
+	if String(drawn.get("muzzle", "")) != "item.attach.suppressor":
+		ok = _fail("HELD", "the fitted suppressor is not drawn (muzzle is '%s')" % String(drawn.get("muzzle", "")))
+	if String(held.call("socket_name", "muzzle")) != "socket_muzzle":
+		ok = _fail("HELD", "the suppressor is not on a socket_muzzle (it is on '%s')" % String(held.call("socket_name", "muzzle")))
+	var barrel: Node3D = held.call("part_node", "barrel") as Node3D
+	var muzzle_socket: Node3D = held.call("socket_node", "muzzle") as Node3D
+	if barrel == null or muzzle_socket == null or not barrel.is_ancestor_of(muzzle_socket):
+		ok = _fail("HELD", "the suppressor is not under the installed barrel's own muzzle socket")
+	if not bool(held.call("verify", world)):
+		ok = _fail("HELD", "the suppressed view does not match the sim")
+
+	# True negative: detach the can in the sim and do not repaint. The drawn set is now a lie, and
+	# `verify` must say so; one update later it is true again.
+	if not SimAttachments.detach(world, can):
+		ok = _fail("HELD", "the suppressor would not detach through the sim")
+	elif bool(held.call("verify", world)):
+		ok = _fail("HELD", "a view that disagrees with the sim verified as true")
+	scene.call("_process", TICK_SECONDS)
+	if not bool(held.call("verify", world)):
+		ok = _fail("HELD", "the view did not repaint after the part was detached")
+	if (held.call("drawn") as Dictionary).has("muzzle"):
+		ok = _fail("HELD", "the drawn set still holds a muzzle part the sim does not")
+
+	# Nothing hidden and nothing uninstalled is ever drawn.
+	for slot_v in held.call("drawn_slots") as Array:
+		var slot: String = String(slot_v)
+		if HELD_HIDDEN_SLOTS.has(slot):
+			ok = _fail("HELD", "a hidden slot %s was drawn" % slot)
+		if not (held.call("socket_name", slot) as String).begins_with("socket_"):
+			ok = _fail("HELD", "slot %s is not on a socket node" % slot)
+
+	# Bare hands again, then the bat whole.
+	SimInventory.unequip(world, player, "secondary")
+	scene.call("step_sim_once")
+	scene.call("_process", TICK_SECONDS)
+	if bool(scene.call("held_weapon_visible")):
+		ok = _fail("HELD", "unequipping the pistol left a weapon drawn")
+	var bat: int = int(SimItems.spawn_item(world, "item.bat.wood", {"tier": "scavenged"}))
+	if bat < 0:
+		return _fail("HELD", "the bat would not spawn")
+	if not SimInventory.equip(world, player, bat):
+		return _fail("HELD", "the bat would not equip")
+	scene.call("step_sim_once")
+	scene.call("_process", TICK_SECONDS)
+	drawn = held.call("drawn") as Dictionary
+	if String(drawn.get("receiver", "")) != "item.bat.wood":
+		ok = _fail("HELD", "the bat drew receiver '%s'" % String(drawn.get("receiver", "")))
+	if not (held.call("drawn_slots") as Array).is_empty():
+		ok = _fail("HELD", "the bat drew parts on top of its whole model: %s" % str(held.call("drawn_slots")))
+	if held.call("part_node", "head") != null:
+		ok = _fail("HELD", "the bat added a head part over its own model")
+	if bool(held.call("drawn_is_ranged")):
+		ok = _fail("HELD", "the bat is drawn as a ranged assembly")
+	if not bool(held.call("verify", world)):
+		ok = _fail("HELD", "the bat view does not match the sim's item")
+	return ok
+
+
+# The visible installed parts of a host, as {slot: base id} -- the same set the assembler must draw.
+func _held_visible_parts(world: Variant, host: int) -> Dictionary:
+	var out: Dictionary = {}
+	var fitted: Dictionary = SimAttachments.attached(world, host)
+	for slot_v in fitted.keys():
+		var slot: String = String(slot_v)
+		if HELD_HIDDEN_SLOTS.has(slot):
+			continue
+		var base: Variant = SimItems.item_base_of(world, int(fitted[slot_v]))
+		if base is Dictionary:
+			out[slot] = String((base as Dictionary).get("id", ""))
+	return out
+
+
+func _held_socket_ok(held: Node3D, slot: String, want_id: String, want_socket: String) -> bool:
+	var drawn: Dictionary = held.call("drawn") as Dictionary
+	if String(drawn.get(slot, "")) != want_id:
+		return _fail("HELD", "%s draws '%s', not '%s'" % [slot, String(drawn.get(slot, "")), want_id])
+	var part: Node3D = held.call("part_node", slot) as Node3D
+	var socket: Node3D = held.call("socket_node", slot) as Node3D
+	if part == null or socket == null:
+		return _fail("HELD", "%s is not parented on a socket" % slot)
+	if socket.get_parent() == null:
+		return _fail("HELD", "%s's socket is not in the receiver" % slot)
+	if String(socket.name) != want_socket:
+		return _fail("HELD", "%s is on '%s', not '%s'" % [slot, String(socket.name), want_socket])
+	return true
 
 
 # --- LEDGER ---------------------------------------------------------------------------------
@@ -2843,6 +3001,166 @@ func _living_colonist(world: Variant, exclude: int) -> int:
 		if world.components.has_component(e, "corpse") or world.components.has_component(e, "zombieType"):
 			continue
 		return e
+	return -1
+
+
+# --- MODELS ----------------------------------------------------------------------------------------
+
+# The model loader, judged on the committed weapon kit, and a loose item the sim drops drawn with its
+# model. The manifest rule and the texture rule are also tested on fabricated input, so a rule that
+# never fires cannot pass.
+func _models(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var weapons: Array = []
+	for manifest in Models.manifests():
+		if String((manifest as Dictionary).get("kit", "")) == "weapons":
+			weapons = (manifest as Dictionary)["models"] as Array
+	if weapons.is_empty():
+		return _fail("MODELS", "no weapons manifest was read from res://assets/first_person/")
+
+	# True positive: every weapons entry loads, and its box is its sizeM within 1 cm on each axis. The
+	# textures the kit's GLBs use are collected for the sharing and mipmap checks below.
+	var textures: Dictionary = {}
+	var loaded: int = 0
+	for entry in weapons:
+		var glb: String = String((entry as Dictionary)["glb"])
+		var size: Array = (entry as Dictionary)["sizeM"] as Array
+		var want: Vector3 = Vector3(float(size[0]), float(size[1]), float(size[2]))
+		var instance: Node3D = Models.instance_of(glb)
+		if instance == null:
+			ok = _fail("MODELS", "%s does not load" % glb)
+			continue
+		loaded += 1
+		var got: Vector3 = Models.bounds(instance).size
+		if absf(got.x - want.x) > MODEL_TOLERANCE_M or absf(got.y - want.y) > MODEL_TOLERANCE_M or absf(got.z - want.z) > MODEL_TOLERANCE_M:
+			ok = _fail("MODELS", "%s measures %s, its sizeM says %s" % [glb, str(got), str(want)])
+		instance.free()
+		var template: Node3D = Models.template_of(glb)
+		for texture in _albedo_textures(template):
+			textures[texture.get_instance_id()] = texture
+		if _filter_of(template) != BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS:
+			ok = _fail("MODELS", "%s does not sample with nearest-with-mipmaps" % glb)
+	if loaded != weapons.size():
+		ok = _fail("MODELS", "%d of %d weapon models loaded" % [loaded, weapons.size()])
+
+	# Two GLBs embedding the same atlas share one texture, and the shared texture has mipmaps. Every GLB in
+	# the kit embeds the atlas, so the count of distinct textures over the whole kit is one.
+	if textures.size() != 1:
+		ok = _fail("MODELS", "the weapon kit holds %d distinct textures, expected one shared atlas" % textures.size())
+	else:
+		var atlas: Texture2D = textures.values()[0] as Texture2D
+		var a: Texture2D = _albedo_textures(Models.template_of("res://assets/first_person/weapons/pistol_service.glb"))[0]
+		var b: Texture2D = _albedo_textures(Models.template_of("res://assets/first_person/weapons/pistol_barrel_standard.glb"))[0]
+		if a.get_instance_id() != b.get_instance_id():
+			ok = _fail("MODELS", "two GLBs embedding the same atlas do not share one texture")
+		var image: Image = atlas.get_image()
+		var levels: int = image.get_mipmap_count() if image != null else 0
+		if levels < 2:
+			ok = _fail("MODELS", "the shared atlas has %d mip level, not a chain" % levels)
+		# True negatives for the sharing: a new copy of the atlas's pixels is handed back as the shared texture,
+		# and a different image is not.
+		var copy: ImageTexture = ImageTexture.create_from_image(atlas.get_image().duplicate() as Image)
+		if Models._shared_texture(copy).get_instance_id() != atlas.get_instance_id():
+			ok = _fail("MODELS", "a copy of the atlas's pixels was not shared with the atlas")
+		var other: ImageTexture = ImageTexture.create_from_image(Image.create(8, 8, false, Image.FORMAT_RGBA8))
+		if Models._shared_texture(other).get_instance_id() == atlas.get_instance_id():
+			ok = _fail("MODELS", "a different image was shared with the atlas")
+
+	# True positive and true negatives for the resolution rule. An id match beats a class match whatever the
+	# order they are listed in; a class alone resolves; an unknown id and class resolve to null.
+	var fabricated: Array = [{"kit": "fake", "models": [
+		{"match": {"class": "weapon.melee"}, "glb": "class.glb"},
+		{"match": {"id": "item.bat.wood"}, "glb": "id.glb"},
+	]}]
+	var by_id: Variant = Models.resolve_in(fabricated, "item.bat.wood", "weapon.melee")
+	if not (by_id is Dictionary) or String((by_id as Dictionary)["glb"]) != "id.glb":
+		ok = _fail("MODELS", "an id match did not beat a class match on the same item")
+	var by_class: Variant = Models.resolve_in(fabricated, "item.knife.kitchen", "weapon.melee")
+	if not (by_class is Dictionary) or String((by_class as Dictionary)["glb"]) != "class.glb":
+		ok = _fail("MODELS", "a class match did not resolve an item with no id match")
+	if Models.resolve_in(fabricated, "item.nothing.here", "nothing") != null:
+		ok = _fail("MODELS", "an unknown id and class resolved to a model")
+	if Models.resolve_in(fabricated, "", "") != null:
+		ok = _fail("MODELS", "an empty id and class resolved to a model")
+	var real_bat: Variant = Models.resolve("item.bat.wood", "weapon.melee")
+	if not (real_bat is Dictionary) or not String((real_bat as Dictionary)["glb"]).ends_with("bat_wood.glb"):
+		ok = _fail("MODELS", "the committed kit does not resolve item.bat.wood to bat_wood.glb")
+	if Models.resolve("item.unknown.nothing", "") != null:
+		ok = _fail("MODELS", "the committed kit resolved an unknown id to a model")
+
+	# True positive: a loose bat the sim drops at the player's feet is drawn with its model, on the floor, at
+	# the sim's position. The drop is the sim's own command, so the sim did the placing.
+	var player: int = int(world.player)
+	var bat: int = SimItems.spawn_item(world, "item.bat.wood")
+	SimInventory.drop_at_feet(world, player, bat)
+	scene.call("_process", TICK_SECONDS)
+	var node: Node3D = scene.call("loose_node_for", bat) as Node3D
+	if node == null:
+		ok = _fail("MODELS", "a loose bat on the floor has no node in the loose-item view")
+	else:
+		var at: Vector2 = _entity_pos(world, bat)
+		if absf(node.position.x - at.x) > EPSILON or absf(node.position.z - at.y) > EPSILON:
+			ok = _fail("MODELS", "the loose bat is drawn at (%.3f, %.3f), not its sim position (%.3f, %.3f)" % [node.position.x, node.position.z, at.x, at.y])
+		var box: AABB = _world_aabb(node)
+		if absf(box.position.y) > MODEL_TOLERANCE_M:
+			ok = _fail("MODELS", "the loose bat's lowest point is %.4f m, not on the floor" % box.position.y)
+		var bat_size: Array = (real_bat as Dictionary)["sizeM"] as Array
+		if absf(box.size.y - float(bat_size[1])) > MODEL_TOLERANCE_M:
+			ok = _fail("MODELS", "the loose bat's drawn height %.4f m is not its model's %.4f m" % [box.size.y, float(bat_size[1])])
+	# True negative: an item the merged manifests do not name is drawn with no node, so it keeps the
+	# scene's placeholder. The item is found in the merged content, not assumed: the loot-item kit
+	# draws canned food now, so a hard-coded id would stop being a no-model case.
+	var modelless: String = ""
+	for base_v in SimItems.content_entries(world, "item") as Array:
+		var base: Dictionary = base_v as Dictionary
+		var item_id: String = String(base.get("id", ""))
+		if item_id != "" and Models.resolve(item_id, String(base.get("class", ""))) == null:
+			modelless = item_id
+			break
+	if modelless == "":
+		ok = _fail("MODELS", "every content item has a model, so the no-model negative has no case")
+	else:
+		var bare: int = SimItems.spawn_item(world, modelless)
+		SimInventory.drop_at_feet(world, player, bare)
+		scene.call("_process", TICK_SECONDS)
+		if scene.call("loose_node_for", bare) != null:
+			ok = _fail("MODELS", "an item with no model (%s) was drawn with a node" % modelless)
+		world.despawn(bare)
+		scene.call("_process", TICK_SECONDS)
+	# True negative: a loose item that is gone has its node freed on the next refresh.
+	var before: int = int(scene.call("loose_view_count"))
+	world.despawn(bat)
+	scene.call("_process", TICK_SECONDS)
+	if scene.call("loose_node_for", bat) != null:
+		ok = _fail("MODELS", "a despawned loose bat still has a node")
+	if int(scene.call("loose_view_count")) != before - 1:
+		ok = _fail("MODELS", "the loose-item count did not drop by the despawned bat")
+	return ok
+
+
+# Every albedo texture a template's materials carry, one per surface.
+func _albedo_textures(root: Node3D) -> Array:
+	var out: Array = []
+	var nodes: Array[MeshInstance3D] = []
+	_collect_meshes(root, nodes)
+	for node in nodes:
+		for s in node.mesh.get_surface_count():
+			var mat: Material = node.mesh.surface_get_material(s)
+			if mat is BaseMaterial3D and (mat as BaseMaterial3D).albedo_texture != null:
+				out.append((mat as BaseMaterial3D).albedo_texture)
+	return out
+
+
+# The texture filter of a template's first material.
+func _filter_of(root: Node3D) -> int:
+	var nodes: Array[MeshInstance3D] = []
+	_collect_meshes(root, nodes)
+	for node in nodes:
+		for s in node.mesh.get_surface_count():
+			var mat: Material = node.mesh.surface_get_material(s)
+			if mat is BaseMaterial3D:
+				return (mat as BaseMaterial3D).texture_filter
 	return -1
 
 
