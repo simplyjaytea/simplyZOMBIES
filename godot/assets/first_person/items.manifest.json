@@ -1,0 +1,797 @@
+{
+  "kit": "items",
+  "models": [
+    {
+      "match": {
+        "id": "item.food.canned"
+      },
+      "glb": "res://assets/first_person/items/food_canned.glb",
+      "pose": "world",
+      "sizeM": [
+        0.0756,
+        0.11,
+        0.0756
+      ]
+    },
+    {
+      "match": {
+        "id": "item.food.beans.tin"
+      },
+      "glb": "res://assets/first_person/items/food_canned.glb",
+      "pose": "world",
+      "sizeM": [
+        0.0756,
+        0.11,
+        0.0756
+      ]
+    },
+    {
+      "match": {
+        "id": "item.food.soup.tin"
+      },
+      "glb": "res://assets/first_person/items/food_canned.glb",
+      "pose": "world",
+      "sizeM": [
+        0.0756,
+        0.11,
+        0.0756
+      ]
+    },
+    {
+      "match": {
+        "id": "item.food.fruit.tin"
+      },
+      "glb": "res://assets/first_person/items/food_canned.glb",
+      "pose": "world",
+      "sizeM": [
+        0.0756,
+        0.11,
+        0.0756
+      ]
+    },
+    {
+      "match": {
+        "id": "item.food.dogfood.tin"
+      },
+      "glb": "res://assets/first_person/items/food_canned.glb",
+      "pose": "world",
+      "sizeM": [
+        0.0756,
+        0.11,
+        0.0756
+      ]
+    },
+    {
+      "match": {
+        "id": "item.soda.can"
+      },
+      "glb": "res://assets/first_person/items/soda_can.glb",
+      "pose": "world",
+      "sizeM": [
+        0.066,
+        0.122,
+        0.066
+      ]
+    },
+    {
+      "match": {
+        "id": "item.drink.beer.can"
+      },
+      "glb": "res://assets/first_person/items/soda_can.glb",
+      "pose": "world",
+      "sizeM": [
+        0.066,
+        0.122,
+        0.066
+      ]
+    },
+    {
+      "match": {
+        "id": "item.drink.energy"
+      },
+      "glb": "res://assets/first_person/items/soda_can.glb",
+      "pose": "world",
+      "sizeM": [
+        0.066,
+        0.122,
+        0.066
+      ]
+    },
+    {
+      "match": {
+        "id": "item.water.bottle"
+      },
+      "glb": "res://assets/first_person/items/water_bottle.glb",
+      "pose": "world",
+      "sizeM": [
+        0.086,
+        0.26,
+        0.086
+      ]
+    },
+    {
+      "match": {
+        "id": "item.water.bottle.untreated"
+      },
+      "glb": "res://assets/first_person/items/water_bottle.glb",
+      "pose": "world",
+      "sizeM": [
+        0.086,
+        0.26,
+        0.086
+      ]
+    },
+    {
+      "match": {
+        "id": "item.water.bottle.empty"
+      },
+      "glb": "res://assets/first_person/items/water_bottle.glb",
+      "pose": "world",
+      "sizeM": [
+        0.086,
+        0.26,
+        0.086
+      ]
+    },
+    {
+      "match": {
+        "id": "item.painkillers.strong"
+      },
+      "glb": "res://assets/first_person/items/pill_bottle.glb",
+      "pose": "world",
+      "sizeM": [
+        0.041,
+        0.08,
+        0.041
+      ]
+    },
+    {
+      "match": {
+        "id": "item.antibiotics.veterinary"
+      },
+      "glb": "res://assets/first_person/items/pill_bottle.glb",
+      "pose": "world",
+      "sizeM": [
+        0.041,
+        0.08,
+        0.041
+      ]
+    },
+    {
+      "match": {
+        "id": "item.bandage.cloth"
+      },
+      "glb": "res://assets/first_person/items/bandage_roll.glb",
+      "pose": "world",
+      "sizeM": [
+        0.055,
+        0.05,
+        0.1
+      ]
+    },
+    {
+      "match": {
+        "id": "item.wrap.elastic"
+      },
+      "glb": "res://assets/first_person/items/bandage_roll.glb",
+      "pose": "world",
+      "sizeM": [
+        0.055,
+        0.05,
+        0.1
+      ]
+    },
+    {
+      "match": {
+        "id": "item.antiseptic.bottle"
+      },
+      "glb": "res://assets/first_person/items/antiseptic.glb",
+      "pose": "world",
+      "sizeM": [
+        0.06,
+        0.1435,
+        0.034
+      ]
+    },
+    {
+      "match": {
+        "id": "item.peroxide.bottle"
+      },
+      "glb": "res://assets/first_person/items/antiseptic.glb",
+      "pose": "world",
+      "sizeM": [
+        0.06,
+        0.1435,
+        0.034
+      ]
+    },
+    {
+      "match": {
+        "id": "item.sanitiser.gel"
+      },
+      "glb": "res://assets/first_person/items/antiseptic.glb",
+      "pose": "world",
+      "sizeM": [
+        0.06,
+        0.1435,
+        0.034
+      ]
+    },
+    {
+      "match": {
+        "id": "item.medkit.field"
+      },
+      "glb": "res://assets/first_person/items/medkit.glb",
+      "pose": "world",
+      "sizeM": [
+        0.26,
+        0.1185,
+        0.1755
+      ]
+    },
+    {
+      "match": {
+        "id": "item.food.ration"
+      },
+      "glb": "res://assets/first_person/items/ration_pack.glb",
+      "pose": "world",
+      "sizeM": [
+        0.14,
+        0.034,
+        0.268
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.9mm"
+      },
+      "glb": "res://assets/first_person/items/ammo_pistol_box.glb",
+      "pose": "world",
+      "sizeM": [
+        0.084,
+        0.0387,
+        0.0615
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.9mm.hollow"
+      },
+      "glb": "res://assets/first_person/items/ammo_pistol_box.glb",
+      "pose": "world",
+      "sizeM": [
+        0.084,
+        0.0387,
+        0.0615
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.9mm.sub"
+      },
+      "glb": "res://assets/first_person/items/ammo_pistol_box.glb",
+      "pose": "world",
+      "sizeM": [
+        0.084,
+        0.0387,
+        0.0615
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.9mm.handload"
+      },
+      "glb": "res://assets/first_person/items/ammo_pistol_box.glb",
+      "pose": "world",
+      "sizeM": [
+        0.084,
+        0.0387,
+        0.0615
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.38"
+      },
+      "glb": "res://assets/first_person/items/ammo_pistol_box.glb",
+      "pose": "world",
+      "sizeM": [
+        0.084,
+        0.0387,
+        0.0615
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.38.plusp"
+      },
+      "glb": "res://assets/first_person/items/ammo_pistol_box.glb",
+      "pose": "world",
+      "sizeM": [
+        0.084,
+        0.0387,
+        0.0615
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.38.handload"
+      },
+      "glb": "res://assets/first_person/items/ammo_pistol_box.glb",
+      "pose": "world",
+      "sizeM": [
+        0.084,
+        0.0387,
+        0.0615
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.45"
+      },
+      "glb": "res://assets/first_person/items/ammo_pistol_box.glb",
+      "pose": "world",
+      "sizeM": [
+        0.084,
+        0.0387,
+        0.0615
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.45.hollow"
+      },
+      "glb": "res://assets/first_person/items/ammo_pistol_box.glb",
+      "pose": "world",
+      "sizeM": [
+        0.084,
+        0.0387,
+        0.0615
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.45.handload"
+      },
+      "glb": "res://assets/first_person/items/ammo_pistol_box.glb",
+      "pose": "world",
+      "sizeM": [
+        0.084,
+        0.0387,
+        0.0615
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.22"
+      },
+      "glb": "res://assets/first_person/items/ammo_pistol_box.glb",
+      "pose": "world",
+      "sizeM": [
+        0.084,
+        0.0387,
+        0.0615
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.22.sub"
+      },
+      "glb": "res://assets/first_person/items/ammo_pistol_box.glb",
+      "pose": "world",
+      "sizeM": [
+        0.084,
+        0.0387,
+        0.0615
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.12g"
+      },
+      "glb": "res://assets/first_person/items/ammo_shotshells.glb",
+      "pose": "world",
+      "sizeM": [
+        0.124,
+        0.023,
+        0.122
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.12g.slug"
+      },
+      "glb": "res://assets/first_person/items/ammo_shotshells.glb",
+      "pose": "world",
+      "sizeM": [
+        0.124,
+        0.023,
+        0.122
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.12g.bird"
+      },
+      "glb": "res://assets/first_person/items/ammo_shotshells.glb",
+      "pose": "world",
+      "sizeM": [
+        0.124,
+        0.023,
+        0.122
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.12g.handload"
+      },
+      "glb": "res://assets/first_person/items/ammo_shotshells.glb",
+      "pose": "world",
+      "sizeM": [
+        0.124,
+        0.023,
+        0.122
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.rifle"
+      },
+      "glb": "res://assets/first_person/items/ammo_rifle_clip.glb",
+      "pose": "world",
+      "sizeM": [
+        0.0712,
+        0.012,
+        0.066
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.rifle.match"
+      },
+      "glb": "res://assets/first_person/items/ammo_rifle_clip.glb",
+      "pose": "world",
+      "sizeM": [
+        0.0712,
+        0.012,
+        0.066
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.rifle.surplus"
+      },
+      "glb": "res://assets/first_person/items/ammo_rifle_clip.glb",
+      "pose": "world",
+      "sizeM": [
+        0.0712,
+        0.012,
+        0.066
+      ]
+    },
+    {
+      "match": {
+        "id": "item.ammo.rifle.handload"
+      },
+      "glb": "res://assets/first_person/items/ammo_rifle_clip.glb",
+      "pose": "world",
+      "sizeM": [
+        0.0712,
+        0.012,
+        0.066
+      ]
+    },
+    {
+      "match": {
+        "id": "item.lighter.disposable"
+      },
+      "glb": "res://assets/first_person/items/lighter.glb",
+      "pose": "world",
+      "sizeM": [
+        0.0841,
+        0.011,
+        0.025
+      ]
+    },
+    {
+      "match": {
+        "id": "item.torch.handheld"
+      },
+      "glb": "res://assets/first_person/items/torch.glb",
+      "pose": "world",
+      "sizeM": [
+        0.052,
+        0.053,
+        0.194
+      ]
+    },
+    {
+      "match": {
+        "id": "item.battery"
+      },
+      "glb": "res://assets/first_person/items/battery.glb",
+      "pose": "world",
+      "sizeM": [
+        0.033,
+        0.062,
+        0.033
+      ]
+    },
+    {
+      "match": {
+        "id": "item.scrap.metal"
+      },
+      "glb": "res://assets/first_person/items/scrap_metal.glb",
+      "pose": "world",
+      "sizeM": [
+        0.218,
+        0.03,
+        0.1465
+      ]
+    },
+    {
+      "match": {
+        "id": "item.plank.sawn"
+      },
+      "glb": "res://assets/first_person/items/plank.glb",
+      "pose": "world",
+      "sizeM": [
+        1.0,
+        0.035,
+        0.14
+      ]
+    },
+    {
+      "match": {
+        "id": "item.fixings.nails"
+      },
+      "glb": "res://assets/first_person/items/nails_jar.glb",
+      "pose": "world",
+      "sizeM": [
+        0.08,
+        0.1045,
+        0.08
+      ]
+    },
+    {
+      "match": {
+        "id": "item.tape.duct"
+      },
+      "glb": "res://assets/first_person/items/duct_tape.glb",
+      "pose": "world",
+      "sizeM": [
+        0.1056,
+        0.048,
+        0.092
+      ]
+    },
+    {
+      "match": {
+        "id": "item.cordage.rope"
+      },
+      "glb": "res://assets/first_person/items/rope_coil.glb",
+      "pose": "world",
+      "sizeM": [
+        0.392,
+        0.066,
+        0.357
+      ]
+    },
+    {
+      "match": {
+        "id": "item.pack.hiking"
+      },
+      "glb": "res://assets/first_person/items/hiking_pack.glb",
+      "pose": "world",
+      "sizeM": [
+        0.33,
+        0.579,
+        0.307
+      ]
+    },
+    {
+      "match": {
+        "id": "item.toolbox.steel"
+      },
+      "glb": "res://assets/first_person/items/toolbox.glb",
+      "pose": "world",
+      "sizeM": [
+        0.467,
+        0.209,
+        0.213
+      ]
+    },
+    {
+      "match": {
+        "id": "item.book.firstaid"
+      },
+      "glb": "res://assets/first_person/items/book.glb",
+      "pose": "world",
+      "sizeM": [
+        0.217,
+        0.0206,
+        0.152
+      ]
+    },
+    {
+      "match": {
+        "id": "item.book.closequarters"
+      },
+      "glb": "res://assets/first_person/items/book.glb",
+      "pose": "world",
+      "sizeM": [
+        0.217,
+        0.0206,
+        0.152
+      ]
+    },
+    {
+      "match": {
+        "id": "item.book.marksmanship"
+      },
+      "glb": "res://assets/first_person/items/book.glb",
+      "pose": "world",
+      "sizeM": [
+        0.217,
+        0.0206,
+        0.152
+      ]
+    },
+    {
+      "match": {
+        "id": "item.book.bushcraft"
+      },
+      "glb": "res://assets/first_person/items/book.glb",
+      "pose": "world",
+      "sizeM": [
+        0.217,
+        0.0206,
+        0.152
+      ]
+    },
+    {
+      "match": {
+        "id": "item.book.conditioning"
+      },
+      "glb": "res://assets/first_person/items/book.glb",
+      "pose": "world",
+      "sizeM": [
+        0.217,
+        0.0206,
+        0.152
+      ]
+    },
+    {
+      "match": {
+        "id": "item.book.gunsmithing"
+      },
+      "glb": "res://assets/first_person/items/book.glb",
+      "pose": "world",
+      "sizeM": [
+        0.217,
+        0.0206,
+        0.152
+      ]
+    },
+    {
+      "match": {
+        "id": "item.jerrycan.fuel"
+      },
+      "glb": "res://assets/first_person/items/jerrycan.glb",
+      "pose": "world",
+      "sizeM": [
+        0.345,
+        0.458,
+        0.165
+      ]
+    },
+    {
+      "match": {
+        "id": "item.jerrycan.empty"
+      },
+      "glb": "res://assets/first_person/items/jerrycan.glb",
+      "pose": "world",
+      "sizeM": [
+        0.345,
+        0.458,
+        0.165
+      ]
+    },
+    {
+      "match": {
+        "id": "item.lantern.storm"
+      },
+      "glb": "res://assets/first_person/items/storm_lantern.glb",
+      "pose": "world",
+      "sizeM": [
+        0.14,
+        0.247,
+        0.146
+      ]
+    },
+    {
+      "match": {
+        "id": "item.lantern.oil"
+      },
+      "glb": "res://assets/first_person/items/storm_lantern.glb",
+      "pose": "world",
+      "sizeM": [
+        0.14,
+        0.247,
+        0.146
+      ]
+    },
+    {
+      "match": {
+        "class": "consumable"
+      },
+      "glb": "res://assets/first_person/items/fallback_consumable.glb",
+      "pose": "world",
+      "sizeM": [
+        0.084,
+        0.045,
+        0.084
+      ]
+    },
+    {
+      "match": {
+        "class": "material"
+      },
+      "glb": "res://assets/first_person/items/fallback_material.glb",
+      "pose": "world",
+      "sizeM": [
+        0.268,
+        0.354,
+        0.261
+      ]
+    },
+    {
+      "match": {
+        "class": "tool"
+      },
+      "glb": "res://assets/first_person/items/fallback_tool.glb",
+      "pose": "world",
+      "sizeM": [
+        0.32,
+        0.085,
+        0.089
+      ]
+    },
+    {
+      "match": {
+        "class": "container"
+      },
+      "glb": "res://assets/first_person/items/fallback_container.glb",
+      "pose": "world",
+      "sizeM": [
+        0.628,
+        0.333,
+        0.329
+      ]
+    },
+    {
+      "match": {
+        "class": "armor"
+      },
+      "glb": "res://assets/first_person/items/fallback_armor.glb",
+      "pose": "world",
+      "sizeM": [
+        0.32,
+        0.071,
+        0.2525
+      ]
+    },
+    {
+      "match": {
+        "class": "attachment"
+      },
+      "glb": "res://assets/first_person/items/fallback_attachment.glb",
+      "pose": "world",
+      "sizeM": [
+        0.1224,
+        0.0477,
+        0.0862
+      ]
+    }
+  ]
+}

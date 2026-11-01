@@ -2413,6 +2413,48 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **The first-person loot-item kit, 2026-11-01.** Advances "First-person scavenging and personal
+  equipment": the things a player picks up now have world-pose models. Only the art lands here: no
+  scene reads the manifest yet. Wiring it is a separate code piece.
+  - **The art.** 24 specific models matched to 60 item ids, and one fallback for each of the six
+    classes. Every `consumable`, `material`, `tool`, `container`, `armor` and `attachment` item
+    therefore resolves to a model. The specific models are canned food, a soda can, a water bottle,
+    a pill bottle, a bandage roll, an antiseptic flask, a medkit, a ration pack, a pistol-ammo box,
+    loose shotshells, rifle rounds in a clip, a lighter, a torch, a battery, scrap metal, a plank, a
+    jar of nails, duct tape, a rope coil, a hiking pack, a toolbox, a book, a jerrycan and a storm
+    lantern. The fallbacks are a tin, a sack, a tool roll, a duffel, folded clothes and a parts
+    case. Weapons are the weapon kit's.
+  - **The files.** The builder is `tools/blender/first_person_items/build_items.py`. It writes 30
+    GLBs and `items_atlas.png` (512 x 512) under `godot/assets/first_person/items/`, plus
+    `godot/assets/first_person/items.manifest.json` in the shared kit format: `match` by `id` or
+    `class`, `glb`, `pose: world`, `sizeM`.
+  - **Density.** 128 texels per metre for the 25 models up to 0.40 m, and 64 per metre above, the
+    starter kit's density. The README gives the reason.
+  - **The look.** The atlas is painted from each texel's 3D point and its distance to real mesh
+    edges, so wear follows the object rather than atlas cells. Noise is set in texel periods to
+    avoid the starter kit's stamping and camouflage findings. Labels carry no readable text or
+    brands.
+  - **The check.** `blender ... build_items.py -- --check` prints `ITEMS_CHECK_OK`. It judges the
+    exported files:
+    - bounds within 1 cm of `sizeM`, and bottom-centre origins;
+    - every manifest id present in `godot/content/items/*.json`, and every item of the six classes
+      covered;
+    - one material, single-sided and closed meshes, and no same-facing coplanar overlaps within
+      0.5 mm;
+    - each triangle's texel density within ±25% on both axes;
+    - a byte-identical rebuild.
+
+    True negatives: eight `--plant` mutations (scale, an id typo, a second material, double-sided,
+    one reversed face, a coplanar disk, stretched UVs, one atlas texel), each turning its check red.
+  - **Measured.** A scratch Godot 4.7.1 harness (not committed) loaded every GLB through
+    `GLTFDocument`, as `assets.gd` does. Every AABB matches its `sizeM`, and every material is
+    culled and nearest-filtered. Headed SubViewport renders were taken of a shelf at 1 m and the
+    floor at 2 m. The GLBs are 82 to 167 KB, 3.1 MB in total, mostly the embedded atlas copy each
+    one needs.
+  - **Not in this piece.** Any reader of the manifest. Packing for export is unverified: the manifest
+    JSON is outside the filter `assets/first_person/*.glb`, and the export build was not run. CI has no Blender, so the
+    check is run by hand, like the starter kit's. An independent art review.
+
 - **First-person art loads from a clean checkout, 2026-11-01.** Advances "First-person
   starter-kit integration": the desk and ledger GLBs load at runtime, and the review's M3 and M4 are
   fixed. The kit's art itself arrives with its own PR.
