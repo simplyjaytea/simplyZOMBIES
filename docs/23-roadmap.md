@@ -2413,6 +2413,32 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **First-person Reports page, 2026-11-01.** Advances "First-person people and settlement
+  operation", its reports: what happened while the player was away, in the chronicle's words.
+  - **The page.** `godot/ui/reports_panel.gd` (`ReportsPanel`) lists the chronicle newest first, at most
+    12 lines, each from `SimChronicle._line_of`, the same line builder the HUD and the run-over screen
+    read. `ReportsPanel.rows` is pure and writes nothing. No day counter is shown, because the top-down
+    chronicle shows none. The page is opened by a Reports chip on the ledger (`ReportsPanel.Chip`,
+    drawn with `Locker.button`).
+  - **Read state.** `first_person.gd` keeps `_reports_read`, the chronicle index read up to. Entries at
+    or past it are marked new in words ("since you last looked", and a "new" tag per entry). Opening the
+    page moves the mark to the end of the record. The mark is presentation state, starts at 0 on every
+    boot, and the sim is not written. The save and load pieces are not on this branch, so no reset on
+    load is implemented.
+  - **The prompt.** The ledger's prompt reads "E read the ledger, new reports" while the record holds
+    entries past the mark, and "E read the ledger" otherwise.
+  - **Escape.** From the page, Escape returns to the work grid; from the grid, to the street.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, REPORTS lane)
+    prints `FIRST_PERSON_OK`. A survivor's death is published through the event bus the way
+    `health.gd` publishes a destroyed head, and the chronicle writes it. The prompt asks about new
+    reports, the chip opens the page with a real click, and the page shows the chronicle's "<name> is
+    dead." marked new. True negatives: with nothing new the prompt does not ask; every line the page
+    shows is one the chronicle holds; Escape from the page returns to the grid, not the street. Each
+    mutation (no read mark, no prompt, Escape to the street, an invented line) turns the lane red.
+  - **Not in this piece.** Paging beyond the 12 newest lines. A page for the run's epitaph. Save and
+    load of the read mark. The gate does not run the death itself: it publishes the event health.gd
+    publishes, and the body stays alive.
+
 - **First-person stance and gait, 2026-11-01.** Advances "First-person simulation and ledger
   foundation": the scene's movement and camera now follow the body's posture.
   - **The keys.** `first_person.gd` reads the stance rows of `input_map.gd`'s `BINDINGS`: Ctrl+Z

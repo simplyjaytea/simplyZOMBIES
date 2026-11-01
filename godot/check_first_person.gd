@@ -42,6 +42,8 @@ const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimStances = preload("res://sim/stances.gd")
 const SimSpace = preload("res://sim/space/space.gd")
+const SimChronicle = preload("res://sim/modules/chronicle.gd")
+const ReportsPanel = preload("res://ui/reports_panel.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const FirstPerson = preload("res://presentation/first_person/first_person.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
@@ -90,6 +92,7 @@ func _run() -> void:
 		ok = _speech(scene) and ok
 		ok = _verbs(scene) and ok
 		ok = _stance(scene) and ok
+		ok = _reports(scene) and ok
 	scene.queue_free()
 	await process_frame
 	_finish(old_size, ok)
@@ -1063,6 +1066,136 @@ func _key_ctrl(code: Key, pressed: bool) -> void:
 	ev.physical_keycode = code
 	ev.ctrl_pressed = true
 	ev.pressed = pressed
+	root.push_input(ev)
+
+
+# --- REPORTS --------------------------------------------------------------------------------
+
+# The ledger's Reports page: a death written through the sim's event bus is read off the chronicle and shown
+# in its own words, marked new; the prompt asks about new reports until the page is read. Escape goes back
+# to the work grid, then to the street. The read mark is presentation state, set here as a fixture.
+func _reports(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	if bool(scene.get("menu_open")):
+		scene.call("close_ledger_menu")
+	var props: Node3D = scene.get_node_or_null("SafeSpawnProps") as Node3D
+	if props == null:
+		return _fail("REPORTS", "the scene has no ledger to stand at")
+	_place_player(scene, scene.call("ledger_approach_position") as Vector2)
+	scene.call("look_toward", props.call("ledger_world_point") as Vector3)
+	_settle_vision(scene)
+	var verdict: String = String(scene.call("interaction_verdict"))
+	if verdict != "ok":
+		return _fail("REPORTS", "the ledger is not in reach and aimed at from its approach (%s)" % verdict)
+
+	# True negative: nothing new, so the prompt does not ask about reports.
+	scene.set("_reports_read", (world.chronicle as Array).size())
+	scene.call("_update_hud")
+	var quiet: String = _joined_hud(scene)
+	if not quiet.contains("E read the ledger") or quiet.contains("new reports"):
+		ok = _fail("REPORTS", "with nothing new the ledger prompt is not the plain one")
+
+	# A survivor's death, through the event bus the sim's own health code publishes on.
+	var victim: int = -1
+	for ent in world.components.query(["identity"]):
+		var e: int = int(ent)
+		if e != int(world.player) and not world.components.has_component(e, "zombieType"):
+			victim = e
+			break
+	if victim < 0:
+		return _fail("REPORTS", "the boot has no colonist to write a death for")
+	var name: String = String((world.components.get_component(victim, "identity") as Dictionary).get("name", ""))
+	var before: int = (world.chronicle as Array).size()
+	world.events.publish({"type": "entity.killed", "entity": victim, "killer": -1})
+	scene.call("step_sim_once")
+	var wrote: bool = false
+	for i in range(before, (world.chronicle as Array).size()):
+		var rec: Dictionary = (world.chronicle as Array)[i] as Dictionary
+		if String(rec.get("kind", "")) == "died" and int(rec.get("e", -1)) == victim:
+			wrote = true
+	if not wrote:
+		return _fail("REPORTS", "the death of %s wrote no chronicle record" % name)
+	var expected: String = "%s is dead." % name
+
+	# The prompt asks, now that something is new.
+	scene.call("_update_hud")
+	if not _joined_hud(scene).contains("E read the ledger, new reports"):
+		ok = _fail("REPORTS", "the prompt did not ask about new reports after a death")
+
+	# Open the ledger with E, then the Reports page with a real click on its chip.
+	_key(KEY_E, true)
+	if not bool(scene.get("menu_open")):
+		return _fail("REPORTS", "E in reach and aimed at did not open the ledger")
+	var chip: Control = scene.call("reports_chip_node") as Control
+	if chip == null or not chip.visible:
+		return _fail("REPORTS", "the ledger has no Reports chip")
+	_click_at(chip.get_global_rect().get_center())
+	var page: Control = scene.call("reports_node") as Control
+	if page == null or not page.visible:
+		return _fail("REPORTS", "clicking the Reports chip did not show the page")
+	var rows: Array = page.call("shown") as Array
+	var found: bool = false
+	for row in rows:
+		var r: Dictionary = row as Dictionary
+		if String(r["text"]) == expected:
+			found = true
+			if not bool(r["new"]):
+				ok = _fail("REPORTS", "the page showed '%s' but not marked new" % expected)
+	if not found:
+		ok = _fail("REPORTS", "the page does not show the chronicle's '%s'" % expected)
+
+	# True negative: every line the page shows is one the chronicle holds; nothing is invented.
+	for row in rows:
+		var text: String = String((row as Dictionary)["text"])
+		if _has_digit(text):
+			ok = _fail("REPORTS", "the page shows a digit: %s" % text)
+		var held: bool = false
+		for rec in world.chronicle as Array:
+			if SimChronicle._line_of(world, rec as Dictionary) == text:
+				held = true
+		if not held:
+			ok = _fail("REPORTS", "the page shows a line the chronicle does not hold: %s" % text)
+
+	# Reading moved the mark: the prompt stops asking once the ledger is shut again.
+	if int(scene.get("_reports_read")) != (world.chronicle as Array).size():
+		ok = _fail("REPORTS", "reading the page did not move the read mark to the end of the record")
+
+	# True negative: Escape from Reports returns to the work grid, not the street.
+	_key(KEY_ESCAPE, true)
+	if page.visible or not bool(scene.get("menu_open")):
+		ok = _fail("REPORTS", "Escape from Reports left the ledger or the page up")
+	var grid: Control = scene.call("work_panel_node") as Control
+	if grid == null or not grid.visible:
+		ok = _fail("REPORTS", "Escape from Reports did not return to the work grid")
+	# The next Escape leaves the ledger for the street.
+	_key(KEY_ESCAPE, true)
+	if bool(scene.get("menu_open")):
+		ok = _fail("REPORTS", "the second Escape did not return to the street")
+	scene.call("_update_hud")
+	var after: String = _joined_hud(scene)
+	if after.contains("new reports"):
+		ok = _fail("REPORTS", "the prompt still asks about new reports after reading")
+	return ok
+
+
+# The words the HUD is drawing, joined. The scene frame is off in this gate, so the HUD is refreshed first.
+func _joined_hud(scene: Node) -> String:
+	scene.call("_update_hud")
+	var joined: String = ""
+	for line in scene.call("hud_lines") as Array:
+		joined += String(line) + "
+"
+	return joined
+
+
+# A left click at a screen point, through the engine's own input dispatch.
+func _click_at(point: Vector2) -> void:
+	var ev: InputEventMouseButton = InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = true
+	ev.position = point
+	ev.global_position = point
 	root.push_input(ev)
 
 

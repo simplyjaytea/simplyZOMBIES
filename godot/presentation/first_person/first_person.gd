@@ -25,6 +25,7 @@ const PropView = preload("res://presentation/first_person/prop_view.gd")
 const Hud = preload("res://presentation/first_person/hud.gd")
 const WorkPanel = preload("res://ui/work_panel.gd")
 const WebPanel = preload("res://ui/web_panel.gd")
+const ReportsPanel = preload("res://ui/reports_panel.gd")
 
 const SEED: int = SimBoot.DISTRICT_SEED
 # The shipped district size, the one `session.gd` boots by default. The gate overrides
@@ -67,6 +68,12 @@ var _work_layer: CanvasLayer = null
 var _work_panel: Control = null
 var _web_panel: Control = null
 var _web_open: bool = false
+# The ledger's Reports page. `_reports_read` is the chronicle's read mark: entries before it have been read.
+# Presentation state only -- the sim is never written -- and it starts at 0 on every boot.
+var _reports_open: bool = false
+var _reports_read: int = 0
+var _reports: Control = null
+var _reports_chip: Control = null
 
 var _held: Dictionary = {}
 var _last_dx: float = 0.0
@@ -347,7 +354,7 @@ func _update_hud() -> void:
 	elif not menu_open:
 		var verdict: String = interaction_verdict()
 		if verdict == "ok":
-			prompt = "E read the ledger"
+			prompt = _ledger_prompt()
 		elif verb_prompt() != "":
 			prompt = verb_prompt()
 		elif verdict == "away":
@@ -368,13 +375,15 @@ func _input(event: InputEvent) -> void:
 	var code: int = ke.keycode if ke.keycode != 0 else ke.physical_keycode
 	if menu_open:
 		if ke.pressed and code == KEY_ESCAPE:
-			if _web_open:
+			if _reports_open:
+				close_reports()
+			elif _web_open:
 				_show_work_panel()
 			else:
 				close_ledger_menu()
 			get_viewport().set_input_as_handled()
 			return
-		if ke.pressed and _work_panel != null and _work_panel.has_method("key") and not _web_open:
+		if ke.pressed and _work_panel != null and _work_panel.has_method("key") and not _web_open and not _reports_open:
 			_work_panel.call("key", ke)
 		get_viewport().set_input_as_handled()
 		return
@@ -604,6 +613,7 @@ func open_ledger_menu() -> void:
 		_web_panel.visible = false
 	_web_open = false
 	menu_open = true
+	_reports_ensure()
 	_clear_held()
 	_push_zero_move()
 	_release_mouse()
@@ -616,6 +626,7 @@ func close_ledger_menu() -> void:
 	if _web_panel != null:
 		_web_panel.visible = false
 	_web_open = false
+	_reports_hide()
 	menu_open = false
 	_clear_held()
 	_push_zero_move()
@@ -863,3 +874,74 @@ func _eye_target() -> float:
 # Moves the eye toward its posture target with an exponential ease, so a stance change is not a jump.
 func _ease_eye(delta: float) -> void:
 	_eye_m = lerpf(_eye_m, _eye_target(), 1.0 - exp(-delta / EYE_EASE_TAU_S))
+
+
+# --- the ledger's Reports page --------------------------------------------------------------
+
+# "E read the ledger, new reports" while any entry is past the read mark; the plain ledger prompt otherwise.
+func _ledger_prompt() -> String:
+	if ReportsPanel.unread(world, _reports_read) > 0:
+		return "E read the ledger, new reports"
+	return "E read the ledger"
+
+
+# Builds the Reports page and its chip once, then shows the chip for the open ledger.
+func _reports_ensure() -> void:
+	if _reports == null:
+		_reports = ReportsPanel.new()
+		_reports.name = "ReportsPage"
+		_reports.visible = false
+		_work_layer.add_child(_reports)
+		_reports_chip = ReportsPanel.Chip.new()
+		_reports_chip.name = "ReportsChip"
+		_work_layer.add_child(_reports_chip)
+		_reports_chip.activated.connect(open_reports)
+	_reports_chip.visible = true
+	var view: Vector2 = get_viewport().get_visible_rect().size
+	_reports_chip.position = Vector2(view.x - _reports_chip.size.x - 16.0, 16.0)
+
+
+# The page is up: it shows what was written since the read mark, marks that as new, and then the whole
+# record is read -- the mark moves to the end, so the prompt stops asking.
+func open_reports() -> void:
+	if not menu_open or _reports == null:
+		return
+	_reports_open = true
+	if _work_panel != null:
+		_work_panel.visible = false
+	if _web_panel != null:
+		_web_panel.visible = false
+	_web_open = false
+	_reports.call("show_reports", world, _reports_read)
+	_reports.position = Vector2(16.0, 16.0)
+	_reports.visible = true
+	_reports_chip.visible = false
+	_reports_read = int((world.chronicle as Array).size())
+
+
+# Escape from the Reports page: back to the work grid, not the street.
+func close_reports() -> void:
+	if not _reports_open:
+		return
+	_reports_open = false
+	if _reports != null:
+		_reports.visible = false
+	if _reports_chip != null:
+		_reports_chip.visible = menu_open
+	_show_work_panel()
+
+
+func _reports_hide() -> void:
+	_reports_open = false
+	if _reports != null:
+		_reports.visible = false
+	if _reports_chip != null:
+		_reports_chip.visible = false
+
+
+func reports_node() -> Control:
+	return _reports
+
+
+func reports_chip_node() -> Control:
+	return _reports_chip
