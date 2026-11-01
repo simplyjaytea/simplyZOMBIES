@@ -2425,8 +2425,11 @@ not a to-do list:
     remembered place pitches to a standing chest. An NPC has no aim of its own, so it carries a
     pitch-only aim: `radians_of` reads its facing, `twist` is 0, and `follow_facing` writes it no
     yaw. The first-person scene's `_push_aim` sends the camera's pitch, and its `PITCH_LIMIT` is now
-    the sim's. Nothing reads pitch for a hit yet; that is slices 5 and 6. No `SAVE_VERSION` bump: an
-    optional key that reads 0 when absent, noted in `serialize.gd`'s ladder.
+    the sim's. Nothing reads pitch for a hit yet; that is slices 5 and 6. `propose` also refuses a
+    yaw that is not a number, which it used to store. No `SAVE_VERSION` bump. The new key reads 0
+    when absent, and a v33 save holds no pitch-only aim. A newer save in an older build is not
+    promised, and a bump would refuse every v33 save. The reasoning is in `serialize.gd`'s ladder
+    and docs/30, "A pitch with no yaw".
   - **The gate.** Two new `godot:m2:aim` lanes. PITCH: a body never aimed reads 0. A standing
     proposal holds its pitch, clamped at 1.30, and holds a pitch below level. A refused proposal at
     a jog writes no pitch, whether or not the body already has an aim, and the jog's snap keeps the
@@ -2445,7 +2448,9 @@ not a to-do list:
     yaw written into a pitch-only aim, and the scene's push without pitch each turn `godot:m2:aim`
     red.
   - **Verified.** The full `godot:m2` chain, all 99 gates, run locally as its four CI shards side
-    by side: 99 green, `balance` (355 s) and `harness` among them. Also `godot:m2:save`,
+    by side: 99 green, `balance` and `harness` among them. It was run twice: once on the slice
+    alone, and again after merging #282's integer walk and the first-person integration from `main`
+    with the review's fixes. Also `godot:m2:save`,
     `godot:m2:space`, `godot:m2:npc`, `godot:test` (R1 parity, byte-identical), `godot:smoke`,
     `godot:check:first_person`, `check:routing`, `check:shards`, `lint` and `format:check`. No
     existing assertion was changed.

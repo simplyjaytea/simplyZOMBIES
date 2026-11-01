@@ -7712,3 +7712,22 @@ NPC's chest. What follows is what it left open.
   It is written on every turn `_face_at` makes, after `follow_facing`. When the colonist later
   turns away by walking, the pitch it last set stays. Nothing reads pitch for a hit until slices 5
   and 6, and those slices decide whether a walking turn levels it.
+- **No `SAVE_VERSION` bump, though the pitch-only aim is a new shape.** The review of the slice
+  asked for a bump to 34. The pitch-only aim is a shape an older build does not know. It reads
+  the missing yaw as 0, so a save from this build, loaded by an older one, would turn that
+  colonist east until its next turn. The bump is still wrong, for two reasons:
+  - **Forward compatibility is not promised.** docs/19's save model detects and refuses *old*
+    saves. `save.gd` refuses any version but its own, and every "no version bump" note in
+    `serialize.gd`'s ladder judges a v33 save loaded into the newer build. The tourniquet, the
+    raised walls and the loaded round each added state an older build would drop on load: a
+    tied limb, a standing wall, a loaded magazine. None of the three was bumped.
+  - **The bump has a real cost.** It would refuse every v33 save, the player's single slot
+    included, to guard against a downgrade nobody is promised.
+  A v33 save loaded into this build holds no pitch-only aim and no `pitch`, and `radians` still
+  means the yaw wherever it is present, so nothing is misread in the direction the policy covers.
+  docs/40's rule ("a bump is needed if any slice changes the meaning of an existing key") is met:
+  no existing key changed. The call is the coordinator's to overrule.
+- **A yaw that is not a number is refused.** Before this slice, `SimAim.propose` stored a NaN yaw,
+  because NaN passes `canonical`. It now refuses one whole, so the yaw, the feet and the pitch stay
+  as they were, the way `clamp_pitch` already read a NaN pitch as level. `godot:m2:aim` PITCH holds
+  it, with the comparison written so a NaN cannot pass it.

@@ -85,6 +85,9 @@ static func holds(components: Variant, entity: int) -> bool:
 # The pitch is written with the yaw or not at all, so a refused proposal leaves both as they were.
 # Returns whether the proposal took.
 static func propose(components: Variant, entity: int, radians: float, moving: bool, pitch: float = 0.0) -> bool:
+	# A yaw that is not a number is no proposal: it would pass `canonical` and be stored.
+	if not is_finite(radians):
+		return false
 	if moving and not holds(components, entity):
 		return false
 	var r: float = canonical(radians)
@@ -163,8 +166,10 @@ static func twist(components: Variant, entity: int) -> float:
 	return absf(angle_difference(float((facing as Dictionary).get("radians", 0.0)), float((aim as Dictionary).get("radians", 0.0))))
 
 
-# atan2 reaches negative zero due east, which the serializer's `canonicalize` rejects outright; -0.0
-# == 0.0, so this assignment is the collapse `headingOf` and `npc_combat._face_at` do.
+# atan2 reaches negative zero due east. `SimSerialize.canonicalize` means to refuse one but cannot
+# see it (`str(-0.0)` prints "0.0"; docs/37), so a negative zero would be written silently as 0 and
+# come back positive. -0.0 == 0.0, so this assignment is the collapse `headingOf` and
+# `npc_combat._face_at` do, and the stored value is the one the save gives back.
 static func canonical(radians: float) -> float:
 	if radians == 0.0:
 		return 0.0

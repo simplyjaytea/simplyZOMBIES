@@ -717,6 +717,13 @@ func _pitch_rides_the_aim() -> bool:
 		return false
 	w.commands.push({"type": "aim", "radians": 0.5, "pitch": 0.25})
 	w.step()
+	# A yaw that is not a number is refused whole: the yaw, the feet and the pitch stay put.
+	w.commands.push({"type": "aim", "radians": NAN, "pitch": 0.9})
+	w.step()
+	# Written as not-within rather than beyond, because every comparison with a NaN is false.
+	if not (absf(SimAim.radians_of(w.components, w.player) - 0.5) <= 1e-6 and absf(_facing_of(w) - 0.5) <= 1e-6 and absf(SimAim.pitch_of(w.components, w.player) - 0.25) <= 1e-6):
+		push_error("%s: a NaN yaw proposal left the aim at %.3f, the feet at %.3f, pitched %.3f; want 0.5, 0.5 and 0.25" % [lane, SimAim.radians_of(w.components, w.player), _facing_of(w), SimAim.pitch_of(w.components, w.player)])
+		return false
 
 	# Refused with an aim held: the snap to the heading keeps the pitch, and a jogging proposal
 	# changes neither the yaw nor the pitch.
@@ -792,7 +799,7 @@ func _pitch_rides_the_aim() -> bool:
 		if p != 0.0 or not _negative_zeros({"p": p}, "$").is_empty():
 			push_error("%s: clamp_pitch(%s) gave %s, not a positive zero" % [lane, str(value), str(p)])
 			return false
-	print("PITCH OK a body never aimed reads 0; a standing proposal holds its pitch, clamped to 1.30 and held below level; a refused one writes none, with or without an aim; a jog's snap keeps it; it round-trips a save and a save without it loads level; a level aim stores no key and the snapshot holds no negative zero")
+	print("PITCH OK a body never aimed reads 0; a standing proposal holds its pitch, clamped to 1.30 and held below level; a refused one writes none, with or without an aim, and a NaN yaw is refused whole; a jog's snap keeps it; it round-trips a save and a save without it loads level; a level aim stores no key and the snapshot holds no negative zero")
 	return true
 
 

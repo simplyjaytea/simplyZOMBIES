@@ -398,8 +398,8 @@ static func _face_at(world: Variant, ent: int, x: float, y: float, height_mm: in
 		return
 	var radians: float = atan2(dy, dx)
 	if radians == 0.0:
-		# atan2 reaches negative zero due east, which `canonicalize` rejects outright. -0.0 == 0.0,
-		# so this assignment is the collapse `headingOf` does.
+		# atan2 reaches negative zero due east, which `canonicalize` means to refuse and cannot see
+		# (docs/37). -0.0 == 0.0, so this assignment is the collapse `headingOf` does.
 		radians = 0.0
 	(facing as Dictionary)["radians"] = radians
 	# The aim turns with the body (sim/aim.gd): a proposal the player left behind never points the
