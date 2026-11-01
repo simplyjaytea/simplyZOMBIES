@@ -53,7 +53,7 @@ extends SceneTree
 #   AUTOSAVE   the first tick of a day writes the slot; an ordinary tick and a finished run do not
 #   LEGEND     a dismissed legend stays dismissed across a boot, and F1 brings it back
 #   TITLE      the game opens on a menu over a world that is not ticking, and "new run" plays it
-#   FIRST-PERSON the title's experimental row opens the first-person scene and its sim; new run
+#   FIRST-PERSON the title's first-person row opens the first-person scene and its sim; new run
 #              still boots the top-down game and loads no first-person scene; Escape with the
 #              mouse already released, and the end panel's action, both return to the title
 #   CLOSE      the window's close request writes a save from a run, and nothing from the title
@@ -1909,7 +1909,7 @@ func _the_title_waits_over_a_still_world() -> bool:
 
 # --- FIRST PERSON ---------------------------------------------------------------------------
 
-# The pivot's only door: the title's experimental row. It swaps the whole scene for the
+# The pivot's only door: the title's first-person row. It swaps the whole scene for the
 # first-person one, which boots its own sim. The lane proves the row works, that the ordinary
 # new-run row is untouched and loads no first-person scene, and that both ways back -- Escape
 # with the mouse already released, and the run-over panel's one action -- return to this title.
@@ -1923,7 +1923,7 @@ func _the_first_person_entry() -> bool:
 	var shell: Variant = main.get("_shell")
 	if shell == null:
 		main.queue_free()
-		return _skip("FIRST-PERSON", "the scene built no shell to carry the experimental row")
+		return _skip("FIRST-PERSON", "the scene built no shell to carry the first-person row")
 
 	# True negative: new run is still the top-down game, and the first-person scene is not loaded.
 	_tap(KEY_ENTER)
@@ -1945,14 +1945,14 @@ func _the_first_person_entry() -> bool:
 		push_error("FIRST-PERSON: new run loaded the first-person scene")
 		return false
 
-	# Back to the title, then the experimental row.
+	# Back to the title, then the first-person row.
 	main.call("_enter_state", Session.State.TITLE)
 	await process_frame
 	var rows: Array = _shell_rows(main)
-	var at: int = rows.find("first person (experimental)")
+	var at: int = rows.find("first person")
 	if at < 0:
 		main.queue_free()
-		push_error("FIRST-PERSON: the title offers no experimental row: %s" % str(rows))
+		push_error("FIRST-PERSON: the title offers no first-person row: %s" % str(rows))
 		return false
 	for _i in range(at):
 		_tap(KEY_S)
@@ -1964,7 +1964,7 @@ func _the_first_person_entry() -> bool:
 	if not _is_first_person_scene(fp):
 		if fp != null:
 			fp.queue_free()
-		push_error("FIRST-PERSON: the experimental row did not change the scene to the first-person one")
+		push_error("FIRST-PERSON: the first-person row did not change the scene to the first-person one")
 		return false
 	var world: Variant = fp.get("world")
 	if world == null or int(world.player) < 0:
@@ -2001,10 +2001,10 @@ func _the_first_person_entry() -> bool:
 
 	# In again, and out by the end panel's action this time.
 	rows = _shell_rows(back)
-	at = rows.find("first person (experimental)")
+	at = rows.find("first person")
 	if at < 0:
 		back.queue_free()
-		push_error("FIRST-PERSON: the returned title lost its experimental row")
+		push_error("FIRST-PERSON: the returned title lost its first-person row")
 		return false
 	for _i in range(at):
 		_tap(KEY_S)
@@ -2016,7 +2016,7 @@ func _the_first_person_entry() -> bool:
 	if not _is_first_person_scene(again):
 		if again != null:
 			again.queue_free()
-		push_error("FIRST-PERSON: the experimental row did not reopen the first-person scene")
+		push_error("FIRST-PERSON: the first-person row did not reopen the first-person scene")
 		return false
 	var second: Variant = again.get("world")
 	if second == null:
@@ -2048,7 +2048,7 @@ func _the_first_person_entry() -> bool:
 	title.queue_free()
 	current_scene = null
 	await process_frame
-	print("FIRST-PERSON OK the title's experimental row opens the first-person scene and its sim, new run still boots the top-down game and loads no first-person scene, and both Escape with the mouse released and the end panel's action return to the title")
+	print("FIRST-PERSON OK the title's first-person row opens the first-person scene and its sim, new run still boots the top-down game and loads no first-person scene, and both Escape with the mouse released and the end panel's action return to the title")
 	return true
 
 
@@ -2315,12 +2315,15 @@ func _main_scene_in(text: String) -> String:
 	return ""
 
 
-# The whole gate is worth nothing if it drives a scene the game does not ship. project.godot is
-# the authority; the reader is proved on a fabricated line first, because "no match" and "a match
+# project.godot is the authority for the default boot, which is the first-person scene (docs/39). This gate
+# drives the top-down testing scene, main.tscn, which `npm run godot:run:topdown` opens and the first-person
+# scene's title leads to; the reader is proved on a fabricated line first, because "no match" and "a match
 # that happens to agree" look the same from the assertion.
+const FIRST_PERSON_BOOT: String = "res://presentation/first_person/first_person.tscn"
+
 func _the_scene_driven_is_the_scene_shipped() -> bool:
-	if _main_scene_in("run/main_scene=\"res://presentation/not_the_game.tscn\"") == SCENE_PATH:
-		push_error("SCENE: the reader answers this gate's own scene for a project that names another")
+	if _main_scene_in("run/main_scene=\"res://presentation/not_the_game.tscn\"") == FIRST_PERSON_BOOT:
+		push_error("SCENE: the reader answers the first-person boot for a project that names another")
 		return false
 	if _main_scene_in("[application]\nconfig/name=\"simplyZOMBIES\"") != "":
 		push_error("SCENE: the reader invented a main scene for a project file that names none")
@@ -2329,11 +2332,11 @@ func _the_scene_driven_is_the_scene_shipped() -> bool:
 	if text.is_empty():
 		push_error("SCENE: cannot read %s" % PROJECT_FILE)
 		return false
-	var shipped: String = _main_scene_in(text)
-	if shipped != SCENE_PATH:
-		push_error("SCENE: the game boots '%s' and this gate drives '%s'" % [shipped, SCENE_PATH])
+	var booted: String = _main_scene_in(text)
+	if booted != FIRST_PERSON_BOOT:
+		push_error("SCENE: the game boots '%s', not the first-person default '%s'" % [booted, FIRST_PERSON_BOOT])
 		return false
-	print("SCENE OK the gate drives %s, which is what project.godot boots" % shipped)
+	print("SCENE OK the game boots %s, and this gate drives the top-down testing scene %s" % [booted, SCENE_PATH])
 	return true
 
 

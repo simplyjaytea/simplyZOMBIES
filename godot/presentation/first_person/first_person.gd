@@ -36,10 +36,12 @@ const SessionRes = preload("res://presentation/session.gd")
 const RenderInterp = preload("res://presentation/interp.gd")
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
+const OwnBody = preload("res://presentation/first_person/own_body.gd")
 const HeldWeapon = preload("res://presentation/first_person/held_weapon.gd")
 const PropView = preload("res://presentation/first_person/prop_view.gd")
 const ContainerView = preload("res://presentation/first_person/container_view.gd")
 const LooseView = preload("res://presentation/first_person/loose_view.gd")
+const BenchView = preload("res://presentation/first_person/bench_view.gd")
 const SkyView = preload("res://presentation/first_person/sky_view.gd")
 const Hud = preload("res://presentation/first_person/hud.gd")
 const WorkPanel = preload("res://ui/work_panel.gd")
@@ -47,6 +49,8 @@ const WebPanel = preload("res://ui/web_panel.gd")
 const InventoryPanel = preload("res://ui/inventory_panel.gd")
 const ReportsPanel = preload("res://ui/reports_panel.gd")
 const TalkPanel = preload("res://ui/talk_panel.gd")
+const BenchPanel = preload("res://ui/bench_panel.gd")
+const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 
 const SEED: int = SimBoot.DISTRICT_SEED
 # The shipped district size, the one `session.gd` boots by default. The gate overrides
@@ -58,6 +62,15 @@ const TICK_SECONDS: float = 1.0 / float(TICK_HZ)
 const SPEED_LADDER: Array[int] = [1, 3]
 # The game's own title lives in this scene; leaving the experiment means going back to it.
 const TITLE_SCENE: String = "res://presentation/main.tscn"
+# The third-person testing view (docs/39): a key steps the camera back behind the player's own body and
+# back again. Metres, in the rig's frame, where +z is behind the body. The camera's height is the eye's
+# plus THIRD_UP_M; THIRD_RIGHT_M is the small shoulder offset. A wall between the eye and the full spot
+# pulls the camera in, found by walking THIRD_RAY_STEPS steps along the sim's own sight line.
+const THIRD_BACK_M: float = 2.75
+const THIRD_UP_M: float = 0.4
+const THIRD_RIGHT_M: float = 0.25
+const THIRD_RAY_STEPS: int = 30
+const VIEW_KEY: int = KEY_F2
 
 # The camera's eye eases to the sim's eye height (`SimSpace.eye_of`) with this time constant, so a
 # crouch is not a teleport: within 1 cm of its target in about 0.15 s.
@@ -86,6 +99,11 @@ var map: Variant = null
 # The district size this scene boots. Set before the scene enters the tree (the gate's small override).
 var district_tiles: int = DISTRICT_TILES
 var camera: Camera3D = null
+# The testing view's flag. Presentation only: the sim never reads it and the save never holds it, so a
+# fresh boot is always first person.
+var third_person: bool = false
+# The player's own body, drawn only in third person (`own_body.gd`). Null only if the scene never built.
+var own_body: Node3D = null
 var yaw: float = 0.0
 var pitch: float = 0.0
 var menu_open: bool = false
@@ -106,6 +124,7 @@ var _bodies: Node3D = null
 var _props: Node3D = null
 var _containers: Node3D = null
 var _loose: Node3D = null
+var _benches: Node3D = null
 var _sky: Node3D = null
 var _hud: Control = null
 var _work_layer: CanvasLayer = null
@@ -119,6 +138,13 @@ var _inventory_panel: Control = null
 var _talk_layer: CanvasLayer = null
 var _talk: Control = null
 var _talk_entity: int = -1
+# The gunsmith bench's screen: the sim's own assembly screen, shown while `benchFocus` exists. The
+# flag mirrors the panel's visibility for input capture; `_bench_was_open` catches the edge where the
+# sim opens or closes it.
+var _bench_layer: CanvasLayer = null
+var _bench_panel: Control = null
+var bench_open: bool = false
+var _bench_was_open: bool = false
 # The ledger's Reports page. `_reports_read` is the chronicle's read mark: entries before it have been read.
 # Presentation state only -- the sim is never written -- and it starts at 0 on every boot.
 var _reports_open: bool = false
@@ -165,7 +191,15 @@ func _ready() -> void:
 	_build_views()
 	_build_rig()
 	_build_hud()
-	_capture_mouse()
+	# A web build refuses pointer lock without a user gesture (the export smoke's page error), so there the
+	# pointer starts released and the first click takes it, as it does after an Escape. Desktop captures now.
+	if OS.has_feature("web"):
+		_release_mouse()
+	else:
+		_capture_mouse()
+	# The export smoke's readiness line for the default boot (scripts/smoke-godot-exports.mjs). The
+	# top-down scene prints GODOT_R1_READY; this is the first-person scene's own marker.
+	print("GODOT_FIRST_PERSON_READY")
 
 
 func _exit_tree() -> void:
@@ -234,11 +268,21 @@ func _build_views() -> void:
 	_loose.name = "LooseItems"
 	add_child(_loose)
 
+	_benches = BenchView.new()
+	_benches.name = "Benches"
+	add_child(_benches)
+	_benches.call("refresh", world)
+
 	_bodies = BodyView.new()
 	_bodies.name = "Bodies"
 	add_child(_bodies)
 	_bodies.call("build")
 	_bodies.call("reset", world)
+
+	own_body = OwnBody.new()
+	own_body.name = "OwnBody"
+	add_child(own_body)
+	own_body.call("build")
 
 
 func _build_rig() -> void:
@@ -271,6 +315,15 @@ func _build_hud() -> void:
 	_legend.visible = false
 	_legend.set("key_rows", _legend_rows())
 	layer.add_child(_legend)
+	# The bench's screen sits above the HUD: its own wash covers the street, as in the top-down game.
+	_bench_layer = CanvasLayer.new()
+	_bench_layer.name = "BenchUI"
+	add_child(_bench_layer)
+	_bench_panel = BenchPanel.new()
+	_bench_panel.name = "BenchPanel"
+	_bench_panel.visible = false
+	_bench_layer.add_child(_bench_panel)
+	_bench_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 
 # --- the ledger site ------------------------------------------------------------------------
@@ -403,6 +456,9 @@ func _process(delta: float) -> void:
 	_ease_eye(delta)
 	if _loose != null:
 		_loose.call("refresh", world)
+	if _benches != null:
+		_benches.call("refresh", world)
+	_sync_bench_panel()
 	var alpha: float = clampf(_accumulator / TICK_SECONDS, 0.0, 1.0)
 	_kick = move_toward(_kick, 0.0, delta * KICK_DECAY_PER_SECOND)
 	_update_held_weapon()
@@ -440,9 +496,42 @@ func _update_render(alpha: float) -> void:
 		_rig.rotation = Vector3(0.0, yaw, 0.0)
 	if camera != null:
 		camera.rotation = Vector3(pitch + _kick, 0.0, 0.0)
-		camera.position = Vector3(0.0, _eye_m, 0.0)
+		camera.position = _camera_local()
+	if own_body != null:
+		own_body.call("update", world, int(world.player), at)
+		own_body.visible = third_person
 	if _bodies != null:
 		_bodies.call("apply", world, alpha)
+
+
+# The camera's place in the rig's frame. First person is the eye. Third person is the shoulder: behind,
+# a little above and a little right, pulled in where the sim's own sight line meets a wall. The sim's
+# SIGHT question is asked read-only; nothing here writes the world.
+func _camera_local() -> Vector3:
+	var eye: Vector3 = Vector3(0.0, _eye_m, 0.0)
+	if not third_person or _rig == null or world == null:
+		return eye
+	var want: Vector3 = Vector3(THIRD_RIGHT_M, _eye_m + THIRD_UP_M, THIRD_BACK_M)
+	var rig_xf: Transform3D = _rig.global_transform
+	var eye_w: Vector3 = rig_xf * eye
+	var from: Dictionary = {"x": eye_w.x, "y": eye_w.z, "h": roundi(eye_w.y * 1000.0)}
+	var best: Vector3 = eye
+	for step in range(1, THIRD_RAY_STEPS + 1):
+		var local: Vector3 = eye.lerp(want, float(step) / float(THIRD_RAY_STEPS))
+		var at_w: Vector3 = rig_xf * local
+		var to: Dictionary = {"x": at_w.x, "y": at_w.z, "h": roundi(at_w.y * 1000.0)}
+		if not SimSpace.segment_clear(SimSpace.map_of(world), from, to, SimSpace.SIGHT):
+			break
+		best = local
+	return best
+
+
+## The testing view: first person to third and back. Presentation only; movement, aim and interaction
+## are unchanged, because they still come from the eye.
+func toggle_view() -> void:
+	third_person = not third_person
+	if own_body != null:
+		own_body.visible = third_person
 
 
 func _update_hud() -> void:
@@ -455,6 +544,9 @@ func _update_hud() -> void:
 	elif talk_open:
 		# The conversation panel carries every word; the HUD is hidden while it is up.
 		prompt = ""
+	elif bench_open:
+		# The assembly screen carries every word; the HUD is hidden while it is up.
+		prompt = ""
 	elif not menu_open and not _mouse_captured:
 		prompt = "Mouse released. Click to look again."
 	elif not menu_open:
@@ -464,11 +556,14 @@ func _update_hud() -> void:
 		else:
 			var box_verdict: String = container_verdict()
 			var box_name: String = _container_kind(container_focus())
+			var bench_verdict_now: String = bench_verdict()
 			var verb: String = verb_prompt()
 			var person_verdict: String = talk_verdict()
 			var person_name: String = _talk_name(talk_focus())
 			if box_verdict == "ok":
 				prompt = "E open the %s" % box_name
+			elif bench_verdict_now == "ok":
+				prompt = "E use the bench"
 			elif person_verdict == "ok":
 				prompt = "E talk to %s" % person_name
 			elif verb != "":
@@ -477,6 +572,8 @@ func _update_hud() -> void:
 				prompt = "Turn to the %s." % box_name
 			elif box_verdict == "spent":
 				prompt = "You have already been through this %s." % box_name
+			elif bench_verdict_now == "away":
+				prompt = "Turn to the bench."
 			elif person_verdict == "away":
 				prompt = "Turn to %s." % person_name
 			elif verdict == "away":
@@ -485,7 +582,7 @@ func _update_hud() -> void:
 				prompt = "The ledger stands near."
 	_hud.set("time_words", SessionRes.speed_words(speed, paused, world))
 	_hud.call("set_state", world, int(world.player), prompt, _live_alert(), menu_open, paused, inventory_open, _live_news())
-	_hud.visible = not inventory_open and not talk_open
+	_hud.visible = not inventory_open and not talk_open and not bench_open
 
 
 # --- input ----------------------------------------------------------------------------------
@@ -515,6 +612,18 @@ func _input(event: InputEvent) -> void:
 		# The gap between a death and the handoff: no command is proposed and no key is remembered.
 		get_viewport().set_input_as_handled()
 		return
+	if bench_open:
+		# The bench screen takes every key while it is up, exactly as `input_map.gd`'s "bench"
+		# focus does: Escape pushes the sim's `bench.close`, and everything the screen answers --
+		# the arrows, WASD and Enter -- is handed to the panel. Walking, the aim, the fight buttons,
+		# the stance ladder, save and the clock never reach the world.
+		if ke.pressed and code == KEY_ESCAPE:
+			if world != null:
+				world.commands.push({"type": "bench.close"})
+		elif ke.pressed and _bench_panel != null:
+			_bench_panel.call("key", ke)
+		get_viewport().set_input_as_handled()
+		return
 	if _legend_open:
 		# The key reference takes every key while it is up: F1 or Escape puts it down, and nothing
 		# else reaches the world -- no walking, no looking, no action.
@@ -524,6 +633,10 @@ func _input(event: InputEvent) -> void:
 		return
 	if ke.pressed and code == KEY_F1:
 		open_legend()
+		get_viewport().set_input_as_handled()
+		return
+	if ke.pressed and code == VIEW_KEY:
+		toggle_view()
 		get_viewport().set_input_as_handled()
 		return
 	if inventory_open:
@@ -643,6 +756,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if talk_open:
 		# The conversation has the mouse: a click is the panel's Goodbye, never a recapture or a
 		# swing. The panel's own `_gui_input` handles it.
+		return
+	if bench_open:
+		# The bench screen has the mouse: its own wash spends a click and the panel's plates answer
+		# one, so nothing reaches the street -- no recapture and no swing.
 		return
 	if event is InputEventMouseMotion and _mouse_captured and not menu_open and not inventory_open:
 		var motion: InputEventMouseMotion = event as InputEventMouseMotion
@@ -819,7 +936,7 @@ func reload_weapon() -> void:
 
 
 func _can_fight() -> bool:
-	return world != null and not menu_open and not inventory_open and not talk_open and not _run_over_open and not _waiting_for_heir()
+	return world != null and not menu_open and not inventory_open and not talk_open and not bench_open and not _run_over_open and not _waiting_for_heir()
 
 
 func _kick_camera() -> void:
@@ -953,7 +1070,7 @@ func container_world_point(entity: int) -> Vector3:
 ## by a box or a body merely standing near it, and every refusal says which rule failed in the
 ## ledger's words.
 func try_interact() -> bool:
-	if menu_open or inventory_open or talk_open:
+	if menu_open or inventory_open or talk_open or bench_open:
 		return false
 	if interaction_verdict() == "ok":
 		open_ledger_menu()
@@ -961,6 +1078,10 @@ func try_interact() -> bool:
 	var box_verdict: String = container_verdict()
 	if box_verdict == "ok":
 		open_container(container_focus())
+		return true
+	var bench_verdict_now: String = bench_verdict()
+	if bench_verdict_now == "ok":
+		open_bench_at(bench_target())
 		return true
 	var person_verdict: String = talk_verdict()
 	if person_verdict == "ok":
@@ -984,6 +1105,17 @@ func try_interact() -> bool:
 				return false
 			"spent":
 				_set_alert("You have already been through this %s." % box_name)
+				return false
+	if bench_verdict_now != "none":
+		match bench_verdict_now:
+			"far":
+				_set_alert("Nothing within reach. Walk closer to the bench.")
+				return false
+			"blocked":
+				_set_alert("The bench is behind a wall.")
+				return false
+			"away":
+				_set_alert("You are near the bench, but not looking at it.")
 				return false
 	if person_verdict != "none":
 		var person_name: String = _talk_name(talk_focus())
@@ -1313,6 +1445,148 @@ func talk_panel_node() -> Control:
 	return _talk
 
 
+# --- the gunsmith bench ----------------------------------------------------------------------
+#
+# A bench is furniture the sim owns: a `workbench` component whose `kind` is "gunsmith", built by
+# `SimFortify`'s bench channel or by a colonist's Construct job (both end in `SimGunsmith.make_bench`),
+# so a player-built bench and a colonist-built one are the same thing here. E at one in reach and on
+# the aim pushes the sim's own `bench.open`, which sets `benchFocus` on the survivor; the assembly
+# screen is the top-down `ui/bench_panel.gd`, opened by that read model and closed by `bench.close`.
+# It decides nothing: every fit, strip and make is a command the panel pushes and the sim resolves.
+#
+# The bench is the fourth rung of E, after the ledger and the boxes and before a colonist, because
+# the task names that order. A bench with nothing to work on is not offered, matching the sim's own
+# `_would_open_bench` rung: with no weapon that comes apart, there is no screen to show.
+
+## The bench the eye is on, or -1: the nearest gunsmith workbench inside the same narrow cone the
+## ledger and the boxes use.
+func bench_target() -> int:
+	if world == null:
+		return -1
+	var eye: Vector3 = Vector3(_rendered_player().x, _eye_m, _rendered_player().y)
+	var look: Vector3 = look_direction()
+	var best: int = -1
+	var best_distance: float = 1.0e9
+	for entity in world.components.query(["workbench", "position"]):
+		var e: int = int(entity)
+		var state: Variant = world.components.get_component(e, "workbench")
+		if not (state is Dictionary) or String((state as Dictionary).get("kind", "")) != SimGunsmith.KIND:
+			continue
+		var to: Vector3 = bench_world_point(e) - eye
+		var distance: float = to.length()
+		if distance <= 0.000001:
+			continue
+		if look.dot(to / distance) < LEDGER_AIM_DOT:
+			continue
+		if distance < best_distance:
+			best_distance = distance
+			best = e
+	return best
+
+
+## The nearest gunsmith workbench within the sim's own reach, whatever the aim, for the refusal.
+func bench_near() -> int:
+	if world == null:
+		return -1
+	var best: int = -1
+	var best_distance: float = SimGunsmith.REACH
+	for entity in world.components.query(["workbench", "position"]):
+		var e: int = int(entity)
+		var state: Variant = world.components.get_component(e, "workbench")
+		if not (state is Dictionary) or String((state as Dictionary).get("kind", "")) != SimGunsmith.KIND:
+			continue
+		var distance: float = _curr_player.distance_to(_entity_position(e))
+		if distance <= best_distance:
+			best_distance = distance
+			best = e
+	return best
+
+
+## "ok", "far", "away", "blocked" or "none". Reach is `SimGunsmith.REACH`, the sim's own arm's
+## length; the sim's own sight decides a wall. "ok" also needs a workpiece, so a bench with nothing
+## that comes apart offers no screen -- the sim would refuse to open one anyway.
+func bench_verdict() -> String:
+	if world == null:
+		return "none"
+	var target: int = bench_target()
+	var near: int = bench_near()
+	if target < 0:
+		return "away" if near >= 0 else "none"
+	if _curr_player.distance_to(_entity_position(target)) > SimGunsmith.REACH:
+		return "away" if near >= 0 else "far"
+	if not bench_in_sight(target):
+		return "blocked"
+	if SimGunsmith.first_workpiece(world, int(world.player)) < 0:
+		return "none"
+	return "ok"
+
+
+func bench_in_sight(entity: int) -> bool:
+	if world == null or world.vision == null or entity < 0:
+		return false
+	var at: Vector2 = _entity_position(entity)
+	return int(world.vision.call("detail", int(world.player), at.x, at.y)) != 0
+
+
+## The point a look is judged against: the bench top, where a weapon is laid.
+func bench_world_point(entity: int) -> Vector3:
+	var at: Vector2 = _entity_position(entity)
+	return Vector3(at.x, 0.80, at.y)
+
+
+## Pushes the sim's own open. `benchFocus` is set on the next tick, and `_sync_bench_panel` shows the
+## screen then -- the sim decides, this only asks.
+func open_bench_at(entity: int) -> void:
+	if world == null or entity < 0:
+		return
+	world.commands.push({"type": "bench.open", "item": SimGunsmith.first_workpiece(world, int(world.player))})
+
+
+## Keeps the panel in step with the sim's `benchFocus`: shown while it exists, hidden when the sim
+## closes it (Escape's `bench.close`, or walking out of reach). The edge releases or captures the
+## mouse and stops the body, the same capture rule as every other screen; the clock keeps running.
+func _sync_bench_panel() -> void:
+	if _bench_panel == null or world == null:
+		return
+	_bench_panel.call("set_world", world, int(world.player))
+	var now: bool = _bench_panel.visible
+	bench_open = now
+	if now and not _bench_was_open:
+		_clear_held()
+		_push_zero_move()
+		_release_mouse()
+		_alert = ""
+		if _hud != null:
+			_hud.visible = false
+	elif _bench_was_open and not now:
+		_clear_held()
+		_push_zero_move()
+		_capture_mouse()
+		_alert = ""
+		if _hud != null:
+			_hud.visible = true
+	_bench_was_open = now
+
+
+func bench_panel_node() -> Control:
+	return _bench_panel
+
+
+# Hides the screen at a handoff or the end panel, where `_process` no longer brings it back. The sim's
+# `benchFocus` belongs to the body that opened it; the next player starts with none.
+func _hide_bench_screen() -> void:
+	if _bench_panel != null:
+		_bench_panel.visible = false
+	bench_open = false
+	_bench_was_open = false
+
+
+func bench_node_for(entity: int) -> Node3D:
+	if _benches == null:
+		return null
+	return _benches.call("node_for", entity) as Node3D
+
+
 # --- the ledger ------------------------------------------------------------------------------
 
 ## "ok", "far", "blocked" or "away". Reach is measured in the sim's own metres from the body the
@@ -1475,6 +1749,7 @@ func _on_succession() -> void:
 		close_inventory()
 	if talk_open:
 		close_talk()
+	_hide_bench_screen()
 	if menu_open:
 		close_ledger_menu()
 	_clear_held()
@@ -1529,6 +1804,7 @@ func _show_run_over() -> void:
 		close_inventory()
 	if talk_open:
 		close_talk()
+	_hide_bench_screen()
 	if menu_open:
 		close_ledger_menu()
 	_clear_held()
@@ -1931,12 +2207,13 @@ const KEY_REFERENCE: Array = [
 		["F", "swing, or struggle out of a grab", [KEY_F]],
 		["G", "fire", [KEY_G]],
 		["R", "reload; in the sheet, turns the item you lift", [KEY_R]],
-		["E", "use the ledger, a cupboard or a door you face; the prompt at the bottom says which", [KEY_E]],
+		["E", "use the ledger, a cupboard, a bench or a door you face; the prompt at the bottom says which", [KEY_E]],
 	]],
 	["Run", [
 		["- / =", "slower, faster", [KEY_MINUS, KEY_KP_SUBTRACT, KEY_EQUAL, KEY_KP_ADD]],
 		["P", "hold the world still", [KEY_P]],
 		["F5 / F9", "save and load, in the first-person slot", [KEY_F5, KEY_F9]],
+		["F2", "testing only: step the camera back behind your own body, and back to your eye; first person is the game, and this view is not saved", [KEY_F2]],
 		["Esc", "free the pointer, then back to the title; in the ledger or the sheet, back a step", [KEY_ESCAPE]],
 		["Enter", "on the end panel, back to the title", [KEY_ENTER, KEY_KP_ENTER]],
 		["F1", "these keys", [KEY_F1]],

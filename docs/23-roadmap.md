@@ -174,9 +174,10 @@ conversion. The source baseline is archived on GitHub at
 - **First-person people and settlement operation.** Ledger animations, reports,
   conversations, delegation and construction access; the captive arc stays
   separately scoped planned work under its existing group.
-- **First-person expedition and default switch.** Prepare, scavenge, encounter
-  danger, return, treat, save/reload, die and succeed; measured performance,
-  regression proof, campaign balance and human play before changing the default.
+- **First-person expedition.** Prepare, scavenge, encounter danger, return, treat,
+  save/reload, die and succeed; measured performance, regression proof, campaign
+  balance and human play. The default switch landed 2026-11-01 (docs/30, "First person
+  is the default boot"), so the boot is first person and the top-down game is the testing build.
 - **Starter-kit polish (#275 round 2).** In `tools/blender/first_person_kit/build_kit.py`: plaster
   cloud noise reads as camouflage blocks up close; oak grain steps every 8 texels, like brickwork;
   paint chips follow atlas cells, not mesh edges; barricade planks float 6 mm off the brace; wall
@@ -2462,6 +2463,37 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **The gunsmith bench as a place in first person, 2026-11-01.** W5 of docs/41: walk up to a bench,
+  press E, and the assembly screen opens on the weapon carried. `godot/presentation/first_person/bench_view.gd`
+  draws every sim `workbench` whose kind is the gunsmith's at its own position: the starter kit's desk
+  model, a vice and a tool tray as code placeholders on top (a bench model is a later art piece), and a
+  label carrying the sim's kind word, "gunsmith bench". The scene keeps the drawn set in step with the
+  component each tick and rebuilds only when an id or a position moves.
+  - **E.** A bench is the fourth rung of the scene's E ladder, after the ledger and the containers and
+    before a colonist and the tile verb, as the piece asks. The verdict mirrors the sim's own open: the
+    sim's reach, the same aim cone the ledger and the boxes use, the sim's `vision.detail` for a wall,
+    and a workpiece, because a bench with nothing that comes apart offers no screen. Reach and horizon
+    refusals speak in the scene's own words. The screen itself is the top-down `godot/ui/bench_panel.gd`,
+    which already reads `benchFocus` and pushes `item.attach`, `item.detach` and `item.improvise`.
+  - **The sim keeps running.** While the screen is up the body is stopped, the mouse is released, the
+    HUD is hidden, and every key is the panel's: Escape pushes the sim's `bench.close`, and the panel's
+    arrows, WASD and Enter never reach the street. The clock is not paused -- the same reversible
+    default as the other screens -- and a handoff or the end panel hides the screen and drops the focus.
+  - **The held weapon.** A fit, strip or make goes through the sim, and the lower-right view redraws
+    from the installed parts on their sockets on the next frame, so the gun on the bench is the gun in
+    hand. A swap leaves the pistol's installed set and the drawn set each holding the suppressor.
+  - **Both benches.** A player's `bench.build` channel and a colonist's Construct job both end in
+    `SimGunsmith.make_bench`, so the drawing never asks who built the bench.
+  - **The gate.** The BENCH lane of `godot/check_first_person.gd` registers as a row in the generated
+    lane table (the OK line now lists 30 lanes). It builds a bench through the sim's own `bench.build`
+    when the small district has none, then: E in reach and on the aim opens the screen on the held
+    pistol; a walking key moves nothing while the clock ticks; a suppressor fitted through the screen's
+    command changes the sim's installed parts and the held view's drawn set; Escape closes through the
+    sim; a recipe the sim refuses -- the pack emptied of build materials, and the pistol's slots take
+    no improvised recipe, so the gate opens the screen on a bat -- leaves the parts unchanged, and the
+    screen's needs words are the sim's own; and out of reach, off the aim, or through a wall opens no
+    screen. A bench made by the sim outside the player's build is drawn too.
+
 - **Bodies drawn with the character models, 2026-11-01.** docs/41's piece C1: the first-person
   scene draws each body with the character GLB its kind names, in place of the placeholder cylinder.
   Survivors, colonists and raiders are `survivor.glb`; every zombie is `shambler.glb` until zombie kinds
@@ -3089,6 +3121,39 @@ not a to-do list:
     `godot:export` was skipped locally because this machine has no export templates; the preset
     exports all resources, so the scene is in the PCK.
   - **Record.** `docs/planning/first-person-title-report.md`.
+
+- **Default boot and the third-person testing view, 2026-11-01.** Advances "First-person
+  expedition and default switch" by the owner's call (docs/30, "First person is the default boot").
+  - **The door, moved.** `project.godot`'s `run/main_scene` names
+    `presentation/first_person/first_person.tscn`, so `npm run godot:run` and the exported builds
+    boot first person. The top-down game is reached with `npm run godot:run:topdown` (a new
+    `--topdown-run` mode opening `presentation/main.tscn`) or from the first-person scene's Escape,
+    which lands on that title. The title row is relabelled "first person" (was "first person
+    (experimental)"). Save slots are unchanged: the first-person slot is its own.
+  - **The testing view.** `first_person.gd` takes F2 (`VIEW_KEY`) to toggle `third_person`, a
+    presentation flag the sim never reads and the save never holds. Third person places the camera
+    at (0.25, eye + 0.4, 2.75) in the rig's frame, and `_camera_local` pulls it in by walking
+    `SimSpace.segment_clear` (SIGHT) from the eye toward that spot in 30 steps. The player's own body
+    is `presentation/first_person/own_body.gd`: `survivor.glb`, shown only in third person, turned to
+    the sim's facing and playing the clip `anim_state.gd` names for the sim's state. Movement, aim and
+    interaction are unchanged; they still come from the eye.
+  - **The gate.** `npm run godot:check:first_person` gains BOOT (project.godot's main scene is the
+    first-person scene; a fabricated project that names the top-down scene is refused) and THIRD
+    (first person hides the body and puts the camera at the eye; F2 shows the body, steps the camera
+    to the shoulder spot and plays the sim's clip, which is `walk` or `run` while W is held and
+    standing again after release; a wall behind the body pulls the camera in while the sim's sight
+    line to the full spot is blocked; F2 back restores first person). LEGEND holds F2 in the key
+    reference. `npm run godot:check:play` SCENE lane now asserts the boot is first person, and
+    FIRST-PERSON reads the relabelled row.
+  - **The export smoke.** `scripts/smoke-godot-exports.mjs` waited for `GODOT_R1_READY`, which only
+    the top-down scene prints. It now waits for `GODOT_FIRST_PERSON_READY`, which
+    `first_person.gd`'s `_ready` prints. The top-down scene still prints R1 and R4. CI's
+    `godot-exports` job is the check that the exported default boot reaches it.
+  - **Not in this piece.** The held weapon is drawn at the camera in third person; the body carries
+    no weapon yet. Third person is not a player-facing mode.
+  - **Captures.** Two in-engine captures (default boot, third-person survivor) are in
+    `C:/Users/jtf/orca/sz-shared/fp-default/`. They were taken with a temporary driver that is not
+    committed.
 
 - **First-person succession and the end of a run, 2026-11-01.** Advances "First-person expedition
   and default switch": dying can hand the camera to an heir, and the last death ends the run on a
