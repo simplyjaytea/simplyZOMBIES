@@ -591,9 +591,10 @@ func _apply_commands(_world: Variant) -> void:
 					# track a target over your shoulder at a jog, and `_integrate_movement` snaps
 					# the aim back to the heading on any faster rung. Checked against the velocity
 					# this same command list may just have written, so a move and an aim on one
-					# tick agree.
+					# tick agree. An optional `pitch` (docs/40, slice 3) rides with the yaw and takes
+					# or is refused with it; a command without one is a level aim.
 					var aim_moving: bool = float(velocity["dx"]) != 0.0 or float(velocity["dy"]) != 0.0
-					SimAimRes.propose(components, int(entity), float((command as Dictionary).get("radians", 0.0)), aim_moving)
+					SimAimRes.propose(components, int(entity), float((command as Dictionary).get("radians", 0.0)), aim_moving, float((command as Dictionary).get("pitch", 0.0)))
 				"shout":
 					var pos: Dictionary = components.get_component(int(entity), "position") as Dictionary
 					events.publish({

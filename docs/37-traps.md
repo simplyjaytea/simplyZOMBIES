@@ -137,6 +137,15 @@ Each of these was found the expensive way. They are not style opinions.
   branches found fifty moved tiles at 64 and hundreds at 256. A generator change that must leave
   the dressing alone runs after it (the gap door runs last in `generate`), and the claim is checked
   by hashing `map.tiles` on main and on the branch, not inferred from a green gate.
+- **A `-0.0` literal turns every `0.0` in its function negative.** The GDScript compiler pools a
+  function's constants by `==`, and `-0.0 == 0.0`, so whichever of the two literals comes first
+  is the one every later occurrence in that function reads. Found on 2026-11-01 by the aim's
+  PITCH lane, whose detector reported `"level": 0.0` as a negative zero because `"pitch": -0.0`
+  sat earlier in the same function. Nor can `str` or `==` see one: `str(-0.0)` prints `0.0`, so
+  `SimSerialize.canonicalize`'s negative-zero check never fires, and a negative zero is written
+  silently as `0`. A gate that needs one builds it from its bytes
+  (`PackedByteArray([0, 0, 0, 0, 0, 0, 0, 0x80]).to_float64_array()[0]`) and tests the sign bit
+  (`check_m2_aim.gd`'s `_negative_zero` and `_negative_zeros`).
 - **Throughput, measured:** the shipped world measured **34 ticks/second** headless (docs/22,
   "Remaining milestone evidence", 2026-10-03), so a game day (72,000 ticks since the one-hour day
   of 2026-10-19) is about 35 minutes and a no-wipe ten-day campaign (693,000 ticks) about 5.7
