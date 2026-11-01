@@ -12,6 +12,10 @@ extends Node3D
 # outer face on the tile edge toward open ground. `godot:check:fp_geometry`'s KIT lane measures the
 # drawn AABB against those numbers. Boarded windows keep their band boxes and gain a barricade
 # instance on the open face, so the boards cannot open a tile the sim says blocks sight.
+# This branch also prototypes one authored finish shell for `building.house.small`: when its GLB is
+# present, that building's walls, windows, and open-door bands come from the shell at the same heights
+# and its roof/ceiling/floors/trim are presentation-only additions. Closed doors and boards keep their
+# ordinary band boxes. `house_finishes_enabled` lets the capture driver retain an exact baseline.
 #
 # The meshes stay merged by category: one ground mesh, one opaque solid mesh and one see-through
 # mesh for the wire fence, plus one MultiMeshInstance3D per wall-module variant and one for the
@@ -65,6 +69,8 @@ var fence: MeshInstance3D = null
 # empty when the GLBs are missing, which is how the KIT lane knows to skip.
 var wall_instances: Array = []
 var barricade_instances: Array = []
+var house_finish_instances: Array = []
+var house_finishes_enabled: bool = true
 
 
 ## Builds the district. `salt` is mixed with each tile's index to pick a wall-module variant; the
@@ -77,6 +83,7 @@ func build(map_ref: Variant, salt: int = 0) -> void:
 		child.queue_free()
 	wall_instances.clear()
 	barricade_instances.clear()
+	house_finish_instances.clear()
 	if map == null:
 		return
 	var wall_mesh: Mesh = _loaded_mesh(Assets.WALL_MODULE)
@@ -86,6 +93,7 @@ func build(map_ref: Variant, salt: int = 0) -> void:
 	if wall_mesh != null:
 		_build_wall_modules(wall_mesh, salt)
 	_build_barricades(_loaded_mesh(Assets.BARRICADE))
+	_build_house_finishes()
 
 
 # The mesh of a kit model, or null when the file is missing. The loaded node is only a carrier: the
@@ -153,7 +161,10 @@ func _band_surface(see_through: bool, skip_walls: bool) -> ArrayMesh:
 	var drew: bool = false
 	for ty in int(map.h):
 		for tx in int(map.w):
-			if skip_walls and not see_through and SimSpace.profile_key(map, tx, ty) == "wall":
+			var key: String = SimSpace.profile_key(map, tx, ty)
+			if skip_walls and not see_through and key == "wall":
+				continue
+			if house_finishes_enabled and not see_through and _house_finish_tile(map, tx, ty) and key in ["wall", "window", "door.open"]:
 				continue
 			for box in tile_boxes(map, tx, ty):
 				if bool(box["transparent"]) != see_through:
@@ -179,12 +190,43 @@ func _build_wall_modules(mesh: Mesh, salt: int) -> void:
 		for tx in int(map.w):
 			if SimSpace.profile_key(map, tx, ty) != "wall":
 				continue
+			if house_finishes_enabled and _house_finish_tile(map, tx, ty):
+				continue
 			var variant: int = _tile_hash(salt, tx, ty) % WALL_MODULE_VARIANTS
 			var xform: Transform3D = wall_placement(map, tx, ty, size, variant)
 			(groups[variant] as Array).append(xform)
 			wall_instances.append({"tile": Vector2i(tx, ty), "variant": variant, "transform": xform})
 	for variant in WALL_MODULE_VARIANTS:
 		_multimesh_node("WallModules%d" % variant, mesh, groups[variant])
+
+
+static func _house_finish_tile(map: Variant, tx: int, ty: int) -> bool:
+	if not FileAccess.file_exists(Assets.HOUSE_SMALL_FINISH):
+		return false
+	for record_v in map.buildings as Array:
+		var record: Dictionary = record_v as Dictionary
+		if String(record.get("id", "")) != "building.house.small":
+			continue
+		if tx >= int(record["x"]) and tx < int(record["x"]) + int(record["w"]) and ty >= int(record["y"]) and ty < int(record["y"]) + int(record["h"]):
+			return true
+	return false
+
+
+func _build_house_finishes() -> void:
+	if not house_finishes_enabled:
+		return
+	for record_v in map.buildings as Array:
+		var record: Dictionary = record_v as Dictionary
+		if String(record.get("id", "")) != "building.house.small":
+			continue
+		var loaded: Dictionary = Assets.load_model(Assets.HOUSE_SMALL_FINISH)
+		var node: Node3D = loaded["node"] as Node3D
+		if node == null:
+			continue
+		node.name = "HouseSmallFinish"
+		node.position = Vector3(float(int(record["x"])), 0.0, float(int(record["y"])))
+		add_child(node)
+		house_finish_instances.append({"building": record, "node": node})
 
 
 func _build_barricades(mesh: Mesh) -> void:
