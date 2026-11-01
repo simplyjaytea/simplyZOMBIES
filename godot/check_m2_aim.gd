@@ -25,6 +25,10 @@ extends SceneTree
 # its cone widened *past* WIDE_HALF, in proportion to the turn; anything else that turns a body
 # turns its aim. True negatives throughout: a body never aimed has no `aim` and reads its facing, a
 # walking shooter aiming where it walks pays nothing extra, and a standing one pays nothing at all.
+#
+# PITCH and PITCH_READS are docs/40's slice 3, the aim's pitch: what the aim holds, what is refused,
+# what survives a save, and who reads it (the first-person scene's push, and an NPC turning to a
+# body's chest). Their headers say what each pairs.
 
 const SimBoot = preload("res://sim/boot.gd")
 const SimCombat = preload("res://sim/combat.gd")
@@ -36,6 +40,14 @@ const SimStances = preload("res://sim/stances.gd")
 const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
+const World = preload("res://sim/world.gd")
+const SimSave = preload("res://sim/save.gd")
+const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimHealth = preload("res://sim/modules/health.gd")
+const SimMelee = preload("res://sim/modules/melee.gd")
+const SimNeeds = preload("res://sim/modules/needs.gd")
+const SimRoster = preload("res://sim/modules/roster.gd")
+const Clock = preload("res://sim/time/clock.gd")
 
 # Weapon, its ammunition, and the `ranged.weight` its base declares. The weight is written out
 # here rather than read off the content on purpose: a gate that reads the value under test and
@@ -62,11 +74,13 @@ func _run() -> void:
 	ok = _aim_is_a_second_heading_priced_at_a_walk() and ok
 	ok = _furniture_moves_the_aim_and_the_recovery() and ok
 	ok = _item_scoped_clocks_move_the_ladder_and_nothing_else() and ok
+	ok = _pitch_rides_the_aim() and ok
+	ok = _pitch_is_read() and ok
 	if not ok:
 		push_error("M2_AIM_FAIL")
 		quit(1)
 		return
-	print("M2_AIM_OK sway heft cone arm recover heading furniture readers")
+	print("M2_AIM_OK sway heft cone arm recover heading furniture readers pitch pitch_reads")
 	quit(0)
 
 
@@ -649,3 +663,342 @@ func _reload_clock(stat: String, value: float) -> int:
 		push_error("READERS: the pump refused to begin a reload")
 		return -1
 	return int((w.components.get_component(w.player, "rangedWeapon") as Dictionary)["ticksLeft"])
+
+
+# --- pitch (docs/40, slice 3) -------------------------------------------------------------------
+
+# The heights the NPC's pitch is judged against, written out here rather than read off SimSpace: a
+# gate that reads the value under test and compares it to itself cannot fail (HEFT's rule). A
+# standing survivor's eye, and the chests (three quarters of each cylinder) of a standing zombie, a
+# crouched survivor and a standing survivor, from docs/40's body table.
+const STANDING_EYE_MM: int = 1620
+const ZOMBIE_CHEST_MM: int = 1237
+const CROUCHED_CHEST_MM: int = 862
+const STANDING_CHEST_MM: int = 1312
+
+
+# PITCH: the aim carries a pitch beside its yaw. Positive: a pitch proposed standing is held, is
+# clamped to the limit, survives a save, and a save written before pitch existed loads level. True
+# negatives: a body never aimed reads 0, a refused proposal writes no pitch (on a held aim and on a
+# body with none), a jog's snap leaves the pitch where it was, a level proposal stores no key, and a
+# negative zero is found nowhere in the snapshot the serializer would write. The negative-zero
+# detector is itself shown to find one.
+func _pitch_rides_the_aim() -> bool:
+	var lane: String = "PITCH"
+	var w: Variant = _world()
+	if SimAim.pitch_of(w.components, w.player) != 0.0:
+		push_error("%s: a body never aimed reads a pitch of %.3f" % [lane, SimAim.pitch_of(w.components, w.player)])
+		return false
+	# Refused with no aim: jogging, a proposal with a pitch grows nothing.
+	_walk_east(w, SimStances.Stance.Jog)
+	w.commands.push({"type": "move", "dx": 1.0, "dy": 0.0})
+	w.commands.push({"type": "aim", "radians": PI / 2.0, "pitch": 0.6})
+	w.step()
+	if w.components.has_component(w.player, "aim"):
+		push_error("%s: a refused proposal wrote an aim %s" % [lane, str(w.components.get_component(w.player, "aim"))])
+		return false
+
+	# Standing: the yaw and the pitch take together.
+	_stand(w)
+	w.commands.push({"type": "aim", "radians": 0.5, "pitch": 0.25})
+	w.step()
+	if absf(SimAim.radians_of(w.components, w.player) - 0.5) > 1e-6 or absf(SimAim.pitch_of(w.components, w.player) - 0.25) > 1e-6:
+		push_error("%s: a standing proposal of 0.5 and 0.25 aims %.3f pitched %.3f" % [lane, SimAim.radians_of(w.components, w.player), SimAim.pitch_of(w.components, w.player)])
+		return false
+	# Clamped either way, and a pitch below level is held as itself.
+	w.commands.push({"type": "aim", "radians": 0.5, "pitch": 2.0})
+	w.step()
+	var high: float = SimAim.pitch_of(w.components, w.player)
+	w.commands.push({"type": "aim", "radians": 0.5, "pitch": -0.3})
+	w.step()
+	var low: float = SimAim.pitch_of(w.components, w.player)
+	if absf(high - 1.30) > 1e-6 or absf(low + 0.3) > 1e-6:
+		push_error("%s: a pitch of 2.0 held %.3f (want the 1.30 limit) and -0.3 held %.3f" % [lane, high, low])
+		return false
+	w.commands.push({"type": "aim", "radians": 0.5, "pitch": 0.25})
+	w.step()
+	# A yaw that is not a number is refused whole: the yaw, the feet and the pitch stay put.
+	w.commands.push({"type": "aim", "radians": NAN, "pitch": 0.9})
+	w.step()
+	# Written as not-within rather than beyond, because every comparison with a NaN is false.
+	if not (absf(SimAim.radians_of(w.components, w.player) - 0.5) <= 1e-6 and absf(_facing_of(w) - 0.5) <= 1e-6 and absf(SimAim.pitch_of(w.components, w.player) - 0.25) <= 1e-6):
+		push_error("%s: a NaN yaw proposal left the aim at %.3f, the feet at %.3f, pitched %.3f; want 0.5, 0.5 and 0.25" % [lane, SimAim.radians_of(w.components, w.player), _facing_of(w), SimAim.pitch_of(w.components, w.player)])
+		return false
+
+	# Refused with an aim held: the snap to the heading keeps the pitch, and a jogging proposal
+	# changes neither the yaw nor the pitch.
+	_walk_east(w, SimStances.Stance.Jog)
+	if absf(SimAim.pitch_of(w.components, w.player) - 0.25) > 1e-6:
+		push_error("%s: snapping a jogging aim to the heading moved the pitch to %.3f" % [lane, SimAim.pitch_of(w.components, w.player)])
+		return false
+	w.commands.push({"type": "move", "dx": 1.0, "dy": 0.0})
+	w.commands.push({"type": "aim", "radians": PI / 2.0, "pitch": 0.6})
+	w.step()
+	if absf(SimAim.pitch_of(w.components, w.player) - 0.25) > 1e-6 or absf(SimAim.radians_of(w.components, w.player) - _facing_of(w)) > 1e-6:
+		push_error("%s: a refused proposal left the aim at %.3f pitched %.3f; want the heading and 0.25" % [lane, SimAim.radians_of(w.components, w.player), SimAim.pitch_of(w.components, w.player)])
+		return false
+
+	# The round trip: through the save's own text and into a bare world.
+	_stand(w)
+	var text: String = SimSave.encode_save(SimSave.create_save(w))
+	var back: Variant = _restored(text)
+	if back == null:
+		return false
+	if absf(SimAim.pitch_of(back.components, back.player) - 0.25) > 1e-9:
+		push_error("%s: a pitch of 0.25 came back from a save as %.6f" % [lane, SimAim.pitch_of(back.components, back.player)])
+		return false
+	# A save from before pitch: the same text with the key taken out loads as a level aim.
+	var old: Dictionary = SimSave.decode_save(text)
+	var stripped: int = _strip_pitch(old)
+	if stripped < 1:
+		push_error("%s: the save carried no pitch key to take out, so the old-save case judges nothing" % lane)
+		return false
+	var old_back: Variant = _restored(SimSave.encode_save(old))
+	if old_back == null:
+		return false
+	var old_aim: Variant = old_back.components.get_component(old_back.player, "aim")
+	var saved_yaw: float = float((w.components.get_component(w.player, "aim") as Dictionary)["radians"])
+	if SimAim.pitch_of(old_back.components, old_back.player) != 0.0 or not (old_aim is Dictionary) or absf(SimAim.radians_of(old_back.components, old_back.player) - saved_yaw) > 1e-9:
+		push_error("%s: a save with no pitch key loaded pitched %.3f, aim %s" % [lane, SimAim.pitch_of(old_back.components, old_back.player), str(old_aim)])
+		return false
+
+	# Level stores no key, and a negative zero never reaches the serializer.
+	w.commands.push({"type": "aim", "radians": 0.0, "pitch": _negative_zero()})
+	w.step()
+	var level: Dictionary = w.components.get_component(w.player, "aim") as Dictionary
+	if level.has("pitch"):
+		push_error("%s: a level proposal stored a pitch key %s" % [lane, str(level)])
+		return false
+	var probe: Dictionary = {"aim": [[1, {"radians": 0.5, "pitch": _negative_zero()}]], "level": 0.0}
+	if _negative_zeros(probe, "$").size() != 1 or not _negative_zeros({"pitch": 0.0, "radians": -0.25}, "$").is_empty():
+		push_error("%s: the negative-zero detector missed one or found one that is not there" % lane)
+		return false
+	# The aims the serializer would write, every body's: the table, not the whole snapshot, because
+	# this lane judges the aim and nothing else. Bodies carrying an aim are planted first so the
+	# scan has more than the player's to judge: a colonist turned to a place, and one level.
+	var other: int = -1
+	for e in w.components.query(["needs", "position", "facing"]):
+		if int(e) != int(w.player):
+			other = int(e)
+			break
+	if other < 0:
+		push_error("%s: the boot colony has no colonist but the player to turn" % lane)
+		return false
+	var op: Dictionary = w.components.get_component(other, "position") as Dictionary
+	SimNpcCombat._face_at(w, other, float(op["x"]) + 3.0, float(op["y"]))
+	var aims: Array = ((w.snapshot()["components"] as Dictionary).get("aim", []) as Array)
+	if aims.size() < 2:
+		push_error("%s: the snapshot carries %d aims; the scan needs the player's and a colonist's" % [lane, aims.size()])
+		return false
+	var found: Array[String] = _negative_zeros(aims, "$.components.aim")
+	if not found.is_empty():
+		push_error("%s: the snapshot's aims hold a negative zero at %s" % [lane, ", ".join(found)])
+		return false
+	for value in [_negative_zero(), 0.0, NAN, INF]:
+		var p: float = SimAim.clamp_pitch(float(value))
+		if p != 0.0 or not _negative_zeros({"p": p}, "$").is_empty():
+			push_error("%s: clamp_pitch(%s) gave %s, not a positive zero" % [lane, str(value), str(p)])
+			return false
+	print("PITCH OK a body never aimed reads 0; a standing proposal holds its pitch, clamped to 1.30 and held below level; a refused one writes none, with or without an aim, and a NaN yaw is refused whole; a jog's snap keeps it; it round-trips a save and a save without it loads level; a level aim stores no key and the snapshot holds no negative zero")
+	return true
+
+
+# PITCH_READS: something reads the pitch. The first-person scene sends the camera's pitch on its
+# aim, and the command intake hands it to the aim `SimAim.pitch_of` returns. An NPC that faces a
+# body pitches toward its chest from its own eye, a standing zombie's and a crouched survivor's
+# apart, and toward a standing chest when it faces a remembered place. Live: the combat system turns
+# an armed colonist to a shambler at arm's length and its aim carries that pitch. True negatives:
+# the same colonist unarmed never engages and carries no aim; a colonist's pitch-only aim holds no
+# yaw of its own, so it reads its facing, pays no twist, and grows no yaw when it turns or walks; a
+# level pitch takes the pitch-only aim away again; and the scene scan refuses a commented push.
+func _pitch_is_read() -> bool:
+	var lane: String = "PITCH_READS"
+	# The scene pushes it, and the intake takes it.
+	var scene_src: String = FileAccess.get_file_as_string("res://presentation/first_person/first_person.gd")
+	if not _sends_pitch(scene_src):
+		push_error("%s: the first-person scene's aim push sends no pitch" % lane)
+		return false
+	if _sends_pitch("\t\t# world.commands.push({\"type\": \"aim\", \"radians\": radians, \"pitch\": tilt})\n") or not _sends_pitch("\t\tworld.commands.push({\"type\": \"aim\", \"radians\": radians, \"pitch\": tilt})\n"):
+		push_error("%s: the pitch-push scan passed a commented push or refused a real one" % lane)
+		return false
+	var w: Variant = _world()
+	_stand(w)
+	w.commands.push({"type": "aim", "radians": 0.0, "pitch": -0.4})
+	w.step()
+	if absf(SimAim.pitch_of(w.components, w.player) + 0.4) > 1e-6:
+		push_error("%s: the scene's command shape reached the aim pitched %.3f, not -0.4" % [lane, SimAim.pitch_of(w.components, w.player)])
+		return false
+
+	# Faced by hand: a standing zombie, a crouched survivor and a place, all 2 m east.
+	var a: Variant = _arena()
+	var npc: int = _npc(a, 10.0, 10.0)
+	var zombie: int = SimRoster.spawn_zombie(a, 12.0, 10.0, SimRoster.TYPE_SHAMBLER, a.rng.stream("shambler"))
+	var crouched: int = _npc(a, 12.0, 10.0)
+	a.components.set_component(crouched, "posture", SimStances.make_posture(SimStances.Stance.Crouch))
+	var want_zombie: float = atan2(float(ZOMBIE_CHEST_MM - STANDING_EYE_MM) / 1000.0, 2.0)
+	var want_crouched: float = atan2(float(CROUCHED_CHEST_MM - STANDING_EYE_MM) / 1000.0, 2.0)
+	var want_place: float = atan2(float(STANDING_CHEST_MM - STANDING_EYE_MM) / 1000.0, 2.0)
+	SimNpcCombat._face(a, npc, zombie)
+	var at_zombie: float = SimAim.pitch_of(a.components, npc)
+	SimNpcCombat._face(a, npc, crouched)
+	var at_crouched: float = SimAim.pitch_of(a.components, npc)
+	SimNpcCombat._face_at(a, npc, 12.0, 10.0)
+	var at_place: float = SimAim.pitch_of(a.components, npc)
+	if absf(at_zombie - want_zombie) > 1e-6 or absf(at_crouched - want_crouched) > 1e-6 or absf(at_place - want_place) > 1e-6:
+		push_error("%s: an NPC facing a zombie, a crouched survivor and a place 2 m off pitches %.4f, %.4f, %.4f; want %.4f, %.4f, %.4f" % [lane, at_zombie, at_crouched, at_place, want_zombie, want_crouched, want_place])
+		return false
+	if absf(at_zombie - at_crouched) < 0.05:
+		push_error("%s: a standing zombie's chest and a crouched survivor's pitch the same (%.4f)" % [lane, at_zombie])
+		return false
+	# The pitch-only aim holds no yaw: it reads the facing, pays no twist, and a turn grows no yaw.
+	var aim: Dictionary = a.components.get_component(npc, "aim") as Dictionary
+	if aim.has("radians") or not aim.has("pitch"):
+		push_error("%s: an NPC's aim is %s; want a pitch and no yaw" % [lane, str(aim)])
+		return false
+	SimNpcCombat._face_at(a, npc, 10.0, 7.0)
+	var facing: float = float((a.components.get_component(npc, "facing") as Dictionary)["radians"])
+	if (a.components.get_component(npc, "aim") as Dictionary).has("radians") or SimAim.radians_of(a.components, npc) != facing or SimAim.twist(a.components, npc) != 0.0:
+		push_error("%s: an NPC's pitch-only aim took a yaw, read %.3f against facing %.3f, or twisted %.3f" % [lane, SimAim.radians_of(a.components, npc), facing, SimAim.twist(a.components, npc)])
+		return false
+	a.components.set_component(npc, "velocity", {"dx": 1.0, "dy": 0.0})
+	a.step()
+	var walked: float = float((a.components.get_component(npc, "facing") as Dictionary)["radians"])
+	var after_walk: Variant = a.components.get_component(npc, "aim")
+	if (after_walk is Dictionary and (after_walk as Dictionary).has("radians")) or SimAim.radians_of(a.components, npc) != walked:
+		push_error("%s: a walking NPC's aim grew a yaw (%s) or does not read its facing" % [lane, str(after_walk)])
+		return false
+	SimAim.set_pitch(a.components, npc, 0.0)
+	if a.components.has_component(npc, "aim"):
+		push_error("%s: a level pitch left a pitch-only aim behind (%s)" % [lane, str(a.components.get_component(npc, "aim"))])
+		return false
+
+	# Live: the combat system turns an armed colonist to a shambler at arm's length.
+	var live: Dictionary = _engaged(true)
+	var idle: Dictionary = _engaged(false)
+	if not bool(live["pitched"]):
+		push_error("%s: an armed colonist beside a shambler never carried a pitch toward it" % lane)
+		return false
+	if absf(float(live["pitch"]) - float(live["want"])) > 1e-6:
+		push_error("%s: the engaged colonist pitches %.4f; its chest line is %.4f" % [lane, float(live["pitch"]), float(live["want"])])
+		return false
+	if bool(idle["pitched"]) or bool(idle["aimed"]):
+		push_error("%s: an unarmed colonist that never engages carries an aim" % lane)
+		return false
+	print("PITCH_READS OK the scene sends the camera's pitch and the intake holds it; an NPC pitches %.3f to a standing zombie's chest, %.3f to a crouched survivor's and %.3f to a standing chest at a place, from its eye; the live combat system pitches an armed colonist at %.3f and an unarmed one carries no aim; a pitch-only aim holds no yaw and a level pitch removes it" % [at_zombie, at_crouched, at_place, float(live["pitch"])])
+	return true
+
+
+# Steps an arena with a colonist and a shambler 0.9 m east, the colonist armed or not, and reports
+# whether the colonist's aim carried a pitch and what its chest line to the shambler was on that tick.
+func _engaged(armed: bool) -> Dictionary:
+	var a: Variant = _arena()
+	var npc: int = _npc(a, 10.0, 10.0)
+	if armed:
+		SimInventory.equip(a, npc, SimItems.spawn_item(a, "item.knife.kitchen", {"tier": "scavenged"}))
+	var zombie: int = SimRoster.spawn_zombie(a, 10.9, 10.0, SimRoster.TYPE_SHAMBLER, a.rng.stream("shambler"))
+	var out: Dictionary = {"pitched": false, "aimed": false, "pitch": 0.0, "want": 0.0}
+	for _t in 40:
+		a.step()
+		if a.components.has_component(npc, "aim"):
+			out["aimed"] = true
+		var p: float = SimAim.pitch_of(a.components, npc)
+		if p != 0.0 and not bool(out["pitched"]) and a.components.has_component(zombie, "position"):
+			var here: Dictionary = a.components.get_component(npc, "position") as Dictionary
+			var there: Dictionary = a.components.get_component(zombie, "position") as Dictionary
+			var run: float = Vector2(float(there["x"]) - float(here["x"]), float(there["y"]) - float(here["y"])).length()
+			out["pitched"] = true
+			out["pitch"] = p
+			out["want"] = atan2(float(ZOMBIE_CHEST_MM - STANDING_EYE_MM) / 1000.0, run)
+	return out
+
+
+# The R1 arena check_m2_npc_combat.gd fights in: a blank 32-tile map, the kernel, and the modules a
+# fight needs.
+func _arena() -> Variant:
+	var fixture: Dictionary = {
+		"seed": 4242,
+		"tick_hz": 20,
+		"map": {"width": 32, "height": 32, "walls": []},
+		"player": {"id": 0, "x": 2.0, "y": 2.0, "stance": 2},
+		"rng_probe": {"stream": "test", "samples": 0},
+	}
+	var a: Variant = World.new(fixture)
+	a.tick = Clock.tick_at_time_of_day(Clock.DAY_BEGINS)
+	SimBoot.attach_kernel(a, SimTileMap.blank_map(32, 32))
+	SimHealth.register_module(a)
+	SimMelee.register_module(a)
+	SimRanged.register_module(a)
+	SimInventory.register_module(a)
+	SimItems.register_module(a)
+	SimNpcCombat.register_module(a)
+	return a
+
+
+# A colonist the player is not driving: needs, a body, a facing and no `controlled`.
+func _npc(a: Variant, x: float, y: float) -> int:
+	var ent: int = int(a.entities.spawn())
+	a.components.set_component(ent, "position", {"x": x, "y": y})
+	a.components.set_component(ent, "velocity", {"dx": 0.0, "dy": 0.0})
+	a.components.set_component(ent, "facing", {"radians": 0.0})
+	a.components.set_component(ent, "identity", {"id": "survivor.test", "name": "Test", "traits": []})
+	SimHealth.make_survivor_body(a, ent)
+	SimHealth.make_stamina(a, ent)
+	SimInventory.make_inventory(a, ent)
+	SimNeeds.attach(a, ent)
+	return ent
+
+
+# A save's text decoded and restored into a bare world of the same seed, or null.
+func _restored(text: String) -> Variant:
+	var save: Dictionary = SimSave.decode_save(text)
+	if save.has("__error"):
+		push_error("PITCH: the save did not decode: %s" % str(save))
+		return null
+	var boot: Dictionary = SimBoot.bare(20260805, 64)
+	var back: Variant = boot["world"]
+	SimSave.apply_save(back, save)
+	return back
+
+
+# Takes every `pitch` key out of a decoded save's aims, as a save written before pitch would read.
+func _strip_pitch(save: Dictionary) -> int:
+	var n: int = 0
+	var comps: Dictionary = (save["snapshot"] as Dictionary)["components"] as Dictionary
+	for entry in comps.get("aim", []) as Array:
+		var value: Dictionary = (entry as Array)[1] as Dictionary
+		if value.has("pitch"):
+			value.erase("pitch")
+			n += 1
+	return n
+
+
+# A negative zero, built from its bytes at run time. Not a `-0.0` literal: the GDScript compiler
+# pools a function's constants by `==`, and -0.0 == 0.0, so one `-0.0` literal turns every `0.0`
+# literal in the same function negative (docs/37). The sign bit is the only honest test of one.
+func _negative_zero() -> float:
+	return PackedByteArray([0, 0, 0, 0, 0, 0, 0, 0x80]).to_float64_array()[0]
+
+
+# Every path in `value` that holds a negative zero: what `SimSerialize.canonicalize` refuses. Read
+# off the sign bit, because `str` prints a negative zero as "0.0" and `==` cannot tell them apart.
+func _negative_zeros(value: Variant, path: String) -> Array[String]:
+	var out: Array[String] = []
+	if value is float:
+		if float(value) == 0.0 and (PackedFloat64Array([float(value)]).to_byte_array()[7] & 0x80) != 0:
+			out.append(path)
+	elif value is Dictionary:
+		for k in (value as Dictionary).keys():
+			out.append_array(_negative_zeros((value as Dictionary)[k], "%s.%s" % [path, str(k)]))
+	elif value is Array:
+		for i in (value as Array).size():
+			out.append_array(_negative_zeros((value as Array)[i], "%s[%d]" % [path, i]))
+	return out
+
+
+# Whether a source pushes an aim command carrying a pitch, in code rather than a comment.
+func _sends_pitch(src: String) -> bool:
+	for line in src.split("\n"):
+		var code: String = line.strip_edges()
+		if not code.begins_with("#") and code.contains("\"type\": \"aim\"") and code.contains("\"pitch\":") and code.contains("commands.push("):
+			return true
+	return false

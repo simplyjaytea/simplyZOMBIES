@@ -143,7 +143,8 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 			continue
 		# The eyes follow the head, and the head follows the aim (sim/aim.gd): a body walking one
 		# way and looking another sees where it looks. An absent `aim` reads as `facing`, straight
-		# off the table -- only a body the player has aimed carries one.
+		# off the table. A body the player has aimed carries one, and so does a colonist that turned
+		# to a body, whose aim holds only a pitch and reads its facing through `radians_of`.
 		var facing_rad: float = 0.0
 		if aims.has(entity):
 			facing_rad = SimAimRes.radians_of(world.components, entity)

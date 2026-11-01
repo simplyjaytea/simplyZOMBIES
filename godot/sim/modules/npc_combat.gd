@@ -379,12 +379,15 @@ static func _face(world: Variant, ent: int, target: int) -> void:
 	var there: Variant = world.components.get_component(target, "position")
 	if not there is Dictionary:
 		return
-	_face_at(world, ent, float((there as Dictionary)["x"]), float((there as Dictionary)["y"]))
+	_face_at(world, ent, float((there as Dictionary)["x"]), float((there as Dictionary)["y"]), SimSpaceRes.chest_of(world, target))
 
 
 # Turning to face a place rather than a body -- what a remembered position is. `_face` is this
 # with a lookup in front of it, so a body and the memory of one turn a survivor the same way.
-static func _face_at(world: Variant, ent: int, x: float, y: float) -> void:
+# The head tilts with the turn (docs/40, "Aim: yaw and pitch"): from this body's eye
+# (`SimSpace.eye_of`) to `height_mm` at the place, which is the target's chest when `_face` names a
+# body and a standing survivor's chest (`SimSpace.chest_of` of no body) when only a place is known.
+static func _face_at(world: Variant, ent: int, x: float, y: float, height_mm: int = -1) -> void:
 	var here: Variant = world.components.get_component(ent, "position")
 	var facing: Variant = world.components.get_component(ent, "facing")
 	if not here is Dictionary or not facing is Dictionary:
@@ -395,13 +398,15 @@ static func _face_at(world: Variant, ent: int, x: float, y: float) -> void:
 		return
 	var radians: float = atan2(dy, dx)
 	if radians == 0.0:
-		# atan2 reaches negative zero due east, which `canonicalize` rejects outright. -0.0 == 0.0,
-		# so this assignment is the collapse `headingOf` does.
+		# atan2 reaches negative zero due east, which `canonicalize` means to refuse and cannot see
+		# (docs/37). -0.0 == 0.0, so this assignment is the collapse `headingOf` does.
 		radians = 0.0
 	(facing as Dictionary)["radians"] = radians
 	# The aim turns with the body (sim/aim.gd): a proposal the player left behind never points the
 	# swing this turn is for.
 	SimAimRes.follow_facing(world.components, ent)
+	var to_mm: int = height_mm if height_mm >= 0 else SimSpaceRes.chest_of(world, -1)
+	SimAimRes.set_pitch(world.components, ent, SimAimRes.pitch_toward(to_mm - SimSpaceRes.eye_of(world, ent), sqrt(dx * dx + dy * dy)))
 
 
 # Firing at a body you remember rather than one you can see. docs/09: "allowed, and it is a

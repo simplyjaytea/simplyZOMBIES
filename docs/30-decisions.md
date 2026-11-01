@@ -7683,3 +7683,51 @@ calls. Each one is a reading docs/40 left open or a correction to it, not an own
   threat through `SimRanged.can_target`, so a wall already hides the threat, but a colonist crouched
   at a window can start a swing that `_resolve_strike` then refuses. That is a wasted swing, not a
   hit through the sill. It is named here, not changed, because it is outside this slice.
+
+## A pitch with no yaw, 2026-11-01
+
+Slice 3 of docs/40 ("Pitch on the aim") took these engineering calls. docs/40 fixes the unit
+(radians), the limit (±1.30), the optional key, `pitch_of` reading 0 when it is absent, and the
+NPC's chest. What follows is what it left open.
+
+- **An NPC carries a pitch-only aim.** docs/40 has `npc_combat._face` set the pitch, but an NPC
+  has no `aim` component: only the `aim` command writes one, and only the controlled body receives
+  that command. Giving a colonist a full aim (`radians` copied from its facing) would change how it
+  plays. At Walk an aim holds apart from the heading, so the colonist would keep looking, seeing and
+  shooting the way it last turned while it walked another way, and the cone would charge it a twist.
+  So the colonist's aim holds `pitch` and no `radians`. `SimAim.radians_of` reads the facing for an
+  aim without `radians`, `twist` is 0 for one, and `follow_facing` writes no yaw into one. The
+  colonist turns, walks, sees and shoots exactly as before. Only the `aim` command gives such an aim
+  a yaw. `godot:m2:aim` PITCH_READS holds all three.
+- **A level pitch is the absent key, not 0.** `SimAim._write_pitch` erases the key when the
+  pitch is level. Every aim the top-down game writes stays byte for byte what it was, and a
+  negative zero has nowhere to be stored. `SimAim.set_pitch` removes a pitch-only aim that goes
+  level, so a colonist that looks level carries what it carried before it ever turned.
+- **The sim clamps, and the camera reads the sim's limit.** `SimAim.clamp_pitch` clamps to
+  `SimAim.PITCH_LIMIT` and reads a non-finite pitch as level. The first-person scene's
+  `PITCH_LIMIT` is now `SimAim.PITCH_LIMIT`, so there is one number.
+- **Positive is up, and an NPC's pitch is the line from its own eye.** The NPC's pitch is
+  `atan2(rise, run)`. The rise is the target's chest (`SimSpace.chest_of`, 750 thousandths of
+  the cylinder) less the NPC's `SimSpace.eye_of`, in metres, and the run is the ground distance.
+  It is written on every turn `_face_at` makes, after `follow_facing`. When the colonist later
+  turns away by walking, the pitch it last set stays. Nothing reads pitch for a hit until slices 5
+  and 6, and those slices decide whether a walking turn levels it.
+- **No `SAVE_VERSION` bump, though the pitch-only aim is a new shape.** The review of the slice
+  asked for a bump to 34. The pitch-only aim is a shape an older build does not know. It reads
+  the missing yaw as 0, so a save from this build, loaded by an older one, would turn that
+  colonist east until its next turn. The bump is still wrong, for two reasons:
+  - **Forward compatibility is not promised.** docs/19's save model detects and refuses *old*
+    saves. `save.gd` refuses any version but its own, and every "no version bump" note in
+    `serialize.gd`'s ladder judges a v33 save loaded into the newer build. The tourniquet, the
+    raised walls and the loaded round each added state an older build would drop on load: a
+    tied limb, a standing wall, a loaded magazine. None of the three was bumped.
+  - **The bump has a real cost.** It would refuse every v33 save, the player's single slot
+    included, to guard against a downgrade nobody is promised.
+  A v33 save loaded into this build holds no pitch-only aim and no `pitch`, and `radians` still
+  means the yaw wherever it is present, so nothing is misread in the direction the policy covers.
+  docs/40's rule ("a bump is needed if any slice changes the meaning of an existing key") is met:
+  no existing key changed. The call is the coordinator's to overrule.
+- **A yaw that is not a number is refused.** Before this slice, `SimAim.propose` stored a NaN yaw,
+  because NaN passes `canonical`. It now refuses one whole, so the yaw, the feet and the pitch stay
+  as they were, the way `clamp_pitch` already read a NaN pitch as level. `godot:m2:aim` PITCH holds
+  it, with the comparison written so a NaN cannot pass it.
