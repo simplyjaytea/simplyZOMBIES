@@ -2451,6 +2451,13 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **A lane-table FIRST_PERSON_OK line, 2026-11-01.** The first-person gate's OK line is generated, not
+  hand-written: each lane registers its name and one-sentence clause as it passes (`_lane`), and
+  `_finish` prints `FIRST_PERSON_OK <clauses>. lanes: N`. A parallel branch adds a row at its lane's
+  call site instead of editing one long sentence, which was the recurring conflict in the first-person
+  integration. A forced `YAW` failure printed `FIRST_PERSON_FAIL YAW: forced for the lane-table
+  proof`; the restored gate lists 28 lanes.
+
 - **The model loader and loose items drawn with their models, 2026-11-01.** The first code that reads
   the art kits. `godot/presentation/first_person/models.gd` reads every `assets/first_person/*.manifest.json`
   (in file-name order, a malformed one skipped), resolves an item to a model by id and then by class, and
