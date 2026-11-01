@@ -60,6 +60,10 @@ extends SceneTree
 #             gate's small override really boots a smaller district, the one every lane above
 #             walks (true negative). Only a fresh, unparented instance is read for the default: no
 #             sim world is built for it.
+#   SAVE      F5 writes the sim's save into the first-person slot and F9 restores it: the body, the
+#             camera and the tick go back to the saved values after the walk on. F9 with no save
+#             says so and changes nothing; F5 with the ledger open writes nothing. The lane swaps in
+#             its own slot key and deletes it afterwards, so no real save is touched.
 
 const SCENE_PATH: String = "res://presentation/first_person/first_person.tscn"
 const WorkPanel = preload("res://ui/work_panel.gd")
@@ -86,6 +90,7 @@ const ReportsPanel = preload("res://ui/reports_panel.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const FirstPerson = preload("res://presentation/first_person/first_person.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
+const SaveSlot = preload("res://presentation/first_person/save_slot.gd")
 
 # The district the gate boots. Small on purpose: every lane walks the sim, and the shipped 256 district
 # is for the player, not for a gate. DISTRICT proves this is really smaller than the shipped default.
@@ -96,6 +101,9 @@ const LIGHT_NOON_SUN_MIN: float = 0.5
 const LIGHT_NOON_AMBIENT_MIN: float = 0.5
 const LIGHT_NIGHT_SUN_MAX: float = 0.05
 const LIGHT_NIGHT_AMBIENT_MAX: float = 0.15
+# SAVE writes and reads its own slot under this key and deletes it afterwards. It must never be the
+# real first-person slot, which is what the SAVE lane asserts before it touches anything.
+const GATE_SAVE_KEY: String = "first_person_save_gate.slot"
 const TICK_SECONDS: float = 1.0 / 20.0
 const EPSILON: float = 0.0001
 
@@ -140,6 +148,8 @@ func _run() -> void:
 		ok = _verbs(scene) and ok
 		ok = _stance(scene) and ok
 		ok = _reports(scene) and ok
+		# Save before the lanes that kill the colony: the run-over lane leaves input swallowed.
+		ok = _save(scene) and ok
 		ok = _light(scene) and ok
 		ok = _succession(scene) and ok
 		ok = _run_over(scene) and ok
@@ -153,7 +163,7 @@ func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)
-		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, swings a bat into a shambler and fires a round through the top-down commands while the ledger refuses both, misses a body behind the look, and leaves a refused reload wordless, opens and shuts a door through the sim's own verb from the tile the eye is on while a door out of reach or looked away from sends nothing, takes the top-down stance keys and eases the eye to the sim's posture height while the ledger refuses the keys, reads the chronicle's own lines on the ledger's Reports page and moves the read mark, lights noon by the sim's clock and darkens midnight, turns a carried torch into the eye's spot at the sim's range and cone and out when it burns, and keeps a body behind a wall undrawn, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
+		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, swings a bat into a shambler and fires a round through the top-down commands while the ledger refuses both, misses a body behind the look, and leaves a refused reload wordless, opens and shuts a door through the sim's own verb from the tile the eye is on while a door out of reach or looked away from sends nothing, takes the top-down stance keys and eases the eye to the sim's posture height while the ledger refuses the keys, reads the chronicle's own lines on the ledger's Reports page and moves the read mark, lights noon by the sim's clock and darkens midnight, turns a carried torch into the eye's spot at the sim's range and cone and out when it burns, and keeps a body behind a wall undrawn, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, saves and loads through the sim's own save in its own slot, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
 		quit(0)
 		return
 	for failure in _failures:
@@ -1776,13 +1786,105 @@ func _reports(scene: Node) -> bool:
 	return ok
 
 
-# The words the HUD is drawing, joined. The scene frame is off in this gate, so the HUD is refreshed first.
+# --- SAVE -----------------------------------------------------------------------------------
+
+# F5 and F9 go through the sim's own save API, into a slot this lane names and deletes. The key is
+# swapped before anything is written and restored after, so a real player's save is never touched.
+func _save(scene: Node) -> bool:
+	var saved_key: String = SaveSlot.slot_key
+	if GATE_SAVE_KEY == SaveSlot.DEFAULT_KEY:
+		return _fail("SAVE", "the gate's save key is the real first-person slot")
+	SaveSlot.slot_key = GATE_SAVE_KEY
+	SaveSlot.remove()
+	var ok: bool = _save_lane(scene)
+	SaveSlot.remove()
+	SaveSlot.slot_key = saved_key
+	return ok
+
+
+func _save_lane(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var origin: Vector2 = _find_open_area(map, 2)
+	if origin == Vector2(-1.0, -1.0):
+		return _fail("SAVE", "the district has no open area for a walk")
+	_place_player(scene, origin)
+	scene.call("set_look", 0.0, 0.0)
+
+	# True negative: F9 with no save present says so and changes nothing.
+	var tick_empty: int = int(world.tick)
+	var pos_empty: Vector2 = _player_pos(world)
+	_key(KEY_F9, true)
+	if not _joined_hud(scene).contains("Nothing to load."):
+		ok = _fail("SAVE", "F9 with no save did not say so on the HUD")
+	if not SaveSlot.read().is_empty():
+		ok = _fail("SAVE", "F9 with no save wrote a save")
+	if int(world.tick) != tick_empty or _player_pos(world).distance_to(pos_empty) > EPSILON:
+		ok = _fail("SAVE", "F9 with no save changed the world")
+
+	# True negative: F5 while the ledger is open does not save, the same way other keys are refused.
+	scene.call("open_ledger_menu")
+	_key(KEY_F5, true)
+	if not SaveSlot.read().is_empty():
+		ok = _fail("SAVE", "F5 with the ledger open wrote a save")
+	if not bool(scene.get("menu_open")):
+		ok = _fail("SAVE", "F5 with the ledger open closed it")
+	scene.call("close_ledger_menu")
+
+	# The walk the save is taken in.
+	_key(KEY_W, true)
+	for i in 10:
+		scene.call("step_sim_once")
+	_key(KEY_W, false)
+	scene.call("step_sim_once")
+	var saved_pos: Vector2 = _player_pos(world)
+	var saved_tick: int = int(world.tick)
+	if saved_pos.distance_to(origin) < 0.15:
+		ok = _fail("SAVE", "the walk before the save did not move the body")
+
+	_key(KEY_F5, true)
+	if SaveSlot.read().is_empty():
+		return _fail("SAVE", "F5 wrote no save")
+	if not _joined_hud(scene).contains("Saved."):
+		ok = _fail("SAVE", "F5 did not say Saved. on the HUD")
+
+	# Walk further, so a load that did nothing would be visible.
+	_key(KEY_W, true)
+	for i in 15:
+		scene.call("step_sim_once")
+	_key(KEY_W, false)
+	scene.call("step_sim_once")
+	if _player_pos(world).distance_to(saved_pos) < 0.5:
+		ok = _fail("SAVE", "the walk after the save did not move the body")
+	if int(world.tick) == saved_tick:
+		ok = _fail("SAVE", "the world did not advance past the save")
+
+	_key(KEY_F9, true)
+	var loaded_pos: Vector2 = _player_pos(world)
+	if loaded_pos.distance_to(saved_pos) > EPSILON:
+		ok = _fail("SAVE", "F9 put the body at %s, not the saved %s" % [loaded_pos, saved_pos])
+	if int(world.tick) != saved_tick:
+		ok = _fail("SAVE", "F9 restored tick %d, not the saved %d" % [int(world.tick), saved_tick])
+	var rendered: Vector2 = scene.call("rendered_player_position")
+	if rendered.distance_to(saved_pos) > EPSILON:
+		ok = _fail("SAVE", "the scene still renders the body at %s after F9" % rendered)
+	var camera: Camera3D = scene.get("camera") as Camera3D
+	var eye: Vector2 = Vector2(camera.global_position.x, camera.global_position.z)
+	if eye.distance_to(saved_pos) > 0.001:
+		ok = _fail("SAVE", "the camera is at %s after F9, not the saved %s" % [eye, saved_pos])
+	if not _joined_hud(scene).contains("Loaded."):
+		ok = _fail("SAVE", "F9 did not say Loaded. on the HUD")
+	return ok
+
+
+# The words the HUD is drawing, joined, for the lanes that check what it says. The scene's frame is
+# off in this gate, so the HUD is refreshed here the way a frame would refresh it.
 func _joined_hud(scene: Node) -> String:
 	scene.call("_update_hud")
 	var joined: String = ""
 	for line in scene.call("hud_lines") as Array:
-		joined += String(line) + "
-"
+		joined += String(line) + "\n"
 	return joined
 
 
@@ -1794,7 +1896,6 @@ func _click_at(point: Vector2) -> void:
 	ev.position = point
 	ev.global_position = point
 	root.push_input(ev)
-
 
 
 # --- SUCCESSION -----------------------------------------------------------------------------

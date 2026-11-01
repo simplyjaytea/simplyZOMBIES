@@ -2413,6 +2413,28 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **First-person save and load, 2026-11-01.** Advances "First-person expedition and default
+  switch", its save/reload step, for the opt-in scene only.
+  - **The slot.** F5 and F9 in `first_person.gd` (`save_game`, `load_game`, `_after_load`) go
+    through the sim's `SimSave` API. `presentation/first_person/save_slot.gd` writes the save under
+    `simplyzombies.first_person` (`user://simplyzombies.first_person.json` on desktop), apart from the
+    top-down `simplyzombies.save`, so the two scenes never overwrite each other. Desktop writes use
+    the atomic adapter in `platform/storage.gd`; web uses its double buffer.
+  - **Feedback and refusals.** The HUD alert line says `Saved.`, `Loaded.` or `Nothing to load.`, and
+    two refusals: `The save did not write.` and `That save will not load.`. A load refuses a save
+    that does not decode and a finished run, as the top-down load does. F5 and F9 are refused while
+    the ledger is open.
+  - **After a load.** An open ledger closes, held keys clear, the body views rebuild from the
+    restored entities, and the camera snaps to the restored position with no interpolation.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, SAVE lane)
+    prints `FIRST_PERSON_OK`. The lane swaps in a throwaway slot key and deletes it afterwards. True
+    negatives: F9 with no save changes nothing, and F5 with the ledger open writes nothing. True
+    positive: walk, F5, walk on, F9 restores the body, the camera and the tick. Each assertion was
+    mutation-tested. `npm run godot:m2:save` (`M2_SAVE_OK`) shows the shared save path is unchanged.
+  - **Not in this piece.** Yaw and pitch are not saved, since they are presentation state. The
+    top-down onboarding record is not written. The HUD cannot name F5 or F9, because digits are banned
+    there.
+
 - **Light, night and weather in first person, 2026-11-01.** Advances "First-person expedition
   and default switch": the 3D scene now reads the sim's clock, weather and carried light, and holds
   the "spatial combat and perception" information rule while it does.
