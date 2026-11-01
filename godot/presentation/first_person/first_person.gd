@@ -12,15 +12,23 @@ extends Node3D
 # `+z`; the camera's eye height is presentation only. Yaw is about Godot `+y`, with -Z forward.
 #
 # This scene is opt-in (`npm run godot:run:first_person`); the shipped main scene is untouched.
+#
+# Containers are the second physical interaction: the district's sim cupboards stand as labelled
+# placeholders, and E at one sends the same `container.open` command the top-down screen's context
+# menu sends before opening the real grid inventory sheet. Taking an item out is an ordinary
+# `item.move` the sheet proposes; this file never touches a component or an item.
 
 const SimBoot = preload("res://sim/boot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimContainers = preload("res://sim/modules/containers.gd")
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
 const PropView = preload("res://presentation/first_person/prop_view.gd")
+const ContainerView = preload("res://presentation/first_person/container_view.gd")
 const Hud = preload("res://presentation/first_person/hud.gd")
 const WorkPanel = preload("res://ui/work_panel.gd")
 const WebPanel = preload("res://ui/web_panel.gd")
+const InventoryPanel = preload("res://ui/inventory_panel.gd")
 
 const SEED: int = 20260805
 const DISTRICT_TILES: int = 64
@@ -33,6 +41,8 @@ const PITCH_LIMIT: float = 1.30
 const LEDGER_REACH_M: float = 1.80
 # cos(30 degrees): the ledger must be inside a narrow cone in front of the eye, not merely near.
 const LEDGER_AIM_DOT: float = 0.866
+# Where the eye aims on a container box: its middle, not its top or its foot.
+const CONTAINER_AIM_HEIGHT_M: float = 0.92
 
 const MOVE_KEYS: Array[int] = [KEY_W, KEY_A, KEY_S, KEY_D]
 
@@ -45,16 +55,20 @@ var yaw: float = 0.0
 var pitch: float = 0.0
 var menu_open: bool = false
 var paused: bool = false
+var inventory_open: bool = false
 
 var _rig: Node3D = null
 var _district: Node3D = null
 var _bodies: Node3D = null
 var _props: Node3D = null
+var _containers: Node3D = null
 var _hud: Control = null
 var _work_layer: CanvasLayer = null
 var _work_panel: Control = null
 var _web_panel: Control = null
 var _web_open: bool = false
+var _inventory_layer: CanvasLayer = null
+var _inventory_panel: Control = null
 
 var _held: Dictionary = {}
 var _last_dx: float = 0.0
@@ -144,6 +158,11 @@ func _build_views() -> void:
 	_props.name = "SafeSpawnProps"
 	add_child(_props)
 	_props.call("build", _ledger_sim)
+
+	_containers = ContainerView.new()
+	_containers.name = "Containers"
+	add_child(_containers)
+	_containers.call("build", world)
 
 	_bodies = BodyView.new()
 	_bodies.name = "Bodies"
@@ -276,6 +295,8 @@ func _process(delta: float) -> void:
 			guard += 1
 		if guard >= 8:
 			_accumulator = 0.0
+	if inventory_open:
+		_refresh_inventory()
 	if menu_open:
 		if _web_open and _web_panel != null and _web_panel.visible:
 			_web_panel.call("set_world", world, int(_web_panel.get("_who")))
@@ -321,7 +342,10 @@ func _update_hud() -> void:
 	if _hud == null or world == null:
 		return
 	var prompt: String = ""
-	if not menu_open and not _mouse_captured:
+	if inventory_open:
+		# The sheet is over the world and takes the words with it; Escape is the way back.
+		prompt = ""
+	elif not menu_open and not _mouse_captured:
 		prompt = "Mouse released. Click to look again."
 	elif not menu_open:
 		var verdict: String = interaction_verdict()
@@ -329,9 +353,19 @@ func _update_hud() -> void:
 			prompt = "E read the ledger"
 		elif verdict == "away":
 			prompt = "Turn to the ledger."
-		elif _curr_player.distance_to(_ledger_sim) < 4.5:
-			prompt = "The ledger stands near."
-	_hud.call("set_state", world, int(world.player), prompt, _live_alert(), menu_open, paused)
+		else:
+			var box_verdict: String = container_verdict()
+			var box_name: String = _container_kind(container_focus())
+			if box_verdict == "ok":
+				prompt = "E open the %s" % box_name
+			elif box_verdict == "away":
+				prompt = "Turn to the %s." % box_name
+			elif box_verdict == "spent":
+				prompt = "You have already been through this %s." % box_name
+			elif _curr_player.distance_to(_ledger_sim) < 4.5:
+				prompt = "The ledger stands near."
+	_hud.call("set_state", world, int(world.player), prompt, _live_alert(), menu_open, paused, inventory_open)
+	_hud.visible = not inventory_open
 
 
 # --- input ----------------------------------------------------------------------------------
@@ -343,6 +377,21 @@ func _input(event: InputEvent) -> void:
 	if ke.echo:
 		return
 	var code: int = ke.keycode if ke.keycode != 0 else ke.physical_keycode
+	if inventory_open:
+		# The sheet takes every key while it is up, exactly as `input_map.gd`'s "sheet" focus does:
+		# walking keys are swallowed (the body was stopped when the sheet opened), the name field
+		# takes its own typing, R turns a lifted item, and Escape puts down what the sheet is
+		# holding before it closes the sheet -- one press, one thing.
+		if ke.pressed and _inventory_panel != null:
+			if _inventory_panel.has_method("naming") and bool(_inventory_panel.call("naming")):
+				_inventory_panel.call("name_key", ke)
+			elif code == KEY_ESCAPE:
+				if not bool(_inventory_panel.call("escape")):
+					close_inventory()
+			elif code == KEY_R and _inventory_panel.has_method("rotate"):
+				_inventory_panel.call("rotate")
+		get_viewport().set_input_as_handled()
+		return
 	if menu_open:
 		if ke.pressed and code == KEY_ESCAPE:
 			if _web_open:
@@ -379,12 +428,12 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseMotion and _mouse_captured and not menu_open:
+	if event is InputEventMouseMotion and _mouse_captured and not menu_open and not inventory_open:
 		var motion: InputEventMouseMotion = event as InputEventMouseMotion
 		look_by(motion.relative.x, motion.relative.y)
 		get_viewport().set_input_as_handled()
 		return
-	if event is InputEventMouseButton and not menu_open and not _mouse_captured:
+	if event is InputEventMouseButton and not menu_open and not inventory_open and not _mouse_captured:
 		var button: InputEventMouseButton = event as InputEventMouseButton
 		if button.pressed:
 			_capture_mouse()
@@ -490,6 +539,238 @@ func _clear_held() -> void:
 	_held.clear()
 
 
+# --- containers and the inventory sheet ------------------------------------------------------
+#
+# A container is a sim entity with `searchable` and `position`; `container_view.gd` stands a
+# placeholder for each. E reads it the way the ledger is read -- reach, aim, then the sim's own
+# sight -- and, when all three agree, pushes the same command the top-down context menu pushes:
+# `container.open`, naming the box. The screen is the top-down game's own `ui/inventory_panel.gd`,
+# opened on the player's inventory with the open box as its first column
+# (`SimContainers.open_view`), so a take is the `item.move` the sheet has always sent.
+#
+# INVENTORY PAUSE POLICY -- reversible default, not a new design decision (docs/33 leaves the
+# inventory/ledger pause question open). `main.gd` does not stop the clock for its inventory
+# sheet: `_process` steps the world whenever the session is PLAYING and P is not held, while
+# `input_map.gd` gives the sheet focus, clears the held set and queues one zero move so the body
+# stops under the screen. This scene copies exactly that: `paused` is untouched by the sheet, the
+# body is stopped by `_clear_held` + `_push_zero_move`, and movement keys are swallowed by the
+# `inventory_open` branch of `_input`. If the owner later chooses time-stopped inventories, the
+# one change is to hold the accumulator while `inventory_open` is true.
+const INVENTORY_COMMAND_CLOSE: String = "container.close"
+const INVENTORY_COMMAND_OPEN: String = "container.open"
+
+
+## The container the eye is on, or -1. The nearest box inside the same narrow cone the ledger
+## uses; distance is not the only test, so a cupboard under your nose but behind you is not it.
+func container_target() -> int:
+	if world == null or _containers == null:
+		return -1
+	if int(_containers.call("count")) <= 0:
+		return -1
+	var eye: Vector3 = Vector3(_rendered_player().x, EYE_HEIGHT_M, _rendered_player().y)
+	var look: Vector3 = look_direction()
+	var best: int = -1
+	var best_distance: float = 1.0e9
+	for entity in _containers.call("entities") as Array:
+		var point: Vector3 = container_world_point(int(entity))
+		var to: Vector3 = point - eye
+		var distance: float = to.length()
+		if distance <= 0.000001:
+			continue
+		if look.dot(to / distance) < LEDGER_AIM_DOT:
+			continue
+		if distance < best_distance:
+			best_distance = distance
+			best = int(entity)
+	return best
+
+
+## "ok", "far", "away", "blocked", "spent" or "none". The same order the ledger is judged in:
+## an aimed box is measured against the sim's own reach, then the sim's own sight. A box nearer
+## than the one the eye found -- or one in reach with nothing in the aim at all -- is "away", so
+## the refusal is "turn to the cupboard beside you", never "walk closer" about a distant one in
+## the same diagonal. "spent" is the sim's own three-state reading of a searched box
+## (`SimContainers.contents_of`): an emptied cupboard is not offered, because E at it would fall
+## through the top-down ladder rather than open a blank grid.
+func container_verdict() -> String:
+	if world == null or _containers == null:
+		return "none"
+	var target: int = container_target()
+	var near: int = int(SimContainers.nearest(world, int(world.player), false, SimContainers.Want.Any))
+	if target < 0:
+		return "away" if near >= 0 else "none"
+	if _curr_player.distance_to(_container_sim_position(target)) > float(SimContainers.SEARCH_REACH):
+		return "away" if near >= 0 else "far"
+	if not container_in_sight(target):
+		return "blocked"
+	if not _container_openable(target):
+		return "spent"
+	return "ok"
+
+
+## The box the verdict is speaking about: the near one for "away", the aimed one otherwise.
+func container_focus() -> int:
+	if world == null or _containers == null:
+		return -1
+	var target: int = container_target()
+	var near: int = int(SimContainers.nearest(world, int(world.player), false, SimContainers.Want.Any))
+	if near >= 0 and (target < 0 or _curr_player.distance_to(_container_sim_position(target)) > float(SimContainers.SEARCH_REACH)):
+		return near
+	return target
+
+
+## A box through an opaque wall is not in reach, however close the geometry is -- the same read
+## `main.gd`'s HUD and the E ladder make, on the sim's own visibility.
+func container_in_sight(entity: int) -> bool:
+	if world == null or world.vision == null or entity < 0:
+		return false
+	var at: Vector2 = _container_sim_position(entity)
+	return int(world.vision.call("detail", int(world.player), at.x, at.y)) != 0
+
+
+func container_world_point(entity: int) -> Vector3:
+	var at: Vector2 = _container_sim_position(entity)
+	return Vector3(at.x, CONTAINER_AIM_HEIGHT_M, at.y)
+
+
+## The one interaction. An aimed, reachable container is opened with the top-down command and the
+## real inventory sheet; a refusal says which of the three rules failed, in the ledger's words.
+func try_interact() -> bool:
+	if menu_open or inventory_open:
+		return false
+	if interaction_verdict() == "ok":
+		open_ledger_menu()
+		return true
+	var box_verdict: String = container_verdict()
+	if box_verdict != "none":
+		var box_name: String = _container_kind(container_focus())
+		match box_verdict:
+			"far":
+				_set_alert("Nothing within reach. Walk closer to the %s." % box_name)
+				return false
+			"blocked":
+				_set_alert("The %s is behind a wall." % box_name)
+				return false
+			"away":
+				_set_alert("You are near the %s, but not looking at it." % box_name)
+				return false
+			"spent":
+				_set_alert("You have already been through this %s." % box_name)
+				return false
+			"ok":
+				open_container(container_focus())
+				return true
+	match interaction_verdict():
+		"far":
+			_set_alert("Nothing within reach. Walk closer to the ledger.")
+			return false
+		"blocked":
+			_set_alert("The ledger is behind a wall.")
+			return false
+		"away":
+			_set_alert("You are near the ledger, but not looking at it.")
+			return false
+	_set_alert("There is nothing here to use.")
+	return false
+
+
+## Opens `entity` through the sim and puts the player's own inventory on screen beside it. The
+## command is the context menu's `container.open` with the box named, so reach and the table roll
+## stay the sim's (`sim/modules/containers.gd`); this file only asks for it.
+func open_container(entity: int) -> void:
+	if world == null or entity < 0:
+		return
+	world.commands.push({"type": INVENTORY_COMMAND_OPEN, "container": entity})
+	open_inventory()
+
+
+func open_inventory() -> void:
+	if inventory_open:
+		return
+	_ensure_inventory_panel()
+	if _inventory_panel == null:
+		return
+	inventory_open = true
+	_inventory_panel.visible = true
+	_inventory_panel.call("set_open", true)
+	_inventory_panel.call("set_world", world, int(world.player))
+	_inventory_panel.call("set_loot", SimContainers.open_view(world, int(world.player)))
+	_clear_held()
+	_push_zero_move()
+	_release_mouse()
+	_alert = ""
+	if _hud != null:
+		_hud.visible = false
+
+
+func close_inventory() -> void:
+	if not inventory_open:
+		return
+	if world != null:
+		# The top-down Escape does the same when a transfer window is up: tell the sim the box is
+		# no longer being opened, so `item.move` stops accepting a transfer to it.
+		world.commands.push({"type": INVENTORY_COMMAND_CLOSE})
+	inventory_open = false
+	if _inventory_panel != null:
+		_inventory_panel.visible = false
+		_inventory_panel.call("set_open", false)
+	if _hud != null:
+		_hud.visible = true
+	_clear_held()
+	_push_zero_move()
+	_capture_mouse()
+	_alert = ""
+
+
+func _ensure_inventory_panel() -> void:
+	if _inventory_panel != null:
+		return
+	_inventory_layer = CanvasLayer.new()
+	_inventory_layer.name = "InventoryUI"
+	add_child(_inventory_layer)
+	_inventory_panel = InventoryPanel.new()
+	_inventory_panel.name = "InventoryPanel"
+	_inventory_layer.add_child(_inventory_panel)
+
+
+# Every frame the sheet is up: a fresh `open_view` and a fresh inventory snapshot, in `main.gd`'s
+# order (`set_loot`, then `set_world`). Without the refresh a take would leave the old grid on.
+func _refresh_inventory() -> void:
+	if _inventory_panel == null or world == null:
+		return
+	_inventory_panel.call("set_loot", SimContainers.open_view(world, int(world.player)))
+	_inventory_panel.call("set_world", world, int(world.player))
+
+
+func _container_sim_position(entity: int) -> Vector2:
+	if world == null or entity < 0:
+		return Vector2.ZERO
+	var pos: Variant = world.components.get_component(entity, "position")
+	if not (pos is Dictionary):
+		return Vector2.ZERO
+	return Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
+
+
+func _container_kind(entity: int) -> String:
+	if world == null or entity < 0:
+		return SimContainers.DEFAULT_KIND
+	var state: Variant = world.components.get_component(entity, "searchable")
+	if not (state is Dictionary):
+		return SimContainers.DEFAULT_KIND
+	return String((state as Dictionary).get("kind", SimContainers.DEFAULT_KIND))
+
+
+func _container_openable(entity: int) -> bool:
+	if world == null or entity < 0:
+		return false
+	var state: Variant = world.components.get_component(entity, "searchable")
+	if not (state is Dictionary):
+		return false
+	if bool((state as Dictionary).get("searched", false)):
+		return not SimContainers.contents_of(world, entity).is_empty()
+	return true
+
+
 # --- the ledger ------------------------------------------------------------------------------
 
 ## "ok", "far", "blocked" or "away". Reach is measured in the sim's own metres from the body the
@@ -520,28 +801,8 @@ func ledger_in_sight() -> bool:
 	return int(world.vision.call("detail", int(world.player), _ledger_sim.x, _ledger_sim.y)) != 0
 
 
-## The one interaction the scene offers. False means it did not happen and says why on screen;
-## there is no silent no-op and no fake result.
-func try_interact() -> bool:
-	if menu_open:
-		return false
-	match interaction_verdict():
-		"far":
-			_set_alert("Nothing within reach. Walk closer to the ledger.")
-			return false
-		"blocked":
-			_set_alert("The ledger is behind a wall.")
-			return false
-		"away":
-			_set_alert("You are near the ledger, but not looking at it.")
-			return false
-		"ok":
-			open_ledger_menu()
-			return true
-	_set_alert("There is nothing here to use.")
-	return false
-
-
+## The work panel is the ledger's real screen; it is opened only by `try_interact` after the
+## three ledger rules agree.
 func open_ledger_menu() -> void:
 	if _work_panel == null:
 		_work_layer = CanvasLayer.new()
@@ -632,6 +893,10 @@ func web_panel_node() -> Control:
 	return _web_panel
 
 
+func inventory_panel_node() -> Control:
+	return _inventory_panel
+
+
 # --- small read-only answers the gate and the HUD use ----------------------------------------
 
 func ledger_sim_position() -> Vector2:
@@ -640,6 +905,24 @@ func ledger_sim_position() -> Vector2:
 
 func ledger_approach_position() -> Vector2:
 	return _ledger_approach
+
+
+func container_view_count() -> int:
+	return int(_containers.call("count")) if _containers != null else 0
+
+
+func container_node_for(entity: int) -> Node3D:
+	if _containers == null:
+		return null
+	return _containers.call("node_for", entity) as Node3D
+
+
+func container_label_for(entity: int) -> String:
+	return String(_containers.call("label_for", entity)) if _containers != null else ""
+
+
+func container_sim_position(entity: int) -> Vector2:
+	return _container_sim_position(entity)
 
 
 func rendered_player_position() -> Vector2:

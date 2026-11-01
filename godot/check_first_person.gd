@@ -23,6 +23,13 @@ extends SceneTree
 #             says so; E within reach and looking at the ledger opens the real work panel. J is not
 #             a way to open it, before or after. Escape closes it and gives the mouse and walking
 #             back.
+#   CONTAINER every sim container has a labelled placeholder at its sim position; E in reach and
+#             in aim sends the top-down `container.open` command and opens the real grid inventory
+#             sheet with the box beside the player's own bags; a take moves one real item into the
+#             player's inventory through `item.move`, and the box-plus-player total is unchanged.
+#             E out of reach, off the aim and through an opaque wall is refused with words, and a
+#             walking key does not move the body behind the open sheet. Escape closes it and gives
+#             the mouse back.
 #   PRIORITY  a click on the panel's first priority cell dispatches a real `job.priority`, the
 #             colonist's row changes and turns Manual, and the player is never one of the rows.
 #   SPEECH    every line the first-person HUD draws is digit-free, it names the controls and the
@@ -31,8 +38,11 @@ extends SceneTree
 
 const SCENE_PATH: String = "res://presentation/first_person/first_person.tscn"
 const WorkPanel = preload("res://ui/work_panel.gd")
+const InventoryPanel = preload("res://ui/inventory_panel.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimContainers = preload("res://sim/modules/containers.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
 
 const TICK_SECONDS: float = 1.0 / 20.0
@@ -67,6 +77,7 @@ func _run() -> void:
 		ok = _movement(scene) and ok
 		ok = _yaw(scene) and ok
 		ok = _blocked(scene) and ok
+		ok = _container(scene) and ok
 		ok = _ledger(scene, spawn) and ok
 		ok = _priority(scene) and ok
 		ok = _menu(scene) and ok
@@ -81,7 +92,7 @@ func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)
-		print("FIRST_PERSON_OK the opt-in scene boots the real sim, maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, refuses E out of reach, off the aim and through a wall, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, and draws a digit-free prose HUD")
+		print("FIRST_PERSON_OK the opt-in scene boots the real sim, maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, and draws a digit-free prose HUD")
 		quit(0)
 		return
 	for failure in _failures:
@@ -450,6 +461,258 @@ func _blocked(scene: Node) -> bool:
 	if away.distance_to(centre) < 0.30:
 		ok = _fail("BLOCK", "the open direction did not move the body (%.3f m)" % away.distance_to(centre))
 	return ok
+
+
+# --- CONTAINER ------------------------------------------------------------------------------
+
+## The district's sim cupboards are drawn, opened through the top-down command, scavenged through
+## the real sheet, and refused by the same three rules the ledger uses.
+func _container(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var listed: Array = world.components.query(["searchable", "position"])
+	if listed.is_empty():
+		return _fail("CONTAINER", "the booted district stands no sim containers")
+	if int(scene.call("container_view_count")) != listed.size():
+		ok = _fail("CONTAINER", "the scene drew %d placeholders for %d sim containers" % [int(scene.call("container_view_count")), listed.size()])
+
+	# Every sim container is a labelled box at its own sim position.
+	for entity in listed:
+		var ent: int = int(entity)
+		var node: Node3D = scene.call("container_node_for", ent) as Node3D
+		if node == null:
+			ok = _fail("CONTAINER", "sim container %d has no placeholder" % ent)
+			continue
+		var at: Vector2 = scene.call("container_sim_position", ent)
+		if not is_equal_approx(node.position.x, at.x) or not is_equal_approx(node.position.z, at.y):
+			ok = _fail("CONTAINER", "container %d is drawn at (%.2f, %.2f), not its sim position (%.2f, %.2f)" % [ent, node.position.x, node.position.z, at.x, at.y])
+		var state: Variant = world.components.get_component(ent, "searchable")
+		var kind: String = String((state as Dictionary).get("kind", "")) if state is Dictionary else ""
+		if String(scene.call("container_label_for", ent)) != kind:
+			ok = _fail("CONTAINER", "container %d is labelled \"%s\", not \"%s\"" % [ent, String(scene.call("container_label_for", ent)), kind])
+
+	# A real box, in reach, with the eye on it.
+	var spot: Dictionary = _find_container_approach(scene)
+	if spot.is_empty():
+		return _fail("CONTAINER", "no sim container has a standable spot in reach with a clear line")
+	var box: int = int(spot["entity"])
+	var stand: Vector2 = spot["at"] as Vector2
+	_place_player(scene, stand)
+	scene.call("look_toward", scene.call("container_world_point", box))
+	_settle_vision(scene, 6)
+	if int(scene.call("container_target")) != box:
+		ok = _fail("CONTAINER", "aiming at container %d selected %d" % [box, int(scene.call("container_target"))])
+	if String(scene.call("container_verdict")) != "ok":
+		ok = _fail("CONTAINER", "a container in reach and in aim did not read as usable (%s)" % String(scene.call("container_verdict")))
+
+	# E sends the context menu's own command and opens the real inventory sheet.
+	world.commands.record = true
+	world.commands.recorded.clear()
+	var tick_before: int = int(world.tick)
+	_key(KEY_E, true)
+	_key(KEY_E, false)
+	if not bool(scene.get("inventory_open")):
+		ok = _fail("CONTAINER", "E at a container did not open the inventory")
+	var panel: Control = scene.call("inventory_panel_node") as Control
+	if panel == null or not panel.visible:
+		ok = _fail("CONTAINER", "the inventory panel was not visible after E")
+	elif panel.get_script() != InventoryPanel:
+		ok = _fail("CONTAINER", "E opened something other than the real inventory sheet")
+	if bool(scene.call("mouse_captured")):
+		ok = _fail("CONTAINER", "the mouse stayed captured with the inventory open")
+	# The scene's own frame steps the sim and refreshes the sheet, so the box is a column.
+	scene.call("_process", TICK_SECONDS)
+	var open_cmd: Dictionary = _last_command(world, "container.open", tick_before)
+	if open_cmd.is_empty():
+		ok = _fail("CONTAINER", "no container.open command reached the sim")
+	elif int(open_cmd.get("container", -1)) != box:
+		ok = _fail("CONTAINER", "container.open named %d, not the aimed %d" % [int(open_cmd.get("container", -1)), box])
+	if int(SimContainers.opened_by(world, int(world.player))) != box:
+		ok = _fail("CONTAINER", "the sim does not have that container open")
+	var loot: Dictionary = SimContainers.open_view(world, int(world.player))
+	if loot.is_empty():
+		ok = _fail("CONTAINER", "the open container has no grid view for the sheet")
+	if panel != null:
+		if not bool(panel.call("is_open")):
+			ok = _fail("CONTAINER", "the inventory sheet is not open")
+		var labels: Array = panel.call("column_labels") as Array
+		if labels.is_empty() or String(labels[0]) != String(loot.get("label", "")):
+			ok = _fail("CONTAINER", "the open box is not the sheet's first column: %s" % str(labels))
+		if not labels.has("pockets"):
+			ok = _fail("CONTAINER", "the sheet does not show the player's own pockets")
+
+	# A take is the sheet's own quick move: one real item crosses by `item.move`, and nothing is
+	# duplicated -- the box-plus-player total is exactly what it was.
+	var box_items: Array = SimContainers.contents_of(world, box)
+	if box_items.is_empty():
+		ok = _fail("CONTAINER", "the opened container rolled no items to take")
+	elif panel == null:
+		ok = _fail("CONTAINER", "no sheet to take an item with")
+	else:
+		var item: int = int(box_items[0])
+		var before_total: int = box_items.size() + SimInventory.contents_of(world, int(world.player)).size()
+		world.commands.recorded.clear()
+		var transfer_tick: int = int(world.tick)
+		panel.call("_act", "take", item)
+		scene.call("_process", TICK_SECONDS)
+		var move_cmd: Dictionary = _last_command(world, "item.move", transfer_tick)
+		if move_cmd.is_empty() or int(move_cmd.get("container", -1)) != int(world.player):
+			ok = _fail("CONTAINER", "the take did not go through an item.move into the player")
+		if not SimInventory.owns(world, int(world.player), item):
+			ok = _fail("CONTAINER", "the taken item is not in the player's inventory")
+		if SimContainers.contents_of(world, box).has(item):
+			ok = _fail("CONTAINER", "the taken item is still in the container")
+		var after_total: int = SimContainers.contents_of(world, box).size() + SimInventory.contents_of(world, int(world.player)).size()
+		if after_total != before_total:
+			ok = _fail("CONTAINER", "the transfer changed the box-plus-player count from %d to %d" % [before_total, after_total])
+
+	# The body stands still under the sheet, and the clock runs -- main.gd's own inventory
+	# default (only P stops the world), marked reversible in first_person.gd and the report.
+	var still: Vector2 = _player_pos(world)
+	var clock_before: int = int(world.tick)
+	_key(KEY_W, true)
+	scene.call("_process", TICK_SECONDS)
+	scene.call("_process", TICK_SECONDS)
+	_key(KEY_W, false)
+	if not _player_pos(world).is_equal_approx(still):
+		ok = _fail("CONTAINER", "a walking key moved the body behind the open inventory")
+	if int(world.tick) <= clock_before:
+		ok = _fail("CONTAINER", "the clock stopped under the open inventory, which main.gd does not do")
+
+	# Escape closes it, tells the sim, and gives the mouse and walking back.
+	world.commands.recorded.clear()
+	var close_tick: int = int(world.tick)
+	_key(KEY_ESCAPE, true)
+	_key(KEY_ESCAPE, false)
+	if bool(scene.get("inventory_open")):
+		ok = _fail("CONTAINER", "Escape did not close the inventory")
+	if panel != null and panel.visible:
+		ok = _fail("CONTAINER", "the inventory panel stayed visible after Escape")
+	if not bool(scene.call("mouse_captured")):
+		ok = _fail("CONTAINER", "Escape did not give the mouse back")
+	var held: Variant = scene.get("_held")
+	if held is Dictionary and not (held as Dictionary).is_empty():
+		ok = _fail("CONTAINER", "Escape left a movement key held")
+	scene.call("_process", TICK_SECONDS)
+	if _last_command(world, "container.close", close_tick).is_empty():
+		ok = _fail("CONTAINER", "Escape did not send container.close")
+	if int(SimContainers.opened_by(world, int(world.player))) != -1:
+		ok = _fail("CONTAINER", "the sim still has the container open after Escape")
+
+	# Off the aim, in reach: refused in the ledger's words.
+	_place_player(scene, stand)
+	scene.call("look_toward", scene.call("container_world_point", box))
+	_settle_vision(scene, 6)
+	scene.call("set_look", float(scene.get("yaw")) + PI, 0.0)
+	if String(scene.call("container_verdict")) != "away":
+		ok = _fail("CONTAINER", "a container in reach but off the aim did not read as away")
+	scene.set("_alert", "")
+	_key(KEY_E, true)
+	_key(KEY_E, false)
+	if bool(scene.get("inventory_open")):
+		ok = _fail("CONTAINER", "E opened a container while looking away from it")
+	var away_alert: String = String(scene.get("_alert"))
+	if away_alert == "" or not away_alert.contains("not looking at it"):
+		ok = _fail("CONTAINER", "the off-aim refusal did not say so: \"%s\"" % away_alert)
+
+	# Out of reach: refused with words, and the sim is never asked.
+	var box_at: Vector2 = scene.call("container_sim_position", box)
+	_place_player(scene, box_at + Vector2(5.0, 0.0))
+	scene.call("look_toward", scene.call("container_world_point", box))
+	if String(scene.call("container_verdict")) != "far":
+		ok = _fail("CONTAINER", "a container five metres away did not read as far (%s)" % String(scene.call("container_verdict")))
+	scene.set("_alert", "")
+	_key(KEY_E, true)
+	_key(KEY_E, false)
+	if bool(scene.get("inventory_open")):
+		ok = _fail("CONTAINER", "E opened a container from five metres away")
+	var far_alert: String = String(scene.get("_alert"))
+	if far_alert == "" or not far_alert.contains("Nothing within reach"):
+		ok = _fail("CONTAINER", "the out-of-reach refusal did not say so: \"%s\"" % far_alert)
+
+	# Through an opaque wall, still inside the sim's own reach. A whole wall tile is two metres
+	# between tile centres and SEARCH_REACH is 1.5, so the fixture slides the box 0.3 m toward
+	# the wall and stands the body just past it: close enough to reach, blind because of the wall.
+	var walled: Dictionary = _find_walled_container(scene)
+	if walled.is_empty():
+		ok = _fail("CONTAINER", "no container stands beside an opaque wall with floor beyond it")
+	else:
+		var wall_ent: int = int(walled["entity"])
+		var direction: Vector2i = walled["dir"] as Vector2i
+		var original: Vector2 = scene.call("container_sim_position", wall_ent)
+		var axis: Vector2 = Vector2(float(direction.x), float(direction.y))
+		var nudged: Vector2 = original + axis * 0.30
+		var behind: Vector2 = original + axis * 1.55
+		if behind.distance_to(nudged) > float(SimContainers.SEARCH_REACH):
+			ok = _fail("CONTAINER", "the through-wall fixture is outside reach")
+		world.components.set_component(wall_ent, "position", {"x": nudged.x, "y": nudged.y})
+		_place_player(scene, behind)
+		scene.call("look_toward", scene.call("container_world_point", wall_ent))
+		_settle_vision(scene, 6)
+		if String(scene.call("container_verdict")) != "blocked":
+			ok = _fail("CONTAINER", "a container through an opaque wall did not read as blocked (%s)" % String(scene.call("container_verdict")))
+		scene.set("_alert", "")
+		_key(KEY_E, true)
+		_key(KEY_E, false)
+		if bool(scene.get("inventory_open")):
+			ok = _fail("CONTAINER", "E opened a container through a wall")
+		var wall_alert: String = String(scene.get("_alert"))
+		if wall_alert == "" or not wall_alert.contains("behind a wall"):
+			ok = _fail("CONTAINER", "the through-wall refusal did not say so: \"%s\"" % wall_alert)
+		world.components.set_component(wall_ent, "position", {"x": original.x, "y": original.y})
+	scene.set("_alert", "")
+	return ok
+
+
+## A box and a standable floor tile within the sim's own reach from which the eye has a clear
+## line to it. Places the player and settles the sim's sight, because that is what "in reach and
+## in sight" means to the presentation.
+func _find_container_approach(scene: Node) -> Dictionary:
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	for entity in world.components.query(["searchable", "position"]):
+		var ent: int = int(entity)
+		var at: Vector2 = scene.call("container_sim_position", ent)
+		var base: Vector2i = Vector2i(floori(at.x), floori(at.y))
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				if dx == 0 and dy == 0:
+					continue
+				var tx: int = base.x + dx
+				var ty: int = base.y + dy
+				if not _walkable_floor(map, tx, ty):
+					continue
+				var stand: Vector2 = Vector2(float(tx) + 0.5, float(ty) + 0.5)
+				if stand.distance_to(at) > float(SimContainers.SEARCH_REACH) - 0.05:
+					continue
+				_place_player(scene, stand)
+				scene.call("look_toward", scene.call("container_world_point", ent))
+				_settle_vision(scene, 6)
+				if int(scene.call("container_target")) == ent and String(scene.call("container_verdict")) == "ok":
+					return {"entity": ent, "at": stand}
+	return {}
+
+
+## A container with an opaque wall directly beside it and walkable floor on the wall's far side.
+func _find_walled_container(scene: Node) -> Dictionary:
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var directions: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
+	for entity in world.components.query(["searchable", "position"]):
+		var ent: int = int(entity)
+		var at: Vector2 = scene.call("container_sim_position", ent)
+		var base: Vector2i = Vector2i(floori(at.x), floori(at.y))
+		for direction in directions:
+			var wall: Vector2i = base + direction
+			var beyond: Vector2i = wall + direction
+			if not SimTileMap.is_solid(map, wall.x, wall.y):
+				continue
+			if not SimTileMap.blocks_sight(map, wall.x, wall.y):
+				continue
+			if not _walkable_floor(map, beyond.x, beyond.y):
+				continue
+			return {"entity": ent, "dir": direction}
+	return {}
 
 
 # --- LEDGER ---------------------------------------------------------------------------------

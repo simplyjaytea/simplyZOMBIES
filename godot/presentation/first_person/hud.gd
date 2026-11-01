@@ -20,7 +20,7 @@ const MARGIN: float = 28.0
 # Worst-part states from condition.gd, as a sentence rather than a grade. Kept local because it is
 # wording, not a sim fact, and `ui/hud.gd` owns the top-down screen's own copy of the same words.
 const CONDITION_WORDS: Array[String] = ["", "hurt", "badly hurt", "barely standing"]
-const HELP: String = "WASD walk   mouse look   E ledger   P hold   Esc back or release   click to look"
+const HELP: String = "WASD walk   mouse look   E ledger or open   P hold   Esc back or release   click to look"
 
 var world: Variant = null
 var player: int = -1
@@ -28,6 +28,7 @@ var prompt: String = ""
 var alert: String = ""
 var menu_open: bool = false
 var paused: bool = false
+var inventory_open: bool = false
 
 
 func _ready() -> void:
@@ -41,13 +42,14 @@ func _sync_size() -> void:
 	queue_redraw()
 
 
-func set_state(world_ref: Variant, player_ref: int, prompt_text: String, alert_text: String, menu: bool, is_paused: bool) -> void:
+func set_state(world_ref: Variant, player_ref: int, prompt_text: String, alert_text: String, menu: bool, is_paused: bool, inventory: bool = false) -> void:
 	world = world_ref
 	player = player_ref
 	prompt = prompt_text
 	alert = alert_text
 	menu_open = menu
 	paused = is_paused
+	inventory_open = inventory
 	queue_redraw()
 
 
@@ -71,6 +73,8 @@ func lines() -> Array[String]:
 	out.append(HELP)
 	if menu_open:
 		out.append("The ledger is open. Escape closes it.")
+	if inventory_open:
+		out.append("The inventory is open. Escape closes it.")
 	out.append(prompt)
 	out.append(alert)
 	return out
