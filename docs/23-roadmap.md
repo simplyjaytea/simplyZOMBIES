@@ -2413,6 +2413,23 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **The first-person expedition gate, 2026-11-01.** The scripted start of docs/39's "End-to-end
+  conversion and default switch" proof. `godot/check_fp_expedition.gd`, run by
+  `npm run godot:check:fp_expedition`, boots the real first-person scene on the small district and
+  plays one run in order through input events and the sim's own tick. It reads the ledger and sets a
+  colonist's priority; E opens a shut door and the body walks out through it; E at a sim container in
+  reach and aim opens the real grid sheet, and a press on the item and then the pane's take button
+  sends `item.move`; the body walks back in; F5 saves; the body walks away; F9 restores the saved
+  tile, tick and pack; a shambler walks up from three tiles out and the bat connects
+  (`attack.connected`). Each step asserts sim state. Two true negatives run in fresh scenes: the same
+  run with the take skipped ends with the item in the box and not the pack, and a load before any save
+  says `Nothing to load.` and changes nothing. A mutation that disables the take in the full run goes
+  red on the LOAD lane, and the file was restored before the commit. The run takes about 3 s of play,
+  inside a 60 s budget that is a lane of its own. The gate is in the `godot:m2:chain` and in shard 2
+  of `scripts/m2-shards.mjs`. Not covered: the walks between standing spots are teleports, the sheet's
+  take is a press on its own plate and pane, and the shambler's approach is the sim's seek from a
+  quiet body, so a sound-making body or another district could change it. The rest of docs/39's proof
+  (the convert-and-switch default and the measured budgets) is still open.
 - **First-person art loads from a clean checkout, 2026-11-01.** Advances "First-person
   starter-kit integration": the desk and ledger GLBs load at runtime, and the review's M3 and M4 are
   fixed. The kit's art itself arrives with its own PR.
