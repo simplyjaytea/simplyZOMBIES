@@ -181,20 +181,12 @@ conversion. The source baseline is archived on GitHub at
   cloud noise reads as camouflage blocks up close; oak grain steps every 8 texels, like brickwork;
   paint chips follow atlas cells, not mesh edges; barricade planks float 6 mm off the brace; wall
   end faces and a shelf-board sparkle.
-- **Kit textures alias at range (#281).** `godot/presentation/first_person/assets.gd` `load_model`
-  forces nearest filtering without mipmaps, so kit walls shimmer from about 7 m at 720p.
 - **Zombie target by distance alone (#282 review).** `SimShambler._contact_target`
   (`godot/sim/modules/shambler.gd`) takes the nearest survivor with no reach test, unlike the player's
   nearest-reachable swing in `melee.gd`. A shared sim module; needs a READS lane in `godot:m2:space`.
 - **Colonist swings it cannot land (#282 record).** `npc_combat.gd` `_engage` and
   `npc.instinct-defense` start a swing on distance alone, and `_resolve_strike` then refuses it at a
   window. Ask `SimSpace.reach_clear` before starting, as `can_strike` does.
-- **Pitch-only aims and the save format (#290 review).** A pitch-only NPC aim reads as yaw 0 on the
-  pre-pitch build, and `SAVE_VERSION` is still 33. Bump to 34 with a ladder note in
-  `godot/sim/kernel/serialize.gd`, or keep a `radians` key on NPC aims.
-- **Pitch minors (#290 review).** `propose` in `godot/sim/aim.gd` stores a NaN `radians`; the
-  `canonical` comment there contradicts docs/37 on negative zero; and
-  `godot/sim/vision/visibility.gd` still says only the player's body carries an aim.
 
 ##### UI overhaul
 
