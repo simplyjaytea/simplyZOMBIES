@@ -2413,6 +2413,24 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **First-person world verbs: E on a door, 2026-11-01.** Advances "First-person people and
+  settlement operation", its construction access, for doors and windows only.
+  - **The verb.** `first_person.gd`: `eye_tile_hit` walks the look ray through the tile grid to the
+    ledger's 1.8 m reach and returns the first door, window or solid tile. `verb_row` asks
+    `SimContext.verbs_at` for that tile, as the right-click menu would, and keeps the first row with a
+    command. `verb_prompt` gives the HUD `E <row text>`. E pushes that row's command verbatim, as
+    `main._context_pick` does. The ledger keeps priority when it is in reach and aimed at. Presentation
+    decides no verb.
+  - **Reach.** The sim offers a door's rows only for the tile one step ahead or underfoot
+    (`SimFortify._door_in_reach`), so a door farther off gets no prompt.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, VERBS lane)
+    prints `FIRST_PERSON_OK`. True positive: beside a closed door and aimed at it, the prompt reads
+    `E open the door`, E opens the door in the sim, and E again shuts it. True negatives: the same door
+    out of reach, or looked away from, and a plain wall, change nothing and offer no door prompt. With
+    E made to push nothing, the lane fails.
+  - **Not in this piece.** Window verbs have no gate lane. The 1.8 m eye reach is not proven apart from
+    the sim's facing rule. Containers are not on this branch.
+
 - **First-person profile, drawn, 2026-11-01.** Slice 1 of docs/40, the spatial contract's "The
   profile, drawn": the one height table the first-person view draws and, from slice 2, the sim reads.
   - **The record.** `SimSpace` (`godot/sim/space/space.gd`, pure and static) owns `PROFILE`: for each
