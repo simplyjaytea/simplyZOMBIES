@@ -35,8 +35,17 @@ extends SceneTree
 #             camera kick and no reticle or centre dot, the placeholder weapon shows only with
 #             something in hand, the ledger refuses the same press, a look away misses, and a
 #             reload with nothing to load is the sim's refusal with no words from the scene.
+#   HELD      the equipped weapon in the lower right is the item's own model, assembled from the
+#             sim's installed visible parts, each under its socket: a service pistol shows its
+#             receiver, barrel and magazine; fitting the suppressor through `item.attach` puts it on
+#             the barrel's socket_muzzle; a view that no longer matches the sim fails its own check;
+#             bare hands show nothing; the bat is drawn whole with no added head.
 #   PRIORITY  a click on the panel's first priority cell dispatches a real `job.priority`, the
 #             colonist's row changes and turns Manual, and the player is never one of the rows.
+#   LEGEND    the key reference (F1) lists every key the scene handles and no other: the handled keys are
+#             read from the scene's own source and from input_map's stance bindings, and compared both ways
+#             with the codes the legend is built from; a planted phantom code is refused. F1 opens and closes
+#             it, Escape closes it, and walking keys do nothing while it is up.
 #   SPEECH    every line the first-person HUD draws is digit-free, it names the controls and the
 #             ledger, there is no progress bar in the tree, and the digit scanner is proved against
 #             a fabricated line.
@@ -68,10 +77,27 @@ extends SceneTree
 #             published sizes on the floor and the desk top, with nearest-filtered materials; the
 #             prop preview stands every prop on its authored base. Missing art skips to the boxes,
 #             and a planted wrong-size GLB and a raised prop are refused by the same tests.
+#   ANIM      the animation read model names the pose from sim facts: standing, a walk, a run, a
+#             crouch, a crouch walk, a crawl, a swing (wind-up and recover), a shambler's armed swipe
+#             as a lunge, a hold as a grab, a stagger, and a corpse as death. A body that stops is
+#             idle on the next tick; a corpse stays death after many ticks; a living body is never
+#             death. Every phase is 0..1.
+#   TALK      E on one of your colonists in reach and on the aim opens the conversation panel with
+#             the sim's name, the read models' own feel and doing lines; every line is digit-free;
+#             walking is swallowed while it is up and Escape closes it and recaptures the mouse. Out
+#             of reach, off the aim, through a wall, at a zombie and at a raider: no panel.
+
+#   MODELS    every weapons-manifest entry loads and its box is its sizeM within 1 cm; an id match beats a class match and an unknown id resolves to null; two GLBs that embed the atlas share one mipmapped texture; a loose bat the sim drops is drawn with its model at its resting position, and an item with no model has no node.
+
 
 const SCENE_PATH: String = "res://presentation/first_person/first_person.tscn"
 const WorkPanel = preload("res://ui/work_panel.gd")
 const InventoryPanel = preload("res://ui/inventory_panel.gd")
+const AnimState = preload("res://presentation/first_person/anim_state.gd")
+const TalkPanel = preload("res://ui/talk_panel.gd")
+const WorkRead = preload("res://sim/work_read.gd")
+const SimNeeds = preload("res://sim/modules/needs.gd")
+const SimCondition = preload("res://sim/condition.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
@@ -81,8 +107,10 @@ const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
+const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimItems = preload("res://sim/modules/items.gd")
+const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
 const Clock = preload("res://sim/time/clock.gd")
@@ -93,8 +121,11 @@ const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const ReportsPanel = preload("res://ui/reports_panel.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const FirstPerson = preload("res://presentation/first_person/first_person.gd")
+const InputMapRes = preload("res://presentation/input_map.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
 const SaveSlot = preload("res://presentation/first_person/save_slot.gd")
+const Models = preload("res://presentation/first_person/models.gd")
+const Appearance = preload("res://presentation/appearance.gd")
 
 # The district the gate boots. Small on purpose: every lane walks the sim, and the shipped 256 district
 # is for the player, not for a gate. DISTRICT proves this is really smaller than the shipped default.
@@ -110,9 +141,14 @@ const LIGHT_NIGHT_AMBIENT_MAX: float = 0.15
 const GATE_SAVE_KEY: String = "first_person_save_gate.slot"
 const TICK_SECONDS: float = 1.0 / 20.0
 const EPSILON: float = 0.0001
+# A model's drawn box against its manifest sizeM, and a loose item against the floor: 1 cm.
+const MODEL_TOLERANCE_M: float = 0.01
 
 var _failures: Array[String] = []
 var _skips: Array[String] = []
+# [name, clause] for every lane that ran and passed. The OK line is built from this, so a new lane
+# adds a row at its call site instead of editing one long sentence.
+var _lanes: Array = []
 
 
 func _init() -> void:
@@ -127,40 +163,45 @@ func _run() -> void:
 		_fail("SCENE", "could not load %s" % SCENE_PATH)
 		_finish(old_size)
 		return
-	var ok: bool = _district_default(packed)
+	var ok: bool = _lane("DISTRICT", _district_default(packed), "the scene boots the shipped district size and seed by default and the gate walks a smaller one")
 	var scene: Node = packed.instantiate()
 	scene.set("district_tiles", SMALL_DISTRICT_TILES)
 	root.add_child(scene)
 	scene.set_process(false)
 	await process_frame
 
-	ok = _scene_shape(scene) and ok
+	ok = _lane("SHAPE", _scene_shape(scene), "the scene is the opt-in scene with a district, a HUD and no physics body") and ok
 	if ok:
 		ok = _district(scene) and ok
 		var spawn: Vector2 = scene.call("rendered_player_position")
-		ok = _npc(scene) and ok
-		ok = _mapping(scene) and ok
-		ok = _movement(scene) and ok
-		ok = _yaw(scene) and ok
-		ok = _blocked(scene) and ok
-		ok = _container(scene) and ok
-		ok = _fight(scene) and ok
-		ok = _ledger(scene, spawn) and ok
-		ok = _priority(scene) and ok
-		ok = _menu(scene) and ok
-		ok = _speech(scene) and ok
-		ok = _verbs(scene) and ok
-		ok = _stance(scene) and ok
-		ok = _reports(scene) and ok
+		ok = _lane("NPC", _npc(scene), "a fresh boot has no working colonist and the colony is at work after a second") and ok
+		ok = _lane("MAPPING", _mapping(scene), "sim x/y maps to Godot x/z with the eye at the sim's own height") and ok
+		ok = _lane("MOVE", _movement(scene), "W walks the sim's body through the move command and the camera follows") and ok
+		ok = _lane("YAW", _yaw(scene), "a turn sends the new move and aim bearings, even with W held") and ok
+		ok = _lane("BLOCK", _blocked(scene), "a wall stops the body in its tile and the other way crosses it") and ok
+		ok = _lane("CONTAINER", _container(scene), "a sim container opens through container.open into the real sheet and a take moves one item") and ok
+		ok = _lane("FIGHT", _fight(scene), "a bat swing lands and a gun spends a round while the ledger refuses both") and ok
+		ok = _lane("HELD", _held(scene), "the equipped weapon is drawn from the sim's installed parts on their sockets and a mismatch fails") and ok
+		ok = _lane("LEDGER", _ledger(scene, spawn), "the ledger opens in reach and on the aim and refuses a look away") and ok
+		ok = _lane("PRIORITY", _priority(scene), "a priority click dispatches a real job.priority and the row turns Manual") and ok
+		ok = _lane("MENU", _menu(scene), "the ledger's screens open and close on Escape") and ok
+		ok = _lane("SPEECH", _speech(scene), "the HUD is digit-free prose with no progress bar") and ok
+		ok = _lane("VERBS", _verbs(scene), "E on a door uses the sim's own verb and a plain wall offers none") and ok
+		ok = _lane("STANCE", _stance(scene), "the stance keys change the sim's posture and the eye eases to it") and ok
+		ok = _lane("REPORTS", _reports(scene), "the ledger's Reports page reads the chronicle's own lines and moves the read mark") and ok
 		# The speed lane reads keys, so it runs before the run-over lane, which leaves input swallowed.
 		# Save before the lanes that kill the colony: the run-over lane leaves input swallowed.
-		ok = _save(scene) and ok
-		ok = _art(scene) and ok
-		ok = _preview() and ok
-		ok = _light(scene) and ok
-		ok = _succession(scene) and ok
-		ok = _speed(scene) and ok
-		ok = _run_over(scene) and ok
+		ok = _lane("SPEED", _speed(scene), "the top-down speed keys step the clock 1x and 3x and P holds it, with the ledger refusing them") and ok
+		ok = _lane("SAVE", _save(scene), "F5 and F9 save and load through the sim's own save in its own slot") and ok
+		ok = _lane("ART", _art(scene), "the desk and ledger load from their GLBs at the published sizes") and ok
+		ok = _lane("PREVIEW", _preview(), "the prop preview stands every prop on its base") and ok
+		ok = _lane("MODELS", _models(scene), "every weapons-manifest entry loads at its declared size with an id match beating a class match") and ok
+		ok = _lane("LIGHT", _light(scene), "noon is bright and midnight dark, and a carried torch lights the eye") and ok
+		ok = _lane("SUCCESSION", _succession(scene), "a death hands the camera to an heir and the dead body is drawn") and ok
+		ok = _lane("LEGEND", _legend(scene), "F1 lists every key the scene handles and the scene handles every key it lists") and ok
+		ok = _lane("TALK", _talk(scene), "a colonist in reach talks in the read models' own words") and ok
+		ok = _lane("ANIM", _anim(scene), "every body names its animation state from the sim with a phase in 0..1") and ok
+		ok = _lane("RUN-OVER", _run_over(scene), "killing the colony opens the end panel and W sends nothing") and ok
 	scene.queue_free()
 	await process_frame
 	_finish(old_size, ok)
@@ -171,12 +212,23 @@ func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)
-		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, swings a bat into a shambler and fires a round through the top-down commands while the ledger refuses both, misses a body behind the look, and leaves a refused reload wordless, opens and shuts a door through the sim's own verb from the tile the eye is on while a door out of reach or looked away from sends nothing, takes the top-down stance keys and eases the eye to the sim's posture height while the ledger refuses the keys, reads the chronicle's own lines on the ledger's Reports page and moves the read mark, lights noon by the sim's clock and darkens midnight, turns a carried torch into the eye's spot at the sim's range and cone and out when it burns, and keeps a body behind a wall undrawn, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, saves and loads through the sim's own save in its own slot, loads the desk and ledger from their GLBs at the published sizes with nearest-filtered materials and stands every preview prop on its base, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
+		var clauses: Array[String] = []
+		for row in _lanes:
+			clauses.append(String((row as Array)[1]))
+		print("FIRST_PERSON_OK " + ". ".join(clauses) + ". lanes: %d" % _lanes.size())
 		quit(0)
 		return
 	for failure in _failures:
 		push_error("FIRST_PERSON_FAIL " + failure)
 	quit(1)
+
+
+## Records a lane that passed, with its one-sentence clause for the OK line, and hands the result back
+## so a call site stays `ok = _lane("NAME", _lane_func(...), "clause") and ok`.
+func _lane(name: String, passed: bool, clause: String) -> bool:
+	if passed:
+		_lanes.append([name, clause])
+	return passed
 
 
 func _fail(lane: String, message: String) -> bool:
@@ -990,6 +1042,149 @@ func _body_total(body: Dictionary) -> float:
 		if value is float or value is int:
 			total += float(value)
 	return total
+
+
+# --- HELD -----------------------------------------------------------------------------------
+
+# The equipped weapon view, read from the sim's own equipment. A real pistol item is spawned and
+# equipped through `SimInventory.equip`; the sim's equip handler builds `rangedWeapon` with its
+# `source`. The muzzle swap goes through the sim's own `item.attach` command. The negative detaches
+# the part in the sim and asks the view's own `verify` before it repaints.
+const HELD_HIDDEN_SLOTS: Array[String] = ["internal", "spring", "sear", "extractor"]
+
+func _held(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var player: int = int(world.player)
+	# Start from bare hands whatever the fight lane left.
+	world.components.remove(player, "rangedWeapon")
+	world.components.remove(player, "meleeWeapon")
+	SimMelee.ensure_hands(world, player)
+	scene.call("_process", TICK_SECONDS)
+	if bool(scene.call("held_weapon_visible")):
+		ok = _fail("HELD", "bare hands drew a weapon")
+	var held: Node3D = scene.call("held_weapon_node") as Node3D
+	if held == null:
+		return _fail("HELD", "the scene has no held-weapon view")
+
+	# The service pistol: the receiver plus exactly its installed visible parts.
+	var pistol: int = int(SimItems.spawn_item(world, "item.pistol.service", {"tier": "scavenged"}))
+	if pistol < 0:
+		return _fail("HELD", "the service pistol would not spawn")
+	if not SimInventory.equip(world, player, pistol):
+		return _fail("HELD", "the service pistol would not equip")
+	scene.call("step_sim_once")
+	scene.call("_process", TICK_SECONDS)
+	var want: Dictionary = _held_visible_parts(world, pistol)
+	var drawn: Dictionary = held.call("drawn") as Dictionary
+	if String(drawn.get("receiver", "")) != "item.pistol.service":
+		ok = _fail("HELD", "the pistol drew receiver '%s', not item.pistol.service" % String(drawn.get("receiver", "")))
+	var slots: Array = held.call("drawn_slots") as Array
+	var want_slots: Array = want.keys()
+	want_slots.sort()
+	if slots != want_slots:
+		ok = _fail("HELD", "the pistol drew slots %s, not the sim's visible %s" % [slots, want_slots])
+	for slot_v in want.keys():
+		var slot: String = String(slot_v)
+		ok = _held_socket_ok(held, slot, String(want[slot_v]), "socket_%s" % slot) and ok
+	if not (held.call("missing_parts") as Array).is_empty():
+		ok = _fail("HELD", "the default pistol has parts with no model: %s" % str(held.call("missing_parts")))
+	if not bool(held.call("verify", world)):
+		ok = _fail("HELD", "the pistol view does not match the sim's installed parts")
+
+	# The muzzle swap through the sim's own command: the can lands on the barrel's socket_muzzle.
+	var can: int = int(SimItems.spawn_item(world, "item.attach.suppressor", {"tier": "scavenged"}))
+	if can < 0:
+		return _fail("HELD", "the suppressor would not spawn")
+	world.commands.push({"type": "item.attach", "host": pistol, "item": can, "slot": "muzzle"})
+	scene.call("step_sim_once")
+	scene.call("_process", TICK_SECONDS)
+	drawn = held.call("drawn") as Dictionary
+	if String(drawn.get("muzzle", "")) != "item.attach.suppressor":
+		ok = _fail("HELD", "the fitted suppressor is not drawn (muzzle is '%s')" % String(drawn.get("muzzle", "")))
+	if String(held.call("socket_name", "muzzle")) != "socket_muzzle":
+		ok = _fail("HELD", "the suppressor is not on a socket_muzzle (it is on '%s')" % String(held.call("socket_name", "muzzle")))
+	var barrel: Node3D = held.call("part_node", "barrel") as Node3D
+	var muzzle_socket: Node3D = held.call("socket_node", "muzzle") as Node3D
+	if barrel == null or muzzle_socket == null or not barrel.is_ancestor_of(muzzle_socket):
+		ok = _fail("HELD", "the suppressor is not under the installed barrel's own muzzle socket")
+	if not bool(held.call("verify", world)):
+		ok = _fail("HELD", "the suppressed view does not match the sim")
+
+	# True negative: detach the can in the sim and do not repaint. The drawn set is now a lie, and
+	# `verify` must say so; one update later it is true again.
+	if not SimAttachments.detach(world, can):
+		ok = _fail("HELD", "the suppressor would not detach through the sim")
+	elif bool(held.call("verify", world)):
+		ok = _fail("HELD", "a view that disagrees with the sim verified as true")
+	scene.call("_process", TICK_SECONDS)
+	if not bool(held.call("verify", world)):
+		ok = _fail("HELD", "the view did not repaint after the part was detached")
+	if (held.call("drawn") as Dictionary).has("muzzle"):
+		ok = _fail("HELD", "the drawn set still holds a muzzle part the sim does not")
+
+	# Nothing hidden and nothing uninstalled is ever drawn.
+	for slot_v in held.call("drawn_slots") as Array:
+		var slot: String = String(slot_v)
+		if HELD_HIDDEN_SLOTS.has(slot):
+			ok = _fail("HELD", "a hidden slot %s was drawn" % slot)
+		if not (held.call("socket_name", slot) as String).begins_with("socket_"):
+			ok = _fail("HELD", "slot %s is not on a socket node" % slot)
+
+	# Bare hands again, then the bat whole.
+	SimInventory.unequip(world, player, "secondary")
+	scene.call("step_sim_once")
+	scene.call("_process", TICK_SECONDS)
+	if bool(scene.call("held_weapon_visible")):
+		ok = _fail("HELD", "unequipping the pistol left a weapon drawn")
+	var bat: int = int(SimItems.spawn_item(world, "item.bat.wood", {"tier": "scavenged"}))
+	if bat < 0:
+		return _fail("HELD", "the bat would not spawn")
+	if not SimInventory.equip(world, player, bat):
+		return _fail("HELD", "the bat would not equip")
+	scene.call("step_sim_once")
+	scene.call("_process", TICK_SECONDS)
+	drawn = held.call("drawn") as Dictionary
+	if String(drawn.get("receiver", "")) != "item.bat.wood":
+		ok = _fail("HELD", "the bat drew receiver '%s'" % String(drawn.get("receiver", "")))
+	if not (held.call("drawn_slots") as Array).is_empty():
+		ok = _fail("HELD", "the bat drew parts on top of its whole model: %s" % str(held.call("drawn_slots")))
+	if held.call("part_node", "head") != null:
+		ok = _fail("HELD", "the bat added a head part over its own model")
+	if bool(held.call("drawn_is_ranged")):
+		ok = _fail("HELD", "the bat is drawn as a ranged assembly")
+	if not bool(held.call("verify", world)):
+		ok = _fail("HELD", "the bat view does not match the sim's item")
+	return ok
+
+
+# The visible installed parts of a host, as {slot: base id} -- the same set the assembler must draw.
+func _held_visible_parts(world: Variant, host: int) -> Dictionary:
+	var out: Dictionary = {}
+	var fitted: Dictionary = SimAttachments.attached(world, host)
+	for slot_v in fitted.keys():
+		var slot: String = String(slot_v)
+		if HELD_HIDDEN_SLOTS.has(slot):
+			continue
+		var base: Variant = SimItems.item_base_of(world, int(fitted[slot_v]))
+		if base is Dictionary:
+			out[slot] = String((base as Dictionary).get("id", ""))
+	return out
+
+
+func _held_socket_ok(held: Node3D, slot: String, want_id: String, want_socket: String) -> bool:
+	var drawn: Dictionary = held.call("drawn") as Dictionary
+	if String(drawn.get(slot, "")) != want_id:
+		return _fail("HELD", "%s draws '%s', not '%s'" % [slot, String(drawn.get(slot, "")), want_id])
+	var part: Node3D = held.call("part_node", slot) as Node3D
+	var socket: Node3D = held.call("socket_node", slot) as Node3D
+	if part == null or socket == null:
+		return _fail("HELD", "%s is not parented on a socket" % slot)
+	if socket.get_parent() == null:
+		return _fail("HELD", "%s's socket is not in the receiver" % slot)
+	if String(socket.name) != want_socket:
+		return _fail("HELD", "%s is on '%s', not '%s'" % [slot, String(socket.name), want_socket])
+	return true
 
 
 # --- LEDGER ---------------------------------------------------------------------------------
@@ -2243,7 +2438,9 @@ func _nearest_everywhere(node: Node3D) -> bool:
 				material = m.material_override
 			if material is BaseMaterial3D:
 				judged += 1
-				if (material as BaseMaterial3D).texture_filter != BaseMaterial3D.TEXTURE_FILTER_NEAREST:
+				# Nearest magnification keeps the pixel art crisp; mipmaps keep a wall at 8 m from
+				# shimmering (the art review's note on #281). Linear magnification is still refused.
+				if (material as BaseMaterial3D).texture_filter != BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS:
 					return false
 	return judged > 0
 
@@ -2271,6 +2468,115 @@ func _write_wrong_glb() -> String:
 	var err: Error = document.write_to_filesystem(state, ProjectSettings.globalize_path(path))
 	root.free()
 	return path if err == OK else ""
+
+
+# --- LEGEND ---------------------------------------------------------------------------------
+
+# The engine's key constants the first-person source names. A key the source names that is missing from
+# this map is a failure, so a new key cannot slip past the check unnamed.
+const KEY_NAMES: Dictionary = {
+	"KEY_A": KEY_A, "KEY_D": KEY_D, "KEY_E": KEY_E, "KEY_ENTER": KEY_ENTER, "KEY_ESCAPE": KEY_ESCAPE,
+	"KEY_F": KEY_F, "KEY_F1": KEY_F1, "KEY_F5": KEY_F5, "KEY_F9": KEY_F9, "KEY_G": KEY_G,
+	"KEY_KP_ENTER": KEY_KP_ENTER, "KEY_P": KEY_P, "KEY_R": KEY_R, "KEY_S": KEY_S, "KEY_SHIFT": KEY_SHIFT,
+	"KEY_W": KEY_W, "KEY_MINUS": KEY_MINUS, "KEY_KP_SUBTRACT": KEY_KP_SUBTRACT, "KEY_EQUAL": KEY_EQUAL,
+	"KEY_KP_ADD": KEY_KP_ADD,
+}
+
+
+func _legend(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	if bool(scene.get("menu_open")):
+		scene.call("close_ledger_menu")
+	if bool(scene.get("inventory_open")):
+		scene.call("close_inventory")
+	if bool(scene.call("legend_open")):
+		scene.call("close_legend")
+	var source: String = FileAccess.get_file_as_string("res://presentation/first_person/first_person.gd")
+	var handled: Array = []
+	for name in _handled_key_names(source):
+		if not KEY_NAMES.has(name):
+			return _fail("LEGEND", "the scene names %s, which the LEGEND lane's key map does not know" % name)
+		if not handled.has(int(KEY_NAMES[name])):
+			handled.append(int(KEY_NAMES[name]))
+	# The stance keys reach the scene through input_map's BINDINGS, not a name in the source.
+	for action in InputMapRes.BINDINGS.keys():
+		var row: Dictionary = InputMapRes.BINDINGS[action] as Dictionary
+		if row.has("stance") and not handled.has(int((row["keys"] as Array)[0])):
+			handled.append(int((row["keys"] as Array)[0]))
+	# So do the clock's keys: the scene reads input_map's "slower" and "faster" rows, every key of each.
+	for action in ["slower", "faster"]:
+		if not source.contains("\"%s\"" % action):
+			continue
+		for code in (InputMapRes.BINDINGS[action] as Dictionary)["keys"] as Array:
+			if not handled.has(int(code)):
+				handled.append(int(code))
+	var listed: Array = FirstPerson.reference_codes()
+	# Both ways: every key the scene handles is listed, and no listed key is one the scene does not handle.
+	if not _codes_missing(handled, listed).is_empty():
+		ok = _fail("LEGEND", "the scene handles keys the key reference does not list: %s" % str(_codes_missing(handled, listed)))
+	if not _codes_missing(listed, handled).is_empty():
+		ok = _fail("LEGEND", "the key reference lists keys the scene does not handle: %s" % str(_codes_missing(listed, handled)))
+	# True negative: a planted phantom row (a key nothing handles) is refused by the same comparison.
+	var planted: Array = listed.duplicate()
+	planted.append(KEY_BRACKETLEFT)
+	if _codes_missing(planted, handled).is_empty():
+		ok = _fail("LEGEND", "a planted phantom key passed the comparison")
+
+	# The toggle: F1 opens the reference, F1 again and Escape each put it down.
+	_key(KEY_F1, true)
+	if not bool(scene.call("legend_open")) or not (scene.call("legend_node") as Control).visible:
+		ok = _fail("LEGEND", "F1 did not open the key reference")
+	_place_player(scene, _find_open_area((scene.get("map") as Variant), 2))
+	var before: Vector2 = _player_pos(world)
+	_key(KEY_W, true)
+	for i in 20:
+		scene.call("_process", 1.0 / 60.0)
+	_key(KEY_W, false)
+	if _player_pos(world).distance_to(before) > 0.01:
+		ok = _fail("LEGEND", "walking moved the body while the key reference was open")
+	_key(KEY_ESCAPE, true)
+	if bool(scene.call("legend_open")) or (scene.call("legend_node") as Control).visible:
+		ok = _fail("LEGEND", "Escape did not close the key reference")
+	_key(KEY_F1, true)
+	_key(KEY_F1, true)
+	if bool(scene.call("legend_open")):
+		ok = _fail("LEGEND", "a second F1 did not close the key reference")
+	return ok
+
+
+# The key names a source file's code compares or names: KEY_ identifiers on lines that are not comments,
+# and not in the KEY_REFERENCE table (the table is what is checked, so it is not evidence of handling).
+func _handled_key_names(source: String) -> Array:
+	var names: Array = []
+	var in_table: bool = false
+	var pattern: RegEx = RegEx.new()
+	pattern.compile("KEY_[A-Z0-9_]+")
+	for line in source.split("\n"):
+		if line.begins_with("const KEY_REFERENCE"):
+			in_table = true
+			continue
+		if in_table:
+			if line == "]":
+				in_table = false
+			continue
+		if line.strip_edges().begins_with("#"):
+			continue
+		for hit in pattern.search_all(line):
+			var name: String = hit.get_string()
+			if name == "KEY_REFERENCE" or names.has(name):
+				continue
+			names.append(name)
+	return names
+
+
+# The codes in `a` that `b` does not hold.
+func _codes_missing(a: Array, b: Array) -> Array:
+	var out: Array = []
+	for code in a:
+		if not b.has(int(code)):
+			out.append(int(code))
+	return out
 
 
 # --- SPEED ----------------------------------------------------------------------------------
@@ -2342,6 +2648,520 @@ func _frames_ticks(scene: Node, world: Variant, frames: int) -> int:
 	for i in frames:
 		scene.call("_process", 1.0 / 60.0)
 	return int(world.tick) - start
+# --- TALK -----------------------------------------------------------------------------------
+#
+# The conversation panel, opened by the sim's own E ladder. The words are the read models': the
+# identity name, `SimNeeds` / `SimCondition` for how they feel (the mutter content when it exists,
+# otherwise the read model's clause), and `WorkRead.doing` for what they are doing. The true
+# negatives are the same reach, aim and sight rules the ledger and the boxes use, plus a zombie and a
+# raider. The panel is staged with a healthy, fed colonist, then a hungry one; the needs are restored
+# afterwards.
+func _talk(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var area: Vector2 = _find_open_area(map, 2)
+	if area == Vector2(-1.0, -1.0):
+		return _fail("TALK", "the district has no open area to stand in")
+	var ent: int = _living_colonist(world, int(world.player))
+	if ent < 0:
+		return _fail("TALK", "the colony has no second survivor to talk to")
+	var name: String = TalkPanel.name_of(world, ent)
+	var needs_before: Dictionary = (world.components.get_component(ent, "needs") as Dictionary).duplicate()
+	var body_before: Dictionary = (world.components.get_component(ent, "body") as Dictionary).duplicate()
+	var injuries_before: Variant = world.components.get_component(ent, "injuries")
+	_steady(world, ent)
+	_place_player(scene, area)
+	scene.call("set_look", 0.0, 0.0)
+	_settle_vision(scene, 6)
+
+	# True positive: in reach and aimed at, E opens the panel with the sim's own words.
+	_place_talker(world, ent, area + Vector2(0.0, -1.1))
+	scene.call("look_toward", Vector3(area.x, _eye_of_m(world, ent), area.y - 1.1))
+	_key(KEY_E, true)
+	if not bool(scene.get("talk_open")):
+		ok = _fail("TALK", "E on a colonist in reach and on the aim opened no panel")
+	else:
+		var panel: Control = scene.call("talk_panel_node") as Control
+		if panel == null:
+			ok = _fail("TALK", "the scene has no talk panel")
+		else:
+			var shown: Dictionary = panel.call("shown") as Dictionary
+			if String(shown.get("name", "")) != name:
+				ok = _fail("TALK", "the panel names '%s', not the sim's '%s'" % [String(shown.get("name", "")), name])
+			if String(shown.get("feel", "")) != TalkPanel.STEADY:
+				ok = _fail("TALK", "a steady, fed colonist says '%s', not '%s'" % [String(shown.get("feel", "")), TalkPanel.STEADY])
+			var doing: String = WorkRead.doing(world, ent)
+			if String(shown.get("doing", "")) != doing:
+				ok = _fail("TALK", "the panel's doing line '%s' is not the read model's '%s'" % [String(shown.get("doing", "")), doing])
+			for line in panel.call("lines") as Array:
+				if _has_digit(String(line)):
+					ok = _fail("TALK", "the panel drew a digit: %s" % String(line))
+			# Input capture: walking is swallowed while the panel is up.
+			var before: Vector2 = _player_pos(world)
+			_key(KEY_W, true)
+			scene.call("step_sim_once")
+			_key(KEY_W, false)
+			scene.call("step_sim_once")
+			if _player_pos(world).distance_to(before) > EPSILON:
+				ok = _fail("TALK", "a walking key moved the body under the talk panel")
+			# Escape closes it and gives the mouse back.
+			_key(KEY_ESCAPE, true)
+			if bool(scene.get("talk_open")):
+				ok = _fail("TALK", "Escape did not close the talk panel")
+			if not bool(scene.call("mouse_captured")):
+				ok = _fail("TALK", "Escape left the mouse free")
+
+	# The need's own line: a hungry colonist says a mutter line, not a sentence the panel invented.
+	if ok:
+		var needs: Dictionary = world.components.get_component(ent, "needs") as Dictionary
+		needs["hunger"] = 1.0
+		world.components.set_component(ent, "needs", needs)
+		_place_player(scene, area)
+		scene.call("set_look", 0.0, 0.0)
+		_settle_vision(scene, 6)
+		_place_talker(world, ent, area + Vector2(0.0, -1.1))
+		scene.call("look_toward", Vector3(area.x, _eye_of_m(world, ent), area.y - 1.1))
+		_key(KEY_E, true)
+		if not bool(scene.get("talk_open")):
+			ok = _fail("TALK", "E on a hungry colonist opened no panel")
+		else:
+			var hungry: Array[String] = _content_lines(world, "speech.mutter.hungry")
+			var said: String = String((scene.call("talk_panel_node") as Control).call("shown")["feel"])
+			if hungry.is_empty() or not hungry.has(said):
+				ok = _fail("TALK", "a hungry colonist says '%s', not one of the mutter lines %s" % [said, hungry])
+			_key(KEY_ESCAPE, true)
+
+	# True negatives. Out of reach.
+	_place_talker(world, ent, area + Vector2(0.0, -3.0))
+	scene.call("look_toward", Vector3(area.x, _eye_of_m(world, ent), area.y - 3.0))
+	_key(KEY_E, true)
+	if bool(scene.get("talk_open")):
+		ok = _fail("TALK", "E talked to a colonist out of reach")
+	# Off the aim.
+	_place_talker(world, ent, area + Vector2(0.0, -1.1))
+	scene.call("look_toward", Vector3(area.x, _eye_of_m(world, ent), area.y + 4.0))
+	_key(KEY_E, true)
+	if bool(scene.get("talk_open")):
+		ok = _fail("TALK", "E talked to a colonist the look was turned away from")
+	# Through a wall.
+	var setup: Dictionary = _find_blocked_setup(map)
+	if setup.is_empty():
+		ok = _fail("TALK", "no wall with open floor beyond it for the sight negative")
+	else:
+		var tile: Vector2i = setup["tile"] as Vector2i
+		var dir: Vector2i = setup["dir"] as Vector2i
+		var here: Vector2 = Vector2(float(tile.x) + 0.5, float(tile.y) + 0.5)
+		_place_player(scene, here)
+		scene.call("set_look", 0.0, 0.0)
+		_settle_vision(scene, 6)
+		var beyond: Vector2 = here + Vector2(float(dir.x), float(dir.y)) * 1.6
+		_place_talker(world, ent, beyond)
+		scene.call("look_toward", Vector3(beyond.x, _eye_of_m(world, ent), beyond.y))
+		if String(scene.call("talk_verdict")) != "blocked":
+			ok = _fail("TALK", "a colonist through a wall reads '%s', not blocked" % String(scene.call("talk_verdict")))
+		_key(KEY_E, true)
+		if bool(scene.get("talk_open")):
+			ok = _fail("TALK", "E talked to a colonist through a wall")
+	# A zombie and a raider are never talkable.
+	_place_player(scene, area)
+	scene.call("set_look", 0.0, 0.0)
+	_settle_vision(scene, 6)
+	var zombie: int = _living_zombie(world)
+	if zombie < 0:
+		ok = _fail("TALK", "the colony has no shambler for the never-talkable negative")
+	else:
+		_place_talker(world, zombie, area + Vector2(0.0, -1.1))
+		scene.call("look_toward", Vector3(area.x, _eye_of_m(world, zombie), area.y - 1.1))
+		_key(KEY_E, true)
+		if bool(scene.get("talk_open")):
+			ok = _fail("TALK", "E talked to a shambler")
+		var old_faction: Variant = world.components.get_component(ent, "allegiance")
+		world.components.set_component(ent, "allegiance", {"faction": "raiders"})
+		_place_talker(world, zombie, area + Vector2(3.0, -3.0))
+		_place_talker(world, ent, area + Vector2(0.0, -1.1))
+		scene.call("look_toward", Vector3(area.x, _eye_of_m(world, ent), area.y - 1.1))
+		_key(KEY_E, true)
+		if bool(scene.get("talk_open")):
+			ok = _fail("TALK", "E talked to a raider")
+		if old_faction is Dictionary:
+			world.components.set_component(ent, "allegiance", old_faction)
+		else:
+			world.components.remove(ent, "allegiance")
+
+	# Put the colonist back as found.
+	world.components.set_component(ent, "needs", needs_before)
+	world.components.set_component(ent, "body", body_before)
+	if injuries_before is Dictionary:
+		world.components.set_component(ent, "injuries", injuries_before)
+	else:
+		world.components.remove(ent, "injuries")
+	return ok
+
+
+# A healthy, fed, rested, comfortable colonist: the steady case's fixture. The body is set to its own
+# maxima and the wounds are cleared; the caller restores both.
+func _steady(world: Variant, ent: int) -> void:
+	var needs: Dictionary = world.components.get_component(ent, "needs") as Dictionary
+	for key in ["thirst", "hunger", "rest", "relief"]:
+		needs[key] = 100.0
+	needs["crisis"] = "none"
+	needs["temperature"] = "comfortable"
+	needs["hygiene"] = "clean"
+	needs["grief"] = 0.0
+	needs["soiled"] = 0.0
+	needs["slept"] = "rested"
+	world.components.set_component(ent, "needs", needs)
+	var body: Dictionary = world.components.get_component(ent, "body") as Dictionary
+	for part in body.keys():
+		var max_v: Variant = SimHealth.max_of(body, String(part))
+		if max_v != null:
+			body[part] = max_v
+	world.components.set_component(ent, "body", body)
+	world.components.remove(ent, "injuries")
+
+
+func _place_talker(world: Variant, entity: int, at: Vector2) -> void:
+	world.components.set_component(entity, "position", {"x": at.x, "y": at.y})
+	world.components.set_component(entity, "velocity", {"dx": 0.0, "dy": 0.0})
+
+
+func _content_lines(world: Variant, id: String) -> Array[String]:
+	var out: Array[String] = []
+	if world == null or not ("content" in world) or not (world.content is Dictionary):
+		return out
+	var rows: Variant = (world.content as Dictionary).get("speech/lines.json", [])
+	if not (rows is Array):
+		return out
+	for row in rows as Array:
+		var e: Dictionary = row as Dictionary
+		if String(e.get("id", "")) != id:
+			continue
+		for line in e.get("lines", []) as Array:
+			out.append(String(line))
+	return out
+
+
+# --- ANIM -----------------------------------------------------------------------------------
+
+# The animation read model, driven from the sim's own facts. A stance command and a move command are
+# the sim's own routes; a swing is the scene's F; a shambler's swipe, hold and stagger are set as the
+# sim stores them (they have no command); a death is `finish_death`. A body that stops is idle on the
+# next tick, a corpse stays death, and a living body is never death. Every phase is 0..1.
+func _anim(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var player: int = int(world.player)
+	var area: Vector2 = _find_open_area(map, 2)
+	if area == Vector2(-1.0, -1.0):
+		return _fail("ANIM", "the district has no open area to stand in")
+	_place_player(scene, area)
+	scene.call("set_look", 0.0, 0.0)
+
+	# Standing, then walking on the sim's own move command.
+	_push_stance(world, SimStances.Stance.Walk)
+	_push_move(world, 0.0, 0.0)
+	_step_ticks(scene, 10)
+	ok = _expect_state(world, player, AnimState.IDLE, "standing") and ok
+	_push_move(world, 1.0, 0.0)
+	scene.call("step_sim_once")
+	ok = _expect_state(world, player, AnimState.WALK, "a walk command") and ok
+
+	# A jog is a run; the stance changes on the ladder before the step is asked for.
+	_push_stance(world, SimStances.Stance.Jog)
+	_push_move(world, 0.0, 0.0)
+	_step_ticks(scene, 10)
+	_push_move(world, 1.0, 0.0)
+	scene.call("step_sim_once")
+	ok = _expect_state(world, player, AnimState.RUN, "a jog") and ok
+
+	# Crouched, still and moving.
+	_push_stance(world, SimStances.Stance.Crouch)
+	_push_move(world, 0.0, 0.0)
+	_step_ticks(scene, 10)
+	ok = _expect_state(world, player, AnimState.CROUCH_IDLE, "a crouch at rest") and ok
+	_push_move(world, 1.0, 0.0)
+	scene.call("step_sim_once")
+	ok = _expect_state(world, player, AnimState.CROUCH_WALK, "a crouched step") and ok
+
+	# Prone.
+	_push_stance(world, SimStances.Stance.Crawl)
+	_push_move(world, 0.0, 0.0)
+	_step_ticks(scene, 10)
+	ok = _expect_state(world, player, AnimState.CRAWL, "a crawl") and ok
+
+	# A swing: the top-down button's own F, read in its wind-up and in its recover.
+	_push_stance(world, SimStances.Stance.Walk)
+	_step_ticks(scene, 10)
+	SimMelee.make_melee_armed(world, player)
+	SimHealth.make_stamina(world, player, 100)
+	_key(KEY_F, true)
+	_key(KEY_F, false)
+	scene.call("step_sim_once")
+	var swing: Variant = world.components.get_component(player, "swing")
+	if swing is Dictionary and int((swing as Dictionary).get("state", 0)) == SimMelee.SwingState.WindUp:
+		ok = _expect_state(world, player, AnimState.SWING, "a swing's wind-up") and ok
+		(world.components.get_component(player, "swing") as Dictionary)["state"] = SimMelee.SwingState.Recover
+		ok = _expect_state(world, player, AnimState.SWING, "a swing's recover") and ok
+	else:
+		ok = _fail("ANIM", "F did not put the body in a swing wind-up")
+	world.components.set_component(player, "swing", {"state": SimMelee.SwingState.Idle, "ticksLeft": 0})
+
+	# Stopping returns to idle within one tick: the move command stops the body, and the next step
+	# zeroes its velocity.
+	_push_move(world, 1.0, 0.0)
+	scene.call("step_sim_once")
+	ok = _expect_state(world, player, AnimState.WALK, "a walk before the stop") and ok
+	_push_move(world, 0.0, 0.0)
+	scene.call("step_sim_once")
+	ok = _expect_state(world, player, AnimState.IDLE, "a stop, one tick later") and ok
+
+	# A shambler's armed swipe is a lunge, its hold is a grab, and its Staggered state is a stagger.
+	var zombie: int = _living_zombie(world)
+	if zombie < 0:
+		ok = _fail("ANIM", "the colony has no living shambler to pose")
+	else:
+		var original: Dictionary = (world.components.get_component(zombie, "shambler") as Dictionary).duplicate()
+		var shambler: Dictionary = world.components.get_component(zombie, "shambler") as Dictionary
+		world.components.remove(zombie, "grabState")
+		world.components.remove(zombie, "grabbed")
+		shambler["state"] = SimShambler.ShamblerState["Pursue"]
+		shambler["ticksToSwipe"] = SimShambler.SWIPE_FIRST_TICKS - 5
+		ok = _expect_state(world, zombie, AnimState.LUNGE, "a shambler's armed swipe") and ok
+		world.components.set_component(zombie, "grabState", {"victim": player, "ticksUntilBite": SimShambler.FIRST_BITE_TICKS - 4})
+		ok = _expect_state(world, zombie, AnimState.GRAB, "a shambler's hold") and ok
+		world.components.remove(zombie, "grabState")
+		shambler["state"] = SimShambler.ShamblerState["Staggered"]
+		shambler["ticksStaggered"] = 10
+		ok = _expect_state(world, zombie, AnimState.STAGGER, "a shambler's stagger") and ok
+		world.components.set_component(zombie, "shambler", original)
+
+	# A death: a colonist who is not the player dies into a corpse and stays death.
+	var victim: int = _living_colonist(world, player)
+	if victim < 0:
+		ok = _fail("ANIM", "the colony has no second survivor to kill")
+	else:
+		SimHealth.finish_death(world, victim)
+		ok = _expect_state(world, victim, AnimState.DEATH, "a corpse") and ok
+		_step_ticks(scene, 30)
+		ok = _expect_state(world, victim, AnimState.DEATH, "a corpse after thirty ticks") and ok
+		if AnimState.state_of(world, victim) == AnimState.IDLE:
+			ok = _fail("ANIM", "a corpse returned to idle")
+
+	# A living body is never death, and every named phase lies in 0..1.
+	for ent in world.components.query(["position", "body"]):
+		var e: int = int(ent)
+		if not world.entities.is_alive(e) or world.components.has_component(e, "corpse"):
+			continue
+		var answer: Dictionary = AnimState.of(world, e)
+		var state: String = String(answer["state"])
+		if state == AnimState.DEATH:
+			ok = _fail("ANIM", "living body %d reports death" % e)
+		var phase: float = float(answer["phase"])
+		if phase < 0.0 or phase > 1.0:
+			ok = _fail("ANIM", "body %d's %s phase is %.3f, outside 0..1" % [e, state, phase])
+		if not AnimState.STATES.has(state):
+			ok = _fail("ANIM", "body %d names an unknown state %s" % [e, state])
+	return ok
+
+
+func _expect_state(world: Variant, entity: int, want: String, what: String) -> bool:
+	var answer: Dictionary = AnimState.of(world, entity)
+	var got: String = String(answer["state"])
+	var phase: float = float(answer["phase"])
+	if got != want:
+		return _fail("ANIM", "%s reads %s, not %s" % [what, got, want])
+	if phase < 0.0 or phase > 1.0:
+		return _fail("ANIM", "%s names %s with phase %.3f, outside 0..1" % [what, got, phase])
+	return true
+
+
+func _push_stance(world: Variant, stance: int) -> void:
+	world.commands.push({"type": "stance", "stance": stance})
+
+
+func _push_move(world: Variant, dx: float, dy: float) -> void:
+	world.commands.push({"type": "move", "dx": dx, "dy": dy})
+
+
+func _living_zombie(world: Variant) -> int:
+	for ent in world.components.query(["position", "body", "shambler"]):
+		var e: int = int(ent)
+		if world.entities.is_alive(e) and not world.components.has_component(e, "corpse"):
+			return e
+	return -1
+
+
+func _living_colonist(world: Variant, exclude: int) -> int:
+	for ent in world.components.query(["position", "body", "identity"]):
+		var e: int = int(ent)
+		if e == exclude or not world.entities.is_alive(e):
+			continue
+		if world.components.has_component(e, "corpse") or world.components.has_component(e, "zombieType"):
+			continue
+		return e
+	return -1
+
+
+# --- MODELS ----------------------------------------------------------------------------------------
+
+# The model loader, judged on the committed weapon kit, and a loose item the sim drops drawn with its
+# model. The manifest rule and the texture rule are also tested on fabricated input, so a rule that
+# never fires cannot pass.
+func _models(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var weapons: Array = []
+	for manifest in Models.manifests():
+		if String((manifest as Dictionary).get("kit", "")) == "weapons":
+			weapons = (manifest as Dictionary)["models"] as Array
+	if weapons.is_empty():
+		return _fail("MODELS", "no weapons manifest was read from res://assets/first_person/")
+
+	# True positive: every weapons entry loads, and its box is its sizeM within 1 cm on each axis. The
+	# textures the kit's GLBs use are collected for the sharing and mipmap checks below.
+	var textures: Dictionary = {}
+	var loaded: int = 0
+	for entry in weapons:
+		var glb: String = String((entry as Dictionary)["glb"])
+		var size: Array = (entry as Dictionary)["sizeM"] as Array
+		var want: Vector3 = Vector3(float(size[0]), float(size[1]), float(size[2]))
+		var instance: Node3D = Models.instance_of(glb)
+		if instance == null:
+			ok = _fail("MODELS", "%s does not load" % glb)
+			continue
+		loaded += 1
+		var got: Vector3 = Models.bounds(instance).size
+		if absf(got.x - want.x) > MODEL_TOLERANCE_M or absf(got.y - want.y) > MODEL_TOLERANCE_M or absf(got.z - want.z) > MODEL_TOLERANCE_M:
+			ok = _fail("MODELS", "%s measures %s, its sizeM says %s" % [glb, str(got), str(want)])
+		instance.free()
+		var template: Node3D = Models.template_of(glb)
+		for texture in _albedo_textures(template):
+			textures[texture.get_instance_id()] = texture
+		if _filter_of(template) != BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS:
+			ok = _fail("MODELS", "%s does not sample with nearest-with-mipmaps" % glb)
+	if loaded != weapons.size():
+		ok = _fail("MODELS", "%d of %d weapon models loaded" % [loaded, weapons.size()])
+
+	# Two GLBs embedding the same atlas share one texture, and the shared texture has mipmaps. Every GLB in
+	# the kit embeds the atlas, so the count of distinct textures over the whole kit is one.
+	if textures.size() != 1:
+		ok = _fail("MODELS", "the weapon kit holds %d distinct textures, expected one shared atlas" % textures.size())
+	else:
+		var atlas: Texture2D = textures.values()[0] as Texture2D
+		var a: Texture2D = _albedo_textures(Models.template_of("res://assets/first_person/weapons/pistol_service.glb"))[0]
+		var b: Texture2D = _albedo_textures(Models.template_of("res://assets/first_person/weapons/pistol_barrel_standard.glb"))[0]
+		if a.get_instance_id() != b.get_instance_id():
+			ok = _fail("MODELS", "two GLBs embedding the same atlas do not share one texture")
+		var image: Image = atlas.get_image()
+		var levels: int = image.get_mipmap_count() if image != null else 0
+		if levels < 2:
+			ok = _fail("MODELS", "the shared atlas has %d mip level, not a chain" % levels)
+		# True negatives for the sharing: a new copy of the atlas's pixels is handed back as the shared texture,
+		# and a different image is not.
+		var copy: ImageTexture = ImageTexture.create_from_image(atlas.get_image().duplicate() as Image)
+		if Models._shared_texture(copy).get_instance_id() != atlas.get_instance_id():
+			ok = _fail("MODELS", "a copy of the atlas's pixels was not shared with the atlas")
+		var other: ImageTexture = ImageTexture.create_from_image(Image.create(8, 8, false, Image.FORMAT_RGBA8))
+		if Models._shared_texture(other).get_instance_id() == atlas.get_instance_id():
+			ok = _fail("MODELS", "a different image was shared with the atlas")
+
+	# True positive and true negatives for the resolution rule. An id match beats a class match whatever the
+	# order they are listed in; a class alone resolves; an unknown id and class resolve to null.
+	var fabricated: Array = [{"kit": "fake", "models": [
+		{"match": {"class": "weapon.melee"}, "glb": "class.glb"},
+		{"match": {"id": "item.bat.wood"}, "glb": "id.glb"},
+	]}]
+	var by_id: Variant = Models.resolve_in(fabricated, "item.bat.wood", "weapon.melee")
+	if not (by_id is Dictionary) or String((by_id as Dictionary)["glb"]) != "id.glb":
+		ok = _fail("MODELS", "an id match did not beat a class match on the same item")
+	var by_class: Variant = Models.resolve_in(fabricated, "item.knife.kitchen", "weapon.melee")
+	if not (by_class is Dictionary) or String((by_class as Dictionary)["glb"]) != "class.glb":
+		ok = _fail("MODELS", "a class match did not resolve an item with no id match")
+	if Models.resolve_in(fabricated, "item.nothing.here", "nothing") != null:
+		ok = _fail("MODELS", "an unknown id and class resolved to a model")
+	if Models.resolve_in(fabricated, "", "") != null:
+		ok = _fail("MODELS", "an empty id and class resolved to a model")
+	var real_bat: Variant = Models.resolve("item.bat.wood", "weapon.melee")
+	if not (real_bat is Dictionary) or not String((real_bat as Dictionary)["glb"]).ends_with("bat_wood.glb"):
+		ok = _fail("MODELS", "the committed kit does not resolve item.bat.wood to bat_wood.glb")
+	if Models.resolve("item.unknown.nothing", "") != null:
+		ok = _fail("MODELS", "the committed kit resolved an unknown id to a model")
+
+	# True positive: a loose bat the sim drops at the player's feet is drawn with its model, on the floor, at
+	# the sim's position. The drop is the sim's own command, so the sim did the placing.
+	var player: int = int(world.player)
+	var bat: int = SimItems.spawn_item(world, "item.bat.wood")
+	SimInventory.drop_at_feet(world, player, bat)
+	scene.call("_process", TICK_SECONDS)
+	var node: Node3D = scene.call("loose_node_for", bat) as Node3D
+	if node == null:
+		ok = _fail("MODELS", "a loose bat on the floor has no node in the loose-item view")
+	else:
+		var at: Vector2 = _entity_pos(world, bat)
+		if absf(node.position.x - at.x) > EPSILON or absf(node.position.z - at.y) > EPSILON:
+			ok = _fail("MODELS", "the loose bat is drawn at (%.3f, %.3f), not its sim position (%.3f, %.3f)" % [node.position.x, node.position.z, at.x, at.y])
+		var box: AABB = _world_aabb(node)
+		if absf(box.position.y) > MODEL_TOLERANCE_M:
+			ok = _fail("MODELS", "the loose bat's lowest point is %.4f m, not on the floor" % box.position.y)
+		var bat_size: Array = (real_bat as Dictionary)["sizeM"] as Array
+		if absf(box.size.y - float(bat_size[1])) > MODEL_TOLERANCE_M:
+			ok = _fail("MODELS", "the loose bat's drawn height %.4f m is not its model's %.4f m" % [box.size.y, float(bat_size[1])])
+	# True negative: an item the merged manifests do not name is drawn with no node, so it keeps the
+	# scene's placeholder. The item is found in the merged content, not assumed: the loot-item kit
+	# draws canned food now, so a hard-coded id would stop being a no-model case.
+	var modelless: String = ""
+	for base_v in SimItems.content_entries(world, "item") as Array:
+		var base: Dictionary = base_v as Dictionary
+		var item_id: String = String(base.get("id", ""))
+		if item_id != "" and Models.resolve(item_id, String(base.get("class", ""))) == null:
+			modelless = item_id
+			break
+	if modelless == "":
+		ok = _fail("MODELS", "every content item has a model, so the no-model negative has no case")
+	else:
+		var bare: int = SimItems.spawn_item(world, modelless)
+		SimInventory.drop_at_feet(world, player, bare)
+		scene.call("_process", TICK_SECONDS)
+		if scene.call("loose_node_for", bare) != null:
+			ok = _fail("MODELS", "an item with no model (%s) was drawn with a node" % modelless)
+		world.despawn(bare)
+		scene.call("_process", TICK_SECONDS)
+	# True negative: a loose item that is gone has its node freed on the next refresh.
+	var before: int = int(scene.call("loose_view_count"))
+	world.despawn(bat)
+	scene.call("_process", TICK_SECONDS)
+	if scene.call("loose_node_for", bat) != null:
+		ok = _fail("MODELS", "a despawned loose bat still has a node")
+	if int(scene.call("loose_view_count")) != before - 1:
+		ok = _fail("MODELS", "the loose-item count did not drop by the despawned bat")
+	return ok
+
+
+# Every albedo texture a template's materials carry, one per surface.
+func _albedo_textures(root: Node3D) -> Array:
+	var out: Array = []
+	var nodes: Array[MeshInstance3D] = []
+	_collect_meshes(root, nodes)
+	for node in nodes:
+		for s in node.mesh.get_surface_count():
+			var mat: Material = node.mesh.surface_get_material(s)
+			if mat is BaseMaterial3D and (mat as BaseMaterial3D).albedo_texture != null:
+				out.append((mat as BaseMaterial3D).albedo_texture)
+	return out
+
+
+# The texture filter of a template's first material.
+func _filter_of(root: Node3D) -> int:
+	var nodes: Array[MeshInstance3D] = []
+	_collect_meshes(root, nodes)
+	for node in nodes:
+		for s in node.mesh.get_surface_count():
+			var mat: Material = node.mesh.surface_get_material(s)
+			if mat is BaseMaterial3D:
+				return (mat as BaseMaterial3D).texture_filter
+	return -1
 
 
 # --- fixtures -------------------------------------------------------------------------------
