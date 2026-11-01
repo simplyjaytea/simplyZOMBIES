@@ -1,5 +1,12 @@
 # Playbook
 
+**Owner amendment, 2026-11-01:** the first-person survival colony pivot in
+[docs/39](39-first-person-pivot.md) supersedes this playbook's flat-top-down art
+direction and adds conversion work ahead of the previous release sequence.
+The existing game is preserved by the GitHub source archive linked there.
+The default build is still top-down while an opt-in first-person foundation
+is developed. Colony mechanics and the standing verification/merge rules remain.
+
 For any agent joining this project cold: Claude, Codex, Cursor, or a person. `CLAUDE.md` holds
 the rules of the repository. This file is about how the project around it runs: who decides
 what, how a piece of work gets from a request onto `main`, where the shared material lives, and
