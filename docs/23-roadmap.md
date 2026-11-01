@@ -3103,6 +3103,10 @@ not a to-do list:
     line to the full spot is blocked; F2 back restores first person). LEGEND holds F2 in the key
     reference. `npm run godot:check:play` SCENE lane now asserts the boot is first person, and
     FIRST-PERSON reads the relabelled row.
+  - **The export smoke.** `scripts/smoke-godot-exports.mjs` waited for `GODOT_R1_READY`, which only
+    the top-down scene prints. It now waits for `GODOT_FIRST_PERSON_READY`, which
+    `first_person.gd`'s `_ready` prints. The top-down scene still prints R1 and R4. CI's
+    `godot-exports` job is the check that the exported default boot reaches it.
   - **Not in this piece.** The held weapon is drawn at the camera in third person; the body carries
     no weapon yet. Third person is not a player-facing mode.
   - **Captures.** Two in-engine captures (default boot, third-person survivor) are in

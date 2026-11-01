@@ -181,6 +181,9 @@ func _ready() -> void:
 	_build_rig()
 	_build_hud()
 	_capture_mouse()
+	# The export smoke's readiness line for the default boot (scripts/smoke-godot-exports.mjs). The
+	# top-down scene prints GODOT_R1_READY; this is the first-person scene's own marker.
+	print("GODOT_FIRST_PERSON_READY")
 
 
 func _exit_tree() -> void:
