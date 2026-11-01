@@ -20,11 +20,11 @@ const MARGIN: float = 28.0
 # Worst-part states from condition.gd, as a sentence rather than a grade. Kept local because it is
 # wording, not a sim fact, and `ui/hud.gd` owns the top-down screen's own copy of the same words.
 const CONDITION_WORDS: Array[String] = ["", "hurt", "badly hurt", "barely standing"]
-const HELP: String = "WASD walk   mouse look   E ledger or open   P hold   Esc back or release   click to look"
-# The end-of-run panel: `ui/shell.gd`'s heading and frame, held to this screen's own size. One
-# action and one sentence, because first person has no title flow yet.
+const HELP: String = "WASD walk   mouse look   E ledger or open   P hold   Esc release or title   click to look"
+# The end-of-run panel: the shell's heading and frame, held to this screen's own size. One action,
+# and it goes back to the game's title rather than quitting the process.
 const RUN_OVER_HEADING: String = "the run is over"
-const RUN_OVER_ACTION: String = "Escape quits"
+const RUN_OVER_ACTION: String = "Escape returns to the title"
 const END_PANEL_W: float = 720.0
 const END_PAD: float = 40.0
 const END_LINE_H: float = 34.0

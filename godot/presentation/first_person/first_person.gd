@@ -32,9 +32,14 @@ const WebPanel = preload("res://ui/web_panel.gd")
 const InventoryPanel = preload("res://ui/inventory_panel.gd")
 
 const SEED: int = 20260805
-const DISTRICT_TILES: int = 64
+# The shipped district, at the size the top-down game ships. The foundation booted a 64-tile cut;
+# from the title the owner should walk the world the game is about, not the miniature the gates
+# used while the scene was being built.
+const DISTRICT_TILES: int = SimTileMap.DISTRICT_TILES
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / float(TICK_HZ)
+# The game's own title lives in this scene; leaving the experiment means going back to it.
+const TITLE_SCENE: String = "res://presentation/main.tscn"
 
 const EYE_HEIGHT_M: float = 1.62
 const LOOK_SENSITIVITY: float = 0.0024
@@ -395,6 +400,11 @@ func _update_hud() -> void:
 # --- input ----------------------------------------------------------------------------------
 
 func _input(event: InputEvent) -> void:
+	# A scene change can free this node while the same `push_input` call is still delivering the
+	# event (the press that asked to go back to the title has a release behind it). A node on its
+	# way out has no viewport, so there is nothing to consume the event with.
+	if not is_inside_tree() or get_viewport() == null:
+		return
 	if not (event is InputEventKey):
 		return
 	var ke: InputEventKey = event as InputEventKey
@@ -402,10 +412,12 @@ func _input(event: InputEvent) -> void:
 		return
 	var code: int = ke.keycode if ke.keycode != 0 else ke.physical_keycode
 	if _run_over_open:
-		# One action, and it is the top-down over screen's own quiet exit: leave the run. Nothing
-		# else reaches the world, so W cannot walk a body that is no longer anybody's.
+		# One action, and it is the top-down over screen's own quiet exit: back to the title.
+		# Nothing else reaches the world, so W cannot walk a body that is no longer anybody's.
 		if ke.pressed and (code == KEY_ESCAPE or code == KEY_ENTER or code == KEY_KP_ENTER):
-			get_tree().quit()
+			# The scene change frees this node; there is no viewport left to consume with.
+			return_to_title()
+			return
 		get_viewport().set_input_as_handled()
 		return
 	if _waiting_for_heir():
@@ -440,10 +452,17 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if ke.pressed and code == KEY_ESCAPE:
-		# Outside the ledger, Escape is the way out of the pointer trap: the mouse is released
-		# and the HUD asks for a click to resume looking.
-		_release_mouse()
-		_push_zero_move()
+		# Outside the ledger, Escape is the way out of the pointer trap: the first press releases
+		# the mouse and the HUD asks for a click to resume looking. A second press, with the mouse
+		# already free, is the quiet way back to the title -- the first-person screen's only
+		# retreat now that the title can open it.
+		if not _mouse_captured:
+			# The scene change frees this node; there is no viewport left to consume with.
+			return_to_title()
+			return
+		else:
+			_release_mouse()
+			_push_zero_move()
 		get_viewport().set_input_as_handled()
 		return
 	if ke.pressed and code == KEY_E:
@@ -463,6 +482,8 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not is_inside_tree() or get_viewport() == null:
+		return
 	if _run_over_open or _waiting_for_heir():
 		# No mouse look and no click-to-recapture under the end panel or between a death and an
 		# heir. The pointer stays where `_release_mouse` left it.
@@ -999,9 +1020,17 @@ func _succession_words() -> String:
 	return "You are someone else now."
 
 
-## The run-over screen in words. `ui/shell.gd` is the top-down screen; this scene has no title
-## flow yet, so the one action is to leave (Escape or Enter quits), which is the over screen's
-## "quit" half. The epitaph is `SimChronicle.epitaph`, the same lines the shell draws.
+## The way back to the game's own title. A scene change, not a quit: `main.tscn` boots into its
+## title state, so the top-down screen and New run are still there when the experiment ends. The
+## pivot's default switch is a later piece; this is only the door out of the experiment.
+func return_to_title() -> void:
+	if get_tree().change_scene_to_file(TITLE_SCENE) != OK:
+		_set_alert("The title could not be opened.")
+
+
+## The run-over screen in words. `ui/shell.gd` is the top-down screen; this scene's one action is
+## to return to the game's own title (Escape or Enter), which is the over screen's "quit" half. The
+## epitaph is `SimChronicle.epitaph`, the same lines the shell draws.
 func _show_run_over() -> void:
 	if _run_over_open:
 		return
