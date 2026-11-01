@@ -2525,7 +2525,11 @@ not a to-do list:
     `godot:m2:sight` and `godot:m2:tick` again after the last change, which touched only
     `visibility.gd` and its three hot callers. Also `godot:test` (R1 parity, byte-identical),
     `godot:smoke`, `godot:check:first_person`, `check:routing`, `check:shards`, `lint` and
-    `format:check`.
+    `format:check`. After merging the base's second first-person integration (`e90ee7fb`, which
+    changes no file under `godot/sim/`), `godot:smoke`, `godot:test`, `godot:m2:sight`,
+    `godot:m2:tick`, `godot:check:first_person`, `godot:check:fp_geometry`,
+    `godot:check:fp_expedition`, `check:routing`, `check:shards`, `lint` and `format:check` again.
+    No existing assertion was loosened; the EYE lane runs unchanged under the switch.
   - **What moved.** Who sees whom, where a body is crouched or crawling. A standing zombie loses a
     crouched survivor behind a car, unless it is within about a metre and looking down over it. It
     loses a survivor crouched under a sill, or behind a stage-3 board, except from close outside.
