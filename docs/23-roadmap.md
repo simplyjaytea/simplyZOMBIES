@@ -2434,6 +2434,48 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Bodies drawn with the character models, 2026-11-01.** docs/41's piece C1: the first-person
+  scene draws each body with the character GLB its kind names, in place of the placeholder cylinder.
+  Survivors, colonists and raiders are `survivor.glb`; every zombie is `shambler.glb` until zombie kinds
+  have models of their own. The loader is the one in `models.gd`, and the two GLBs are loaded by path,
+  not through a manifest: the kind is decided by the sim's `zombieType`, not by an item id, so a manifest
+  would add a lookup with nothing to resolve. `body_view.gd` gives each body its own instance (sharing the
+  template's meshes and textures) and its own AnimationPlayer. The clip is `anim_state.gd`'s
+  `clip_for(kind, state)`, and the pose is its phase, set every frame with the player at speed zero, so
+  the animation follows the sim and not its own clock. The loops are `idle`, `walk`, `crouch_idle` and
+  `shamble` (`LOOPING_CLIPS`); `lunge` and `death` are one-shots that hold their last frame. A body with no
+  model, a GLB that is missing or a GLB with no player, keeps the capsule. The model turns to the sim's
+  `facing`, and a body the sim cannot see is hidden.
+  - **The gate.** The BODIES lane of `godot/check_first_person.gd` runs in a fresh scene, because its 300
+    ticks change the colony the other lanes read. It holds that a walking colonist plays `walk` at the
+    sim's phase and faces the sim's heading (0 rad looks along +x, pi/2 along +z); that a shambler in its
+    armed swipe plays `lunge` at the swipe's phase; that a corpse plays `death`, and after 300 ticks still
+    plays it at its last frame; that loops are `LOOP_LINEAR` and one-shots `LOOP_NONE`, and a one-shot
+    seeked to its end holds its last frame; that a body the sim cannot see is not drawn; and that a missing
+    model falls back to the capsule, with no player.
+  - **True negatives, run by hand.** Each rule was broken once and the lane went red: the clip always idle
+    (`plays idle, not walk`), no loop flags (`does not loop`), always visible (`a body the sim cannot see
+    is drawn`), and a death at phase 0 (`death is at 0.000 s ... not held at its last frame`).
+  - **Found on the way.** An AnimationPlayer seeked to its exact end finishes, and a finished clip clears
+    `current_animation`. A held pose therefore sits 0.1 ms short of the end, and the lane checks that.
+  - **Measured.** A headed probe at a 1280 x 720 render size (`content_scale_size`; the OS window came back
+    1247 x 1320 on this machine), 40 shamblers in a block in view, 300 frames, three runs a side, before and
+    after this change:
+    - before (capsules): mean 5.708, 5.742, 5.594 ms; median 5.554, 5.556, 5.553 ms; p95 10.717, 10.793,
+      10.130 ms;
+    - after, first version (a seek every frame): mean 6.237, 6.280, 6.263 ms; p95 13.232, 13.291, 12.612 ms;
+    - after, seek only when the phase moves: mean 6.223, 6.223, 6.261 ms; median 5.556 to 5.558 ms; p95
+      12.465, 12.234, 12.530 ms.
+    The frame sits at the 180 Hz cap for the median, so the cost shows in the tail: about 0.5 ms a frame
+    in the mean and about 2 ms at p95 with 40 horde bodies. The rest is the skinned models themselves, not
+    the animation calls.
+  - **Viewport captures** at 1280 x 720, taken from inside Godot and kept outside the repository: a walking
+    survivor, a lunging shambler and a corpse. The walking survivor is hard to tell from the horde at this
+    size; the gate is what holds it.
+  - **Not in this piece.** Zombie kinds other than the shambler still draw the shambler model. A corpse is
+    made for survivors only (`recruits.gd`'s `_make_corpse`), so a zombie's death clip is set by the
+    gate, not the sim. Horde cost beyond 40 is unmeasured, and so is a horde at the shipped district's
+    density.
 - **The model loader and loose items drawn with their models, 2026-11-01.** The first code that reads
   the art kits. `godot/presentation/first_person/models.gd` reads every `assets/first_person/*.manifest.json`
   (in file-name order, a malformed one skipped), resolves an item to a model by id and then by class, and
