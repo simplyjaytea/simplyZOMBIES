@@ -1,12 +1,18 @@
 extends Node3D
-# Sim-driven bodies as placeholders. One cylinder per living body the sim owns, placed at the sim's
-# position between ticks and sized from `SimSpace.body_of`: the radius is the hit radius and the
-# height follows the body's posture, or a zombie's state. Nothing here moves anything: the body's
-# `position` component is the only truth, and this view reads it after `world.step()`.
+# Sim-driven bodies as placeholders. One cylinder per living body the sim owns and per human corpse
+# it leaves, placed at the sim's position between ticks and sized from `SimSpace.body_of`: the
+# radius is the hit radius and the height follows the body's posture, or a zombie's state. Nothing
+# here moves anything: the body's `position` component is the only truth, and this view reads it
+# after `world.step()`.
+#
+# A corpse stays a body the screen draws: on a succession the dead player is the first one the heir
+# can see, and a body that vanished would be the camera changing without a reason on screen. It
+# wears the corpse's colour, and it is gated by sight like every other body.
 #
 # The player's own body is deliberately absent -- in first person the camera is the body's eyes,
 # and a cylinder at the eye would be a blue screen. `body_node_for(player)` returning null is the
-# structural half of "the camera is the player", asserted by the gate.
+# structural half of "the camera is the player", asserted by the gate. After a handoff the dead
+# body is no longer `world.player`, so it comes back as the corpse it now is.
 
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimSpace = preload("res://sim/space/space.gd")
@@ -77,11 +83,13 @@ func _collect(world: Variant) -> Dictionary:
 			continue
 		if not world.entities.is_alive(e):
 			continue
-		if world.components.has_component(e, "corpse"):
-			continue
-		var body: Variant = world.components.get_component(e, "body")
-		if body is Dictionary and not SimHealth.is_alive(body as Dictionary):
-			continue
+		# A corpse stays a body the screen draws: on a succession the dead player is the first
+		# one the heir can see, and a body that vanished would be the camera changing without a
+		# reason on screen. A corpse has no living body left to test; the living still must.
+		if not world.components.has_component(e, "corpse"):
+			var body: Variant = world.components.get_component(e, "body")
+			if body is Dictionary and not SimHealth.is_alive(body as Dictionary):
+				continue
 		var pos: Variant = world.components.get_component(e, "position")
 		if not (pos is Dictionary):
 			continue
@@ -105,6 +113,10 @@ func _sync_views(world: Variant, alpha: float) -> void:
 		if view == null:
 			view = _make_view(e, world)
 			_views[e] = view
+		# A body that died since the view was made wears the corpse's colour from that frame on,
+		# and a stance change or a lost leg re-sizes the cylinder the same frame.
+		if world.components.has_component(e, "corpse") and view.material_override != _corpse_material:
+			view.material_override = _corpse_material
 		_fit(view, world, e)
 		var then: Vector2 = _prev.get(e, _curr[e]) as Vector2
 		var now: Vector2 = _curr[e] as Vector2
@@ -140,10 +152,15 @@ func _fit(view: MeshInstance3D, world: Variant, entity: int) -> void:
 
 func _make_view(entity: int, world: Variant) -> MeshInstance3D:
 	var zombie: bool = world.components.has_component(entity, "zombieType")
+	var corpse: bool = world.components.has_component(entity, "corpse")
 	var view: MeshInstance3D = MeshInstance3D.new()
 	view.name = "Body%d" % entity
 	view.mesh = CylinderMesh.new()
-	view.material_override = _zombie_material if zombie else _colonist_material
+	if corpse:
+		view.material_override = _corpse_material
+	else:
+		view.material_override = _zombie_material if zombie else _colonist_material
+	_fit(view, world, entity)
 	add_child(view)
 	return view
 

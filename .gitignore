@@ -14,3 +14,8 @@ roadmap-*.html
 __pycache__/
 # The art review's capture driver writes here by default (godot:shots).
 review-shots/
+
+# Editor import leftovers next to the first-person art: the extracted atlas copies and their .import
+# files. The GLBs and kit_atlas.png themselves are committed source and are not ignored.
+godot/assets/first_person/*.import
+godot/assets/first_person/*_kit_atlas.png
