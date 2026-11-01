@@ -181,6 +181,34 @@ conversion. The source baseline is archived on GitHub at
   cloud noise reads as camouflage blocks up close; oak grain steps every 8 texels, like brickwork;
   paint chips follow atlas cells, not mesh edges; barricade planks float 6 mm off the brace; wall
   end faces and a shelf-board sparkle.
+- **Weapon kit polish (#298 round 1 minors).** In `tools/blender/first_person_weapons/build_weapons.py`,
+  whose outputs are `godot/assets/first_person/weapons.manifest.json` and the GLBs beside it:
+  - the lathes (`lathe()`) use each triangle's face normal, so the bat, suppressor and barrel read
+    faceted at 0.45 m; smoothed vertex normals across each lathe would read round at no triangle cost;
+  - the polymer grip's stipple is single 7.8 mm texels, which read as dice dots or dirt; a moulded
+    texture of several texels, or none, is the fix;
+  - the grip-side texel grid is projected on the receiver axes, so it is not raked with the 20° grip,
+    and the grid disagrees with the raked magazine where they meet;
+  - the bat's `ash_worn` band stops at one loop, about 40% of the length, with no fade, and the handle
+    grime reads as camouflage in the view model;
+  - the knife's ground bevel is one texel wide and alternates tones, so at 1280 x 720 the edge reads
+    as saw teeth;
+  - the crowbar's claw is a flattened tip with no nail slot;
+  - the README does not say what horde use costs: a default pistol is 1,430 triangles in 7 meshes,
+    324 of them hidden (276 in the spring coil), and the alternate is 2,002 in 10. An NPC in numbers
+    should skip the hidden internals outside a bench view, or merge to a world LOD. The loader (#301)
+    dedupes the embedded atlas copies at runtime, so the files stay large on disk.
+- **Item kit polish (#299 round 3 minors).** In `tools/blender/first_person_items/build_items.py`, whose
+  outputs are `godot/assets/first_person/items.manifest.json` and the GLBs in `items/`:
+  - the neutral bottle is a dark-green wine bottle with a blank label, and canteens and the Jar of
+    Preserves draw as it, while the hip flask and sports drink take the 13 cm jar; a canteen or flask
+    rung, or routing preserves to the jar, would read better;
+  - the fuel bottle and lamp oil draw as crates, because the `liquid` family in `family()` only applies
+    to consumables (`LIQUID_WORDS`);
+  - `headgear` draws a military steel helmet, which is right for hard hats and bike helmets but a
+    stretch for gas masks and half-mask respirators, which need their own rung;
+  - the gun case draws as a soft roll-top bag, and the crossbow bolt draws the 71 cm arrow, where a
+    bolt is about 40 cm (`LENGTH_HINTS`); a long-case rung and a bolt length hint would tighten both.
 - **Zombie target by distance alone (#282 review).** `SimShambler._contact_target`
   (`godot/sim/modules/shambler.gd`) takes the nearest survivor with no reach test, unlike the player's
   nearest-reachable swing in `melee.gd`. A shared sim module; needs a READS lane in `godot:m2:space`.
