@@ -14,7 +14,7 @@ from mathutils import Matrix, Quaternion, Vector
 
 ATLAS_SIZE = 256
 ATLAS_METRES = 4
-FPS = 24
+FPS = 60
 HEIGHTS = {"survivor": 1.75, "shambler": 1.65}
 RADIUS_M = 0.30
 TOLERANCE_M = 0.02
@@ -59,26 +59,13 @@ def atlas_pixel(style, x, y):
     base = style.replace("_face", "")
     if base not in PALETTE:
         base = "jacket"
-    cloud = noise(x // 4, y // 4, 917)
-    index = 2 + (1 if cloud % 11 == 0 else 0) - (1 if cloud % 13 == 0 else 0)
+    index = 2 + (1 if n % 29 == 0 else 0) - (1 if n % 31 == 0 else 0)
     if base in ("jacket", "zombie_jacket", "trousers"):
-        if (x + 2 * y) % 37 == 0:
-            index = 1
-        if x in (3, 60):
-            index = 1
-    if base == "zombie_jacket" and (n % 47 == 0 or abs(x - (35 + y // 8)) <= 1 and 12 < y < 38):
-        return tone("trousers", 0 if n % 3 else 1)
-    if base == "zombie_skin" and n % 17 == 0:
+        index = 2 + (1 if n % 37 == 0 else 0) - (1 if n % 41 == 0 else 0)
+    if base == "zombie_skin" and n % 29 == 0:
         index = 1
-    if base == "boots" and y % 13 == 2:
+    if base == "boots" and y % 17 == 2:
         index = 1
-    if style.endswith("_face"):
-        if y in (33, 34) and x in (22, 23, 41, 42):
-            return tone("eye", 0)
-        if y == 29 and x in (21, 22, 40):
-            return tone(base, 0)
-        if y == 45 and x in (30, 31, 32, 33):
-            return tone(base, 1)
     return tone(base, index)
 
 
@@ -133,6 +120,51 @@ class MeshBuilder:
         self.faces = []
         self.uvs = []
         self.vertex_bones = []
+        self.densities = []
+
+    def quad(self, points, style, bone):
+        start = len(self.vertices)
+        self.vertices.extend(tuple(point) for point in points)
+        self.vertex_bones.extend([bone] * 4)
+        self.faces.append(tuple(start + index for index in range(4)))
+        u_metres = (points[1] - points[0]).length
+        v_metres = (points[3] - points[0]).length
+        u_texels = u_metres * 64
+        v_texels = v_metres * 64
+        cell_x, cell_y = STYLES[style]
+        max_x = max(1, int(64 - u_texels))
+        max_y = max(1, int(64 - v_texels))
+        offset_x = (len(self.faces) * 17 + len(bone) * 7) % max_x
+        offset_y = (len(self.faces) * 29 + len(bone) * 11) % max_y
+        u0 = cell_x * 64 + offset_x
+        v0 = cell_y * 64 + offset_y
+        self.uvs.append(
+            (
+                (u0 / ATLAS_SIZE, v0 / ATLAS_SIZE),
+                ((u0 + u_texels) / ATLAS_SIZE, v0 / ATLAS_SIZE),
+                ((u0 + u_texels) / ATLAS_SIZE, (v0 + v_texels) / ATLAS_SIZE),
+                (u0 / ATLAS_SIZE, (v0 + v_texels) / ATLAS_SIZE),
+            )
+        )
+        self.densities.append((u_texels / u_metres, v_texels / v_metres))
+
+    def cap(self, points, style, bone):
+        start = len(self.vertices)
+        self.vertices.extend(tuple(point) for point in points)
+        self.vertex_bones.extend([bone] * len(points))
+        self.faces.append(tuple(start + index for index in range(len(points))))
+        cell_x, cell_y = STYLES[style]
+        xs = [point.x for point in points]
+        ys = [point.y for point in points]
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
+        uv = []
+        for point in points:
+            u = cell_x + (point.x - min_x) / max(0.0001, max_x - min_x)
+            v = cell_y + (point.y - min_y) / max(0.0001, max_y - min_y)
+            uv.append((u / ATLAS_METRES, v / ATLAS_METRES))
+        self.uvs.append(tuple(uv))
+        self.densities.append((64.0, 64.0))
 
     def box(self, centre, size, style, bone, face_styles=None):
         hx, hy, hz = (value / 2 for value in size)
@@ -148,33 +180,64 @@ class MeshBuilder:
             ((-hx, -hy, hz), x, y, "top"),
             ((-hx, hy, -hz), x, -y, "bottom"),
         ]
-        cell_x, cell_y = STYLES[style]
         for origin, u_axis, v_axis, face_name in faces:
             face_style = (face_styles or {}).get(face_name, style)
-            if face_style != style:
-                face_cell_x, face_cell_y = STYLES[face_style]
-            else:
-                face_cell_x, face_cell_y = cell_x, cell_y
-            start = len(self.vertices)
             points = [
                 centre + Vector(origin),
                 centre + Vector(origin) + u_axis,
                 centre + Vector(origin) + u_axis + v_axis,
                 centre + Vector(origin) + v_axis,
             ]
-            self.vertices.extend(tuple(point) for point in points)
-            self.vertex_bones.extend([bone] * 4)
-            self.faces.append((start, start + 1, start + 2, start + 3))
-            self.uvs.append(
-                (
-                    (face_cell_x / ATLAS_METRES, face_cell_y / ATLAS_METRES),
-                    ((face_cell_x + 1) / ATLAS_METRES, face_cell_y / ATLAS_METRES),
-                    ((face_cell_x + 1) / ATLAS_METRES, (face_cell_y + 1) / ATLAS_METRES),
-                    (face_cell_x / ATLAS_METRES, (face_cell_y + 1) / ATLAS_METRES),
-                )
+            self.quad(points, face_style, bone)
+
+    def tapered_box(self, centre, bottom, top, height, style, bone):
+        cx, cy, cz = centre
+        rings = []
+        for size, z in ((bottom, cz - height / 2), (top, cz + height / 2)):
+            hx, hy = (value / 2 for value in size)
+            rings.append(
+                [
+                    Vector((cx - hx, cy - hy, z)),
+                    Vector((cx + hx, cy - hy, z)),
+                    Vector((cx + hx, cy + hy, z)),
+                    Vector((cx - hx, cy + hy, z)),
+                ]
             )
+        lower, upper = rings
+        for index in range(4):
+            next_index = (index + 1) % 4
+            self.quad([lower[index], lower[next_index], upper[next_index], upper[index]], style, bone)
+        self.cap(list(reversed(lower)), style, bone)
+        self.cap(upper, style, bone)
+
+    def loft(self, rings, style, bone):
+        vertices = []
+        for z, width, depth, centre_y in rings:
+            hx, hy = width / 2, depth / 2
+            bevel = min(hx, hy) * 0.28
+            vertices.append(
+                [
+                    Vector((-hx + bevel, centre_y - hy, z)),
+                    Vector((hx - bevel, centre_y - hy, z)),
+                    Vector((hx, centre_y - hy + bevel, z)),
+                    Vector((hx, centre_y + hy - bevel, z)),
+                    Vector((hx - bevel, centre_y + hy, z)),
+                    Vector((-hx + bevel, centre_y + hy, z)),
+                    Vector((-hx, centre_y + hy - bevel, z)),
+                    Vector((-hx, centre_y - hy + bevel, z)),
+                ]
+            )
+        for lower, upper in zip(vertices, vertices[1:]):
+            for index in range(8):
+                next_index = (index + 1) % 8
+                self.quad([lower[index], lower[next_index], upper[next_index], upper[index]], style, bone)
+        self.cap(list(reversed(vertices[0])), style, bone)
+        self.cap(vertices[-1], style, bone)
 
     def object(self, name, material, armature):
+        for u_density, v_density in self.densities:
+            if not 48 <= u_density <= 80 or not 48 <= v_density <= 80:
+                raise ValueError(f"{name}: texel density {u_density:.1f}/{v_density:.1f} outside 64 px/m +/-25%")
         mesh = bpy.data.meshes.new(name + "_mesh")
         mesh.from_pydata(self.vertices, [], self.faces)
         mesh.update()
@@ -263,48 +326,89 @@ def build_armature(name, bones):
     return obj
 
 
+def add_head(mesh, hunched, skin):
+    if not hunched:
+        mesh.tapered_box((0, 0, 1.465), (0.075, 0.075), (0.09, 0.085), 0.07, skin, "neck")
+        mesh.loft(
+            [
+                (1.50, 0.145, 0.135, 0.005),
+                (1.56, 0.170, 0.155, 0.005),
+                (1.66, 0.175, 0.165, 0.0),
+                (1.715, 0.140, 0.135, -0.005),
+            ],
+            skin,
+            "head",
+        )
+        for eye_x in (-0.035, 0.035):
+            mesh.box((eye_x, 0.0815, 1.62), (0.018, 0.003, 0.016), "eye", "head")
+        mesh.tapered_box((0, 0.091, 1.59), (0.020, 0.018), (0.030, 0.028), 0.045, skin, "head")
+        mesh.box((0, 0.082, 1.645), (0.105, 0.012, 0.014), "hair", "head")
+        mesh.loft(
+            [(1.66, 0.181, 0.171, -0.003), (1.715, 0.170, 0.160, -0.006), (1.75, 0.115, 0.115, -0.010)],
+            "hair",
+            "head",
+        )
+        return
+    mesh.tapered_box((0, 0.15, 1.355), (0.075, 0.075), (0.09, 0.085), 0.07, skin, "neck")
+    mesh.loft(
+        [
+            (1.36, 0.130, 0.130, 0.175),
+            (1.43, 0.155, 0.150, 0.180),
+            (1.54, 0.175, 0.165, 0.180),
+            (1.60, 0.145, 0.140, 0.175),
+        ],
+        skin,
+        "head",
+    )
+    for eye_x in (-0.035, 0.035):
+        mesh.box((eye_x, 0.264, 1.47), (0.018, 0.003, 0.016), "eye", "head")
+    mesh.tapered_box((0, 0.277, 1.44), (0.018, 0.018), (0.030, 0.028), 0.05, skin, "head")
+    mesh.box((0, 0.263, 1.495), (0.105, 0.012, 0.014), "hair", "head")
+    mesh.loft(
+        [(1.56, 0.180, 0.170, 0.175), (1.61, 0.155, 0.150, 0.170), (1.65, 0.105, 0.105, 0.160)],
+        "hair",
+        "head",
+    )
+
+
 def build_body(name, material, armature):
     hunched = name == "shambler"
     skin = "zombie_skin" if hunched else "skin"
     jacket = "zombie_jacket" if hunched else "jacket"
     mesh = MeshBuilder()
     if not hunched:
-        mesh.box((0, 0, 0.94), (0.34, 0.21, 0.20), "trousers", "pelvis")
-        mesh.box((0, 0, 1.225), (0.42, 0.23, 0.39), jacket, "chest")
-        mesh.box((0, 0.01, 1.04), (0.35, 0.22, 0.08), jacket, "spine")
-        mesh.box((-0.10, 0.121, 1.29), (0.12, 0.012, 0.10), jacket, "chest")
-        mesh.box((0, 0, 1.465), (0.09, 0.09, 0.07), skin, "neck")
-        mesh.box((0, 0, 1.60), (0.19, 0.18, 0.20), skin, "head", {"back": "skin_face"})
-        for eye_x in (-0.035, 0.035):
-            mesh.box((eye_x, 0.091, 1.62), (0.018, 0.002, 0.018), "eye", "head")
-        mesh.box((0, -0.005, 1.725), (0.195, 0.19, 0.05), "hair", "head")
-        mesh.box((0, -0.083, 1.625), (0.19, 0.025, 0.15), "hair", "head")
+        mesh.tapered_box((0, 0, 0.94), (0.28, 0.19), (0.32, 0.21), 0.18, "trousers", "pelvis")
+        mesh.loft([(1.03, 0.32, 0.20, 0), (1.30, 0.41, 0.23, 0), (1.42, 0.36, 0.19, 0)], jacket, "chest")
+        mesh.tapered_box((0, 0.005, 1.04), (0.31, 0.20), (0.34, 0.21), 0.08, jacket, "spine")
+        for x in (-0.055, 0.055):
+            mesh.tapered_box((x, 0.104, 1.425), (0.055, 0.020), (0.075, 0.025), 0.07, jacket, "chest")
+        mesh.tapered_box((-0.10, 0.120, 1.28), (0.10, 0.014), (0.11, 0.014), 0.10, jacket, "chest")
+        add_head(mesh, False, skin)
         for side, sign in (("L", -1), ("R", 1)):
-            mesh.box((sign * 0.235, 0, 1.275), (0.09, 0.12, 0.25), jacket, "upper_arm." + side)
-            mesh.box((sign * 0.248, 0.01, 1.03), (0.085, 0.105, 0.24), jacket, "forearm." + side)
-            mesh.box((sign * 0.25, 0.02, 0.855), (0.07, 0.075, 0.11), skin, "hand." + side)
-            mesh.box((sign * 0.105, 0, 0.705), (0.13, 0.15, 0.39), "trousers", "thigh." + side)
-            mesh.box((sign * 0.105, 0, 0.315), (0.12, 0.14, 0.36), "trousers", "shin." + side)
-            mesh.box((sign * 0.105, 0.045, 0.06), (0.13, 0.23, 0.12), "boots", "foot." + side)
+            mesh.tapered_box((sign * 0.235, 0, 1.275), (0.075, 0.10), (0.10, 0.12), 0.25, jacket, "upper_arm." + side)
+            mesh.tapered_box((sign * 0.248, 0.01, 1.03), (0.065, 0.080), (0.085, 0.105), 0.24, jacket, "forearm." + side)
+            mesh.tapered_box((sign * 0.25, 0.02, 0.855), (0.060, 0.065), (0.072, 0.075), 0.11, skin, "hand." + side)
+            mesh.tapered_box((sign * 0.105, 0, 0.705), (0.110, 0.130), (0.125, 0.150), 0.39, "trousers", "thigh." + side)
+            mesh.tapered_box((sign * 0.105, 0, 0.315), (0.100, 0.120), (0.115, 0.140), 0.36, "trousers", "shin." + side)
+            mesh.tapered_box((sign * 0.105, 0.045, 0.06), (0.13, 0.23), (0.115, 0.16), 0.12, "boots", "foot." + side)
     else:
-        mesh.box((0, 0, 0.91), (0.34, 0.21, 0.18), "trousers", "pelvis")
-        mesh.box((0, 0.065, 1.10), (0.40, 0.23, 0.42), jacket, "chest")
-        mesh.box((0, 0.02, 0.91), (0.35, 0.22, 0.10), jacket, "spine")
-        mesh.box((-0.085, 0.185, 1.12), (0.10, 0.012, 0.13), "trousers", "chest")
-        mesh.box((0, 0.15, 1.355), (0.09, 0.09, 0.07), skin, "neck")
-        mesh.box((0, 0.18, 1.48), (0.19, 0.18, 0.24), skin, "head", {"back": "zombie_skin_face"})
-        for eye_x in (-0.035, 0.035):
-            mesh.box((eye_x, 0.271, 1.47), (0.018, 0.002, 0.018), "eye", "head")
-        mesh.box((0, 0.175, 1.625), (0.195, 0.19, 0.05), "hair", "head")
-        mesh.box((0.035, 0.095, 1.51), (0.12, 0.025, 0.17), "hair", "head")
+        mesh.tapered_box((0, 0, 0.91), (0.28, 0.19), (0.32, 0.21), 0.18, "trousers", "pelvis")
+        mesh.loft([(0.89, 0.32, 0.21, 0.02), (1.10, 0.40, 0.23, 0.07), (1.31, 0.37, 0.20, 0.14)], jacket, "chest")
+        mesh.tapered_box((0, 0.02, 0.91), (0.30, 0.20), (0.33, 0.21), 0.10, jacket, "spine")
+        mesh.tapered_box((-0.085, 0.187, 1.12), (0.08, 0.012), (0.10, 0.014), 0.13, "trousers", "chest")
+        for x, z in ((-0.11, 0.86), (0.02, 0.88), (0.12, 0.84)):
+            mesh.tapered_box((x, 0.035, z), (0.055, 0.12), (0.075, 0.13), 0.10, jacket, "spine")
+        add_head(mesh, True, skin)
         for side, sign in (("L", -1), ("R", 1)):
-            mesh.box((sign * 0.195, 0.12, 1.15), (0.09, 0.10, 0.24), jacket, "upper_arm." + side)
+            shoulder_drop = 0.06 if side == "R" else 0.0
+            mesh.tapered_box((sign * 0.195, 0.12, 1.15 - shoulder_drop), (0.07, 0.08), (0.10, 0.10), 0.24, jacket, "upper_arm." + side)
             sleeve = jacket if side == "L" else skin
-            mesh.box((sign * 0.175, 0.16, 0.925), (0.08, 0.08, 0.21), sleeve, "forearm." + side)
-            mesh.box((sign * 0.16, 0.185, 0.77), (0.07, 0.06, 0.10), skin, "hand." + side)
-            mesh.box((sign * 0.105, 0, 0.69), (0.13, 0.15, 0.38), "trousers", "thigh." + side)
-            mesh.box((sign * 0.105, 0, 0.31), (0.12, 0.14, 0.35), "trousers", "shin." + side)
-            mesh.box((sign * 0.105, 0.045, 0.06), (0.13, 0.23, 0.12), "boots", "foot." + side)
+            mesh.tapered_box((sign * 0.175, 0.16, 0.925 - shoulder_drop), (0.06, 0.07), (0.08, 0.08), 0.21, sleeve, "forearm." + side)
+            mesh.tapered_box((sign * 0.16, 0.185, 0.77 - shoulder_drop), (0.055, 0.055), (0.07, 0.06), 0.10, skin, "hand." + side)
+            thigh_width = 0.105 if side == "R" else 0.125
+            mesh.tapered_box((sign * 0.105, 0, 0.69), (0.10, 0.13), (thigh_width, 0.15), 0.38, "trousers", "thigh." + side)
+            mesh.tapered_box((sign * 0.105, 0, 0.31), (0.095, 0.115), (0.11, 0.135), 0.35, "trousers", "shin." + side)
+            mesh.tapered_box((sign * 0.105, 0.045, 0.06), (0.13, 0.23), (0.115, 0.16), 0.12, "boots", "foot." + side)
     return mesh.object(name, material, armature)
 
 
@@ -338,6 +442,18 @@ def aim_bone(armature, bone_name, direction):
     bpy.context.view_layer.update()
 
 
+def thigh_height(armature, pelvis_height):
+    return armature.data.bones["thigh.L"].head_local.z + pelvis_height - armature.data.bones["pelvis"].head_local.z
+
+
+def flatten_foot(armature, side):
+    pose = armature.pose.bones["foot." + side]
+    matrix = pose.bone.matrix_local.copy()
+    matrix.translation = pose.matrix.translation
+    pose.matrix = matrix
+    bpy.context.view_layer.update()
+
+
 def leg_pose(armature, side, hip_height, foot_y, foot_height):
     hip = Vector(((-0.105 if side == "L" else 0.105), 0, hip_height))
     ankle = Vector((hip.x, foot_y, foot_height))
@@ -352,6 +468,23 @@ def leg_pose(armature, side, hip_height, foot_y, foot_height):
     knee = hip + direction * along + perpendicular * bend
     aim_bone(armature, "thigh." + side, knee - hip)
     aim_bone(armature, "shin." + side, ankle - knee)
+    flatten_foot(armature, side)
+
+
+def evaluated_points(mesh):
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    evaluated = mesh.evaluated_get(depsgraph)
+    data = evaluated.to_mesh()
+    points = [evaluated.matrix_world @ vertex.co for vertex in data.vertices]
+    evaluated.to_mesh_clear()
+    return points
+
+
+def settle_on_floor(armature, mesh):
+    lowest = min(point.z for point in evaluated_points(mesh))
+    pose = armature.pose.bones["root"]
+    pose.location += pose.bone.matrix_local.to_3x3().inverted() @ Vector((0, 0, -lowest))
+    bpy.context.view_layer.update()
 
 
 def key_pose(armature, frame):
@@ -367,22 +500,25 @@ def smooth(value):
 
 def locomotion_pose(armature, phase, speed, shamble=False):
     reset_pose(armature)
-    stance = 0.60 if shamble else 0.50
-    hip_base = 0.79 if shamble else 0.82
-    bob = (0.010 if shamble else 0.014) * math.cos(4 * math.pi * phase)
-    translate_world(armature, "pelvis", (0, 0, hip_base - (0.84 if shamble else 0.86) + bob))
+    pelvis_base = 0.77 if shamble else 0.775
+    bob = -(0.010 if shamble else 0.014) * math.cos(4 * math.pi * phase)
+    pelvis_height = pelvis_base + bob
+    translate_world(armature, "pelvis", (0, 0, pelvis_height - (0.84 if shamble else 0.86)))
+    duration = 1.4 if shamble else 1.0
     for side, offset in (("L", 0.0), ("R", 0.5)):
+        stance = (0.60 if side == "L" else 0.45) if shamble else 0.50
         cycle = (phase + offset) % 1.0
-        travel = speed * (1.4 if shamble else 1.0) * stance
+        travel = speed * duration * stance
         if cycle < stance:
-            foot_y = travel * 0.5 - speed * (1.4 if shamble else 1.0) * cycle
+            foot_y = travel * 0.5 - speed * duration * cycle
             foot_z = 0.12
         else:
             swing = (cycle - stance) / (1.0 - stance)
             foot_y = -travel * 0.5 + travel * smooth(swing)
-            foot_z = 0.12 + (0.065 if shamble else 0.12) * math.sin(math.pi * swing)
-        leg_pose(armature, side, hip_base + bob, foot_y, foot_z)
-    arm_angle = (0.22 if shamble else 0.42) * math.sin(2 * math.pi * phase)
+            lift = (0.065 if side == "L" else 0.025) if shamble else 0.12
+            foot_z = 0.12 + lift * math.sin(math.pi * swing)
+        leg_pose(armature, side, thigh_height(armature, pelvis_height), foot_y, foot_z)
+    arm_angle = -(0.22 if shamble else 0.42) * math.sin(2 * math.pi * phase)
     rotate_world(armature, "upper_arm.L", (1, 0, 0), arm_angle)
     rotate_world(armature, "upper_arm.R", (1, 0, 0), -arm_angle)
     rotate_world(armature, "forearm.L", (1, 0, 0), 0.12)
@@ -401,32 +537,38 @@ def sample_pose(character, animation, phase, armature):
         rotate_world(armature, "upper_arm.L", (0, 0, 1), 0.012 * breath)
         rotate_world(armature, "upper_arm.R", (0, 0, 1), -0.012 * breath)
     elif animation == "crouch_idle":
-        hip = 0.30 + 0.003 * breath
-        translate_world(armature, "pelvis", (0, 0, hip - 0.86))
-        leg_pose(armature, "L", hip, 0.05, 0.12)
-        leg_pose(armature, "R", hip, 0.05, 0.12)
+        pelvis_height = 0.18 + 0.003 * breath
+        translate_world(armature, "pelvis", (0, 0, pelvis_height - 0.86))
+        leg_pose(armature, "L", thigh_height(armature, pelvis_height), 0.05, 0.12)
+        leg_pose(armature, "R", thigh_height(armature, pelvis_height), 0.05, 0.12)
         rotate_world(armature, "chest", (1, 0, 0), 0.10)
         rotate_world(armature, "upper_arm.L", (1, 0, 0), 0.22)
         rotate_world(armature, "upper_arm.R", (1, 0, 0), 0.22)
-    elif animation == "lunge":
-        amount = smooth(phase / 0.55)
-        translate_world(armature, "pelvis", (0, 0.15 * amount, -0.06 * amount))
-        rotate_world(armature, "chest", (1, 0, 0), 0.28 * amount)
-        rotate_world(armature, "upper_arm.L", (1, 0, 0), 1.30 * amount)
-        rotate_world(armature, "upper_arm.R", (1, 0, 0), 1.30 * amount)
-        rotate_world(armature, "forearm.L", (1, 0, 0), 0.20 * amount)
-        rotate_world(armature, "forearm.R", (1, 0, 0), 0.20 * amount)
-        leg_pose(armature, "L", 0.78 - 0.06 * amount, 0.20 * amount, 0.12)
-        leg_pose(armature, "R", 0.78 - 0.06 * amount, -0.15 * amount, 0.12)
-    elif animation == "death":
-        amount = smooth(phase)
-        rotate_world(armature, "root", (0, 1, 0), math.pi * 0.5 * amount)
-        translate_world(armature, "root", (0, 0, 0.30 * amount))
-        rotate_world(armature, "upper_arm.L", (1, 0, 0), 0.25 * math.sin(math.pi * phase))
-        rotate_world(armature, "upper_arm.R", (1, 0, 0), 0.25 * math.sin(math.pi * phase))
+    elif animation in ("lunge", "death"):
+        sample_pose(character, "idle", 0, armature)
+        amount = smooth(phase / 0.55) if animation == "lunge" else smooth(phase)
+        if animation == "lunge":
+            pelvis_height = 0.84 - 0.06 * amount
+            translate_world(armature, "pelvis", (0, 0.15 * amount, -0.06 * amount))
+            rotate_world(armature, "chest", (1, 0, 0), 0.28 * amount)
+            rotate_world(armature, "upper_arm.L", (1, 0, 0), 1.30 * amount)
+            rotate_world(armature, "upper_arm.R", (1, 0, 0), 1.30 * amount)
+            rotate_world(armature, "forearm.L", (1, 0, 0), 0.20 * amount)
+            rotate_world(armature, "forearm.R", (1, 0, 0), 0.20 * amount)
+            leg_pose(armature, "L", thigh_height(armature, pelvis_height), 0.20 * amount, 0.12)
+            leg_pose(armature, "R", thigh_height(armature, pelvis_height), -0.15 * amount, 0.12)
+        else:
+            pelvis_height = (0.84 if character == "shambler" else 0.86) - 0.45 * amount
+            translate_world(armature, "pelvis", (0, 0, -0.45 * amount))
+            rotate_world(armature, "root", (0, 1, 0), 1.15 * amount)
+            rotate_world(armature, "chest", (1, 0, 0), 0.55 * amount)
+            rotate_world(armature, "upper_arm.L", (1, 0, 0), 0.65 * amount)
+            rotate_world(armature, "upper_arm.R", (1, 0, 0), 0.65 * amount)
+            leg_pose(armature, "L", thigh_height(armature, pelvis_height), 0.15 * amount, 0.12)
+            leg_pose(armature, "R", thigh_height(armature, pelvis_height), -0.10 * amount, 0.12)
 
 
-def build_actions(character, armature):
+def build_actions(character, armature, mesh):
     actions = {}
     armature.animation_data_create()
     for animation in ANIMATIONS[character]:
@@ -439,6 +581,8 @@ def build_actions(character, armature):
             reset_pose(armature)
             sample_pose(character, animation, phase, armature)
             bpy.context.view_layer.update()
+            if animation == "death":
+                settle_on_floor(armature, mesh)
             key_pose(armature, index + 1)
         actions[animation] = action
     armature.animation_data.action = None
@@ -449,6 +593,73 @@ def build_actions(character, armature):
         strip.name = animation
         track.mute = True
     return actions
+
+
+def group_indices(mesh, group_name):
+    group = mesh.vertex_groups[group_name].index
+    return [vertex.index for vertex in mesh.data.vertices if any(link.group == group for link in vertex.groups)]
+
+
+def validate_motion(character, armature, mesh, actions):
+    left_foot = group_indices(mesh, "foot.L")
+    right_foot = group_indices(mesh, "foot.R")
+    eye_rest_z = 1.47 if character == "shambler" else 1.62
+    eye_indices = [
+        vertex.index
+        for vertex in mesh.data.vertices
+        if abs(vertex.co.z - eye_rest_z) < 0.012 and vertex.co.y > 0.07
+    ]
+    armature.animation_data.action = actions["idle"]
+    bpy.context.scene.frame_set(1)
+    idle_points = evaluated_points(mesh)
+    for animation, action in actions.items():
+        armature.animation_data.action = action
+        first, last = (int(value) for value in action.frame_range)
+        for frame in range(first, last + 1):
+            bpy.context.scene.frame_set(frame)
+            points = evaluated_points(mesh)
+            lowest = min(point.z for point in points)
+            if lowest < -0.005:
+                raise ValueError(f"{character}: {animation} frame {frame} penetrates the floor by {-lowest:.4f} m")
+            phase = (frame - first) / max(1, last - first)
+            if animation in ("crouch_idle", "lunge") and abs(lowest) > 0.005:
+                raise ValueError(f"{character}: {animation} frame {frame} has no floor contact ({lowest:.4f} m)")
+            if animation in ("walk", "shamble"):
+                for side, indices, offset in (("L", left_foot, 0.0), ("R", right_foot, 0.5)):
+                    stance = (0.60 if side == "L" else 0.45) if animation == "shamble" else 0.50
+                    cycle = (phase + offset) % 1.0
+                    if cycle < stance:
+                        sole = min(points[index].z for index in indices)
+                        if abs(sole) > 0.005:
+                            raise ValueError(f"{character}: {animation} {side} stance sole is {sole:.4f} m at frame {frame}")
+            if animation == "crouch_idle":
+                for indices in (left_foot, right_foot):
+                    sole = min(points[index].z for index in indices)
+                    if abs(sole) > 0.005:
+                        raise ValueError(f"{character}: crouch sole is {sole:.4f} m at frame {frame}")
+                eye_height = sum(points[index].z for index in eye_indices) / len(eye_indices)
+                if not 0.90 <= eye_height <= 1.00:
+                    raise ValueError(f"{character}: crouch eye height {eye_height:.3f} m is outside 0.95 m +/-5 cm")
+            if frame == first and animation not in LOOPS:
+                difference = max((a - b).length for a, b in zip(points, idle_points))
+                if difference > 0.02:
+                    raise ValueError(f"{character}: {animation} starts {difference:.4f} m from idle")
+            if frame == last and animation == "death" and abs(lowest) > 0.005:
+                raise ValueError(f"{character}: death ends {lowest:.4f} m from the floor")
+        if animation == "walk":
+            heights = []
+            for frame in (first, first + round((last - first) * 0.25), first + round((last - first) * 0.5), first + round((last - first) * 0.75)):
+                bpy.context.scene.frame_set(frame)
+                heights.append(armature.pose.bones["pelvis"].head.z)
+            if not heights[0] < heights[1] or not heights[2] < heights[3]:
+                raise ValueError(f"{character}: pelvis is not lowest at double support")
+            bpy.context.scene.frame_set(first + round((last - first) * 0.30))
+            left_ankle = armature.pose.bones["foot.L"].head.y
+            points = evaluated_points(mesh)
+            hand_indices = group_indices(mesh, "hand.R")
+            right_hand = sum(points[index].y for index in hand_indices) / len(hand_indices)
+            if left_ankle * right_hand >= 0:
+                raise ValueError(f"{character}: arm swing is not contralateral to the opposite leg")
 
 
 def gltf_document(path):
@@ -516,6 +727,10 @@ def validate_export(path, character):
         raise ValueError(f"{path.name}: animations {sorted(names)} do not match the contract")
     for animation in animations:
         name = animation["name"]
+        times = accessor(document, binary, animation["samplers"][0]["input"])
+        duration = times[-1][0] - times[0][0]
+        if abs(duration - DURATIONS[character][name]) > 0.0001:
+            raise ValueError(f"{path.name}: {name} duration {duration:.4f} s does not match {DURATIONS[character][name]:.4f} s")
         changed = False
         for channel in animation["channels"]:
             sampler = animation["samplers"][channel["sampler"]]
@@ -700,7 +915,8 @@ def build_all(export_dir, blend_path, render_dir=None):
         rig = build_armature(character, skeleton(character == "shambler"))
         mesh = build_body(character, material, rig)
         characters[character] = (rig, mesh)
-        actions[character] = build_actions(character, rig)
+        actions[character] = build_actions(character, rig, mesh)
+        validate_motion(character, rig, mesh, actions[character])
         export_character(character, rig, mesh, export_dir / f"{character}.glb")
     characters["survivor"][0].location.x = -0.7
     characters["shambler"][0].location.x = 0.7
