@@ -41,6 +41,10 @@ extends SceneTree
 #             when the heir can see it.
 #   RUN-OVER  killing every colony body opens the end panel in the chronicle's words, releases the
 #             mouse, and W proposes no move or aim.
+#   DISTRICT  a fresh scene boots the shipped district size and seed (true positive), and the
+#             gate's small override really boots a smaller district, the one every lane above
+#             walks (true negative). Only a fresh, unparented instance is read for the default: no
+#             sim world is built for it.
 
 const SCENE_PATH: String = "res://presentation/first_person/first_person.tscn"
 const WorkPanel = preload("res://ui/work_panel.gd")
@@ -52,8 +56,13 @@ const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
+const SimBoot = preload("res://sim/boot.gd")
+const FirstPerson = preload("res://presentation/first_person/first_person.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
 
+# The district the gate boots. Small on purpose: every lane walks the sim, and the shipped 256 district
+# is for the player, not for a gate. DISTRICT proves this is really smaller than the shipped default.
+const SMALL_DISTRICT_TILES: int = 64
 const TICK_SECONDS: float = 1.0 / 20.0
 const EPSILON: float = 0.0001
 
@@ -73,13 +82,16 @@ func _run() -> void:
 		_fail("SCENE", "could not load %s" % SCENE_PATH)
 		_finish(old_size)
 		return
+	var ok: bool = _district_default(packed)
 	var scene: Node = packed.instantiate()
+	scene.set("district_tiles", SMALL_DISTRICT_TILES)
 	root.add_child(scene)
 	scene.set_process(false)
 	await process_frame
 
-	var ok: bool = _scene_shape(scene)
+	ok = _scene_shape(scene) and ok
 	if ok:
+		ok = _district(scene) and ok
 		var spawn: Vector2 = scene.call("rendered_player_position")
 		ok = _npc(scene) and ok
 		ok = _mapping(scene) and ok
@@ -103,7 +115,7 @@ func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)
-		print("FIRST_PERSON_OK the opt-in scene boots the real sim, maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
+		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
 		quit(0)
 		return
 	for failure in _failures:
@@ -114,6 +126,37 @@ func _finish(old_size: Vector2i, ok: bool = false) -> void:
 func _fail(lane: String, message: String) -> bool:
 	_failures.append(lane + ": " + message)
 	return false
+
+
+# --- DISTRICT -------------------------------------------------------------------------------
+
+# True positive: the scene's default boot is the shipped district size and seed, the ones
+# `session.gd` and `main.gd` boot. The fresh instance is freed unparented, so no sim world is built.
+func _district_default(packed: PackedScene) -> bool:
+	var fresh: Node = packed.instantiate()
+	var default_tiles: int = int(fresh.get("district_tiles"))
+	fresh.free()
+	var ok: bool = true
+	if default_tiles != SimTileMap.DISTRICT_TILES:
+		ok = _fail("DISTRICT", "a fresh scene boots %d tiles, not the shipped %d" % [default_tiles, SimTileMap.DISTRICT_TILES])
+	if FirstPerson.SEED != SimBoot.DISTRICT_SEED:
+		ok = _fail("DISTRICT", "the scene seed %d is not the shipped district seed %d" % [FirstPerson.SEED, SimBoot.DISTRICT_SEED])
+	return ok
+
+
+# True negative: the override this gate sets really boots a smaller district than the shipped one,
+# and the map every other lane walks is that smaller one.
+func _district(scene: Node) -> bool:
+	var map: Variant = scene.get("map")
+	if map == null:
+		return _fail("DISTRICT", "the small-district scene kept no map")
+	var booted: int = int(map.w)
+	var ok: bool = true
+	if int(scene.get("district_tiles")) != SMALL_DISTRICT_TILES or booted != SMALL_DISTRICT_TILES:
+		ok = _fail("DISTRICT", "the gate's override booted %d tiles, not %d" % [booted, SMALL_DISTRICT_TILES])
+	if SMALL_DISTRICT_TILES >= SimTileMap.DISTRICT_TILES or booted >= SimTileMap.DISTRICT_TILES:
+		ok = _fail("DISTRICT", "the gate's district (%d) is not smaller than the shipped %d" % [booted, SimTileMap.DISTRICT_TILES])
+	return ok
 
 
 # --- SHAPE ----------------------------------------------------------------------------------

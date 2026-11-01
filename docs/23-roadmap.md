@@ -163,10 +163,6 @@ plan and spatial/art contract. The existing default remains top-down during
 conversion. The source baseline is archived on GitHub at
 `archive/topdown-colony-pre-first-person-2026-11-01`. Planned pieces:
 
-- **First-person simulation and ledger foundation.** An opt-in scene driven by
-  the real sim, mouse look and camera-relative movement, sim-owned collision,
-  NPC bodies and a nearby ledger opening functional work priorities; a scene
-  gate with positive and negative interaction/input paths, fully routed.
 - **Blender pixel-textured colony starter kit.** Original desk, ledger, shelf,
   barricade and modular wall, editable source, builder, atlas, GLBs and preview.
 - **First-person starter-kit integration.** Consume the kit in the foundation,
@@ -2416,6 +2412,109 @@ What landed and what proved it, system by system (condensed from the retired bac
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **First person from the title, 2026-11-01.** Advances "First-person expedition and default
+  switch" with the playable on-ramp: the owner can reach the experiment from the game's own title
+  and come back, without the default itself changing.
+  - **The door.** `ui/shell.gd`'s title gains one row, "first person (experimental)", above quit.
+    `main.gd`'s `first_person` action swaps the whole scene for
+    `presentation/first_person/first_person.tscn`. The default boot, New run, Continue and
+    `project.godot`'s main scene are untouched.
+  - **The district.** The scene boots through the single boot-size rule #270 established:
+    `SimBoot.playable(SimBoot.DISTRICT_SEED, district_tiles)` with `district_tiles` defaulting to
+    `SimTileMap.DISTRICT_TILES`. The gate's small override is the only other size.
+  - **The way back.** The run-over panel's one action and a second Escape with the mouse already
+    released both change the scene back to `presentation/main.tscn`, which boots into its title
+    state. There is no first-person save slot on this branch, so no Continue is offered for it.
+  - **The gate.** `npm run godot:check:play` (FIRST-PERSON lane) prints `PLAY_OK`. True negative:
+    New run leaves `current_scene` on the top-down scene with a real world and loads no
+    first-person scene. True positive: the row opens the first-person scene with a live sim and a
+    current camera. Both ways back land on the title with the session in `TITLE`.
+  - **Not in this piece.** The default scene is not switched; the row is labelled experimental.
+    `godot:export` was skipped locally because this machine has no export templates; the preset
+    exports all resources, so the scene is in the PCK.
+  - **Record.** `docs/planning/first-person-title-report.md`.
+
+- **First-person succession and the end of a run, 2026-11-01.** Advances "First-person expedition
+  and default switch": dying can hand the camera to an heir, and the last death ends the run on a
+  screen instead of leaving the corpse under a live HUD.
+  - **The handoff.** `first_person.gd` watches `world.player` and `world.runOver` after every tick
+    and at the top of every frame. A handoff cuts the camera to the heir with no interpolated
+    glide, closes any open ledger or inventory sheet, clears held keys, puts the top-down
+    chronicle's own succession sentence on the HUD, and re-collects bodies so the dead body is
+    drawn as the corpse it now is (`body_view.gd`).
+  - **The end.** `world.runOver` releases the mouse, holds the clock, and shows the chronicle's
+    epitaph in the shell's danger frame, with one action that leaves the run. The dead-and-waiting
+    guard ignores input in any frame between a death and its heir; the sim currently hands over
+    inside the death, so it produces none.
+  - **The gate.** `npm run godot:check:first_person` (SUCCESSION and RUN-OVER lanes) prints
+    `FIRST_PERSON_OK`. True positive: kill the player with an heir alive; the camera equals the
+    heir's sim position on the next frame, the HUD says "You are <name> now.", W walks the heir and
+    the corpse is drawn. True negative: a non-player death moves neither the player nor the camera.
+    RUN-OVER: killing every colony body opens the end panel, releases the mouse and records no W
+    move or aim.
+  - **Not in this piece.** The corpse is the placeholder capsule in the corpse colour, not art;
+    the end panel's destination (a first-person title flow) is a later slice.
+  - **Record.** `docs/planning/first-person-succession-report.md`.
+
+- **First-person containers and the inventory sheet, 2026-11-01.** Advances "First-person
+  scavenging and personal equipment": a player can walk up to a world container, open it, and take
+  real items through the existing grid inventory.
+  - **The scene.** `first_person.gd` draws one labelled placeholder per sim `searchable` entity at
+    its sim position (`container_view.gd`). E in reach and in the eye's cone pushes the top-down
+    context menu's `container.open` command; the real `ui/inventory_panel.gd` opens on the player's
+    own bags with the box as its first column, and a take is the sheet's ordinary `item.move`.
+    Reach, the first-open table roll and every fit rule stay the sim's.
+  - **Refusals.** Out of reach, off the aim and through an opaque wall are refused in the ledger's
+    own words; a searched-and-empty box says it has already been through. Escape sends
+    `container.close`, closes the sheet and gives the mouse back. The body stands still under the
+    sheet while the clock runs, copying `main.gd` -- marked a reversible default, because docs/33
+    still leaves the inventory pause policy open.
+  - **The gate.** `npm run godot:check:first_person` (CONTAINER lane) prints `FIRST_PERSON_OK`.
+    True positive: E opens a real box, a take moves an item through `item.move`, and the
+    box-plus-player item total is unchanged. True negatives: off-aim, out-of-reach and through-wall
+    refusals with words; a walking key does not move the body under the sheet.
+  - **Not in this piece.** The boxes are placeholders with no furniture collision; the screen is
+    the full sheet, not the top-down game's small transfer window; equipment is later.
+  - **Record.** `docs/planning/first-person-containers-report.md`.
+
+- **First-person scene on the shipped district size, 2026-11-01.** Advances "First-person
+  simulation and ledger foundation": the opt-in scene now boots the district the top-down game boots.
+  - **The boot.** `first_person.gd` boots `SimBoot.playable(SimBoot.DISTRICT_SEED, district_tiles)`,
+    with `district_tiles` defaulting to `SimTileMap.DISTRICT_TILES` (256), the size `session.gd`
+    boots. The gate sets a 64-tile override before it adds the scene, so it stays fast.
+  - **Measured.** Headed at 1280x720, standing at spawn, 300 frames, three runs per side, on a Ryzen 7
+    7800X3D and an RTX 5090 (Windows 11, Godot 4.7.1, 2026-11-01). Build went from 121 ms at 64 tiles
+    to 1032 ms at 256, and mean frame wall from 0.69 ms to 0.97 ms. Both sit under the 2 s and 10 ms
+    thresholds, so the district meshes were not split into chunks. The table is in
+    `docs/planning/first-person-district-report.md`.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, DISTRICT lane)
+    prints `FIRST_PERSON_OK`. True positive: a fresh instance defaults to the shipped size and seed.
+    True negative: the gate's 64-tile override really boots a smaller map. Both were mutation-tested.
+  - **Not in this piece.** Chunking. The scene still draws the whole district as one ground mesh and
+    one solid mesh.
+
+- **The first-person foundation, 2026-11-01.** docs/23's "First-person simulation and ledger
+  foundation", the first delivery of [docs/39](39-first-person-pivot.md).
+  - **The scene.** `godot/presentation/first_person/first_person.tscn` boots `SimBoot.playable` on
+    a fixed seed and a 64-tile district and steps it on the same 20 Hz accumulator. Input is the
+    existing `move` and `aim` commands, camera-relative; the sim owns position and collision, and
+    the camera follows the interpolated sim position. `district_view.gd` builds one floor quad per
+    tile and one box per solid tile from `SimTileMap.is_solid`, sim x/y on Godot x/z at one metre a
+    tile. `body_view.gd` draws placeholder capsules only where `world.vision.detail` says the
+    player sees a body; the player has no third-person body.
+  - **The ledger.** A desk and ledger stand near the safe spawn (`prop_view.gd`, at the published
+    sizes in `assets.gd`, or the GLB when it exists). E in reach and on the aim opens the real
+    `ui/work_panel.gd`, whose priority clicks send `job.priority`; its Skills button opens the
+    read-only `ui/web_panel.gd`. There is no key that opens the panel elsewhere.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, shard 1)
+    prints `FIRST_PERSON_OK`. It drives the real scene with key events and asserts the axis map,
+    sim stepping, sim collision, E refused out of reach, off the aim and through a wall, the
+    priority mutation, input capture and release, a digit-free HUD, and no physics body (a planted
+    `CharacterBody3D` proves the scanner fails).
+  - **Not in this piece.** Art (placeholder boxes and capsules), containers, combat, the shipped
+    district size. The desk has no sim collision of its own. The default boot stays top-down.
+    `docs/planning/first-person-foundation-report.md` has the full lane list and limits.
 
 - **The round you load, 2026-10-28.** docs/23's "Choosing which round to fire" and "The magazine
   remembers what you loaded", together (firearms batch piece F2; docs/30's "The round you load").
