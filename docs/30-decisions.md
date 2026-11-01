@@ -7646,3 +7646,40 @@ frozen oracle, engine pin, budgets and review/merge policy still apply. No new
 walkable floors, jumping, pause policy or foreman authority was settled by this
 call. docs/33 records those open details. This entry records direction and the
 archive, not completion of the conversion.
+
+## The reach arrives at the chest as well as the middle, 2026-11-01
+
+Slice 2 of docs/40 ("The segment, and melee stops going through walls") took these engineering
+calls. Each one is a reading docs/40 left open or a correction to it, not an owner decision.
+
+- **A blow is traced to the target's mid-height or its chest, and lands if either is clear.**
+  docs/40 named the mid-height alone. Measured on its own heights, that cannot be what it meant: a
+  standing survivor's shoulder is 1220 mm and a zombie's mid-height 825, and from bodies pressed
+  to either face of a window tile the line is already at 906 mm when it leaves the tile, under the
+  1000 mm sill. So with the mid-height alone no swing through a window could ever land, which
+  contradicts the contract's own "a swing through an unboarded window works". The chest
+  (`SimSpace.REACH_TARGET_PERMILLE`, 750 thousandths of the cylinder, 1237 mm on a zombie) is level
+  with a standing shoulder and passes the aperture, and a crouched shoulder (550 mm) still meets
+  the sill, which is the contract's other claim. It also keeps a standing swing over a car's bonnet
+  landing, as it always has. Two points rather than one mirrors perception's "head point or chest
+  point" in docs/40. `godot:m2:space` PAIRS holds both lines through the window.
+- **The two tiles the bodies stand in are not in the way, unless they stop movement.** Low is
+  walkable today (docs/40 question 4), so a body standing in a car's footprint would otherwise be
+  blocked by its own tile and unable to swing out of it. A point inside a wall is still inside the
+  wall. This is the shadowcast's own convention, where the observer's tile and the tile seen are
+  both visible. ENDS holds it.
+- **A line through the exact corner where two tiles meet tests both tiles beside the corner,** so
+  a blow cannot pass between two walls that touch diagonally. CORNER holds it.
+- **Touching a band's face passes it.** A band stops a segment only where their heights overlap
+  strictly, so a line level with a sill's top clears the sill.
+- **A world without a tile map reads its wall list as full-height walls** (`SimSpace.map_of`).
+  Every R1 fixture world, and the contact and swipe gates' wall rows, have only `map_cells`.
+- **A bare pair of positions reads as a shambler reaching a standing survivor.**
+  `SimShambler._clear_contact` keeps its old signature for that reason (`godot:m2:contact` calls it
+  directly with positions) and takes the two bodies as optional arguments; every caller in the sim
+  passes them.
+- **`npc_combat._engage` still starts a swing on distance.** docs/40 names `can_strike` as the
+  NPC's reach question, and the attack walk asks it. `_engage` and the instinct defence pick their
+  threat through `SimRanged.can_target`, so a wall already hides the threat, but a colonist crouched
+  at a window can start a swing that `_resolve_strike` then refuses. That is a wasted swing, not a
+  hit through the sill. It is named here, not changed, because it is outside this slice.
