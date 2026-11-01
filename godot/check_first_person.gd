@@ -159,6 +159,7 @@ func _run() -> void:
 		ok = _verbs(scene) and ok
 		ok = _stance(scene) and ok
 		ok = _reports(scene) and ok
+		# The speed lane reads keys, so it runs before the run-over lane, which leaves input swallowed.
 		# Save before the lanes that kill the colony: the run-over lane leaves input swallowed.
 		ok = _save(scene) and ok
 		ok = _art(scene) and ok
@@ -166,6 +167,7 @@ func _run() -> void:
 		ok = _light(scene) and ok
 		ok = _succession(scene) and ok
 		ok = _anim(scene) and ok
+		ok = _speed(scene) and ok
 		ok = _run_over(scene) and ok
 	scene.queue_free()
 	await process_frame
@@ -177,7 +179,7 @@ func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)
-		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, swings a bat into a shambler and fires a round through the top-down commands while the ledger refuses both, misses a body behind the look, and leaves a refused reload wordless, opens and shuts a door through the sim's own verb from the tile the eye is on while a door out of reach or looked away from sends nothing, takes the top-down stance keys and eases the eye to the sim's posture height while the ledger refuses the keys, reads the chronicle's own lines on the ledger's Reports page and moves the read mark, lights noon by the sim's clock and darkens midnight, turns a carried torch into the eye's spot at the sim's range and cone and out when it burns, and keeps a body behind a wall undrawn, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, saves and loads through the sim's own save in its own slot, loads the desk and ledger from their GLBs at the published sizes with nearest-filtered materials and stands every preview prop on its base, names every body's animation state from the sim (stand, walk, run, crouch, crawl, swing, lunge, grab, stagger, death) with a phase in 0..1 while a corpse stays dead and a living body never does, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
+		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, swings a bat into a shambler and fires a round through the top-down commands while the ledger refuses both, misses a body behind the look, and leaves a refused reload wordless, opens and shuts a door through the sim's own verb from the tile the eye is on while a door out of reach or looked away from sends nothing, takes the top-down stance keys and eases the eye to the sim's posture height while the ledger refuses the keys, reads the chronicle's own lines on the ledger's Reports page and moves the read mark, lights noon by the sim's clock and darkens midnight, turns a carried torch into the eye's spot at the sim's range and cone and out when it burns, and keeps a body behind a wall undrawn, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, saves and loads through the sim's own save in its own slot, loads the desk and ledger from their GLBs at the published sizes with nearest-filtered materials and stands every preview prop on its base, names every body's animation state from the sim (stand, walk, run, crouch, crawl, swing, lunge, grab, stagger, death) with a phase in 0..1 while a corpse stays dead and a living body never does, steps the clock 1x and 3x on the top-down speed keys at three times the ticks and holds it on P while the ledger refuses the keys, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
 		quit(0)
 		return
 	for failure in _failures:
@@ -2439,6 +2441,77 @@ func _living_colonist(world: Variant, exclude: int) -> int:
 			continue
 		return e
 	return -1
+
+
+# --- SPEED ----------------------------------------------------------------------------------
+
+# The clock's keys are the top-down game's: "faster" (=) and "slower" (-) step the ladder 1x and 3x, P holds
+# the world at zero. Over a fixed span of frames, 3x advances three times the ticks of 1x. A key that is not
+# a speed key changes nothing, and the ledger refuses the speed keys, as main.gd refuses them under a sheet.
+func _speed(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	if bool(scene.get("menu_open")):
+		scene.call("close_ledger_menu")
+	if bool(scene.get("paused")):
+		_key(KEY_P, true)
+	_place_player(scene, _find_open_area((scene.get("map") as Variant), 2))
+	_key(KEY_MINUS, true)
+	_key(KEY_MINUS, true)
+	if int(scene.get("speed")) != 1:
+		return _fail("SPEED", "the slower key did not settle the clock at 1x (speed %d)" % int(scene.get("speed")))
+
+	# True positive: three times the ticks at 3x as at 1x, over the same frames.
+	var at_1x: int = _frames_ticks(scene, world, 60)
+	_key(KEY_EQUAL, true)
+	if int(scene.get("speed")) != 3:
+		return _fail("SPEED", "the faster key did not step the clock to 3x (speed %d)" % int(scene.get("speed")))
+	var at_3x: int = _frames_ticks(scene, world, 60)
+	if at_1x < 15:
+		ok = _fail("SPEED", "1x advanced only %d ticks in 60 frames, so the ratio proves nothing" % at_1x)
+	elif absi(at_3x - 3 * at_1x) > 2:
+		ok = _fail("SPEED", "3x advanced %d ticks where 1x advanced %d: wanted about three times as many" % [at_3x, at_1x])
+
+	# True positive: P holds the clock at zero, and the same key lets it run again.
+	_key(KEY_P, true)
+	if not bool(scene.get("paused")):
+		ok = _fail("SPEED", "P did not pause the clock")
+	if _frames_ticks(scene, world, 60) != 0:
+		ok = _fail("SPEED", "the clock advanced while P held it")
+	_key(KEY_P, true)
+
+	# True negative: a key that is not a speed key changes nothing (Q is bound to nothing here).
+	var before: int = int(scene.get("speed"))
+	_key(KEY_Q, true)
+	if int(scene.get("speed")) != before or bool(scene.get("paused")):
+		ok = _fail("SPEED", "a key that is not a speed key changed the clock")
+
+	# True negative: the ledger refuses the speed keys.
+	scene.call("open_ledger_menu")
+	_key(KEY_MINUS, true)
+	var under_ledger: int = int(scene.get("speed"))
+	scene.call("close_ledger_menu")
+	if under_ledger != 3:
+		ok = _fail("SPEED", "the slower key changed the clock while the ledger was open")
+
+	# The HUD says the clock in words, with no digit.
+	var words: String = _joined_hud(scene)
+	if not words.contains("Time is normal speed") and not words.contains("Time is fast"):
+		ok = _fail("SPEED", "the HUD does not say the clock in words")
+	for line in scene.call("hud_lines") as Array:
+		if _has_digit(String(line)):
+			ok = _fail("SPEED", "the HUD draws a digit: %s" % String(line))
+
+	_key(KEY_MINUS, true)
+	return ok
+
+
+# Frames of the scene's own frame function, each a 60th of a second; returns the sim ticks that ran.
+func _frames_ticks(scene: Node, world: Variant, frames: int) -> int:
+	var start: int = int(world.tick)
+	for i in frames:
+		scene.call("_process", 1.0 / 60.0)
+	return int(world.tick) - start
 
 
 # --- fixtures -------------------------------------------------------------------------------
