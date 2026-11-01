@@ -33,6 +33,7 @@ const SessionRes = preload("res://presentation/session.gd")
 const RenderInterp = preload("res://presentation/interp.gd")
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
+const HeldWeapon = preload("res://presentation/first_person/held_weapon.gd")
 const PropView = preload("res://presentation/first_person/prop_view.gd")
 const ContainerView = preload("res://presentation/first_person/container_view.gd")
 const SkyView = preload("res://presentation/first_person/sky_view.gd")
@@ -63,12 +64,10 @@ const LEDGER_REACH_M: float = 1.80
 const LEDGER_AIM_DOT: float = 0.866
 # Where the eye aims on a container box: its middle, not its top or its foot.
 const CONTAINER_AIM_HEIGHT_M: float = 0.92
-# Interim combat feedback: a short view kick on a swing or shot, and the placeholder viewmodel's
-# anchor in the lower right. No reticle and no centre dot -- docs/40 owner question 6's default.
+# Interim combat feedback: a short view kick on a swing or shot. No reticle and no centre dot --
+# docs/40 owner question 6's default. The view model itself is `held_weapon.gd`.
 const KICK_RADIANS: float = 0.022
 const KICK_DECAY_PER_SECOND: float = 0.15
-const HELD_WEAPON_POSITION: Vector3 = Vector3(0.33, -0.24, -0.58)
-const HELD_WEAPON_ROTATION_DEG: Vector3 = Vector3(-6.0, 14.0, 0.0)
 # How finely the look ray is walked through the tile grid when it looks for a door or window (metres).
 const VERB_STEP_M: float = 0.02
 
@@ -128,9 +127,10 @@ var _run_over_open: bool = false
 var _news: String = ""
 var _news_until_ms: int = 0
 var _epitaph: Array[String] = []
-# The placeholder viewmodel in the lower right, and the kick it answers a swing or shot with.
-var _held_weapon: MeshInstance3D = null
-var _held_weapon_size: Vector3 = Vector3.ZERO
+# The equipped weapon in the lower right: the equipped item's model, assembled from the sim's parts,
+# or the interim placeholder for an item with no model. It also answers the kick, which it inherits
+# from the camera.
+var _held_weapon: Node3D = null
 var _kick: float = 0.0
 # The camera's eye height in metres, eased toward the sim's posture eye. Presentation only.
 var _eye_m: float = 1.62
@@ -760,56 +760,28 @@ func _kick_camera() -> void:
 	_kick = -KICK_RADIANS
 
 
-# The placeholder viewmodel: a box in the lower right, sized by the weapon's own class cue (a
-# firearm's range, a melee weapon's reach), hidden for bare hands. Art comes later; this is the
-# shape that says something is in hand. It has no collision and never moves on its own.
+# The equipped weapon view: the item's own model assembled from the sim's installed parts, or the
+# placeholder box for an item this kit has no model for. `held_weapon.gd` owns both; this scene
+# only hands it the world each frame. No collision, and it never moves on its own.
 func _build_held_weapon() -> void:
-	_held_weapon = MeshInstance3D.new()
-	_held_weapon.name = "HeldWeaponPlaceholder"
-	var box: BoxMesh = BoxMesh.new()
-	box.size = Vector3(0.08, 0.09, 0.45)
-	_held_weapon.mesh = box
-	var material: StandardMaterial3D = StandardMaterial3D.new()
-	material.albedo_color = Color(0.36, 0.31, 0.24)
-	material.roughness = 1.0
-	_held_weapon.material_override = material
-	_held_weapon.position = HELD_WEAPON_POSITION
-	_held_weapon.rotation_degrees = HELD_WEAPON_ROTATION_DEG
-	_held_weapon.visible = false
+	_held_weapon = HeldWeapon.new()
+	_held_weapon.name = "HeldWeapon"
 	camera.add_child(_held_weapon)
 
 
 func _update_held_weapon() -> void:
 	if _held_weapon == null or world == null:
 		return
-	if _run_over_open:
-		_held_weapon.visible = false
-		return
-	var player: int = int(world.player)
-	var armed: bool = not SimMelee.is_unarmed(world, player)
-	_held_weapon.visible = armed
-	if not armed:
-		return
-	# `SimMelee.is_unarmed` is the one predicate for "fighting with nothing" (BARE_HANDS carries
-	# the `unarmed` flag; a ranged weapon always counts). The box's length follows the profile's
-	# own reach: a rifle reads longer than a pistol, a bat shorter than a spear.
-	var size: Vector3 = Vector3(0.07, 0.08, 0.45)
-	var ranged: Variant = world.components.get_component(player, "rangedWeapon")
-	if ranged is Dictionary:
-		var range_metres: float = float((ranged as Dictionary).get("rangeMetres", 12.0))
-		size = Vector3(0.09, 0.10, clampf(0.30 + range_metres * 0.018, 0.38, 0.95))
-	else:
-		var melee: Variant = world.components.get_component(player, "meleeWeapon")
-		if melee is Dictionary:
-			var reach: float = float((melee as Dictionary).get("reachMetres", 1.0))
-			size = Vector3(0.07, 0.07, clampf(0.18 + reach * 0.35, 0.30, 0.85))
-	if not size.is_equal_approx(_held_weapon_size):
-		_held_weapon_size = size
-		(_held_weapon.mesh as BoxMesh).size = size
+	_held_weapon.call("update", world, Time.get_ticks_msec() / 1000.0, _run_over_open)
 
 
 func held_weapon_visible() -> bool:
-	return _held_weapon != null and _held_weapon.visible
+	return _held_weapon != null and bool(_held_weapon.call("visible_any"))
+
+
+## The held-weapon view for the gate: the assembled model, its drawn set and its sockets.
+func held_weapon_node() -> Node3D:
+	return _held_weapon
 
 
 # --- containers and the inventory sheet ------------------------------------------------------

@@ -2413,6 +2413,39 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **The held weapon from the sim's own parts, 2026-11-01.** Advances the weapon plan (W1 and W2,
+  the view model and the assembly): the first-person view draws the equipped item's kit model,
+  assembled from the parts the sim says are installed, in place of the interim placeholder box.
+  - **The model.** `presentation/first_person/held_weapon.gd` hangs off the camera at the lower
+    right. The kit's held pose puts each model's origin at `grip_r`, so the model is parented at the
+    grip anchor with a little sway; the existing camera kick still moves the whole view.
+  - **The assembly.** The equipped item comes from `rangedWeapon.source` / `meleeWeapon.source`. A
+    ranged weapon draws its receiver and each installed visible part under the receiver's
+    `socket_<slot>`; a muzzle device goes under the installed barrel's own `socket_muzzle` when the
+    barrel has one. The hidden slots (`internal`, `spring`, `sear`, `extractor`) are skipped -- 324
+    of a default pistol's 1,430 triangles. A melee weapon draws its whole model and adds no parts:
+    the fire axe already draws its head and haft, so the content's default parts are not stacked on
+    it. A part with no model leaves its socket empty and is listed; an item with no model keeps the
+    placeholder box.
+  - **The rebuild rule.** The drawn set is compared by base ids and rebuilt only when it changes, so
+    an equip, a field swap or a bench shows up and a still frame does no model work.
+  - **The seam.** The manifest loader is `presentation/first_person/models.gd` (the parallel
+    manifest piece). This file calls only `resolve(item_id)` and `instance(item_id)`; until that
+    lands the HELD lane prints `FIRST_PERSON_SKIP` and the placeholder box is under test. There is
+    no second loader in this branch.
+  - **The gate.** `godot:check:first_person` (HELD lane): a real service pistol equipped through
+    `SimInventory.equip` draws its receiver, barrel and magazine, each under its socket, and its
+    drawn set equals the sim's installed visible set; the suppressor fitted through `item.attach`
+    appears on the barrel's `socket_muzzle`; detaching it in the sim makes the view's own `verify`
+    fail until it repaints; bare hands draw nothing; the bat is drawn whole with no added head.
+  - **Measured.** Headed 1280x720 at spawn with the pistol held, 300 frames after 30 warmup, three
+    runs a side: before median 1.464 ms (1.464, 1.456, 1.724); after median 1.716 ms (1.785, 1.716,
+    1.530). About 0.25 ms more, and far under docs/22's 10 ms draw target.
+  - **Not in this piece.** No hands or arms (a later art piece); NPCs get no view model; the drawn
+    meshes stay separate nodes so each part's socket is visible to the gate (no merge); the bench
+    cutaway of the internals, and separate melee part models, are later.
+  - **Record.** `docs/planning/first-person-held-weapon-report.md`.
+
 - **The first-person weapon kit: the socket contract and its first models, 2026-11-01.** Art
   piece 1 of the weapon plan, the piece that blocks the modular-firearm assembly code. The
   socket contract and its first models are built in Blender, reproducibly. The README beside

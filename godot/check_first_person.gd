@@ -35,6 +35,11 @@ extends SceneTree
 #             camera kick and no reticle or centre dot, the placeholder weapon shows only with
 #             something in hand, the ledger refuses the same press, a look away misses, and a
 #             reload with nothing to load is the sim's refusal with no words from the scene.
+#   HELD      the equipped weapon in the lower right is the item's own model, assembled from the
+#             sim's installed visible parts, each under its socket: a service pistol shows its
+#             receiver, barrel and magazine; fitting the suppressor through `item.attach` puts it on
+#             the barrel's socket_muzzle; a view that no longer matches the sim fails its own check;
+#             bare hands show nothing; the bat is drawn whole with no added head.
 #   PRIORITY  a click on the panel's first priority cell dispatches a real `job.priority`, the
 #             colonist's row changes and turns Manual, and the player is never one of the rows.
 #   SPEECH    every line the first-person HUD draws is digit-free, it names the controls and the
@@ -83,6 +88,7 @@ const SimRoster = preload("res://sim/modules/roster.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimItems = preload("res://sim/modules/items.gd")
+const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
 const Clock = preload("res://sim/time/clock.gd")
@@ -145,6 +151,7 @@ func _run() -> void:
 		ok = _blocked(scene) and ok
 		ok = _container(scene) and ok
 		ok = _fight(scene) and ok
+		ok = _held(scene) and ok
 		ok = _ledger(scene, spawn) and ok
 		ok = _priority(scene) and ok
 		ok = _menu(scene) and ok
@@ -171,7 +178,7 @@ func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)
-		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, swings a bat into a shambler and fires a round through the top-down commands while the ledger refuses both, misses a body behind the look, and leaves a refused reload wordless, opens and shuts a door through the sim's own verb from the tile the eye is on while a door out of reach or looked away from sends nothing, takes the top-down stance keys and eases the eye to the sim's posture height while the ledger refuses the keys, reads the chronicle's own lines on the ledger's Reports page and moves the read mark, lights noon by the sim's clock and darkens midnight, turns a carried torch into the eye's spot at the sim's range and cone and out when it burns, and keeps a body behind a wall undrawn, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, saves and loads through the sim's own save in its own slot, loads the desk and ledger from their GLBs at the published sizes with nearest-filtered materials and stands every preview prop on its base, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
+		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, swings a bat into a shambler and fires a round through the top-down commands while the ledger refuses both, misses a body behind the look, and leaves a refused reload wordless, opens and shuts a door through the sim's own verb from the tile the eye is on while a door out of reach or looked away from sends nothing, takes the top-down stance keys and eases the eye to the sim's posture height while the ledger refuses the keys, reads the chronicle's own lines on the ledger's Reports page and moves the read mark, lights noon by the sim's clock and darkens midnight, turns a carried torch into the eye's spot at the sim's range and cone and out when it burns, and keeps a body behind a wall undrawn, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, saves and loads through the sim's own save in its own slot, loads the desk and ledger from their GLBs at the published sizes with nearest-filtered materials and stands every preview prop on its base, draws the equipped weapon from the sim's own installed parts on their sockets while a view that disagrees with the sim fails its own check, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
 		quit(0)
 		return
 	for failure in _failures:
@@ -990,6 +997,152 @@ func _body_total(body: Dictionary) -> float:
 		if value is float or value is int:
 			total += float(value)
 	return total
+
+
+# --- HELD -----------------------------------------------------------------------------------
+
+# The equipped weapon view, read from the sim's own equipment. A real pistol item is spawned and
+# equipped through `SimInventory.equip`; the sim's equip handler builds `rangedWeapon` with its
+# `source`. The muzzle swap goes through the sim's own `item.attach` command. The negative detaches
+# the part in the sim and asks the view's own `verify` before it repaints.
+const HELD_HIDDEN_SLOTS: Array[String] = ["internal", "spring", "sear", "extractor"]
+
+func _held(scene: Node) -> bool:
+	if not ResourceLoader.exists("res://presentation/first_person/models.gd"):
+		print("FIRST_PERSON_SKIP HELD: models.gd (the manifest loader) is not on this branch, so the placeholder box is under test")
+		return true
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var player: int = int(world.player)
+	# Start from bare hands whatever the fight lane left.
+	world.components.remove(player, "rangedWeapon")
+	world.components.remove(player, "meleeWeapon")
+	SimMelee.ensure_hands(world, player)
+	scene.call("_process", TICK_SECONDS)
+	if bool(scene.call("held_weapon_visible")):
+		ok = _fail("HELD", "bare hands drew a weapon")
+	var held: Node3D = scene.call("held_weapon_node") as Node3D
+	if held == null:
+		return _fail("HELD", "the scene has no held-weapon view")
+
+	# The service pistol: the receiver plus exactly its installed visible parts.
+	var pistol: int = int(SimItems.spawn_item(world, "item.pistol.service", {"tier": "scavenged"}))
+	if pistol < 0:
+		return _fail("HELD", "the service pistol would not spawn")
+	if not SimInventory.equip(world, player, pistol):
+		return _fail("HELD", "the service pistol would not equip")
+	scene.call("step_sim_once")
+	scene.call("_process", TICK_SECONDS)
+	var want: Dictionary = _held_visible_parts(world, pistol)
+	var drawn: Dictionary = held.call("drawn") as Dictionary
+	if String(drawn.get("receiver", "")) != "item.pistol.service":
+		ok = _fail("HELD", "the pistol drew receiver '%s', not item.pistol.service" % String(drawn.get("receiver", "")))
+	var slots: Array = held.call("drawn_slots") as Array
+	var want_slots: Array = want.keys()
+	want_slots.sort()
+	if slots != want_slots:
+		ok = _fail("HELD", "the pistol drew slots %s, not the sim's visible %s" % [slots, want_slots])
+	for slot_v in want.keys():
+		var slot: String = String(slot_v)
+		ok = _held_socket_ok(held, slot, String(want[slot_v]), "socket_%s" % slot) and ok
+	if not (held.call("missing_parts") as Array).is_empty():
+		ok = _fail("HELD", "the default pistol has parts with no model: %s" % str(held.call("missing_parts")))
+	if not bool(held.call("verify", world)):
+		ok = _fail("HELD", "the pistol view does not match the sim's installed parts")
+
+	# The muzzle swap through the sim's own command: the can lands on the barrel's socket_muzzle.
+	var can: int = int(SimItems.spawn_item(world, "item.attach.suppressor", {"tier": "scavenged"}))
+	if can < 0:
+		return _fail("HELD", "the suppressor would not spawn")
+	world.commands.push({"type": "item.attach", "host": pistol, "item": can, "slot": "muzzle"})
+	scene.call("step_sim_once")
+	scene.call("_process", TICK_SECONDS)
+	drawn = held.call("drawn") as Dictionary
+	if String(drawn.get("muzzle", "")) != "item.attach.suppressor":
+		ok = _fail("HELD", "the fitted suppressor is not drawn (muzzle is '%s')" % String(drawn.get("muzzle", "")))
+	if String(held.call("socket_name", "muzzle")) != "socket_muzzle":
+		ok = _fail("HELD", "the suppressor is not on a socket_muzzle (it is on '%s')" % String(held.call("socket_name", "muzzle")))
+	var barrel: Node3D = held.call("part_node", "barrel") as Node3D
+	var muzzle_socket: Node3D = held.call("socket_node", "muzzle") as Node3D
+	if barrel == null or muzzle_socket == null or not barrel.is_ancestor_of(muzzle_socket):
+		ok = _fail("HELD", "the suppressor is not under the installed barrel's own muzzle socket")
+	if not bool(held.call("verify", world)):
+		ok = _fail("HELD", "the suppressed view does not match the sim")
+
+	# True negative: detach the can in the sim and do not repaint. The drawn set is now a lie, and
+	# `verify` must say so; one update later it is true again.
+	if not SimAttachments.detach(world, can):
+		ok = _fail("HELD", "the suppressor would not detach through the sim")
+	elif bool(held.call("verify", world)):
+		ok = _fail("HELD", "a view that disagrees with the sim verified as true")
+	scene.call("_process", TICK_SECONDS)
+	if not bool(held.call("verify", world)):
+		ok = _fail("HELD", "the view did not repaint after the part was detached")
+	if (held.call("drawn") as Dictionary).has("muzzle"):
+		ok = _fail("HELD", "the drawn set still holds a muzzle part the sim does not")
+
+	# Nothing hidden and nothing uninstalled is ever drawn.
+	for slot_v in held.call("drawn_slots") as Array:
+		var slot: String = String(slot_v)
+		if HELD_HIDDEN_SLOTS.has(slot):
+			ok = _fail("HELD", "a hidden slot %s was drawn" % slot)
+		if not (held.call("socket_name", slot) as String).begins_with("socket_"):
+			ok = _fail("HELD", "slot %s is not on a socket node" % slot)
+
+	# Bare hands again, then the bat whole.
+	SimInventory.unequip(world, player, "secondary")
+	scene.call("step_sim_once")
+	scene.call("_process", TICK_SECONDS)
+	if bool(scene.call("held_weapon_visible")):
+		ok = _fail("HELD", "unequipping the pistol left a weapon drawn")
+	var bat: int = int(SimItems.spawn_item(world, "item.bat.wood", {"tier": "scavenged"}))
+	if bat < 0:
+		return _fail("HELD", "the bat would not spawn")
+	if not SimInventory.equip(world, player, bat):
+		return _fail("HELD", "the bat would not equip")
+	scene.call("step_sim_once")
+	scene.call("_process", TICK_SECONDS)
+	drawn = held.call("drawn") as Dictionary
+	if String(drawn.get("receiver", "")) != "item.bat.wood":
+		ok = _fail("HELD", "the bat drew receiver '%s'" % String(drawn.get("receiver", "")))
+	if not (held.call("drawn_slots") as Array).is_empty():
+		ok = _fail("HELD", "the bat drew parts on top of its whole model: %s" % str(held.call("drawn_slots")))
+	if held.call("part_node", "head") != null:
+		ok = _fail("HELD", "the bat added a head part over its own model")
+	if bool(held.call("drawn_is_ranged")):
+		ok = _fail("HELD", "the bat is drawn as a ranged assembly")
+	if not bool(held.call("verify", world)):
+		ok = _fail("HELD", "the bat view does not match the sim's item")
+	return ok
+
+
+# The visible installed parts of a host, as {slot: base id} -- the same set the assembler must draw.
+func _held_visible_parts(world: Variant, host: int) -> Dictionary:
+	var out: Dictionary = {}
+	var fitted: Dictionary = SimAttachments.attached(world, host)
+	for slot_v in fitted.keys():
+		var slot: String = String(slot_v)
+		if HELD_HIDDEN_SLOTS.has(slot):
+			continue
+		var base: Variant = SimItems.item_base_of(world, int(fitted[slot_v]))
+		if base is Dictionary:
+			out[slot] = String((base as Dictionary).get("id", ""))
+	return out
+
+
+func _held_socket_ok(held: Node3D, slot: String, want_id: String, want_socket: String) -> bool:
+	var drawn: Dictionary = held.call("drawn") as Dictionary
+	if String(drawn.get(slot, "")) != want_id:
+		return _fail("HELD", "%s draws '%s', not '%s'" % [slot, String(drawn.get(slot, "")), want_id])
+	var part: Node3D = held.call("part_node", slot) as Node3D
+	var socket: Node3D = held.call("socket_node", slot) as Node3D
+	if part == null or socket == null:
+		return _fail("HELD", "%s is not parented on a socket" % slot)
+	if socket.get_parent() == null:
+		return _fail("HELD", "%s's socket is not in the receiver" % slot)
+	if String(socket.name) != want_socket:
+		return _fail("HELD", "%s is on '%s', not '%s'" % [slot, String(socket.name), want_socket])
+	return true
 
 
 # --- LEDGER ---------------------------------------------------------------------------------
