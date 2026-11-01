@@ -50,6 +50,10 @@ DEATH = {
     "survivor": {"land": -0.45, "yaw": 0.45, "arm_out.L": 0.55, "arm_out.R": 0.85, "elbow.L": 0.35, "elbow.R": 0.20, "knee.L": 0.13, "knee.R": 0.26},
     "shambler": {"land": -0.42, "yaw": -0.50, "arm_out.L": 0.90, "arm_out.R": 0.45, "elbow.L": 0.25, "elbow.R": 0.45, "knee.L": 0.24, "knee.R": 0.14},
 }
+# The share of the organic survivor's surface that must sit at its island's texel density.
+SURVIVOR_DENSITY_SHARE = 0.85
+# The organic survivor's held death lies back this far (radians of pelvis roll).
+SURVIVOR_LIE = 1.50
 # Each plant mode builds with one deliberate defect and must be refused by the named checks.
 PLANTS = {
     "death-one-boot": ("death-parts", "death-centroid", "death-slide"),
@@ -803,12 +807,12 @@ def skeleton(hunched):
             "chest": ((0, 0, 1.22), (0, 0, 1.43), "spine"),
             "neck": ((0, 0, 1.43), (0, 0, 1.51), "chest"),
             "head": ((0, 0, 1.51), (0, 0, 1.70), "neck"),
-            "upper_arm.L": ((-0.225, 0, 1.40), (-0.245, 0, 1.15), "chest"),
-            "forearm.L": ((-0.245, 0, 1.15), (-0.25, 0.02, 0.91), "upper_arm.L"),
-            "hand.L": ((-0.25, 0.02, 0.91), (-0.25, 0.02, 0.80), "forearm.L"),
-            "upper_arm.R": ((0.225, 0, 1.40), (0.245, 0, 1.15), "chest"),
-            "forearm.R": ((0.245, 0, 1.15), (0.25, 0.02, 0.91), "upper_arm.R"),
-            "hand.R": ((0.25, 0.02, 0.91), (0.25, 0.02, 0.80), "forearm.R"),
+            "upper_arm.L": ((-0.172, -0.008, 1.40), (-0.222, -0.008, 1.125), "chest"),
+            "forearm.L": ((-0.222, -0.008, 1.125), (-0.240, 0.018, 0.868), "upper_arm.L"),
+            "hand.L": ((-0.240, 0.018, 0.868), (-0.240, 0.040, 0.70), "forearm.L"),
+            "upper_arm.R": ((0.172, -0.008, 1.40), (0.222, -0.008, 1.125), "chest"),
+            "forearm.R": ((0.222, -0.008, 1.125), (0.240, 0.018, 0.868), "upper_arm.R"),
+            "hand.R": ((0.240, 0.018, 0.868), (0.240, 0.040, 0.70), "forearm.R"),
             "thigh.L": ((-0.105, 0, 0.90), (-0.105, 0, 0.51), "pelvis"),
             "shin.L": ((-0.105, 0, 0.51), (-0.105, 0, 0.12), "thigh.L"),
             "foot.L": ((-0.105, 0, 0.12), (-0.105, 0.16, 0.08), "shin.L"),
@@ -1228,19 +1232,25 @@ def death_curves(character, final, edge, mesh):
         pitch = final["arm_pitch." + side]
         curves["arm_pitch." + side] = [(0.0, 0.0), (0.35, 0.55), (0.62, 0.70), (0.86, pitch + 0.25), (0.95, pitch), (1.0, pitch)]
         curves["elbow." + side] = [(0.0, 0.0), (0.40, 0.40), (1.0, final["elbow." + side])]
-        knee_land = 0.75 if character == "survivor" else 0.90
-        curves["splay." + side] = [(0.0, 0.0), (0.45, 0.0), (knee_land, final["splay." + side]), (1.0, final["splay." + side])]
+        if character == "survivor":
+            # The knees fall out while the body sits down, before the seat takes its weight.
+            curves["splay." + side] = [(0.0, 0.0), (0.20, 0.0), (0.48, final["splay." + side]), (1.0, final["splay." + side])]
+        else:
+            curves["splay." + side] = [(0.0, 0.0), (0.45, 0.0), (0.90, final["splay." + side]), (1.0, final["splay." + side])]
     return curves
 
 
-def death_pose(armature, character, u, final, edge, mesh):
+def death_pose(armature, character, u, final, edge, mesh, shift=None):
     reset_pose(armature)
     curves = death_curves(character, final, edge, mesh)
 
     def value(name):
         return pchip(curves[name], u)
 
-    set_pelvis(armature, edge, Vector((0.0, value("edge_y"), value("edge_z"))), value("theta"))
+    contact = Vector((0.0, value("edge_y"), value("edge_z")))
+    if shift is not None:
+        contact += shift
+    set_pelvis(armature, edge, contact, value("theta"))
     for side, sign in (("L", -1), ("R", 1)):
         ankle = Vector((sign * 0.105, 0.0, ANKLE_Z))
         if PLANT == "death-slide":
@@ -1257,14 +1267,26 @@ def death_pose(armature, character, u, final, edge, mesh):
         )
         rotate_world(armature, "forearm." + side, (1, 0, 0), value("elbow." + side))
     bpy.context.view_layer.update()
-    if mesh is not None and character == "survivor":
-        lowest = min(point.z for point in evaluated_points(mesh))
-        lift = max(0.0, -lowest)
-        if lift:
-            translate_world(armature, "root", (0, 0, lift))
-            for side in ("L", "R"):
-                translate_world(armature, "foot." + side, (0, 0, -lift))
-            bpy.context.view_layer.update()
+
+
+def roll_death_frame(armature, character, u, final, edge, mesh, state):
+    # The organic survivor's seat and back are round, not a box edge: each frame settles onto the
+    # floor and pivots on the vertex that was already touching it, so the body rolls over its back
+    # instead of digging in or skidding about a fixed corner. Feet stay planted by the leg solve.
+    shift = state["shift"].copy()
+    death_pose(armature, character, u, final, edge, mesh, shift)
+    if state["pivot"] is not None:
+        now = evaluated_points(mesh)[state["pivot"]]
+        shift.x += state["pivot_at"].x - now.x
+        shift.y += state["pivot_at"].y - now.y
+        death_pose(armature, character, u, final, edge, mesh, shift)
+    state["shift"] = shift.copy()
+    lift = max(0.0, -min(point.z for point in evaluated_points(mesh)))
+    if lift:
+        death_pose(armature, character, u, final, edge, mesh, shift + Vector((0, 0, lift)))
+    points = evaluated_points(mesh)
+    index = min((index for index in range(len(points)) if index not in state["feet"]), key=lambda index: (points[index].z, index))
+    state["pivot"], state["pivot_at"] = (index, points[index].copy()) if points[index].z <= 0.002 else (None, None)
 
 
 def lowest_of(points, indices):
@@ -1318,10 +1340,11 @@ def solve_death(character, armature, mesh, edge):
         death_pose(armature, character, 1.0, final, edge, None)
         return armature.pose.bones["shin." + side].head.z
 
-    pelvis_contact = groups["pelvis"] if character == "survivor" else [back_top]
     head = groups["head"] + groups["neck"]
-    for _ in range(3 if character == "survivor" else 1):
-        final["theta"] = bisect(lambda value: measure("theta", value, pelvis_contact), 1.0, 1.9, 0.0)
+    if character == "survivor":
+        return solve_rolled_death(armature, mesh, edge, final, groups, settings, head)
+    for _ in range(1):
+        final["theta"] = bisect(lambda value: measure("theta", value, [back_top]), 1.0, 1.9, 0.0)
         final["spine"] = bisect(lambda value: measure("spine", value, groups["chest"]), -0.6, 1.2, 0.0)
         final["neck"] = bisect(lambda value: measure("neck", value, head), -1.4, 1.4, 0.0)
         for side in ("L", "R"):
@@ -1329,6 +1352,41 @@ def solve_death(character, armature, mesh, edge):
             final["arm_pitch." + side] = bisect(lambda value: measure("arm_pitch." + side, value, arm), -1.5, 1.0, 0.003)
         for side in ("L", "R"):
             final["splay." + side] = bisect(lambda value: knee_height("splay." + side, value, side), 0.0, 1.4, settings["knee." + side])
+    return final
+
+
+def solve_rolled_death(armature, mesh, edge, final, groups, settings, head):
+    # The organic survivor lies back flat (the pelvis turned SURVIVOR_LIE), and every part is
+    # measured after the whole body has settled onto its lowest point, as the rolled frames are:
+    # the spine brings the chest down to the floor, the neck rests the head, the arms lay the hands.
+    feet = set(groups["foot.L"]) | set(groups["foot.R"])
+    body = [index for index in range(len(mesh.data.vertices)) if index not in feet]
+    limbs = feet | set(head)
+    for side in ("L", "R"):
+        limbs |= set(groups["upper_arm." + side]) | set(groups["forearm." + side]) | set(groups["hand." + side])
+    trunk = [index for index in body if index not in limbs]
+    chest = [index for index in groups["chest"] if index not in limbs]
+    final["theta"] = SURVIVOR_LIE
+
+    def settled(name, value, indices, ground=body):
+        final[name] = value
+        death_pose(armature, "survivor", 1.0, final, edge, None)
+        points = evaluated_points(mesh)
+        return lowest_of(points, indices) - lowest_of(points, ground)
+
+    def knee_height(name, value, side):
+        final[name] = value
+        death_pose(armature, "survivor", 1.0, final, edge, None)
+        return armature.pose.bones["shin." + side].head.z - lowest_of(evaluated_points(mesh), body)
+
+    for _ in range(2):
+        for side in ("L", "R"):
+            final["splay." + side] = bisect(lambda value: knee_height("splay." + side, value, side), 0.0, 1.4, settings["knee." + side], 24, 14)
+        final["spine"] = bisect(lambda value: settled("spine", value, chest, trunk), -0.6, 1.2, 0.002, 24, 18)
+        final["neck"] = bisect(lambda value: settled("neck", value, head), -1.4, 1.4, 0.002, 24, 18)
+        for side in ("L", "R"):
+            arm = groups["upper_arm." + side] + groups["forearm." + side] + groups["hand." + side]
+            final["arm_pitch." + side] = bisect(lambda value: settled("arm_pitch." + side, value, arm), -1.5, 1.0, 0.004, 24, 18)
     return final
 
 
@@ -1396,6 +1454,9 @@ def build_actions(character, armature, mesh):
             f"DEATH {character}: pelvis {math.degrees(final['theta']):.1f} deg, spine {math.degrees(final['spine']):.1f}, "
             f"neck {math.degrees(final['neck']):.1f}, knees out {math.degrees(final['splay.L']):.1f}/{math.degrees(final['splay.R']):.1f} deg"
         )
+    roll = None
+    if character == "survivor" and final is not None:
+        roll = {"shift": Vector(), "pivot": None, "pivot_at": None, "feet": set(group_indices(mesh, "foot.L")) | set(group_indices(mesh, "foot.R"))}
     for animation in ANIMATIONS[character]:
         action = bpy.data.actions.new(f"{character}_{animation}")
         action.use_fake_user = True
@@ -1404,7 +1465,9 @@ def build_actions(character, armature, mesh):
         for index in range(frames + 1):
             phase = 0.0 if index == frames and animation in LOOPS else index / frames
             reset_pose(armature)
-            if animation == "death" and final is not None:
+            if animation == "death" and roll is not None:
+                roll_death_frame(armature, character, phase, final, edge, mesh, roll)
+            elif animation == "death" and final is not None:
                 death_pose(armature, character, phase, final, edge, mesh)
             elif animation == "death":
                 legacy_death_pose(armature, character, phase, mesh)
@@ -1612,7 +1675,8 @@ def validate_death(character, frames, groups, weights, fail, metrics):
     slide, index, frame = contact_slide(frames)
     if slide > 0.03:
         parts = [name for name, indices in groups.items() if index in indices]
-        fail("death-slide", f"death drags vertex {index} ({','.join(parts)}) {slide:.4f} m across the floor by frame {frame + 1}")
+        rest = frames[0][index]
+        fail("death-slide", f"death drags vertex {index} ({','.join(parts)}; starts at {rest.x:.3f}, {rest.y:.3f}, {rest.z:.3f}) {slide:.4f} m across the floor by frame {frame + 1}")
     metrics.append(
         "death rests head {head:.3f}, chest {chest:.3f}, pelvis {pelvis:.3f}, boot {boot:.3f} m".format(**lows)
         + f"; centroid {margin:.3f} m inside support; contact slide {slide * 1000:.1f} mm"
@@ -1670,6 +1734,7 @@ def validate_export(path, character):
     positions = []
     triangles = 0
     densities = []
+    survivor_triangles = []
     blended = 0
     weighted = 0
     for primitive in primitives:
@@ -1687,11 +1752,14 @@ def validate_export(path, character):
             measured = triangle_density([points[c] for c in corners], [uvs[c] for c in corners], 512 if character == "survivor" else ATLAS_SIZE)
             if measured is not None:
                 densities.extend(measured)
-    density_range = (40.0, 600.0) if character == "survivor" else DENSITY_RANGE
-    if not densities or min(densities) < density_range[0] or max(densities) > density_range[1]:
-        raise ValueError(f"[density] {path.name}: exported texel density {min(densities):.1f}..{max(densities):.1f} px/m outside {density_range}")
-    if character == "survivor" and (not any(100 <= value <= 160 for value in densities) or not any(200 <= value <= 310 for value in densities)):
-        raise ValueError(f"[density] {path.name}: missing the authored 128 px/m body or 256 px/m head density band")
+                if character == "survivor":
+                    a, b, c = (points[corner] for corner in corners)
+                    centre = [sum(uvs[corner][axis] for corner in corners) / 3 for axis in range(2)]
+                    survivor_triangles.append(((b - a).cross(c - a).length / 2, centre, measured))
+    if character == "survivor":
+        density_summary = survivor_density(path, survivor_triangles)
+    elif not densities or min(densities) < DENSITY_RANGE[0] or max(densities) > DENSITY_RANGE[1]:
+        raise ValueError(f"[density] {path.name}: exported texel density {min(densities):.1f}..{max(densities):.1f} px/m outside 64 +/-25%")
     budget = (1000, 8000) if character == "survivor" else (200, 1500)
     if not budget[0] <= triangles <= budget[1]:
         raise ValueError(f"{path.name}: {triangles} triangles outside the character budget {budget}")
@@ -1732,10 +1800,51 @@ def validate_export(path, character):
     samplers = document.get("samplers", [])
     if any(sampler.get("magFilter") != 9728 for sampler in samplers):
         raise ValueError(f"{path.name}: atlas magnification is not NEAREST")
-    print(
-        f"VALID {character}: {triangles} triangles, height {height:.3f} m, radius {largest_radius:.3f} m, "
-        f"texel density {min(densities):.1f}..{max(densities):.1f} px/m"
-    )
+    summary = density_summary if character == "survivor" else f"texel density {min(densities):.1f}..{max(densities):.1f} px/m"
+    print(f"VALID {character}: {triangles} triangles, height {height:.3f} m, radius {largest_radius:.3f} m, {summary}")
+
+
+def survivor_density(path, measured_triangles):
+    # The organic survivor is painted on islands of 256 px/m (head, neck), 128 px/m (body) and
+    # tapered hair locks. A smooth body cannot keep every triangle at its island's density: the
+    # cylindrical islands pinch at their poles (the crown under the hair, boot soles, finger ends).
+    # So the check is area-weighted: at least SURVIVOR_DENSITY_SHARE of the surface must sit within
+    # 0.6-1.67x its island's authored density on both axes, and both authored bands must be present.
+    from organic_survivor import CHART_DENSITY, FROZEN, ATLAS_SIZE as SIZE
+
+    def island(centre):
+        x, y = centre[0] * SIZE, (1 - centre[1]) * SIZE  # glTF texture V runs downward
+        for name in sorted(FROZEN):
+            left, bottom, width, height = FROZEN[name][:4]
+            if left <= x < left + width and bottom <= y < bottom + height:
+                return name
+        return None
+
+    total = within = 0.0
+    bands = {"body": 0.0, "head": 0.0}
+    worst = {}
+    for area, centre, values in measured_triangles:
+        name = island(centre)
+        nominal = CHART_DENSITY.get(name)
+        if nominal is None:
+            raise ValueError(f"[density] {path.name}: a triangle samples the atlas outside every island")
+        nominal = [nominal, nominal] if isinstance(nominal, float) else [min(min(pair) for pair in nominal), max(max(pair) for pair in nominal)]
+        total += area
+        if all(0.6 * nominal[0] <= value <= 1.67 * nominal[1] for value in values):
+            within += area
+        else:
+            worst[name] = worst.get(name, 0.0) + area
+        if all(100 <= value <= 160 for value in values):
+            bands["body"] += area
+        if all(200 <= value <= 310 for value in values):
+            bands["head"] += area
+    share = within / total
+    offenders = ", ".join(f"{name} {area / total:.1%}" for name, area in sorted(worst.items(), key=lambda item: -item[1])[:4])
+    if share < SURVIVOR_DENSITY_SHARE:
+        raise ValueError(f"[density] {path.name}: only {share:.1%} of the surface is within its island's texel density (need {SURVIVOR_DENSITY_SHARE:.0%}); off: {offenders}")
+    if bands["body"] < 0.25 * total or bands["head"] < 0.03 * total:
+        raise ValueError(f"[density] {path.name}: the authored 128 px/m body or 256 px/m head band is missing ({bands['body'] / total:.1%}, {bands['head'] / total:.1%} of the surface)")
+    return f"{share:.1%} of the surface at its island's texel density (off: {offenders or 'none'})"
 
 
 def export_character(character, armature, mesh, path):

@@ -1,3 +1,14 @@
+"""The organic first-person survivor: one continuous, smooth-skinned body under a painted pixel atlas.
+
+The body is built from overlapping anatomical primitives (lofted torso and face, tubes for limbs,
+ellipsoids for skull, features, breasts, hips, hands), fused into one surface by a voxel remesh,
+relaxed, given a few facial planes, and decimated to budget. Material borders (neckline, waist hem,
+cuffs, boot tops, head halves) are cut as clean edge loops before the surface is split into UV
+islands, so a painted border is a straight line rather than a row of triangle teeth. Hair is a set
+of flat, tapered locks lying on the head plus a messy bun, each lock mapped into one painted hair
+island. Every step is a fixed formula, so the build is byte-reproducible.
+"""
+
 import json
 import math
 from array import array
@@ -5,15 +16,80 @@ from pathlib import Path
 
 import bmesh
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
+from mathutils.bvhtree import BVHTree
 
 
 ATLAS_SIZE = 512
 BODY_DENSITY = 128
 HEAD_DENSITY = 256
 HAIR_DENSITY = 192
+HAIR_DENSITY_CAP = 420
 PAD = 2
-BODY_TRIANGLES = 5700
+VOXEL = 0.0045
+BODY_TRIANGLES = 5150
+CROWN = 1.75
+# Material borders, cut as edge loops: the cuff, the waist hem, the trouser seat line, the boot top,
+# the jaw line, and the crew neckline (lower at the front than the back).
+WRIST_Z = 0.868
+WAIST_Z = 1.015
+SEAT_Z = 0.910
+BOOT_Z = 0.175
+JAW_Z = 1.485
+HEAD_SPLIT_Y = -0.012
+
+
+NECKLINE_X = 0.110
+
+
+def neckline_z(y):
+    return 1.443 - 0.20 * y
+
+
+# Island rectangles and chart origins frozen from UV layout v2 (kimi/uv_layout.json): x, y (bottom
+# left), w, h in atlas pixels, then the chart's s and t origin in metres. Freezing them keeps the
+# painted atlas registered to the body while the mesh is refined. A chart whose new extent no longer
+# fits its rectangle is refitted into it (and reported); hair locks always fill their rectangle.
+FROZEN = {
+    "arm.L": (184, 0, 47, 75, -0.16554, 0.9028),
+    "arm.R": (231, 0, 47, 75, -0.16496, 0.90333),
+    "boot.L": (395, 103, 69, 27, -0.26168, 0.00498),
+    "boot.R": (0, 166, 69, 27, -0.25506, 0.00499),
+    "hair_00": (168, 103, 28, 37, 0.0, 0.0),
+    "hair_01": (140, 103, 28, 39, 0.0, 0.0),
+    "hair_02": (397, 166, 28, 18, 0.0, 0.0),
+    "hair_03": (425, 166, 28, 18, 0.0, 0.0),
+    "hair_04": (311, 166, 28, 24, 0.0, 0.0),
+    "hair_05": (339, 166, 28, 24, 0.0, 0.0),
+    "hair_06": (252, 103, 28, 32, 0.0, 0.0),
+    "hair_07": (196, 103, 28, 33, 0.0, 0.0),
+    "hair_08": (367, 103, 28, 31, 0.0, 0.0),
+    "hair_09": (224, 103, 28, 33, 0.0, 0.0),
+    "hair_10": (97, 166, 28, 26, 0.0, 0.0),
+    "hair_11": (125, 166, 28, 26, 0.0, 0.0),
+    "hair_12": (153, 166, 28, 25, 0.0, 0.0),
+    "hair_13": (69, 166, 28, 27, 0.0, 0.0),
+    "hair_14": (453, 166, 28, 18, 0.0, 0.0),
+    "hair_15": (481, 166, 28, 18, 0.0, 0.0),
+    "hand_back.L": (0, 193, 18, 18, 0.17839, 0.80353),
+    "hand_back.R": (18, 193, 18, 18, 0.17908, 0.8021),
+    "hand_front.L": (367, 166, 15, 21, 0.19781, 0.77517),
+    "hand_front.R": (382, 166, 15, 21, 0.19775, 0.77498),
+    "head_back": (278, 0, 67, 71, -0.12233, 1.47834),
+    "head_front": (345, 0, 108, 70, -0.1616, 1.4809),
+    "leg_back.L": (57, 0, 56, 103, -0.20023, 0.16999),
+    "leg_back.R": (0, 0, 57, 103, -0.20332, 0.16885),
+    "leg_front.L": (113, 0, 36, 103, -0.12668, 0.17073),
+    "leg_front.R": (149, 0, 35, 103, -0.1159, 0.1703),
+    "neck": (280, 103, 87, 31, -0.16038, 1.38956),
+    "pelvis_back": (181, 166, 65, 24, -0.23961, 0.85989),
+    "pelvis_front": (246, 166, 65, 24, -0.23799, 0.86009),
+    "torso_back": (0, 103, 70, 63, -0.25408, 1.00878),
+    "torso_front": (70, 103, 70, 62, -0.25162, 1.00724),
+}
+HAIR_RECTS = sorted((name for name in FROZEN if name.startswith("hair_")), key=lambda name: (-FROZEN[name][3], name))
+# Chart densities actually used by the last build, read by the export density check.
+CHART_DENSITY = {}
 
 
 def clamp(value, low=0.0, high=1.0):
@@ -29,175 +105,177 @@ def rgba(value):
     return tuple(int(value[index : index + 2], 16) / 255 for index in (1, 3, 5)) + (1.0,)
 
 
-def mix_colour(a, b, amount):
-    return tuple(x * (1 - amount) + y * amount for x, y in zip(a, b))
+# ---------------------------------------------------------------------------------------------
+# Source anatomy: labelled primitives that the voxel remesh fuses into one surface.
+# ---------------------------------------------------------------------------------------------
 
 
-def add_part(vertices, faces, new_vertices, new_faces):
-    offset = len(vertices)
-    vertices.extend(new_vertices)
-    faces.extend(tuple(offset + index for index in face) for face in new_faces)
+class Source:
+    def __init__(self):
+        self.vertices = []
+        self.faces = []
+        self.labels = []
+
+    def add(self, label, vertices, faces):
+        offset = len(self.vertices)
+        self.vertices.extend(tuple(vertex) for vertex in vertices)
+        self.faces.extend(tuple(offset + index for index in face) for face in faces)
+        self.labels.extend([label] * len(faces))
+
+    def loft(self, label, rings, segments=24, power=2.0):
+        # Rings are (z, cx, cy, half width, front depth, back depth): a superellipse whose front and
+        # back halves have their own depth, so a torso can be flat-backed and full in front.
+        points = []
+        for ring in rings:
+            for index in range(segments):
+                points.append(ring_point(ring, 2 * math.pi * index / segments, power))
+        self.add(label, points, ring_faces(len(rings), segments))
+
+    def ellipsoid(self, label, centre, radii, segments=16, rows=10, rotation=None):
+        centre = Vector(centre)
+        points = []
+        for row in range(rows + 1):
+            phi = math.pi * row / rows
+            for index in range(segments):
+                theta = 2 * math.pi * index / segments
+                point = Vector((radii[0] * math.sin(phi) * math.cos(theta), radii[1] * math.sin(phi) * math.sin(theta), radii[2] * math.cos(phi)))
+                if rotation is not None:
+                    point = rotation @ point
+                points.append(tuple(centre + point))
+        faces = []
+        for row in range(rows):
+            for index in range(segments):
+                following = (index + 1) % segments
+                faces.append((row * segments + index, (row + 1) * segments + index, (row + 1) * segments + following, row * segments + following))
+        self.add(label, points, faces)
+
+    def tube(self, label, points, radii, segments=16):
+        vertices = []
+        for row, (point, radius) in enumerate(zip(points, radii)):
+            point = Vector(point)
+            tangent = (Vector(points[min(len(points) - 1, row + 1)]) - Vector(points[max(0, row - 1)])).normalized()
+            across = tangent.cross(Vector((0, 1, 0)))
+            if across.length < 0.01:
+                across = tangent.cross(Vector((1, 0, 0)))
+            across.normalize()
+            other = tangent.cross(across).normalized()
+            rx, ry = radius if isinstance(radius, tuple) else (radius, radius)
+            for index in range(segments):
+                angle = 2 * math.pi * index / segments
+                vertices.append(tuple(point + across * (rx * math.cos(angle)) + other * (ry * math.sin(angle))))
+        self.add(label, vertices, ring_faces(len(points), segments))
 
 
-def loft(vertices, faces, rings, segments=20, front_shape=None):
-    points = []
-    for ring_index, (z, cx, cy, rx, ry) in enumerate(rings):
-        for index in range(segments):
-            angle = 2 * math.pi * index / segments
-            x = cx + rx * math.cos(angle)
-            y = cy + ry * math.sin(angle)
-            if front_shape and math.sin(angle) > 0:
-                y += front_shape(z, x, math.sin(angle))
-            points.append((x, y, z))
-    part_faces = []
-    for row in range(len(rings) - 1):
-        for index in range(segments):
-            next_index = (index + 1) % segments
-            part_faces.append((row * segments + index, row * segments + next_index, (row + 1) * segments + next_index, (row + 1) * segments + index))
-    part_faces.append(tuple(reversed(range(segments))))
-    part_faces.append(tuple((len(rings) - 1) * segments + index for index in range(segments)))
-    add_part(vertices, faces, points, part_faces)
+def ring_point(ring, angle, power=2.0, offset=0.0):
+    z, cx, cy, rx, front, back = ring
+    cosine, sine = math.cos(angle), math.sin(angle)
+    exponent = 2.0 / power
+    x = math.copysign(abs(cosine) ** exponent, cosine)
+    y = math.copysign(abs(sine) ** exponent, sine)
+    return (cx + (rx + offset) * x, cy + ((front if sine > 0 else back) + offset) * y, z)
 
 
-def ellipsoid(vertices, faces, centre, radii, segments=16, rows=10, rotation=None):
-    centre = Vector(centre)
-    points = []
-    for row in range(rows + 1):
-        phi = math.pi * row / rows
-        for index in range(segments):
-            theta = 2 * math.pi * index / segments
-            point = Vector((radii[0] * math.sin(phi) * math.cos(theta), radii[1] * math.sin(phi) * math.sin(theta), radii[2] * math.cos(phi)))
-            if rotation:
-                point = rotation @ point
-            points.append(tuple(centre + point))
-    part_faces = []
-    for row in range(rows):
-        for index in range(segments):
-            next_index = (index + 1) % segments
-            part_faces.append((row * segments + index, (row + 1) * segments + index, (row + 1) * segments + next_index, row * segments + next_index))
-    add_part(vertices, faces, points, part_faces)
-
-
-def tube_points(points, radii, segments=10):
-    vertices = []
+def ring_faces(rows, segments):
     faces = []
-    distances = [0.0]
-    for index in range(1, len(points)):
-        distances.append(distances[-1] + (Vector(points[index]) - Vector(points[index - 1])).length)
-    for row, (point, radius) in enumerate(zip(points, radii)):
-        point = Vector(point)
-        before = Vector(points[max(0, row - 1)])
-        after = Vector(points[min(len(points) - 1, row + 1)])
-        tangent = (after - before).normalized()
-        across = tangent.cross(Vector((0, 1, 0)))
-        if across.length < 0.01:
-            across = tangent.cross(Vector((1, 0, 0)))
-        across.normalize()
-        other = tangent.cross(across).normalized()
-        rx, ry = (radius, radius) if isinstance(radius, (int, float)) else radius
+    for row in range(rows - 1):
         for index in range(segments):
-            angle = 2 * math.pi * index / segments
-            vertices.append(tuple(point + across * (rx * math.cos(angle)) + other * (ry * math.sin(angle))))
-    for row in range(len(points) - 1):
-        for index in range(segments):
-            next_index = (index + 1) % segments
-            faces.append((row * segments + index, row * segments + next_index, (row + 1) * segments + next_index, (row + 1) * segments + index))
+            following = (index + 1) % segments
+            faces.append((row * segments + index, row * segments + following, (row + 1) * segments + following, (row + 1) * segments + index))
     faces.append(tuple(reversed(range(segments))))
-    faces.append(tuple((len(points) - 1) * segments + index for index in range(segments)))
-    return vertices, faces, distances
+    faces.append(tuple((rows - 1) * segments + index for index in range(segments)))
+    return faces
 
 
-def tube(vertices, faces, points, radii, segments=10):
-    new_vertices, new_faces, _ = tube_points(points, radii, segments)
-    add_part(vertices, faces, new_vertices, new_faces)
+# The arm's rest axis, shoulder to fingertips, shared by the mesh, the rig and the arm UV islands.
+ARM_AXIS = [(0.172, -0.008, 1.400), (0.200, -0.010, 1.300), (0.212, -0.012, 1.200), (0.222, -0.008, 1.125), (0.230, 0.002, 1.040), (0.236, 0.012, 0.950), (0.240, 0.018, 0.868)]
+HAND_X = 0.242
+# The head from chin to crown, hair volume included above the ears: (z, cx, cy, half width, front
+# depth, back depth). The face is a little flatter in front than an ellipse (HEAD_POWER).
+HEAD_RINGS = [
+    (1.500, 0, 0.036, 0.024, 0.034, 0.030),
+    (1.516, 0, 0.022, 0.048, 0.054, 0.052),
+    (1.540, 0, 0.012, 0.061, 0.069, 0.068),
+    (1.565, 0, 0.006, 0.066, 0.078, 0.082),
+    (1.595, 0, 0.000, 0.068, 0.083, 0.095),
+    (1.625, 0, -0.004, 0.070, 0.088, 0.104),
+    (1.655, 0, -0.008, 0.077, 0.092, 0.110),
+    (1.685, 0, -0.012, 0.081, 0.091, 0.110),
+    (1.711, 0, -0.016, 0.076, 0.085, 0.100),
+    (1.730, 0, -0.020, 0.058, 0.064, 0.076),
+    (1.741, 0, -0.022, 0.028, 0.030, 0.036),
+]
+HEAD_POWER = 2.3
+HEAD_CENTRE = Vector((0.0, -0.010, 1.630))
+
+
+def arm_axis(z):
+    points = ARM_AXIS
+    if z >= points[0][2]:
+        return points[0][0], points[0][1]
+    for a, b in zip(points, points[1:]):
+        if b[2] <= z <= a[2]:
+            amount = (a[2] - z) / (a[2] - b[2])
+            return a[0] + (b[0] - a[0]) * amount, a[1] + (b[1] - a[1]) * amount
+    return points[-1][0], points[-1][1]
 
 
 def body_source():
-    vertices, faces = [], []
-    loft(vertices, faces, [
-        (0.80, 0, 0, 0.115, 0.075),
-        (0.86, 0, 0, 0.158, 0.100),
-        (0.94, 0, 0, 0.164, 0.105),
-        (1.01, 0, 0.002, 0.145, 0.092),
-        (1.09, 0, 0.003, 0.128, 0.080),
-        (1.17, 0, 0.002, 0.143, 0.088),
-        (1.26, 0, 0, 0.166, 0.103),
-        (1.34, 0, -0.002, 0.178, 0.096),
-        (1.39, 0, -0.004, 0.182, 0.082),
-        (1.43, 0, -0.006, 0.120, 0.065),
-        (1.47, 0, -0.002, 0.055, 0.047),
-    ], 24, lambda z, x, s: 0.012 * math.exp(-((z - 1.255) / 0.09) ** 2) * s)
-    loft(vertices, faces, [
-        (1.405, 0, 0, 0.047, 0.043),
-        (1.46, 0, 0.002, 0.046, 0.043),
-        (1.51, 0, 0.006, 0.050, 0.047),
-    ], 20)
-    loft(vertices, faces, [
-        (1.485, 0, 0.010, 0.047, 0.048),
-        (1.505, 0, 0.013, 0.061, 0.059),
-        (1.535, 0, 0.010, 0.071, 0.069),
-        (1.575, 0, 0.005, 0.079, 0.077),
-        (1.620, 0, 0.000, 0.083, 0.081),
-        (1.665, 0, -0.004, 0.082, 0.080),
-        (1.705, 0, -0.008, 0.070, 0.067),
-        (1.731, 0, -0.010, 0.042, 0.043),
-        (1.738, 0, -0.010, 0.012, 0.015),
+    source = Source()
+    # Torso: hips wider than the waist, a ribcage under a modest bust, shoulders that slope.
+    source.loft("torso", [
+        (0.850, 0, -0.004, 0.090, 0.060, 0.070),
+        (0.880, 0, -0.006, 0.166, 0.078, 0.094),
+        (0.920, 0, -0.006, 0.170, 0.084, 0.100),
+        (0.970, 0, -0.004, 0.161, 0.085, 0.094),
+        (1.020, 0, -0.002, 0.150, 0.084, 0.084),
+        (1.075, 0, 0.000, 0.128, 0.080, 0.076),
+        (1.125, 0, 0.000, 0.132, 0.082, 0.078),
+        (1.185, 0, 0.000, 0.142, 0.094, 0.088),
+        (1.250, 0, 0.000, 0.148, 0.100, 0.094),
+        (1.315, 0, -0.004, 0.150, 0.096, 0.096),
+        (1.370, 0, -0.008, 0.152, 0.078, 0.086),
+        (1.405, 0, -0.012, 0.148, 0.066, 0.078),
+        (1.437, 0, -0.014, 0.112, 0.056, 0.068),
+        (1.462, 0, -0.014, 0.066, 0.050, 0.058),
     ], 28)
-    ellipsoid(vertices, faces, (0, 0.079, 1.596), (0.018, 0.022, 0.034), 16, 12)
-    ellipsoid(vertices, faces, (0, 0.095, 1.579), (0.014, 0.012, 0.012), 14, 8)
-    ellipsoid(vertices, faces, (0, 0.079, 1.550), (0.029, 0.008, 0.007), 16, 8)
+    for sign in (-1, 1):
+        source.ellipsoid("torso", (sign * 0.064, 0.064, 1.252), (0.068, 0.032, 0.062), 16, 10)
+        source.ellipsoid("torso", (sign * 0.064, -0.058, 0.900), (0.080, 0.040, 0.075), 16, 10)
+    source.tube("neck", [(0, -0.026, 1.400), (0, -0.026, 1.470), (0, -0.022, 1.535)], [(0.054, 0.057), (0.051, 0.054), (0.050, 0.053)], 20)
+    # Head: one loft from chin to crown, then the features.
+    source.loft("head", HEAD_RINGS, 32, HEAD_POWER)
+    source.ellipsoid("head", (0, 0.084, 1.596), (0.009, 0.013, 0.025), 12, 10, Matrix.Rotation(0.32, 3, "X"))
+    source.ellipsoid("head", (0, 0.095, 1.579), (0.010, 0.009, 0.009), 12, 8)
+    source.ellipsoid("head", (0, 0.078, 1.646), (0.052, 0.010, 0.010), 16, 8)
+    source.ellipsoid("head", (0, 0.078, 1.553), (0.018, 0.008, 0.008), 14, 8)
+    source.ellipsoid("head", (0, 0.064, 1.523), (0.020, 0.014, 0.014), 12, 8)
+    for sign in (-1, 1):
+        source.ellipsoid("head", (sign * 0.010, 0.088, 1.576), (0.007, 0.007, 0.007), 10, 6)
+        source.ellipsoid("head", (sign * 0.067, -0.008, 1.598), (0.012, 0.016, 0.026), 12, 8)
     for side, sign in (("L", -1), ("R", 1)):
-        ellipsoid(vertices, faces, (sign * 0.081, 0.000, 1.600), (0.013, 0.018, 0.030), 12, 10)
-        tube(vertices, faces, [
-            (sign * 0.130, -0.002, 1.405),
-            (sign * 0.188, 0.000, 1.373),
-            (sign * 0.220, 0.003, 1.310),
-            (sign * 0.235, 0.008, 1.220),
-            (sign * 0.241, 0.013, 1.145),
-        ], [(0.065, 0.067), (0.058, 0.060), (0.050, 0.052), (0.043, 0.045), (0.041, 0.043)], 16)
-        tube(vertices, faces, [
-            (sign * 0.241, 0.013, 1.165),
-            (sign * 0.245, 0.017, 1.105),
-            (sign * 0.248, 0.022, 1.030),
-            (sign * 0.250, 0.025, 0.955),
-            (sign * 0.250, 0.027, 0.900),
-        ], [(0.043, 0.044), (0.046, 0.045), (0.039, 0.039), (0.031, 0.032), (0.029, 0.030)], 16)
-        ellipsoid(vertices, faces, (sign * 0.250, 0.029, 0.858), (0.035, 0.025, 0.053), 14, 10)
-        for finger in range(4):
-            x = sign * (0.229 + finger * 0.012)
-            length = (0.050, 0.063, 0.060, 0.047)[finger]
-            tube(vertices, faces, [
-                (x, 0.032, 0.835),
-                (x + sign * 0.002, 0.036, 0.815),
-                (x + sign * 0.003, 0.040, 0.835 - length),
-            ], [0.010, 0.009, 0.006], 8)
-        tube(vertices, faces, [
-            (sign * 0.224, 0.035, 0.874),
-            (sign * 0.207, 0.046, 0.852),
-            (sign * 0.207, 0.055, 0.828),
-        ], [0.014, 0.012, 0.008], 9)
-        tube(vertices, faces, [
-            (sign * 0.083, 0.000, 0.930),
-            (sign * 0.105, 0.000, 0.820),
-            (sign * 0.108, 0.003, 0.690),
-            (sign * 0.106, 0.008, 0.535),
-        ], [(0.083, 0.088), (0.079, 0.083), (0.065, 0.070), (0.052, 0.056)], 18)
-        tube(vertices, faces, [
-            (sign * 0.106, 0.008, 0.555),
-            (sign * 0.106, -0.002, 0.455),
-            (sign * 0.105, -0.006, 0.350),
-            (sign * 0.105, 0.000, 0.215),
-            (sign * 0.105, 0.000, 0.115),
-        ], [(0.054, 0.057), (0.052, 0.054), (0.060, 0.062), (0.044, 0.047), (0.040, 0.043)], 18)
-        loft(vertices, faces, [
-            (0.005, sign * 0.105, 0.045, 0.067, 0.122),
-            (0.020, sign * 0.105, 0.045, 0.070, 0.125),
-            (0.055, sign * 0.105, 0.043, 0.069, 0.120),
-            (0.090, sign * 0.105, 0.025, 0.061, 0.096),
-            (0.145, sign * 0.105, 0.000, 0.052, 0.060),
-            (0.175, sign * 0.105, 0.000, 0.048, 0.052),
-        ], 18)
-    return vertices, faces
+        arm = "arm." + side
+        hand = "hand." + side
+        axis = [(sign * x, y, z) for x, y, z in ARM_AXIS]
+        source.ellipsoid(arm, (sign * 0.158, -0.008, 1.355), (0.056, 0.058, 0.060), 16, 10)
+        source.tube(arm, [(sign * 0.176, -0.008, 1.370)] + axis[1:4], [(0.046, 0.050), (0.044, 0.047), (0.040, 0.042), (0.036, 0.038)], 16)
+        source.tube(arm, axis[3:] + [(sign * 0.241, 0.020, 0.845)], [(0.037, 0.038), (0.037, 0.040), (0.030, 0.033), (0.025, 0.029), (0.022, 0.027)], 16)
+        # Palm facing the thigh, grouped fingers curling slightly forward, a thumb in front.
+        source.ellipsoid(hand, (sign * HAND_X, 0.024, 0.818), (0.018, 0.040, 0.056), 14, 10)
+        source.tube(hand, [(sign * HAND_X, 0.030, 0.790), (sign * 0.240, 0.040, 0.725), (sign * 0.236, 0.047, 0.698)], [(0.015, 0.036), (0.013, 0.031), (0.009, 0.020)], 12)
+        source.tube(hand, [(sign * 0.232, 0.056, 0.850), (sign * 0.226, 0.070, 0.812), (sign * 0.224, 0.073, 0.788)], [0.012, 0.010, 0.007], 10)
+        leg = "leg." + side
+        source.tube(leg, [(sign * 0.084, 0.000, 0.915), (sign * 0.095, 0.004, 0.850), (sign * 0.100, 0.008, 0.720), (sign * 0.103, 0.012, 0.560), (sign * 0.104, 0.014, 0.500)], [(0.066, 0.068), (0.090, 0.094), (0.078, 0.082), (0.063, 0.067), (0.058, 0.062)], 18)
+        source.tube(leg, [(sign * 0.104, 0.014, 0.530), (sign * 0.104, 0.004, 0.450), (sign * 0.104, -0.008, 0.360), (sign * 0.105, -0.002, 0.260), (sign * 0.105, 0.002, 0.170)], [(0.056, 0.060), (0.055, 0.059), (0.057, 0.062), (0.052, 0.055), (0.050, 0.052)], 18)
+        source.loft("boot." + side, [
+            (0.000, sign * 0.105, 0.045, 0.062, 0.119, 0.119),
+            (0.012, sign * 0.105, 0.045, 0.068, 0.124, 0.124),
+            (0.045, sign * 0.105, 0.043, 0.068, 0.120, 0.120),
+            (0.080, sign * 0.105, 0.027, 0.062, 0.098, 0.098),
+            (0.115, sign * 0.105, 0.010, 0.055, 0.068, 0.078),
+            (0.150, sign * 0.105, 0.002, 0.050, 0.056, 0.058),
+            (0.205, sign * 0.105, 0.000, 0.048, 0.052, 0.053),
+        ], 20)
+    return source
 
 
 def object_from(name, vertices, faces):
@@ -220,34 +298,49 @@ def apply_modifier(obj, modifier):
     bpy.ops.object.modifier_apply(modifier=modifier.name)
 
 
-def unified_body():
-    obj = object_from("survivor", *body_source())
+def cut_borders(obj):
+    # Material borders become edge loops, so each island's edge follows the border exactly.
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+
+    def cut(co, no, inside):
+        faces = [face for face in bm.faces if inside(face.calc_center_median())]
+        geom = list({vertex for face in faces for vertex in face.verts}) + list({edge for face in faces for edge in face.edges}) + faces
+        bmesh.ops.bisect_plane(bm, geom=geom, dist=1e-6, plane_co=co, plane_no=no)
+
+    cut((0, 0, neckline_z(0)), (0, 0.20, 1), lambda c: 1.38 < c.z < 1.50 and abs(c.x) < NECKLINE_X + 0.02)
+    cut((0, 0, JAW_Z), (0, 0, 1), lambda c: 1.44 < c.z < 1.53 and abs(c.x) < 0.12)
+    cut((0, 0, WAIST_Z), (0, 0, 1), lambda c: 0.97 < c.z < 1.06 and abs(c.x) < 0.19)
+    cut((0, 0, SEAT_Z), (0, 0, 1), lambda c: 0.86 < c.z < 0.96 and abs(c.x) < 0.19)
+    cut((0, 0, BOOT_Z), (0, 0, 1), lambda c: 0.13 < c.z < 0.22)
+    cut((0, 0, WRIST_Z), (0, 0, 1), lambda c: 0.83 < c.z < 0.91 and abs(c.x) > 0.195)
+    bmesh.ops.triangulate(bm, faces=list(bm.faces), quad_method="BEAUTY", ngon_method="BEAUTY")
+    bm.to_mesh(obj.data)
+    bm.free()
+
+
+def unified_body(source):
+    obj = object_from("survivor", source.vertices, source.faces)
     remesh = obj.modifiers.new("Continuous anatomy", "REMESH")
     remesh.mode = "VOXEL"
-    remesh.voxel_size = 0.0055
+    remesh.voxel_size = VOXEL
     remesh.use_smooth_shade = True
     apply_modifier(obj, remesh)
     smoothing = obj.modifiers.new("Relax surface", "SMOOTH")
-    smoothing.factor = 0.72
+    smoothing.factor = 0.65
     smoothing.iterations = 4
     apply_modifier(obj, smoothing)
     for vertex in obj.data.vertices:
         x, y, z = vertex.co
-        if y > 0.035 and 1.50 < z < 1.68:
-            front = smooth((y - 0.035) / 0.035)
-            sockets = sum(math.exp(-((x - eye_x) / 0.022) ** 2 - ((z - 1.623) / 0.013) ** 2) for eye_x in (-0.034, 0.034))
-            cheeks = sum(math.exp(-((x - cheek_x) / 0.025) ** 2 - ((z - 1.580) / 0.025) ** 2) for cheek_x in (-0.047, 0.047))
-            vertex.co.y += front * (-0.006 * sockets + 0.003 * cheeks)
+        if y > 0.03 and 1.50 < z < 1.68:
+            front = smooth((y - 0.03) / 0.035)
+            sockets = sum(math.exp(-((x - eye_x) / 0.019) ** 2 - ((z - 1.623) / 0.011) ** 2) for eye_x in (-0.034, 0.034))
+            vertex.co.y -= front * 0.0045 * sockets
     decimate = obj.modifiers.new("Triangle budget", "DECIMATE")
-    decimate.ratio = min(1.0, BODY_TRIANGLES / max(1, len(obj.data.polygons)))
+    decimate.ratio = min(1.0, BODY_TRIANGLES / max(1, 2 * len(obj.data.polygons)))
     decimate.use_collapse_triangulate = True
     apply_modifier(obj, decimate)
-    triangles = sum(len(polygon.vertices) - 2 for polygon in obj.data.polygons)
-    if triangles > BODY_TRIANGLES:
-        decimate = obj.modifiers.new("Exact triangle budget", "DECIMATE")
-        decimate.ratio = BODY_TRIANGLES / triangles
-        decimate.use_collapse_triangulate = True
-        apply_modifier(obj, decimate)
+    cut_borders(obj)
     bm = bmesh.new()
     bm.from_mesh(obj.data)
     bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
@@ -258,63 +351,232 @@ def unified_body():
     return obj
 
 
+def label_surface(obj, source):
+    tree = BVHTree.FromPolygons(source.vertices, source.faces)
+
+    def label(point):
+        return source.labels[tree.find_nearest(point)[2]]
+
+    vertex_labels = [label(vertex.co) for vertex in obj.data.vertices]
+    face_labels = [label(polygon.center) for polygon in obj.data.polygons]
+    return vertex_labels, face_labels
+
+
+# ---------------------------------------------------------------------------------------------
+# Hair: flat tapered locks lying on the head, and a messy bun.
+# ---------------------------------------------------------------------------------------------
+
+
+HEAD_TREE = []
+
+
+def on_head(point, offset):
+    # Place a control point on the head-and-hair surface, lifted off by the offset. Above the
+    # cheekbones the point is projected from the head's centre; below them hair hangs as a curtain
+    # from the cheekbone width rather than following the jaw in.
+    if not HEAD_TREE:
+        segments = 48
+        vertices = [ring_point(ring, 2 * math.pi * index / segments, HEAD_POWER) for ring in HEAD_RINGS for index in range(segments)]
+        HEAD_TREE.append(BVHTree.FromPolygons(vertices, ring_faces(len(HEAD_RINGS), segments)))
+    tree = HEAD_TREE[0]
+    point = Vector(point)
+    if point.z >= 1.60:
+        origin = HEAD_CENTRE.copy()
+        direction = (point - origin).normalized()
+    else:
+        origin = Vector((HEAD_CENTRE.x, HEAD_CENTRE.y, 1.60))
+        direction = Vector((point.x - origin.x, point.y - origin.y, 0)).normalized()
+    location, normal, _, _ = tree.ray_cast(origin, direction)
+    if location is None:
+        location, normal = point, direction
+    if normal.dot(direction) < 0:
+        normal = -normal
+    if point.z < 1.60:
+        normal = Vector((normal.x, normal.y, 0)).normalized()
+        location = Vector((location.x, location.y, point.z))
+    return location + normal * offset
+
+
+def catmull(points, per_span):
+    result = []
+    for index in range(len(points) - 1):
+        p0 = points[max(0, index - 1)]
+        p1, p2 = points[index], points[index + 1]
+        p3 = points[min(len(points) - 1, index + 2)]
+        for step in range(per_span):
+            t = step / per_span
+            t2, t3 = t * t, t * t * t
+            result.append(0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3))
+    result.append(points[-1])
+    return result
+
+
+def lerp_list(values, count):
+    result = []
+    for index in range(count):
+        position = index / (count - 1) * (len(values) - 1)
+        low = min(len(values) - 2, int(position))
+        amount = position - low
+        result.append(values[low] * (1 - amount) + values[low + 1] * amount)
+    return result
+
+
+def head_locks():
+    locks = []
+
+    def lock(points, widths, offsets, flat=0.45):
+        placed = [on_head(point, offset) for point, offset in zip(points, offsets)]
+        locks.append((placed, widths, flat, 1, HEAD_CENTRE))
+
+    # Bangs falling across the forehead from the crown, heavier and longer toward her right.
+    lock([(-0.010, 0.030, 1.745), (-0.020, 0.080, 1.708), (-0.030, 0.094, 1.674), (-0.038, 0.092, 1.648)], [0.032, 0.038, 0.030, 0.006], [0.006, 0.010, 0.012, 0.011])
+    lock([(0.008, 0.030, 1.746), (0.014, 0.084, 1.706), (0.024, 0.096, 1.668), (0.036, 0.094, 1.640)], [0.034, 0.040, 0.032, 0.006], [0.007, 0.011, 0.013, 0.012])
+    lock([(0.026, 0.028, 1.744), (0.042, 0.078, 1.704), (0.054, 0.086, 1.664), (0.062, 0.082, 1.622)], [0.032, 0.036, 0.028, 0.005], [0.006, 0.011, 0.013, 0.012])
+    lock([(-0.034, 0.025, 1.742), (-0.050, 0.072, 1.704), (-0.060, 0.080, 1.666), (-0.066, 0.074, 1.636)], [0.030, 0.034, 0.026, 0.005], [0.006, 0.010, 0.012, 0.011])
+    lock([(0.016, 0.050, 1.735), (0.028, 0.090, 1.690), (0.040, 0.098, 1.640), (0.046, 0.096, 1.606)], [0.020, 0.024, 0.018, 0.004], [0.010, 0.014, 0.015, 0.014])
+    # Face-framing locks: a long one in front of each ear down to the jaw, a short one at the temple.
+    for sign, low in ((-1, 1.548), (1, 1.532)):
+        lock([(sign * 0.030, 0.020, 1.745), (sign * 0.062, 0.050, 1.705), (sign * 0.074, 0.050, 1.660), (sign * 0.078, 0.045, 1.610), (sign * 0.074, 0.050, 1.570), (sign * 0.068, 0.056, low)],
+             [0.034, 0.042, 0.040, 0.032, 0.022, 0.006], [0.008, 0.013, 0.015, 0.015, 0.016, 0.018])
+        lock([(sign * 0.050, 0.010, 1.735), (sign * 0.074, 0.030, 1.690), (sign * 0.080, 0.028, 1.640), (sign * 0.080, 0.032, 1.600)],
+             [0.030, 0.034, 0.024, 0.005], [0.006, 0.010, 0.011, 0.010])
+    # The crown, swept back from the hairline into the bun, a little lifted in the middle.
+    for x0, lift in ((-0.054, 0.013), (-0.018, 0.016), (0.018, 0.015), (0.054, 0.012)):
+        lock([(x0, 0.072, 1.692), (x0 * 0.95, 0.035, 1.738), (x0 * 0.75, -0.020, 1.752), (x0 * 0.45, -0.068, 1.742), (x0 * 0.2, -0.100, 1.730)],
+             [0.032, 0.048, 0.050, 0.042, 0.018], [0.005, lift, lift, 0.010, 0.006], 0.42)
+    # Two loose pieces lifting off the crown, so the top is not a smooth cap.
+    for sign in (-1, 1):
+        lock([(sign * 0.030, 0.010, 1.748), (sign * 0.060, -0.010, 1.742), (sign * 0.084, -0.020, 1.712), (sign * 0.094, -0.010, 1.680)],
+             [0.026, 0.030, 0.022, 0.005], [0.010, 0.016, 0.020, 0.024], 0.45)
+    # Sides and back gathered up from the nape into the bun, tight to the skull.
+    for degrees in (-128, 180, 128):
+        angle = math.radians(degrees)
+
+        def around(z, scale=1.0):
+            return (math.sin(angle) * 0.08 * scale, -0.012 + math.cos(angle) * 0.10 * scale, z)
+
+        lock([around(1.565), around(1.625), around(1.685, 0.9), (math.sin(angle) * 0.020, -0.098, 1.714)],
+             [0.016, 0.054, 0.048, 0.020], [0.002, 0.005, 0.006, 0.004], 0.30)
+    # Flyaways at the nape.
+    for x, length in ((-0.036, 0.05), (0.010, 0.065), (0.046, 0.045)):
+        lock([(x, -0.100, 1.625), (x * 1.1, -0.106, 1.590), (x * 1.2, -0.100, 1.585 - length)], [0.016, 0.014, 0.004], [0.004, 0.008, 0.013], 0.40)
+    return locks
+
+
+BUN_CENTRE = Vector((0.004, -0.108, 1.719))
+
+
+def bun_locks():
+    locks = []
+    centre = BUN_CENTRE
+    core = [centre + Vector((0, 0, -0.028 + 0.056 * index / 6)) for index in range(7)]
+    widths = [0.008 + 0.068 * math.sin(math.pi * index / 6) ** 0.7 for index in range(7)]
+    locks.append((core, widths, 0.95, 1, centre))
+    # Four fat loops wound loosely around the core in tilted planes.
+    for index in range(4):
+        yaw = index * math.pi / 2 + 0.5
+        tilt = 0.6 + 0.3 * (index % 2)
+        normal = Vector((math.cos(yaw) * math.sin(tilt), math.sin(yaw) * math.sin(tilt), math.cos(tilt)))
+        u = normal.cross(Vector((0, 0, 1))).normalized()
+        v = normal.cross(u).normalized()
+        radius = 0.031 + 0.003 * (index % 3)
+        start = index * 1.4
+        points = [centre + normal * 0.006 + (u * math.cos(start + 4.2 * step / 6) + v * math.sin(start + 4.2 * step / 6)) * radius for step in range(7)]
+        locks.append((points, [0.012, 0.028, 0.032, 0.032, 0.028, 0.020, 0.005], 0.60, 1, centre))
+    # Two strands escaping the bun and falling behind.
+    for side in (-1, 1):
+        start = centre + Vector((side * 0.024, -0.012, -0.012))
+        points = [start, start + Vector((side * 0.010, -0.012, -0.020)), start + Vector((side * 0.014, -0.014, -0.045)), start + Vector((side * 0.012, -0.010, -0.062))]
+        locks.append((points, [0.014, 0.012, 0.008, 0.003], 0.45, 1, centre))
+    return locks
+
+
 def hair_source():
-    vertices, faces = [], []
-    face_charts = []
-    chart = 0
-    clumps = [
-        ([(-0.065, 0.035, 1.705), (-0.055, 0.067, 1.677), (-0.061, 0.075, 1.620), (-0.072, 0.069, 1.555)], [0.018, 0.017, 0.012, 0.003]),
-        ([(0.052, 0.046, 1.711), (0.066, 0.069, 1.674), (0.074, 0.071, 1.610), (0.068, 0.080, 1.540)], [0.020, 0.018, 0.012, 0.003]),
-        ([(-0.020, 0.065, 1.724), (-0.030, 0.079, 1.694), (-0.042, 0.083, 1.660)], [0.019, 0.016, 0.004]),
-        ([(0.015, 0.062, 1.727), (0.030, 0.077, 1.699), (0.043, 0.081, 1.668)], [0.018, 0.015, 0.004]),
-        ([(-0.070, -0.005, 1.697), (-0.080, 0.005, 1.650), (-0.081, 0.010, 1.600)], [0.016, 0.015, 0.005]),
-        ([(0.070, -0.005, 1.700), (0.081, 0.005, 1.650), (0.082, 0.012, 1.600)], [0.016, 0.015, 0.005]),
-        ([(-0.055, -0.055, 1.715), (-0.027, -0.079, 1.692), (0.000, -0.083, 1.650), (0.025, -0.080, 1.610)], [0.022, 0.022, 0.019, 0.006]),
-        ([(0.055, -0.050, 1.716), (0.030, -0.079, 1.690), (0.005, -0.085, 1.645), (-0.020, -0.079, 1.600)], [0.021, 0.022, 0.018, 0.005]),
-        ([(-0.035, 0.005, 1.733), (-0.020, -0.035, 1.740), (0.005, -0.070, 1.718), (0.035, -0.084, 1.686)], [0.022, 0.025, 0.022, 0.006]),
-        ([(0.040, 0.010, 1.728), (0.025, -0.030, 1.742), (-0.005, -0.068, 1.720), (-0.035, -0.083, 1.680)], [0.020, 0.024, 0.021, 0.006]),
-        ([(-0.018, -0.090, 1.680), (-0.040, -0.117, 1.704), (-0.025, -0.137, 1.724), (0.008, -0.132, 1.712)], [0.027, 0.032, 0.025, 0.009]),
-        ([(0.015, -0.088, 1.675), (0.042, -0.115, 1.690), (0.035, -0.143, 1.713), (0.005, -0.148, 1.700)], [0.026, 0.032, 0.026, 0.008]),
-        ([(-0.020, -0.102, 1.652), (-0.035, -0.132, 1.660), (-0.015, -0.151, 1.680), (0.020, -0.135, 1.681)], [0.022, 0.029, 0.026, 0.008]),
-        ([(0.000, -0.100, 1.700), (0.015, -0.135, 1.735), (-0.010, -0.145, 1.743), (-0.035, -0.126, 1.721)], [0.022, 0.028, 0.021, 0.005]),
-        ([(-0.060, -0.070, 1.630), (-0.069, -0.091, 1.600), (-0.055, -0.096, 1.570)], [0.013, 0.011, 0.003]),
-        ([(0.058, -0.069, 1.635), (0.070, -0.090, 1.602), (0.060, -0.098, 1.575)], [0.013, 0.010, 0.003]),
-    ]
-    uv_data = {}
-    for points, radii in clumps:
-        name = f"hair_{chart:02d}"
-        new_vertices, new_faces, distances = tube_points(points, radii, 8)
+    vertices, faces, face_uvs, face_rects = [], [], [], []
+    locks = head_locks() + bun_locks()
+    lengths = []
+    for points, widths, flat, per_span, centre in locks:
+        lengths.append(sum((b - a).length for a, b in zip(points, points[1:])))
+    order = sorted(range(len(locks)), key=lambda index: (-lengths[index], index))
+    rect_of = {lock_index: HAIR_RECTS[rank % len(HAIR_RECTS)] for rank, lock_index in enumerate(order)}
+    segments = 6
+    for lock_index, (points, widths, flat, per_span, centre) in enumerate(locks):
+        path = catmull(points, per_span)
+        radii = lerp_list(widths, len(path))
+        distances = [0.0]
+        for a, b in zip(path, path[1:]):
+            distances.append(distances[-1] + (b - a).length)
         offset = len(vertices)
-        add_part(vertices, faces, new_vertices, new_faces)
-        face_charts.extend([name] * len(new_faces))
-        coords = []
-        for row, distance in enumerate(distances):
-            for index in range(8):
-                coords.append((2 * math.pi * index / 8 * 0.022, distance))
-        uv_data[name] = {offset + index: coord for index, coord in enumerate(coords)}
-        chart += 1
+        perimeters = []
+        for row, point in enumerate(path):
+            tangent = (path[min(len(path) - 1, row + 1)] - path[max(0, row - 1)]).normalized()
+            outward = point - centre
+            outward = (outward - tangent * outward.dot(tangent)).normalized()
+            across = tangent.cross(outward).normalized()
+            half = radii[row] / 2
+            for index in range(segments):
+                angle = 2 * math.pi * index / segments
+                vertices.append(tuple(point + across * (half * math.cos(angle)) + outward * (half * flat * math.sin(angle))))
+            perimeters.append(math.pi * (half + half * flat))
+        root = len(vertices)
+        vertices.append(tuple(path[0] - (path[1] - path[0]).normalized() * 0.002))
+        tip = len(vertices)
+        vertices.append(tuple(path[-1] + (path[-1] - path[-2]).normalized() * 0.003))
+        name = rect_of[lock_index]
+        x, y, w, h = FROZEN[name][:4]
+        density_u = min(HAIR_DENSITY_CAP, (w - 2 * PAD) / max(perimeters))
+        density_v = min(HAIR_DENSITY_CAP, (h - 2 * PAD) / (distances[-1] + 0.005))
+        CHART_DENSITY.setdefault(name, []).append((density_u, density_v))
+
+        def uv(row, column):
+            u = (w / 2) + (column / segments - 0.5) * perimeters[row] * density_u
+            v = PAD + (distances[row] + 0.002) * density_v
+            return ((x + u) / ATLAS_SIZE, (y + v) / ATLAS_SIZE)
+
+        for row in range(len(path) - 1):
+            for index in range(segments):
+                following = index + 1
+                corners = [(row, index), (row, following), (row + 1, following), (row + 1, index)]
+                faces.append(tuple(offset + r * segments + (c % segments) for r, c in corners))
+                face_uvs.append([uv(r, c) for r, c in corners])
+                face_rects.append(name)
+        last = len(path) - 1
+        for index in range(segments):
+            faces.append((offset + (index + 1) % segments, offset + index, root))
+            face_uvs.append([uv(0, index + 1), uv(0, index), ((x + w / 2) / ATLAS_SIZE, (y + PAD) / ATLAS_SIZE)])
+            face_rects.append(name)
+            faces.append((offset + last * segments + index, offset + last * segments + (index + 1) % segments, tip))
+            face_uvs.append([uv(last, index), uv(last, index + 1), ((x + w / 2) / ATLAS_SIZE, (y + h - PAD) / ATLAS_SIZE)])
+            face_rects.append(name)
     obj = object_from("survivor_hair", vertices, faces)
     for polygon in obj.data.polygons:
         polygon.use_smooth = True
-    return obj, face_charts, uv_data
+    return obj, face_rects, face_uvs
 
 
-def region_chart(point, normal):
+# ---------------------------------------------------------------------------------------------
+# UV islands on the frozen layout.
+# ---------------------------------------------------------------------------------------------
+
+
+def region_chart(point, label):
     x, y, z = point
     side = "L" if x < 0 else "R"
-    if z >= 1.485:
-        return "head_front" if y > -0.012 else "head_back"
-    if z >= 1.405 and abs(x) < 0.105:
-        return "neck"
-    if z < 0.175:
-        return "boot." + side
-    if z < 0.900 and abs(x) > 0.180:
-        return f"hand_{'front' if y > 0.025 else 'back'}." + side
-    if z < 0.910:
-        return f"leg_{'front' if y > -0.005 else 'back'}." + side
-    if abs(x) > 0.177 and z > 0.875:
+    if label.startswith(("arm", "hand")):
+        side = label[-1]
+        if z < WRIST_Z:
+            outer = (x > HAND_X) if side == "R" else (x < -HAND_X)
+            return f"hand_{'front' if outer else 'back'}." + side
         return "arm." + side
-    if z < 1.015:
+    if label == "head" or (label in ("neck", "torso") and z > neckline_z(y) and abs(x) < NECKLINE_X):
+        if z >= JAW_Z:
+            return "head_front" if y > HEAD_SPLIT_Y else "head_back"
+        return "neck"
+    if z < BOOT_Z:
+        return "boot." + side
+    if z < SEAT_Z:
+        return f"leg_{'front' if y > -0.005 else 'back'}." + side
+    if z < WAIST_Z:
         return f"pelvis_{'front' if y > 0 else 'back'}"
     return f"torso_{'front' if y > 0 else 'back'}"
 
@@ -325,15 +587,6 @@ def chart_density(name):
     if name.startswith("head_") or name == "neck":
         return HEAD_DENSITY
     return BODY_DENSITY
-
-
-def chart_centre(name):
-    if name.endswith(".L") or name.endswith(".R"):
-        sign = -1 if name.endswith(".L") else 1
-        if name.startswith("arm") or name.startswith("hand"):
-            return sign * 0.245, 0.02
-        return sign * 0.105, 0.025 if name.startswith("boot") else 0.0
-    return 0.0, 0.0
 
 
 def cylindrical_radius(name):
@@ -350,175 +603,142 @@ def cylindrical_radius(name):
     return 0.070
 
 
+def chart_centre(name, z):
+    sign = -1 if name.endswith(".L") else 1
+    if name.startswith("arm"):
+        x, y = arm_axis(z)
+        return sign * x, y
+    if name.startswith("boot"):
+        return sign * 0.105, 0.025
+    if name.startswith("leg"):
+        return sign * 0.105, 0.0
+    return 0.0, 0.0
+
+
 def chart_coordinate(name, point):
     x, y, z = point
-    cx, cy = chart_centre(name)
     if name.startswith("hand"):
-        return (x if name.endswith(".R") else -x, z)
-    full = name == "neck" or name.startswith("arm") or name.startswith("boot")
-    if full:
+        outer = name.startswith("hand_front")
+        facing = 1 if outer == name.endswith(".R") else -1
+        return (y * facing, z)
+    cx, cy = chart_centre(name, z)
+    if name == "neck" or name.startswith("arm") or name.startswith("boot"):
         theta = math.atan2(y - cy, x - cx)
-    elif name.endswith("back"):
+    elif name.endswith("back") or "_back." in name:
         theta = math.atan2(-(x - cx), -(y - cy))
     else:
         theta = math.atan2(x - cx, y - cy)
     return theta * cylindrical_radius(name), z
 
 
-def build_charts(body, hair, hair_charts, hair_uv):
+def polygon_coordinates(name, points):
+    coordinates = [chart_coordinate(name, point) for point in points]
+    if name == "neck" or name.startswith("arm") or name.startswith("boot"):
+        radius = cylindrical_radius(name)
+        angles = [coord[0] / radius for coord in coordinates]
+        reference = angles[0]
+        unwrapped = []
+        for angle, coord in zip(angles, coordinates):
+            while angle - reference > math.pi:
+                angle -= 2 * math.pi
+            while angle - reference < -math.pi:
+                angle += 2 * math.pi
+            unwrapped.append((angle * radius, coord[1]))
+        coordinates = unwrapped
+    return coordinates
+
+
+def build_charts(body, face_labels, hair, hair_rects, hair_uvs):
     charts = {}
 
     def ensure(name):
         if name not in charts:
-            charts[name] = {"name": name, "density": chart_density(name), "polygons": [], "positions": []}
+            charts[name] = {"name": name, "density": chart_density(name), "polygons": [], "positions": [], "hair": name.startswith("hair_")}
         return charts[name]
 
-    for polygon in body.data.polygons:
-        centre = body.data.vertices[polygon.vertices[0]].co.copy()
-        for index in polygon.vertices[1:]:
-            centre += body.data.vertices[index].co
-        centre /= len(polygon.vertices)
-        name = region_chart(centre, polygon.normal)
-        coordinates = [chart_coordinate(name, body.data.vertices[index].co) for index in polygon.vertices]
-        if name == "neck" or name.startswith("arm") or name.startswith("boot"):
-            angles = [coord[0] / cylindrical_radius(name) for coord in coordinates]
-            reference = sum(angles) / len(angles)
-            unwrapped = []
-            for angle, coord in zip(angles, coordinates):
-                while angle - reference > math.pi:
-                    angle -= 2 * math.pi
-                while angle - reference < -math.pi:
-                    angle += 2 * math.pi
-                unwrapped.append((angle * cylindrical_radius(name), coord[1]))
-            coordinates = unwrapped
-        ensure(name)["polygons"].append(coordinates)
-        charts[name]["positions"].append([tuple(body.data.vertices[index].co) for index in polygon.vertices])
-    for polygon, name in zip(hair.data.polygons, hair_charts):
-        ensure(name)["polygons"].append([hair_uv[name][index] for index in polygon.vertices])
+    body_charts = []
+    for polygon, label in zip(body.data.polygons, face_labels):
+        name = region_chart(tuple(polygon.center), label)
+        points = [tuple(body.data.vertices[index].co) for index in polygon.vertices]
+        ensure(name)["polygons"].append(polygon_coordinates(name, points))
+        charts[name]["positions"].append(points)
+        body_charts.append(name)
+    for polygon, name, uvs in zip(hair.data.polygons, hair_rects, hair_uvs):
+        ensure(name)["polygons"].append(uvs)
         charts[name]["positions"].append([tuple(hair.data.vertices[index].co) for index in polygon.vertices])
-    return charts
+    return charts, body_charts
 
 
-def pack_charts(charts):
-    entries = []
+def place_charts(charts, plant=None):
+    # Each body chart keeps its v2 registration when its new extent fits the frozen rectangle (a
+    # spill of up to three texels is clamped); otherwise it is refitted into the rectangle.
+    refitted = []
     for name in sorted(charts):
         chart = charts[name]
+        x, y, w, h, s0, t0 = FROZEN[name]
+        chart.update(x=x, y=y, w=w, h=h)
+        if chart["hair"]:
+            chart["scale"] = 1.0
+            continue
         coordinates = [coord for polygon in chart["polygons"] for coord in polygon]
-        minimum_s = min(coord[0] for coord in coordinates)
-        minimum_t = min(coord[1] for coord in coordinates)
-        maximum_s = max(coord[0] for coord in coordinates)
-        maximum_t = max(coord[1] for coord in coordinates)
-        chart.update(min_s=minimum_s, min_t=minimum_t, max_s=maximum_s, max_t=maximum_t)
-        chart["w"] = math.ceil((maximum_s - minimum_s) * chart["density"] - 1e-6) + 2 * PAD
-        chart["h"] = math.ceil((maximum_t - minimum_t) * chart["density"] - 1e-6) + 2 * PAD
-        entries.append(chart)
-    x = y = shelf = 0
-    for chart in sorted(entries, key=lambda entry: (-entry["h"], -entry["w"], entry["name"])):
-        if x + chart["w"] > ATLAS_SIZE:
-            x = 0
-            y += shelf
-            shelf = 0
-        if y + chart["h"] > ATLAS_SIZE:
-            raise ValueError(f"[density] survivor atlas is full at {chart['name']}")
-        chart["x"], chart["y"] = x, y
-        x += chart["w"]
-        shelf = max(shelf, chart["h"])
-    print(f"SURVIVOR_ATLAS {len(entries)} islands, top row {y + shelf}, {ATLAS_SIZE}px")
+        low_s = min(coord[0] for coord in coordinates)
+        high_s = max(coord[0] for coord in coordinates)
+        low_t = min(coord[1] for coord in coordinates)
+        high_t = max(coord[1] for coord in coordinates)
+        density = chart["density"]
+        room_s = (w - 2 * PAD) / density
+        room_t = (h - 2 * PAD) / density
+        spill = max(s0 - low_s, high_s - (s0 + room_s), t0 - low_t, high_t - (t0 + room_t)) * density
+        # The head keeps its registration whatever spills: only the crown pole, under the hair, can.
+        if spill <= 3.0 or name.startswith("head_"):
+            chart.update(min_s=s0, min_t=t0, scale=1.0)
+        else:
+            scale = min(1.0, room_s / (high_s - low_s), room_t / (high_t - low_t))
+            chart.update(min_s=low_s - (room_s / scale - (high_s - low_s)) / 2, min_t=low_t - (room_t / scale - (high_t - low_t)) / 2, scale=scale)
+            refitted.append(f"{name} x{scale:.2f}")
+        CHART_DENSITY[name] = density * chart["scale"]
+        if plant == "cap-density":
+            chart["scale"] *= 0.35
+    print("SURVIVOR_ATLAS frozen v2 layout; refitted: " + (", ".join(refitted) or "none"))
 
 
-def uv_for(chart, coord, plant=None):
-    scale = 0.35 if plant == "cap-density" else 1.0
-    u = chart["x"] + PAD + (coord[0] - chart["min_s"]) * chart["density"] * scale
-    v = chart["y"] + PAD + (coord[1] - chart["min_t"]) * chart["density"] * scale
+def uv_for(chart, coord):
+    if chart["hair"]:
+        return coord
+    x, y, w, h = chart["x"], chart["y"], chart["w"], chart["h"]
+    scale = chart["density"] * chart["scale"]
+    u = clamp(x + PAD + (coord[0] - chart["min_s"]) * scale, x + PAD, x + w - PAD)
+    v = clamp(y + PAD + (coord[1] - chart["min_t"]) * scale, y + PAD, y + h - PAD)
     return u / ATLAS_SIZE, v / ATLAS_SIZE
 
 
-def assign_uv(body, hair, hair_charts, hair_uv, charts, plant=None):
+def assign_uv(body, body_charts, hair, hair_rects, hair_uvs, charts):
     body_uv = body.data.uv_layers.new(name="CharacterUV")
-    for polygon in body.data.polygons:
-        centre = body.data.vertices[polygon.vertices[0]].co.copy()
-        for index in polygon.vertices[1:]:
-            centre += body.data.vertices[index].co
-        centre /= len(polygon.vertices)
-        chart = charts[region_chart(centre, polygon.normal)]
-        coordinates = [chart_coordinate(chart["name"], body.data.vertices[index].co) for index in polygon.vertices]
-        if chart["name"] == "neck" or chart["name"].startswith("arm") or chart["name"].startswith("boot"):
-            angles = [coord[0] / cylindrical_radius(chart["name"]) for coord in coordinates]
-            reference = sum(angles) / len(angles)
-            coordinates = [((angle - (2 * math.pi if angle - reference > math.pi else (-2 * math.pi if angle - reference < -math.pi else 0))) * cylindrical_radius(chart["name"]), coord[1]) for angle, coord in zip(angles, coordinates)]
-        for loop_index, coord in zip(polygon.loop_indices, coordinates):
-            body_uv.data[loop_index].uv = uv_for(chart, coord, plant)
-    hair_uv_layer = hair.data.uv_layers.new(name="CharacterUV")
-    for polygon, name in zip(hair.data.polygons, hair_charts):
+    for polygon, name in zip(body.data.polygons, body_charts):
         chart = charts[name]
-        for loop_index in polygon.loop_indices:
-            vertex_index = hair.data.loops[loop_index].vertex_index
-            coord = hair_uv[name][vertex_index]
-            hair_uv_layer.data[loop_index].uv = uv_for(chart, coord, plant)
-
-
-def base_colour(name):
-    if name.startswith("hair"):
-        return rgba("#352116")
-    if name.startswith("head") or name == "neck" or name.startswith("hand"):
-        return rgba("#b77f5b")
-    if name.startswith("boot"):
-        return rgba("#342b24")
-    if name.startswith("leg") or name.startswith("pelvis"):
-        return rgba("#2e2c2a")
-    return rgba("#414137")
+        points = [tuple(body.data.vertices[index].co) for index in polygon.vertices]
+        for loop_index, coord in zip(polygon.loop_indices, polygon_coordinates(name, points)):
+            body_uv.data[loop_index].uv = uv_for(chart, coord)
+    hair_layer = hair.data.uv_layers.new(name="CharacterUV")
+    for polygon, uvs in zip(hair.data.polygons, hair_uvs):
+        for loop_index, coord in zip(polygon.loop_indices, uvs):
+            hair_layer.data[loop_index].uv = coord
 
 
 def paint_atlas(charts):
+    # A flat placeholder used only when no painted source is committed.
+    colours = {"hair": "#45291a", "head": "#c08a64", "neck": "#c08a64", "hand": "#c08a64", "boot": "#4a3628", "leg": "#414132", "pelvis": "#414132"}
     pixels = array("f", [0.0]) * (ATLAS_SIZE * ATLAS_SIZE * 4)
-    background = rgba("#211d19")
+    background = array("f", rgba("#1c1712"))
     for index in range(ATLAS_SIZE * ATLAS_SIZE):
-        pixels[index * 4 : index * 4 + 4] = array("f", background)
+        pixels[index * 4 : index * 4 + 4] = background
     for name in sorted(charts):
         chart = charts[name]
-        base = base_colour(name)
-        for py in range(chart["h"]):
-            t = chart["min_t"] + (py - PAD + 0.5) / chart["density"]
-            for px in range(chart["w"]):
-                s = chart["min_s"] + (px - PAD + 0.5) / chart["density"]
-                grain = ((px * 17 + py * 31 + sum(ord(c) for c in name) * 13) % 19) / 18
-                shade = 0.90 + 0.12 * (py / max(1, chart["h"] - 1)) + 0.025 * grain
-                colour = tuple(clamp(channel * shade, 0, 1) for channel in base[:3]) + (1.0,)
-                if name == "head_front":
-                    x = math.sin(s / 0.082) * 0.080
-                    z = t
-                    for eye_x in (-0.034, 0.034):
-                        eye = ((x - eye_x) / 0.015) ** 2 + ((z - 1.623) / 0.0055) ** 2
-                        brow = ((x - eye_x) / 0.018) ** 2 + ((z - 1.641) / 0.0035) ** 2
-                        if eye < 1.0:
-                            colour = rgba("#d1bda2")
-                        if ((x - eye_x) / 0.0045) ** 2 + ((z - 1.623) / 0.0048) ** 2 < 1.0:
-                            colour = rgba("#29231d")
-                        if brow < 1.0:
-                            colour = rgba("#38251a")
-                    if abs(x) < 0.006 and 1.568 < z < 1.611:
-                        colour = mix_colour(colour, rgba("#7d4e38"), 0.55)
-                    lip = (x / 0.025) ** 2 + ((z - 1.550) / 0.004) ** 2
-                    if lip < 1.0:
-                        colour = rgba("#8e5545")
-                    if 1.575 < z < 1.606 and abs(x) > 0.025 and (px * 7 + py * 11) % 29 == 0:
-                        colour = rgba("#8a5a3e")
-                    if ((x + 0.052) / 0.002) ** 2 + ((z - 1.582) / 0.012) ** 2 < 1.0:
-                        colour = rgba("#9b624b")
-                if name.startswith("hair"):
-                    strand = (px + 2 * (py % 7)) % 9
-                    if strand in (0, 1):
-                        colour = rgba("#4a2d1d")
-                    elif strand == 5:
-                        colour = rgba("#25160f")
-                if name.startswith("torso") and abs(s) < 0.002:
-                    colour = rgba("#292b26")
-                if name.startswith("boot") and t < 0.025:
-                    colour = rgba("#211e1b")
-                x = chart["x"] + px
-                y = chart["y"] + py
-                offset = (y * ATLAS_SIZE + x) * 4
-                pixels[offset : offset + 4] = array("f", colour)
+        colour = array("f", rgba(next((value for key, value in colours.items() if name.startswith(key)), "#302e2b")))
+        for py in range(chart["y"], chart["y"] + chart["h"]):
+            for px in range(chart["x"], chart["x"] + chart["w"]):
+                offset = (py * ATLAS_SIZE + px) * 4
+                pixels[offset : offset + 4] = colour
     return pixels
 
 
@@ -547,43 +767,68 @@ def make_material(image):
     return material
 
 
+# ---------------------------------------------------------------------------------------------
+# Smooth skin.
+# ---------------------------------------------------------------------------------------------
+
+
 def blend(a, b, amount):
+    if amount <= 0.0:
+        return {a: 1.0}
+    if amount >= 1.0:
+        return {b: 1.0}
     return {a: 1 - amount, b: amount}
 
 
-def vertex_weights(point):
+def vertex_weights(point, label):
     x, y, z = point
-    sign = "L" if x < 0 else "R"
     ax = abs(x)
-    if z >= 1.445:
-        return blend("neck", "head", smooth((z - 1.445) / 0.075))
-    if z >= 1.015 and ax <= 0.175:
-        if z < 1.12:
-            return blend("pelvis", "spine", smooth((z - 1.015) / 0.105))
-        if z < 1.28:
-            return blend("spine", "chest", smooth((z - 1.12) / 0.16))
-        return {"chest": 1.0}
-    if z < 0.18:
-        return blend("foot." + sign, "shin." + sign, smooth((z - 0.10) / 0.08))
-    if z < 0.91 and ax < 0.19:
-        if z < 0.59:
-            return blend("shin." + sign, "thigh." + sign, smooth((z - 0.45) / 0.14))
-        return blend("thigh." + sign, "pelvis", smooth((z - 0.82) / 0.09))
-    if z < 0.94:
-        return blend("hand." + sign, "forearm." + sign, smooth((z - 0.865) / 0.075))
-    upper = "upper_arm." + sign
-    fore = "forearm." + sign
-    if z < 1.22:
-        return blend(fore, upper, smooth((z - 1.10) / 0.12))
-    shoulder = smooth((ax - 0.145) / 0.085)
-    return blend("chest", upper, shoulder)
+    side = "L" if x < 0 else "R"
+    if label.startswith(("arm", "hand")):
+        side = label[-1]
+        upper, fore, hand = "upper_arm." + side, "forearm." + side, "hand." + side
+        if z < 0.905:
+            return blend(fore, hand, smooth((0.895 - z) / 0.05))
+        if z < 1.19:
+            return blend(upper, fore, smooth((1.175 - z) / 0.10))
+        return blend("chest", upper, max(smooth((ax - 0.125) / 0.075), smooth((1.36 - z) / 0.08)))
+    if label.startswith(("leg", "boot")):
+        side = label[-1]
+        thigh, shin, foot = "thigh." + side, "shin." + side, "foot." + side
+        if z < 0.19:
+            return blend(shin, foot, smooth((0.18 - z) / 0.08))
+        if z < 0.62:
+            return blend(thigh, shin, smooth((0.58 - z) / 0.13))
+        return blend(thigh, "pelvis", smooth((z - 0.84) / 0.12))
+    if label in ("head", "neck") or z >= 1.445:
+        if z >= 1.445:
+            return blend("neck", "head", smooth((z - 1.475) / 0.06))
+        return blend("chest", "neck", smooth((z - 1.40) / 0.045))
+    if z >= 1.28:
+        weights = {"chest": 1.0}
+        if ax > 0.14 and z > 1.30:
+            weights = blend("chest", "upper_arm." + side, 0.5 * smooth((ax - 0.14) / 0.04))
+        return weights
+    if z >= 1.12:
+        return blend("spine", "chest", smooth((z - 1.12) / 0.16))
+    if z >= WAIST_Z:
+        return blend("pelvis", "spine", smooth((z - WAIST_Z) / 0.105))
+    # The hips and seat: thigh influence fades in toward the leg, is shared between both thighs at
+    # the midline, and stays light on the back of the seat, which the body sits and rolls on.
+    thigh = 0.6 * smooth((0.95 - z) / 0.10) * (0.4 if y < -0.02 else 1.0)
+    if thigh <= 0.0:
+        return {"pelvis": 1.0}
+    right = smooth((x + 0.05) / 0.10)
+    weights = {"pelvis": 1 - thigh, "thigh.L": thigh * (1 - right), "thigh.R": thigh * right}
+    return {name: weight for name, weight in weights.items() if weight > 0.0}
 
 
-def skin_body(body, rig):
-    for name in {key for vertex in body.data.vertices for key in vertex_weights(vertex.co)}:
+def skin_body(body, vertex_labels, rig):
+    weights = [vertex_weights(tuple(vertex.co), label) for vertex, label in zip(body.data.vertices, vertex_labels)]
+    for name in sorted({key for row in weights for key in row}):
         body.vertex_groups.new(name=name)
-    for vertex in body.data.vertices:
-        for name, weight in vertex_weights(vertex.co).items():
+    for vertex, row in zip(body.data.vertices, weights):
+        for name, weight in sorted(row.items()):
             if weight > 0.0001:
                 body.vertex_groups[name].add([vertex.index], weight, "REPLACE")
     modifier = body.modifiers.new("Smooth character skin", "ARMATURE")
@@ -603,7 +848,8 @@ def join_character(body, hair, material):
     bpy.ops.object.join()
     lowest = min(vertex.co.z for vertex in body.data.vertices)
     highest = max(vertex.co.z for vertex in body.data.vertices)
-    scale = 1.75 / (highest - lowest)
+    scale = CROWN / (highest - lowest)
+    print(f"SURVIVOR_SCALE sole {lowest:.4f} crown {highest:.4f} scale {scale:.4f}")
     for vertex in body.data.vertices:
         vertex.co.z = (vertex.co.z - lowest) * scale
     for polygon in body.data.polygons:
@@ -702,7 +948,7 @@ def write_layout(charts, directory):
         records.append({
             "name": name,
             "pixel_rect": [chart["x"], ATLAS_SIZE - chart["y"] - chart["h"], chart["w"], chart["h"]],
-            "texels_per_metre": chart["density"],
+            "texels_per_metre": round(chart["density"] * chart.get("scale", 1.0)),
         })
     image = bpy.data.images.new("survivor_uv_layout", width=size, height=size, alpha=True)
     image.pixels.foreach_set(pixels)
@@ -772,24 +1018,27 @@ def write_position_map(charts, directory):
 
 
 def build_survivor(rig, export_dir, layout_dir=None, plant=None, paint_path=None):
-    body = unified_body()
-    hair, hair_charts, hair_uv = hair_source()
-    charts = build_charts(body, hair, hair_charts, hair_uv)
-    pack_charts(charts)
+    CHART_DENSITY.clear()
+    source = body_source()
+    body = unified_body(source)
+    vertex_labels, face_labels = label_surface(body, source)
+    hair, hair_rects, hair_uvs = hair_source()
+    charts, body_charts = build_charts(body, face_labels, hair, hair_rects, hair_uvs)
+    place_charts(charts, plant)
     if layout_dir:
         write_layout(charts, Path(layout_dir))
         write_position_map(charts, Path(layout_dir))
-    assign_uv(body, hair, hair_charts, hair_uv, charts, plant)
+    assign_uv(body, body_charts, hair, hair_rects, hair_uvs, charts)
     pixels = paint_atlas(charts)
     if paint_path and Path(paint_path).is_file():
-        source = bpy.data.images.load(str(paint_path), check_existing=False)
-        if tuple(source.size) != (ATLAS_SIZE, ATLAS_SIZE):
+        painted = bpy.data.images.load(str(paint_path), check_existing=False)
+        if tuple(painted.size) != (ATLAS_SIZE, ATLAS_SIZE):
             raise ValueError(f"survivor paint must be {ATLAS_SIZE} x {ATLAS_SIZE}")
-        source.pixels.foreach_get(pixels)
-        bpy.data.images.remove(source)
+        painted.pixels.foreach_get(pixels)
+        bpy.data.images.remove(painted)
     image = make_image(pixels, export_dir / "survivor_atlas.png")
     material = make_material(image)
-    skin_body(body, rig)
+    skin_body(body, vertex_labels, rig)
     body = join_character(body, hair, material)
     print(f"SURVIVOR_MESH {len(body.data.polygons)} polygons, {sum(len(p.vertices) - 2 for p in body.data.polygons)} triangles")
     return body
@@ -805,78 +1054,84 @@ def render_still(scene, path):
     return path
 
 
-def composite_concept(render_dir, model_path):
+def composite_concept(render_dir, prefix):
+    # A review sheet: the owner's concept (reference only; it never enters an asset) beside the
+    # model's full-body and head views. Written only into the review folder.
     concept_path = Path("C:/Users/jtf/orca/sz-shared/concept/survivor_concept_2026-11-01.png")
     if not concept_path.is_file():
         return
-    concept = bpy.data.images.load(str(concept_path), check_existing=False)
-    model = bpy.data.images.load(str(model_path), check_existing=False)
-    width, height = 1280, 720
-    output = bpy.data.images.new("concept_comparison", width=width, height=height, alpha=True)
+    width, height = 1920, 1080
     pixels = array("f", [0.0]) * (width * height * 4)
     for index in range(width * height):
         pixels[index * 4 : index * 4 + 4] = array("f", (0.055, 0.06, 0.06, 1))
 
-    def blit(image, x0, y0, w, h):
+    def blit(path, left, top, w, h):
+        image = bpy.data.images.load(str(path), check_existing=False)
         iw, ih = image.size
         source = array("f", [0.0]) * (iw * ih * 4)
         image.pixels.foreach_get(source)
         scale = min(w / iw, h / ih)
-        dw, dh = round(iw * scale), round(ih * scale)
-        ox, oy = x0 + (w - dw) // 2, y0 + (h - dh) // 2
+        dw, dh = int(iw * scale), int(ih * scale)
+        ox, oy = left + (w - dw) // 2, height - top - h + (h - dh) // 2
         for y in range(dh):
-            sy = min(ih - 1, round(y / scale))
+            sy = min(ih - 1, int(y / scale))
             for x in range(dw):
-                sx = min(iw - 1, round(x / scale))
+                sx = min(iw - 1, int(x / scale))
                 target = ((oy + y) * width + ox + x) * 4
                 start = (sy * iw + sx) * 4
                 pixels[target : target + 4] = source[start : start + 4]
+        bpy.data.images.remove(image)
 
-    blit(concept, 0, 0, 760, height)
-    blit(model, 760, 0, width - 760, height)
+    blit(concept_path, 0, 0, 960, 540)
+    for column, name in enumerate(("front_full", "three_quarter_full", "back_full")):
+        blit(render_dir / f"{prefix}{name}.png", 960 + column * 320, 0, 320, 540)
+    for column, name in enumerate(("head_front", "head_three_quarter", "head_profile", "head_back")):
+        blit(render_dir / f"{prefix}{name}.png", column * 480, 560, 480, 500)
+    output = bpy.data.images.new("concept_comparison", width=width, height=height, alpha=True)
     output.pixels.foreach_set(pixels)
-    output.filepath_raw = str(render_dir / "concept_comparison.png")
+    output.filepath_raw = str(render_dir / f"{prefix}concept_comparison.png")
     output.file_format = "PNG"
     output.save()
-    bpy.data.images.remove(concept)
-    bpy.data.images.remove(model)
     bpy.data.images.remove(output)
 
 
 def render_review(rig, mesh, actions, render_dir, clay=False):
     render_dir.mkdir(parents=True, exist_ok=True)
+    prefix = "clay_" if clay else ""
+    rig.location = (0, 0, 0)
+    for obj in bpy.context.scene.objects:
+        obj.hide_render = obj not in (rig, mesh)
     if clay:
         material = bpy.data.materials.new("ReviewClay")
         material.use_nodes = True
         shader = material.node_tree.nodes.get("Principled BSDF")
-        shader.inputs["Base Color"].default_value = (0.42, 0.45, 0.46, 1)
-        shader.inputs["Roughness"].default_value = 0.86
+        shader.inputs["Base Color"].default_value = (0.30, 0.31, 0.31, 1)
+        shader.inputs["Roughness"].default_value = 0.8
         mesh.data.materials.clear()
         mesh.data.materials.append(material)
     scene = bpy.context.scene
-    scene.render.engine = "CYCLES"
-    scene.cycles.device = "CPU"
-    scene.cycles.samples = 32
-    scene.cycles.use_denoising = False
+    scene.render.engine = "BLENDER_EEVEE"
     scene.render.resolution_percentage = 100
     scene.render.image_settings.file_format = "PNG"
     scene.view_settings.view_transform = "Standard"
+    if scene.world is None:
+        scene.world = bpy.data.worlds.new("ReviewWorld")
     scene.world.use_nodes = True
-    scene.world.node_tree.nodes["Background"].inputs["Color"].default_value = (0.09, 0.10, 0.11, 1)
-    scene.world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.45
+    scene.world.node_tree.nodes["Background"].inputs["Color"].default_value = (0.25, 0.24, 0.22, 1)
+    scene.world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.35
     bpy.ops.mesh.primitive_plane_add(size=200, location=(0, 0, -0.002))
     ground = bpy.context.object
     material = bpy.data.materials.new("ReviewGround")
     material.use_nodes = True
     shader = material.node_tree.nodes.get("Principled BSDF")
-    shader.inputs["Base Color"].default_value = (0.12, 0.13, 0.13, 1)
+    shader.inputs["Base Color"].default_value = (0.16, 0.16, 0.15, 1)
     shader.inputs["Roughness"].default_value = 1.0
     ground.data.materials.append(material)
-    for location, energy, size in (((1.5, 3.5, 4.5), 400, 3.0), ((-3, 1, 2.8), 240, 3.0), ((0, -3, 3.2), 300, 2.5)):
+    for location, energy in (((2, 4, 4), 260), ((-3, 1, 3), 90), ((0, -3, 3), 120)):
         bpy.ops.object.light_add(type="AREA", location=location)
         light = bpy.context.object
         light.data.energy = energy
-        light.data.size = size
+        light.data.size = 3.0
         point_camera(light, (0, 0, 1.0))
     bpy.ops.object.camera_add()
     camera = bpy.context.object
@@ -890,28 +1145,29 @@ def render_review(rig, mesh, actions, render_dir, clay=False):
     scene.render.resolution_y = 640
     camera.data.ortho_scale = 1.95
     full_views = {
-        "front_full": (0, 4, 1.05),
-        "back_full": (0, -4, 1.05),
-        "three_quarter_full": (2.7, 4, 1.35),
+        "front_full": (0, 4, 0.2),
+        "back_full": (0, -4, 0.2),
+        "three_quarter_full": (2.8, 2.8, 0.3),
+        "profile_full": (4, 0, 0.2),
     }
     for name, offset in full_views.items():
         camera.location = Vector((0, 0, 0.90)) + Vector(offset)
         point_camera(camera, (0, 0, 0.90))
-        render_still(scene, render_dir / f"{name}.png")
+        render_still(scene, render_dir / f"{prefix}{name}.png")
     scene.render.resolution_x = 512
     scene.render.resolution_y = 512
-    camera.data.ortho_scale = 0.39
+    camera.data.ortho_scale = 0.42
     head_views = {
-        "head_front": (0, 3, 0.08),
-        "head_three_quarter": (2.1, 3, 0.15),
+        "head_front": (0, 3, 0.05),
+        "head_three_quarter": (2.1, 2.1, 0.1),
         "head_profile": (3, 0, 0.05),
-        "head_back": (0, -3, 0.08),
+        "head_back": (0, -3, 0.05),
     }
     for name, offset in head_views.items():
-        target = Vector((0, 0, 1.605))
+        target = Vector((0, 0, 1.62))
         camera.location = target + Vector(offset)
         point_camera(camera, target)
-        render_still(scene, render_dir / f"{name}.png")
+        render_still(scene, render_dir / f"{prefix}{name}.png")
     camera.data.type = "PERSP"
     camera.data.sensor_fit = "VERTICAL"
     camera.data.angle_y = math.radians(70)
@@ -920,6 +1176,6 @@ def render_review(rig, mesh, actions, render_dir, clay=False):
     for distance in (0.9, 2.0, 5.0):
         label = str(distance).replace(".", "_")
         camera.location = Vector((0.06, distance, 1.62))
-        point_camera(camera, (0, 0, 1.35))
-        render_still(scene, render_dir / f"fp_{label}m.png")
-    composite_concept(render_dir, render_dir / "three_quarter_full.png")
+        point_camera(camera, (0, 0, 1.35 if distance < 1 else 1.1))
+        render_still(scene, render_dir / f"{prefix}fp_{label}m.png")
+    composite_concept(render_dir, prefix)
