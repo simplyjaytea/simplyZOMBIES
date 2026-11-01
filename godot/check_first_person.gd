@@ -133,6 +133,9 @@ const EPSILON: float = 0.0001
 
 var _failures: Array[String] = []
 var _skips: Array[String] = []
+# [name, clause] for every lane that ran and passed. The OK line is built from this, so a new lane
+# adds a row at its call site instead of editing one long sentence.
+var _lanes: Array = []
 
 
 func _init() -> void:
@@ -147,43 +150,43 @@ func _run() -> void:
 		_fail("SCENE", "could not load %s" % SCENE_PATH)
 		_finish(old_size)
 		return
-	var ok: bool = _district_default(packed)
+	var ok: bool = _lane("DISTRICT", _district_default(packed), "the scene boots the shipped district size and seed by default and the gate walks a smaller one")
 	var scene: Node = packed.instantiate()
 	scene.set("district_tiles", SMALL_DISTRICT_TILES)
 	root.add_child(scene)
 	scene.set_process(false)
 	await process_frame
 
-	ok = _scene_shape(scene) and ok
+	ok = _lane("SHAPE", _scene_shape(scene), "the scene is the opt-in scene with a district, a HUD and no physics body") and ok
 	if ok:
 		ok = _district(scene) and ok
 		var spawn: Vector2 = scene.call("rendered_player_position")
-		ok = _npc(scene) and ok
-		ok = _mapping(scene) and ok
-		ok = _movement(scene) and ok
-		ok = _yaw(scene) and ok
-		ok = _blocked(scene) and ok
-		ok = _container(scene) and ok
-		ok = _fight(scene) and ok
-		ok = _ledger(scene, spawn) and ok
-		ok = _priority(scene) and ok
-		ok = _menu(scene) and ok
-		ok = _speech(scene) and ok
-		ok = _verbs(scene) and ok
-		ok = _stance(scene) and ok
-		ok = _reports(scene) and ok
+		ok = _lane("NPC", _npc(scene), "a fresh boot has no working colonist and the colony is at work after a second") and ok
+		ok = _lane("MAPPING", _mapping(scene), "sim x/y maps to Godot x/z with the eye at the sim's own height") and ok
+		ok = _lane("MOVE", _movement(scene), "W walks the sim's body through the move command and the camera follows") and ok
+		ok = _lane("YAW", _yaw(scene), "a turn sends the new move and aim bearings, even with W held") and ok
+		ok = _lane("BLOCK", _blocked(scene), "a wall stops the body in its tile and the other way crosses it") and ok
+		ok = _lane("CONTAINER", _container(scene), "a sim container opens through container.open into the real sheet and a take moves one item") and ok
+		ok = _lane("FIGHT", _fight(scene), "a bat swing lands and a gun spends a round while the ledger refuses both") and ok
+		ok = _lane("LEDGER", _ledger(scene, spawn), "the ledger opens in reach and on the aim and refuses a look away") and ok
+		ok = _lane("PRIORITY", _priority(scene), "a priority click dispatches a real job.priority and the row turns Manual") and ok
+		ok = _lane("MENU", _menu(scene), "the ledger's screens open and close on Escape") and ok
+		ok = _lane("SPEECH", _speech(scene), "the HUD is digit-free prose with no progress bar") and ok
+		ok = _lane("VERBS", _verbs(scene), "E on a door uses the sim's own verb and a plain wall offers none") and ok
+		ok = _lane("STANCE", _stance(scene), "the stance keys change the sim's posture and the eye eases to it") and ok
+		ok = _lane("REPORTS", _reports(scene), "the ledger's Reports page reads the chronicle's own lines and moves the read mark") and ok
 		# The speed lane reads keys, so it runs before the run-over lane, which leaves input swallowed.
 		# Save before the lanes that kill the colony: the run-over lane leaves input swallowed.
-		ok = _save(scene) and ok
-		ok = _art(scene) and ok
-		ok = _preview() and ok
-		ok = _light(scene) and ok
-		ok = _succession(scene) and ok
-		ok = _legend(scene) and ok
-		ok = _speed(scene) and ok
-		ok = _talk(scene) and ok
-		ok = _anim(scene) and ok
-		ok = _run_over(scene) and ok
+		ok = _lane("SPEED", _speed(scene), "the top-down speed keys step the clock 1x and 3x and P holds it, with the ledger refusing them") and ok
+		ok = _lane("SAVE", _save(scene), "F5 and F9 save and load through the sim's own save in its own slot") and ok
+		ok = _lane("ART", _art(scene), "the desk and ledger load from their GLBs at the published sizes") and ok
+		ok = _lane("PREVIEW", _preview(), "the prop preview stands every prop on its base") and ok
+		ok = _lane("LIGHT", _light(scene), "noon is bright and midnight dark, and a carried torch lights the eye") and ok
+		ok = _lane("SUCCESSION", _succession(scene), "a death hands the camera to an heir and the dead body is drawn") and ok
+		ok = _lane("LEGEND", _legend(scene), "F1 lists every key the scene handles and the scene handles every key it lists") and ok
+		ok = _lane("TALK", _talk(scene), "a colonist in reach talks in the read models' own words") and ok
+		ok = _lane("ANIM", _anim(scene), "every body names its animation state from the sim with a phase in 0..1") and ok
+		ok = _lane("RUN-OVER", _run_over(scene), "killing the colony opens the end panel and W sends nothing") and ok
 	scene.queue_free()
 	await process_frame
 	_finish(old_size, ok)
@@ -194,11 +197,23 @@ func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)
+		var clauses: Array[String] = []
+		for row in _lanes:
+			clauses.append(String((row as Array)[1]))
+		print("FIRST_PERSON_OK " + ". ".join(clauses) + ". lanes: %d" % _lanes.size())
 		quit(0)
 		return
 	for failure in _failures:
 		push_error("FIRST_PERSON_FAIL " + failure)
 	quit(1)
+
+
+## Records a lane that passed, with its one-sentence clause for the OK line, and hands the result back
+## so a call site stays `ok = _lane("NAME", _lane_func(...), "clause") and ok`.
+func _lane(name: String, passed: bool, clause: String) -> bool:
+	if passed:
+		_lanes.append([name, clause])
+	return passed
 
 
 func _fail(lane: String, message: String) -> bool:
