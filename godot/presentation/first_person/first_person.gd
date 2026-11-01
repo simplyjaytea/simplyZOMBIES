@@ -29,6 +29,7 @@ const SimContext = preload("res://sim/context.gd")
 const SimStances = preload("res://sim/stances.gd")
 const SimSpace = preload("res://sim/space/space.gd")
 const InputMapRes = preload("res://presentation/input_map.gd")
+const Legend = preload("res://ui/legend.gd")
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
 const PropView = preload("res://presentation/first_person/prop_view.gd")
@@ -81,6 +82,9 @@ var yaw: float = 0.0
 var pitch: float = 0.0
 var menu_open: bool = false
 var paused: bool = false
+# The key reference (F1): the top-down legend, shown with this scene's own rows.
+var _legend: Control = null
+var _legend_open: bool = false
 var inventory_open: bool = false
 
 var _rig: Node3D = null
@@ -237,6 +241,11 @@ func _build_hud() -> void:
 	_hud = Hud.new()
 	_hud.name = "Words"
 	layer.add_child(_hud)
+	_legend = Legend.new()
+	_legend.name = "KeyReference"
+	_legend.visible = false
+	_legend.set("key_rows", _legend_rows())
+	layer.add_child(_legend)
 
 
 # --- the ledger site ------------------------------------------------------------------------
@@ -465,6 +474,17 @@ func _input(event: InputEvent) -> void:
 		# The gap between a death and the handoff: no command is proposed and no key is remembered.
 		get_viewport().set_input_as_handled()
 		return
+	if _legend_open:
+		# The key reference takes every key while it is up: F1 or Escape puts it down, and nothing
+		# else reaches the world -- no walking, no looking, no action.
+		if ke.pressed and (code == KEY_F1 or code == KEY_ESCAPE):
+			close_legend()
+		get_viewport().set_input_as_handled()
+		return
+	if ke.pressed and code == KEY_F1:
+		open_legend()
+		get_viewport().set_input_as_handled()
+		return
 	if inventory_open:
 		# The sheet takes every key while it is up, exactly as `input_map.gd`'s "sheet" focus does:
 		# walking keys are swallowed (the body was stopped when the sheet opened), the name field
@@ -560,7 +580,7 @@ func _input(event: InputEvent) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_inside_tree() or get_viewport() == null:
 		return
-	if _run_over_open or _waiting_for_heir():
+	if _run_over_open or _waiting_for_heir() or _legend_open:
 		# No mouse look and no click-to-recapture under the end panel or between a death and an
 		# heir. The pointer stays where `_release_mouse` left it.
 		return
@@ -1612,3 +1632,78 @@ func _after_load() -> void:
 	_push_aim()
 	_bodies.call("reset", world)
 	snap_render_to_sim()
+
+
+# --- the key reference (F1) ----------------------------------------------------------------------
+
+# Every key this scene handles, with the words the key reference shows. The legend draws these rows,
+# and the LEGEND lane of check_first_person.gd reads the codes back against the keys the input code
+# compares to, both ways, so a key handled but not listed, or listed but not handled, is red.
+const KEY_REFERENCE: Array = [
+	["Move", [
+		["WASD", "walk, relative to where you look", [KEY_W, KEY_A, KEY_S, KEY_D]],
+		["Shift", "sprint: fast, and loud; it latches while held", [KEY_SHIFT]],
+		["Ctrl+Z / Ctrl+C / Ctrl+S / Ctrl+V", "crawl, crouch, stand, jog; your eye follows your stance", [KEY_Z, KEY_C, KEY_S, KEY_V]],
+	]],
+	["Act", [
+		["Mouse", "turn to look; click to look again once Esc has freed the pointer", []],
+		["Click", "swing, or fire a gun in hand", []],
+		["F", "swing, or struggle out of a grab", [KEY_F]],
+		["G", "fire", [KEY_G]],
+		["R", "reload; in the sheet, turns the item you lift", [KEY_R]],
+		["E", "use the ledger, a cupboard or a door you face; the prompt at the bottom says which", [KEY_E]],
+	]],
+	["Run", [
+		["P", "hold the world still", [KEY_P]],
+		["F5 / F9", "save and load, in the first-person slot", [KEY_F5, KEY_F9]],
+		["Esc", "free the pointer, then back to the title; in the ledger or the sheet, back a step", [KEY_ESCAPE]],
+		["Enter", "on the end panel, back to the title", [KEY_ENTER, KEY_KP_ENTER]],
+		["F1", "these keys", [KEY_F1]],
+	]],
+]
+
+
+# The key reference's codes, in table order and without repeats: what the LEGEND lane compares.
+static func reference_codes() -> Array:
+	var out: Array = []
+	for group in KEY_REFERENCE:
+		for row in (group[1] as Array):
+			for code in (row[2] as Array):
+				if not out.has(int(code)):
+					out.append(int(code))
+	return out
+
+
+# The rows the legend draws: the label and the words of each key, grouped as the table is.
+func _legend_rows() -> Array:
+	var out: Array = []
+	for group in KEY_REFERENCE:
+		var shown: Array = []
+		for row in (group[1] as Array):
+			shown.append([String(row[0]), String(row[1])])
+		out.append([String(group[0]), shown])
+	return out
+
+
+func open_legend() -> void:
+	if _legend == null:
+		return
+	# A key held when the reference opens is let go, and the body stops: nothing walks while it is up.
+	_clear_held()
+	_push_zero_move()
+	_legend.visible = true
+	_legend_open = true
+
+
+func close_legend() -> void:
+	_legend_open = false
+	if _legend != null:
+		_legend.visible = false
+
+
+func legend_open() -> bool:
+	return _legend_open
+
+
+func legend_node() -> Control:
+	return _legend

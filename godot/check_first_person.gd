@@ -37,6 +37,10 @@ extends SceneTree
 #             reload with nothing to load is the sim's refusal with no words from the scene.
 #   PRIORITY  a click on the panel's first priority cell dispatches a real `job.priority`, the
 #             colonist's row changes and turns Manual, and the player is never one of the rows.
+#   LEGEND    the key reference (F1) lists every key the scene handles and no other: the handled keys are
+#             read from the scene's own source and from input_map's stance bindings, and compared both ways
+#             with the codes the legend is built from; a planted phantom code is refused. F1 opens and closes
+#             it, Escape closes it, and walking keys do nothing while it is up.
 #   SPEECH    every line the first-person HUD draws is digit-free, it names the controls and the
 #             ledger, there is no progress bar in the tree, and the digit scanner is proved against
 #             a fabricated line.
@@ -93,6 +97,7 @@ const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const ReportsPanel = preload("res://ui/reports_panel.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const FirstPerson = preload("res://presentation/first_person/first_person.gd")
+const InputMapRes = preload("res://presentation/input_map.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
 const SaveSlot = preload("res://presentation/first_person/save_slot.gd")
 
@@ -158,6 +163,7 @@ func _run() -> void:
 		ok = _preview() and ok
 		ok = _light(scene) and ok
 		ok = _succession(scene) and ok
+		ok = _legend(scene) and ok
 		ok = _run_over(scene) and ok
 	scene.queue_free()
 	await process_frame
@@ -2269,6 +2275,107 @@ func _write_wrong_glb() -> String:
 	var err: Error = document.write_to_filesystem(state, ProjectSettings.globalize_path(path))
 	root.free()
 	return path if err == OK else ""
+
+
+# --- LEGEND ---------------------------------------------------------------------------------
+
+# The engine's key constants the first-person source names. A key the source names that is missing from
+# this map is a failure, so a new key cannot slip past the check unnamed.
+const KEY_NAMES: Dictionary = {
+	"KEY_A": KEY_A, "KEY_D": KEY_D, "KEY_E": KEY_E, "KEY_ENTER": KEY_ENTER, "KEY_ESCAPE": KEY_ESCAPE,
+	"KEY_F": KEY_F, "KEY_F1": KEY_F1, "KEY_F5": KEY_F5, "KEY_F9": KEY_F9, "KEY_G": KEY_G,
+	"KEY_KP_ENTER": KEY_KP_ENTER, "KEY_P": KEY_P, "KEY_R": KEY_R, "KEY_S": KEY_S, "KEY_SHIFT": KEY_SHIFT,
+	"KEY_W": KEY_W,
+}
+
+
+func _legend(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	if bool(scene.get("menu_open")):
+		scene.call("close_ledger_menu")
+	if bool(scene.get("inventory_open")):
+		scene.call("close_inventory")
+	if bool(scene.call("legend_open")):
+		scene.call("close_legend")
+	var source: String = FileAccess.get_file_as_string("res://presentation/first_person/first_person.gd")
+	var handled: Array = []
+	for name in _handled_key_names(source):
+		if not KEY_NAMES.has(name):
+			return _fail("LEGEND", "the scene names %s, which the LEGEND lane's key map does not know" % name)
+		if not handled.has(int(KEY_NAMES[name])):
+			handled.append(int(KEY_NAMES[name]))
+	# The stance keys reach the scene through input_map's BINDINGS, not a name in the source.
+	for action in InputMapRes.BINDINGS.keys():
+		var row: Dictionary = InputMapRes.BINDINGS[action] as Dictionary
+		if row.has("stance") and not handled.has(int((row["keys"] as Array)[0])):
+			handled.append(int((row["keys"] as Array)[0]))
+	var listed: Array = FirstPerson.reference_codes()
+	# Both ways: every key the scene handles is listed, and no listed key is one the scene does not handle.
+	if not _codes_missing(handled, listed).is_empty():
+		ok = _fail("LEGEND", "the scene handles keys the key reference does not list: %s" % str(_codes_missing(handled, listed)))
+	if not _codes_missing(listed, handled).is_empty():
+		ok = _fail("LEGEND", "the key reference lists keys the scene does not handle: %s" % str(_codes_missing(listed, handled)))
+	# True negative: a planted phantom row (a key nothing handles) is refused by the same comparison.
+	var planted: Array = listed.duplicate()
+	planted.append(KEY_BRACKETLEFT)
+	if _codes_missing(planted, handled).is_empty():
+		ok = _fail("LEGEND", "a planted phantom key passed the comparison")
+
+	# The toggle: F1 opens the reference, F1 again and Escape each put it down.
+	_key(KEY_F1, true)
+	if not bool(scene.call("legend_open")) or not (scene.call("legend_node") as Control).visible:
+		ok = _fail("LEGEND", "F1 did not open the key reference")
+	_place_player(scene, _find_open_area((scene.get("map") as Variant), 2))
+	var before: Vector2 = _player_pos(world)
+	_key(KEY_W, true)
+	for i in 20:
+		scene.call("_process", 1.0 / 60.0)
+	_key(KEY_W, false)
+	if _player_pos(world).distance_to(before) > 0.01:
+		ok = _fail("LEGEND", "walking moved the body while the key reference was open")
+	_key(KEY_ESCAPE, true)
+	if bool(scene.call("legend_open")) or (scene.call("legend_node") as Control).visible:
+		ok = _fail("LEGEND", "Escape did not close the key reference")
+	_key(KEY_F1, true)
+	_key(KEY_F1, true)
+	if bool(scene.call("legend_open")):
+		ok = _fail("LEGEND", "a second F1 did not close the key reference")
+	return ok
+
+
+# The key names a source file's code compares or names: KEY_ identifiers on lines that are not comments,
+# and not in the KEY_REFERENCE table (the table is what is checked, so it is not evidence of handling).
+func _handled_key_names(source: String) -> Array:
+	var names: Array = []
+	var in_table: bool = false
+	var pattern: RegEx = RegEx.new()
+	pattern.compile("KEY_[A-Z0-9_]+")
+	for line in source.split("\n"):
+		if line.begins_with("const KEY_REFERENCE"):
+			in_table = true
+			continue
+		if in_table:
+			if line == "]":
+				in_table = false
+			continue
+		if line.strip_edges().begins_with("#"):
+			continue
+		for hit in pattern.search_all(line):
+			var name: String = hit.get_string()
+			if name == "KEY_REFERENCE" or names.has(name):
+				continue
+			names.append(name)
+	return names
+
+
+# The codes in `a` that `b` does not hold.
+func _codes_missing(a: Array, b: Array) -> Array:
+	var out: Array = []
+	for code in a:
+		if not b.has(int(code)):
+			out.append(int(code))
+	return out
 
 
 # --- fixtures -------------------------------------------------------------------------------
