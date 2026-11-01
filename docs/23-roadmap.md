@@ -2464,30 +2464,66 @@ not a to-do list:
 
 - **First-person building finishes, 2026-11-01.** Advances the generated-world dressing in
   [docs/41](41-weapons-characters-world-plan.md), P1 and art piece 17: every one of the 22 authored
-  building templates now has a deterministic architectural shell in the playable first-person district.
+  building templates has a deterministic architectural shell. Only the residential suburb boots in
+  the first-person scene, so 14 templates are reachable in play today; the other eight
+  (arcade_retail, cabin_long, cabin_small, shop_corner, store_grocery, unit_industrial,
+  warehouse_brick, workshop_unit) are built, gated, and drawn when the district view is pointed at
+  a town, industrial or forest map, but no shipped scene shows them yet.
   - **Kit and data.** `tools/blender/first_person_buildings/build_finishes.py` builds 22 GLBs, one
     64-texel/m atlas and `buildings.manifest.json`. All four wall looks and three roof looks resolve;
     roofs are gable, hip or flat from the look and footprint. With no room tags in content, interior
     plaster/wallpaper/panelling and boards/lino/tile/carpet/concrete follow the building tag. Foundation,
     skirting, corner boards, ceilings, floors, eaves and opening casings are included.
+  - **The picture follows the stamped map.** Worldgen's occluder pass opens template walls into
+    windows after the stamp (`SimWorldgen._dress_occluders`), so the first build drew 409 of the
+    suburb's 599 sim windows as solid wall while sight and shots passed through (the independent art
+    review's blocker 1). Each GLB now carries, beside its two always-drawn meshes, one named node per
+    tile that depends on the sim: `wall-X-Y` for a wall worldgen may open, `window-X-Y` (sill,
+    lintel, casing, glazing) for every template window and every wall that may open, and
+    `jamb-X-Y-SIDE` for a wall's face into an opening. `building_view.gd` picks them per instance
+    from `SimSpace.profile_key` on the stamped map and merges the chosen ones into one `Openings`
+    mesh; `district_view.gd` drops a tile's band boxes only where the building drew that tile's sim
+    profile, so the old light-blue sill and lintel boxes are gone under finished windows.
+  - **Roofs.** The three hip roofs (house_corner, house_large, terrace_pair) were wound inside out and
+    culled from outside (review blocker 2). `MeshBuilder.polygon` now orders its points to the
+    outward normal the caller names, and the hip ends wear the roof rather than the wall.
   - **Windows.** Two transparent sashes, a thin muntin, edge grime and some side curtains read as
     glazing without changing the sim's open sight/shot aperture. Residential glazing is about 0.72 m
-    wide, industrial/shed 0.80 m, and shopfronts stay broad. No template's window count changed.
+    wide, industrial/shed 0.80 m, and shopfronts stay broad. A window worldgen opened frames both
+    sides, and an interior partition opened that way gets no curtain. No template's window count
+    changed.
   - **Runtime.** `building_view.gd` caches models and picks a subtle tint from district seed, template
-    id and stamped position, never runtime randomness. Each template has one merged full-wall spatial
-    mesh and one merged finish mesh; dynamic doors, windows and boards keep their old band boxes.
-  - **Checks.** Builder `--check` prints `BUILDINGS_CHECK_OK` and compares every output byte. Planted
-    bounds, coplanar, density, floor-contact, missing-look and missing-template modes all fail.
-    `godot:check:fp_geometry` gains FINISHES: all 22 models load, every full wall keeps its 0..2550 mm
-    band and footprint cap, finish skins stay within 25 mm of a solid host, glass is transparent and
-    nearest-filtered, and planted open-room/above-wall vertices fail. `FIRST_PERSON_OK` and
-    `GODOT_PROJECT_SMOKE_OK` pass.
-  - **Measured.** Headed 1280x720, uncapped, 300 frames after 30 warmup on the shipped 256 district:
-    before/after spawn mean 0.340/0.429 ms (4/36 draw calls), inside the small house 0.334/0.550 ms
-    (4/106 draw calls). Both after views stay under docs/22's 10 ms target.
-  - **Not changed.** SimSpace bands, template window counts and wall footprints are untouched. The
-    1 m-deep reveals remain; edge walls stay an owner/shared-sim decision. Room-specific finishes wait
-    for room-tag data.
+    id and stamped position, never runtime randomness. Doors and boards keep their dynamic band boxes.
+    The district is built once at boot, so a board nailed over a window later still draws through
+    the band boxes and barricade, as before.
+  - **Checks.** Builder `--check` prints `BUILDINGS_CHECK_OK` and compares every output byte (the
+    manifest is written with LF, and a CRLF checkout of it is folded back before the compare, which
+    is what failed on Windows). It judges every per-tile piece in three drawn states (all openable
+    walls standing, all opened, alternating): solid vertices stay in a drawn wall or in a window's sill
+    and lintel bands, and rays across every drawn window pass at 1.25 and 1.85 m and hit at 0.5 and
+    2.3 m. Every roof face faces up and every eave, fascia, parapet and gable end faces out. Eight
+    `--plant` modes fail: bounds, coplanar, density, floor contact, missing look, missing template,
+    `winding` (one hip face reversed) and `aperture` (a wall drawn across a window).
+    `godot:check:fp_geometry` FINISHES loads all 22 models, holds every wall to exactly one cap (the
+    always-drawn mesh or its own wall piece) and every manifest piece count to the nodes the view
+    parses. Its WORLDGEN lane runs `SimBoot.bare` for all four districts: 3754 sim windows in
+    finished buildings, 2433 of them opened by worldgen, are each drawn as a window with the same
+    four rays, every sim wall is drawn as a wall, and no band box is left under a drawn tile. A wall
+    planted over an opened window (`building_force_wall`) and a baseline that keeps its band boxes
+    are both refused. Run against the first build's GLBs, the lane fails on the opened windows. The lane
+    takes the gate from about 2 s to about 18 s.
+  - **Measured.** Headed 1280x720, uncapped, 300 frames after 30 warmup on the shipped 256 district
+    (the first build's numbers): before/after spawn mean 0.340/0.429 ms (4/36 draw calls), inside the
+    small house 0.334/0.550 ms (4/106 draw calls). After the window fix, the same method from a street
+    view and inside the first house_small, first build against fix: 0.33/0.32 ms (10/12 draw calls)
+    and 0.34/0.36 ms (27/36 draw calls). Building the suburb's district view went from 1.12 s to
+    1.23 s. All stay under docs/22's 10 ms target.
+  - **Not changed, and still open.** SimSpace bands, template window counts and wall footprints are
+    untouched. The 1 m-deep reveals remain; edge walls stay an owner/shared-sim decision. Room-specific
+    finishes wait for room-tag data. The review's minors stand: the atlas's top 28 of 64 cells are
+    unused (44 % of the texture), and each used cell holds two to five flat colours, so siding, render
+    and block read as low-contrast tones and brick as a two-tone checker. That is below the outpost
+    pack's quality floor and is the next pass for this kit, not a blocker for the shells.
 
 - **Pitch on the aim, 2026-11-01.** Slice 3 of docs/40: the aim has a pitch as well as a yaw.
   - **The record.** The `aim` command takes an optional `pitch` in radians, positive up. It goes

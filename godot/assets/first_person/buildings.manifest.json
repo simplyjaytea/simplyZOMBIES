@@ -120,6 +120,11 @@
       "match": {
         "id": "building.arcade.retail"
       },
+      "pieces": {
+        "jamb": 129,
+        "wall": 73,
+        "window": 85
+      },
       "roof": "tar",
       "roofForm": "flat",
       "variation": [
@@ -155,6 +160,11 @@
       "match": {
         "id": "building.bungalow.flat"
       },
+      "pieces": {
+        "jamb": 54,
+        "wall": 29,
+        "window": 33
+      },
       "roof": "shingle",
       "roofForm": "gable",
       "variation": [
@@ -188,6 +198,11 @@
       ],
       "match": {
         "id": "building.cabin.long"
+      },
+      "pieces": {
+        "jamb": 33,
+        "wall": 18,
+        "window": 22
       },
       "roof": "shingle",
       "roofForm": "gable",
@@ -223,6 +238,11 @@
       "match": {
         "id": "building.cabin.small"
       },
+      "pieces": {
+        "jamb": 22,
+        "wall": 11,
+        "window": 15
+      },
       "roof": "shingle",
       "roofForm": "gable",
       "variation": [
@@ -256,6 +276,11 @@
       ],
       "match": {
         "id": "building.clinic.storefront"
+      },
+      "pieces": {
+        "jamb": 64,
+        "wall": 36,
+        "window": 40
       },
       "roof": "tar",
       "roofForm": "flat",
@@ -291,6 +316,11 @@
       "match": {
         "id": "building.gatehouse.yard"
       },
+      "pieces": {
+        "jamb": 32,
+        "wall": 17,
+        "window": 19
+      },
       "roof": "tin",
       "roofForm": "gable",
       "variation": [
@@ -324,6 +354,11 @@
       ],
       "match": {
         "id": "building.hall.civic"
+      },
+      "pieces": {
+        "jamb": 72,
+        "wall": 40,
+        "window": 48
       },
       "roof": "tar",
       "roofForm": "flat",
@@ -360,6 +395,11 @@
       "match": {
         "id": "building.house.corner"
       },
+      "pieces": {
+        "jamb": 70,
+        "wall": 39,
+        "window": 42
+      },
       "roof": "shingle",
       "roofForm": "hip",
       "variation": [
@@ -393,6 +433,11 @@
       ],
       "match": {
         "id": "building.house.gable"
+      },
+      "pieces": {
+        "jamb": 46,
+        "wall": 26,
+        "window": 31
       },
       "roof": "shingle",
       "roofForm": "gable",
@@ -429,6 +474,11 @@
       "match": {
         "id": "building.house.large"
       },
+      "pieces": {
+        "jamb": 86,
+        "wall": 47,
+        "window": 54
+      },
       "roof": "shingle",
       "roofForm": "hip",
       "variation": [
@@ -462,6 +512,11 @@
       ],
       "match": {
         "id": "building.house.narrow"
+      },
+      "pieces": {
+        "jamb": 58,
+        "wall": 31,
+        "window": 35
       },
       "roof": "shingle",
       "roofForm": "gable",
@@ -498,6 +553,11 @@
       "match": {
         "id": "building.house.small"
       },
+      "pieces": {
+        "jamb": 40,
+        "wall": 22,
+        "window": 26
+      },
       "roof": "shingle",
       "roofForm": "gable",
       "variation": [
@@ -533,6 +593,11 @@
       "match": {
         "id": "building.kiosk.corner"
       },
+      "pieces": {
+        "jamb": 28,
+        "wall": 14,
+        "window": 20
+      },
       "roof": "tar",
       "roofForm": "flat",
       "variation": [
@@ -565,6 +630,11 @@
       ],
       "match": {
         "id": "building.shed.garage"
+      },
+      "pieces": {
+        "jamb": 22,
+        "wall": 11,
+        "window": 13
       },
       "roof": "tin",
       "roofForm": "gable",
@@ -599,6 +669,11 @@
       "match": {
         "id": "building.shed.lockup"
       },
+      "pieces": {
+        "jamb": 28,
+        "wall": 16,
+        "window": 16
+      },
       "roof": "tin",
       "roofForm": "gable",
       "variation": [
@@ -631,6 +706,11 @@
       ],
       "match": {
         "id": "building.shed.tin"
+      },
+      "pieces": {
+        "jamb": 20,
+        "wall": 11,
+        "window": 11
       },
       "roof": "tin",
       "roofForm": "gable",
@@ -667,6 +747,11 @@
       "match": {
         "id": "building.shop.corner"
       },
+      "pieces": {
+        "jamb": 69,
+        "wall": 36,
+        "window": 44
+      },
       "roof": "tar",
       "roofForm": "flat",
       "variation": [
@@ -701,6 +786,11 @@
       ],
       "match": {
         "id": "building.store.grocery"
+      },
+      "pieces": {
+        "jamb": 78,
+        "wall": 40,
+        "window": 52
       },
       "roof": "tar",
       "roofForm": "flat",
@@ -737,6 +827,11 @@
       "match": {
         "id": "building.terrace.pair"
       },
+      "pieces": {
+        "jamb": 53,
+        "wall": 29,
+        "window": 34
+      },
       "roof": "shingle",
       "roofForm": "hip",
       "variation": [
@@ -770,6 +865,11 @@
       ],
       "match": {
         "id": "building.unit.industrial"
+      },
+      "pieces": {
+        "jamb": 69,
+        "wall": 37,
+        "window": 40
       },
       "roof": "tin",
       "roofForm": "gable",
@@ -805,6 +905,11 @@
       "match": {
         "id": "building.warehouse.brick"
       },
+      "pieces": {
+        "jamb": 106,
+        "wall": 55,
+        "window": 59
+      },
       "roof": "tar",
       "roofForm": "flat",
       "variation": [
@@ -839,6 +944,11 @@
       ],
       "match": {
         "id": "building.workshop.unit"
+      },
+      "pieces": {
+        "jamb": 50,
+        "wall": 25,
+        "window": 30
       },
       "roof": "tin",
       "roofForm": "gable",

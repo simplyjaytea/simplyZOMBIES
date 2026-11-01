@@ -16,8 +16,16 @@ blender --background --factory-startup --python tools/blender/first_person_build
 `--check` rebuilds into a temporary directory, compares every GLB, the atlas, and the manifest with the
 committed bytes, and prints `BUILDINGS_CHECK_OK`. It checks export bounds against the committed
 manifest, wall-band heights and tile ownership, floor contact, coplanar overlap, measured UV density,
-atlas materials and filtering, every wall/roof look, and every template resolution. The editable blend
-is arranged as a contact sheet of the 22 source shells and is not byte-compared.
+atlas materials and filtering, every wall/roof look, and every template resolution. The manifest is
+written with LF; a checkout that holds it with CRLF (`core.autocrlf`) is folded back before the compare.
+The editable blend is arranged as a contact sheet of the 22 source shells and is not byte-compared.
+
+Two checks judge what Godot will draw. Every roof face must be wound to face up, and every eave,
+fascia, parapet and gable end to face away from the building: the material is back-face culled, so a
+face wound the other way vanishes from the street. And every per-tile piece (below) is assembled in
+three states, every openable wall standing, every one opened, and alternating, and each drawn window
+is crossed by rays from each open face: at 1.25 and 1.85 m they must pass every opaque face, at 0.5 and
+2.3 m they must hit the sill or lintel.
 
 Each negative mode must exit non-zero with `BUILDINGS_CHECK_FAIL`:
 
@@ -28,7 +36,11 @@ blender --background --factory-startup --python tools/blender/first_person_build
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=contact
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=look
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=template
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=winding
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=aperture
 ```
+
+`winding` reverses one hip-roof face; `aperture` draws a wall across house_small's first window.
 
 ## Data and runtime
 
@@ -38,15 +50,34 @@ look, roof form, interior family, actual interior wall/floor finishes, measured 
 stamped building record, and chooses a tint from a fixed hash of district seed, template id, and stamped
 position. It never draws from runtime randomness or writes sim state.
 
-Each GLB has two merged meshes: `spatial_bands` for full-height wall tiles and `finish` for everything
-else. The finish mesh has an opaque atlas surface and, where windows exist, a transparent glass surface.
-This keeps the district to merged draws per material rather than one node per tile or casing.
+Worldgen's occluder pass turns some template walls into windows after the stamp
+(`SimWorldgen._dress_occluders`: a wall with open ground on both sides along one axis, one time in
+three). The template alone cannot say which, so each GLB carries what every instance draws and, apart,
+what depends on the stamped map:
 
-Only full wall tiles have their ordinary band boxes replaced. Doors, windows, and boarded windows keep
-the dynamic boxes from `district_view.gd`; textured faces and trim sit proud of those boxes. The
-`godot:check:fp_geometry` FINISHES lane loads every model and proves wall caps, 0–2.55 m wall bands,
-solid-host attachment within 25 mm, transparent glazing, nearest filtering, and real stamped placement.
-Its planted open-room and above-wall vertices fail.
+- `spatial_bands`: the walls that can never open, merged. `finish`: floors, ceilings, plinth, cornice,
+  skirting, door casings and the roof, merged, with a transparent glass surface where needed.
+- `<slug>-wall-X-Y`: a wall the occluder pass may open (the builder's `window_candidate`, the same rule
+  read off the template), drawn while the stamped tile is a wall.
+- `<slug>-window-X-Y`: a window's textured sill (0–1.00 m) and lintel (2.10–2.55 m), casing, glazing
+  and curtains, for every template window and every wall that may open; drawn while the tile is a window.
+- `<slug>-jamb-X-Y-SIDE`: wall X,Y's face into a neighbouring opening, drawn while X,Y is a wall and the
+  neighbour a window.
+
+X and Y are template tiles. `building_view.gd` reads `SimSpace.profile_key` at each stamped tile, picks
+the pieces, and merges them into one `Openings` mesh per instance (cached across instances that open the
+same tiles), so a building costs a handful of draws rather than one per tile. It records what it drew in
+`drawn`; `district_view.gd` drops a tile's band boxes only where that matches the sim, so a finished
+window has no leftover sill and lintel boxes and a mismatch would still show the sim's bands. Doors and
+boarded windows keep the dynamic boxes from `district_view.gd`; door casings sit proud of them.
+
+The `godot:check:fp_geometry` FINISHES lane loads every model and proves wall caps (each wall capped
+exactly once, by `spatial_bands` or its own wall piece), the manifest's piece counts against the nodes
+the view parses, 0–2.55 m wall bands, solid-host attachment within 25 mm, transparent glazing, nearest
+filtering, and real stamped placement. Its WORLDGEN lane builds all four districts through
+`SimBoot.bare` and casts the same window rays through every sim window of every finished building,
+holds every sim wall to a drawn wall, and counts band boxes left under drawn tiles. A wall planted over
+a window worldgen opened, and a baseline that keeps its band boxes, are both refused.
 
 ## Coordinates and contract bands
 

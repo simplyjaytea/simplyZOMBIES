@@ -9,6 +9,7 @@ import tempfile
 
 import bpy
 from mathutils import Vector
+from mathutils.geometry import intersect_ray_tri
 
 
 ATLAS_SIZE = 512
@@ -295,6 +296,8 @@ class MeshBuilder:
         self.faces = []
         self.uvs = []
         self.styles = []
+        self.roles = []
+        self.role = ""
         self.seed = seed
 
     def _polygon(self, points, uv, style):
@@ -328,6 +331,15 @@ class MeshBuilder:
         self.faces.append(tuple(range(start, start + len(points))))
         self.uvs.append(tuple(uv))
         self.styles.append(style)
+        self.roles.append(self.role)
+
+    def extend(self, other):
+        start = len(self.vertices)
+        self.vertices.extend(other.vertices)
+        self.faces.extend(tuple(index + start for index in face) for face in other.faces)
+        self.uvs.extend(other.uvs)
+        self.styles.extend(other.styles)
+        self.roles.extend(other.roles)
 
     def face(self, origin, u_axis, v_axis, style, variants=None, normal=None):
         origin = Vector(origin)
@@ -366,7 +378,12 @@ class MeshBuilder:
                 self._polygon(points, uv, cell_style)
 
     def polygon(self, points, style, normal):
+        # The winding is the face's front: Godot culls the back. The caller names the outward
+        # normal, so a polygon listed the other way round is reversed here rather than drawn inside
+        # out (the hip roofs were, before this).
         points = [Vector(point) for point in points]
+        if (points[1] - points[0]).cross(points[2] - points[0]).dot(Vector(normal)) < 0.0:
+            points.reverse()
         u_axis = (points[1] - points[0]).normalized()
         plane_normal = (points[1] - points[0]).cross(points[2] - points[0]).normalized()
         if plane_normal.dot(Vector(normal)) < 0.0:
@@ -514,97 +531,262 @@ def finish_for_neighbour(template, x, y, side_index):
     return exterior_style(template)
 
 
-def build_spatial(template):
-    mesh = MeshBuilder(stable_int(template["id"]))
-    for y in range(template["size"]["h"]):
-        for x in range(template["size"]["w"]):
-            if tile_at(template, x, y) != 1:
-                continue
-            mesh.face((x, WALL_TOP, y), (1, 0, 0), (0, 0, 1), "trim", normal=(0, 1, 0))
-            for side_index, ((dx, dy), _) in enumerate(SIDES):
-                if tile_at(template, x + dx, y + dy) == 1:
-                    continue
-                styles = finish_for_neighbour(template, x, y, side_index)
-                side_quad(mesh, x, y, side_index, 0, 1, 0, WALL_TOP, styles[0], styles)
-    return mesh
+# The tiles `SimTileMap.SOLID` calls solid: wall, window, tree and water. The occluder pass reads the
+# same table when it decides whether a wall has open ground on both sides.
+SOLID_TILES = (1, 2, 5, 7)
 
 
-def build_finish(template, plant=None):
-    mesh = MeshBuilder(stable_int(template["id"]))
+def window_candidate(template, x, y):
+    # A wall tile the sim's occluder pass may open into a window after the stamp
+    # (`SimWorldgen._dress_occluders`): a wall with open ground on both sides along one axis. The
+    # template can only over-count, because ground beyond the footprint may be solid in a real
+    # district, so every window worldgen can make has pieces to draw. `godot:check:fp_geometry`
+    # proves that on real districts.
+    if tile_at(template, x, y) != 1:
+        return False
+
+    def solid(tx, ty):
+        return tile_at(template, tx, ty) in SOLID_TILES
+
+    horizontal = not solid(x - 1, y) and not solid(x + 1, y)
+    vertical = not solid(x, y - 1) and not solid(x, y + 1)
+    return horizontal or vertical
+
+
+def openable(template, x, y):
+    return tile_at(template, x, y) == 2 or window_candidate(template, x, y)
+
+
+def open_axis(template, x, y):
+    # A direction the window can be seen through: neither neighbour along it is solid at eye
+    # height. A window beside a window still sees through it, so only a wall, tree or water counts.
+    def blocks(tx, ty):
+        return tile_at(template, tx, ty) in (1, 5, 7)
+
+    return "x" if not blocks(x - 1, y) and not blocks(x + 1, y) else "z"
+
+
+class Pieces:
+    # One template's geometry. `spatial` and `finish` are always drawn. `conditional` holds what a
+    # tile draws only in one sim state: `wall-X-Y` while the tile is a wall, `window-X-Y` while it is
+    # a window, and `jamb-X-Y-SIDE`, wall X,Y's face into a neighbour, while X,Y is a wall and that
+    # neighbour is a window. `building_view.gd` picks them from the stamped map.
+    def __init__(self, template):
+        self.seed = stable_int(template["id"])
+        self.spatial = MeshBuilder(self.seed)
+        self.finish = MeshBuilder(self.seed)
+        self.conditional = {}
+
+    def piece(self, kind, x, y, side=None):
+        name = f"{kind}-{x}-{y}" + (f"-{side}" if side else "")
+        if name not in self.conditional:
+            dx, dy = next(offset for offset, label in SIDES if label == side) if side else (0, 0)
+            self.conditional[name] = {
+                "kind": kind,
+                "tile": (x, y),
+                "other": (x + dx, y + dy),
+                "spatial": MeshBuilder(self.seed),
+                "finish": MeshBuilder(self.seed),
+            }
+        return self.conditional[name]
+
+
+def build_wall_tile(pieces, template, x, y):
+    candidate = window_candidate(template, x, y)
+    target = pieces.piece("wall", x, y) if candidate else None
+    spatial = target["spatial"] if candidate else pieces.spatial
+    finish = target["finish"] if candidate else pieces.finish
+    spatial.face((x, WALL_TOP, y), (1, 0, 0), (0, 0, 1), "trim", normal=(0, 1, 0))
+    for side_index, ((dx, dy), label) in enumerate(SIDES):
+        nx, ny = x + dx, y + dy
+        if tile_at(template, nx, ny) == 1 and not window_candidate(template, nx, ny):
+            continue
+        styles = finish_for_neighbour(template, x, y, side_index)
+        if openable(template, nx, ny):
+            jamb = pieces.piece("jamb", x, y, label)
+            side_quad(jamb["spatial"], x, y, side_index, 0, 1, 0, WALL_TOP, styles[0], styles)
+            continue
+        side_quad(spatial, x, y, side_index, 0, 1, 0, WALL_TOP, styles[0], styles)
+    exterior_sides = []
+    for side_index, ((dx, dy), _) in enumerate(SIDES):
+        nx, ny = x + dx, y + dy
+        if inside(template, nx, ny) and not indoors_at(template, nx, ny) and not openable(template, nx, ny):
+            exterior_sides.append(side_index)
+    if len(exterior_sides) >= 2:
+        for side_index in exterior_sides[:2]:
+            side_quad(finish, x, y, side_index, 0, 0.08, 0, WALL_TOP, "trim", offset=0.010)
+            side_quad(finish, x, y, side_index, 0.92, 1, 0, WALL_TOP, "trim", offset=0.010)
+
+
+def build_window_tile(pieces, template, x, y):
+    # The sill (0..1.00 m) and lintel (2.10..2.55 m) SimSpace keeps for a window, drawn solid and
+    # textured, then the casing, glazing and curtains. The aperture between stays open.
+    target = pieces.piece("window", x, y)
+    spatial, finish = target["spatial"], target["finish"]
+    candidate = tile_at(template, x, y) == 1
+    interior = interior_key(template)
+    spatial.face((x, WALL_TOP, y), (1, 0, 0), (0, 0, 1), "trim", normal=(0, 1, 0))
+    spatial.face((x, WINDOW_SILL, y), (1, 0, 0), (0, 0, 1), "trim", normal=(0, 1, 0))
+    spatial.face((x, WINDOW_TOP, y), (1, 0, 0), (0, 0, 1), "trim", normal=(0, -1, 0))
+    faces_out = any(
+        tile_at(template, x + dx, y + dy) not in (1, 2) and not indoors_at(template, x + dx, y + dy)
+        for (dx, dy), _ in SIDES
+    )
+    low, high = WINDOW_SILL, WINDOW_TOP
+    for side_index, ((dx, dy), _) in enumerate(SIDES):
+        nx, ny = x + dx, y + dy
+        if tile_at(template, nx, ny) in (1, 2):
+            continue
+        styles = finish_for_neighbour(template, x, y, side_index)
+        side_quad(spatial, x, y, side_index, 0, 1, 0, WINDOW_SILL, styles[0], styles)
+        side_quad(spatial, x, y, side_index, 0, 1, WINDOW_TOP, WALL_TOP, styles[0], styles)
+        outside = not indoors_at(template, nx, ny)
+        left = (x - 1, y) if side_index in (0, 2) else (x, y - 1)
+        right = (x + 1, y) if side_index in (0, 2) else (x, y + 1)
+        # A window the occluder pass opens may stand beside another, so it always frames both sides.
+        left_frame = candidate or tile_at(template, *left) != 2
+        right_frame = candidate or tile_at(template, *right) != 2
+        frame = 0.065
+        if interior in ("residential", "cabin"):
+            frame = 0.14
+        elif interior in ("industrial", "shed"):
+            frame = 0.10
+        if left_frame:
+            side_quad(finish, x, y, side_index, 0, frame, low, high, "trim", offset=0.014)
+        if right_frame:
+            side_quad(finish, x, y, side_index, 1.0 - frame, 1, low, high, "trim", offset=0.014)
+        head0 = frame if left_frame else 0.0
+        head1 = 1.0 - frame if right_frame else 1.0
+        side_quad(finish, x, y, side_index, head0, head1, high - frame, high, "trim", offset=0.014)
+        side_quad(finish, x, y, side_index, head0, head1, low, low + frame, "trim", offset=0.014)
+        glass0 = frame if left_frame else 0.025
+        glass1 = 1.0 - frame if right_frame else 0.975
+        side_quad(finish, x, y, side_index, glass0, 0.4875, low + frame, high - frame, "glass", offset=0.010)
+        side_quad(finish, x, y, side_index, 0.5125, glass1, low + frame, high - frame, "glass", offset=0.010)
+        side_quad(finish, x, y, side_index, 0.4875, 0.5125, low + frame, high - frame, "trim", offset=0.018)
+        curtained = stable_int("%s:%d:%d:%d" % (template["id"], x, y, side_index)) % 3 != 0
+        if faces_out and not outside and interior in ("residential", "cabin") and curtained:
+            side_quad(finish, x, y, side_index, 0.04, 0.16, low + 0.04, high - 0.04, "curtain", offset=0.022)
+            side_quad(finish, x, y, side_index, 0.84, 0.96, low + 0.04, high - 0.04, "curtain", offset=0.022)
+
+
+def build_tile_trim(finish, template, x, y):
+    # Plinth, cornice and skirting on every face of a wall, window or door tile that meets open
+    # ground or a room, and a door's lintel skin and casing. A face into another wall or window is
+    # inside the run and gets nothing.
+    tile = tile_at(template, x, y)
+    for side_index, ((dx, dy), _) in enumerate(SIDES):
+        nx, ny = x + dx, y + dy
+        if tile_at(template, nx, ny) in (1, 2):
+            continue
+        outside = not indoors_at(template, nx, ny)
+        styles = finish_for_neighbour(template, x, y, side_index)
+        if tile == 6:
+            side_quad(finish, x, y, side_index, 0, 1, DOOR_TOP, WALL_TOP, styles[0], styles, 0.004)
+        if outside:
+            side_quad(finish, x, y, side_index, 0, 1, 0, 0.24, "foundation", offset=0.007)
+            side_quad(finish, x, y, side_index, 0, 1, 2.43, 2.55, "trim", offset=0.007)
+        else:
+            side_quad(finish, x, y, side_index, 0, 1, 0.02, 0.12, "trim", offset=0.007)
+        if tile != 6:
+            continue
+        low, high = 0.0, DOOR_TOP
+        left = (x - 1, y) if side_index in (0, 2) else (x, y - 1)
+        right = (x + 1, y) if side_index in (0, 2) else (x, y + 1)
+        left_frame = tile_at(template, *left) != tile
+        right_frame = tile_at(template, *right) != tile
+        frame = 0.065
+        if left_frame:
+            side_quad(finish, x, y, side_index, 0, frame, low, high, "trim", offset=0.014)
+        if right_frame:
+            side_quad(finish, x, y, side_index, 1.0 - frame, 1, low, high, "trim", offset=0.014)
+        head0 = frame if left_frame else 0.0
+        head1 = 1.0 - frame if right_frame else 1.0
+        side_quad(finish, x, y, side_index, head0, head1, high - frame, high, "trim", offset=0.014)
+        if left_frame:
+            side_quad(finish, x, y, side_index, 0, 0.025, low, high - 0.065, "dark_wood", offset=0.018)
+        if right_frame:
+            side_quad(finish, x, y, side_index, 0.975, 1, low, high - 0.065, "dark_wood", offset=0.018)
+
+
+def build_pieces(template, plant=None):
+    pieces = Pieces(template)
     interior = interior_spec(template)
     floor_y = 0.018 if plant == "contact" and template["id"] == "building.house.small" else FLOOR_Y
     for y in range(template["size"]["h"]):
         for x in range(template["size"]["w"]):
             tile = tile_at(template, x, y)
             if indoors_at(template, x, y) and tile == 0:
-                mesh.face((x, floor_y, y), (1, 0, 0), (0, 0, 1), interior["floor"][0], interior["floor"], (0, 1, 0))
-                mesh.face((x, CEILING_Y, y), (1, 0, 0), (0, 0, 1), "ceiling", normal=(0, -1, 0))
-            if tile not in (1, 2, 6):
-                continue
-            for side_index, ((dx, dy), _) in enumerate(SIDES):
-                nx, ny = x + dx, y + dy
-                neighbour = tile_at(template, nx, ny)
-                if tile == 1 and neighbour == 1:
-                    continue
-                outside = not indoors_at(template, nx, ny)
-                styles = finish_for_neighbour(template, x, y, side_index)
-                if tile in (2, 6):
-                    bands = [(0, WINDOW_SILL), (WINDOW_TOP, WALL_TOP)] if tile == 2 else [(DOOR_TOP, WALL_TOP)]
-                    for low, high in bands:
-                        side_quad(mesh, x, y, side_index, 0, 1, low, high, styles[0], styles, 0.004)
-                if outside:
-                    side_quad(mesh, x, y, side_index, 0, 1, 0, 0.24, "foundation", offset=0.007)
-                    side_quad(mesh, x, y, side_index, 0, 1, 2.43, 2.55, "trim", offset=0.007)
-                else:
-                    side_quad(mesh, x, y, side_index, 0, 1, 0.02, 0.12, "trim", offset=0.007)
-                if tile in (2, 6):
-                    low, high = (WINDOW_SILL, WINDOW_TOP) if tile == 2 else (0.0, DOOR_TOP)
-                    left = (x - 1, y) if side_index in (0, 2) else (x, y - 1)
-                    right = (x + 1, y) if side_index in (0, 2) else (x, y + 1)
-                    left_frame = tile_at(template, *left) != tile
-                    right_frame = tile_at(template, *right) != tile
-                    frame = 0.065
-                    if tile == 2 and interior_key(template) in ("residential", "cabin"):
-                        frame = 0.14
-                    elif tile == 2 and interior_key(template) in ("industrial", "shed"):
-                        frame = 0.10
-                    if left_frame:
-                        side_quad(mesh, x, y, side_index, 0, frame, low, high, "trim", offset=0.014)
-                    if right_frame:
-                        side_quad(mesh, x, y, side_index, 1.0 - frame, 1, low, high, "trim", offset=0.014)
-                    head0 = frame if left_frame else 0.0
-                    head1 = 1.0 - frame if right_frame else 1.0
-                    side_quad(mesh, x, y, side_index, head0, head1, high - frame, high, "trim", offset=0.014)
-                    if tile == 2:
-                        side_quad(mesh, x, y, side_index, head0, head1, low, low + frame, "trim", offset=0.014)
-                        glass0 = frame if left_frame else 0.025
-                        glass1 = 1.0 - frame if right_frame else 0.975
-                        side_quad(mesh, x, y, side_index, glass0, 0.4875, low + frame, high - frame, "glass", offset=0.010)
-                        side_quad(mesh, x, y, side_index, 0.5125, glass1, low + frame, high - frame, "glass", offset=0.010)
-                        side_quad(mesh, x, y, side_index, 0.4875, 0.5125, low + frame, high - frame, "trim", offset=0.018)
-                        if not outside and interior_key(template) in ("residential", "cabin") and stable_int("%s:%d:%d:%d" % (template["id"], x, y, side_index)) % 3 != 0:
-                            side_quad(mesh, x, y, side_index, 0.04, 0.16, low + 0.04, high - 0.04, "curtain", offset=0.022)
-                            side_quad(mesh, x, y, side_index, 0.84, 0.96, low + 0.04, high - 0.04, "curtain", offset=0.022)
-                    else:
-                        if left_frame:
-                            side_quad(mesh, x, y, side_index, 0, 0.025, low, high - 0.065, "dark_wood", offset=0.018)
-                        if right_frame:
-                            side_quad(mesh, x, y, side_index, 0.975, 1, low, high - 0.065, "dark_wood", offset=0.018)
+                pieces.finish.face((x, floor_y, y), (1, 0, 0), (0, 0, 1), interior["floor"][0], interior["floor"], (0, 1, 0))
+                pieces.finish.face((x, CEILING_Y, y), (1, 0, 0), (0, 0, 1), "ceiling", normal=(0, -1, 0))
             if tile == 1:
-                exterior_sides = []
-                for side_index, ((dx, dy), _) in enumerate(SIDES):
-                    if inside(template, x + dx, y + dy) and not indoors_at(template, x + dx, y + dy):
-                        exterior_sides.append(side_index)
-                if len(exterior_sides) >= 2:
-                    for side_index in exterior_sides[:2]:
-                        side_quad(mesh, x, y, side_index, 0, 0.08, 0, WALL_TOP, "trim", offset=0.010)
-                        side_quad(mesh, x, y, side_index, 0.92, 1, 0, WALL_TOP, "trim", offset=0.010)
-    build_roof(mesh, template)
+                build_wall_tile(pieces, template, x, y)
+            if openable(template, x, y):
+                build_window_tile(pieces, template, x, y)
+            if tile in (1, 2, 6):
+                build_tile_trim(pieces.finish, template, x, y)
+    build_roof(pieces.finish, template)
+    finish = pieces.finish
     if plant == "coplanar" and template["id"] == "building.house.small":
-        mesh._polygon([Vector(v) for v in mesh.vertices[:4]], mesh.uvs[0], "trim")
+        finish._polygon([Vector(v) for v in finish.vertices[:4]], finish.uvs[0], "trim")
     if plant == "density" and template["id"] == "building.house.small":
-        mesh.uvs[0] = tuple((u * 0.5, v * 0.5) for u, v in mesh.uvs[0])
-    return mesh
+        finish.uvs[0] = tuple((u * 0.5, v * 0.5) for u, v in finish.uvs[0])
+    if plant == "winding" and roof_form(template) == "hip":
+        index = finish.roles.index("roof")
+        finish.faces[index] = tuple(reversed(finish.faces[index]))
+    if plant == "aperture" and template["id"] == "building.house.small":
+        # A solid wall drawn across a window the sim leaves open: the defect the review found.
+        name = sorted(name for name in pieces.conditional if name.startswith("window-"))[0]
+        x, y = pieces.conditional[name]["tile"]
+        side_index = 1 if open_axis(template, x, y) == "x" else 2
+        side_quad(pieces.conditional[name]["finish"], x, y, side_index, 0, 1, 0, WALL_TOP, "trim", offset=-0.5)
+    return pieces
+
+
+def tile_kind(template, state, tile):
+    # What a tile is in one assembled state: `state` names each candidate's choice; a template window
+    # is a window and any other template wall a wall.
+    if tile in state:
+        return state[tile]
+    value = tile_at(template, *tile)
+    return "wall" if value == 1 else "window" if value == 2 else ""
+
+
+def piece_drawn(piece, kind):
+    if piece["kind"] == "jamb":
+        return kind(piece["tile"]) == "wall" and kind(piece["other"]) == "window"
+    return kind(piece["tile"]) == piece["kind"]
+
+
+def assemble(pieces, template, state):
+    spatial = MeshBuilder(pieces.seed)
+    finish = MeshBuilder(pieces.seed)
+    spatial.extend(pieces.spatial)
+    finish.extend(pieces.finish)
+
+    def kind(tile):
+        return tile_kind(template, state, tile)
+
+    for name in sorted(pieces.conditional):
+        piece = pieces.conditional[name]
+        if piece_drawn(piece, kind):
+            spatial.extend(piece["spatial"])
+            finish.extend(piece["finish"])
+    return spatial, finish, kind
+
+
+def validation_states(template):
+    candidates = [
+        (x, y)
+        for y in range(template["size"]["h"])
+        for x in range(template["size"]["w"])
+        if window_candidate(template, x, y)
+    ]
+    return {
+        "walls": {tile: "wall" for tile in candidates},
+        "windows": {tile: "window" for tile in candidates},
+        "alternate": {tile: "window" if (tile[0] + tile[1]) % 2 else "wall" for tile in candidates},
+    }
 
 
 def roof_form(template):
@@ -629,6 +811,9 @@ def build_roof(mesh, template):
     roof_style = template["look"]["roof"]
     variants = ROOF_VARIANTS[roof_style]
     exterior = exterior_style(template)
+    # Roles let `validate_roof` judge the winding: a "roof" face must face up, a "roof_side" face
+    # away from the building. Boxes (ridge, chimney) face away from their own centre and are left out.
+    mesh.role = "roof"
     if form == "flat":
         e = 0.18
         mesh.face((-e, 2.66, -e), (w + 2 * e, 0, 0), (0, 0, h + 2 * e), variants[0], variants, (0, 1, 0))
@@ -640,20 +825,24 @@ def build_roof(mesh, template):
             else:
                 origin = Vector((-0.02 if side_index == 3 else w + 0.02, 0, -0.02))
                 length = h + 0.04
+            mesh.role = "roof_side"
             mesh.face(origin + Vector((0, WALL_TOP, 0)), u_axis * length, Vector((0, 0.23, 0)), exterior[0], exterior, normal)
             mesh.face(origin + normal * 0.025 + Vector((0, 2.75, 0)), u_axis * length, Vector((0, 0.06, 0)), "trim", normal=normal)
+        mesh.role = ""
         return
     peak = roof_peak(template)
     rise = peak - 2.62
     if form == "gable":
         mesh.face((-EAVE, 2.62, -EAVE), (w + 2 * EAVE, 0, 0), (0, rise, h * 0.5 + EAVE), variants[0], variants, (0, 1, -0.4))
         mesh.face((-EAVE, peak, h * 0.5), (w + 2 * EAVE, 0, 0), (0, -rise, h * 0.5 + EAVE), variants[0], variants, (0, 1, 0.4))
+        mesh.role = "roof_side"
         for x, normal in ((-0.005, (-1, 0, 0)), (w + 0.005, (1, 0, 0))):
             for strip in range(h * 2):
                 z0, z1 = strip * 0.5, strip * 0.5 + 0.5
                 centre = (z0 + z1) * 0.5
                 top = 2.62 + rise * (1.0 - abs(centre - h * 0.5) / (h * 0.5))
                 mesh.face((x, WALL_TOP, z0), (0, 0, 0.5), (0, top - WALL_TOP, 0), exterior[0], exterior, normal)
+        mesh.role = ""
         mesh.box((-EAVE, peak - 0.04, h * 0.5 - 0.07), (w + 2 * EAVE, 0.04, 0.14), variants[0])
     else:
         ridge0, ridge1 = h * 0.5, w - h * 0.5
@@ -661,12 +850,15 @@ def build_roof(mesh, template):
         r0, r1 = (ridge0, peak, h * 0.5), (ridge1, peak, h * 0.5)
         mesh.polygon([a, b, r1, r0], variants[0], (0, 1, -0.4))
         mesh.polygon([d, r0, r1, c], variants[0], (0, 1, 0.4))
-        mesh.polygon([a, r0, d], exterior[0], (-1, 0.3, 0))
-        mesh.polygon([b, c, r1], exterior[0], (1, 0.3, 0))
+        # The hip ends are roof slopes too, so they wear the roof, not the wall.
+        mesh.polygon([a, r0, d], variants[0], (-1, 0.3, 0))
+        mesh.polygon([b, c, r1], variants[0], (1, 0.3, 0))
+    mesh.role = "roof_side"
     for side_index in (0, 2):
         origin, u_axis, normal = side_frame(0, 0, side_index)
         origin = Vector((-EAVE, 0, -EAVE - 0.005 if side_index == 0 else h + EAVE + 0.005))
         mesh.face(origin + Vector((0, 2.53, 0)), u_axis * (w + 2 * EAVE), Vector((0, 0.14, 0)), "trim", normal=normal)
+    mesh.role = ""
     if "residential" in template.get("tags", []) and roof_style == "shingle":
         cx, cz = w * 0.72, h * 0.28
         roof_y = 2.62 + rise * (1.0 - abs(cz - h * 0.5) / (h * 0.5))
@@ -755,7 +947,9 @@ def validate_coplanar(mesh, label):
                     raise ValueError(f"{label} faces {index_a} {points_a} and {index_b} {points_b} are coplanar and overlap")
 
 
-def validate_spatial(mesh, template, plant):
+def validate_spatial(mesh, template, plant, kind):
+    # Every solid vertex belongs to a tile the assembled state draws: anywhere in 0..2.55 m on a
+    # wall, and only in the sill or lintel band on a window, never in its aperture.
     if plant == "bounds" and template["id"] == "building.house.small":
         mesh.vertices[0] = (mesh.vertices[0][0], mesh.vertices[0][1] + 0.02, mesh.vertices[0][2])
     for vertex in mesh.vertices:
@@ -768,11 +962,102 @@ def validate_spatial(mesh, template, plant):
             for tile_y in {base_y, base_y - 1}:
                 if inside(template, tile_x, tile_y):
                     candidates.append((tile_x, tile_y))
-        if not any(tile_at(template, tile_x, tile_y) == 1 for tile_x, tile_y in candidates):
-            raise ValueError(f"{template['id']} wall vertex enters open ground at {x},{z}")
+        in_band = y <= WINDOW_SILL + 0.0001 or y >= WINDOW_TOP - 0.0001
+        if not any(kind(tile) == "wall" or (kind(tile) == "window" and in_band) for tile in candidates):
+            raise ValueError(f"{template['id']} wall vertex enters open ground or a window aperture at {x},{y},{z}")
     levels = {round(v[1], 3) for v in mesh.vertices}
     if not {0.0, WALL_TOP}.issubset(levels):
         raise ValueError(f"{template['id']} wall band 0..{WALL_TOP} is incomplete")
+
+
+def validate_roof(mesh, template):
+    # The winding is what Godot draws: a roof face wound downward is culled from the street, which
+    # is how the three hip roofs vanished. Every roof face must face up, and every eave, fascia,
+    # parapet and gable end must face away from the building.
+    w, h = template["size"]["w"], template["size"]["h"]
+    centre = Vector((w * 0.5, 2.0, h * 0.5))
+    count = 0
+    for index, (face, role) in enumerate(zip(mesh.faces, mesh.roles)):
+        if not role:
+            continue
+        points = [Vector(mesh.vertices[i]) for i in face]
+        normal = (points[1] - points[0]).cross(points[2] - points[0])
+        centroid = sum(points, Vector()) / len(points)
+        if role == "roof" and normal.y <= 0.0:
+            raise ValueError(f"{template['id']} roof face {index} at {tuple(round(v, 3) for v in centroid)} faces down")
+        if role == "roof_side":
+            outward = centroid - centre
+            outward.y = 0.0
+            if normal.dot(outward) <= 0.0:
+                raise ValueError(f"{template['id']} roof edge face {index} at {tuple(round(v, 3) for v in centroid)} faces into the building")
+        count += 1
+    if count == 0:
+        raise ValueError(f"{template['id']} has no roof faces to judge")
+    return count
+
+
+def opaque_triangles(meshes):
+    out = []
+    for mesh in meshes:
+        for face, style in zip(mesh.faces, mesh.styles):
+            if style == "glass":
+                continue
+            points = [Vector(mesh.vertices[i]) for i in face]
+            for i in range(1, len(points) - 1):
+                out.append((points[0], points[i], points[i + 1]))
+    return out
+
+
+def segment_hits(start, end, triangles):
+    direction = end - start
+    length = direction.length
+    direction.normalize()
+    for a, b, c in triangles:
+        point = intersect_ray_tri(a, b, c, direction, start, True)
+        if point is not None and (point - start).length <= length:
+            return True
+    return False
+
+
+def validate_apertures(spatial, finish, template, kind, label):
+    # Every window the assembled state draws is open between its sill and lintel and closed in
+    # them: rays across the tile at 1.25 and 1.85 m pass every opaque face, rays at 0.5 and 2.3 m
+    # hit one. `godot:check:fp_geometry` asks the same question of a real district.
+    buckets = {}
+    for triangle in opaque_triangles([spatial, finish]):
+        xs = [p.x for p in triangle]
+        zs = [p.z for p in triangle]
+        for tx in range(math.floor(min(xs) - 0.001), math.floor(max(xs) + 0.001) + 1):
+            for tz in range(math.floor(min(zs) - 0.001), math.floor(max(zs) + 0.001) + 1):
+                buckets.setdefault((tx, tz), []).append(triangle)
+    checked = 0
+    for y in range(template["size"]["h"]):
+        for x in range(template["size"]["w"]):
+            if kind((x, y)) != "window":
+                continue
+            near = []
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    near.extend(buckets.get((x + dx, y + dy), []))
+            sides = 0
+            for side_index, ((dx, dy), label_side) in enumerate(SIDES):
+                if tile_at(template, x + dx, y + dy) in (1, 2, 5, 7):
+                    continue
+                sides += 1
+                origin, u_axis, normal = side_frame(x, y, side_index)
+                for along in (0.3, 0.7):
+                    for height, closed in ((0.5, True), (1.25, False), (1.85, False), (2.3, True)):
+                        # From just outside the open face to past the tile's centre: whatever stands
+                        # in the opening is crossed, and a wall end behind a corner window is not.
+                        base = origin + u_axis * along + Vector((0, height, 0))
+                        start, end = base + normal * 0.05, base - normal * 0.6
+                        if segment_hits(start, end, near) != closed:
+                            what = "is open in its sill or lintel" if closed else "is blocked in its aperture"
+                            raise ValueError(f"{label} window {x},{y} {what} at {height} m from the {label_side}")
+            if sides == 0:
+                raise ValueError(f"{label} window {x},{y} has no open face")
+            checked += 1
+    return checked
 
 
 def validate_finish(mesh, template):
@@ -806,6 +1091,9 @@ def validate_export(path, entry, reference_entry=None):
     names = {node.get("name", "") for node in document.get("nodes", [])}
     if not any(name.startswith("spatial_bands") for name in names) or not any(name.startswith("finish") for name in names):
         raise ValueError(f"{path.name} is missing spatial_bands or finish")
+    pieces = sum(entry["pieces"].values())
+    if len([name for name in names if "-" in name]) != pieces:
+        raise ValueError(f"{path.name} does not carry its {pieces} per-tile pieces as named nodes")
     minima, maxima = bounds(document)
     expected = (reference_entry or entry)["bounds"]
     for label, actual, wanted in (("min", minima, expected["min"]), ("max", maxima, expected["max"])):
@@ -813,8 +1101,12 @@ def validate_export(path, entry, reference_entry=None):
             raise ValueError(f"{path.name} {label} bounds {actual} do not match {wanted}")
 
 
-def make_entry(template, spatial, finish):
-    minimum, maximum = source_bounds([spatial, finish])
+def make_entry(template, pieces):
+    builders = [pieces.spatial, pieces.finish]
+    for name in sorted(pieces.conditional):
+        builders += [pieces.conditional[name]["spatial"], pieces.conditional[name]["finish"]]
+    minimum, maximum = source_bounds([builder for builder in builders if builder.vertices])
+    kinds = [pieces.conditional[name]["kind"] for name in pieces.conditional]
     slug = template["id"].removeprefix("building.").replace(".", "_")
     return {
         "match": {"id": template["id"]},
@@ -827,6 +1119,7 @@ def make_entry(template, spatial, finish):
         "floor": interior_spec(template)["floor"],
         "variation": ["#f5f2e9", "#e8eee8", "#eee8e2"],
         "bounds": {"min": [round(v, 5) for v in minimum], "max": [round(v, 5) for v in maximum]},
+        "pieces": {kind: kinds.count(kind) for kind in ("jamb", "wall", "window")},
     }
 
 
@@ -886,17 +1179,31 @@ def build_all(export_dir, blend_path, manifest_path, plant=None, reference_manif
     }
     arranged = []
     for index, template in enumerate(templates):
-        spatial = build_spatial(template)
-        finish = build_finish(template, plant)
-        validate_spatial(spatial, template, plant)
-        validate_finish(finish, template)
-        validate_density(spatial, template["id"] + " spatial")
-        validate_density(finish, template["id"] + " finish")
-        validate_coplanar(spatial, template["id"] + " spatial")
-        validate_coplanar(finish, template["id"] + " finish")
-        entry = make_entry(template, spatial, finish)
+        pieces = build_pieces(template, plant)
+        roof_faces = validate_roof(pieces.finish, template)
+        windows = 0
+        # Every per-tile piece is judged in a drawn state: all openable walls standing, all opened,
+        # and alternating, which puts a jamb beside every opening a wall can have.
+        for state_name, state in validation_states(template).items():
+            spatial, finish, kind = assemble(pieces, template, state)
+            label = f"{template['id']} ({state_name})"
+            validate_spatial(spatial, template, plant, kind)
+            validate_finish(finish, template)
+            validate_density(spatial, label + " spatial")
+            validate_density(finish, label + " finish")
+            validate_coplanar(spatial, label + " spatial")
+            validate_coplanar(finish, label + " finish")
+            windows += validate_apertures(spatial, finish, template, kind, label)
+        entry = make_entry(template, pieces)
         manifest["models"].append(entry)
-        objects = [spatial.object("spatial_bands", material), finish.object("finish", material, glass_material)]
+        slug = template["id"].removeprefix("building.").replace(".", "_")
+        objects = [pieces.spatial.object("spatial_bands", material), pieces.finish.object("finish", material, glass_material)]
+        for name in sorted(pieces.conditional):
+            piece = pieces.conditional[name]
+            merged = MeshBuilder(pieces.seed)
+            merged.extend(piece["spatial"])
+            merged.extend(piece["finish"])
+            objects.append(merged.object(f"{slug}-{name}", material, glass_material if "glass" in merged.styles else None))
         bpy.ops.object.select_all(action="DESELECT")
         for obj in objects:
             obj.select_set(True)
@@ -924,14 +1231,23 @@ def build_all(export_dir, blend_path, manifest_path, plant=None, reference_manif
         for obj in objects:
             obj.location = ((index % 5) * 25.0, 0.0, (index // 5) * 25.0)
         arranged.extend(objects)
-        print(f"BUILT {template['id']} {roof_form(template)} {sha256(output)}")
+        print(f"BUILT {template['id']} {roof_form(template)} {len(pieces.conditional)} pieces, {roof_faces} roof faces, {windows} windows judged {sha256(output)}")
     validate_manifest(manifest, templates, plant)
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    # LF on every platform: the repository stores the manifest with LF (`.gitattributes`).
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
     bpy.ops.object.select_all(action="DESELECT")
     bpy.context.view_layer.objects.active = None
     bpy.ops.wm.save_as_mainfile(filepath=str(blend_path), check_existing=False)
     print(f"SHA256 buildings_atlas.png {sha256(export_dir / 'buildings_atlas.png')}")
     return manifest
+
+
+def committed_bytes(path):
+    # git stores the manifest with LF. A checkout with `core.autocrlf` may hold it with CRLF, which
+    # is the same committed file, so only its line endings are folded back. Binary output (GLB, PNG)
+    # is compared byte for byte.
+    data = path.read_bytes()
+    return data.replace(b"\r\n", b"\n") if path.suffix == ".json" else data
 
 
 def check(repo, plant=None):
@@ -947,7 +1263,7 @@ def check(repo, plant=None):
         if len(committed_files) != len(rebuilt_files):
             raise ValueError("committed and rebuilt output counts differ")
         for committed, rebuilt in zip(committed_files, rebuilt_files):
-            if not committed.is_file() or sha256(committed) != sha256(rebuilt):
+            if not committed.is_file() or committed_bytes(committed) != rebuilt.read_bytes():
                 raise ValueError("rebuilt output differs: " + committed.name)
     print(f"BUILDINGS_CHECK_OK {len(reference['models'])} templates, {len(reference['looks']['wall'])} wall looks, {len(reference['looks']['roof'])} roof looks")
 
@@ -956,7 +1272,7 @@ def main():
     arguments = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template"])
+    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture"])
     args = parser.parse_args(arguments)
     repo = Path(__file__).resolve().parents[3]
     try:

@@ -5,19 +5,23 @@ extends Node3D
 # a height. The bands are the sim's, and this view draws them and nothing else (docs/40, "The one
 # authority": "the presentation builds its geometry from SimSpace.PROFILE and from nothing else").
 #
-# Full wall tiles in a manifested building use that template's merged spatial mesh at the same
-# 0..2550 mm band and full tile footprint. Other full walls use `wall_module.glb`, scaled to the same
-# band and flush with a tile edge. `godot:check:fp_geometry` measures both paths.
+# A manifested building draws its own walls and windows (`building_view.gd`), chosen per tile from
+# the stamped map: a wall at 0..2550 mm over the full tile, a window as its 0..1000 mm sill and
+# 2100..2550 mm lintel. Where it drew the tile's sim profile, that tile's band boxes here are dropped;
+# anywhere else, including a tile it drew as something the sim does not say, the band boxes stay.
+# Other full walls use `wall_module.glb`, scaled to the same band and flush with a tile edge.
+# `godot:check:fp_geometry` measures both paths, and casts rays through the windows of a real district.
 #
-# Doors, windows and boards always keep their ordinary dynamic band boxes. Their textured faces,
-# casings, glazing and curtains are presentation-only surfaces inside the same tiles. Roofs, ceilings,
-# floors and trim add no collision and never choose a height the sim does not publish.
-# `building_finishes_enabled` lets the capture and benchmark drivers retain an exact baseline.
+# Doors and boards always keep their ordinary dynamic band boxes; their textured faces and casings are
+# presentation-only surfaces inside the same tiles. Roofs, ceilings, floors and trim add no collision
+# and never choose a height the sim does not publish. `building_finishes_enabled` lets the capture
+# and benchmark drivers retain an exact baseline.
 #
 # The meshes stay merged by category: one ground mesh, one opaque solid mesh and one see-through
-# mesh for the wire fence, MultiMesh wall modules and barricades, and two merged atlas meshes per
-# manifested building (spatial bands and finishes). The per-tile geometry comes from `tile_boxes`,
-# which is also what `tile_mesh` builds for the gate to judge a tile against its bands.
+# mesh for the wire fence, MultiMesh wall modules and barricades, and per manifested building two
+# merged atlas meshes (spatial bands and finishes) plus one `Openings` mesh of its per-tile pieces.
+# The per-tile geometry comes from `tile_boxes`, which is also what `tile_mesh` builds for the gate to
+# judge a tile against its bands.
 #
 # Sim x/y maps to Godot x/z, one tile to one metre (`SimTileMap.TILE_METRES`). There is no second
 # map and no second collision pass here.
@@ -69,7 +73,10 @@ var wall_instances: Array = []
 var barricade_instances: Array = []
 var building_finishes: Node3D = null
 var building_finishes_enabled: bool = true
-var _finish_tiles: Dictionary = {}
+# The gate's planted error, handed to the building view before it builds (see its `force_wall`).
+var building_force_wall: Dictionary = {}
+# Map tile -> "wall" or "window": what the finished buildings drew there.
+var _drawn: Dictionary = {}
 
 
 ## Builds the district. `salt` is mixed with each tile's index to pick a wall-module variant; the
@@ -82,12 +89,17 @@ func build(map_ref: Variant, salt: int = 0) -> void:
 		child.queue_free()
 	wall_instances.clear()
 	barricade_instances.clear()
-	_finish_tiles.clear()
+	_drawn = {}
 	building_finishes = null
 	if map == null:
 		return
 	if building_finishes_enabled:
-		_index_finish_tiles()
+		building_finishes = BuildingView.new()
+		building_finishes.name = "BuildingFinishes"
+		building_finishes.set("force_wall", building_force_wall)
+		add_child(building_finishes)
+		building_finishes.call("build", map, salt)
+		_drawn = building_finishes.get("drawn") as Dictionary
 	var wall_mesh: Mesh = _loaded_mesh(Assets.WALL_MODULE)
 	ground = _build_mesh("GroundTiles", _ground_surface(), false)
 	solids = _build_mesh("SolidTiles", _band_surface(false, wall_mesh != null), false)
@@ -95,11 +107,6 @@ func build(map_ref: Variant, salt: int = 0) -> void:
 	if wall_mesh != null:
 		_build_wall_modules(wall_mesh, salt)
 	_build_barricades(_loaded_mesh(Assets.BARRICADE))
-	if building_finishes_enabled:
-		building_finishes = BuildingView.new()
-		building_finishes.name = "BuildingFinishes"
-		add_child(building_finishes)
-		building_finishes.call("build", map, salt)
 
 
 # The mesh of a kit model, or null when the file is missing. The loaded node is only a carrier: the
@@ -160,7 +167,7 @@ func _ground_surface() -> ArrayMesh:
 
 # The opaque bands (or, with `see_through`, the fence's bands) of every tile, as one mesh. Null when
 # there is nothing to draw, so the node exists without a mesh. Full walls yield to either their kit
-# module or their manifested spatial mesh; dynamic openings always keep these band boxes.
+# module or a finished building; a window yields only to a finished building that drew it as one.
 func _band_surface(see_through: bool, skip_walls: bool) -> ArrayMesh:
 	var st: SurfaceTool = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -168,7 +175,10 @@ func _band_surface(see_through: bool, skip_walls: bool) -> ArrayMesh:
 	for ty in int(map.h):
 		for tx in int(map.w):
 			var key: String = SimSpace.profile_key(map, tx, ty)
-			if not see_through and key == "wall" and (skip_walls or _finish_tiles.has(Vector2i(tx, ty))):
+			var drawn: String = String(_drawn.get(Vector2i(tx, ty), ""))
+			if not see_through and key == "wall" and (skip_walls or drawn == "wall"):
+				continue
+			if not see_through and key == "window" and drawn == "window":
 				continue
 			for box in tile_boxes(map, tx, ty):
 				if bool(box["transparent"]) != see_through:
@@ -194,7 +204,7 @@ func _build_wall_modules(mesh: Mesh, salt: int) -> void:
 		for tx in int(map.w):
 			if SimSpace.profile_key(map, tx, ty) != "wall":
 				continue
-			if _finish_tiles.has(Vector2i(tx, ty)):
+			if String(_drawn.get(Vector2i(tx, ty), "")) == "wall":
 				continue
 			var variant: int = _tile_hash(salt, tx, ty) % WALL_MODULE_VARIANTS
 			var xform: Transform3D = wall_placement(map, tx, ty, size, variant)
@@ -202,21 +212,6 @@ func _build_wall_modules(mesh: Mesh, salt: int) -> void:
 			wall_instances.append({"tile": Vector2i(tx, ty), "variant": variant, "transform": xform})
 	for variant in WALL_MODULE_VARIANTS:
 		_multimesh_node("WallModules%d" % variant, mesh, groups[variant])
-
-
-func _index_finish_tiles() -> void:
-	var entries: Dictionary = {}
-	for entry_v in BuildingView.read_manifest().get("models", []) as Array:
-		var entry: Dictionary = entry_v as Dictionary
-		entries[String((entry.get("match", {}) as Dictionary).get("id", ""))] = entry
-	for record_v in map.buildings as Array:
-		var record: Dictionary = record_v as Dictionary
-		var entry: Dictionary = entries.get(String(record.get("id", "")), {}) as Dictionary
-		if entry.is_empty() or not FileAccess.file_exists(String(entry.get("glb", ""))):
-			continue
-		for y in range(int(record["y"]), int(record["y"]) + int(record["h"])):
-			for x in range(int(record["x"]), int(record["x"]) + int(record["w"])):
-				_finish_tiles[Vector2i(x, y)] = true
 
 
 func _build_barricades(mesh: Mesh) -> void:
