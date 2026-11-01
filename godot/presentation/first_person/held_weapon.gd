@@ -367,14 +367,36 @@ func _size_placeholder(is_ranged: bool, range_metres: float, reach: float) -> vo
 
 
 # --- the manifest loader seam ---------------------------------------------------------------
+#
+# The equipped assembly is the WEAPON KIT's art, so its manifest is asked first. The loot-item kit
+# also names some weapon-part ids (a loose barrel on the floor gets its generic attachment shape),
+# and `Models.resolve` reads manifests in file-name order, where items come before weapons. Without
+# this order the held view would draw the loose-item fallback instead of the barrel's real model,
+# whose own `socket_muzzle` the suppressor needs.
+
+const WEAPON_KIT: String = "weapons"
+
+
+func _weapon_entry(item_id: String, item_class: String) -> Variant:
+	for manifest in Models.manifests():
+		if String((manifest as Dictionary).get("kit", "")) != WEAPON_KIT:
+			continue
+		var found: Variant = Models.resolve_in([manifest], item_id, item_class)
+		if found is Dictionary:
+			return found
+	return Models.resolve(item_id, item_class)
+
 
 func _resolve(world: Variant, item: int, item_id: String) -> Dictionary:
-	var entry: Variant = Models.resolve(item_id, _class_of(world, item))
+	var entry: Variant = _weapon_entry(item_id, _class_of(world, item))
 	return entry as Dictionary if entry is Dictionary else {}
 
 
 func _instance(world: Variant, item: int, item_id: String) -> Node3D:
-	return Models.model_for(item_id, _class_of(world, item))
+	var entry: Variant = _weapon_entry(item_id, _class_of(world, item))
+	if not (entry is Dictionary):
+		return null
+	return Models.instance_of(String((entry as Dictionary).get("glb", "")))
 
 
 func _class_of(world: Variant, item: int) -> String:

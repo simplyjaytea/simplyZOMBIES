@@ -13,15 +13,25 @@ extends Node3D
 # a cupboard does not.
 
 const SimContainers = preload("res://sim/modules/containers.gd")
+const Assets = preload("res://presentation/first_person/assets.gd")
 
 const BOX_WIDTH_M: float = 0.90
 const BOX_HEIGHT_M: float = 1.00
 const BOX_DEPTH_M: float = 0.55
 # Where the kind label floats, just over the box's top edge.
 const LABEL_HEIGHT_M: float = 1.22
+# The kit's shelf is 1.85 m to the top shelf, so its label floats above that instead.
+const SHELF_LABEL_HEIGHT_M: float = 2.05
+# Which sim kind words the kit's open shelf fits: `shelf` itself, and a qualified shelf such as the
+# district's `stockroom shelf`. A cupboard, wardrobe, tool chest, larder or locker is a closed thing,
+# and an open shelf with no doors would describe it wrongly; those keep the labelled box until the
+# kit has a closed cabinet.
+const SHELF_KINDS: Array[String] = ["shelf"]
 
 var _entities: Array[int] = []
 var _nodes: Dictionary = {}
+# How many containers the kit's shelf drew instead of the box. The KIT lane and the report read it.
+var shelf_models: int = 0
 
 
 ## Stands one box per sim container. Safe to call again: the old nodes are released first.
@@ -31,6 +41,7 @@ func build(world: Variant) -> void:
 		child.queue_free()
 	_entities.clear()
 	_nodes.clear()
+	shelf_models = 0
 	if world == null:
 		return
 	for entity in world.components.query(["searchable", "position"]):
@@ -43,8 +54,14 @@ func build(world: Variant) -> void:
 		var node: Node3D = Node3D.new()
 		node.name = "Container%d" % ent
 		node.position = Vector3(float((pos as Dictionary)["x"]), 0.0, float((pos as Dictionary)["y"]))
-		node.add_child(_box())
-		node.add_child(_label(kind))
+		var shelf: Node3D = _shelf_model(kind)
+		if shelf != null:
+			node.add_child(shelf)
+			node.add_child(_label(kind, SHELF_LABEL_HEIGHT_M))
+			shelf_models += 1
+		else:
+			node.add_child(_box())
+			node.add_child(_label(kind, LABEL_HEIGHT_M))
 		add_child(node)
 		_entities.append(ent)
 		_nodes[ent] = node
@@ -85,11 +102,30 @@ func _box() -> MeshInstance3D:
 	return mesh
 
 
-func _label(kind: String) -> Label3D:
+## The kit's shelf for a shelf-kind container, or null for a box. The shelf's authored origin is its
+## floor centre, so it stands at the container's sim position with no offset.
+func _shelf_model(kind: String) -> Node3D:
+	if not _is_shelf(kind):
+		return null
+	var model: Node3D = Assets.load_model(Assets.SHELF)["node"] as Node3D
+	if model == null:
+		return null
+	model.name = "ShelfModel"
+	return model
+
+
+## `shelf`, or a qualified shelf such as `stockroom shelf`. The exact word list is above.
+func _is_shelf(kind: String) -> bool:
+	if SHELF_KINDS.has(kind):
+		return true
+	return kind.ends_with(" shelf")
+
+
+func _label(kind: String, height: float) -> Label3D:
 	var label: Label3D = Label3D.new()
 	label.name = "Label"
 	label.text = kind
-	label.position = Vector3(0.0, LABEL_HEIGHT_M, 0.0)
+	label.position = Vector3(0.0, height, 0.0)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.font_size = 48
 	label.pixel_size = 0.004

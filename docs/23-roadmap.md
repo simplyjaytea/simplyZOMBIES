@@ -192,6 +192,34 @@ conversion. The source baseline is archived on GitHub at
   - under 1 m the survivor's jacket mottling, in 2 to 4 pixel tonal clumps, still reads faintly as
     camouflage; it reads as worn fabric from 2 m;
   - under 1 m the survivor's brown face blotches read as skin marks rather than dirt.
+- **Weapon kit polish (#298 round 1 minors).** In `tools/blender/first_person_weapons/build_weapons.py`,
+  whose outputs are `godot/assets/first_person/weapons.manifest.json` and the GLBs beside it:
+  - the lathes (`lathe()`) use each triangle's face normal, so the bat, suppressor and barrel read
+    faceted at 0.45 m; smoothed vertex normals across each lathe would read round at no triangle cost;
+  - the polymer grip's stipple is single 7.8 mm texels, which read as dice dots or dirt; a moulded
+    texture of several texels, or none, is the fix;
+  - the grip-side texel grid is projected on the receiver axes, so it is not raked with the 20° grip,
+    and the grid disagrees with the raked magazine where they meet;
+  - the bat's `ash_worn` band stops at one loop, about 40% of the length, with no fade, and the handle
+    grime reads as camouflage in the view model;
+  - the knife's ground bevel is one texel wide and alternates tones, so at 1280 x 720 the edge reads
+    as saw teeth;
+  - the crowbar's claw is a flattened tip with no nail slot;
+  - the README does not say what horde use costs: a default pistol is 1,430 triangles in 7 meshes,
+    324 of them hidden (276 in the spring coil), and the alternate is 2,002 in 10. An NPC in numbers
+    should skip the hidden internals outside a bench view, or merge to a world LOD. The loader (#301)
+    dedupes the embedded atlas copies at runtime, so the files stay large on disk.
+- **Item kit polish (#299 round 3 minors).** In `tools/blender/first_person_items/build_items.py`, whose
+  outputs are `godot/assets/first_person/items.manifest.json` and the GLBs in `items/`:
+  - the neutral bottle is a dark-green wine bottle with a blank label, and canteens and the Jar of
+    Preserves draw as it, while the hip flask and sports drink take the 13 cm jar; a canteen or flask
+    rung, or routing preserves to the jar, would read better;
+  - the fuel bottle and lamp oil draw as crates, because the `liquid` family in `family()` only applies
+    to consumables (`LIQUID_WORDS`);
+  - `headgear` draws a military steel helmet, which is right for hard hats and bike helmets but a
+    stretch for gas masks and half-mask respirators, which need their own rung;
+  - the gun case draws as a soft roll-top bag, and the crossbow bolt draws the 71 cm arrow, where a
+    bolt is about 40 cm (`LENGTH_HINTS`); a long-case rung and a bolt length hint would tighten both.
 - **Zombie target by distance alone (#282 review).** `SimShambler._contact_target`
   (`godot/sim/modules/shambler.gd`) takes the nearest survivor with no reach test, unlike the player's
   nearest-reachable swing in `melee.gd`. A shared sim module; needs a READS lane in `godot:m2:space`.
@@ -2476,6 +2504,14 @@ not a to-do list:
     made for survivors only (`recruits.gd`'s `_make_corpse`), so a zombie's death clip is set by the
     gate, not the sim. Horde cost beyond 40 is unmeasured, and so is a horde at the shipped district's
     density.
+
+- **A lane-table FIRST_PERSON_OK line, 2026-11-01.** The first-person gate's OK line is generated, not
+  hand-written: each lane registers its name and one-sentence clause as it passes (`_lane`), and
+  `_finish` prints `FIRST_PERSON_OK <clauses>. lanes: N`. A parallel branch adds a row at its lane's
+  call site instead of editing one long sentence, which was the recurring conflict in the first-person
+  integration. A forced `YAW` failure printed `FIRST_PERSON_FAIL YAW: forced for the lane-table
+  proof`; the restored gate lists 28 lanes.
+
 - **The model loader and loose items drawn with their models, 2026-11-01.** The first code that reads
   the art kits. `godot/presentation/first_person/models.gd` reads every `assets/first_person/*.manifest.json`
   (in file-name order, a malformed one skipped), resolves an item to a model by id and then by class, and
@@ -2557,6 +2593,185 @@ not a to-do list:
     cutaway of the internals, and separate melee part models, are later.
   - **Record.** `docs/planning/first-person-held-weapon-report.md`.
 
+- **The first-person loot-item kit, 2026-11-01.** Advances "First-person scavenging and personal
+  equipment": the things a player picks up now have world-pose models. Only the art lands here: no
+  scene reads the manifest yet. Wiring it is a separate code piece.
+  - **The art.** 41 GLBs share one atlas: 26 particular things carry 87 hand-chosen item ids, and
+    15 neutral shapes carry the rest.
+    - The particular things are canned food, a soda can, a water bottle, a pill bottle, a bandage
+      roll, an antiseptic flask, a medkit, a ration pack, a pistol-ammo box with loose rounds,
+      loose shotshells, rifle rounds in a clip, arrows, a lighter, a torch, a battery, scrap
+      metal, a plank, an open box of nails, duct tape, a rope coil, a hiking pack, a toolbox, a
+      book, a jerrycan, a storm lantern and a duffel.
+    - The neutral shapes are a tin, a jar, a bottle, a wrapped parcel, a sack, two crates, a
+      wrapped bar, a parts case, a tool roll, a pouch, a bag, a knit bundle, folded clothes and a
+      helmet shell.
+    - Every other `consumable`, `material`, `tool`, `container`, `armor` and `attachment` item (277
+      of them) is routed by id. The route reads the item's kind (default, liquid, long, headgear
+      or eyewear) and its expected size (from its content grid and mass, with a length hint for
+      arrows), then takes the nearest neutral rung of its class's ladder.
+    - Six class entries remain for items added later. Weapons are the weapon kit's.
+  - **The files.** The builder is `tools/blender/first_person_items/build_items.py`. It writes the
+    GLBs and `items_atlas.png` (1024 x 512) under `godot/assets/first_person/items/`, plus
+    `godot/assets/first_person/items.manifest.json` in the shared kit format: `match` by `id` or
+    `class`, `glb`, `pose: world`, `sizeM`. Items face -Z, and a placer turns them to the viewer.
+  - **Density.** 128 texels per metre for the 32 models up to 0.40 m, and 64 per metre above, the
+    starter kit's density. The README gives the reason.
+  - **The look.** The atlas is painted from each texel's 3D point and its distance to real mesh
+    edges. Highlights mark only hard (60° or more) edges, and cloth is flat. Planar caps take a
+    texel grid aligned to the object's axes. Labels carry no readable text or brands.
+  - **The check.** `blender ... build_items.py -- --check` prints `ITEMS_CHECK_OK`. Thirteen
+    checks judge the exported files:
+    - bounds within 1 cm of `sizeM`; bottom-centre origins; each main body resting on the floor
+      within 2 mm;
+    - every manifest id present in `godot/content/items/*.json`, and every item covered;
+    - every item within 2x of its expected size (4x for a hand-chosen shared model);
+    - no laddered item drawn by a hand-chosen item's own model (`rung`);
+    - one material, single-sided and closed meshes, and no same-facing coplanar overlaps within
+      0.5 mm;
+    - each triangle's texel density within ±25% on both axes;
+    - a byte-identical rebuild.
+
+    True negatives: eleven `--plant` mutations, each turning its check red. They include the
+    reviews' own failures: the duffel's 18 mm float, the flour sack drawn as the tin, and the
+    ration pouch standing on a rung.
+  - **Review.** Three rounds of independent art review.
+    - **Round 1:** the nails, pack and ammo box did not read as themselves; the duffel floated;
+      stepped edge wear read as camouflage; fallbacks were mis-routed and mis-scaled.
+    - **Round 2:** the size ladder drew 54 items as other, identifiable items.
+    - All fixed. The book motif, the bandage, the facing documentation, the flat pouch and knit,
+      and the nail heap are fixed.
+    - Noted: mixed 64 and 128 densities at a crouch, and the embedded atlas copy per GLB. Sharing
+      one texture and runtime mipmaps are left to the wiring piece.
+  - **Measured.** A scratch Godot 4.7.1 harness (not committed) loaded every GLB through
+    `GLTFDocument`, as `assets.gd` does. Every AABB matches its `sizeM`. Headed SubViewport renders
+    were taken of a shelf at 1 m and the floor at 2 m. The GLBs are 76 to 161 KB, 4.0 MB in total,
+    mostly the embedded atlas copy each one needs.
+  - **Not in this piece.** Any reader of the manifest. Packing for export is unverified: the
+    manifest JSON is outside the filter `assets/first_person/*.glb`, and the export build was not
+    run. CI has no Blender, so the check is run by hand, like the starter kit's.
+
+- **The first-person expedition gate, 2026-11-01.** The scripted start of docs/39's "End-to-end
+  conversion and default switch" proof. `godot/check_fp_expedition.gd`, run by
+  `npm run godot:check:fp_expedition`, boots the real first-person scene on the small district and
+  plays one run in order through input events and the sim's own tick. It reads the ledger and sets a
+  colonist's priority; E opens a shut door and the body walks out through it; E at a sim container in
+  reach and aim opens the real grid sheet, and a press on the item and then the pane's take button
+  sends `item.move`; the body walks back in; F5 saves; the body walks away; F9 restores the saved
+  tile, tick and pack; a shambler walks up from three tiles out and the bat connects
+  (`attack.connected`). Each step asserts sim state. Two true negatives run in fresh scenes: the same
+  run with the take skipped ends with the item in the box and not the pack, and a load before any save
+  says `Nothing to load.` and changes nothing. A mutation that disables the take in the full run goes
+  red on the LOAD lane, and the file was restored before the commit. The run takes about 3 s of play,
+  inside a 60 s budget that is a lane of its own. The gate is in the `godot:m2:chain` and in shard 2
+  of `scripts/m2-shards.mjs`. Not covered: the walks between standing spots are teleports, the sheet's
+  take is a press on its own plate and pane, and the shambler's approach is the sim's seek from a
+  quiet body, so a sound-making body or another district could change it. The rest of docs/39's proof
+  (the convert-and-switch default and the measured budgets) is still open.
+- **The first-person key reference, 2026-11-01.** F1 opens the top-down legend, shown with the
+  first-person scene's own rows; Escape or F1 again puts it down, and walking keys do nothing while it
+  is up. The rows come from one table, `KEY_REFERENCE` in `godot/presentation/first_person/first_person.gd`,
+  and the legend draws from it. `godot/ui/legend.gd` takes the rows from a `key_rows` list, defaulting
+  to its top-down `GROUPS`, so the top-down screen is unchanged. The LEGEND lane of
+  `godot/check_first_person.gd` (`npm run godot:check:first_person`) reads the keys the scene names,
+  plus the stance bindings from `godot/presentation/input_map.gd`, and compares them both ways with the
+  table's codes. It proves three things: every handled key is listed, no listed key is unhandled
+  (a planted phantom row was run and failed with "lists keys the scene does not handle"), and the
+  toggle and the walking block hold. The speed keys (1x and 3x, P) arrive with #291 and are not in
+  this legend.
+- **Talking to a colonist, 2026-11-01.** Advances "First-person people and settlement operation", its
+  conversations: look at one of your colonists, press E, and they say how they are and what they are
+  doing, in words the read models already own.
+  - **The panel.** `godot/ui/talk_panel.gd`, in the kit chrome (`Chrome`/`Locker`): the colonist's
+    name as the header, one feeling line, one "now" line, and the one action `Goodbye` (Escape, or a
+    click on the button). No numbers and no new information: every line is one the top-down screens
+    already show.
+  - **The words.** The name is `identity.name`. The feeling line composes `SimCondition.view`'s
+    worst part in the first-person HUD's own words ("hurt", "badly hurt", "barely standing", plus
+    "bleeding") with the worst need's own line: `SimNeeds.worst_band` chooses the band, the
+    colonist's first-person mutter in `content/speech/lines.json` is used when it exists, and
+    `SimNeeds.hud_clause(world, ent, true)` is the fallback, the same panel sentence the top-down
+    drawer shows. A body with nothing wrong says "I feel steady.", the first-person HUD's fallback.
+    The doing line is `WorkRead.doing` (`sim/work_read.gd`), the Colony row's own phrase.
+  - **E's ladder.** Ledger, then an openable container, then a colonist in reach and on the aim, then
+    the tile verb. Reach is 1.8 m from the sim's position, the aim cone is the ledger's, and the
+    sim's own `vision.detail` refuses a person through a wall. `SimAllegiance.is_colony` plus an
+    identity makes a body talkable: raiders, settlers and zombies never are.
+  - **Capture.** The panel swallows every key (walking, aim, fight, stance, save); Escape closes it
+    and recaptures the mouse. The clock keeps running, the inventory's reversible default: the body
+    is stopped with `_clear_held` + `_push_zero_move`, and nothing pauses.
+  - **The gate.** `npm run godot:check:first_person` (TALK lane) prints `FIRST_PERSON_OK`. True
+    positive: E on a colonist in reach and on the aim opens the panel with the sim's name, the steady
+    feeling line and the read model's doing phrase; a hungry colonist says one of the mutter lines;
+    every line is digit-free; walking is swallowed; Escape closes and recaptures. True negatives: out
+    of reach, off the aim, through a wall, at a shambler and at a raider no panel opens.
+  - **Not in this piece.** No orders, recruitment, delegation or foreman: the one action is Goodbye,
+    and docs/39's foreman stays undecided. No speech content was added. The panel does not stop the
+    clock, and a survivor's own conversations with the player are a later slice.
+  - **Record.** `docs/planning/first-person-talk-report.md`.
+
+- **Animation state from the sim, 2026-11-01.** Advances "First-person people and settlement
+  operation", the body art: every drawn body now names the animation it should play, read from the
+  sim, before the character GLBs land.
+  - **The read model.** `presentation/first_person/anim_state.gd` is pure and static:
+    `state_of(world, entity)` returns one of idle, walk, run, crouch_idle, crouch_walk, crawl, swing,
+    lunge, grab, stagger, death, from corpse, grabbed/grabState, swing.state,
+    shambler.state/ticksToSwipe, posture, velocity and the body's legs. `phase_of` returns 0..1 in the
+    chosen clip: loops advance on the sim tick with a per-entity seat, one-shots use the sim's own
+    countdown (a swipe's wind-up, a hold's next bite), and a held pose is 1.
+  - **The clip table.** `clip_for(kind, state)` names the nearest existing character clip, so the art
+    can grow without a caller change: survivor run -> walk, crouch_walk -> crouch_idle, crawl ->
+    crouch_idle, swing/lunge -> walk, grab/stagger -> idle; shambler walk -> shamble, swing/lunge/grab
+    -> lunge, stagger -> idle. The table and why each is nearest are in the report.
+  - **The placeholder.** `body_view.gd` poses the cylinder from the state: a lean into a swing, a
+    lunge or a hold, a sideways roll on a stagger, and lying flat for a corpse; crouch and crawl are
+    already the sim's own body height. Rotation is reset each frame, the lean pivots at the feet, and
+    the hot path calls `state_of`/`phase_of`, so no Dictionary is built per body per frame.
+  - **Read-only.** The sim is never written; the gate stages the components for the states the sim has
+    no command for (a shambler's swipe, hold and stagger) and restores them. A survivor's stagger is
+    event-only (`entity.staggered`) with no component to read, so it is not named; a survivor in that
+    moment reads as its locomotion state.
+  - **The gate.** `npm run godot:check:first_person` (ANIM lane) prints `FIRST_PERSON_OK`. True
+    positives: stand, walk, run, crouch, crouch walk, crawl, a swing's wind-up and recover, a
+    shambler's armed swipe as lunge, a hold as grab, a stagger, and a death. True negatives: a body
+    that stops is idle one tick later; a corpse is still death after thirty ticks; no living body
+    reports death. Every named state's phase is 0..1.
+  - **Record.** `docs/planning/first-person-anim-state-report.md`.
+- **First-person starter-kit integration, 2026-11-01.** Advances "First-person starter-kit
+  integration": the playable scene draws walls, boarded windows and shelf containers from the kit's
+  GLBs, not only the desk and ledger.
+  - **Walls.** A full-height wall tile is drawn by `wall_module.glb` as one instance in a
+    `MultiMeshInstance3D` per placement variant (`district_view.gd`). The module's top is scaled to
+    the wall band's 2550 mm, its 1.00 m width spans the tile along the wall run, and its 0.12 m depth
+    is the drawn thickness with its outer face on the tile edge toward open ground. Two variants (as
+    authored, and turned half a turn) are chosen by a hash of the scene's district seed and the tile
+    index, so a row is not one face repeated. Window, door, Low, board and overlay tiles keep their
+    band geometry.
+  - **Boards.** A boarded tile (`board:0`-`board:3`) keeps its band boxes and gains one
+    `barricade.glb` instance on its open face, hanging outside the tile the way nailed boards do.
+    The band boxes remain the occlusion authority, so the art cannot open a tile the sim says blocks
+    sight.
+  - **Shelves.** A sim container whose kind is `shelf`, or a qualified shelf such as the district's
+    `stockroom shelf`, is drawn by `shelf.glb`; cupboard, wardrobe, tool chest, larder and locker
+    keep the labelled box, because the kit has no closed cabinet and an open shelf would describe
+    them wrongly.
+  - **Filtering.** Every kit material is nearest magnification with mipmaps -- the art review's #281
+    note: without mipmaps the 64-texel-per-metre atlas shimmers beyond about 7 m at 720p. The ART
+    lane now requires that filter and still refuses a linear one.
+  - **The gate.** `npm run godot:check:fp_geometry` gains a KIT lane and prints `FP_GEOMETRY_OK`.
+    With the GLBs on disk: every wall tile of the fixture carries one module instance; an all-wall
+    fixture leaves the band mesh empty; every drawn AABB is the wall band's 0..2550 height, one tile
+    along the run and the module's own 0.12 m thickness, inside the tile and flush to an edge. True
+    negative: a half-width module placed through the same function is refused. Without the GLBs the
+    lane prints `FP_GEOMETRY_SKIP` and the band boxes are under test.
+  - **Measured.** Headed, 1280x720, 300 frames after 30 warmup at spawn on the shipped 256 district,
+    three runs a side: before median 1.597 ms (1.606, 1.597, 1.597; mean 1.600); after median
+    1.631 ms (1.723, 1.337, 1.631; mean 1.564). The difference is inside the run-to-run spread, and
+    both sit far under docs/22's 10 ms draw target.
+  - **Not in this piece.** Windows, doors and Low tiles keep their band boxes; a cupboard has no
+    model; the module is one mesh with the atlas's three plaster variants baked in, so per-instance
+    plaster choice is not possible. This lands after the art itself.
+  - **Record.** `docs/planning/first-person-kit-integration-report.md`.
 - **The first-person weapon kit: the socket contract and its first models, 2026-11-01.** Art
   piece 1 of the weapon plan, the piece that blocks the modular-firearm assembly code. The
   socket contract and its first models are built in Blender, reproducibly. The README beside

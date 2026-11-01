@@ -12,7 +12,8 @@ extends RefCounted
 #   - desk height 0.78 m; ledger 0.30 m x 0.22 m (x by z).
 #
 # The names are the seam: `desk.glb`, `ledger.glb`, `shelf.glb`, `barricade.glb`, `wall_module.glb`.
-# Only desk and ledger are read today; the rest are reserved so the art pass can land piecemeal.
+# The desk and ledger are read by `prop_view.gd`, the shelf by `container_view.gd`, and the barricade
+# and wall module by `district_view.gd`.
 
 const DIR: String = "res://assets/first_person/"
 const DESK: String = DIR + "desk.glb"
@@ -42,7 +43,9 @@ const LEDGER_TOP_M: float = DESK_HEIGHT_M + LEDGER_THICKNESS_M
 ## "missing" (no file) or "unreadable" (a file that is not a glTF the engine can read). Callers fall back
 ## to the published-size box on null, and the gate reads "source" to say which path ran.
 ##
-## Materials are forced to nearest filtering, without mipmaps, so the pixel art stays crisp. Back-face
+## Materials are forced to nearest filtering with mipmaps: the atlas is 64 texels per metre, so at
+## 720p minification begins at about 7 m (the independent art review's #281 note), and nearest with
+## no mipmaps shimmers beyond that. Nearest magnification keeps the pixel art crisp up close. Back-face
 ## culling is left as authored.
 static func load_model(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
@@ -67,6 +70,21 @@ static func _nearest(node: Node) -> void:
 		for s in mesh.get_surface_count():
 			var material: Material = mesh.surface_get_material(s)
 			if material is BaseMaterial3D:
-				(material as BaseMaterial3D).texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+				(material as BaseMaterial3D).texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
 	for child in node.get_children():
 		_nearest(child)
+
+
+## The first mesh in a loaded model, or null. A kit GLB is one mesh under a Node3D root, but the walk
+## keeps the seam honest if the exporter ever wraps it differently. The mesh keeps the material
+## `load_model` filtered, so a MultiMesh built from it inherits the filter.
+static func first_mesh(node: Node) -> Mesh:
+	if node == null:
+		return null
+	if node is MeshInstance3D and (node as MeshInstance3D).mesh != null:
+		return (node as MeshInstance3D).mesh
+	for child in node.get_children():
+		var found: Mesh = first_mesh(child)
+		if found != null:
+			return found
+	return null

@@ -42,6 +42,10 @@ extends SceneTree
 #             bare hands show nothing; the bat is drawn whole with no added head.
 #   PRIORITY  a click on the panel's first priority cell dispatches a real `job.priority`, the
 #             colonist's row changes and turns Manual, and the player is never one of the rows.
+#   LEGEND    the key reference (F1) lists every key the scene handles and no other: the handled keys are
+#             read from the scene's own source and from input_map's stance bindings, and compared both ways
+#             with the codes the legend is built from; a planted phantom code is refused. F1 opens and closes
+#             it, Escape closes it, and walking keys do nothing while it is up.
 #   SPEECH    every line the first-person HUD draws is digit-free, it names the controls and the
 #             ledger, there is no progress bar in the tree, and the digit scanner is proved against
 #             a fabricated line.
@@ -76,21 +80,28 @@ extends SceneTree
 #   BODIES    a walking colonist plays walk at the sim's phase and faces the sim's heading; a lunging shambler
 #             plays lunge; a corpse plays death and holds its last frame after 300 ticks; loops loop and one-shots
 #             do not; a body the sim cannot see is not drawn; a missing model falls back to the capsule.
-#   MODELS    every weapons-manifest entry loads and its box is its sizeM within 1 cm; an id match beats a
-#             class match and an unknown id resolves to null (fabricated and committed manifests); two GLBs
-#             that embed the atlas share one mipmapped texture; a loose bat the sim drops is drawn with its
-#             model at its position, resting on the floor, and an item with no model has no node.
 #   ANIM      the animation read model names the pose from sim facts: standing, a walk, a run, a
 #             crouch, a crouch walk, a crawl, a swing (wind-up and recover), a shambler's armed swipe
 #             as a lunge, a hold as a grab, a stagger, and a corpse as death. A body that stops is
 #             idle on the next tick; a corpse stays death after many ticks; a living body is never
 #             death. Every phase is 0..1.
+#   TALK      E on one of your colonists in reach and on the aim opens the conversation panel with
+#             the sim's name, the read models' own feel and doing lines; every line is digit-free;
+#             walking is swallowed while it is up and Escape closes it and recaptures the mouse. Out
+#             of reach, off the aim, through a wall, at a zombie and at a raider: no panel.
+
+#   MODELS    every weapons-manifest entry loads and its box is its sizeM within 1 cm; an id match beats a class match and an unknown id resolves to null; two GLBs that embed the atlas share one mipmapped texture; a loose bat the sim drops is drawn with its model at its resting position, and an item with no model has no node.
+
 
 const SCENE_PATH: String = "res://presentation/first_person/first_person.tscn"
 const WorkPanel = preload("res://ui/work_panel.gd")
 const InventoryPanel = preload("res://ui/inventory_panel.gd")
 const AnimState = preload("res://presentation/first_person/anim_state.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
+const TalkPanel = preload("res://ui/talk_panel.gd")
+const WorkRead = preload("res://sim/work_read.gd")
+const SimNeeds = preload("res://sim/modules/needs.gd")
+const SimCondition = preload("res://sim/condition.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
@@ -114,6 +125,7 @@ const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const ReportsPanel = preload("res://ui/reports_panel.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const FirstPerson = preload("res://presentation/first_person/first_person.gd")
+const InputMapRes = preload("res://presentation/input_map.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
 const SaveSlot = preload("res://presentation/first_person/save_slot.gd")
 const Models = preload("res://presentation/first_person/models.gd")
@@ -140,6 +152,9 @@ const PHASE_EPSILON: float = 0.001
 
 var _failures: Array[String] = []
 var _skips: Array[String] = []
+# [name, clause] for every lane that ran and passed. The OK line is built from this, so a new lane
+# adds a row at its call site instead of editing one long sentence.
+var _lanes: Array = []
 
 
 func _init() -> void:
@@ -154,43 +169,45 @@ func _run() -> void:
 		_fail("SCENE", "could not load %s" % SCENE_PATH)
 		_finish(old_size)
 		return
-	var ok: bool = _district_default(packed)
+	var ok: bool = _lane("DISTRICT", _district_default(packed), "the scene boots the shipped district size and seed by default and the gate walks a smaller one")
 	var scene: Node = packed.instantiate()
 	scene.set("district_tiles", SMALL_DISTRICT_TILES)
 	root.add_child(scene)
 	scene.set_process(false)
 	await process_frame
 
-	ok = _scene_shape(scene) and ok
+	ok = _lane("SHAPE", _scene_shape(scene), "the scene is the opt-in scene with a district, a HUD and no physics body") and ok
 	if ok:
 		ok = _district(scene) and ok
 		var spawn: Vector2 = scene.call("rendered_player_position")
-		ok = _npc(scene) and ok
-		ok = _mapping(scene) and ok
-		ok = _movement(scene) and ok
-		ok = _yaw(scene) and ok
-		ok = _blocked(scene) and ok
-		ok = _container(scene) and ok
-		ok = _fight(scene) and ok
-		ok = _held(scene) and ok
-		ok = _ledger(scene, spawn) and ok
-		ok = _priority(scene) and ok
-		ok = _menu(scene) and ok
-		ok = _speech(scene) and ok
-		ok = _verbs(scene) and ok
-		ok = _stance(scene) and ok
-		ok = _reports(scene) and ok
+		ok = _lane("NPC", _npc(scene), "a fresh boot has no working colonist and the colony is at work after a second") and ok
+		ok = _lane("MAPPING", _mapping(scene), "sim x/y maps to Godot x/z with the eye at the sim's own height") and ok
+		ok = _lane("MOVE", _movement(scene), "W walks the sim's body through the move command and the camera follows") and ok
+		ok = _lane("YAW", _yaw(scene), "a turn sends the new move and aim bearings, even with W held") and ok
+		ok = _lane("BLOCK", _blocked(scene), "a wall stops the body in its tile and the other way crosses it") and ok
+		ok = _lane("CONTAINER", _container(scene), "a sim container opens through container.open into the real sheet and a take moves one item") and ok
+		ok = _lane("FIGHT", _fight(scene), "a bat swing lands and a gun spends a round while the ledger refuses both") and ok
+		ok = _lane("HELD", _held(scene), "the equipped weapon is drawn from the sim's installed parts on their sockets and a mismatch fails") and ok
+		ok = _lane("LEDGER", _ledger(scene, spawn), "the ledger opens in reach and on the aim and refuses a look away") and ok
+		ok = _lane("PRIORITY", _priority(scene), "a priority click dispatches a real job.priority and the row turns Manual") and ok
+		ok = _lane("MENU", _menu(scene), "the ledger's screens open and close on Escape") and ok
+		ok = _lane("SPEECH", _speech(scene), "the HUD is digit-free prose with no progress bar") and ok
+		ok = _lane("VERBS", _verbs(scene), "E on a door uses the sim's own verb and a plain wall offers none") and ok
+		ok = _lane("STANCE", _stance(scene), "the stance keys change the sim's posture and the eye eases to it") and ok
+		ok = _lane("REPORTS", _reports(scene), "the ledger's Reports page reads the chronicle's own lines and moves the read mark") and ok
 		# The speed lane reads keys, so it runs before the run-over lane, which leaves input swallowed.
 		# Save before the lanes that kill the colony: the run-over lane leaves input swallowed.
-		ok = _save(scene) and ok
-		ok = _models(scene) and ok
-		ok = _art(scene) and ok
-		ok = _preview() and ok
-		ok = _light(scene) and ok
-		ok = _succession(scene) and ok
-		ok = _anim(scene) and ok
-		ok = _speed(scene) and ok
-		ok = _run_over(scene) and ok
+		ok = _lane("SPEED", _speed(scene), "the top-down speed keys step the clock 1x and 3x and P holds it, with the ledger refusing them") and ok
+		ok = _lane("SAVE", _save(scene), "F5 and F9 save and load through the sim's own save in its own slot") and ok
+		ok = _lane("ART", _art(scene), "the desk and ledger load from their GLBs at the published sizes") and ok
+		ok = _lane("PREVIEW", _preview(), "the prop preview stands every prop on its base") and ok
+		ok = _lane("MODELS", _models(scene), "every weapons-manifest entry loads at its declared size with an id match beating a class match") and ok
+		ok = _lane("LIGHT", _light(scene), "noon is bright and midnight dark, and a carried torch lights the eye") and ok
+		ok = _lane("SUCCESSION", _succession(scene), "a death hands the camera to an heir and the dead body is drawn") and ok
+		ok = _lane("LEGEND", _legend(scene), "F1 lists every key the scene handles and the scene handles every key it lists") and ok
+		ok = _lane("TALK", _talk(scene), "a colonist in reach talks in the read models' own words") and ok
+		ok = _lane("ANIM", _anim(scene), "every body names its animation state from the sim with a phase in 0..1") and ok
+		ok = _lane("RUN-OVER", _run_over(scene), "killing the colony opens the end panel and W sends nothing") and ok
 	scene.queue_free()
 	await process_frame
 	# The body lane runs its own 300 ticks, so it gets a fresh scene of its own: the colony the other lanes read
@@ -200,7 +217,7 @@ func _run() -> void:
 	root.add_child(bodies_scene)
 	bodies_scene.set_process(false)
 	await process_frame
-	ok = _character_bodies(bodies_scene) and ok
+	ok = _lane("BODIES", _character_bodies(bodies_scene), "a walking colonist plays walk at the sim's phase, a lunging shambler plays lunge, a corpse holds death, loops loop and one-shots hold, a body the sim cannot see is hidden, and a missing model falls back to the capsule") and ok
 	bodies_scene.queue_free()
 	await process_frame
 	_finish(old_size, ok)
@@ -211,12 +228,23 @@ func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)
-		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, swings a bat into a shambler and fires a round through the top-down commands while the ledger refuses both, misses a body behind the look, and leaves a refused reload wordless, opens and shuts a door through the sim's own verb from the tile the eye is on while a door out of reach or looked away from sends nothing, takes the top-down stance keys and eases the eye to the sim's posture height while the ledger refuses the keys, reads the chronicle's own lines on the ledger's Reports page and moves the read mark, lights noon by the sim's clock and darkens midnight, turns a carried torch into the eye's spot at the sim's range and cone and out when it burns, and keeps a body behind a wall undrawn, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, saves and loads through the sim's own save in its own slot, loads the desk and ledger from their GLBs at the published sizes with nearest-filtered materials and stands every preview prop on its base, loads every weapons-manifest entry at its declared size with an id match beating a class match, draws the equipped weapon from the sim's own installed parts on their sockets while a view that disagrees with the sim fails its own check, names every body's animation state from the sim (stand, walk, run, crouch, crawl, swing, lunge, grab, stagger, death) with a phase in 0..1 while a corpse stays dead and a living body never does, steps the clock 1x and 3x on the top-down speed keys at three times the ticks and holds it on P while the ledger refuses the keys, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
+		var clauses: Array[String] = []
+		for row in _lanes:
+			clauses.append(String((row as Array)[1]))
+		print("FIRST_PERSON_OK " + ". ".join(clauses) + ". lanes: %d" % _lanes.size())
 		quit(0)
 		return
 	for failure in _failures:
 		push_error("FIRST_PERSON_FAIL " + failure)
 	quit(1)
+
+
+## Records a lane that passed, with its one-sentence clause for the OK line, and hands the result back
+## so a call site stays `ok = _lane("NAME", _lane_func(...), "clause") and ok`.
+func _lane(name: String, passed: bool, clause: String) -> bool:
+	if passed:
+		_lanes.append([name, clause])
+	return passed
 
 
 func _fail(lane: String, message: String) -> bool:
@@ -2426,7 +2454,9 @@ func _nearest_everywhere(node: Node3D) -> bool:
 				material = m.material_override
 			if material is BaseMaterial3D:
 				judged += 1
-				if (material as BaseMaterial3D).texture_filter != BaseMaterial3D.TEXTURE_FILTER_NEAREST:
+				# Nearest magnification keeps the pixel art crisp; mipmaps keep a wall at 8 m from
+				# shimmering (the art review's note on #281). Linear magnification is still refused.
+				if (material as BaseMaterial3D).texture_filter != BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS:
 					return false
 	return judged > 0
 
@@ -2454,6 +2484,378 @@ func _write_wrong_glb() -> String:
 	var err: Error = document.write_to_filesystem(state, ProjectSettings.globalize_path(path))
 	root.free()
 	return path if err == OK else ""
+
+
+# --- LEGEND ---------------------------------------------------------------------------------
+
+# The engine's key constants the first-person source names. A key the source names that is missing from
+# this map is a failure, so a new key cannot slip past the check unnamed.
+const KEY_NAMES: Dictionary = {
+	"KEY_A": KEY_A, "KEY_D": KEY_D, "KEY_E": KEY_E, "KEY_ENTER": KEY_ENTER, "KEY_ESCAPE": KEY_ESCAPE,
+	"KEY_F": KEY_F, "KEY_F1": KEY_F1, "KEY_F5": KEY_F5, "KEY_F9": KEY_F9, "KEY_G": KEY_G,
+	"KEY_KP_ENTER": KEY_KP_ENTER, "KEY_P": KEY_P, "KEY_R": KEY_R, "KEY_S": KEY_S, "KEY_SHIFT": KEY_SHIFT,
+	"KEY_W": KEY_W, "KEY_MINUS": KEY_MINUS, "KEY_KP_SUBTRACT": KEY_KP_SUBTRACT, "KEY_EQUAL": KEY_EQUAL,
+	"KEY_KP_ADD": KEY_KP_ADD,
+}
+
+
+func _legend(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	if bool(scene.get("menu_open")):
+		scene.call("close_ledger_menu")
+	if bool(scene.get("inventory_open")):
+		scene.call("close_inventory")
+	if bool(scene.call("legend_open")):
+		scene.call("close_legend")
+	var source: String = FileAccess.get_file_as_string("res://presentation/first_person/first_person.gd")
+	var handled: Array = []
+	for name in _handled_key_names(source):
+		if not KEY_NAMES.has(name):
+			return _fail("LEGEND", "the scene names %s, which the LEGEND lane's key map does not know" % name)
+		if not handled.has(int(KEY_NAMES[name])):
+			handled.append(int(KEY_NAMES[name]))
+	# The stance keys reach the scene through input_map's BINDINGS, not a name in the source.
+	for action in InputMapRes.BINDINGS.keys():
+		var row: Dictionary = InputMapRes.BINDINGS[action] as Dictionary
+		if row.has("stance") and not handled.has(int((row["keys"] as Array)[0])):
+			handled.append(int((row["keys"] as Array)[0]))
+	# So do the clock's keys: the scene reads input_map's "slower" and "faster" rows, every key of each.
+	for action in ["slower", "faster"]:
+		if not source.contains("\"%s\"" % action):
+			continue
+		for code in (InputMapRes.BINDINGS[action] as Dictionary)["keys"] as Array:
+			if not handled.has(int(code)):
+				handled.append(int(code))
+	var listed: Array = FirstPerson.reference_codes()
+	# Both ways: every key the scene handles is listed, and no listed key is one the scene does not handle.
+	if not _codes_missing(handled, listed).is_empty():
+		ok = _fail("LEGEND", "the scene handles keys the key reference does not list: %s" % str(_codes_missing(handled, listed)))
+	if not _codes_missing(listed, handled).is_empty():
+		ok = _fail("LEGEND", "the key reference lists keys the scene does not handle: %s" % str(_codes_missing(listed, handled)))
+	# True negative: a planted phantom row (a key nothing handles) is refused by the same comparison.
+	var planted: Array = listed.duplicate()
+	planted.append(KEY_BRACKETLEFT)
+	if _codes_missing(planted, handled).is_empty():
+		ok = _fail("LEGEND", "a planted phantom key passed the comparison")
+
+	# The toggle: F1 opens the reference, F1 again and Escape each put it down.
+	_key(KEY_F1, true)
+	if not bool(scene.call("legend_open")) or not (scene.call("legend_node") as Control).visible:
+		ok = _fail("LEGEND", "F1 did not open the key reference")
+	_place_player(scene, _find_open_area((scene.get("map") as Variant), 2))
+	var before: Vector2 = _player_pos(world)
+	_key(KEY_W, true)
+	for i in 20:
+		scene.call("_process", 1.0 / 60.0)
+	_key(KEY_W, false)
+	if _player_pos(world).distance_to(before) > 0.01:
+		ok = _fail("LEGEND", "walking moved the body while the key reference was open")
+	_key(KEY_ESCAPE, true)
+	if bool(scene.call("legend_open")) or (scene.call("legend_node") as Control).visible:
+		ok = _fail("LEGEND", "Escape did not close the key reference")
+	_key(KEY_F1, true)
+	_key(KEY_F1, true)
+	if bool(scene.call("legend_open")):
+		ok = _fail("LEGEND", "a second F1 did not close the key reference")
+	return ok
+
+
+# The key names a source file's code compares or names: KEY_ identifiers on lines that are not comments,
+# and not in the KEY_REFERENCE table (the table is what is checked, so it is not evidence of handling).
+func _handled_key_names(source: String) -> Array:
+	var names: Array = []
+	var in_table: bool = false
+	var pattern: RegEx = RegEx.new()
+	pattern.compile("KEY_[A-Z0-9_]+")
+	for line in source.split("\n"):
+		if line.begins_with("const KEY_REFERENCE"):
+			in_table = true
+			continue
+		if in_table:
+			if line == "]":
+				in_table = false
+			continue
+		if line.strip_edges().begins_with("#"):
+			continue
+		for hit in pattern.search_all(line):
+			var name: String = hit.get_string()
+			if name == "KEY_REFERENCE" or names.has(name):
+				continue
+			names.append(name)
+	return names
+
+
+# The codes in `a` that `b` does not hold.
+func _codes_missing(a: Array, b: Array) -> Array:
+	var out: Array = []
+	for code in a:
+		if not b.has(int(code)):
+			out.append(int(code))
+	return out
+
+
+# --- SPEED ----------------------------------------------------------------------------------
+
+# The clock's keys are the top-down game's: "faster" (=) and "slower" (-) step the ladder 1x and 3x, P holds
+# the world at zero. Over a fixed span of frames, 3x advances three times the ticks of 1x. A key that is not
+# a speed key changes nothing, and the ledger refuses the speed keys, as main.gd refuses them under a sheet.
+func _speed(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	if bool(scene.get("menu_open")):
+		scene.call("close_ledger_menu")
+	if bool(scene.get("paused")):
+		_key(KEY_P, true)
+	_place_player(scene, _find_open_area((scene.get("map") as Variant), 2))
+	_key(KEY_MINUS, true)
+	_key(KEY_MINUS, true)
+	if int(scene.get("speed")) != 1:
+		return _fail("SPEED", "the slower key did not settle the clock at 1x (speed %d)" % int(scene.get("speed")))
+
+	# True positive: three times the ticks at 3x as at 1x, over the same frames.
+	var at_1x: int = _frames_ticks(scene, world, 60)
+	_key(KEY_EQUAL, true)
+	if int(scene.get("speed")) != 3:
+		return _fail("SPEED", "the faster key did not step the clock to 3x (speed %d)" % int(scene.get("speed")))
+	var at_3x: int = _frames_ticks(scene, world, 60)
+	if at_1x < 15:
+		ok = _fail("SPEED", "1x advanced only %d ticks in 60 frames, so the ratio proves nothing" % at_1x)
+	elif absi(at_3x - 3 * at_1x) > 2:
+		ok = _fail("SPEED", "3x advanced %d ticks where 1x advanced %d: wanted about three times as many" % [at_3x, at_1x])
+
+	# True positive: P holds the clock at zero, and the same key lets it run again.
+	_key(KEY_P, true)
+	if not bool(scene.get("paused")):
+		ok = _fail("SPEED", "P did not pause the clock")
+	if _frames_ticks(scene, world, 60) != 0:
+		ok = _fail("SPEED", "the clock advanced while P held it")
+	_key(KEY_P, true)
+
+	# True negative: a key that is not a speed key changes nothing (Q is bound to nothing here).
+	var before: int = int(scene.get("speed"))
+	_key(KEY_Q, true)
+	if int(scene.get("speed")) != before or bool(scene.get("paused")):
+		ok = _fail("SPEED", "a key that is not a speed key changed the clock")
+
+	# True negative: the ledger refuses the speed keys.
+	scene.call("open_ledger_menu")
+	_key(KEY_MINUS, true)
+	var under_ledger: int = int(scene.get("speed"))
+	scene.call("close_ledger_menu")
+	if under_ledger != 3:
+		ok = _fail("SPEED", "the slower key changed the clock while the ledger was open")
+
+	# The HUD says the clock in words, with no digit.
+	var words: String = _joined_hud(scene)
+	if not words.contains("Time is normal speed") and not words.contains("Time is fast"):
+		ok = _fail("SPEED", "the HUD does not say the clock in words")
+	for line in scene.call("hud_lines") as Array:
+		if _has_digit(String(line)):
+			ok = _fail("SPEED", "the HUD draws a digit: %s" % String(line))
+
+	_key(KEY_MINUS, true)
+	return ok
+
+
+# Frames of the scene's own frame function, each a 60th of a second; returns the sim ticks that ran.
+func _frames_ticks(scene: Node, world: Variant, frames: int) -> int:
+	var start: int = int(world.tick)
+	for i in frames:
+		scene.call("_process", 1.0 / 60.0)
+	return int(world.tick) - start
+# --- TALK -----------------------------------------------------------------------------------
+#
+# The conversation panel, opened by the sim's own E ladder. The words are the read models': the
+# identity name, `SimNeeds` / `SimCondition` for how they feel (the mutter content when it exists,
+# otherwise the read model's clause), and `WorkRead.doing` for what they are doing. The true
+# negatives are the same reach, aim and sight rules the ledger and the boxes use, plus a zombie and a
+# raider. The panel is staged with a healthy, fed colonist, then a hungry one; the needs are restored
+# afterwards.
+func _talk(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var area: Vector2 = _find_open_area(map, 2)
+	if area == Vector2(-1.0, -1.0):
+		return _fail("TALK", "the district has no open area to stand in")
+	var ent: int = _living_colonist(world, int(world.player))
+	if ent < 0:
+		return _fail("TALK", "the colony has no second survivor to talk to")
+	var name: String = TalkPanel.name_of(world, ent)
+	var needs_before: Dictionary = (world.components.get_component(ent, "needs") as Dictionary).duplicate()
+	var body_before: Dictionary = (world.components.get_component(ent, "body") as Dictionary).duplicate()
+	var injuries_before: Variant = world.components.get_component(ent, "injuries")
+	_steady(world, ent)
+	_place_player(scene, area)
+	scene.call("set_look", 0.0, 0.0)
+	_settle_vision(scene, 6)
+
+	# True positive: in reach and aimed at, E opens the panel with the sim's own words.
+	_place_talker(world, ent, area + Vector2(0.0, -1.1))
+	scene.call("look_toward", Vector3(area.x, _eye_of_m(world, ent), area.y - 1.1))
+	_key(KEY_E, true)
+	if not bool(scene.get("talk_open")):
+		ok = _fail("TALK", "E on a colonist in reach and on the aim opened no panel")
+	else:
+		var panel: Control = scene.call("talk_panel_node") as Control
+		if panel == null:
+			ok = _fail("TALK", "the scene has no talk panel")
+		else:
+			var shown: Dictionary = panel.call("shown") as Dictionary
+			if String(shown.get("name", "")) != name:
+				ok = _fail("TALK", "the panel names '%s', not the sim's '%s'" % [String(shown.get("name", "")), name])
+			if String(shown.get("feel", "")) != TalkPanel.STEADY:
+				ok = _fail("TALK", "a steady, fed colonist says '%s', not '%s'" % [String(shown.get("feel", "")), TalkPanel.STEADY])
+			var doing: String = WorkRead.doing(world, ent)
+			if String(shown.get("doing", "")) != doing:
+				ok = _fail("TALK", "the panel's doing line '%s' is not the read model's '%s'" % [String(shown.get("doing", "")), doing])
+			for line in panel.call("lines") as Array:
+				if _has_digit(String(line)):
+					ok = _fail("TALK", "the panel drew a digit: %s" % String(line))
+			# Input capture: walking is swallowed while the panel is up.
+			var before: Vector2 = _player_pos(world)
+			_key(KEY_W, true)
+			scene.call("step_sim_once")
+			_key(KEY_W, false)
+			scene.call("step_sim_once")
+			if _player_pos(world).distance_to(before) > EPSILON:
+				ok = _fail("TALK", "a walking key moved the body under the talk panel")
+			# Escape closes it and gives the mouse back.
+			_key(KEY_ESCAPE, true)
+			if bool(scene.get("talk_open")):
+				ok = _fail("TALK", "Escape did not close the talk panel")
+			if not bool(scene.call("mouse_captured")):
+				ok = _fail("TALK", "Escape left the mouse free")
+
+	# The need's own line: a hungry colonist says a mutter line, not a sentence the panel invented.
+	if ok:
+		var needs: Dictionary = world.components.get_component(ent, "needs") as Dictionary
+		needs["hunger"] = 1.0
+		world.components.set_component(ent, "needs", needs)
+		_place_player(scene, area)
+		scene.call("set_look", 0.0, 0.0)
+		_settle_vision(scene, 6)
+		_place_talker(world, ent, area + Vector2(0.0, -1.1))
+		scene.call("look_toward", Vector3(area.x, _eye_of_m(world, ent), area.y - 1.1))
+		_key(KEY_E, true)
+		if not bool(scene.get("talk_open")):
+			ok = _fail("TALK", "E on a hungry colonist opened no panel")
+		else:
+			var hungry: Array[String] = _content_lines(world, "speech.mutter.hungry")
+			var said: String = String((scene.call("talk_panel_node") as Control).call("shown")["feel"])
+			if hungry.is_empty() or not hungry.has(said):
+				ok = _fail("TALK", "a hungry colonist says '%s', not one of the mutter lines %s" % [said, hungry])
+			_key(KEY_ESCAPE, true)
+
+	# True negatives. Out of reach.
+	_place_talker(world, ent, area + Vector2(0.0, -3.0))
+	scene.call("look_toward", Vector3(area.x, _eye_of_m(world, ent), area.y - 3.0))
+	_key(KEY_E, true)
+	if bool(scene.get("talk_open")):
+		ok = _fail("TALK", "E talked to a colonist out of reach")
+	# Off the aim.
+	_place_talker(world, ent, area + Vector2(0.0, -1.1))
+	scene.call("look_toward", Vector3(area.x, _eye_of_m(world, ent), area.y + 4.0))
+	_key(KEY_E, true)
+	if bool(scene.get("talk_open")):
+		ok = _fail("TALK", "E talked to a colonist the look was turned away from")
+	# Through a wall.
+	var setup: Dictionary = _find_blocked_setup(map)
+	if setup.is_empty():
+		ok = _fail("TALK", "no wall with open floor beyond it for the sight negative")
+	else:
+		var tile: Vector2i = setup["tile"] as Vector2i
+		var dir: Vector2i = setup["dir"] as Vector2i
+		var here: Vector2 = Vector2(float(tile.x) + 0.5, float(tile.y) + 0.5)
+		_place_player(scene, here)
+		scene.call("set_look", 0.0, 0.0)
+		_settle_vision(scene, 6)
+		var beyond: Vector2 = here + Vector2(float(dir.x), float(dir.y)) * 1.6
+		_place_talker(world, ent, beyond)
+		scene.call("look_toward", Vector3(beyond.x, _eye_of_m(world, ent), beyond.y))
+		if String(scene.call("talk_verdict")) != "blocked":
+			ok = _fail("TALK", "a colonist through a wall reads '%s', not blocked" % String(scene.call("talk_verdict")))
+		_key(KEY_E, true)
+		if bool(scene.get("talk_open")):
+			ok = _fail("TALK", "E talked to a colonist through a wall")
+	# A zombie and a raider are never talkable.
+	_place_player(scene, area)
+	scene.call("set_look", 0.0, 0.0)
+	_settle_vision(scene, 6)
+	var zombie: int = _living_zombie(world)
+	if zombie < 0:
+		ok = _fail("TALK", "the colony has no shambler for the never-talkable negative")
+	else:
+		_place_talker(world, zombie, area + Vector2(0.0, -1.1))
+		scene.call("look_toward", Vector3(area.x, _eye_of_m(world, zombie), area.y - 1.1))
+		_key(KEY_E, true)
+		if bool(scene.get("talk_open")):
+			ok = _fail("TALK", "E talked to a shambler")
+		var old_faction: Variant = world.components.get_component(ent, "allegiance")
+		world.components.set_component(ent, "allegiance", {"faction": "raiders"})
+		_place_talker(world, zombie, area + Vector2(3.0, -3.0))
+		_place_talker(world, ent, area + Vector2(0.0, -1.1))
+		scene.call("look_toward", Vector3(area.x, _eye_of_m(world, ent), area.y - 1.1))
+		_key(KEY_E, true)
+		if bool(scene.get("talk_open")):
+			ok = _fail("TALK", "E talked to a raider")
+		if old_faction is Dictionary:
+			world.components.set_component(ent, "allegiance", old_faction)
+		else:
+			world.components.remove(ent, "allegiance")
+
+	# Put the colonist back as found.
+	world.components.set_component(ent, "needs", needs_before)
+	world.components.set_component(ent, "body", body_before)
+	if injuries_before is Dictionary:
+		world.components.set_component(ent, "injuries", injuries_before)
+	else:
+		world.components.remove(ent, "injuries")
+	return ok
+
+
+# A healthy, fed, rested, comfortable colonist: the steady case's fixture. The body is set to its own
+# maxima and the wounds are cleared; the caller restores both.
+func _steady(world: Variant, ent: int) -> void:
+	var needs: Dictionary = world.components.get_component(ent, "needs") as Dictionary
+	for key in ["thirst", "hunger", "rest", "relief"]:
+		needs[key] = 100.0
+	needs["crisis"] = "none"
+	needs["temperature"] = "comfortable"
+	needs["hygiene"] = "clean"
+	needs["grief"] = 0.0
+	needs["soiled"] = 0.0
+	needs["slept"] = "rested"
+	world.components.set_component(ent, "needs", needs)
+	var body: Dictionary = world.components.get_component(ent, "body") as Dictionary
+	for part in body.keys():
+		var max_v: Variant = SimHealth.max_of(body, String(part))
+		if max_v != null:
+			body[part] = max_v
+	world.components.set_component(ent, "body", body)
+	world.components.remove(ent, "injuries")
+
+
+func _place_talker(world: Variant, entity: int, at: Vector2) -> void:
+	world.components.set_component(entity, "position", {"x": at.x, "y": at.y})
+	world.components.set_component(entity, "velocity", {"dx": 0.0, "dy": 0.0})
+
+
+func _content_lines(world: Variant, id: String) -> Array[String]:
+	var out: Array[String] = []
+	if world == null or not ("content" in world) or not (world.content is Dictionary):
+		return out
+	var rows: Variant = (world.content as Dictionary).get("speech/lines.json", [])
+	if not (rows is Array):
+		return out
+	for row in rows as Array:
+		var e: Dictionary = row as Dictionary
+		if String(e.get("id", "")) != id:
+			continue
+		for line in e.get("lines", []) as Array:
+			out.append(String(line))
+	return out
 
 
 # --- ANIM -----------------------------------------------------------------------------------
@@ -2618,77 +3020,6 @@ func _living_colonist(world: Variant, exclude: int) -> int:
 	return -1
 
 
-# --- SPEED ----------------------------------------------------------------------------------
-
-# The clock's keys are the top-down game's: "faster" (=) and "slower" (-) step the ladder 1x and 3x, P holds
-# the world at zero. Over a fixed span of frames, 3x advances three times the ticks of 1x. A key that is not
-# a speed key changes nothing, and the ledger refuses the speed keys, as main.gd refuses them under a sheet.
-func _speed(scene: Node) -> bool:
-	var ok: bool = true
-	var world: Variant = scene.get("world")
-	if bool(scene.get("menu_open")):
-		scene.call("close_ledger_menu")
-	if bool(scene.get("paused")):
-		_key(KEY_P, true)
-	_place_player(scene, _find_open_area((scene.get("map") as Variant), 2))
-	_key(KEY_MINUS, true)
-	_key(KEY_MINUS, true)
-	if int(scene.get("speed")) != 1:
-		return _fail("SPEED", "the slower key did not settle the clock at 1x (speed %d)" % int(scene.get("speed")))
-
-	# True positive: three times the ticks at 3x as at 1x, over the same frames.
-	var at_1x: int = _frames_ticks(scene, world, 60)
-	_key(KEY_EQUAL, true)
-	if int(scene.get("speed")) != 3:
-		return _fail("SPEED", "the faster key did not step the clock to 3x (speed %d)" % int(scene.get("speed")))
-	var at_3x: int = _frames_ticks(scene, world, 60)
-	if at_1x < 15:
-		ok = _fail("SPEED", "1x advanced only %d ticks in 60 frames, so the ratio proves nothing" % at_1x)
-	elif absi(at_3x - 3 * at_1x) > 2:
-		ok = _fail("SPEED", "3x advanced %d ticks where 1x advanced %d: wanted about three times as many" % [at_3x, at_1x])
-
-	# True positive: P holds the clock at zero, and the same key lets it run again.
-	_key(KEY_P, true)
-	if not bool(scene.get("paused")):
-		ok = _fail("SPEED", "P did not pause the clock")
-	if _frames_ticks(scene, world, 60) != 0:
-		ok = _fail("SPEED", "the clock advanced while P held it")
-	_key(KEY_P, true)
-
-	# True negative: a key that is not a speed key changes nothing (Q is bound to nothing here).
-	var before: int = int(scene.get("speed"))
-	_key(KEY_Q, true)
-	if int(scene.get("speed")) != before or bool(scene.get("paused")):
-		ok = _fail("SPEED", "a key that is not a speed key changed the clock")
-
-	# True negative: the ledger refuses the speed keys.
-	scene.call("open_ledger_menu")
-	_key(KEY_MINUS, true)
-	var under_ledger: int = int(scene.get("speed"))
-	scene.call("close_ledger_menu")
-	if under_ledger != 3:
-		ok = _fail("SPEED", "the slower key changed the clock while the ledger was open")
-
-	# The HUD says the clock in words, with no digit.
-	var words: String = _joined_hud(scene)
-	if not words.contains("Time is normal speed") and not words.contains("Time is fast"):
-		ok = _fail("SPEED", "the HUD does not say the clock in words")
-	for line in scene.call("hud_lines") as Array:
-		if _has_digit(String(line)):
-			ok = _fail("SPEED", "the HUD draws a digit: %s" % String(line))
-
-	_key(KEY_MINUS, true)
-	return ok
-
-
-# Frames of the scene's own frame function, each a 60th of a second; returns the sim ticks that ran.
-func _frames_ticks(scene: Node, world: Variant, frames: int) -> int:
-	var start: int = int(world.tick)
-	for i in frames:
-		scene.call("_process", 1.0 / 60.0)
-	return int(world.tick) - start
-
-
 # --- MODELS ----------------------------------------------------------------------------------------
 
 # The model loader, judged on the committed weapon kit, and a loose item the sim drops drawn with its
@@ -2793,14 +3124,26 @@ func _models(scene: Node) -> bool:
 		var bat_size: Array = (real_bat as Dictionary)["sizeM"] as Array
 		if absf(box.size.y - float(bat_size[1])) > MODEL_TOLERANCE_M:
 			ok = _fail("MODELS", "the loose bat's drawn height %.4f m is not its model's %.4f m" % [box.size.y, float(bat_size[1])])
-	# True negative: an item with no model is drawn with no node, so it keeps the scene's placeholder.
-	if Appearance.entry_of(world, "item", "item.food.canned").is_empty():
-		ok = _fail("MODELS", "the content has no item.food.canned to test with")
-	var canned: int = SimItems.spawn_item(world, "item.food.canned")
-	SimInventory.drop_at_feet(world, player, canned)
-	scene.call("_process", TICK_SECONDS)
-	if scene.call("loose_node_for", canned) != null:
-		ok = _fail("MODELS", "an item with no model was drawn with a node")
+	# True negative: an item the merged manifests do not name is drawn with no node, so it keeps the
+	# scene's placeholder. The item is found in the merged content, not assumed: the loot-item kit
+	# draws canned food now, so a hard-coded id would stop being a no-model case.
+	var modelless: String = ""
+	for base_v in SimItems.content_entries(world, "item") as Array:
+		var base: Dictionary = base_v as Dictionary
+		var item_id: String = String(base.get("id", ""))
+		if item_id != "" and Models.resolve(item_id, String(base.get("class", ""))) == null:
+			modelless = item_id
+			break
+	if modelless == "":
+		ok = _fail("MODELS", "every content item has a model, so the no-model negative has no case")
+	else:
+		var bare: int = SimItems.spawn_item(world, modelless)
+		SimInventory.drop_at_feet(world, player, bare)
+		scene.call("_process", TICK_SECONDS)
+		if scene.call("loose_node_for", bare) != null:
+			ok = _fail("MODELS", "an item with no model (%s) was drawn with a node" % modelless)
+		world.despawn(bare)
+		scene.call("_process", TICK_SECONDS)
 	# True negative: a loose item that is gone has its node freed on the next refresh.
 	var before: int = int(scene.call("loose_view_count"))
 	world.despawn(bat)
@@ -2809,8 +3152,6 @@ func _models(scene: Node) -> bool:
 		ok = _fail("MODELS", "a despawned loose bat still has a node")
 	if int(scene.call("loose_view_count")) != before - 1:
 		ok = _fail("MODELS", "the loose-item count did not drop by the despawned bat")
-	world.despawn(canned)
-	scene.call("_process", TICK_SECONDS)
 	return ok
 
 
