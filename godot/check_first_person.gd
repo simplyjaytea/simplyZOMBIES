@@ -71,6 +71,8 @@ func _run() -> void:
 		ok = _priority(scene) and ok
 		ok = _menu(scene) and ok
 		ok = _speech(scene) and ok
+		ok = _art(scene) and ok
+		ok = _preview() and ok
 	scene.queue_free()
 	await process_frame
 	_finish(old_size, ok)
@@ -157,9 +159,9 @@ func _scene_shape(scene: Node) -> bool:
 	var props: Node = scene.get_node_or_null("SafeSpawnProps")
 	var desk_model: bool = bool(props.get("used_desk_model")) if props != null else false
 	var ledger_model: bool = bool(props.get("used_ledger_model")) if props != null else false
-	if desk_model != ResourceLoader.exists(Assets.DESK):
+	if desk_model != FileAccess.file_exists(Assets.DESK):
 		ok = _fail("SHAPE", "the desk model use does not match what is on disk")
-	if ledger_model != ResourceLoader.exists(Assets.LEDGER):
+	if ledger_model != FileAccess.file_exists(Assets.LEDGER):
 		ok = _fail("SHAPE", "the ledger model use does not match what is on disk")
 	return ok
 
@@ -768,6 +770,176 @@ func _has_digit(text: String) -> bool:
 		if text[i].is_valid_int():
 			return true
 	return false
+
+
+# --- ART ------------------------------------------------------------------------------------
+
+# The desk and ledger art. When the GLBs are on disk the scene must draw them, not the boxes, at the
+# published sizes and on the floor and the desk top. When they are not (a clean checkout before the art
+# merges) the lane says so and the boxes are the ones under test. The planted wrong-size GLB is the
+# true negative: the same comparison must refuse it.
+func _art(scene: Node) -> bool:
+	var ok: bool = true
+	var desk_on_disk: bool = FileAccess.file_exists(Assets.DESK)
+	var ledger_on_disk: bool = FileAccess.file_exists(Assets.LEDGER)
+	if not desk_on_disk or not ledger_on_disk:
+		_skips.append("ART: desk.glb and ledger.glb are not on disk, so the placeholder boxes are under test (the art arrives with the first-person art PR)")
+		if not desk_on_disk and scene.get_node_or_null("SafeSpawnProps/DeskPlaceholder") == null:
+			ok = _fail("ART", "desk.glb is absent but the scene did not draw the desk box")
+		if not ledger_on_disk and scene.get_node_or_null("SafeSpawnProps/LedgerPlaceholder") == null:
+			ok = _fail("ART", "ledger.glb is absent but the scene did not draw the ledger box")
+		return ok
+	var props: Node3D = scene.get_node_or_null("SafeSpawnProps") as Node3D
+	var desk: Node3D = null
+	var ledger: Node3D = null
+	if props != null:
+		desk = props.get_node_or_null("DeskModel") as Node3D
+		ledger = props.get_node_or_null("LedgerModel") as Node3D
+	if desk == null:
+		return _fail("ART", "desk.glb is on disk but the scene drew the placeholder box")
+	if ledger == null:
+		return _fail("ART", "ledger.glb is on disk but the scene drew the placeholder box")
+	var desk_box: AABB = _world_aabb(desk)
+	if not _fits(desk_box, Vector3(Assets.DESK_WIDTH_M, Assets.DESK_HEIGHT_M, Assets.DESK_DEPTH_M), 0.0):
+		ok = _fail("ART", "the desk model is %s, not the published %.2f x %.2f x %.2f m on the floor" % [desk_box, Assets.DESK_WIDTH_M, Assets.DESK_HEIGHT_M, Assets.DESK_DEPTH_M])
+	var ledger_box: AABB = _world_aabb(ledger)
+	var ledger_size: Vector3 = Vector3(Assets.LEDGER_WIDTH_M, Assets.LEDGER_THICKNESS_M, Assets.LEDGER_DEPTH_M)
+	if not _fits(ledger_box, ledger_size, Assets.DESK_HEIGHT_M):
+		ok = _fail("ART", "the ledger model is %s, not the published %s on the desk top" % [ledger_box, ledger_size])
+	if not _nearest_everywhere(desk) or not _nearest_everywhere(ledger):
+		ok = _fail("ART", "the loaded desk or ledger has a material that is not nearest-filtered")
+	var sim: Vector2 = scene.call("ledger_sim_position")
+	if absf(ledger_box.get_center().x - sim.x) > 0.01 or absf(ledger_box.get_center().z - sim.y) > 0.01:
+		ok = _fail("ART", "the ledger model is not centred on the desk")
+
+	# True negative: a material that is linear-filtered is refused by the same filter test.
+	var soft: MeshInstance3D = MeshInstance3D.new()
+	soft.mesh = BoxMesh.new()
+	soft.material_override = StandardMaterial3D.new()
+	scene.add_child(soft)
+	if _nearest_everywhere(soft):
+		ok = _fail("ART", "a linear-filtered material passed the nearest-filter test")
+	soft.free()
+
+	# True negative: a planted GLB of the wrong size, written and read through the same loader, is refused.
+	var planted: String = _write_wrong_glb()
+	if planted == "":
+		return _fail("ART", "could not write the planted wrong-size GLB")
+	var wrong: Node3D = Assets.load_model(planted)["node"] as Node3D
+	if wrong == null:
+		ok = _fail("ART", "the planted GLB did not load, so the refusal proves nothing")
+	else:
+		scene.add_child(wrong)
+		if _fits(_world_aabb(wrong), Vector3(Assets.DESK_WIDTH_M, Assets.DESK_HEIGHT_M, Assets.DESK_DEPTH_M), 0.0):
+			ok = _fail("ART", "a planted GLB half the published desk size was accepted")
+		wrong.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(planted))
+	return ok
+
+
+# A prop preview whose every prop stands on its authored base: the floor for the desk, the shelf, the
+# barricade and the wall, the desk top for the ledger. A loaded model is checked as it was authored, and a
+# placeholder box is checked as the preview places it. The planted lift is the M4 fault (a model raised by
+# half its height), and it must be refused.
+func _preview() -> bool:
+	var ok: bool = true
+	var packed: PackedScene = load("res://presentation/first_person/prop_preview.tscn") as PackedScene
+	if packed == null:
+		return _fail("PREVIEW", "could not load the prop preview scene")
+	var preview: Node = packed.instantiate()
+	root.add_child(preview)
+	var bases: Dictionary = {
+		"desk": 0.0,
+		"ledger": Assets.DESK_HEIGHT_M,
+		"shelf": 0.0,
+		"barricade": 0.0,
+		"wall_module": 0.0,
+	}
+	for prop in bases.keys():
+		var node: Node3D = preview.get_node_or_null(String(prop)) as Node3D
+		if node == null:
+			ok = _fail("PREVIEW", "the preview has no %s" % prop)
+			continue
+		var box: AABB = _world_aabb(node)
+		if absf(box.position.y - float(bases[prop])) > 0.01:
+			ok = _fail("PREVIEW", "the preview's %s floats: its base is at %.3f m, not %.3f m" % [prop, box.position.y, float(bases[prop])])
+	# True negative: a model lifted by half its height (the fault) fails the same test.
+	var lifted: MeshInstance3D = MeshInstance3D.new()
+	var block: BoxMesh = BoxMesh.new()
+	block.size = Vector3(Assets.DESK_WIDTH_M, Assets.DESK_HEIGHT_M, Assets.DESK_DEPTH_M)
+	lifted.mesh = block
+	lifted.position = Vector3(0.0, Assets.DESK_HEIGHT_M, 0.0)
+	preview.add_child(lifted)
+	if absf(_world_aabb(lifted).position.y) <= 0.01:
+		ok = _fail("PREVIEW", "a box lifted by half its height passed as standing on the floor")
+	lifted.free()
+	preview.queue_free()
+	return ok
+
+
+# The world-space box of a node and everything under it, from each mesh's own bounds.
+func _world_aabb(node: Node3D) -> AABB:
+	var out: AABB = AABB()
+	var found: bool = false
+	var meshes: Array[MeshInstance3D] = []
+	_collect_meshes(node, meshes)
+	for mesh in meshes:
+		var box: AABB = mesh.global_transform * mesh.get_aabb()
+		out = box if not found else out.merge(box)
+		found = true
+	return out
+
+
+func _collect_meshes(node: Node, out: Array[MeshInstance3D]) -> void:
+	if node is MeshInstance3D:
+		out.append(node as MeshInstance3D)
+	for child in node.get_children():
+		_collect_meshes(child, out)
+
+
+# Every material under the node is nearest-filtered, and there is at least one to judge.
+func _nearest_everywhere(node: Node3D) -> bool:
+	var meshes: Array[MeshInstance3D] = []
+	_collect_meshes(node, meshes)
+	var judged: int = 0
+	for m in meshes:
+		if m.mesh == null:
+			continue
+		var surfaces: int = m.mesh.get_surface_count()
+		for i in surfaces:
+			var material: Material = m.mesh.surface_get_material(i)
+			if m.material_override is BaseMaterial3D:
+				material = m.material_override
+			if material is BaseMaterial3D:
+				judged += 1
+				if (material as BaseMaterial3D).texture_filter != BaseMaterial3D.TEXTURE_FILTER_NEAREST:
+					return false
+	return judged > 0
+
+
+# Size within a centimetre per axis, and the base within a centimetre of `base_y`.
+func _fits(box: AABB, size: Vector3, base_y: float) -> bool:
+	return absf(box.size.x - size.x) <= 0.01 and absf(box.size.y - size.y) <= 0.01 and absf(box.size.z - size.z) <= 0.01 and absf(box.position.y - base_y) <= 0.01
+
+
+# Writes a half-size desk as a GLB through the engine's own exporter, so the loader reads a real file.
+func _write_wrong_glb() -> String:
+	var root: Node3D = Node3D.new()
+	var mesh: MeshInstance3D = MeshInstance3D.new()
+	var block: BoxMesh = BoxMesh.new()
+	block.size = Vector3(Assets.DESK_WIDTH_M * 0.5, Assets.DESK_HEIGHT_M * 0.5, Assets.DESK_DEPTH_M * 0.5)
+	mesh.mesh = block
+	mesh.position = Vector3(0.0, block.size.y * 0.5, 0.0)
+	root.add_child(mesh)
+	var document: GLTFDocument = GLTFDocument.new()
+	var state: GLTFState = GLTFState.new()
+	if document.append_from_scene(root, state) != OK:
+		root.free()
+		return ""
+	var path: String = "user://fp_art_gate_wrong_desk.glb"
+	var err: Error = document.write_to_filesystem(state, ProjectSettings.globalize_path(path))
+	root.free()
+	return path if err == OK else ""
 
 
 # --- fixtures -------------------------------------------------------------------------------

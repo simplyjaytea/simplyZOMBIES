@@ -2413,6 +2413,30 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **First-person art loads from a clean checkout, 2026-11-01.** Advances "First-person
+  starter-kit integration": the desk and ledger GLBs load at runtime, and the review's M3 and M4 are
+  fixed. The kit's art itself arrives with its own PR.
+  - **The loader.** `assets.gd` `load_model(path)` reads the GLB's bytes with `FileAccess` and builds
+    the scene with `GLTFDocument` and `GLTFState`, so it needs no `.import` file. It returns
+    `{node, source}`, with `source` one of `disk`, `missing` or `unreadable`. Every material is set to
+    nearest filtering, without mipmaps, and back-face culling is left as authored. `prop_view.gd` falls
+    back to the published-size box on a null node.
+  - **The export.** `godot/export_presets.cfg` adds `include_filter="assets/first_person/*.glb"` to
+    each preset, so the GLBs are packed as raw files. `.gitignore` ignores
+    `godot/assets/first_person/*.import` and `*_kit_atlas.png`, the editor's leftovers, and not the
+    committed GLBs or `kit_atlas.png`.
+  - **M4.** `prop_preview.gd` lifts a placeholder box by half its height and places a loaded model at
+    its authored origin. The preview floated every model by half its height before.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, ART and PREVIEW
+    lanes) prints `FIRST_PERSON_OK`. With the GLBs on disk, the desk and ledger must be the loaded
+    models at the published sizes within 1 cm, the desk on the floor and the ledger on the desk top, and
+    nearest-filtered. Without them, the lane prints `FIRST_PERSON_SKIP` and the boxes are under test.
+    True negatives: a planted half-size GLB written through the engine's exporter is refused, a
+    linear-filtered material is refused, and a box lifted by half its height fails the preview's floor
+    test. Each mutation turns the lane red.
+  - **Not in this piece.** The shelf, barricade and wall module are placed by the preview only, and
+    the playable scene reads only the desk and the ledger. The art files themselves.
+
 - **The first-person foundation, 2026-11-01.** docs/23's "First-person simulation and ledger
   foundation", the first delivery of [docs/39](39-first-person-pivot.md).
   - **The scene.** `godot/presentation/first_person/first_person.tscn` boots `SimBoot.playable` on

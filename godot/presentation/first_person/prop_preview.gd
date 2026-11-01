@@ -26,7 +26,7 @@ func _ready() -> void:
 	_build_camera()
 	# Desk and ledger together, then the three props that the playable scene does not place yet.
 	_add_prop(Assets.DESK, Vector3(Assets.DESK_WIDTH_M, Assets.DESK_HEIGHT_M, Assets.DESK_DEPTH_M), Vector3(-3.1, 0.0, 0.0), DESK_COLOUR, "desk")
-	_add_prop(Assets.LEDGER, Vector3(Assets.LEDGER_WIDTH_M, Assets.LEDGER_THICKNESS_M, Assets.LEDGER_DEPTH_M), Vector3(-3.1, Assets.DESK_HEIGHT_M, 0.0), LEDGER_COLOUR, "ledger", true, 0.55)
+	_add_prop(Assets.LEDGER, Vector3(Assets.LEDGER_WIDTH_M, Assets.LEDGER_THICKNESS_M, Assets.LEDGER_DEPTH_M), Vector3(-3.1, Assets.DESK_HEIGHT_M, 0.0), LEDGER_COLOUR, "ledger", 0.55)
 	_add_prop(Assets.SHELF, Assets.SHELF_SIZE, Vector3(-0.8, 0.0, 0.0), SHELF_COLOUR, "shelf")
 	_add_prop(Assets.BARRICADE, Assets.BARRICADE_SIZE, Vector3(1.2, 0.0, 0.0), BARRICADE_COLOUR, "barricade")
 	_add_prop(Assets.WALL_MODULE, Assets.WALL_MODULE_SIZE, Vector3(3.0, 0.0, 0.0), WALL_COLOUR, "wall module")
@@ -74,11 +74,12 @@ func _build_camera() -> void:
 	camera.look_at(Vector3(0.0, 1.0, 0.0))
 
 
-func _add_prop(path: String, size: Vector3, at: Vector3, colour: Color, label: String, bottom_centre: bool = false, label_lift: float = 0.25) -> void:
-	var packed: PackedScene = Assets.model(path)
-	var node: Node3D = null
-	if packed != null:
-		node = packed.instantiate() as Node3D
+# A prop at `at`, its authored origin on that point. A model from disk is placed as authored: its origin is
+# the floor centre, or the bottom centre for the ledger, so it is not lifted. Only a placeholder box, whose
+# origin is its centre, is lifted by half its height so its base sits on `at`.
+func _add_prop(path: String, size: Vector3, at: Vector3, colour: Color, label: String, label_lift: float = 0.25) -> void:
+	var node: Node3D = Assets.load_model(path)["node"] as Node3D
+	var from_disk: bool = node != null
 	if node == null:
 		var box: BoxMesh = BoxMesh.new()
 		box.size = size
@@ -89,8 +90,9 @@ func _add_prop(path: String, size: Vector3, at: Vector3, colour: Color, label: S
 		placeholder.mesh = box
 		placeholder.material_override = material
 		node = placeholder
-	var y: float = at.y + (size.y * 0.5 if not bottom_centre else 0.0)
-	node.position = Vector3(at.x, y, at.z)
+	node.name = label.replace(" ", "_")
+	var lift: float = 0.0 if from_disk else size.y * 0.5
+	node.position = Vector3(at.x, at.y + lift, at.z)
 	add_child(node)
 	var label_y: float = at.y + size.y + label_lift
 	_label(label + "  %.3f x %.3f x %.3f m" % [size.x, size.y, size.z], Vector3(at.x, label_y, 0.0), 30)
