@@ -2423,6 +2423,41 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **First-person starter-kit integration, 2026-11-01.** Advances "First-person starter-kit
+  integration": the playable scene draws walls, boarded windows and shelf containers from the kit's
+  GLBs, not only the desk and ledger.
+  - **Walls.** A full-height wall tile is drawn by `wall_module.glb` as one instance in a
+    `MultiMeshInstance3D` per placement variant (`district_view.gd`). The module's top is scaled to
+    the wall band's 2550 mm, its 1.00 m width spans the tile along the wall run, and its 0.12 m depth
+    is the drawn thickness with its outer face on the tile edge toward open ground. Two variants (as
+    authored, and turned half a turn) are chosen by a hash of the scene's district seed and the tile
+    index, so a row is not one face repeated. Window, door, Low, board and overlay tiles keep their
+    band geometry.
+  - **Boards.** A boarded tile (`board:0`-`board:3`) keeps its band boxes and gains one
+    `barricade.glb` instance on its open face, hanging outside the tile the way nailed boards do.
+    The band boxes remain the occlusion authority, so the art cannot open a tile the sim says blocks
+    sight.
+  - **Shelves.** A sim container whose kind is `shelf`, or a qualified shelf such as the district's
+    `stockroom shelf`, is drawn by `shelf.glb`; cupboard, wardrobe, tool chest, larder and locker
+    keep the labelled box, because the kit has no closed cabinet and an open shelf would describe
+    them wrongly.
+  - **Filtering.** Every kit material is nearest magnification with mipmaps -- the art review's #281
+    note: without mipmaps the 64-texel-per-metre atlas shimmers beyond about 7 m at 720p. The ART
+    lane now requires that filter and still refuses a linear one.
+  - **The gate.** `npm run godot:check:fp_geometry` gains a KIT lane and prints `FP_GEOMETRY_OK`.
+    With the GLBs on disk: every wall tile of the fixture carries one module instance; an all-wall
+    fixture leaves the band mesh empty; every drawn AABB is the wall band's 0..2550 height, one tile
+    along the run and the module's own 0.12 m thickness, inside the tile and flush to an edge. True
+    negative: a half-width module placed through the same function is refused. Without the GLBs the
+    lane prints `FP_GEOMETRY_SKIP` and the band boxes are under test.
+  - **Measured.** Headed, 1280x720, 300 frames after 30 warmup at spawn on the shipped 256 district,
+    three runs a side: before median 1.597 ms (1.606, 1.597, 1.597; mean 1.600); after median
+    1.631 ms (1.723, 1.337, 1.631; mean 1.564). The difference is inside the run-to-run spread, and
+    both sit far under docs/22's 10 ms draw target.
+  - **Not in this piece.** Windows, doors and Low tiles keep their band boxes; a cupboard has no
+    model; the module is one mesh with the atlas's three plaster variants baked in, so per-instance
+    plaster choice is not possible. This lands after the art itself.
+  - **Record.** `docs/planning/first-person-kit-integration-report.md`.
 - **The first-person weapon kit: the socket contract and its first models, 2026-11-01.** Art
   piece 1 of the weapon plan, the piece that blocks the modular-firearm assembly code. The
   socket contract and its first models are built in Blender, reproducibly. The README beside

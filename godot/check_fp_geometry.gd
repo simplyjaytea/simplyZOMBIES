@@ -14,9 +14,15 @@ extends SceneTree
 #   BODIES    each body's built cylinder has the radius and height `SimSpace.body_of` gives, for a
 #             standing, crouched and crawling survivor and a whole and a crawling zombie, and follows a
 #             stance change between frames. A capsule is refused.
+#   KIT       with the kit GLBs on disk, a full-height wall tile is drawn by `wall_module.glb`: its
+#             drawn AABB is the wall band's 0..2550 height, one tile along the run and the module's own
+#             0.12 m thickness, inside the tile and flush to an edge. A wrong-size module planted
+#             through the same placement is refused. Without the GLBs the lane skips and the band
+#             boxes are under test.
 
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
+const Assets = preload("res://presentation/first_person/assets.gd")
 const SimSpace = preload("res://sim/space/space.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimBoot = preload("res://sim/boot.gd")
@@ -38,12 +44,13 @@ func _run() -> void:
 	ok = _bands(fixture) and ok
 	ok = _old_way(fixture) and ok
 	ok = _bodies() and ok
+	ok = _kit(fixture) and ok
 	_finish(ok)
 
 
 func _finish(ok: bool) -> void:
 	if ok:
-		print("FP_GEOMETRY_OK every tile's built mesh has exactly its profile bands and every body its cylinder; the old-way window and Low tile are refused")
+		print("FP_GEOMETRY_OK every tile's built mesh has exactly its profile bands and every body its cylinder, wall tiles are drawn by the kit module with the band's height inside their tile, and the old-way window, Low tile and a wrong-size module are refused")
 		quit(0)
 		return
 	for failure in _failures:
@@ -121,6 +128,7 @@ func _bands(map: Variant) -> bool:
 	var view: Node3D = DistrictView.new()
 	root.add_child(view)
 	view.call("build", map)
+	var walls_by_module: bool = not (view.get("wall_instances") as Array).is_empty()
 	var want_solid: Array = []
 	var want_fence: Array = []
 	for tx in int(map.w):
@@ -129,6 +137,10 @@ func _bands(map: Variant) -> bool:
 		if key == "fence":
 			want_fence.append_array(levels)
 		elif not levels.is_empty():
+			# A wall drawn by its kit module is measured by the KIT lane instead; the abstract band
+			# answer above and `tile_mesh` still include it.
+			if walls_by_module and key == "wall":
+				continue
 			want_solid.append_array(levels)
 	var solids: MeshInstance3D = view.get("solids") as MeshInstance3D
 	var fence: MeshInstance3D = view.get("fence") as MeshInstance3D
@@ -258,6 +270,100 @@ func _cylinder_matches(node: MeshInstance3D, height_m: float) -> bool:
 		return false
 	var radius_m: float = float(SimSpace.HIT_RADIUS_MM) / 1000.0
 	return absf(cylinder.height - height_m) <= EPSILON_M and absf(cylinder.top_radius - radius_m) <= EPSILON_M and absf(cylinder.bottom_radius - radius_m) <= EPSILON_M
+
+
+# --- KIT ------------------------------------------------------------------------------------
+
+# The kit's wall module is the wall's drawing. The sim's band is 0..2550 over the tile; the module is
+# 1.00 x 2.60 x 0.12 with its origin at the floor centre, so it is scaled to the band's top and its
+# 0.12 m depth is the drawn thickness. Every wall tile in the fixture must carry one instance, the
+# all-wall fixture must leave no band box behind, and each instance's AABB must be the band's height
+# and the tile's width. A wrong-size module placed through the same function is the true negative.
+func _kit(map: Variant) -> bool:
+	if not FileAccess.file_exists(Assets.WALL_MODULE):
+		print("FP_GEOMETRY_SKIP KIT: wall_module.glb is not on disk, so the band boxes are under test")
+		return true
+	var ok: bool = true
+	var mesh: Mesh = _kit_mesh(Assets.WALL_MODULE)
+	if mesh == null:
+		return _fail("KIT", "wall_module.glb is on disk but did not load")
+	var authored: Vector3 = mesh.get_aabb().size
+	if not _size_close(authored, Assets.WALL_MODULE_SIZE):
+		ok = _fail("KIT", "the wall module is authored %s, not the published %s" % [authored, Assets.WALL_MODULE_SIZE])
+	var wall_tiles: Array = []
+	for tx in int(map.w):
+		if SimSpace.profile_key(map, tx, 0) == "wall":
+			wall_tiles.append(Vector2i(tx, 0))
+	var view: Node3D = DistrictView.new()
+	root.add_child(view)
+	view.call("build", map, 0)
+	var instances: Array = view.get("wall_instances") as Array
+	if instances.size() != wall_tiles.size():
+		ok = _fail("KIT", "the view drew %d wall modules for %d wall tiles" % [instances.size(), wall_tiles.size()])
+	for info in instances:
+		var item: Dictionary = info as Dictionary
+		var tile: Vector2i = item["tile"] as Vector2i
+		var box: AABB = (item["transform"] as Transform3D) * mesh.get_aabb()
+		if not _wall_aabb_ok(box, tile):
+			ok = _fail("KIT", "wall tile %s draws %s, not the band at the module's thickness" % [tile, box])
+	# The module is what draws the wall: an all-wall fixture leaves the opaque band mesh empty and
+	# draws one instance per tile.
+	var walls_only: Variant = _walls_only_map(4)
+	var walls_view: Node3D = DistrictView.new()
+	root.add_child(walls_view)
+	walls_view.call("build", walls_only, 0)
+	var walls_solids: MeshInstance3D = walls_view.get("solids") as MeshInstance3D
+	if walls_solids != null and walls_solids.mesh != null:
+		ok = _fail("KIT", "wall tiles are still drawn as band boxes beside the modules")
+	var walls_instances: Array = walls_view.get("wall_instances") as Array
+	if walls_instances.size() != 4:
+		ok = _fail("KIT", "an all-wall fixture drew %d modules, not four" % walls_instances.size())
+	walls_view.queue_free()
+	# True negative: the same placement with a half-width module is refused by the same measurement.
+	var planted: BoxMesh = BoxMesh.new()
+	planted.size = Vector3(0.5, Assets.WALL_MODULE_SIZE.y, Assets.WALL_MODULE_SIZE.z)
+	var first: Vector2i = wall_tiles[0] as Vector2i
+	var planted_box: AABB = DistrictView.wall_placement(map, first.x, first.y, planted.get_aabb().size) * planted.get_aabb()
+	if _wall_aabb_ok(planted_box, first):
+		ok = _fail("KIT", "a planted half-width module was accepted as the wall band")
+	view.queue_free()
+	return ok
+
+
+# The drawn module is the wall band: 0..2550 high to within 1 cm, one tile (1.00 m) along the run and
+# the module's 0.12 m thickness across it, wholly inside the tile and flush to one of its edges.
+func _wall_aabb_ok(box: AABB, tile: Vector2i) -> bool:
+	var eps: float = 0.01
+	var top: float = float(int(SimSpace.bands("wall")[0][1])) / 1000.0
+	if absf(box.position.y) > eps or absf(box.end.y - top) > eps:
+		return false
+	var width: float = 1.0
+	var depth: float = Assets.WALL_MODULE_SIZE.z
+	var spans: bool = (absf(box.size.x - width) <= eps and absf(box.size.z - depth) <= eps) or (absf(box.size.z - width) <= eps and absf(box.size.x - depth) <= eps)
+	if not spans:
+		return false
+	if box.position.x < float(tile.x) - eps or box.end.x > float(tile.x) + 1.0 + eps:
+		return false
+	if box.position.z < float(tile.y) - eps or box.end.z > float(tile.y) + 1.0 + eps:
+		return false
+	return absf(box.position.x - float(tile.x)) <= eps or absf(box.end.x - float(tile.x) - 1.0) <= eps or absf(box.position.z - float(tile.y)) <= eps or absf(box.end.z - float(tile.y) - 1.0) <= eps
+
+
+func _walls_only_map(width: int) -> Variant:
+	var map: Variant = SimTileMap.blank_map(width, 1, SimTileMap.Tile.Wall)
+	return map
+
+
+func _kit_mesh(path: String) -> Mesh:
+	var node: Node = Assets.load_model(path)["node"] as Node
+	var mesh: Mesh = Assets.first_mesh(node)
+	if node != null:
+		node.free()
+	return mesh
+
+
+func _size_close(a: Vector3, b: Vector3) -> bool:
+	return absf(a.x - b.x) <= 0.01 and absf(a.y - b.y) <= 0.01 and absf(a.z - b.z) <= 0.01
 
 
 # --- helpers --------------------------------------------------------------------------------
