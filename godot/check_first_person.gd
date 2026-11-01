@@ -40,6 +40,8 @@ const WorkPanel = preload("res://ui/work_panel.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
+const SimStances = preload("res://sim/stances.gd")
+const SimSpace = preload("res://sim/space/space.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const FirstPerson = preload("res://presentation/first_person/first_person.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
@@ -87,6 +89,7 @@ func _run() -> void:
 		ok = _menu(scene) and ok
 		ok = _speech(scene) and ok
 		ok = _verbs(scene) and ok
+		ok = _stance(scene) and ok
 	scene.queue_free()
 	await process_frame
 	_finish(old_size, ok)
@@ -929,6 +932,138 @@ func _find_wall_site(map: Variant) -> Dictionary:
 
 func _open_floor(map: Variant, tx: int, ty: int) -> bool:
 	return SimTileMap.tile_at(map, tx, ty) == SimTileMap.Tile.Floor and not SimTileMap.is_solid(map, tx, ty) and SimTileMap.overlay_at(map, tx, ty) == null
+
+
+# --- STANCE ---------------------------------------------------------------------------------
+
+# The top-down stance keys (Ctrl+Z, Ctrl+C, Ctrl+S, Ctrl+V, and Shift for the sprint latch) push the sim's
+# stance command, and the camera's eye follows the posture the sim reports. Each case reads the sim and the
+# camera, not the key.
+func _stance(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var camera: Camera3D = scene.get("camera") as Camera3D
+	var player: int = int(world.player)
+	if bool(scene.get("menu_open")):
+		scene.call("close_ledger_menu")
+	var origin: Vector2 = _find_open_area(map, 2)
+	if origin == Vector2(-1.0, -1.0):
+		return _fail("STANCE", "the district has no open area to stand in")
+	_place_player(scene, origin)
+	scene.call("set_look", 0.0, 0.0)
+	_settle_eye(scene)
+	if SimStances.stance_of(world.components, player) != SimStances.Stance.Walk:
+		return _fail("STANCE", "the fixture did not start standing")
+	var eye_walk: float = _eye_of_m(world, player)
+	if absf(camera.position.y - eye_walk) > 0.01:
+		ok = _fail("STANCE", "the camera stands at %.3f m, not the sim's %.3f m" % [camera.position.y, eye_walk])
+
+	# True positive: Ctrl+C crouches; the eye eases there, and is not already there after one frame.
+	_key_ctrl(KEY_C, true)
+	_key_ctrl(KEY_C, false)
+	_step_ticks(scene, 10)
+	if SimStances.stance_of(world.components, player) != SimStances.Stance.Crouch:
+		return _fail("STANCE", "Ctrl+C did not make the body crouch")
+	var eye_crouch: float = _eye_of_m(world, player)
+	scene.call("_process", 1.0 / 60.0)
+	if absf(camera.position.y - eye_crouch) < 0.05:
+		ok = _fail("STANCE", "the eye jumped to the crouch in one frame, not an ease")
+	_settle_eye(scene)
+	if absf(camera.position.y - eye_crouch) > 0.01:
+		ok = _fail("STANCE", "the eye stands at %.3f m after the crouch, not the sim's %.3f m" % [camera.position.y, eye_crouch])
+	if absf(eye_crouch - 0.95) > 0.0001:
+		ok = _fail("STANCE", "the sim's crouched eye is %.3f m, not 0.950" % eye_crouch)
+
+	# True positive: Ctrl+S stands the body back up, and the eye comes back to standing height.
+	_key_ctrl(KEY_S, true)
+	_key_ctrl(KEY_S, false)
+	_step_ticks(scene, 10)
+	_settle_eye(scene)
+	if SimStances.stance_of(world.components, player) != SimStances.Stance.Walk:
+		ok = _fail("STANCE", "Ctrl+S did not stand the body back up")
+	if absf(camera.position.y - eye_walk) > 0.01:
+		ok = _fail("STANCE", "the eye stays at %.3f m after standing, not %.3f m" % [camera.position.y, eye_walk])
+
+	# True positive: Ctrl+Z goes prone, the crawl eye, and Ctrl+S brings it back.
+	_key_ctrl(KEY_Z, true)
+	_key_ctrl(KEY_Z, false)
+	_step_ticks(scene, 10)
+	_settle_eye(scene)
+	if SimStances.stance_of(world.components, player) != SimStances.Stance.Crawl:
+		ok = _fail("STANCE", "Ctrl+Z did not make the body prone")
+	elif absf(camera.position.y - _eye_of_m(world, player)) > 0.01:
+		ok = _fail("STANCE", "the eye is %.3f m prone, not the sim's crawl eye" % camera.position.y)
+	_key_ctrl(KEY_S, true)
+	_key_ctrl(KEY_S, false)
+	_step_ticks(scene, 10)
+	_settle_eye(scene)
+
+	# True negative: with the ledger open, Ctrl+C changes nothing.
+	scene.call("open_ledger_menu")
+	_key_ctrl(KEY_C, true)
+	_key_ctrl(KEY_C, false)
+	_step_ticks(scene, 10)
+	_settle_eye(scene)
+	if SimStances.stance_of(world.components, player) != SimStances.Stance.Walk:
+		ok = _fail("STANCE", "Ctrl+C with the ledger open changed the stance")
+	if absf(camera.position.y - eye_walk) > 0.01:
+		ok = _fail("STANCE", "Ctrl+C with the ledger open moved the eye")
+	scene.call("close_ledger_menu")
+
+	# True negative: a sprint the sim refuses on an empty tank leaves the body and the eye standing.
+	var stamina: Variant = world.components.get_component(player, "stamina")
+	if not (stamina is Dictionary):
+		_skips.append("STANCE: the player has no stamina component to empty")
+	else:
+		var saved: float = float((stamina as Dictionary)["current"])
+		(stamina as Dictionary)["current"] = 0.0
+		world.components.set_component(player, "stamina", stamina)
+		_key(KEY_SHIFT, true)
+		_step_ticks(scene, 10)
+		if SimStances.stance_of(world.components, player) == SimStances.Stance.Sprint:
+			ok = _fail("STANCE", "a sprint was granted on an empty tank")
+		_settle_eye(scene)
+		if absf(camera.position.y - eye_walk) > 0.01:
+			ok = _fail("STANCE", "a refused sprint moved the eye to %.3f m" % camera.position.y)
+		_key(KEY_SHIFT, false)
+		(stamina as Dictionary)["current"] = saved
+		world.components.set_component(player, "stamina", stamina)
+	# And with a full tank Shift does sprint, and releasing it returns to the walk.
+	_key(KEY_SHIFT, true)
+	_step_ticks(scene, 10)
+	if SimStances.stance_of(world.components, player) != SimStances.Stance.Sprint:
+		ok = _fail("STANCE", "Shift with a full tank did not sprint")
+	_key(KEY_SHIFT, false)
+	_step_ticks(scene, 10)
+	if SimStances.stance_of(world.components, player) != SimStances.Stance.Walk:
+		ok = _fail("STANCE", "releasing Shift did not return to the walk")
+	return ok
+
+
+func _eye_of_m(world: Variant, player: int) -> float:
+	return float(SimSpace.eye_of(world, player)) / 1000.0
+
+
+# Steps the sim by whole ticks, as the frame would, so a stance change lands.
+func _step_ticks(scene: Node, ticks: int) -> void:
+	for i in ticks:
+		scene.call("step_sim_once")
+
+
+# Lets the camera's eye ease to its target: 0.3 s of frames, several times the 0.15 s settle.
+func _settle_eye(scene: Node) -> void:
+	for i in 18:
+		scene.call("_process", 1.0 / 60.0)
+
+
+func _key_ctrl(code: Key, pressed: bool) -> void:
+	var ev: InputEventKey = InputEventKey.new()
+	ev.keycode = code
+	ev.physical_keycode = code
+	ev.ctrl_pressed = true
+	ev.pressed = pressed
+	root.push_input(ev)
 
 
 # --- fixtures -------------------------------------------------------------------------------

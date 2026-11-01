@@ -2413,6 +2413,28 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **First-person stance and gait, 2026-11-01.** Advances "First-person simulation and ledger
+  foundation": the scene's movement and camera now follow the body's posture.
+  - **The keys.** `first_person.gd` reads the stance rows of `input_map.gd`'s `BINDINGS`: Ctrl+Z
+    crawl, Ctrl+C crouch, Ctrl+S stand, Ctrl+V jog, and Shift held for the sprint latch, which
+    returns to the last Ctrl rung on release. Each pushes the sim's `stance` command (`_push_stance`,
+    `_stance_rung_of`). Ctrl+S is a stance and never a step back. The keys are refused under the
+    open ledger, and the sim's zero-stamina gate refuses a sprint on an empty tank.
+  - **The eye.** `_eye_target` reads `SimSpace.eye_of` in millimetres. `_ease_eye` eases `_eye_m`
+    toward it with a 35 ms time constant, so it is within 1 cm in about 0.15 s. The camera, the
+    ledger's aim and the door verb's eye tile all use `_eye_m`. `EYE_HEIGHT_M` is gone.
+  - **The HUD.** `hud.gd` adds `You are <posture>.`, with the word `SimStances.name_of` gives, the
+    same word the top-down paper doll prints. It has no digit.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, STANCE lane)
+    prints `FIRST_PERSON_OK`. True positive: Ctrl+C makes the sim's body crouch, and after the ease
+    the camera is within 1 cm of the crouched eye, 0.950 m. Ctrl+S stands it back up. True
+    negatives: Ctrl+C with the ledger open changes nothing, and a Shift sprint on an empty tank
+    leaves the body and the eye standing. Each mutation (keys ignored, no ease, no ease in time)
+    turns the lane red.
+  - **Not in this piece.** The first-person fire and swing path (the sim's `CAN_AIM` and
+    `CAN_SWING` rules are unchanged here, and no gate checks a shot from a crawl). Between-tick
+    eye interpolation. Naming the keys on the HUD. Slice 7 of docs/40.
+
 - **First-person world verbs: E on a door, 2026-11-01.** Advances "First-person people and
   settlement operation", its construction access, for doors and windows only.
   - **The verb.** `first_person.gd`: `eye_tile_hit` walks the look ray through the tile grid to the

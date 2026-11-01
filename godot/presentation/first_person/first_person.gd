@@ -16,6 +16,9 @@ extends Node3D
 const SimBoot = preload("res://sim/boot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimContext = preload("res://sim/context.gd")
+const SimStances = preload("res://sim/stances.gd")
+const SimSpace = preload("res://sim/space/space.gd")
+const InputMapRes = preload("res://presentation/input_map.gd")
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
 const PropView = preload("res://presentation/first_person/prop_view.gd")
@@ -30,7 +33,9 @@ const DISTRICT_TILES: int = SimTileMap.DISTRICT_TILES
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / float(TICK_HZ)
 
-const EYE_HEIGHT_M: float = 1.62
+# The camera's eye eases to the sim's eye height (`SimSpace.eye_of`) with this time constant, so a
+# crouch is not a teleport: within 1 cm of its target in about 0.15 s.
+const EYE_EASE_TAU_S: float = 0.035
 const LOOK_SENSITIVITY: float = 0.0024
 const PITCH_LIMIT: float = 1.30
 const LEDGER_REACH_M: float = 1.80
@@ -75,6 +80,10 @@ var _ledger_approach: Vector2 = Vector2.ZERO
 var _mouse_captured: bool = true
 var _alert: String = ""
 var _alert_until_ms: int = 0
+# The camera's eye height in metres, eased toward the sim's posture eye. Presentation only.
+var _eye_m: float = 1.62
+# The Ctrl-ladder rung last chosen; releasing Shift returns to it (as input_map.gd does).
+var _selected_stance: int = SimStances.Stance.Walk
 var _verb_key: Array = []
 var _verb_row: Dictionary = {}
 
@@ -116,6 +125,7 @@ func _boot() -> void:
 		_curr_player = Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
 	_prev_player = _curr_player
 	_choose_ledger_site()
+	_eye_m = _eye_target()
 	# Open on the desk rather than a random wall: the foundation's one interaction should be in
 	# front of the player on the first frame.
 	var to_ledger: Vector2 = _ledger_sim - _curr_player
@@ -168,7 +178,7 @@ func _build_rig() -> void:
 	add_child(_rig)
 	camera = Camera3D.new()
 	camera.name = "Eye"
-	camera.position = Vector3(0.0, EYE_HEIGHT_M, 0.0)
+	camera.position = Vector3(0.0, _eye_m, 0.0)
 	camera.fov = 75.0
 	camera.near = 0.05
 	camera.far = 240.0
@@ -293,6 +303,7 @@ func _process(delta: float) -> void:
 			if _work_panel.has_method("selected"):
 				who = int(_work_panel.call("selected"))
 			_work_panel.call("set_world", world, who)
+	_ease_eye(delta)
 	var alpha: float = clampf(_accumulator / TICK_SECONDS, 0.0, 1.0)
 	_update_render(alpha)
 	_update_hud()
@@ -322,6 +333,7 @@ func _update_render(alpha: float) -> void:
 		_rig.rotation = Vector3(0.0, yaw, 0.0)
 	if camera != null:
 		camera.rotation = Vector3(pitch, 0.0, 0.0)
+		camera.position = Vector3(0.0, _eye_m, 0.0)
 	if _bodies != null:
 		_bodies.call("apply", world, alpha)
 
@@ -377,6 +389,19 @@ func _input(event: InputEvent) -> void:
 		try_interact()
 		get_viewport().set_input_as_handled()
 		return
+	# The stance keys are the top-down game's, read from input_map.gd's BINDINGS. Shift is the sprint
+	# latch: press sprints, release returns to the last Ctrl rung. Ctrl+S is a stance, never a step back.
+	if code == KEY_SHIFT:
+		_push_stance(SimStances.Stance.Sprint if ke.pressed else _selected_stance)
+		get_viewport().set_input_as_handled()
+		return
+	var rung: int = _stance_rung_of(ke)
+	if rung >= 0:
+		if ke.pressed:
+			_selected_stance = rung
+			_push_stance(rung)
+		get_viewport().set_input_as_handled()
+		return
 	if code in MOVE_KEYS:
 		_held[code] = ke.pressed
 		_push_move_from_held()
@@ -426,7 +451,7 @@ func set_look(new_yaw: float, new_pitch: float) -> void:
 ## Points the eye at a Godot-space point. Used by the gate and by nothing else in the frame loop;
 ## it is the inverse of `look_direction` and the same arithmetic a mouse could only reach slowly.
 func look_toward(point: Vector3) -> void:
-	var eye: Vector3 = Vector3(_rendered_player().x, EYE_HEIGHT_M, _rendered_player().y)
+	var eye: Vector3 = Vector3(_rendered_player().x, _eye_m, _rendered_player().y)
 	var d: Vector3 = point - eye
 	if d.length_squared() <= 0.000001:
 		return
@@ -512,7 +537,7 @@ func interaction_verdict() -> String:
 	if _curr_player.distance_to(_ledger_sim) > LEDGER_REACH_M:
 		return "far"
 	var point: Vector3 = _props.call("ledger_world_point")
-	var eye: Vector3 = Vector3(_rendered_player().x, EYE_HEIGHT_M, _rendered_player().y)
+	var eye: Vector3 = Vector3(_rendered_player().x, _eye_m, _rendered_player().y)
 	var to: Vector3 = point - eye
 	if to.length_squared() <= 0.000001:
 		return "away"
@@ -803,3 +828,38 @@ func _verb_kind(t: Vector2i) -> String:
 	if tile == SimTileMap.Tile.Window or SimTileMap.is_solid(map, t.x, t.y):
 		return "ground"
 	return ""
+
+
+# --- stance and gait: the top-down keys, and an eye that follows the posture ------------------
+
+# The stance command the top-down game pushes (`input_map.gd`'s `_push_stance`): the sim decides.
+func _push_stance(target: int) -> void:
+	if world == null:
+		return
+	world.commands.push({"type": "stance", "stance": target})
+
+
+# The Ctrl-ladder rung a key event asks for, read from `input_map.gd`'s BINDINGS -- the table the top-down
+# game reads -- or -1 when no stance binding matches the event's keycode and Ctrl state.
+func _stance_rung_of(ke: InputEventKey) -> int:
+	for action in InputMapRes.BINDINGS.keys():
+		var row: Dictionary = InputMapRes.BINDINGS[action] as Dictionary
+		if not row.has("stance"):
+			continue
+		if bool(row["ctrl"]) != ke.ctrl_pressed:
+			continue
+		if (row["keys"] as Array).has(ke.keycode):
+			return int(row["stance"])
+	return -1
+
+
+# The eye height the sim's posture gives, in metres (`SimSpace.eye_of` is millimetres).
+func _eye_target() -> float:
+	if world == null:
+		return _eye_m
+	return float(SimSpace.eye_of(world, int(world.player))) / 1000.0
+
+
+# Moves the eye toward its posture target with an exponential ease, so a stance change is not a jump.
+func _ease_eye(delta: float) -> void:
+	_eye_m = lerpf(_eye_m, _eye_target(), 1.0 - exp(-delta / EYE_EASE_TAU_S))

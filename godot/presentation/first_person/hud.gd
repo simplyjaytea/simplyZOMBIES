@@ -12,6 +12,7 @@ extends Control
 const Chrome = preload("res://ui/chrome.gd")
 const SimCondition = preload("res://sim/condition.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
+const SimStances = preload("res://sim/stances.gd")
 
 const TITLE_SIZE: int = 25
 const BODY_SIZE: int = 25
@@ -57,6 +58,8 @@ func lines() -> Array[String]:
 	if world != null and player >= 0:
 		var needs: String = SimNeeds.hud_clause(world, player)
 		out.append(needs if needs != "" else "You feel steady.")
+		# The posture word the top-down paper doll shows under the figure (`SimStances.name_of`).
+		out.append("You are " + SimStances.name_of(SimStances.stance_of(world.components, player)) + ".")
 		var view: Dictionary = SimCondition.view(world, player)
 		var worst: int = int(view.get("worst", 0)) if not view.is_empty() else 0
 		if worst > 0 and worst < CONDITION_WORDS.size():
