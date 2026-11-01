@@ -15,6 +15,7 @@ extends Node3D
 
 const SimBoot = preload("res://sim/boot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimAim = preload("res://sim/aim.gd")
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
 const PropView = preload("res://presentation/first_person/prop_view.gd")
@@ -31,7 +32,8 @@ const TICK_SECONDS: float = 1.0 / float(TICK_HZ)
 
 const EYE_HEIGHT_M: float = 1.62
 const LOOK_SENSITIVITY: float = 0.0024
-const PITCH_LIMIT: float = 1.30
+# The sim's own limit on the aim's pitch, so the camera can never look where the sim cannot aim.
+const PITCH_LIMIT: float = SimAim.PITCH_LIMIT
 const LEDGER_REACH_M: float = 1.80
 # cos(30 degrees): the ledger must be inside a narrow cone in front of the eye, not merely near.
 const LEDGER_AIM_DOT: float = 0.866
@@ -64,6 +66,7 @@ var _held: Dictionary = {}
 var _last_dx: float = 0.0
 var _last_dy: float = 0.0
 var _last_aim: float = 1.0e9
+var _last_pitch: float = 0.0
 var _accumulator: float = 0.0
 var _prev_player: Vector2 = Vector2.ZERO
 var _curr_player: Vector2 = Vector2.ZERO
@@ -449,9 +452,15 @@ func _push_aim() -> void:
 	var radians: float = atan2(dir.z, dir.x)
 	if radians == 0.0:
 		radians = 0.0
-	if _last_aim > 1.0e8 or absf(angle_difference(radians, _last_aim)) > 0.0005:
+	# The camera's pitch rides on the aim (docs/40, slice 3): positive up, the same sign the sim
+	# keeps, already inside PITCH_LIMIT, and collapsed so a level look never sends a negative zero.
+	var tilt: float = pitch
+	if tilt == 0.0:
+		tilt = 0.0
+	if _last_aim > 1.0e8 or absf(angle_difference(radians, _last_aim)) > 0.0005 or absf(tilt - _last_pitch) > 0.0005:
 		_last_aim = radians
-		world.commands.push({"type": "aim", "radians": radians})
+		_last_pitch = tilt
+		world.commands.push({"type": "aim", "radians": radians, "pitch": tilt})
 
 
 func _push_move_from_held() -> void:

@@ -17,6 +17,9 @@ extends SceneTree
 #             releasing W stops the body dead. A frame without a key moves nothing.
 #   YAW       yaw zero walks toward -z and proposes the sim's north bearing; a quarter turn walks
 #             toward +x and proposes east. Both directions are asserted, so an axis swap is red.
+#   PITCH     looking up sends the camera's pitch on the `aim` command and the sim's aim holds it
+#             (`SimAim.pitch_of`); the mouse stops at the sim's own limit; looking level again
+#             sends level and the sim's aim keeps no pitch key (docs/40, slice 3).
 #   BLOCK     walking into a wall leaves the body in its tile; walking the other way crosses it.
 #             The collision is the sim's own `_integrate_movement`, because there is no other body.
 #   LEDGER    E far away is refused and says so; E within reach but looking away is refused and
@@ -40,6 +43,7 @@ const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const FirstPerson = preload("res://presentation/first_person/first_person.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
+const SimAim = preload("res://sim/aim.gd")
 
 # The district the gate boots. Small on purpose: every lane walks the sim, and the shipped 256 district
 # is for the player, not for a gate. DISTRICT proves this is really smaller than the shipped default.
@@ -78,6 +82,7 @@ func _run() -> void:
 		ok = _mapping(scene) and ok
 		ok = _movement(scene) and ok
 		ok = _yaw(scene) and ok
+		ok = _pitch(scene) and ok
 		ok = _blocked(scene) and ok
 		ok = _ledger(scene, spawn) and ok
 		ok = _priority(scene) and ok
@@ -93,7 +98,7 @@ func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)
-		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, refuses E out of reach, off the aim and through a wall, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, and draws a digit-free prose HUD")
+		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, sends the camera's pitch on the aim the sim holds, interpolates the camera, refuses E out of reach, off the aim and through a wall, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, and draws a digit-free prose HUD")
 		quit(0)
 		return
 	for failure in _failures:
@@ -453,6 +458,51 @@ func _yaw(scene: Node) -> bool:
 		ok = _fail("YAW", "a quarter turn sent no aim")
 	elif absf(angle_difference(float(aim.get("radians", 99.0)), 0.0)) > 0.02:
 		ok = _fail("YAW", "the aim did not follow the quarter turn (%.3f)" % float(aim.get("radians", 99.0)))
+	return ok
+
+
+# --- PITCH ----------------------------------------------------------------------------------
+
+func _pitch(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var area: Vector2 = _find_open_area(map, 2)
+	if area == Vector2(-1.0, -1.0):
+		return _fail("PITCH", "the district has no open area to look up in")
+	var player: int = int(world.player)
+	_place_player(scene, area)
+	scene.call("set_look", 0.0, 0.0)
+	scene.call("_process", TICK_SECONDS)
+
+	# Looking up sends the camera's pitch on the aim, and the sim holds it.
+	world.commands.recorded.clear()
+	var tick_before: int = int(world.tick)
+	scene.call("set_look", 0.0, 0.4)
+	scene.call("_process", TICK_SECONDS)
+	var up: Dictionary = _last_command(world, "aim", tick_before)
+	if up.is_empty() or absf(float(up.get("pitch", 99.0)) - 0.4) > 0.001:
+		ok = _fail("PITCH", "looking 0.4 up sent the aim %s" % str(up))
+	if absf(SimAim.pitch_of(world.components, player) - 0.4) > 0.001:
+		ok = _fail("PITCH", "looking 0.4 up left the sim's aim pitched %.3f" % SimAim.pitch_of(world.components, player))
+
+	# The mouse cannot look past the sim's limit, and the sim holds the limit it was sent.
+	scene.call("look_by", 0.0, -100000.0)
+	scene.call("_process", TICK_SECONDS)
+	if absf(SimAim.pitch_of(world.components, player) - SimAim.PITCH_LIMIT) > 0.001 or absf(float(scene.get("pitch")) - SimAim.PITCH_LIMIT) > 0.001:
+		ok = _fail("PITCH", "looking straight up pitched the camera %.3f and the sim %.3f; want both at the %.2f limit" % [float(scene.get("pitch")), SimAim.pitch_of(world.components, player), SimAim.PITCH_LIMIT])
+
+	# Level again: the command says level and the sim's aim keeps no pitch at all.
+	world.commands.recorded.clear()
+	tick_before = int(world.tick)
+	scene.call("set_look", 0.0, 0.0)
+	scene.call("_process", TICK_SECONDS)
+	var level: Dictionary = _last_command(world, "aim", tick_before)
+	var aim: Variant = world.components.get_component(player, "aim")
+	if level.is_empty() or float(level.get("pitch", 99.0)) != 0.0:
+		ok = _fail("PITCH", "looking level again sent the aim %s" % str(level))
+	if not (aim is Dictionary) or (aim as Dictionary).has("pitch") or SimAim.pitch_of(world.components, player) != 0.0:
+		ok = _fail("PITCH", "looking level again left the sim's aim %s" % str(aim))
 	return ok
 
 

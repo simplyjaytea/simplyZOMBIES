@@ -10,6 +10,7 @@ extends RefCounted
 #             and from nothing else, so what the screen draws is what the sim will trace.
 #   body_of / eye_of   the cylinder a body occupies and the eye height it looks from, read from the
 #             stance (survivors) or the zombie's state (zombies). Millimetres, as integers.
+#             `chest_of` is the point on that cylinder an NPC looks at when it turns to a body.
 #   segment_clear   whether a segment between two points passes every band that stops a purpose.
 #   reach_clear     the reach question in bodies: a blow from the attacker's shoulder to the target.
 #             `SimMelee._resolve_strike`, `SimShambler._clear_contact` and `SimNpcCombat.can_strike`
@@ -85,6 +86,10 @@ const CRAWLER_HEIGHT_MM: int = 450
 
 # A blow starts at the attacker's shoulder, this far below its eye (docs/40, "Melee reach").
 const SHOULDER_DROP_MM: int = 400
+# The chest, in thousandths of a cylinder's height: one of the two points a blow may arrive at
+# (below), and where an NPC looks when it turns to a body (`chest_of`, the aim's pitch in
+# `npc_combat._face_at`, docs/40 slice 3).
+const CHEST_PERMILLE: int = 750
 # Where on the target's axis a blow may arrive, in thousandths of its cylinder height: the
 # mid-height docs/40 names, and the chest. A reach clears if either point does. The second point is
 # what makes docs/40's own claim true: a standing survivor's shoulder (1220) to a zombie's
@@ -92,7 +97,7 @@ const SHOULDER_DROP_MM: int = 400
 # with mid-height alone no swing through a window could ever land. The chest (1237 on a zombie) is
 # level with the shoulder and passes the aperture; a crouched shoulder (550) still meets the sill.
 # docs/30, "The reach arrives at the chest as well as the middle".
-const REACH_TARGET_PERMILLE: Array[int] = [500, 750]
+const REACH_TARGET_PERMILLE: Array[int] = [500, CHEST_PERMILLE]
 
 
 ## The profile key of a tile: the overlay's key when it has one, otherwise the tile class's.
@@ -141,6 +146,14 @@ static func body_of(world: Variant, entity: int) -> Dictionary:
 ## The eye height of a body in millimetres, from its stance or its zombie state.
 static func eye_of(world: Variant, entity: int) -> int:
 	return int(_volume(world, entity)["eye"])
+
+
+## The chest height of a body in millimetres: CHEST_PERMILLE of its cylinder. An entity of -1 is a
+## place rather than a body, and reads as a standing survivor's chest.
+static func chest_of(world: Variant, entity: int) -> int:
+	var height: int = int(body_of(world, entity)["height"]) if entity >= 0 else int(SURVIVOR_HEIGHT_MM["walk"])
+	@warning_ignore("integer_division")
+	return height * CHEST_PERMILLE / 1000
 
 
 static func _volume(world: Variant, entity: int) -> Dictionary:

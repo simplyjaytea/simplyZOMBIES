@@ -7683,3 +7683,32 @@ calls. Each one is a reading docs/40 left open or a correction to it, not an own
   threat through `SimRanged.can_target`, so a wall already hides the threat, but a colonist crouched
   at a window can start a swing that `_resolve_strike` then refuses. That is a wasted swing, not a
   hit through the sill. It is named here, not changed, because it is outside this slice.
+
+## A pitch with no yaw, 2026-11-01
+
+Slice 3 of docs/40 ("Pitch on the aim") took these engineering calls. docs/40 fixes the unit
+(radians), the limit (±1.30), the optional key, `pitch_of` reading 0 when it is absent, and the
+NPC's chest. What follows is what it left open.
+
+- **An NPC carries a pitch-only aim.** docs/40 has `npc_combat._face` set the pitch, but an NPC
+  has no `aim` component: only the `aim` command writes one, and only the controlled body receives
+  that command. Giving a colonist a full aim (`radians` copied from its facing) would change how it
+  plays. At Walk an aim holds apart from the heading, so the colonist would keep looking, seeing and
+  shooting the way it last turned while it walked another way, and the cone would charge it a twist.
+  So the colonist's aim holds `pitch` and no `radians`. `SimAim.radians_of` reads the facing for an
+  aim without `radians`, `twist` is 0 for one, and `follow_facing` writes no yaw into one. The
+  colonist turns, walks, sees and shoots exactly as before. Only the `aim` command gives such an aim
+  a yaw. `godot:m2:aim` PITCH_READS holds all three.
+- **A level pitch is the absent key, not 0.** `SimAim._write_pitch` erases the key when the
+  pitch is level. Every aim the top-down game writes stays byte for byte what it was, and a
+  negative zero has nowhere to be stored. `SimAim.set_pitch` removes a pitch-only aim that goes
+  level, so a colonist that looks level carries what it carried before it ever turned.
+- **The sim clamps, and the camera reads the sim's limit.** `SimAim.clamp_pitch` clamps to
+  `SimAim.PITCH_LIMIT` and reads a non-finite pitch as level. The first-person scene's
+  `PITCH_LIMIT` is now `SimAim.PITCH_LIMIT`, so there is one number.
+- **Positive is up, and an NPC's pitch is the line from its own eye.** The NPC's pitch is
+  `atan2(rise, run)`. The rise is the target's chest (`SimSpace.chest_of`, 750 thousandths of
+  the cylinder) less the NPC's `SimSpace.eye_of`, in metres, and the run is the ground distance.
+  It is written on every turn `_face_at` makes, after `follow_facing`. When the colonist later
+  turns away by walking, the pitch it last set stays. Nothing reads pitch for a hit until slices 5
+  and 6, and those slices decide whether a walking turn levels it.

@@ -164,6 +164,11 @@ extends RefCounted
 # is restored (`world.gd`), so a save carrying a wall comes back with its tile solid and its
 # opacity as the kind says.
 # No version bump.
+# The aim's pitch (docs/40, slice 3) adds an optional `pitch` key to the `aim` component, radians
+# above level, and an NPC that turns to a body may carry an `aim` holding only that key (sim/aim.gd).
+# A level pitch is the absent key, so neither 0 nor -0.0 is ever stored. A v33 save has no `pitch`
+# and reads as a level aim, which is what every aim was before; no existing key changed meaning.
+# No version bump.
 const SAVE_VERSION: int = 33
 
 

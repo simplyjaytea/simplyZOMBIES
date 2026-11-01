@@ -139,7 +139,9 @@ world it did before. `SimAim.propose` writes yaw and pitch together or neither, 
 leaves no half-written pitch. `SimAim.follow_facing` leaves pitch alone; snapping yaw to the
 heading does not tilt the head. An NPC that faces a target (`npc_combat._face`) sets pitch toward
 the target's chest through `SimSpace`; one facing a remembered place (`_face_at`) aims at standing
-chest height. A zombie never carries an aim.
+chest height. A zombie never carries an aim. Slice 3 found that an NPC has no aim to carry a pitch
+on, so a colonist's aim holds a pitch and no yaw, and reads its facing for the yaw (docs/30, "A
+pitch with no yaw").
 
 The yaw rule is unchanged and it has a first-person consequence. At Jog, `SimAim.holds` is false
 and `_integrate_movement` snaps aim to the heading, so a player who strafes at a jog while looking
