@@ -104,9 +104,6 @@ Sleeping fast-forwards the night, and stops when a zombie comes close.
 
 ## First person (experimental)
 
-*This section describes the first-person pieces that land with the first-person integration PR;
-it is merged after that PR.*
-
 The title screen has a row, **first person (experimental)**, above quit. It opens the same district
 and colony in a first-person view. `Esc` frees the mouse, and a second `Esc` takes you back to the
 title. The top-down game is still the default: New run starts the top-down game, as before.
@@ -126,7 +123,7 @@ title. The top-down game is still the default: New run starts the top-down game,
 - **Night:** the sky follows the day, and a carried torch lights a cone in front of you.
 
 What is still placeholder: walls, desks and cupboards are plain boxes with labels, and bodies are
-capsules. There is no crosshair, by design. Combat is interim: you aim with the mouse, and the sim
+cylinders. There is no crosshair, by design. Combat is interim: you aim with the mouse, and the sim
 decides hits on the ground plane, so a shot does not yet travel the way you see it. Sound is minimal.
 
 ## Where it stands
