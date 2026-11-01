@@ -64,6 +64,10 @@ extends SceneTree
 #             camera and the tick go back to the saved values after the walk on. F9 with no save
 #             says so and changes nothing; F5 with the ledger open writes nothing. The lane swaps in
 #             its own slot key and deletes it afterwards, so no real save is touched.
+#   ART       the desk and ledger load from their GLBs with no import cache and are drawn at the
+#             published sizes on the floor and the desk top, with nearest-filtered materials; the
+#             prop preview stands every prop on its authored base. Missing art skips to the boxes,
+#             and a planted wrong-size GLB and a raised prop are refused by the same tests.
 
 const SCENE_PATH: String = "res://presentation/first_person/first_person.tscn"
 const WorkPanel = preload("res://ui/work_panel.gd")
@@ -150,6 +154,8 @@ func _run() -> void:
 		ok = _reports(scene) and ok
 		# Save before the lanes that kill the colony: the run-over lane leaves input swallowed.
 		ok = _save(scene) and ok
+		ok = _art(scene) and ok
+		ok = _preview() and ok
 		ok = _light(scene) and ok
 		ok = _succession(scene) and ok
 		ok = _run_over(scene) and ok
@@ -163,7 +169,7 @@ func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)
-		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, swings a bat into a shambler and fires a round through the top-down commands while the ledger refuses both, misses a body behind the look, and leaves a refused reload wordless, opens and shuts a door through the sim's own verb from the tile the eye is on while a door out of reach or looked away from sends nothing, takes the top-down stance keys and eases the eye to the sim's posture height while the ledger refuses the keys, reads the chronicle's own lines on the ledger's Reports page and moves the read mark, lights noon by the sim's clock and darkens midnight, turns a carried torch into the eye's spot at the sim's range and cone and out when it burns, and keeps a body behind a wall undrawn, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, saves and loads through the sim's own save in its own slot, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
+		print("FIRST_PERSON_OK the opt-in scene boots the shipped district size and seed by default and the real sim (the gate walks a smaller one), maps sim x/y to Godot x/z, walks only through sim commands and sim collision, interpolates the camera, draws the district's sim containers as labelled placeholders and opens one in reach through the top-down container.open command into the real grid inventory sheet, moves a real item into the player's inventory without duplication, holds the body still under the open sheet, refuses E out of reach, off the aim and through a wall for the ledger and for containers, swings a bat into a shambler and fires a round through the top-down commands while the ledger refuses both, misses a body behind the look, and leaves a refused reload wordless, opens and shuts a door through the sim's own verb from the tile the eye is on while a door out of reach or looked away from sends nothing, takes the top-down stance keys and eases the eye to the sim's posture height while the ledger refuses the keys, reads the chronicle's own lines on the ledger's Reports page and moves the read mark, lights noon by the sim's clock and darkens midnight, turns a carried torch into the eye's spot at the sim's range and cone and out when it burns, and keeps a body behind a wall undrawn, opens the real work panel and the read-only skill web in reach, releases and resumes the mouse on Escape and click, dispatches a priority that changes a colonist's row, closes cleanly, steps NPC jobs, saves and loads through the sim's own save in its own slot, loads the desk and ledger from their GLBs at the published sizes with nearest-filtered materials and stands every preview prop on its base, draws a digit-free prose HUD, and cuts the camera to an heir with the chronicle's succession words while drawing the dead body, then shows a digit-free end panel that ignores W when the last colony body dies")
 		quit(0)
 		return
 	for failure in _failures:
@@ -270,9 +276,9 @@ func _scene_shape(scene: Node) -> bool:
 	var props: Node = scene.get_node_or_null("SafeSpawnProps")
 	var desk_model: bool = bool(props.get("used_desk_model")) if props != null else false
 	var ledger_model: bool = bool(props.get("used_ledger_model")) if props != null else false
-	if desk_model != ResourceLoader.exists(Assets.DESK):
+	if desk_model != FileAccess.file_exists(Assets.DESK):
 		ok = _fail("SHAPE", "the desk model use does not match what is on disk")
-	if ledger_model != ResourceLoader.exists(Assets.LEDGER):
+	if ledger_model != FileAccess.file_exists(Assets.LEDGER):
 		ok = _fail("SHAPE", "the ledger model use does not match what is on disk")
 	return ok
 
@@ -2095,6 +2101,174 @@ func _run_over(scene: Node) -> bool:
 	if not camera.global_position.is_equal_approx(camera_before):
 		ok = _fail("RUN-OVER", "the camera moved on the end screen")
 	return ok
+# --- ART ------------------------------------------------------------------------------------
+
+# The desk and ledger art. When the GLBs are on disk the scene must draw them, not the boxes, at the
+# published sizes and on the floor and the desk top. When they are not (a clean checkout before the art
+# merges) the lane says so and the boxes are the ones under test. The planted wrong-size GLB is the
+# true negative: the same comparison must refuse it.
+func _art(scene: Node) -> bool:
+	var ok: bool = true
+	var desk_on_disk: bool = FileAccess.file_exists(Assets.DESK)
+	var ledger_on_disk: bool = FileAccess.file_exists(Assets.LEDGER)
+	if not desk_on_disk or not ledger_on_disk:
+		_skips.append("ART: desk.glb and ledger.glb are not on disk, so the placeholder boxes are under test (the art arrives with the first-person art PR)")
+		if not desk_on_disk and scene.get_node_or_null("SafeSpawnProps/DeskPlaceholder") == null:
+			ok = _fail("ART", "desk.glb is absent but the scene did not draw the desk box")
+		if not ledger_on_disk and scene.get_node_or_null("SafeSpawnProps/LedgerPlaceholder") == null:
+			ok = _fail("ART", "ledger.glb is absent but the scene did not draw the ledger box")
+		return ok
+	var props: Node3D = scene.get_node_or_null("SafeSpawnProps") as Node3D
+	var desk: Node3D = null
+	var ledger: Node3D = null
+	if props != null:
+		desk = props.get_node_or_null("DeskModel") as Node3D
+		ledger = props.get_node_or_null("LedgerModel") as Node3D
+	if desk == null:
+		return _fail("ART", "desk.glb is on disk but the scene drew the placeholder box")
+	if ledger == null:
+		return _fail("ART", "ledger.glb is on disk but the scene drew the placeholder box")
+	var desk_box: AABB = _world_aabb(desk)
+	if not _fits(desk_box, Vector3(Assets.DESK_WIDTH_M, Assets.DESK_HEIGHT_M, Assets.DESK_DEPTH_M), 0.0):
+		ok = _fail("ART", "the desk model is %s, not the published %.2f x %.2f x %.2f m on the floor" % [desk_box, Assets.DESK_WIDTH_M, Assets.DESK_HEIGHT_M, Assets.DESK_DEPTH_M])
+	var ledger_box: AABB = _world_aabb(ledger)
+	var ledger_size: Vector3 = Vector3(Assets.LEDGER_WIDTH_M, Assets.LEDGER_THICKNESS_M, Assets.LEDGER_DEPTH_M)
+	if not _fits(ledger_box, ledger_size, Assets.DESK_HEIGHT_M):
+		ok = _fail("ART", "the ledger model is %s, not the published %s on the desk top" % [ledger_box, ledger_size])
+	if not _nearest_everywhere(desk) or not _nearest_everywhere(ledger):
+		ok = _fail("ART", "the loaded desk or ledger has a material that is not nearest-filtered")
+	var sim: Vector2 = scene.call("ledger_sim_position")
+	if absf(ledger_box.get_center().x - sim.x) > 0.01 or absf(ledger_box.get_center().z - sim.y) > 0.01:
+		ok = _fail("ART", "the ledger model is not centred on the desk")
+
+	# True negative: a material that is linear-filtered is refused by the same filter test.
+	var soft: MeshInstance3D = MeshInstance3D.new()
+	soft.mesh = BoxMesh.new()
+	soft.material_override = StandardMaterial3D.new()
+	scene.add_child(soft)
+	if _nearest_everywhere(soft):
+		ok = _fail("ART", "a linear-filtered material passed the nearest-filter test")
+	soft.free()
+
+	# True negative: a planted GLB of the wrong size, written and read through the same loader, is refused.
+	var planted: String = _write_wrong_glb()
+	if planted == "":
+		return _fail("ART", "could not write the planted wrong-size GLB")
+	var wrong: Node3D = Assets.load_model(planted)["node"] as Node3D
+	if wrong == null:
+		ok = _fail("ART", "the planted GLB did not load, so the refusal proves nothing")
+	else:
+		scene.add_child(wrong)
+		if _fits(_world_aabb(wrong), Vector3(Assets.DESK_WIDTH_M, Assets.DESK_HEIGHT_M, Assets.DESK_DEPTH_M), 0.0):
+			ok = _fail("ART", "a planted GLB half the published desk size was accepted")
+		wrong.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(planted))
+	return ok
+
+
+# A prop preview whose every prop stands on its authored base: the floor for the desk, the shelf, the
+# barricade and the wall, the desk top for the ledger. A loaded model is checked as it was authored, and a
+# placeholder box is checked as the preview places it. The planted lift is the M4 fault (a model raised by
+# half its height), and it must be refused.
+func _preview() -> bool:
+	var ok: bool = true
+	var packed: PackedScene = load("res://presentation/first_person/prop_preview.tscn") as PackedScene
+	if packed == null:
+		return _fail("PREVIEW", "could not load the prop preview scene")
+	var preview: Node = packed.instantiate()
+	root.add_child(preview)
+	var bases: Dictionary = {
+		"desk": 0.0,
+		"ledger": Assets.DESK_HEIGHT_M,
+		"shelf": 0.0,
+		"barricade": 0.0,
+		"wall_module": 0.0,
+	}
+	for prop in bases.keys():
+		var node: Node3D = preview.get_node_or_null(String(prop)) as Node3D
+		if node == null:
+			ok = _fail("PREVIEW", "the preview has no %s" % prop)
+			continue
+		var box: AABB = _world_aabb(node)
+		if absf(box.position.y - float(bases[prop])) > 0.01:
+			ok = _fail("PREVIEW", "the preview's %s floats: its base is at %.3f m, not %.3f m" % [prop, box.position.y, float(bases[prop])])
+	# True negative: a model lifted by half its height (the fault) fails the same test.
+	var lifted: MeshInstance3D = MeshInstance3D.new()
+	var block: BoxMesh = BoxMesh.new()
+	block.size = Vector3(Assets.DESK_WIDTH_M, Assets.DESK_HEIGHT_M, Assets.DESK_DEPTH_M)
+	lifted.mesh = block
+	lifted.position = Vector3(0.0, Assets.DESK_HEIGHT_M, 0.0)
+	preview.add_child(lifted)
+	if absf(_world_aabb(lifted).position.y) <= 0.01:
+		ok = _fail("PREVIEW", "a box lifted by half its height passed as standing on the floor")
+	lifted.free()
+	preview.queue_free()
+	return ok
+
+
+# The world-space box of a node and everything under it, from each mesh's own bounds.
+func _world_aabb(node: Node3D) -> AABB:
+	var out: AABB = AABB()
+	var found: bool = false
+	var meshes: Array[MeshInstance3D] = []
+	_collect_meshes(node, meshes)
+	for mesh in meshes:
+		var box: AABB = mesh.global_transform * mesh.get_aabb()
+		out = box if not found else out.merge(box)
+		found = true
+	return out
+
+
+func _collect_meshes(node: Node, out: Array[MeshInstance3D]) -> void:
+	if node is MeshInstance3D:
+		out.append(node as MeshInstance3D)
+	for child in node.get_children():
+		_collect_meshes(child, out)
+
+
+# Every material under the node is nearest-filtered, and there is at least one to judge.
+func _nearest_everywhere(node: Node3D) -> bool:
+	var meshes: Array[MeshInstance3D] = []
+	_collect_meshes(node, meshes)
+	var judged: int = 0
+	for m in meshes:
+		if m.mesh == null:
+			continue
+		var surfaces: int = m.mesh.get_surface_count()
+		for i in surfaces:
+			var material: Material = m.mesh.surface_get_material(i)
+			if m.material_override is BaseMaterial3D:
+				material = m.material_override
+			if material is BaseMaterial3D:
+				judged += 1
+				if (material as BaseMaterial3D).texture_filter != BaseMaterial3D.TEXTURE_FILTER_NEAREST:
+					return false
+	return judged > 0
+
+
+# Size within a centimetre per axis, and the base within a centimetre of `base_y`.
+func _fits(box: AABB, size: Vector3, base_y: float) -> bool:
+	return absf(box.size.x - size.x) <= 0.01 and absf(box.size.y - size.y) <= 0.01 and absf(box.size.z - size.z) <= 0.01 and absf(box.position.y - base_y) <= 0.01
+
+
+# Writes a half-size desk as a GLB through the engine's own exporter, so the loader reads a real file.
+func _write_wrong_glb() -> String:
+	var root: Node3D = Node3D.new()
+	var mesh: MeshInstance3D = MeshInstance3D.new()
+	var block: BoxMesh = BoxMesh.new()
+	block.size = Vector3(Assets.DESK_WIDTH_M * 0.5, Assets.DESK_HEIGHT_M * 0.5, Assets.DESK_DEPTH_M * 0.5)
+	mesh.mesh = block
+	mesh.position = Vector3(0.0, block.size.y * 0.5, 0.0)
+	root.add_child(mesh)
+	var document: GLTFDocument = GLTFDocument.new()
+	var state: GLTFState = GLTFState.new()
+	if document.append_from_scene(root, state) != OK:
+		root.free()
+		return ""
+	var path: String = "user://fp_art_gate_wrong_desk.glb"
+	var err: Error = document.write_to_filesystem(state, ProjectSettings.globalize_path(path))
+	root.free()
+	return path if err == OK else ""
 
 
 # --- fixtures -------------------------------------------------------------------------------
