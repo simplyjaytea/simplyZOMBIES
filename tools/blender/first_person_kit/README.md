@@ -156,10 +156,14 @@ The box survivor's checks assumed rigid weights, box end caps and a 1500-triangl
 were revised in the open, for the survivor only; the shambler keeps every original check.
 
 - **Triangle budget:** 1000-8000 (the owner's budget for the organic body), was 200-1500.
+- **Height:** the 1.75 m contract is the survivor's skull crown (the head with its hair mass),
+  checked within 2 cm in the build (`[height]`); the bun and loose locks may rise up to 9 cm
+  above it, so the exported total height is allowed 1.73-1.84 m. The eye stays at about 1.62 m
+  (the walk's eye check, 1.58-1.62 m, is unchanged), and nothing is rescaled.
 - **Texel density:** the per-triangle 64 px/m +/-25% rule cannot hold on a smooth body painted
   on cylindrical islands: the islands pinch at their poles (the crown under the hair, boot
   soles, finger ends). The rule is now area-weighted against each island's own authored density
-  (above), so a global drop is still refused: drawn at 0.35x, the survivor has 14% of its
+  (above), so a global drop is still refused: drawn at 0.35x, the survivor has 17% of its
   surface at density and is refused. (In the `cap-density` plant run, the shambler's atlas
   check, which runs earlier in the same build, refuses first.)
 - **Weights:** rigid one-bone weights are replaced by blended weights across every joint, and
@@ -174,7 +178,7 @@ were revised in the open, for the survivor only; the shambler keeps every origin
 ## Proportions and conventions
 
 - glTF 2.0 binary, metres, +Y up, facing Godot -Z, origin between the soles.
-- Survivor: 1.75 m crown (the bun's top), approximately 1.61 m eye height, an adult woman about
+- Survivor: 1.75 m skull crown with the bun rising to about 1.83 m, approximately 1.62 m eye height, an adult woman about
   7.5 heads tall in a fitted base layer (long-sleeve top, work trousers, boots) close to the body
   so clothing can sit over it later. The face, freckles and scar are painted, not modelled.
 - Shambler: the same base proportions with a hunched spine, asymmetric shoulders, torn work
@@ -183,7 +187,7 @@ were revised in the open, for the survivor only; the shambler keeps every origin
 - Both idle meshes stay inside the 0.30 m body-cylinder radius. The measured maxima are about
   0.297 m for the survivor and 0.298 m for the shambler. Animation poses may leave that idle
   cylinder, as a lunge or fall naturally does.
-- The survivor has about 7,600 triangles and one single-sided `SurvivorAtlas` material; the
+- The survivor has about 7,500 triangles and one single-sided `SurvivorAtlas` material; the
   shambler has 424 and one `CharacterAtlas` material, with tapered head/torso, shaped hair,
   collar, a simple nose/brow, and exactly two geometric eyes.
 - The trouser legs run down over the boot tops, so the rigid shin never stands proud of the boot
@@ -199,9 +203,10 @@ budget. The neckline, jaw, waist hem, seat line, cuffs and boot tops are then cu
 so a painted material border is a straight line. Each face is assigned to the primitive it came
 from, which keeps hands, hips and arms apart where they nearly touch. Smooth normals throughout.
 
-Hair is flat, tapered locks laid on the head surface (bangs, face-framing locks past the
-cheekbones, the crown swept back, two loose crown pieces, the sides gathered up, nape flyaways)
-and a messy bun of a core, four loops and two escaping strands, all weighted to the head.
+Hair is broad, chunky clumps laid on the head surface with volume off the scalp (bangs swept
+across the forehead from a part on her left, face-framing clumps past the cheekbones, the crown
+swept back, the back gathered up from the nape, a few thin flyaways) and a big messy bun high on
+the crown-back (a core, five loops and two escaping strands), all weighted to the head.
 
 `survivor_atlas.png` is 512 x 512: head and neck at 256 px/m, body at 128 px/m, hair locks at
 their own tapered density. The island rectangles are frozen from UV layout v2

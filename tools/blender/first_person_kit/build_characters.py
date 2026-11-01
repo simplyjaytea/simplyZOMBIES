@@ -807,12 +807,12 @@ def skeleton(hunched):
             "chest": ((0, 0, 1.22), (0, 0, 1.43), "spine"),
             "neck": ((0, 0, 1.43), (0, 0, 1.51), "chest"),
             "head": ((0, 0, 1.51), (0, 0, 1.70), "neck"),
-            "upper_arm.L": ((-0.172, -0.008, 1.40), (-0.222, -0.008, 1.125), "chest"),
-            "forearm.L": ((-0.222, -0.008, 1.125), (-0.240, 0.018, 0.868), "upper_arm.L"),
-            "hand.L": ((-0.240, 0.018, 0.868), (-0.240, 0.040, 0.70), "forearm.L"),
-            "upper_arm.R": ((0.172, -0.008, 1.40), (0.222, -0.008, 1.125), "chest"),
-            "forearm.R": ((0.222, -0.008, 1.125), (0.240, 0.018, 0.868), "upper_arm.R"),
-            "hand.R": ((0.240, 0.018, 0.868), (0.240, 0.040, 0.70), "forearm.R"),
+            "upper_arm.L": ((-0.178, -0.010, 1.40), (-0.220, -0.012, 1.125), "chest"),
+            "forearm.L": ((-0.220, -0.012, 1.125), (-0.238, 0.038, 0.868), "upper_arm.L"),
+            "hand.L": ((-0.238, 0.038, 0.868), (-0.238, 0.064, 0.70), "forearm.L"),
+            "upper_arm.R": ((0.178, -0.010, 1.40), (0.220, -0.012, 1.125), "chest"),
+            "forearm.R": ((0.220, -0.012, 1.125), (0.238, 0.038, 0.868), "upper_arm.R"),
+            "hand.R": ((0.238, 0.038, 0.868), (0.238, 0.064, 0.70), "forearm.R"),
             "thigh.L": ((-0.105, 0, 0.90), (-0.105, 0, 0.51), "pelvis"),
             "shin.L": ((-0.105, 0, 0.51), (-0.105, 0, 0.12), "thigh.L"),
             "foot.L": ((-0.105, 0, 0.12), (-0.105, 0.16, 0.08), "shin.L"),
@@ -1768,7 +1768,9 @@ def validate_export(path, character):
     minima = [min(point[i] for point in positions) for i in range(3)]
     maxima = [max(point[i] for point in positions) for i in range(3)]
     height = maxima[1] - minima[1]
-    if abs(height - HEIGHTS[character]) > TOLERANCE_M or abs(minima[1]) > 0.0001:
+    # The survivor's 1.75 m is its skull crown, checked in the build; its bun may rise above it.
+    allowed = (HEIGHTS[character] - TOLERANCE_M, HEIGHTS[character] + 0.09) if character == "survivor" else (HEIGHTS[character] - TOLERANCE_M, HEIGHTS[character] + TOLERANCE_M)
+    if not allowed[0] <= height <= allowed[1] or abs(minima[1]) > 0.0001:
         raise ValueError(f"{path.name}: height/origin {height}/{minima[1]} is invalid")
     largest_radius = max(math.hypot(point[0], point[2]) for point in positions)
     if largest_radius > RADIUS_M + 0.0001:

@@ -27,8 +27,10 @@ HAIR_DENSITY = 192
 HAIR_DENSITY_CAP = 420
 PAD = 2
 VOXEL = 0.0045
-BODY_TRIANGLES = 5150
+BODY_TRIANGLES = 5350
 CROWN = 1.75
+# How far the bun and loose hair may rise above the skull crown.
+HAIR_RISE = 0.09
 # Material borders, cut as edge loops: the cuff, the waist hem, the trouser seat line, the boot top,
 # the jaw line, and the crew neckline (lower at the front than the back).
 WRIST_Z = 0.868
@@ -43,7 +45,7 @@ NECKLINE_X = 0.110
 
 
 def neckline_z(y):
-    return 1.443 - 0.20 * y
+    return 1.452 - 0.20 * y
 
 
 # Island rectangles and chart origins frozen from UV layout v2 (kimi/uv_layout.json): x, y (bottom
@@ -187,24 +189,24 @@ def ring_faces(rows, segments):
 
 
 # The arm's rest axis, shoulder to fingertips, shared by the mesh, the rig and the arm UV islands.
-ARM_AXIS = [(0.172, -0.008, 1.400), (0.200, -0.010, 1.300), (0.212, -0.012, 1.200), (0.222, -0.008, 1.125), (0.230, 0.002, 1.040), (0.236, 0.012, 0.950), (0.240, 0.018, 0.868)]
-HAND_X = 0.242
+ARM_AXIS = [(0.178, -0.010, 1.400), (0.200, -0.012, 1.300), (0.212, -0.014, 1.200), (0.220, -0.012, 1.125), (0.228, 0.004, 1.040), (0.234, 0.024, 0.950), (0.238, 0.038, 0.868)]
+HAND_X = 0.241
 # The head from chin to crown, hair volume included above the ears: (z, cx, cy, half width, front
 # depth, back depth). The face is a little flatter in front than an ellipse (HEAD_POWER).
 HEAD_RINGS = [
-    (1.500, 0, 0.036, 0.024, 0.034, 0.030),
-    (1.516, 0, 0.022, 0.048, 0.054, 0.052),
-    (1.540, 0, 0.012, 0.061, 0.069, 0.068),
-    (1.565, 0, 0.006, 0.066, 0.078, 0.082),
-    (1.595, 0, 0.000, 0.068, 0.083, 0.095),
-    (1.625, 0, -0.004, 0.070, 0.088, 0.104),
-    (1.655, 0, -0.008, 0.077, 0.092, 0.110),
-    (1.685, 0, -0.012, 0.081, 0.091, 0.110),
-    (1.711, 0, -0.016, 0.076, 0.085, 0.100),
-    (1.730, 0, -0.020, 0.058, 0.064, 0.076),
-    (1.741, 0, -0.022, 0.028, 0.030, 0.036),
+    (1.510, 0, 0.036, 0.026, 0.032, 0.030),
+    (1.524, 0, 0.024, 0.050, 0.052, 0.052),
+    (1.545, 0, 0.014, 0.063, 0.068, 0.070),
+    (1.570, 0, 0.006, 0.069, 0.078, 0.084),
+    (1.598, 0, 0.000, 0.072, 0.084, 0.096),
+    (1.625, 0, -0.004, 0.072, 0.088, 0.104),
+    (1.655, 0, -0.008, 0.077, 0.091, 0.110),
+    (1.685, 0, -0.012, 0.081, 0.090, 0.110),
+    (1.712, 0, -0.016, 0.077, 0.085, 0.102),
+    (1.735, 0, -0.020, 0.060, 0.066, 0.080),
+    (1.752, 0, -0.022, 0.030, 0.032, 0.038),
 ]
-HEAD_POWER = 2.3
+HEAD_POWER = 2.1
 HEAD_CENTRE = Vector((0.0, -0.010, 1.630))
 
 
@@ -221,51 +223,58 @@ def arm_axis(z):
 
 def body_source():
     source = Source()
-    # Torso: hips wider than the waist, a ribcage under a modest bust, shoulders that slope.
+    # Torso: chest forward, a real waist with the lower back in, hips and seat out, and a shoulder
+    # girdle that carries the shoulder's round so the arm grows out of it.
     source.loft("torso", [
-        (0.850, 0, -0.004, 0.090, 0.060, 0.070),
-        (0.880, 0, -0.006, 0.166, 0.078, 0.094),
-        (0.920, 0, -0.006, 0.170, 0.084, 0.100),
-        (0.970, 0, -0.004, 0.161, 0.085, 0.094),
-        (1.020, 0, -0.002, 0.150, 0.084, 0.084),
-        (1.075, 0, 0.000, 0.128, 0.080, 0.076),
-        (1.125, 0, 0.000, 0.132, 0.082, 0.078),
-        (1.185, 0, 0.000, 0.142, 0.094, 0.088),
-        (1.250, 0, 0.000, 0.148, 0.100, 0.094),
-        (1.315, 0, -0.004, 0.150, 0.096, 0.096),
-        (1.370, 0, -0.008, 0.152, 0.078, 0.086),
-        (1.405, 0, -0.012, 0.148, 0.066, 0.078),
-        (1.437, 0, -0.014, 0.112, 0.056, 0.068),
-        (1.462, 0, -0.014, 0.066, 0.050, 0.058),
+        (0.850, 0, -0.008, 0.090, 0.060, 0.072),
+        (0.880, 0, -0.010, 0.170, 0.076, 0.100),
+        (0.920, 0, -0.010, 0.176, 0.080, 0.106),
+        (0.970, 0, -0.006, 0.164, 0.082, 0.096),
+        (1.020, 0, 0.000, 0.146, 0.082, 0.080),
+        (1.075, 0, 0.006, 0.122, 0.078, 0.068),
+        (1.125, 0, 0.006, 0.126, 0.082, 0.072),
+        (1.185, 0, 0.004, 0.140, 0.094, 0.084),
+        (1.250, 0, 0.002, 0.150, 0.102, 0.094),
+        (1.315, 0, -0.004, 0.154, 0.098, 0.098),
+        (1.370, 0, -0.010, 0.152, 0.082, 0.090),
+        (1.408, 0, -0.014, 0.138, 0.068, 0.080),
+        (1.440, 0, -0.016, 0.122, 0.058, 0.070),
+        (1.468, 0, -0.018, 0.076, 0.054, 0.062),
+        (1.488, 0, -0.020, 0.058, 0.050, 0.056),
     ], 28)
     for sign in (-1, 1):
-        source.ellipsoid("torso", (sign * 0.064, 0.064, 1.252), (0.068, 0.032, 0.062), 16, 10)
-        source.ellipsoid("torso", (sign * 0.064, -0.058, 0.900), (0.080, 0.040, 0.075), 16, 10)
-    source.tube("neck", [(0, -0.026, 1.400), (0, -0.026, 1.470), (0, -0.022, 1.535)], [(0.054, 0.057), (0.051, 0.054), (0.050, 0.053)], 20)
-    # Head: one loft from chin to crown, then the features.
+        source.ellipsoid("torso", (sign * 0.064, 0.066, 1.250), (0.066, 0.032, 0.060), 16, 10)
+        source.ellipsoid("torso", (sign * 0.064, -0.062, 0.905), (0.080, 0.044, 0.075), 16, 10)
+    source.tube("neck", [(0, -0.028, 1.420), (0, -0.026, 1.480), (0, -0.022, 1.540)], [(0.058, 0.060), (0.055, 0.058), (0.053, 0.056)], 20)
+    # Head: one loft from chin to crown, then the features: a nose with a bridge, a brow that casts
+    # shape over the eyes, full lips, a rounded chin, soft cheekbones and ears.
     source.loft("head", HEAD_RINGS, 32, HEAD_POWER)
-    source.ellipsoid("head", (0, 0.084, 1.596), (0.009, 0.013, 0.025), 12, 10, Matrix.Rotation(0.32, 3, "X"))
-    source.ellipsoid("head", (0, 0.095, 1.579), (0.010, 0.009, 0.009), 12, 8)
-    source.ellipsoid("head", (0, 0.078, 1.646), (0.052, 0.010, 0.010), 16, 8)
-    source.ellipsoid("head", (0, 0.078, 1.553), (0.018, 0.008, 0.008), 14, 8)
-    source.ellipsoid("head", (0, 0.064, 1.523), (0.020, 0.014, 0.014), 12, 8)
+    source.ellipsoid("head", (0, 0.083, 1.604), (0.009, 0.012, 0.032), 12, 10, Matrix.Rotation(0.28, 3, "X"))
+    source.ellipsoid("head", (0, 0.094, 1.580), (0.011, 0.010, 0.010), 12, 8)
+    source.ellipsoid("head", (0, 0.080, 1.556), (0.019, 0.009, 0.006), 14, 8)
+    source.ellipsoid("head", (0, 0.078, 1.546), (0.016, 0.009, 0.006), 14, 8)
+    source.ellipsoid("head", (0, 0.066, 1.527), (0.020, 0.014, 0.014), 12, 8)
+    source.ellipsoid("head", (0, 0.084, 1.640), (0.012, 0.008, 0.009), 10, 6)
     for sign in (-1, 1):
-        source.ellipsoid("head", (sign * 0.010, 0.088, 1.576), (0.007, 0.007, 0.007), 10, 6)
-        source.ellipsoid("head", (sign * 0.067, -0.008, 1.598), (0.012, 0.016, 0.026), 12, 8)
+        source.ellipsoid("head", (sign * 0.011, 0.087, 1.577), (0.008, 0.008, 0.007), 10, 6)
+        source.ellipsoid("head", (sign * 0.033, 0.081, 1.643), (0.026, 0.010, 0.009), 12, 6)
+        source.ellipsoid("head", (sign * 0.050, 0.060, 1.600), (0.020, 0.016, 0.014), 12, 8)
+        source.ellipsoid("head", (sign * 0.070, -0.008, 1.598), (0.012, 0.016, 0.026), 12, 8)
     for side, sign in (("L", -1), ("R", 1)):
         arm = "arm." + side
         hand = "hand." + side
         axis = [(sign * x, y, z) for x, y, z in ARM_AXIS]
-        source.ellipsoid(arm, (sign * 0.158, -0.008, 1.355), (0.056, 0.058, 0.060), 16, 10)
-        source.tube(arm, [(sign * 0.176, -0.008, 1.370)] + axis[1:4], [(0.046, 0.050), (0.044, 0.047), (0.040, 0.042), (0.036, 0.038)], 16)
-        source.tube(arm, axis[3:] + [(sign * 0.241, 0.020, 0.845)], [(0.037, 0.038), (0.037, 0.040), (0.030, 0.033), (0.025, 0.029), (0.022, 0.027)], 16)
-        # Palm facing the thigh, grouped fingers curling slightly forward, a thumb in front.
-        source.ellipsoid(hand, (sign * HAND_X, 0.024, 0.818), (0.018, 0.040, 0.056), 14, 10)
-        source.tube(hand, [(sign * HAND_X, 0.030, 0.790), (sign * 0.240, 0.040, 0.725), (sign * 0.236, 0.047, 0.698)], [(0.015, 0.036), (0.013, 0.031), (0.009, 0.020)], 12)
-        source.tube(hand, [(sign * 0.232, 0.056, 0.850), (sign * 0.226, 0.070, 0.812), (sign * 0.224, 0.073, 0.788)], [0.012, 0.010, 0.007], 10)
+        source.ellipsoid(arm, (sign * 0.152, -0.010, 1.356), (0.054, 0.056, 0.062), 16, 10)
+        source.tube(arm, [(sign * 0.158, -0.010, 1.405)] + axis[1:4], [(0.030, 0.032), (0.045, 0.048), (0.041, 0.043), (0.037, 0.039)], 16)
+        source.tube(arm, axis[3:] + [(sign * 0.239, 0.042, 0.845)], [(0.038, 0.040), (0.040, 0.043), (0.033, 0.036), (0.026, 0.030), (0.024, 0.028)], 16)
+        # A real hand: palm facing the thigh, a knuckle line, grouped fingers curling forward, a thumb.
+        source.ellipsoid(hand, (sign * HAND_X, 0.044, 0.812), (0.020, 0.046, 0.060), 14, 10)
+        source.ellipsoid(hand, (sign * 0.243, 0.050, 0.764), (0.019, 0.044, 0.011), 12, 6)
+        source.tube(hand, [(sign * HAND_X, 0.050, 0.772), (sign * 0.239, 0.060, 0.722), (sign * 0.235, 0.068, 0.690)], [(0.016, 0.042), (0.014, 0.036), (0.010, 0.024)], 12)
+        source.tube(hand, [(sign * 0.230, 0.078, 0.850), (sign * 0.224, 0.094, 0.808), (sign * 0.222, 0.096, 0.784)], [0.013, 0.011, 0.008], 10)
         leg = "leg." + side
-        source.tube(leg, [(sign * 0.084, 0.000, 0.915), (sign * 0.095, 0.004, 0.850), (sign * 0.100, 0.008, 0.720), (sign * 0.103, 0.012, 0.560), (sign * 0.104, 0.014, 0.500)], [(0.066, 0.068), (0.090, 0.094), (0.078, 0.082), (0.063, 0.067), (0.058, 0.062)], 18)
-        source.tube(leg, [(sign * 0.104, 0.014, 0.530), (sign * 0.104, 0.004, 0.450), (sign * 0.104, -0.008, 0.360), (sign * 0.105, -0.002, 0.260), (sign * 0.105, 0.002, 0.170)], [(0.056, 0.060), (0.055, 0.059), (0.057, 0.062), (0.052, 0.055), (0.050, 0.052)], 18)
+        source.tube(leg, [(sign * 0.084, 0.000, 0.915), (sign * 0.095, 0.004, 0.850), (sign * 0.100, 0.008, 0.720), (sign * 0.103, 0.012, 0.580), (sign * 0.104, 0.014, 0.505)], [(0.066, 0.068), (0.090, 0.094), (0.076, 0.080), (0.060, 0.064), (0.054, 0.058)], 18)
+        source.tube(leg, [(sign * 0.104, 0.014, 0.530), (sign * 0.104, 0.000, 0.440), (sign * 0.104, -0.010, 0.370), (sign * 0.105, -0.002, 0.270), (sign * 0.105, 0.002, 0.185)], [(0.053, 0.057), (0.055, 0.062), (0.058, 0.066), (0.048, 0.052), (0.044, 0.046)], 18)
         source.loft("boot." + side, [
             (0.000, sign * 0.105, 0.045, 0.062, 0.119, 0.119),
             (0.012, sign * 0.105, 0.045, 0.068, 0.124, 0.124),
@@ -328,14 +337,14 @@ def unified_body(source):
     apply_modifier(obj, remesh)
     smoothing = obj.modifiers.new("Relax surface", "SMOOTH")
     smoothing.factor = 0.65
-    smoothing.iterations = 4
+    smoothing.iterations = 5
     apply_modifier(obj, smoothing)
     for vertex in obj.data.vertices:
         x, y, z = vertex.co
         if y > 0.03 and 1.50 < z < 1.68:
             front = smooth((y - 0.03) / 0.035)
-            sockets = sum(math.exp(-((x - eye_x) / 0.019) ** 2 - ((z - 1.623) / 0.011) ** 2) for eye_x in (-0.034, 0.034))
-            vertex.co.y -= front * 0.0045 * sockets
+            sockets = sum(math.exp(-((x - eye_x) / 0.018) ** 2 - ((z - 1.622) / 0.011) ** 2) for eye_x in (-0.033, 0.033))
+            vertex.co.y -= front * 0.0065 * sockets
     decimate = obj.modifiers.new("Triangle budget", "DECIMATE")
     decimate.ratio = min(1.0, BODY_TRIANGLES / max(1, 2 * len(obj.data.polygons)))
     decimate.use_collapse_triangulate = True
@@ -424,70 +433,62 @@ def lerp_list(values, count):
 def head_locks():
     locks = []
 
-    def lock(points, widths, offsets, flat=0.45):
+    def lock(points, widths, offsets, flat=0.52):
         placed = [on_head(point, offset) for point, offset in zip(points, offsets)]
         locks.append((placed, widths, flat, 1, HEAD_CENTRE))
 
-    # Bangs falling across the forehead from the crown, heavier and longer toward her right.
-    lock([(-0.010, 0.030, 1.745), (-0.020, 0.080, 1.708), (-0.030, 0.094, 1.674), (-0.038, 0.092, 1.648)], [0.032, 0.038, 0.030, 0.006], [0.006, 0.010, 0.012, 0.011])
-    lock([(0.008, 0.030, 1.746), (0.014, 0.084, 1.706), (0.024, 0.096, 1.668), (0.036, 0.094, 1.640)], [0.034, 0.040, 0.032, 0.006], [0.007, 0.011, 0.013, 0.012])
-    lock([(0.026, 0.028, 1.744), (0.042, 0.078, 1.704), (0.054, 0.086, 1.664), (0.062, 0.082, 1.622)], [0.032, 0.036, 0.028, 0.005], [0.006, 0.011, 0.013, 0.012])
-    lock([(-0.034, 0.025, 1.742), (-0.050, 0.072, 1.704), (-0.060, 0.080, 1.666), (-0.066, 0.074, 1.636)], [0.030, 0.034, 0.026, 0.005], [0.006, 0.010, 0.012, 0.011])
-    lock([(0.016, 0.050, 1.735), (0.028, 0.090, 1.690), (0.040, 0.098, 1.640), (0.046, 0.096, 1.606)], [0.020, 0.024, 0.018, 0.004], [0.010, 0.014, 0.015, 0.014])
-    # Face-framing locks: a long one in front of each ear down to the jaw, a short one at the temple.
-    for sign, low in ((-1, 1.548), (1, 1.532)):
-        lock([(sign * 0.030, 0.020, 1.745), (sign * 0.062, 0.050, 1.705), (sign * 0.074, 0.050, 1.660), (sign * 0.078, 0.045, 1.610), (sign * 0.074, 0.050, 1.570), (sign * 0.068, 0.056, low)],
-             [0.034, 0.042, 0.040, 0.032, 0.022, 0.006], [0.008, 0.013, 0.015, 0.015, 0.016, 0.018])
-        lock([(sign * 0.050, 0.010, 1.735), (sign * 0.074, 0.030, 1.690), (sign * 0.080, 0.028, 1.640), (sign * 0.080, 0.032, 1.600)],
-             [0.030, 0.034, 0.024, 0.005], [0.006, 0.010, 0.011, 0.010])
-    # The crown, swept back from the hairline into the bun, a little lifted in the middle.
-    for x0, lift in ((-0.054, 0.013), (-0.018, 0.016), (0.018, 0.015), (0.054, 0.012)):
-        lock([(x0, 0.072, 1.692), (x0 * 0.95, 0.035, 1.738), (x0 * 0.75, -0.020, 1.752), (x0 * 0.45, -0.068, 1.742), (x0 * 0.2, -0.100, 1.730)],
-             [0.032, 0.048, 0.050, 0.042, 0.018], [0.005, lift, lift, 0.010, 0.006], 0.42)
-    # Two loose pieces lifting off the crown, so the top is not a smooth cap.
-    for sign in (-1, 1):
-        lock([(sign * 0.030, 0.010, 1.748), (sign * 0.060, -0.010, 1.742), (sign * 0.084, -0.020, 1.712), (sign * 0.094, -0.010, 1.680)],
-             [0.026, 0.030, 0.022, 0.005], [0.010, 0.016, 0.020, 0.024], 0.45)
-    # Sides and back gathered up from the nape into the bun, tight to the skull.
-    for degrees in (-128, 180, 128):
-        angle = math.radians(degrees)
-
-        def around(z, scale=1.0):
-            return (math.sin(angle) * 0.08 * scale, -0.012 + math.cos(angle) * 0.10 * scale, z)
-
-        lock([around(1.565), around(1.625), around(1.685, 0.9), (math.sin(angle) * 0.020, -0.098, 1.714)],
-             [0.016, 0.054, 0.048, 0.020], [0.002, 0.005, 0.006, 0.004], 0.30)
-    # Flyaways at the nape.
-    for x, length in ((-0.036, 0.05), (0.010, 0.065), (0.046, 0.045)):
-        lock([(x, -0.100, 1.625), (x * 1.1, -0.106, 1.590), (x * 1.2, -0.100, 1.585 - length)], [0.016, 0.014, 0.004], [0.004, 0.008, 0.013], 0.40)
+    bun = BUN_CENTRE
+    # Bangs: broad clumps from a part on her left, swept across the forehead to her right, and
+    # one falling past her left eye.
+    lock([(-0.030, 0.020, 1.752), (-0.010, 0.070, 1.722), (0.020, 0.094, 1.684), (0.052, 0.090, 1.650), (0.070, 0.070, 1.625)],
+         [0.050, 0.070, 0.072, 0.060, 0.030], [0.014, 0.018, 0.016, 0.013, 0.012])
+    lock([(-0.040, 0.010, 1.750), (-0.030, 0.072, 1.718), (-0.012, 0.096, 1.680), (0.008, 0.096, 1.660), (0.020, 0.094, 1.650)],
+         [0.045, 0.062, 0.058, 0.042, 0.020], [0.014, 0.018, 0.018, 0.016, 0.016])
+    lock([(-0.048, 0.030, 1.745), (-0.062, 0.072, 1.700), (-0.070, 0.076, 1.650), (-0.074, 0.066, 1.600), (-0.074, 0.060, 1.572)],
+         [0.042, 0.050, 0.042, 0.030, 0.014], [0.012, 0.016, 0.016, 0.016, 0.016])
+    # Face-framing clumps past the cheekbones.
+    for sign, low in ((1, 1.540), (-1, 1.556)):
+        lock([(sign * 0.050, 0.030, 1.745), (sign * 0.072, 0.056, 1.700), (sign * 0.080, 0.052, 1.640), (sign * 0.080, 0.048, 1.585), (sign * 0.074, 0.054, low)],
+             [0.045, 0.058, 0.054, 0.042, 0.022], [0.012, 0.016, 0.018, 0.018, 0.020])
+    # Volume over the crown, swept back up into the bun.
+    for x0, wide in ((-0.056, 0.092), (0.0, 0.080), (0.056, 0.092)):
+        lock([(x0, 0.070, 1.700), (x0, 0.030, 1.752), (x0 * 0.8, -0.030, 1.762), (x0 * 0.5, -0.068, 1.752), (x0 * 0.2, bun.y + 0.02, bun.z - 0.025)],
+             [0.060, wide, wide, 0.070, 0.040], [0.010, 0.022, 0.024, 0.018, 0.010], 0.46)
+    # The back gathered from the nape and drawn up into the bun.
+    for x in (-0.035, 0.035):
+        lock([(x * 1.4, -0.105, 1.570), (x * 1.3, -0.118, 1.630), (x, -0.112, 1.690), (x * 0.4, bun.y + 0.005, bun.z - 0.040)],
+             [0.040, 0.085, 0.080, 0.045], [0.004, 0.010, 0.012, 0.008], 0.44)
+    # A few thin flyaways: two at the nape, one at the left temple.
+    for x, length in ((-0.030, 0.055), (0.030, 0.045)):
+        lock([(x, -0.104, 1.615), (x * 1.2, -0.110, 1.585), (x * 1.4, -0.102, 1.580 - length)], [0.016, 0.013, 0.004], [0.006, 0.010, 0.014], 0.40)
+    lock([(-0.066, 0.040, 1.700), (-0.082, 0.050, 1.640), (-0.086, 0.040, 1.585)], [0.014, 0.012, 0.004], [0.018, 0.022, 0.024], 0.40)
     return locks
 
 
-BUN_CENTRE = Vector((0.004, -0.108, 1.719))
+BUN_CENTRE = Vector((0.004, -0.072, 1.782))
 
 
 def bun_locks():
+    # A big, loose bun high on the crown-back: a core, five fat loops and two escaping strands.
     locks = []
     centre = BUN_CENTRE
-    core = [centre + Vector((0, 0, -0.028 + 0.056 * index / 6)) for index in range(7)]
-    widths = [0.008 + 0.068 * math.sin(math.pi * index / 6) ** 0.7 for index in range(7)]
+    core = [centre + Vector((0, 0, -0.038 + 0.072 * index / 6)) for index in range(7)]
+    widths = [0.012 + 0.078 * math.sin(math.pi * index / 6) ** 0.7 for index in range(7)]
     locks.append((core, widths, 0.95, 1, centre))
-    # Four fat loops wound loosely around the core in tilted planes.
-    for index in range(4):
-        yaw = index * math.pi / 2 + 0.5
-        tilt = 0.6 + 0.3 * (index % 2)
+    for index in range(5):
+        yaw = index * 2 * math.pi / 5 + 0.5
+        tilt = 0.55 + 0.30 * (index % 2)
         normal = Vector((math.cos(yaw) * math.sin(tilt), math.sin(yaw) * math.sin(tilt), math.cos(tilt)))
         u = normal.cross(Vector((0, 0, 1))).normalized()
         v = normal.cross(u).normalized()
-        radius = 0.031 + 0.003 * (index % 3)
-        start = index * 1.4
-        points = [centre + normal * 0.006 + (u * math.cos(start + 4.2 * step / 6) + v * math.sin(start + 4.2 * step / 6)) * radius for step in range(7)]
-        locks.append((points, [0.012, 0.028, 0.032, 0.032, 0.028, 0.020, 0.005], 0.60, 1, centre))
-    # Two strands escaping the bun and falling behind.
+        radius = 0.038 + 0.004 * (index % 3)
+        start = index * 1.3
+        points = [centre + normal * 0.008 + (u * math.cos(start + 4.2 * step / 6) + v * math.sin(start + 4.2 * step / 6)) * radius for step in range(7)]
+        locks.append((points, [0.020, 0.040, 0.046, 0.046, 0.040, 0.030, 0.012], 0.55, 1, centre))
     for side in (-1, 1):
-        start = centre + Vector((side * 0.024, -0.012, -0.012))
-        points = [start, start + Vector((side * 0.010, -0.012, -0.020)), start + Vector((side * 0.014, -0.014, -0.045)), start + Vector((side * 0.012, -0.010, -0.062))]
-        locks.append((points, [0.014, 0.012, 0.008, 0.003], 0.45, 1, centre))
+        start = centre + Vector((side * 0.034, -0.016, -0.018))
+        points = [start, start + Vector((side * 0.012, -0.014, -0.022)), start + Vector((side * 0.016, -0.016, -0.050)), start + Vector((side * 0.014, -0.012, -0.070))]
+        locks.append((points, [0.022, 0.018, 0.012, 0.004], 0.45, 1, centre))
     return locks
 
 
@@ -843,15 +844,21 @@ def join_character(body, hair, material):
     hair.data.materials.append(material)
     hair_group = hair.vertex_groups.new(name="head")
     hair_group.add(list(range(len(hair.data.vertices))), 1.0, "REPLACE")
+    # The 1.75 m contract is the skull crown (the head with its hair mass); the bun and loose
+    # locks may rise above it. The soles stand on the origin; nothing is rescaled.
+    lowest = min(vertex.co.z for vertex in body.data.vertices)
+    crown = max(vertex.co.z for vertex in body.data.vertices) - lowest
+    if abs(crown - CROWN) > 0.02:
+        raise ValueError(f"[height] survivor: skull crown {crown:.3f} m is not within 2 cm of {CROWN} m")
     activate(body)
     hair.select_set(True)
     bpy.ops.object.join()
-    lowest = min(vertex.co.z for vertex in body.data.vertices)
-    highest = max(vertex.co.z for vertex in body.data.vertices)
-    scale = CROWN / (highest - lowest)
-    print(f"SURVIVOR_SCALE sole {lowest:.4f} crown {highest:.4f} scale {scale:.4f}")
     for vertex in body.data.vertices:
-        vertex.co.z = (vertex.co.z - lowest) * scale
+        vertex.co.z -= lowest
+    top = max(vertex.co.z for vertex in body.data.vertices)
+    print(f"SURVIVOR_HEIGHT skull crown {crown:.4f} m, hair top {top:.4f} m")
+    if top > CROWN + HAIR_RISE:
+        raise ValueError(f"[height] survivor: hair rises to {top:.3f} m, more than {HAIR_RISE} m above the crown")
     for polygon in body.data.polygons:
         polygon.use_smooth = True
     return body
@@ -970,14 +977,15 @@ def write_layout(charts, directory):
         "seams": "head_front/head_back split at the ears; torso and legs split at side seams; arms, neck and boots have one rear-inner cylindrical seam; each hair clump has its own rear seam.",
         "mirroring": "Left/right arms and legs are separate islands with the same local angular convention, not mirrored UVs. hand.L is reflected to match hand.R.",
         "landmarks": {
-            "eye.L": face_pixel(-0.034, 0.080, 1.623),
-            "eye.R": face_pixel(0.034, 0.080, 1.623),
-            "brow.L": face_pixel(-0.034, 0.078, 1.641),
-            "brow.R": face_pixel(0.034, 0.078, 1.641),
-            "nose_tip": face_pixel(0, 0.105, 1.579),
-            "mouth": face_pixel(0, 0.087, 1.550),
-            "ear.L": face_pixel(-0.081, 0, 1.600),
-            "ear.R": face_pixel(0.081, 0, 1.600),
+            "eye.L": face_pixel(-0.033, 0.080, 1.622),
+            "eye.R": face_pixel(0.033, 0.080, 1.622),
+            "brow.L": face_pixel(-0.033, 0.084, 1.643),
+            "brow.R": face_pixel(0.033, 0.084, 1.643),
+            "nose_tip": face_pixel(0, 0.104, 1.580),
+            "mouth": face_pixel(0, 0.089, 1.551),
+            "chin": face_pixel(0, 0.075, 1.515),
+            "ear.L": face_pixel(-0.082, -0.008, 1.598),
+            "ear.R": face_pixel(0.082, -0.008, 1.598),
         },
         "islands": records,
     }
@@ -1095,6 +1103,46 @@ def composite_concept(render_dir, prefix):
     bpy.data.images.remove(output)
 
 
+def composite_scale(render_dir):
+    # The concept's front and back figures beside the model's front and back at the same scale:
+    # clay and textured, whichever have been rendered into the folder.
+    concept_path = Path("C:/Users/jtf/orca/sz-shared/concept/survivor_concept_2026-11-01.png")
+    names = [f"{prefix}scale_{side}.png" for prefix in ("clay_", "") for side in ("front", "back")]
+    paths = [render_dir / name for name in names if (render_dir / name).is_file()]
+    if not concept_path.is_file() or not paths:
+        return
+    width, height = 400 + 300 * len(paths), 660
+    pixels = array("f", [0.0]) * (width * height * 4)
+    concept = bpy.data.images.load(str(concept_path), check_existing=False)
+    cw, ch = concept.size
+    source = array("f", [0.0]) * (cw * ch * 4)
+    concept.pixels.foreach_get(source)
+    for y in range(height):
+        sy = ch - 1 - (30 + (height - 1 - y))
+        for x in range(400):
+            start = (sy * cw + 440 + x) * 4
+            target = (y * width + x) * 4
+            pixels[target : target + 4] = source[start : start + 4]
+    bpy.data.images.remove(concept)
+    for column, path in enumerate(paths):
+        image = bpy.data.images.load(str(path), check_existing=False)
+        iw, ih = image.size
+        data = array("f", [0.0]) * (iw * ih * 4)
+        image.pixels.foreach_get(data)
+        for y in range(min(ih, height)):
+            for x in range(min(iw, 300)):
+                start = (y * iw + x) * 4
+                target = (y * width + 400 + column * 300 + x) * 4
+                pixels[target : target + 4] = data[start : start + 4]
+        bpy.data.images.remove(image)
+    output = bpy.data.images.new("scale_comparison", width=width, height=height, alpha=True)
+    output.pixels.foreach_set(pixels)
+    output.filepath_raw = str(render_dir / "scale_comparison.png")
+    output.file_format = "PNG"
+    output.save()
+    bpy.data.images.remove(output)
+
+
 def render_review(rig, mesh, actions, render_dir, clay=False):
     render_dir.mkdir(parents=True, exist_ok=True)
     prefix = "clay_" if clay else ""
@@ -1143,7 +1191,7 @@ def render_review(rig, mesh, actions, render_dir, clay=False):
     camera.data.type = "ORTHO"
     scene.render.resolution_x = 512
     scene.render.resolution_y = 640
-    camera.data.ortho_scale = 1.95
+    camera.data.ortho_scale = 2.05
     full_views = {
         "front_full": (0, 4, 0.2),
         "back_full": (0, -4, 0.2),
@@ -1151,12 +1199,20 @@ def render_review(rig, mesh, actions, render_dir, clay=False):
         "profile_full": (4, 0, 0.2),
     }
     for name, offset in full_views.items():
-        camera.location = Vector((0, 0, 0.90)) + Vector(offset)
-        point_camera(camera, (0, 0, 0.90))
+        camera.location = Vector((0, 0, 0.93)) + Vector(offset)
+        point_camera(camera, (0, 0, 0.93))
+        render_still(scene, render_dir / f"{prefix}{name}.png")
+    # Front and back at the concept sheet's figure scale (bun to sole over 620 px).
+    scene.render.resolution_x = 300
+    scene.render.resolution_y = 660
+    camera.data.ortho_scale = 660 / (620 / 1.83)
+    for name, offset in (("scale_front", (0, 4, 0)), ("scale_back", (0, -4, 0))):
+        camera.location = Vector((0, 0, 0.914)) + Vector(offset)
+        point_camera(camera, (0, 0, 0.914))
         render_still(scene, render_dir / f"{prefix}{name}.png")
     scene.render.resolution_x = 512
     scene.render.resolution_y = 512
-    camera.data.ortho_scale = 0.42
+    camera.data.ortho_scale = 0.48
     head_views = {
         "head_front": (0, 3, 0.05),
         "head_three_quarter": (2.1, 2.1, 0.1),
@@ -1164,7 +1220,7 @@ def render_review(rig, mesh, actions, render_dir, clay=False):
         "head_back": (0, -3, 0.05),
     }
     for name, offset in head_views.items():
-        target = Vector((0, 0, 1.62))
+        target = Vector((0, 0, 1.66))
         camera.location = target + Vector(offset)
         point_camera(camera, target)
         render_still(scene, render_dir / f"{prefix}{name}.png")
@@ -1179,3 +1235,4 @@ def render_review(rig, mesh, actions, render_dir, clay=False):
         point_camera(camera, (0, 0, 1.35 if distance < 1 else 1.1))
         render_still(scene, render_dir / f"{prefix}fp_{label}m.png")
     composite_concept(render_dir, prefix)
+    composite_scale(render_dir)
