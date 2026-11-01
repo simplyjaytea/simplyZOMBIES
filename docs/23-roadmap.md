@@ -177,6 +177,16 @@ conversion. The source baseline is archived on GitHub at
 - **First-person expedition and default switch.** Prepare, scavenge, encounter
   danger, return, treat, save/reload, die and succeed; measured performance,
   regression proof, campaign balance and human play before changing the default.
+- **Starter-kit polish (#275 round 2).** In `tools/blender/first_person_kit/build_kit.py`: plaster
+  cloud noise reads as camouflage blocks up close; oak grain steps every 8 texels, like brickwork;
+  paint chips follow atlas cells, not mesh edges; barricade planks float 6 mm off the brace; wall
+  end faces and a shelf-board sparkle.
+- **Zombie target by distance alone (#282 review).** `SimShambler._contact_target`
+  (`godot/sim/modules/shambler.gd`) takes the nearest survivor with no reach test, unlike the player's
+  nearest-reachable swing in `melee.gd`. A shared sim module; needs a READS lane in `godot:m2:space`.
+- **Colonist swings it cannot land (#282 record).** `npc_combat.gd` `_engage` and
+  `npc.instinct-defense` start a swing on distance alone, and `_resolve_strike` then refuses it at a
+  window. Ask `SimSpace.reach_clear` before starting, as `can_strike` does.
 
 ##### UI overhaul
 
