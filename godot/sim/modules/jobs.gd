@@ -2950,12 +2950,10 @@ static func _target_standing(world: Variant, target: int) -> bool:
 # Seen right now by the colonist or by the player, or remembered by the colonist within the fresh
 # window. The same test `SimOrders.accepts` makes when the order is given, held for as long as it runs.
 static func _target_fresh(world: Variant, ent: int, target: int) -> bool:
-	var there: Variant = world.components.get_component(target, "position")
-	if there is Dictionary and world.vision != null:
-		var x: float = float((there as Dictionary)["x"])
-		var y: float = float((there as Dictionary)["y"])
+	if world.vision != null:
+		# The body by its head and chest, as sightings ask it (docs/40, "Perception").
 		for observer in [ent, int(world.player)]:
-			if int(world.vision.detail(observer, x, y)) > 0:
+			if int(world.vision.detail_body(observer, target)) > 0:
 				return true
 	var row: Variant = SimSightings.recall(world, ent, target)
 	return row is Dictionary and int((row as Dictionary).get("age", 0)) <= SimSightings.FRESH_TICKS

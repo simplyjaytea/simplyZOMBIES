@@ -689,7 +689,9 @@ static func _seen_target(world: Variant, entity: int, survivors: Array, shambler
 		var dist: float = dx * dx + dy * dy
 		if dist > best_dist:
 			continue
-		if int(world.vision.call("detail", entity, float(s["x"]), float(s["y"]))) == 0:
+		# The body, not its spot: a crouched survivor behind a car is not seen by a standing zombie
+		# whose line to their head and chest meets the car (docs/40, "Perception").
+		if int(world.vision.call("detail", entity, float(s["x"]), float(s["y"]), -1, int(s["entity"]))) == 0:
 			continue
 		if dist < best_dist:
 			best = s["entity"]

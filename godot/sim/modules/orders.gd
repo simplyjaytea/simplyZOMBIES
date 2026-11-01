@@ -82,13 +82,11 @@ static func _attackable(world: Variant, ent: int, target: int) -> bool:
 
 
 static func _seen_by_either(world: Variant, ent: int, target: int) -> bool:
-	var there: Variant = world.components.get_component(target, "position")
-	if not (there is Dictionary) or world.vision == null:
+	if not world.components.has_component(target, "position") or world.vision == null:
 		return false
-	var x: float = float((there as Dictionary)["x"])
-	var y: float = float((there as Dictionary)["y"])
+	# The body by its head and chest, as sightings ask it (docs/40, "Perception").
 	for observer in [ent, int(world.player)]:
-		if int(world.vision.detail(observer, x, y)) > 0:
+		if int(world.vision.detail_body(observer, target)) > 0:
 			return true
 	return false
 

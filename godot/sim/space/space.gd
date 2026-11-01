@@ -12,6 +12,9 @@ extends RefCounted
 #             stance (survivors) or the zombie's state (zombies). Millimetres, as integers.
 #             `chest_of` is the point on that cylinder an NPC looks at when it turns to a body.
 #   segment_clear   whether a segment between two points passes every band that stops a purpose.
+#   sight_clear     the vertical half of sight: the same walk, counting only the partial-height tiles
+#             (SIGHT_PARTIAL) the standing 2D cast cannot judge. `SimVisibility.detail` and
+#             `detail_body` ask it (docs/40, "Perception").
 #   reach_clear     the reach question in bodies: a blow from the attacker's shoulder to the target.
 #             `SimMelee._resolve_strike`, `SimShambler._clear_contact` and `SimNpcCombat.can_strike`
 #             all ask it, so a survivor's swing, a zombie's claw and a colonist's walk to the fight
@@ -208,6 +211,76 @@ static func segment_clear(map: Variant, a: Dictionary, b: Dictionary, purpose: i
 	if purpose & (SIGHT | SHOT | REACH) == 0:
 		push_error("SimSpace.segment_clear: purpose %d is not SIGHT, SHOT or REACH" % purpose)
 		return false
+	return _walk(map, a, b, purpose, false)
+
+
+## The vertical half of sight (docs/40, "Perception"): whether the segment from `a` to `b` passes the
+## SIGHT bands of every partial-height tile it crosses -- Low, a window, a stage-3 board, an open
+## door's lintel (`SIGHT_PARTIAL`). A tile that stops sight over its whole height, or not at all, is
+## the 2D layer's to answer: the standing shadowcast already decided it, tile-centre to tile-centre,
+## and this walk does not decide it a second time by a different rule. So `sight_clear` is
+## `segment_clear(..., SIGHT)` with only the partial tiles counted, and it is the same integer walk:
+## a tile that is not partial is passed on one byte read, and an open street pays nothing else.
+## `SimVisibility.detail` and `detail_body` ask it after their tile, range, light and arc tests pass.
+static func sight_clear(map: Variant, a: Dictionary, b: Dictionary) -> bool:
+	# A world with no tile map (an R1 fixture) holds full-height walls and open floor, nothing partial.
+	if not map is SimTileMap:
+		return true
+	# The standing broadphase: a line that stays between SIGHT_OPEN_FROM_MM and SIGHT_OPEN_TO_MM over
+	# its whole length cannot strictly overlap any partial tile's sight band, wherever it runs, so it
+	# needs no walk. Every pair of standing bodies is such a line -- a survivor's eye at 1620 and
+	# chest at 1312, a zombie's at 1450 and 1237 -- so only a crouched or crawling eye or body walks.
+	var ha: int = int(a.get("h", 0))
+	var hb: int = int(b.get("h", 0))
+	if mini(ha, hb) >= SIGHT_OPEN_FROM_MM and maxi(ha, hb) <= SIGHT_OPEN_TO_MM:
+		return true
+	return _walk(map, a, b, SIGHT, true)
+
+
+## The profile keys whose SIGHT bands are partial: some band stops sight, and the bands do not stop it
+## over the whole height from the floor to the top of a wall. `sight_partial` derives the same set from
+## PROFILE, and `check_m2_sight.gd` HEIGHT holds the two equal, so a row added to the table cannot be
+## missed here.
+const SIGHT_PARTIAL: Dictionary = {"window": true, "low": true, "door.open": true, "board:3": true}
+## The tile classes whose own key (no overlay) is in SIGHT_PARTIAL, indexed by `SimTileMap.Tile`:
+## Window, Low and Door (a Door tile with no overlay is an open doorway). An overlay outranks it.
+const SIGHT_PARTIAL_CLASS: Array[bool] = [false, false, true, false, true, false, true, false]
+## The height of a wall, the top of every full-height band in PROFILE.
+const FULL_MM: int = 2550
+## The open corridor through every partial tile at once: no SIGHT band of a SIGHT_PARTIAL key reaches
+## above 1100 from below (Low and a stage-3 board top out there, a sill at 1000), and none starts below
+## 2100 from above (a window's lintel; a door's at 2200). `sight_clear`'s broadphase; HEIGHT holds it
+## to PROFILE band by band.
+const SIGHT_OPEN_FROM_MM: int = 1100
+const SIGHT_OPEN_TO_MM: int = 2100
+
+
+## Whether a profile key's SIGHT bands are partial, derived from PROFILE: a SIGHT band exists, and the
+## SIGHT bands do not cover the whole of 0..FULL_MM.
+static func sight_partial(key: String) -> bool:
+	var covered: int = 0
+	var any: bool = false
+	for band in bands(key):
+		var bnd: Array = band as Array
+		if int(bnd[2]) & SIGHT == 0:
+			continue
+		any = true
+		if int(bnd[0]) <= 0 and int(bnd[1]) >= FULL_MM:
+			covered = FULL_MM
+	return any and covered < FULL_MM
+
+
+## The two points a body is seen at, in millimetres: its eye (the head) and its chest. A body is seen
+## if either clears (docs/40). The head point is the eye, so the head test is symmetric: A sees B's
+## head exactly when B sees A's (docs/30, "A body is seen at its eye and its chest").
+static func sight_points(world: Variant, entity: int) -> Array[int]:
+	var volume: Dictionary = _volume(world, entity)
+	var height: int = int(volume["height"])
+	@warning_ignore("integer_division")
+	return [int(volume["eye"]), height * CHEST_PERMILLE / 1000]
+
+
+static func _walk(map: Variant, a: Dictionary, b: Dictionary, purpose: int, partial_only: bool) -> bool:
 	var p: Array[int] = _mm_point(a)
 	var q: Array[int] = _mm_point(b)
 	if _after(p, q):
@@ -240,6 +313,20 @@ static func segment_clear(map: Variant, a: Dictionary, b: Dictionary, purpose: i
 		num_y = ay - ty * TILE_MM
 	var in_n: int = 0
 	var in_d: int = 1
+	# `sight_clear`'s walk reads the class byte of each tile it enters straight off the map's arrays,
+	# and builds a key and asks the bands only where the tile is partial: an open street is a byte read
+	# a tile, with no call (`_sight_partial_at` is the same answer, for the corner tiles below).
+	var mw: int = 0
+	var mh: int = 0
+	var tiles: PackedByteArray = PackedByteArray()
+	var overlays: Dictionary = {}
+	if partial_only:
+		mw = int(map.w)
+		mh = int(map.h)
+		tiles = map.tiles
+		if map.overlays is Dictionary:
+			overlays = map.overlays
+	var has_overlays: bool = not overlays.is_empty()
 	# An exact integer walk visits at most one tile per edge crossed, plus the first.
 	for _i in absi(ends[2] - tx) + absi(ends[3] - ty) + 1:
 		var at_end: bool = tx == ends[2] and ty == ends[3]
@@ -264,14 +351,23 @@ static func segment_clear(map: Variant, a: Dictionary, b: Dictionary, purpose: i
 		elif leaves == 2:
 			out_n = num_y
 			out_d = den_y
-		if _tile_stops(map, tx, ty, purpose, ah, rise, in_n, in_d, out_n, out_d, ends):
+		var ask: bool = true
+		if partial_only:
+			ask = false
+			if tx >= 0 and ty >= 0 and tx < mw and ty < mh:
+				var idx: int = ty * mw + tx
+				if has_overlays and overlays.has(idx):
+					ask = SIGHT_PARTIAL.has(profile_key(map, tx, ty))
+				else:
+					ask = SIGHT_PARTIAL_CLASS[tiles[idx]]
+		if ask and _tile_stops(map, tx, ty, purpose, ah, rise, in_n, in_d, out_n, out_d, ends):
 			return false
 		if leaves == 0:
 			return true
 		if leaves == 3:
-			if _tile_stops(map, tx + step_x, ty, purpose, ah, rise, out_n, out_d, out_n, out_d, ends):
+			if _tile_stops(map, tx + step_x, ty, purpose, ah, rise, out_n, out_d, out_n, out_d, ends, partial_only):
 				return false
-			if _tile_stops(map, tx, ty + step_y, purpose, ah, rise, out_n, out_d, out_n, out_d, ends):
+			if _tile_stops(map, tx, ty + step_y, purpose, ah, rise, out_n, out_d, out_n, out_d, ends, partial_only):
 				return false
 		if leaves != 2:
 			tx += step_x
@@ -330,7 +426,11 @@ static func _after(a: Array[int], b: Array[int]) -> bool:
 # that stops `purpose`. The height at t = n/d is (ah * d + rise * n) / d, so every comparison with a
 # band's integer edge is made on whole numbers. The endpoint tiles, `ends` = [sx, sy, ex, ey], count
 # only when they stop movement.
-static func _tile_stops(map: Variant, tx: int, ty: int, purpose: int, ah: int, rise: int, n0: int, d0: int, n1: int, d1: int, ends: Array[int]) -> bool:
+# `partial_only` counts only the tiles in SIGHT_PARTIAL (`sight_clear`), and passes every other tile on
+# the class byte alone, before any key is built. The walk's own tile is already filtered inline.
+static func _tile_stops(map: Variant, tx: int, ty: int, purpose: int, ah: int, rise: int, n0: int, d0: int, n1: int, d1: int, ends: Array[int], partial_only: bool = false) -> bool:
+	if partial_only and not _sight_partial_at(map, tx, ty):
+		return false
 	var tile_bands: Array = bands(_key_at(map, tx, ty))
 	if tile_bands.is_empty():
 		return false
@@ -357,6 +457,21 @@ static func _tile_stops(map: Variant, tx: int, ty: int, purpose: int, ah: int, r
 		if under_top and over_bottom:
 			return true
 	return false
+
+
+# Whether the tile at (tx, ty) of a SimTileMap is partial for sight: the class byte, unless an overlay
+# stands there, in which case the overlay's key decides (an overlay outranks the class). Out of bounds
+# reads as a wall, which is not partial.
+static func _sight_partial_at(map: Variant, tx: int, ty: int) -> bool:
+	var mw: int = int(map.w)
+	if tx < 0 or ty < 0 or tx >= mw or ty >= int(map.h):
+		return false
+	var idx: int = ty * mw + tx
+	var overlays: Variant = map.overlays
+	if overlays is Dictionary and not (overlays as Dictionary).is_empty() and (overlays as Dictionary).has(idx):
+		return SIGHT_PARTIAL.has(profile_key(map, tx, ty))
+	var tile: int = int(map.tiles[idx])
+	return tile >= 0 and tile < SIGHT_PARTIAL_CLASS.size() and SIGHT_PARTIAL_CLASS[tile]
 
 
 # The profile key at a tile, for either kind of map `map_of` returns.

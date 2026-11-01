@@ -48,14 +48,18 @@ func _run() -> void:
 	ok = _an_npc_fires_at_a_remembered_position() and ok
 	ok = _a_zombie_sees_what_is_lit_at_night() and ok
 	ok = _a_survivor_sees_three_and_a_half_metres_in_the_dark() and ok
-	ok = _crouching_lowers_the_eye_over_low_cover() and ok
+	ok = _sight_works_by_height() and ok
+	ok = _the_consumers_read_the_height() and ok
+	# The EYE lane's planar rule, run with SIGHT_BY_HEIGHT pinned false (docs/40 replaces it with
+	# HEIGHT above; the switch must still give it back).
+	ok = _the_switch_gives_back_planar_sight() and ok
 	ok = _the_visibility_path_reads_eye_of() and ok
 	ok = _a_hostile_behind_the_observer_is_not_recorded() and ok
 	ok = _observe_one_reads_detail_not_line_of_sight() and ok
 	ok = _kinds_are_recorded_and_only_hostiles_are_a_threat() and ok
 	ok = _the_remembered_map_marks_the_cast_and_survives_a_save() and ok
 	if ok:
-		print("M2_SIGHT_OK sight memory prose recall, and a zombie sees what is lit at night")
+		print("M2_SIGHT_OK sight memory prose recall, a zombie sees what is lit at night, and sight works by height")
 		quit(0)
 	else:
 		push_error("M2_SIGHT_FAIL")
@@ -499,6 +503,10 @@ func _a_zombie_sees_what_is_lit_at_night() -> bool:
 
 # --- EYE ---------------------------------------------------------------------------------------
 #
+# The planar rule docs/40's slice 4 replaced with HEIGHT (below). Run only with
+# `SimVisibility.SIGHT_BY_HEIGHT` pinned false, by `_the_switch_gives_back_planar_sight`: what it
+# asserts is what the switch's "off" must still be.
+#
 # `SimStances.eye_of` was one of docs/23's four named-but-unfixed dead sockets: called by
 # nothing, with no code writing `observer["eye"]`, so `Opacity.Low` / `Tile.Low` cover blocked
 # nobody -- a crouched survivor saw over a low wall exactly as well as a standing one. Fixed by
@@ -792,4 +800,360 @@ func _the_remembered_map_marks_the_cast_and_survives_a_save() -> bool:
 		push_error("EXPLORED: a second observer who never stood near the doorway already knows the far tile -- the maps are not per-observer")
 		return false
 	print("EXPLORED OK the cast marks explored tiles, a wall run is never marked, the map survives walking away and a save round trip, and a second observer keeps its own")
+	return true
+
+
+# --- HEIGHT ------------------------------------------------------------------------------------
+#
+# docs/40's Perception, slice 4: sight works by height. The 2D cast is cast for everyone as a
+# standing eye, and a body is seen only if a line from the observer's eye to the body's eye or its
+# chest clears every partial-height tile between -- a car (Low, 0-1100 mm), a window's sill
+# (0-1000), a stage-3 board (0-1100), an open door's lintel (2200-2550). This lane replaces the EYE
+# lane's planar rule (a crouched observer's whole cast blocked by Low, the target's height never
+# asked), as docs/40's "What stays green, and what is replaced" names. The EYE lane still runs,
+# under `SimVisibility.SIGHT_BY_HEIGHT` pinned false, and proves the switch gives that rule back.
+#
+# Every pair below is the same fixture twice with one thing changed -- a stance, a board's stage, a
+# door's state, a target's height -- so a hit and a miss differ by what the rule is about and by
+# nothing else. All on row 12, the observer to the west facing east, so the arcs are never the
+# reason for an answer.
+
+const SimSpace = preload("res://sim/space/space.gd")
+const SimShambler = preload("res://sim/modules/shambler.gd")
+const SimScreamer = preload("res://sim/modules/screamer.gd")
+
+const ROW: int = 12
+
+
+# A 24x24 floor with `tiles` ([x, y, Tile]) and `overlays` ([x, y, Dictionary]) written in, and the
+# player parked out of every sightline in the far corner, facing away, unless a case moves it.
+func _height_world(tiles: Array = [], overlays: Array = []) -> Variant:
+	var f: Dictionary = {"seed": 77, "tick_hz": 20, "map": {"width": MAP_TILES, "height": MAP_TILES, "walls": []}, "player": {"id": 0, "x": 1.5, "y": 22.5, "stance": SimStancesRes.Stance.Walk}, "rng_probe": {"stream": "test", "samples": 0}}
+	var w: Variant = World.new(f)
+	w.tick = Clock.tick_at_time_of_day(0.5)
+	var map: Variant = SimTileMap.blank_map(MAP_TILES, MAP_TILES)
+	for t in tiles:
+		map.tiles[int(t[1]) * MAP_TILES + int(t[0])] = int(t[2])
+	for o in overlays:
+		map.overlays[int(o[1]) * MAP_TILES + int(o[0])] = (o[2] as Dictionary).duplicate()
+	SimBoot.attach_kernel(w, map)
+	SimHealth.register_module(w)
+	SimSightings.register_module(w)
+	w.components.set_component(w.player, "facing", {"radians": PI})
+	SimHealth.make_survivor_body(w, w.player)
+	return w
+
+
+# The wall column at WALL_X with one opening at (WALL_X, ROW) of the given tile class.
+func _wall_with(opening: int) -> Array:
+	var out: Array = []
+	for y in MAP_TILES:
+		out.append([WALL_X, y, opening if y == ROW else SimTileMap.Tile.Wall])
+	return out
+
+
+# A survivor body at (x, y) in a stance, facing `radians`; with eyes when `eyes`.
+func _person(w: Variant, x: float, y: float, stance: int, radians: float = PI, eyes: bool = false) -> int:
+	var ent: int = int(w.entities.spawn())
+	w.components.set_component(ent, "position", {"x": x, "y": y})
+	w.components.set_component(ent, "facing", {"radians": radians})
+	w.components.set_component(ent, "posture", SimStancesRes.make_posture(stance))
+	SimHealth.make_survivor_body(w, ent)
+	if eyes:
+		SimSurvivors.give_eyes(w, ent)
+	return ent
+
+
+func _stand(w: Variant, ent: int, stance: int) -> void:
+	w.components.set_component(ent, "posture", SimStancesRes.make_posture(stance))
+
+
+func _zombie_at(w: Variant, x: float, y: float, radians: float = 0.0, type_id: String = SimRoster.TYPE_SHAMBLER) -> int:
+	var z: int = SimRoster.spawn_zombie(w, x, y, type_id, w.rng.stream("shambler"))
+	w.events.drain()
+	w.components.set_component(z, "facing", {"radians": radians})
+	return z
+
+
+func _seen(w: Variant, observer: int, target: int) -> bool:
+	return int(w.vision.call("detail_body", observer, target)) != SimVisibility.Detail.Unseen
+
+
+func _height_fail(msg: String) -> bool:
+	push_error("HEIGHT: " + msg)
+	return false
+
+
+func _sight_works_by_height() -> bool:
+	if not SimVisibility.SIGHT_BY_HEIGHT:
+		return _height_fail("the shipped default is off -- docs/33's recommended answer to the owner's question 3 is yes")
+	var crouch: int = SimStancesRes.Stance.Crouch
+	var walk: int = SimStancesRes.Stance.Walk
+	var lines: Array[String] = []
+
+	# CAR: a standing zombie six metres off loses a crouched survivor half a metre behind a car, and
+	# sees the same survivor stood up. The control: the same crouched survivor in open ground is seen,
+	# so crouching alone is not what hides you.
+	var car: Variant = _height_world([[13, ROW, SimTileMap.Tile.Low]])
+	var cz: int = _zombie_at(car, 8.5, 12.5)
+	var cp: int = _person(car, 14.5, 12.5, crouch)
+	car.step()
+	if _seen(car, cz, cp):
+		return _height_fail("a standing zombie six metres off saw a crouched survivor behind a car")
+	_stand(car, cp, walk)
+	if not _seen(car, cz, cp):
+		return _height_fail("a standing zombie did not see a standing survivor over a car")
+	var open: Variant = _height_world()
+	var oz: int = _zombie_at(open, 8.5, 12.5)
+	var op: int = _person(open, 14.5, 12.5, crouch)
+	open.step()
+	if not _seen(open, oz, op):
+		return _height_fail("a crouched survivor in open ground was unseen -- the vertical test invented cover")
+	lines.append("car: crouched=hidden standing=seen open-ground-crouched=seen")
+
+	# OVER: a crouched survivor sees a standing zombie's head over a car, and does not see a crouched
+	# survivor behind the same car. The car is two tiles, (13,12) and (13,13).
+	var over: Variant = _height_world([[13, ROW, SimTileMap.Tile.Low], [13, ROW + 1, SimTileMap.Tile.Low]])
+	var looker: int = _person(over, 8.5, 12.5, crouch, 0.0, true)
+	var head: int = _zombie_at(over, 14.5, 12.5, PI)
+	var low: int = _person(over, 14.5, 13.5, crouch)
+	over.step()
+	if not _seen(over, looker, head):
+		return _height_fail("a crouched survivor did not see a standing head over a car")
+	if _seen(over, looker, low):
+		return _height_fail("a crouched survivor saw a crouched body behind a car")
+	# The planar rule this replaces blinded the crouched survivor's whole cast at the car: the ground
+	# behind it is now seen, as a place.
+	if int(over.vision.call("detail", looker, 14.5, 13.5)) == SimVisibility.Detail.Unseen:
+		return _height_fail("a crouched survivor's cast is still blocked by Low -- the 2D layer is not standing")
+	if int((over.components.get_component(looker, "observer") as Dictionary)["eye"]) != SimTileMap.Eye.Standing:
+		return _height_fail("a crouched survivor's observer was cast from Eye.Crouched")
+	lines.append("over: standing-head=seen crouched-body=hidden ground-behind=seen")
+
+	# WINDOW: someone crouched under a sill is unseen from six metres outside, seen stood up, and seen
+	# from close outside, where the line comes down over the sill. Symmetric where the heights are
+	# equal, by the eye: the crouched survivor does not see the zombie's head or chest either.
+	var win: Variant = _height_world(_wall_with(SimTileMap.Tile.Window))
+	var wz: int = _zombie_at(win, 7.5, 12.5)
+	var inside: int = _person(win, 13.5, 12.5, crouch, PI, true)
+	win.step()
+	if _seen(win, wz, inside):
+		return _height_fail("a zombie six metres outside saw a survivor crouched under the sill")
+	if _seen(win, inside, wz):
+		return _height_fail("a survivor crouched under the sill saw the zombie six metres outside")
+	_stand(win, inside, walk)
+	if not _seen(win, wz, inside):
+		return _height_fail("a zombie did not see a standing survivor through an open window")
+	if not _seen(win, inside, wz):
+		return _height_fail("a standing survivor did not see the zombie through an open window")
+	_stand(win, inside, crouch)
+	var close: Variant = _height_world(_wall_with(SimTileMap.Tile.Window))
+	var near_z: int = _zombie_at(close, 11.5, 12.5)
+	var under: int = _person(close, 13.5, 12.5, crouch)
+	close.step()
+	if not _seen(close, near_z, under):
+		return _height_fail("a zombie half a metre outside the window did not see down over the sill")
+	lines.append("window: crouched-6m=hidden both-ways standing=seen both-ways crouched-from-close=seen")
+
+	# BOARD: a stage-3 board (sill-height boards, 0-1100) hides a crouched body and not a standing one;
+	# a stage-2 board is a wall to sight and hides both, by the 2D layer.
+	var results: Dictionary = {}
+	for stage in [3, 2]:
+		var bw: Variant = _height_world(_wall_with(SimTileMap.Tile.Window), [[WALL_X, ROW, {"kind": "board", "stage": stage}]])
+		var bz: int = _zombie_at(bw, 7.5, 12.5)
+		var bp: int = _person(bw, 13.5, 12.5, crouch)
+		bw.step()
+		var crouched_seen: bool = _seen(bw, bz, bp)
+		_stand(bw, bp, walk)
+		results[stage] = [crouched_seen, _seen(bw, bz, bp)]
+	if bool((results[3] as Array)[0]):
+		return _height_fail("a zombie saw a survivor crouched behind a stage-3 board")
+	if not bool((results[3] as Array)[1]):
+		return _height_fail("a zombie did not see a standing survivor over a stage-3 board")
+	if bool((results[2] as Array)[1]):
+		return _height_fail("a zombie saw a standing survivor through a stage-2 board")
+	lines.append("board: stage3-crouched=hidden stage3-standing=seen stage2-standing=hidden")
+
+	# DOOR: an open door shows the room and a closed one does not. The lintel (2200-2550) stops a line
+	# rising steeply through the doorway, and passes the same line a little lower.
+	var door_seen: Dictionary = {}
+	for state in ["open", "closed"]:
+		var ov: Array = [] if state == "open" else [[WALL_X, ROW, {"kind": "door", "open": false}]]
+		var dw: Variant = _height_world(_wall_with(SimTileMap.Tile.Door), ov)
+		var dz: int = _zombie_at(dw, 7.5, 12.5)
+		var dp: int = _person(dw, 13.5, 12.5, walk)
+		dw.step()
+		door_seen[state] = _seen(dw, dz, dp)
+	if not bool(door_seen["open"]):
+		return _height_fail("a zombie did not see a standing survivor through an open door")
+	if bool(door_seen["closed"]):
+		return _height_fail("a zombie saw a standing survivor through a closed door")
+	var lw: Variant = _height_world(_wall_with(SimTileMap.Tile.Door))
+	lw.components.set_component(lw.player, "position", {"x": 10.5, "y": 12.5})
+	lw.components.set_component(lw.player, "facing", {"radians": 0.0})
+	SimSurvivors.give_eyes(lw, lw.player)
+	lw.step()
+	var under_lintel: int = int(lw.vision.call("detail", lw.player, 13.2, 12.5, 2100))
+	var into_lintel: int = int(lw.vision.call("detail", lw.player, 13.2, 12.5, 2500))
+	if under_lintel == SimVisibility.Detail.Unseen:
+		return _height_fail("a point under the lintel, through an open doorway, was unseen")
+	if into_lintel != SimVisibility.Detail.Unseen:
+		return _height_fail("a line rising through an open doorway passed the lintel")
+	lines.append("door: open=seen closed=hidden under-lintel=seen through-lintel=hidden")
+
+	# SYMMETRY where the heights are equal: two standing survivors across a car see each other, two
+	# crouched ones do not.
+	var sym: Variant = _height_world([[13, ROW, SimTileMap.Tile.Low]])
+	var sa: int = _person(sym, 8.5, 12.5, walk, 0.0, true)
+	var sb: int = _person(sym, 14.5, 12.5, walk, PI, true)
+	sym.step()
+	if not (_seen(sym, sa, sb) and _seen(sym, sb, sa)):
+		return _height_fail("two standing survivors across a car did not both see each other")
+	_stand(sym, sa, crouch)
+	_stand(sym, sb, crouch)
+	if _seen(sym, sa, sb) or _seen(sym, sb, sa):
+		return _height_fail("two crouched survivors saw each other across a car")
+	lines.append("symmetry: standing-pair=both crouched-pair=neither")
+
+	# The table this lane trusts: SIGHT_PARTIAL is what PROFILE says is partial for sight, and the
+	# class bytes the walk reads first say the same as each class's own key.
+	for key in SimSpace.PROFILE.keys():
+		if SimSpace.sight_partial(String(key)) != SimSpace.SIGHT_PARTIAL.has(key):
+			return _height_fail("SIGHT_PARTIAL disagrees with PROFILE at '%s'" % String(key))
+	var blank: Variant = SimTileMap.blank_map(2, 1)
+	for t in SimSpace.SIGHT_PARTIAL_CLASS.size():
+		blank.tiles[0] = t
+		if SimSpace.SIGHT_PARTIAL_CLASS[t] != SimSpace.SIGHT_PARTIAL.has(SimSpace.profile_key(blank, 0, 0)):
+			return _height_fail("SIGHT_PARTIAL_CLASS disagrees with the key of tile class %d" % t)
+	if SimSpace.SIGHT_PARTIAL.has("wall") or not SimSpace.SIGHT_PARTIAL.has("low"):
+		return _height_fail("SIGHT_PARTIAL holds a wall or misses Low")
+	# The standing broadphase's corridor: every partial tile's sight band lies wholly at or below its
+	# floor or at or above its ceiling, so a line inside it can meet none of them.
+	for key in SimSpace.SIGHT_PARTIAL.keys():
+		for band in SimSpace.bands(String(key)):
+			var bnd: Array = band as Array
+			if int(bnd[2]) & SimSpace.SIGHT == 0:
+				continue
+			if not (int(bnd[1]) <= SimSpace.SIGHT_OPEN_FROM_MM or int(bnd[0]) >= SimSpace.SIGHT_OPEN_TO_MM):
+				return _height_fail("the open corridor %d-%d meets %s's sight band %s" % [SimSpace.SIGHT_OPEN_FROM_MM, SimSpace.SIGHT_OPEN_TO_MM, String(key), str(bnd)])
+	# And it is the widest such corridor, or the broadphase is skipping walks for nothing: Low reaches
+	# its floor and the window's lintel its ceiling.
+	if SimSpace.sight_clear(blank_corridor_map(), {"x": 0.5, "y": 0.5, "h": SimSpace.SIGHT_OPEN_FROM_MM - 1}, {"x": 2.5, "y": 0.5, "h": SimSpace.SIGHT_OPEN_FROM_MM - 1}):
+		return _height_fail("a line just under the corridor's floor passed a Low tile")
+	if not SimSpace.sight_clear(blank_corridor_map(), {"x": 0.5, "y": 0.5, "h": SimSpace.SIGHT_OPEN_FROM_MM}, {"x": 2.5, "y": 0.5, "h": SimSpace.SIGHT_OPEN_FROM_MM}):
+		return _height_fail("a line on the corridor's floor was stopped by a Low tile")
+	lines.append("table: SIGHT_PARTIAL = PROFILE's partial keys")
+
+	print("HEIGHT OK " + "; ".join(lines))
+	return true
+
+
+# Three tiles in a row, a Low tile in the middle: the corridor check's fixture.
+func blank_corridor_map() -> Variant:
+	var m: Variant = SimTileMap.blank_map(3, 1)
+	m.tiles[1] = SimTileMap.Tile.Low
+	return m
+
+
+# The dead-socket rule: every consumer docs/40 names reads the height, shown by what it does.
+func _the_consumers_read_the_height() -> bool:
+	var crouch: int = SimStancesRes.Stance.Crouch
+	var walk: int = SimStancesRes.Stance.Walk
+	# The dead's eyes: `_seen_target` picks a standing survivor behind a car and not a crouched one.
+	# Three metres off, inside a shambler's daylight reach (`sight_reach`, under four metres).
+	var w: Variant = _height_world([[13, ROW, SimTileMap.Tile.Low]])
+	var z: int = _zombie_at(w, 11.5, 12.5)
+	var p: int = _person(w, 14.5, 12.5, crouch)
+	w.step()
+	var data: Variant = w.components.get_component(z, "shambler")
+	var sd: Dictionary = data as Dictionary if data is Dictionary else {}
+	var pick_crouched: Variant = SimShambler._seen_target(w, z, [{"entity": p, "x": 14.5, "y": 12.5}], sd)
+	_stand(w, p, walk)
+	var pick_standing: Variant = SimShambler._seen_target(w, z, [{"entity": p, "x": 14.5, "y": 12.5}], sd)
+	if pick_crouched != null:
+		return _height_fail("CONSUMERS: a shambler's eyes picked a survivor crouched behind a car")
+	if pick_standing == null or int(pick_standing) != p:
+		return _height_fail("CONSUMERS: a shambler's eyes did not pick a standing survivor over a car (%s)" % str(pick_standing))
+
+	# The screamer: no alarm over a survivor crouched under a sill, an alarm once they stand.
+	var alarms: Dictionary = {}
+	for stance in [crouch, walk]:
+		var sw: Variant = _height_world(_wall_with(SimTileMap.Tile.Window))
+		SimScreamer.register_module(sw)
+		var scream: int = _zombie_at(sw, 7.5, 12.5, 0.0, SimRoster.TYPE_SCREAMER)
+		sw.components.set_component(sw.player, "position", {"x": 13.5, "y": 12.5})
+		_stand(sw, sw.player, stance)
+		var raised: int = 0
+		for i in 3:
+			sw.step()
+			for e in sw.events.drained:
+				if String((e as Dictionary).get("type", "")) == "noise.emitted" and int((e as Dictionary).get("source", -1)) == scream:
+					raised += 1
+		alarms[stance] = raised
+	if int(alarms[crouch]) != 0:
+		return _height_fail("CONSUMERS: a screamer raised the alarm over a survivor crouched under a sill")
+	if int(alarms[walk]) < 1:
+		return _height_fail("CONSUMERS: a screamer did not raise the alarm over a survivor standing at the window")
+
+	# Sightings: a crouched survivor remembers a standing zombie over a car, and not a crawling one
+	# behind it -- the same zombie with its legs gone, eye at 300 mm.
+	var mw: Variant = _height_world([[13, ROW, SimTileMap.Tile.Low], [13, ROW + 1, SimTileMap.Tile.Low]])
+	var me: int = _person(mw, 8.5, 12.5, crouch, 0.0, true)
+	var tall: int = _zombie_at(mw, 14.5, 12.5, PI)
+	var crawler: int = _zombie_at(mw, 14.5, 13.5, PI)
+	(mw.components.get_component(crawler, "body") as Dictionary)["legs"] = 0
+	mw.step()
+	if SimSightings.recall(mw, me, tall) == null:
+		return _height_fail("CONSUMERS: sightings did not record a standing zombie seen over a car")
+	if SimSightings.recall(mw, me, crawler) != null:
+		return _height_fail("CONSUMERS: sightings recorded a crawling zombie behind a car")
+
+	# And the source: each consumer docs/40 names asks about the body -- `detail` with the body as its
+	# fifth argument where the caller holds the position, `detail_body` where it does not -- and
+	# visibility asks SimSpace.
+	var reads: Dictionary = {
+		"res://sim/modules/shambler.gd": "-1, int(s[\"entity\"]))",
+		"res://sim/modules/screamer.gd": "-1, int(sd[\"entity\"]))",
+		"res://sim/modules/sightings.gd": "-1, int(other)))",
+		"res://sim/modules/jobs.gd": "detail_body(",
+		"res://sim/modules/orders.gd": "detail_body(",
+		"res://sim/work_read.gd": "\"detail_body\"",
+		"res://sim/vision/visibility.gd": "SimSpaceRes.sight_points(",
+	}
+	for path in reads.keys():
+		var calls: int = 0
+		for line in _code_of(String(path)).split("\n"):
+			var trimmed: String = String(line).strip_edges()
+			if not trimmed.begins_with("#") and trimmed.contains(String(reads[path])):
+				calls += 1
+		if calls == 0:
+			return _height_fail("CONSUMERS: %s has no live call to %s" % [String(path), String(reads[path])])
+	print("HEIGHT-CONSUMERS OK shambler picks standing not crouched; screamer quiet under a sill, loud at it; sightings keep the head over a car, not the crawler; %d sources read it" % reads.size())
+	return true
+
+
+# The switch: SIGHT_BY_HEIGHT false gives back the planar rule, so the owner's "no" is one line. The
+# car and window pairs above, asked again with it off, answer the old way: the target's height is
+# never asked, so the crouched survivor behind the car and under the sill is seen. The EYE lane
+# below runs in the same off state and holds the rest of the old rule.
+func _the_switch_gives_back_planar_sight() -> bool:
+	var was: bool = SimVisibility.SIGHT_BY_HEIGHT
+	SimVisibility.SIGHT_BY_HEIGHT = false
+	var car: Variant = _height_world([[13, ROW, SimTileMap.Tile.Low]])
+	var cz: int = _zombie_at(car, 8.5, 12.5)
+	var cp: int = _person(car, 14.5, 12.5, SimStancesRes.Stance.Crouch)
+	car.step()
+	var car_seen: bool = _seen(car, cz, cp)
+	var win: Variant = _height_world(_wall_with(SimTileMap.Tile.Window))
+	var wz: int = _zombie_at(win, 7.5, 12.5)
+	var wp: int = _person(win, 13.5, 12.5, SimStancesRes.Stance.Crouch)
+	win.step()
+	var win_seen: bool = _seen(win, wz, wp)
+	var eye_ok: bool = _crouching_lowers_the_eye_over_low_cover()
+	SimVisibility.SIGHT_BY_HEIGHT = was
+	if not car_seen or not win_seen:
+		return _height_fail("OFF: with SIGHT_BY_HEIGHT false a crouched survivor behind a car or under a sill was still hidden (car=%s window=%s)" % [str(car_seen), str(win_seen)])
+	if not eye_ok:
+		return _height_fail("OFF: the EYE lane's planar rule did not come back with SIGHT_BY_HEIGHT false")
+	print("HEIGHT-OFF OK SIGHT_BY_HEIGHT false: car and sill hide nobody by height, and the EYE lane's planar rule holds")
 	return true
