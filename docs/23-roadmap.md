@@ -2493,6 +2493,55 @@ not a to-do list:
     screen's needs words are the sim's own; and out of reach, off the aim, or through a wall opens no
     screen. A bench made by the sim outside the player's build is drawn too.
 
+- **Pitch on the aim, 2026-11-01.** Slice 3 of docs/40: the aim has a pitch as well as a yaw.
+  - **The record.** The `aim` command takes an optional `pitch` in radians, positive up. It goes
+    through `SimAim.propose` (`godot/sim/aim.gd`) with the yaw, so both take or neither does. The
+    `aim` component carries it as an optional key, and `SimAim.pitch_of` reads 0 when the key is
+    absent. `SimAim.clamp_pitch` clamps it to `SimAim.PITCH_LIMIT` (1.30), reads a non-finite pitch
+    as level and collapses negative zero. A level pitch is stored as the absent key, so every aim
+    the top-down game writes is unchanged. `follow_facing` leaves the pitch alone. An NPC that
+    faces a body (`npc_combat._face_at`) pitches from its own eye (`SimSpace.eye_of`) to the
+    target's chest (`SimSpace.chest_of`, new, 750 thousandths of the cylinder). An NPC that faces a
+    remembered place pitches to a standing chest. An NPC has no aim of its own, so it carries a
+    pitch-only aim: `radians_of` reads its facing, `twist` is 0, and `follow_facing` writes it no
+    yaw. The first-person scene's `_push_aim` sends the camera's pitch, and its `PITCH_LIMIT` is now
+    the sim's. Nothing reads pitch for a hit yet; that is slices 5 and 6. `propose` also refuses a
+    yaw that is not a number, which it used to store. No `SAVE_VERSION` bump. The new key reads 0
+    when absent, and a v33 save holds no pitch-only aim. A newer save in an older build is not
+    promised, and a bump would refuse every v33 save. The reasoning is in `serialize.gd`'s ladder
+    and docs/30, "A pitch with no yaw".
+  - **The gate.** Two new `godot:m2:aim` lanes. PITCH: a body never aimed reads 0. A standing
+    proposal holds its pitch, clamped at 1.30, and holds a pitch below level. A refused proposal at
+    a jog writes no pitch, whether or not the body already has an aim, and the jog's snap keeps the
+    held pitch. A pitch round-trips the save's own text into a bare world. The same save with the
+    key taken out loads level. A level proposal stores no key, and the snapshot's aims hold no
+    negative zero (the detector is proved on a planted one). PITCH_READS: the scene's aim push
+    carries the pitch (the scan refuses a commented push), and the intake holds the scene's command
+    shape. An NPC pitches to a standing zombie's chest, a crouched survivor's chest and a standing
+    chest at a place, each against heights written into the gate. Live, the combat system pitches
+    an armed colonist at the shambler beside it, and the same colonist unarmed carries no aim. A
+    pitch-only aim reads its facing, pays no twist, grows no yaw on a turn or a walk, and a level
+    pitch removes it. `godot:check:first_person` gains a PITCH lane in the real scene: looking up
+    sends the pitch and the sim holds it, the mouse stops at the sim's limit, and looking level
+    sends level and leaves no key. Mutation-tested: dropping the intake's pitch, storing level as
+    0, writing pitch on a refusal, dropping the clamp, dropping or mis-aiming the NPC's pitch, a
+    yaw written into a pitch-only aim, and the scene's push without pitch each turn `godot:m2:aim`
+    red.
+  - **Verified.** The full `godot:m2` chain, all 99 gates, run locally as its four CI shards side
+    by side: 99 green, `balance` and `harness` among them. It was run twice: once on the slice
+    alone, and again after merging #282's integer walk and the first-person integration from `main`
+    with the review's fixes. Also `godot:m2:save`,
+    `godot:m2:space`, `godot:m2:npc`, `godot:test` (R1 parity, byte-identical), `godot:smoke`,
+    `godot:check:first_person`, `check:routing`, `check:shards`, `lint` and `format:check`. No
+    existing assertion was changed.
+  - **What moved.** Nothing a player or a campaign sees. Colonists, raiders and settlers that turn
+    to a body now carry an `aim` component holding only `pitch`, so their saves gain that key. The
+    R1 parity fixture is byte-identical.
+  - **Found on the way.** A `-0.0` literal makes every `0.0` literal in the same GDScript function
+    negative, and `SimSerialize.canonicalize`'s negative-zero check cannot see one (docs/37). The
+    boot world's modifier table already holds negative zeros, which are written silently as `0`.
+    They are named here, not changed.
+
 - **A lane-table FIRST_PERSON_OK line, 2026-11-01.** The first-person gate's OK line is generated, not
   hand-written: each lane registers its name and one-sentence clause as it passes (`_lane`), and
   `_finish` prints `FIRST_PERSON_OK <clauses>. lanes: N`. A parallel branch adds a row at its lane's
