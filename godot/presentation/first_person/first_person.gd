@@ -22,8 +22,10 @@ const Hud = preload("res://presentation/first_person/hud.gd")
 const WorkPanel = preload("res://ui/work_panel.gd")
 const WebPanel = preload("res://ui/web_panel.gd")
 
-const SEED: int = 20260805
-const DISTRICT_TILES: int = 64
+const SEED: int = SimBoot.DISTRICT_SEED
+# The shipped district size, the one `session.gd` boots by default. The gate overrides
+# `district_tiles` with a small district before adding the scene, so it stays fast.
+const DISTRICT_TILES: int = SimTileMap.DISTRICT_TILES
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / float(TICK_HZ)
 
@@ -40,6 +42,8 @@ const MOVE_KEYS: Array[int] = [KEY_W, KEY_A, KEY_S, KEY_D]
 # world's own generation remains the sim's business.
 var world: Variant = null
 var map: Variant = null
+# The district size this scene boots. Set before the scene enters the tree (the gate's small override).
+var district_tiles: int = DISTRICT_TILES
 var camera: Camera3D = null
 var yaw: float = 0.0
 var pitch: float = 0.0
@@ -99,7 +103,7 @@ func _notification(what: int) -> void:
 # --- boot and views -------------------------------------------------------------------------
 
 func _boot() -> void:
-	var boot: Dictionary = SimBoot.playable(SEED, DISTRICT_TILES)
+	var boot: Dictionary = SimBoot.playable(SEED, district_tiles)
 	world = boot["world"]
 	map = boot["map"]
 	var pos: Variant = world.components.get_component(int(world.player), "position")

@@ -7,8 +7,9 @@ oracle changed. The new scene is opt-in; the default `godot/presentation/main.ts
 ## What landed
 
 - `godot/presentation/first_person/first_person.tscn` and `first_person.gd`: boot
-  `SimBoot.playable` on a deterministic 64-tile district, step it on the same 20 Hz tick, and read
-  the sim without writing it. The scene's only outputs are commands; the gate's teleport setup
+  `SimBoot.playable` on the shipped district size and seed (256 tiles; the gate boots a 64-tile
+  override, see `first-person-district-report.md`), step it on the same 20 Hz tick, and read the
+  sim without writing it. The scene's only outputs are commands; the gate's teleport setup
   lives in the gate, not in presentation.
 - `district_view.gd`: one floor quad per tile and one box per solid tile, so what is drawn is the
   map the sim collides against. Sim `(x, y)` maps to Godot `(x, z)`, one tile to one metre.

@@ -2413,6 +2413,22 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **First-person scene on the shipped district size, 2026-11-01.** Advances "First-person
+  simulation and ledger foundation": the opt-in scene now boots the district the top-down game boots.
+  - **The boot.** `first_person.gd` boots `SimBoot.playable(SimBoot.DISTRICT_SEED, district_tiles)`,
+    with `district_tiles` defaulting to `SimTileMap.DISTRICT_TILES` (256), the size `session.gd`
+    boots. The gate sets a 64-tile override before it adds the scene, so it stays fast.
+  - **Measured.** Headed at 1280x720, standing at spawn, 300 frames, three runs per side, on a Ryzen 7
+    7800X3D and an RTX 5090 (Windows 11, Godot 4.7.1, 2026-11-01). Build went from 121 ms at 64 tiles
+    to 1032 ms at 256, and mean frame wall from 0.69 ms to 0.97 ms. Both sit under the 2 s and 10 ms
+    thresholds, so the district meshes were not split into chunks. The table is in
+    `docs/planning/first-person-district-report.md`.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, DISTRICT lane)
+    prints `FIRST_PERSON_OK`. True positive: a fresh instance defaults to the shipped size and seed.
+    True negative: the gate's 64-tile override really boots a smaller map. Both were mutation-tested.
+  - **Not in this piece.** Chunking. The scene still draws the whole district as one ground mesh and
+    one solid mesh.
+
 - **The first-person foundation, 2026-11-01.** docs/23's "First-person simulation and ledger
   foundation", the first delivery of [docs/39](39-first-person-pivot.md).
   - **The scene.** `godot/presentation/first_person/first_person.tscn` boots `SimBoot.playable` on
