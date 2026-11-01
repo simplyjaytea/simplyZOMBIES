@@ -194,11 +194,11 @@ HAND_X = 0.241
 # The head from chin to crown, hair volume included above the ears: (z, cx, cy, half width, front
 # depth, back depth). The face is a little flatter in front than an ellipse (HEAD_POWER).
 HEAD_RINGS = [
-    (1.510, 0, 0.036, 0.026, 0.032, 0.030),
-    (1.524, 0, 0.024, 0.050, 0.052, 0.052),
-    (1.545, 0, 0.014, 0.063, 0.068, 0.070),
-    (1.570, 0, 0.006, 0.069, 0.078, 0.084),
-    (1.598, 0, 0.000, 0.072, 0.084, 0.096),
+    (1.514, 0, 0.036, 0.026, 0.032, 0.030),
+    (1.527, 0, 0.024, 0.048, 0.052, 0.052),
+    (1.547, 0, 0.014, 0.058, 0.068, 0.070),
+    (1.571, 0, 0.006, 0.065, 0.078, 0.084),
+    (1.600, 0, 0.000, 0.072, 0.084, 0.096),
     (1.625, 0, -0.004, 0.072, 0.088, 0.104),
     (1.655, 0, -0.008, 0.077, 0.091, 0.110),
     (1.685, 0, -0.012, 0.081, 0.090, 0.110),
@@ -236,9 +236,9 @@ def body_source():
         (1.185, 0, 0.004, 0.140, 0.094, 0.084),
         (1.250, 0, 0.002, 0.150, 0.102, 0.094),
         (1.315, 0, -0.004, 0.154, 0.098, 0.098),
-        (1.370, 0, -0.010, 0.152, 0.082, 0.090),
-        (1.408, 0, -0.014, 0.138, 0.068, 0.080),
-        (1.440, 0, -0.016, 0.122, 0.058, 0.070),
+        (1.370, 0, -0.010, 0.168, 0.082, 0.090),
+        (1.405, 0, -0.014, 0.156, 0.068, 0.080),
+        (1.438, 0, -0.016, 0.110, 0.058, 0.070),
         (1.468, 0, -0.018, 0.076, 0.054, 0.062),
         (1.488, 0, -0.020, 0.058, 0.050, 0.056),
     ], 28)
@@ -253,19 +253,19 @@ def body_source():
     source.ellipsoid("head", (0, 0.092, 1.581), (0.012, 0.011, 0.011), 12, 8)
     source.ellipsoid("head", (0, 0.080, 1.556), (0.019, 0.009, 0.006), 14, 8)
     source.ellipsoid("head", (0, 0.078, 1.546), (0.016, 0.009, 0.006), 14, 8)
-    source.ellipsoid("head", (0, 0.066, 1.527), (0.020, 0.014, 0.014), 12, 8)
+    source.ellipsoid("head", (0, 0.066, 1.529), (0.020, 0.014, 0.014), 12, 8)
     source.ellipsoid("head", (0, 0.084, 1.640), (0.012, 0.008, 0.009), 10, 6)
     for sign in (-1, 1):
         source.ellipsoid("head", (sign * 0.011, 0.087, 1.577), (0.008, 0.008, 0.007), 10, 6)
         source.ellipsoid("head", (sign * 0.033, 0.081, 1.643), (0.026, 0.010, 0.009), 12, 6)
-        source.ellipsoid("head", (sign * 0.050, 0.060, 1.600), (0.020, 0.016, 0.014), 12, 8)
+        source.ellipsoid("head", (sign * 0.052, 0.058, 1.607), (0.020, 0.016, 0.013), 12, 8)
         source.ellipsoid("head", (sign * 0.070, -0.008, 1.598), (0.012, 0.016, 0.026), 12, 8)
     for side, sign in (("L", -1), ("R", 1)):
         arm = "arm." + side
         hand = "hand." + side
         axis = [(sign * x, y, z) for x, y, z in ARM_AXIS]
-        source.ellipsoid(arm, (sign * 0.152, -0.010, 1.356), (0.054, 0.056, 0.062), 16, 10)
-        source.tube(arm, [(sign * 0.158, -0.010, 1.405)] + axis[1:4], [(0.030, 0.032), (0.045, 0.048), (0.041, 0.043), (0.037, 0.039)], 16)
+        source.ellipsoid(arm, (sign * 0.166, -0.010, 1.322), (0.050, 0.054, 0.058), 16, 10)
+        source.tube(arm, [(sign * 0.160, -0.010, 1.365)] + axis[1:4], [(0.028, 0.030), (0.045, 0.048), (0.041, 0.043), (0.037, 0.039)], 16)
         source.tube(arm, axis[3:] + [(sign * 0.239, 0.042, 0.845)], [(0.038, 0.040), (0.040, 0.043), (0.033, 0.036), (0.026, 0.030), (0.024, 0.028)], 16)
         # A real hand: palm facing the thigh, a knuckle line, grouped fingers curling forward, a thumb.
         source.ellipsoid(hand, (sign * HAND_X, 0.044, 0.812), (0.020, 0.046, 0.060), 14, 10)
@@ -440,12 +440,12 @@ def head_locks():
     bun = BUN_CENTRE
     # Bangs: broad clumps from a part on her left, swept across the forehead to her right, and
     # one falling past her left eye.
-    lock([(-0.030, 0.020, 1.752), (-0.010, 0.070, 1.722), (0.020, 0.094, 1.684), (0.052, 0.090, 1.650), (0.070, 0.070, 1.625)],
-         [0.050, 0.070, 0.072, 0.060, 0.030], [0.014, 0.018, 0.016, 0.013, 0.012])
-    lock([(-0.040, 0.010, 1.750), (-0.030, 0.072, 1.718), (-0.012, 0.096, 1.680), (0.008, 0.096, 1.660), (0.020, 0.094, 1.650)],
-         [0.045, 0.062, 0.058, 0.042, 0.020], [0.014, 0.018, 0.018, 0.016, 0.016])
-    lock([(-0.048, 0.030, 1.745), (-0.062, 0.072, 1.700), (-0.070, 0.076, 1.650), (-0.074, 0.066, 1.600), (-0.074, 0.060, 1.572)],
-         [0.042, 0.050, 0.042, 0.030, 0.014], [0.012, 0.016, 0.016, 0.016, 0.016])
+    lock([(-0.030, 0.020, 1.756), (-0.010, 0.072, 1.732), (0.020, 0.094, 1.702), (0.052, 0.088, 1.676), (0.076, 0.062, 1.650)],
+         [0.050, 0.068, 0.066, 0.046, 0.018], [0.014, 0.018, 0.016, 0.013, 0.012])
+    lock([(-0.040, 0.010, 1.754), (-0.030, 0.072, 1.728), (-0.012, 0.094, 1.698), (0.006, 0.096, 1.680), (0.016, 0.094, 1.670)],
+         [0.045, 0.058, 0.050, 0.032, 0.012], [0.014, 0.018, 0.018, 0.016, 0.016])
+    lock([(-0.050, 0.030, 1.745), (-0.068, 0.062, 1.700), (-0.080, 0.056, 1.650), (-0.083, 0.046, 1.600), (-0.082, 0.042, 1.572)],
+         [0.040, 0.046, 0.036, 0.026, 0.012], [0.012, 0.014, 0.014, 0.014, 0.014])
     # Face-framing clumps past the cheekbones.
     for sign, low in ((1, 1.540), (-1, 1.556)):
         lock([(sign * 0.050, 0.030, 1.745), (sign * 0.072, 0.056, 1.700), (sign * 0.080, 0.052, 1.640), (sign * 0.080, 0.048, 1.585), (sign * 0.074, 0.054, low)],
@@ -493,7 +493,7 @@ def bun_locks():
 
 
 def hair_source():
-    vertices, faces, face_uvs, face_rects = [], [], [], []
+    vertices, faces, face_uvs, face_rects, normals = [], [], [], [], []
     locks = head_locks() + bun_locks()
     lengths = []
     for points, widths, flat, per_span, centre in locks:
@@ -515,14 +515,19 @@ def hair_source():
             outward = (outward - tangent * outward.dot(tangent)).normalized()
             across = tangent.cross(outward).normalized()
             half = radii[row] / 2
+            away = (point - centre).normalized()
             for index in range(segments):
                 angle = 2 * math.pi * index / segments
+                radial = across * math.cos(angle) + outward * math.sin(angle)
                 vertices.append(tuple(point + across * (half * math.cos(angle)) + outward * (half * flat * math.sin(angle))))
+                normals.append(tuple((away + radial * 0.45).normalized()))
             perimeters.append(math.pi * (half + half * flat))
         root = len(vertices)
         vertices.append(tuple(path[0] - (path[1] - path[0]).normalized() * 0.002))
+        normals.append(tuple((path[0] - centre).normalized()))
         tip = len(vertices)
         vertices.append(tuple(path[-1] + (path[-1] - path[-2]).normalized() * 0.003))
+        normals.append(tuple((path[-1] - centre).normalized()))
         name = rect_of[lock_index]
         x, y, w, h = FROZEN[name][:4]
         density_u = min(HAIR_DENSITY_CAP, (w - 2 * PAD) / max(perimeters))
@@ -552,6 +557,7 @@ def hair_source():
     obj = object_from("survivor_hair", vertices, faces)
     for polygon in obj.data.polygons:
         polygon.use_smooth = True
+    obj.data.normals_split_custom_set_from_vertices(normals)
     return obj, face_rects, face_uvs
 
 

@@ -203,7 +203,8 @@ budget. The neckline, jaw, waist hem, seat line, cuffs and boot tops are then cu
 so a painted material border is a straight line. Each face is assigned to the primitive it came
 from, which keeps hands, hips and arms apart where they nearly touch. Smooth normals throughout.
 
-Hair is broad, chunky clumps laid on the head surface with volume off the scalp (bangs swept
+Hair is broad, chunky clumps laid on the head surface with volume off the scalp, their normals
+leaning out from the head so each shades as one soft mass (bangs swept
 across the forehead from a part on her left, face-framing clumps past the cheekbones, the crown
 swept back, the back gathered up from the nape, a few thin flyaways) and a big messy bun high on
 the crown-back (a core, five loops and two escaping strands), all weighted to the head.
