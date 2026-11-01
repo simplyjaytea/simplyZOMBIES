@@ -49,9 +49,10 @@ const FP_TARGET_M: float = 1.2
 const FULL_FOV: float = 35.0
 const FULL_FRAME_RATIO: float = 1.2
 const HEAD_FOV: float = 24.0
-const HEAD_FRAME_M: float = 0.40
-# The head's centre sits this far below the crown.
-const HEAD_CROWN_DROP_M: float = 0.12
+const HEAD_FRAME_M: float = 0.44
+# The head close-ups are centred on the standing eye height, not on the model's bounding-box crown: a
+# bun or a tall hairstyle raises the crown and would push the face out of frame.
+const HEAD_CENTRE_M: float = FP_EYE_M
 
 const WALK_CLIP: String = "walk"
 const WALK_PHASES: int = 8
@@ -125,7 +126,7 @@ func _run() -> void:
 	var full_34: Image = await _shot("full_three_quarter", _orbit(centre, full_d, 45.0), centre, FULL_FOV, size)
 	var full_back: Image = await _shot("full_back", _orbit(centre, full_d, 180.0), centre, FULL_FOV, size)
 
-	var head_at: Vector3 = Vector3(centre.x, box.end.y - HEAD_CROWN_DROP_M, centre.z)
+	var head_at: Vector3 = Vector3(centre.x, HEAD_CENTRE_M, centre.z)
 	var head_d: float = _distance(HEAD_FRAME_M, HEAD_FOV)
 	var head_front: Image = await _shot("head_front", _orbit(head_at, head_d, 0.0), head_at, HEAD_FOV, size)
 	var head_34: Image = await _shot("head_three_quarter", _orbit(head_at, head_d, 45.0), head_at, HEAD_FOV, size)
