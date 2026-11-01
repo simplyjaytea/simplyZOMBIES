@@ -68,6 +68,10 @@ extends SceneTree
 #             published sizes on the floor and the desk top, with nearest-filtered materials; the
 #             prop preview stands every prop on its authored base. Missing art skips to the boxes,
 #             and a planted wrong-size GLB and a raised prop are refused by the same tests.
+#   MODELS    every weapons-manifest entry loads and its box is its sizeM within 1 cm; an id match beats a
+#             class match and an unknown id resolves to null (fabricated and committed manifests); two GLBs
+#             that embed the atlas share one mipmapped texture; a loose bat the sim drops is drawn with its
+#             model at its position, resting on the floor, and an item with no model has no node.
 
 const SCENE_PATH: String = "res://presentation/first_person/first_person.tscn"
 const WorkPanel = preload("res://ui/work_panel.gd")
@@ -95,6 +99,8 @@ const SimBoot = preload("res://sim/boot.gd")
 const FirstPerson = preload("res://presentation/first_person/first_person.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
 const SaveSlot = preload("res://presentation/first_person/save_slot.gd")
+const Models = preload("res://presentation/first_person/models.gd")
+const Appearance = preload("res://presentation/appearance.gd")
 
 # The district the gate boots. Small on purpose: every lane walks the sim, and the shipped 256 district
 # is for the player, not for a gate. DISTRICT proves this is really smaller than the shipped default.
@@ -110,6 +116,8 @@ const LIGHT_NIGHT_AMBIENT_MAX: float = 0.15
 const GATE_SAVE_KEY: String = "first_person_save_gate.slot"
 const TICK_SECONDS: float = 1.0 / 20.0
 const EPSILON: float = 0.0001
+# A model's drawn box against its manifest sizeM, and a loose item against the floor: 1 cm.
+const MODEL_TOLERANCE_M: float = 0.01
 
 var _failures: Array[String] = []
 var _skips: Array[String] = []
@@ -155,6 +163,7 @@ func _run() -> void:
 		# The speed lane reads keys, so it runs before the run-over lane, which leaves input swallowed.
 		# Save before the lanes that kill the colony: the run-over lane leaves input swallowed.
 		ok = _save(scene) and ok
+		ok = _models(scene) and ok
 		ok = _art(scene) and ok
 		ok = _preview() and ok
 		ok = _light(scene) and ok
@@ -2342,6 +2351,156 @@ func _frames_ticks(scene: Node, world: Variant, frames: int) -> int:
 	for i in frames:
 		scene.call("_process", 1.0 / 60.0)
 	return int(world.tick) - start
+
+
+# --- MODELS ----------------------------------------------------------------------------------------
+
+# The model loader, judged on the committed weapon kit, and a loose item the sim drops drawn with its
+# model. The manifest rule and the texture rule are also tested on fabricated input, so a rule that
+# never fires cannot pass.
+func _models(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var weapons: Array = []
+	for manifest in Models.manifests():
+		if String((manifest as Dictionary).get("kit", "")) == "weapons":
+			weapons = (manifest as Dictionary)["models"] as Array
+	if weapons.is_empty():
+		return _fail("MODELS", "no weapons manifest was read from res://assets/first_person/")
+
+	# True positive: every weapons entry loads, and its box is its sizeM within 1 cm on each axis. The
+	# textures the kit's GLBs use are collected for the sharing and mipmap checks below.
+	var textures: Dictionary = {}
+	var loaded: int = 0
+	for entry in weapons:
+		var glb: String = String((entry as Dictionary)["glb"])
+		var size: Array = (entry as Dictionary)["sizeM"] as Array
+		var want: Vector3 = Vector3(float(size[0]), float(size[1]), float(size[2]))
+		var instance: Node3D = Models.instance_of(glb)
+		if instance == null:
+			ok = _fail("MODELS", "%s does not load" % glb)
+			continue
+		loaded += 1
+		var got: Vector3 = Models.bounds(instance).size
+		if absf(got.x - want.x) > MODEL_TOLERANCE_M or absf(got.y - want.y) > MODEL_TOLERANCE_M or absf(got.z - want.z) > MODEL_TOLERANCE_M:
+			ok = _fail("MODELS", "%s measures %s, its sizeM says %s" % [glb, str(got), str(want)])
+		instance.free()
+		var template: Node3D = Models.template_of(glb)
+		for texture in _albedo_textures(template):
+			textures[texture.get_instance_id()] = texture
+		if _filter_of(template) != BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS:
+			ok = _fail("MODELS", "%s does not sample with nearest-with-mipmaps" % glb)
+	if loaded != weapons.size():
+		ok = _fail("MODELS", "%d of %d weapon models loaded" % [loaded, weapons.size()])
+
+	# Two GLBs embedding the same atlas share one texture, and the shared texture has mipmaps. Every GLB in
+	# the kit embeds the atlas, so the count of distinct textures over the whole kit is one.
+	if textures.size() != 1:
+		ok = _fail("MODELS", "the weapon kit holds %d distinct textures, expected one shared atlas" % textures.size())
+	else:
+		var atlas: Texture2D = textures.values()[0] as Texture2D
+		var a: Texture2D = _albedo_textures(Models.template_of("res://assets/first_person/weapons/pistol_service.glb"))[0]
+		var b: Texture2D = _albedo_textures(Models.template_of("res://assets/first_person/weapons/pistol_barrel_standard.glb"))[0]
+		if a.get_instance_id() != b.get_instance_id():
+			ok = _fail("MODELS", "two GLBs embedding the same atlas do not share one texture")
+		var image: Image = atlas.get_image()
+		var levels: int = image.get_mipmap_count() if image != null else 0
+		if levels < 2:
+			ok = _fail("MODELS", "the shared atlas has %d mip level, not a chain" % levels)
+		# True negatives for the sharing: a new copy of the atlas's pixels is handed back as the shared texture,
+		# and a different image is not.
+		var copy: ImageTexture = ImageTexture.create_from_image(atlas.get_image().duplicate() as Image)
+		if Models._shared_texture(copy).get_instance_id() != atlas.get_instance_id():
+			ok = _fail("MODELS", "a copy of the atlas's pixels was not shared with the atlas")
+		var other: ImageTexture = ImageTexture.create_from_image(Image.create(8, 8, false, Image.FORMAT_RGBA8))
+		if Models._shared_texture(other).get_instance_id() == atlas.get_instance_id():
+			ok = _fail("MODELS", "a different image was shared with the atlas")
+
+	# True positive and true negatives for the resolution rule. An id match beats a class match whatever the
+	# order they are listed in; a class alone resolves; an unknown id and class resolve to null.
+	var fabricated: Array = [{"kit": "fake", "models": [
+		{"match": {"class": "weapon.melee"}, "glb": "class.glb"},
+		{"match": {"id": "item.bat.wood"}, "glb": "id.glb"},
+	]}]
+	var by_id: Variant = Models.resolve_in(fabricated, "item.bat.wood", "weapon.melee")
+	if not (by_id is Dictionary) or String((by_id as Dictionary)["glb"]) != "id.glb":
+		ok = _fail("MODELS", "an id match did not beat a class match on the same item")
+	var by_class: Variant = Models.resolve_in(fabricated, "item.knife.kitchen", "weapon.melee")
+	if not (by_class is Dictionary) or String((by_class as Dictionary)["glb"]) != "class.glb":
+		ok = _fail("MODELS", "a class match did not resolve an item with no id match")
+	if Models.resolve_in(fabricated, "item.nothing.here", "nothing") != null:
+		ok = _fail("MODELS", "an unknown id and class resolved to a model")
+	if Models.resolve_in(fabricated, "", "") != null:
+		ok = _fail("MODELS", "an empty id and class resolved to a model")
+	var real_bat: Variant = Models.resolve("item.bat.wood", "weapon.melee")
+	if not (real_bat is Dictionary) or not String((real_bat as Dictionary)["glb"]).ends_with("bat_wood.glb"):
+		ok = _fail("MODELS", "the committed kit does not resolve item.bat.wood to bat_wood.glb")
+	if Models.resolve("item.unknown.nothing", "") != null:
+		ok = _fail("MODELS", "the committed kit resolved an unknown id to a model")
+
+	# True positive: a loose bat the sim drops at the player's feet is drawn with its model, on the floor, at
+	# the sim's position. The drop is the sim's own command, so the sim did the placing.
+	var player: int = int(world.player)
+	var bat: int = SimItems.spawn_item(world, "item.bat.wood")
+	SimInventory.drop_at_feet(world, player, bat)
+	scene.call("_process", TICK_SECONDS)
+	var node: Node3D = scene.call("loose_node_for", bat) as Node3D
+	if node == null:
+		ok = _fail("MODELS", "a loose bat on the floor has no node in the loose-item view")
+	else:
+		var at: Vector2 = _entity_pos(world, bat)
+		if absf(node.position.x - at.x) > EPSILON or absf(node.position.z - at.y) > EPSILON:
+			ok = _fail("MODELS", "the loose bat is drawn at (%.3f, %.3f), not its sim position (%.3f, %.3f)" % [node.position.x, node.position.z, at.x, at.y])
+		var box: AABB = _world_aabb(node)
+		if absf(box.position.y) > MODEL_TOLERANCE_M:
+			ok = _fail("MODELS", "the loose bat's lowest point is %.4f m, not on the floor" % box.position.y)
+		var bat_size: Array = (real_bat as Dictionary)["sizeM"] as Array
+		if absf(box.size.y - float(bat_size[1])) > MODEL_TOLERANCE_M:
+			ok = _fail("MODELS", "the loose bat's drawn height %.4f m is not its model's %.4f m" % [box.size.y, float(bat_size[1])])
+	# True negative: an item with no model is drawn with no node, so it keeps the scene's placeholder.
+	if Appearance.entry_of(world, "item", "item.food.canned").is_empty():
+		ok = _fail("MODELS", "the content has no item.food.canned to test with")
+	var canned: int = SimItems.spawn_item(world, "item.food.canned")
+	SimInventory.drop_at_feet(world, player, canned)
+	scene.call("_process", TICK_SECONDS)
+	if scene.call("loose_node_for", canned) != null:
+		ok = _fail("MODELS", "an item with no model was drawn with a node")
+	# True negative: a loose item that is gone has its node freed on the next refresh.
+	var before: int = int(scene.call("loose_view_count"))
+	world.despawn(bat)
+	scene.call("_process", TICK_SECONDS)
+	if scene.call("loose_node_for", bat) != null:
+		ok = _fail("MODELS", "a despawned loose bat still has a node")
+	if int(scene.call("loose_view_count")) != before - 1:
+		ok = _fail("MODELS", "the loose-item count did not drop by the despawned bat")
+	world.despawn(canned)
+	scene.call("_process", TICK_SECONDS)
+	return ok
+
+
+# Every albedo texture a template's materials carry, one per surface.
+func _albedo_textures(root: Node3D) -> Array:
+	var out: Array = []
+	var nodes: Array[MeshInstance3D] = []
+	_collect_meshes(root, nodes)
+	for node in nodes:
+		for s in node.mesh.get_surface_count():
+			var mat: Material = node.mesh.surface_get_material(s)
+			if mat is BaseMaterial3D and (mat as BaseMaterial3D).albedo_texture != null:
+				out.append((mat as BaseMaterial3D).albedo_texture)
+	return out
+
+
+# The texture filter of a template's first material.
+func _filter_of(root: Node3D) -> int:
+	var nodes: Array[MeshInstance3D] = []
+	_collect_meshes(root, nodes)
+	for node in nodes:
+		for s in node.mesh.get_surface_count():
+			var mat: Material = node.mesh.surface_get_material(s)
+			if mat is BaseMaterial3D:
+				return (mat as BaseMaterial3D).texture_filter
+	return -1
 
 
 # --- fixtures -------------------------------------------------------------------------------

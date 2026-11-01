@@ -2413,6 +2413,52 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **The model loader and loose items drawn with their models, 2026-11-01.** The first code that reads
+  the art kits. `godot/presentation/first_person/models.gd` reads every `assets/first_person/*.manifest.json`
+  (in file-name order, a malformed one skipped), resolves an item to a model by id and then by class, and
+  returns null when neither matches. It parses each GLB once from its bytes, shares one texture per
+  distinct atlas by a SHA-256 of its base-level pixels, generates mipmaps on that texture, and samples
+  it with nearest-with-mipmaps. `godot/presentation/first_person/loose_view.gd` draws each sim item that
+  has `position` and `itemBase` and no `stored`: at its position, lifted onto the floor, turned by a yaw
+  seeded from its entity, and with no node when its item has no model. It refreshes on a sim tick and is
+  invalidated by a load. `godot/export_presets.cfg` packs `assets/first_person/**.glb` and
+  `**.manifest.json` in both presets; the Windows export's pack lists all 14 weapon GLBs and the manifest.
+  - **The gate.** The MODELS lane of `godot/check_first_person.gd` holds it to:
+    - every entry in the weapons manifest loads, and its box is its `sizeM` within 1 cm per axis;
+    - the whole weapon kit holds one distinct texture, shared by two GLBs that embed the atlas, with a
+      mip chain;
+    - an id match beats a class match in either order, a class resolves an item with no id match, and an
+      unknown id or an empty id resolves to null (on fabricated manifests and on the committed kit);
+    - a copy of the atlas's pixels is handed back as the shared texture, and a different image is not;
+    - a loose bat dropped at the player's feet by the sim's own `drop_at_feet` has a node at the sim's
+      position, its lowest point on the floor within 1 cm, and its drawn height is its model's;
+    - an item with no model has no node, and a despawned item loses its node on the next refresh.
+  - **True negatives, run by hand.** Each rule was broken once and the lane went red: class-first
+    resolution (`an id match did not beat a class match`), no lift (`the loose bat's lowest point is
+    -0.0330 m`), no mipmaps (`0 mip level`), and no sharing (`14 distinct textures`). Each file was restored
+    and the lane passed again.
+  - **Measured.** A headed 300-frame probe at spawn, window 1280 x 720, the shipped district, the
+    first-person scene. Before is this branch's weapon-kit commit without the loader; after is with it.
+    Three runs each, alternating:
+    - before: mean 5.553, 5.574, 5.554 ms; median 5.558 ms; p95 7.222, 7.095, 7.159 ms;
+    - after: mean 5.557, 5.561, 5.554 ms; median 5.558 to 5.561 ms; p95 7.269, 7.123, 7.524 ms.
+    The frame sits at the 180 Hz cap at spawn, so the means do not move and the p95 spread overlaps.
+    Two runs with the window at 610 or 1247 pixels wide were dropped, because the window did not hold
+    1280 x 720. A first version that looked up items with no model on every refresh cost 1.4 ms a
+    refresh with 72 loose items in the district; it now costs about 0.1 ms, once per tick.
+  - **Measured, the item kit, uncommitted.** The item kit's manifest and GLBs were copied in for a
+    throwaway test and removed before the commit. With both manifests read there are 384 entries (14
+    weapon, 370 item), and a tin of food resolves by id to
+    `food_canned.glb`, draws at its sim position, and rests with its lowest point at 0. Of the 73 district
+    items, 69 resolve to a model and 4 have none.
+  - **Not in this piece.**
+    - The item kit's own manifest and GLBs, which are in review. When #299 merges, the same loader draws
+      them; nothing here changes.
+    - `assets.gd`'s `load_model`, which still loads the desk and ledger with nearest and no mipmaps. The
+      review's minor 8 is answered for the models this loader reads, not for those two.
+    - The horde cost. The shared atlas removes the 7 to 10 embedded copies per assembled pistol, but the
+      hidden internal parts are still drawn.
+    - Container contents, which are inside and not drawn.
 - **The first-person weapon kit: the socket contract and its first models, 2026-11-01.** Art
   piece 1 of the weapon plan, the piece that blocks the modular-firearm assembly code. The
   socket contract and its first models are built in Blender, reproducibly. The README beside
