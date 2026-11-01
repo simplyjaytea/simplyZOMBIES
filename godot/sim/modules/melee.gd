@@ -7,6 +7,7 @@ const SimHealth = preload("res://sim/modules/health.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
 const SimAttachmentsRes = preload("res://sim/modules/attachments.gd")
 const SimWoundsRes = preload("res://sim/modules/wounds.gd")
+const SimSpaceRes = preload("res://sim/space/space.gd")
 
 enum SwingState { Idle = 0, WindUp = 1, Recover = 2 }
 
@@ -303,7 +304,10 @@ static func _resolve_strike(world: Variant, attacker: int, weapon: Dictionary, r
 			var cosine: float = (dx * facing_x + dy * facing_y) / sqrt(dist_sq)
 			if cosine < float(SimCombat.COS_SWING_HALF_ANGLE):
 				continue
-		if dist_sq < best_dist:
+		# What is in the way, asked only of a body that would beat the best so far: the nearest
+		# candidate the blow can actually arrive at wins, and a farther one is never traced. A wall
+		# between refuses the swing; an open window or doorway does not (docs/40, "Melee reach").
+		if dist_sq < best_dist and SimSpaceRes.reach_clear(world, from as Dictionary, there as Dictionary, attacker, int(entity)):
 			best_dist = dist_sq
 			best = int(entity)
 			best_pos = there

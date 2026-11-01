@@ -33,6 +33,8 @@ const END_LINE_H: float = 34.0
 var world: Variant = null
 var player: int = -1
 var prompt: String = ""
+# The clock in words, from session.gd's speed_words: "normal speed", "fast", "paused".
+var time_words: String = ""
 var alert: String = ""
 var menu_open: bool = false
 var paused: bool = false
@@ -93,6 +95,8 @@ func lines() -> Array[String]:
 		out.append(needs if needs != "" else "You feel steady.")
 		# The posture word the top-down paper doll shows under the figure (`SimStances.name_of`).
 		out.append("You are " + SimStances.name_of(SimStances.stance_of(world.components, player)) + ".")
+		if not time_words.is_empty():
+			out.append("Time is " + time_words + ".")
 		var view: Dictionary = SimCondition.view(world, player)
 		var worst: int = int(view.get("worst", 0)) if not view.is_empty() else 0
 		if worst > 0 and worst < CONDITION_WORDS.size():
@@ -128,6 +132,8 @@ func _draw() -> void:
 		state.append(needs if needs != "" else "You feel steady.")
 		# The posture word, the same one `lines()` shows.
 		state.append("You are " + SimStances.name_of(SimStances.stance_of(world.components, player)) + ".")
+		if not time_words.is_empty():
+			state.append("Time is " + time_words + ".")
 		var view: Dictionary = SimCondition.view(world, player)
 		var worst: int = int(view.get("worst", 0)) if not view.is_empty() else 0
 		if worst > 0 and worst < CONDITION_WORDS.size():
