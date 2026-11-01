@@ -33,29 +33,25 @@ func build(desk_sim: Vector2) -> void:
 
 
 func _build_desk() -> void:
-	var packed: PackedScene = Assets.model(Assets.DESK)
-	if packed != null:
-		var model: Node3D = packed.instantiate() as Node3D
-		if model != null:
-			model.name = "DeskModel"
-			add_child(model)
-			used_desk_model = true
-			return
+	var model: Node3D = Assets.load_model(Assets.DESK)["node"] as Node3D
+	if model != null:
+		model.name = "DeskModel"
+		add_child(model)
+		used_desk_model = true
+		return
 	var box: MeshInstance3D = _box("DeskPlaceholder", DESK_PLACEHOLDER_SIZE, DESK_COLOUR)
 	box.position = Vector3(0.0, DESK_PLACEHOLDER_SIZE.y * 0.5, 0.0)
 
 
 func _build_ledger() -> void:
-	var packed: PackedScene = Assets.model(Assets.LEDGER)
-	if packed != null:
-		var model: Node3D = packed.instantiate() as Node3D
-		if model != null:
-			model.name = "LedgerModel"
-			# Authored origin is the bottom centre, so the desk top is the whole offset.
-			model.position = Vector3(0.0, desk_height, 0.0)
-			add_child(model)
-			used_ledger_model = true
-			return
+	var model: Node3D = Assets.load_model(Assets.LEDGER)["node"] as Node3D
+	if model != null:
+		model.name = "LedgerModel"
+		# Authored origin is the bottom centre, so the desk top is the whole offset.
+		model.position = Vector3(0.0, desk_height, 0.0)
+		add_child(model)
+		used_ledger_model = true
+		return
 	var book: MeshInstance3D = _box("LedgerPlaceholder", LEDGER_PLACEHOLDER_SIZE, LEDGER_COLOUR)
 	book.position = Vector3(0.0, desk_height + LEDGER_PLACEHOLDER_SIZE.y * 0.5, 0.0)
 	# A dark spine line, so the ledger reads as a book rather than a white slab even at this size.

@@ -2501,6 +2501,230 @@ not a to-do list:
     middle", which also records the endpoint, corner and wall-list readings).
   - **Not yet.** `_engage` still starts an NPC's swing on distance, so a colonist crouched at a
     window can waste one; perception, the shot and pitch do not read the segment (slices 3 to 5).
+- **First-person art loads from a clean checkout, 2026-11-01.** Advances "First-person
+  starter-kit integration": the desk and ledger GLBs load at runtime, and the review's M3 and M4 are
+  fixed. The kit's art itself arrives with its own PR.
+  - **The loader.** `assets.gd` `load_model(path)` reads the GLB's bytes with `FileAccess` and builds
+    the scene with `GLTFDocument` and `GLTFState`, so it needs no `.import` file. It returns
+    `{node, source}`, with `source` one of `disk`, `missing` or `unreadable`. Every material is set to
+    nearest filtering, without mipmaps, and back-face culling is left as authored. `prop_view.gd` falls
+    back to the published-size box on a null node.
+  - **The export.** `godot/export_presets.cfg` adds `include_filter="assets/first_person/*.glb"` to
+    each preset, so the GLBs are packed as raw files. `.gitignore` ignores
+    `godot/assets/first_person/*.import` and `*_kit_atlas.png`, the editor's leftovers, and not the
+    committed GLBs or `kit_atlas.png`.
+  - **M4.** `prop_preview.gd` lifts a placeholder box by half its height and places a loaded model at
+    its authored origin. The preview floated every model by half its height before.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, ART and PREVIEW
+    lanes) prints `FIRST_PERSON_OK`. With the GLBs on disk, the desk and ledger must be the loaded
+    models at the published sizes within 1 cm, the desk on the floor and the ledger on the desk top, and
+    nearest-filtered. Without them, the lane prints `FIRST_PERSON_SKIP` and the boxes are under test.
+    True negatives: a planted half-size GLB written through the engine's exporter is refused, a
+    linear-filtered material is refused, and a box lifted by half its height fails the preview's floor
+    test. Each mutation turns the lane red.
+  - **Not in this piece.** The shelf, barricade and wall module are placed by the preview only, and
+    the playable scene reads only the desk and the ledger. The art files themselves.
+
+- **First-person save and load, 2026-11-01.** Advances "First-person expedition and default
+  switch", its save/reload step, for the opt-in scene only.
+  - **The slot.** F5 and F9 in `first_person.gd` (`save_game`, `load_game`, `_after_load`) go
+    through the sim's `SimSave` API. `presentation/first_person/save_slot.gd` writes the save under
+    `simplyzombies.first_person` (`user://simplyzombies.first_person.json` on desktop), apart from the
+    top-down `simplyzombies.save`, so the two scenes never overwrite each other. Desktop writes use
+    the atomic adapter in `platform/storage.gd`; web uses its double buffer.
+  - **Feedback and refusals.** The HUD alert line says `Saved.`, `Loaded.` or `Nothing to load.`, and
+    two refusals: `The save did not write.` and `That save will not load.`. A load refuses a save
+    that does not decode and a finished run, as the top-down load does. F5 and F9 are refused while
+    the ledger is open.
+  - **After a load.** An open ledger closes, held keys clear, the body views rebuild from the
+    restored entities, and the camera snaps to the restored position with no interpolation.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, SAVE lane)
+    prints `FIRST_PERSON_OK`. The lane swaps in a throwaway slot key and deletes it afterwards. True
+    negatives: F9 with no save changes nothing, and F5 with the ledger open writes nothing. True
+    positive: walk, F5, walk on, F9 restores the body, the camera and the tick. Each assertion was
+    mutation-tested. `npm run godot:m2:save` (`M2_SAVE_OK`) shows the shared save path is unchanged.
+  - **Not in this piece.** Yaw and pitch are not saved, since they are presentation state. The
+    top-down onboarding record is not written. The HUD cannot name F5 or F9, because digits are banned
+    there.
+
+- **Light, night and weather in first person, 2026-11-01.** Advances "First-person expedition
+  and default switch": the 3D scene now reads the sim's clock, weather and carried light, and holds
+  the "spatial combat and perception" information rule while it does.
+  - **The sky.** `sky_view.gd` dresses the `WorldEnvironment` and sun from
+    `SimClock.ambient_light_at` -- muted and cool by day, dark at night -- with rain and storm as a
+    darker grade and depth fog whose far distance comes from `SimWeather.sight_mul` when the kind
+    is fog. No particles, no volumetric fog, no shadows.
+  - **The carried light.** The brightest lamp the sim says is lit and carried becomes a spot along
+    the look (the content's `beam` as the spot's half-angle) or an omni at the eye for a round
+    light, at `carried_magnitude` metres. It is off when `light_source` is absent -- nothing lit,
+    or the wick burnt out -- and for a corpse or the end panel.
+  - **Information.** Bodies stay gated by `vision.detail`; night ambient is low enough that unlit
+    geometry beyond the sim's sight is not readable, and a torch never draws a body behind a wall.
+  - **The gate.** `npm run godot:check:first_person` (LIGHT lane) prints `FIRST_PERSON_OK`. True
+    positives: noon is above named sun and ambient thresholds and midnight below them; a lit torch
+    becomes the eye's 25 m, 22-degree spot and the sim burning it out turns it off. True negatives:
+    no eye light at noon with nothing lit, and a body behind a wall inside the torch's cone is not
+    drawn. `godot:check:light` and `godot:m2:light_burn` stay green unchanged.
+  - **Measured.** Headed, 1280x720, 300 frames after 30 warmup: before this slice noon 1.144 ms and
+    night with a torch 1.145 ms; after it noon 1.220 ms and night with a torch 1.317 ms.
+  - **Not in this piece.** No particles, no volumetric fog, no shadowed lights, and no pitch,
+    height or ray in the light itself; docs/40 slices 3, 5 and 6 own the spatial contract.
+  - **Record.** `docs/planning/first-person-light-report.md`.
+
+- **Fight back in first person, 2026-11-01.** Advances "First-person spatial combat and
+  perception" with the interim input layer the alpha needs before docs/40's shot-as-a-ray slices:
+  the top-down controls now swing, fire and reload against the planar sim.
+  - **The controls.** Left mouse is the top-down click -- fire with a firearm in hand, swing
+    otherwise; `F` swing, `G` fire, `R` reload. Aim is the camera's look yaw pushed as the ordinary
+    `aim` command; the sim projects it through the weapon's own reach or range. Marked INTERIM:
+    docs/40 slices 3 (pitch on the aim), 5 (the shot as a ray) and 6 (parts from geometry) replace
+    the projection.
+  - **Feedback.** A short camera kick on a swing or shot. No reticle and no centre dot (docs/40
+    owner question 6's default), and no hit/miss word because the top-down screen shows none. A
+    placeholder box viewmodel sits in the lower right, sized by the weapon's reach or range and
+    hidden for bare hands; art comes later.
+  - **Refusals.** The ledger, the inventory sheet, the end panel and the dead-and-waiting gap
+    swallow the press. A body behind the look is not hit because the melee arc is the sim's own
+    aim; a reload with nothing to load is the sim's refusal and the scene adds no words of its own.
+  - **The gate.** `npm run godot:check:first_person` (FIGHT lane) prints `FIRST_PERSON_OK`. True
+    positive: a bat swing lands on a shambler in front (the sim's `attack.connected` fires and its
+    body changes) and a loaded gun spends a round from the magazine. True negatives: the same press
+    with the ledger open sends nothing, a shambler behind the look is not hit, and a refused reload
+    adds no words. `godot:m2:swipe` and `godot:m2:ranged` stay green unchanged.
+  - **Not in this piece.** No pitch, no ray, no height, no body-part geometry and no obstruction
+    change -- those are docs/40 slices 3, 5 and 6. The viewmodel is a placeholder box.
+  - **Record.** `docs/planning/first-person-fight-report.md`.
+
+- **First person from the title, 2026-11-01.** Advances "First-person expedition and default
+  switch" with the playable on-ramp: the owner can reach the experiment from the game's own title
+  and come back, without the default itself changing.
+  - **The door.** `ui/shell.gd`'s title gains one row, "first person (experimental)", above quit.
+    `main.gd`'s `first_person` action swaps the whole scene for
+    `presentation/first_person/first_person.tscn`. The default boot, New run, Continue and
+    `project.godot`'s main scene are untouched.
+  - **The district.** The scene boots through the single boot-size rule #270 established:
+    `SimBoot.playable(SimBoot.DISTRICT_SEED, district_tiles)` with `district_tiles` defaulting to
+    `SimTileMap.DISTRICT_TILES`. The gate's small override is the only other size.
+  - **The way back.** The run-over panel's one action and a second Escape with the mouse already
+    released both change the scene back to `presentation/main.tscn`, which boots into its title
+    state. There is no first-person save slot on this branch, so no Continue is offered for it.
+  - **The gate.** `npm run godot:check:play` (FIRST-PERSON lane) prints `PLAY_OK`. True negative:
+    New run leaves `current_scene` on the top-down scene with a real world and loads no
+    first-person scene. True positive: the row opens the first-person scene with a live sim and a
+    current camera. Both ways back land on the title with the session in `TITLE`.
+  - **Not in this piece.** The default scene is not switched; the row is labelled experimental.
+    `godot:export` was skipped locally because this machine has no export templates; the preset
+    exports all resources, so the scene is in the PCK.
+  - **Record.** `docs/planning/first-person-title-report.md`.
+
+- **First-person succession and the end of a run, 2026-11-01.** Advances "First-person expedition
+  and default switch": dying can hand the camera to an heir, and the last death ends the run on a
+  screen instead of leaving the corpse under a live HUD.
+  - **The handoff.** `first_person.gd` watches `world.player` and `world.runOver` after every tick
+    and at the top of every frame. A handoff cuts the camera to the heir with no interpolated
+    glide, closes any open ledger or inventory sheet, clears held keys, puts the top-down
+    chronicle's own succession sentence on the HUD, and re-collects bodies so the dead body is
+    drawn as the corpse it now is (`body_view.gd`).
+  - **The end.** `world.runOver` releases the mouse, holds the clock, and shows the chronicle's
+    epitaph in the shell's danger frame, with one action that leaves the run. The dead-and-waiting
+    guard ignores input in any frame between a death and its heir; the sim currently hands over
+    inside the death, so it produces none.
+  - **The gate.** `npm run godot:check:first_person` (SUCCESSION and RUN-OVER lanes) prints
+    `FIRST_PERSON_OK`. True positive: kill the player with an heir alive; the camera equals the
+    heir's sim position on the next frame, the HUD says "You are <name> now.", W walks the heir and
+    the corpse is drawn. True negative: a non-player death moves neither the player nor the camera.
+    RUN-OVER: killing every colony body opens the end panel, releases the mouse and records no W
+    move or aim.
+  - **Not in this piece.** The corpse is the placeholder capsule in the corpse colour, not art;
+    the end panel's destination (a first-person title flow) is a later slice.
+  - **Record.** `docs/planning/first-person-succession-report.md`.
+
+- **First-person containers and the inventory sheet, 2026-11-01.** Advances "First-person
+  scavenging and personal equipment": a player can walk up to a world container, open it, and take
+  real items through the existing grid inventory.
+  - **The scene.** `first_person.gd` draws one labelled placeholder per sim `searchable` entity at
+    its sim position (`container_view.gd`). E in reach and in the eye's cone pushes the top-down
+    context menu's `container.open` command; the real `ui/inventory_panel.gd` opens on the player's
+    own bags with the box as its first column, and a take is the sheet's ordinary `item.move`.
+    Reach, the first-open table roll and every fit rule stay the sim's.
+  - **Refusals.** Out of reach, off the aim and through an opaque wall are refused in the ledger's
+    own words; a searched-and-empty box says it has already been through. Escape sends
+    `container.close`, closes the sheet and gives the mouse back. The body stands still under the
+    sheet while the clock runs, copying `main.gd` -- marked a reversible default, because docs/33
+    still leaves the inventory pause policy open.
+  - **The gate.** `npm run godot:check:first_person` (CONTAINER lane) prints `FIRST_PERSON_OK`.
+    True positive: E opens a real box, a take moves an item through `item.move`, and the
+    box-plus-player item total is unchanged. True negatives: off-aim, out-of-reach and through-wall
+    refusals with words; a walking key does not move the body under the sheet.
+  - **Not in this piece.** The boxes are placeholders with no furniture collision; the screen is
+    the full sheet, not the top-down game's small transfer window; equipment is later.
+  - **Record.** `docs/planning/first-person-containers-report.md`.
+
+- **First-person Reports page, 2026-11-01.** Advances "First-person people and settlement
+  operation", its reports: what happened while the player was away, in the chronicle's words.
+  - **The page.** `godot/ui/reports_panel.gd` (`ReportsPanel`) lists the chronicle newest first, at most
+    12 lines, each from `SimChronicle._line_of`, the same line builder the HUD and the run-over screen
+    read. `ReportsPanel.rows` is pure and writes nothing. No day counter is shown, because the top-down
+    chronicle shows none. The page is opened by a Reports chip on the ledger (`ReportsPanel.Chip`,
+    drawn with `Locker.button`).
+  - **Read state.** `first_person.gd` keeps `_reports_read`, the chronicle index read up to. Entries at
+    or past it are marked new in words ("since you last looked", and a "new" tag per entry). Opening the
+    page moves the mark to the end of the record. The mark is presentation state, starts at 0 on every
+    boot, and the sim is not written. The save and load pieces are not on this branch, so no reset on
+    load is implemented.
+  - **The prompt.** The ledger's prompt reads "E read the ledger, new reports" while the record holds
+    entries past the mark, and "E read the ledger" otherwise.
+  - **Escape.** From the page, Escape returns to the work grid; from the grid, to the street.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, REPORTS lane)
+    prints `FIRST_PERSON_OK`. A survivor's death is published through the event bus the way
+    `health.gd` publishes a destroyed head, and the chronicle writes it. The prompt asks about new
+    reports, the chip opens the page with a real click, and the page shows the chronicle's "<name> is
+    dead." marked new. True negatives: with nothing new the prompt does not ask; every line the page
+    shows is one the chronicle holds; Escape from the page returns to the grid, not the street. Each
+    mutation (no read mark, no prompt, Escape to the street, an invented line) turns the lane red.
+  - **Not in this piece.** Paging beyond the 12 newest lines. A page for the run's epitaph. Save and
+    load of the read mark. The gate does not run the death itself: it publishes the event health.gd
+    publishes, and the body stays alive.
+
+- **First-person stance and gait, 2026-11-01.** Advances "First-person simulation and ledger
+  foundation": the scene's movement and camera now follow the body's posture.
+  - **The keys.** `first_person.gd` reads the stance rows of `input_map.gd`'s `BINDINGS`: Ctrl+Z
+    crawl, Ctrl+C crouch, Ctrl+S stand, Ctrl+V jog, and Shift held for the sprint latch, which
+    returns to the last Ctrl rung on release. Each pushes the sim's `stance` command (`_push_stance`,
+    `_stance_rung_of`). Ctrl+S is a stance and never a step back. The keys are refused under the
+    open ledger, and the sim's zero-stamina gate refuses a sprint on an empty tank.
+  - **The eye.** `_eye_target` reads `SimSpace.eye_of` in millimetres. `_ease_eye` eases `_eye_m`
+    toward it with a 35 ms time constant, so it is within 1 cm in about 0.15 s. The camera, the
+    ledger's aim and the door verb's eye tile all use `_eye_m`. `EYE_HEIGHT_M` is gone.
+  - **The HUD.** `hud.gd` adds `You are <posture>.`, with the word `SimStances.name_of` gives, the
+    same word the top-down paper doll prints. It has no digit.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, STANCE lane)
+    prints `FIRST_PERSON_OK`. True positive: Ctrl+C makes the sim's body crouch, and after the ease
+    the camera is within 1 cm of the crouched eye, 0.950 m. Ctrl+S stands it back up. True
+    negatives: Ctrl+C with the ledger open changes nothing, and a Shift sprint on an empty tank
+    leaves the body and the eye standing. Each mutation (keys ignored, no ease, no ease in time)
+    turns the lane red.
+  - **Not in this piece.** The first-person fire and swing path (the sim's `CAN_AIM` and
+    `CAN_SWING` rules are unchanged here, and no gate checks a shot from a crawl). Between-tick
+    eye interpolation. Naming the keys on the HUD. Slice 7 of docs/40.
+
+- **First-person world verbs: E on a door, 2026-11-01.** Advances "First-person people and
+  settlement operation", its construction access, for doors and windows only.
+  - **The verb.** `first_person.gd`: `eye_tile_hit` walks the look ray through the tile grid to the
+    ledger's 1.8 m reach and returns the first door, window or solid tile. `verb_row` asks
+    `SimContext.verbs_at` for that tile, as the right-click menu would, and keeps the first row with a
+    command. `verb_prompt` gives the HUD `E <row text>`. E pushes that row's command verbatim, as
+    `main._context_pick` does. The ledger keeps priority when it is in reach and aimed at. Presentation
+    decides no verb.
+  - **Reach.** The sim offers a door's rows only for the tile one step ahead or underfoot
+    (`SimFortify._door_in_reach`), so a door farther off gets no prompt.
+  - **The gate.** `npm run godot:check:first_person` (`godot/check_first_person.gd`, VERBS lane)
+    prints `FIRST_PERSON_OK`. True positive: beside a closed door and aimed at it, the prompt reads
+    `E open the door`, E opens the door in the sim, and E again shuts it. True negatives: the same door
+    out of reach, or looked away from, and a plain wall, change nothing and offer no door prompt. With
+    E made to push nothing, the lane fails.
+  - **Not in this piece.** Window verbs have no gate lane. The 1.8 m eye reach is not proven apart from
+    the sim's facing rule. Containers are not on this branch.
 
 - **First-person profile, drawn, 2026-11-01.** Slice 1 of docs/40, the spatial contract's "The
   profile, drawn": the one height table the first-person view draws and, from slice 2, the sim reads.

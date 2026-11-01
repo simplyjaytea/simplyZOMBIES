@@ -35,10 +35,38 @@ const WALL_MODULE_SIZE: Vector3 = Vector3(1.00, 2.60, 0.12)
 const LEDGER_TOP_M: float = DESK_HEIGHT_M + LEDGER_THICKNESS_M
 
 
-## The packed scene at `path`, or null when the art has not landed. `ResourceLoader.exists` is the
-## one test used, so an empty seam is a normal boot rather than a load error in the log.
-static func model(path: String) -> PackedScene:
-	if not ResourceLoader.exists(path):
-		return null
-	var resource: Resource = load(path)
-	return resource as PackedScene
+## Reads the model at `path` straight from its bytes, with no dependency on the import system. A
+## clean checkout has no `.import` files, so `ResourceLoader` would see nothing; `FileAccess` reads
+## the file wherever it is (on disk, or packed into an export, which `export_presets.cfg` makes sure of).
+## Returns {"node": Node3D, "source": "disk"} when it loaded, or {"node": null, "source": ...} with
+## "missing" (no file) or "unreadable" (a file that is not a glTF the engine can read). Callers fall back
+## to the published-size box on null, and the gate reads "source" to say which path ran.
+##
+## Materials are forced to nearest filtering, without mipmaps, so the pixel art stays crisp. Back-face
+## culling is left as authored.
+static func load_model(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {"node": null, "source": "missing"}
+	var bytes: PackedByteArray = FileAccess.get_file_as_bytes(path)
+	if bytes.is_empty():
+		return {"node": null, "source": "unreadable"}
+	var document: GLTFDocument = GLTFDocument.new()
+	var state: GLTFState = GLTFState.new()
+	if document.append_from_buffer(bytes, path.get_base_dir() + "/", state) != OK:
+		return {"node": null, "source": "unreadable"}
+	var root: Node = document.generate_scene(state)
+	if not (root is Node3D):
+		return {"node": null, "source": "unreadable"}
+	_nearest(root)
+	return {"node": root as Node3D, "source": "disk"}
+
+
+static func _nearest(node: Node) -> void:
+	if node is MeshInstance3D and (node as MeshInstance3D).mesh != null:
+		var mesh: Mesh = (node as MeshInstance3D).mesh
+		for s in mesh.get_surface_count():
+			var material: Material = mesh.surface_get_material(s)
+			if material is BaseMaterial3D:
+				(material as BaseMaterial3D).texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	for child in node.get_children():
+		_nearest(child)

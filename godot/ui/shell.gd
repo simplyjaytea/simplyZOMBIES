@@ -55,7 +55,11 @@ const ROW_MARKER_X: float = 14.0
 # The rows each screen offers, as `[id, label]`. Ids are what `on_action` carries and labels are
 # what the screen says; they are not the same string because "quit to title" is two words the
 # player reads and `quit_to_title` is one token main.gd matches on.
-const TITLE_ROWS: Array = [["new_run", "new run"], ["continue", "continue"], ["quit", "quit"]]
+#
+# The first-person row is the pivot's opt-in door and says so in its own label. It sits above
+# quit so leaving stays last; the default boot, new run and continue are untouched (docs/39 keeps
+# the default switch for a later, owner-verified piece).
+const TITLE_ROWS: Array = [["new_run", "new run"], ["continue", "continue"], ["first_person", "first person (experimental)"], ["quit", "quit"]]
 const PAUSE_ROWS: Array = [
 	["resume", "resume"],
 	["save", "save"],
