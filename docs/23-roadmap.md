@@ -762,6 +762,9 @@ projection are untouched.
   CURSORS, the new WORLD lane).
 - ~~**Held weapons in the hand.**~~ — **landed** 2026-09-26 for ten of the twelve, see the record
   (`npm run godot:check:worn` → HELD; `godot:check:authored` → HELD).
+- **Held weapon visibility (fp-cleanup).** The first-person view model now hides while the bench,
+  inventory, ledger (reports), talk and third-person screens are open, and shows again when they
+  close. Gated by the **HIDE** lane of `godot:check:first_person` (34 lanes).
 - ~~**Furnishings and container kinds.**~~ — **landed** 2026-09-27 for eight of the pack's twelve
   furnishings and for its container kinds by loot table, see the record (`npm run
   godot:check:trees` → the new FURNISH lane and the widened INERT; `godot:check:appearance` → the

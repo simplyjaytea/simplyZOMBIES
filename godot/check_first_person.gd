@@ -3957,6 +3957,16 @@ func _walkable_floor(map: Variant, tx: int, ty: int) -> bool:
 
 func _held_visibility(scene: Node) -> bool:
 	var ok: bool = true
+	# Precondition: armed and visible with every screen closed.
+	scene.set("bench_open", false)
+	scene.set("inventory_open", false)
+	scene.set("_reports_open", false)
+	scene.set("talk_open", false)
+	scene.set("third_person", false)
+	scene.call("_update_render", 1.0)
+	scene.call("_update_held_weapon")
+	if not bool(scene.call("held_weapon_visible")):
+		ok = _fail("HIDE", "precondition failed: held weapon not visible with all screens closed")
 	# bench
 	scene.set("bench_open", true)
 	scene.call("_update_held_weapon")
@@ -3964,6 +3974,8 @@ func _held_visibility(scene: Node) -> bool:
 		ok = _fail("HIDE", "held weapon visible while bench open")
 	scene.set("bench_open", false)
 	scene.call("_update_held_weapon")
+	if not bool(scene.call("held_weapon_visible")):
+		ok = _fail("HIDE", "held weapon stays hidden after bench closes")
 	# inventory
 	scene.set("inventory_open", true)
 	scene.call("_update_held_weapon")
@@ -3971,6 +3983,8 @@ func _held_visibility(scene: Node) -> bool:
 		ok = _fail("HIDE", "held weapon visible while inventory open")
 	scene.set("inventory_open", false)
 	scene.call("_update_held_weapon")
+	if not bool(scene.call("held_weapon_visible")):
+		ok = _fail("HIDE", "held weapon stays hidden after inventory closes")
 	# reports (ledger)
 	scene.set("_reports_open", true)
 	scene.call("_update_held_weapon")
@@ -3978,6 +3992,8 @@ func _held_visibility(scene: Node) -> bool:
 		ok = _fail("HIDE", "held weapon visible while reports open")
 	scene.set("_reports_open", false)
 	scene.call("_update_held_weapon")
+	if not bool(scene.call("held_weapon_visible")):
+		ok = _fail("HIDE", "held weapon stays hidden after reports closes")
 	# talk
 	scene.set("talk_open", true)
 	scene.call("_update_held_weapon")
@@ -3985,6 +4001,8 @@ func _held_visibility(scene: Node) -> bool:
 		ok = _fail("HIDE", "held weapon visible while talk open")
 	scene.set("talk_open", false)
 	scene.call("_update_held_weapon")
+	if not bool(scene.call("held_weapon_visible")):
+		ok = _fail("HIDE", "held weapon stays hidden after talk closes")
 	# third person
 	scene.set("third_person", true)
 	scene.call("_update_render", 1.0)
@@ -3994,4 +4012,6 @@ func _held_visibility(scene: Node) -> bool:
 	scene.set("third_person", false)
 	scene.call("_update_render", 1.0)
 	scene.call("_update_held_weapon")
+	if not bool(scene.call("held_weapon_visible")):
+		ok = _fail("HIDE", "held weapon stays hidden after returning to first person")
 	return ok
