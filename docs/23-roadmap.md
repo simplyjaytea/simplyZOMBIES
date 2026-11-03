@@ -170,6 +170,10 @@ The source baseline is archived on GitHub at
   verify dimensions and reach, make headed shots and independent art review.
 - **First-person scavenging and personal equipment.** Real world containers,
   search/take/stow/equip through a revised grid UI; skill and condition access.
+- **The Ome–Okutama re-theme.** A setting brief first, as a new doc. It covers the real places to
+  draw on, a fictional map of the valley, building types, and the item and district renames. After
+  the brief: Japanese building templates and props by the art lead, then content renames. See
+  [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
 - **First-person spatial combat and perception.** One coherent obstruction and
   hit contract across visible geometry, sim movement, combat and NPC sight.
 - **First-person people and settlement operation.** Ledger animations, reports,

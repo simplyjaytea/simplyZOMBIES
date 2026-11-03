@@ -172,6 +172,10 @@ Management moves to physical ledgers and conversations. Earlier projection and
 sprite rules describe the preserved baseline, not constraints on new 3D assets.
 The standing verification and merge rules remain.
 
+**Setting.** The game is set in Japan, inspired by the real Ome–Okutama valley in western Tokyo
+(docs/30). Place names, businesses and brands are fictional; the real layout, landscape and
+architecture are the inspiration. The re-theme is planned work, listed in docs/23.
+
 A hardcore zombie survival colony sim: RimWorld's colony management and work priorities,
 Project Zomboid's unforgiving survival, Zero Sievert's top-down pixel art. One attention system
 (noise, scent, light) ties survival to the pressure the dead put on the colony: the better you
@@ -242,6 +246,8 @@ matter every session:
   default boot and every new piece is first person; the top-down game stays, boots with
   `npm run godot:run:topdown`, and keeps its gates, but gets no new features or UI slices unless
   the owner asks. Shared sim modules serve both.
+- **The setting is Japan (Ome–Okutama), 2026-11-04** (docs/30): inspired by the real Ome–Okutama
+  valley in western Tokyo; names are fictional. The re-theme is planned work, listed in docs/23.
 - **The survival loop is built, gated and on.** `SimShambler.GRABS_ENABLED` ships `true`. Any
   gate that pins the flag restores the previous value.
 - **The alpha stopped at a balance wall on 2026-10-21.** The target was a colony alive on day 10
