@@ -1025,24 +1025,24 @@
       "match": {
         "id": "item.ammo.bolt"
       },
-      "glb": "res://assets/first_person/items/arrows.glb",
+      "glb": "res://assets/first_person/items/bolt.glb",
       "pose": "world",
       "sizeM": [
-        0.7051,
-        0.011,
-        0.0852
+        0.4,
+        0.0062,
+        0.0483
       ]
     },
     {
       "match": {
         "id": "item.ammo.bolt.broadhead"
       },
-      "glb": "res://assets/first_person/items/arrows.glb",
+      "glb": "res://assets/first_person/items/bolt.glb",
       "pose": "world",
       "sizeM": [
-        0.7051,
-        0.011,
-        0.0852
+        0.4,
+        0.0062,
+        0.0483
       ]
     },
     {
@@ -1433,12 +1433,12 @@
       "match": {
         "id": "item.attach.muzzle.filter"
       },
-      "glb": "res://assets/first_person/items/jar.glb",
+      "glb": "res://assets/first_person/items/fallback_attachment.glb",
       "pose": "world",
       "sizeM": [
-        0.09,
-        0.13,
-        0.09
+        0.1224,
+        0.0477,
+        0.0862
       ]
     },
     {

@@ -14,6 +14,7 @@ import argparse
 import hashlib
 import json
 import math
+import re
 from pathlib import Path
 import struct
 import sys
@@ -1796,6 +1797,14 @@ def m_headgear(m):
     m.painter = paint
 
 
+def m_bolt(m):
+    m_arrows(m)
+    factor = 0.40 / 0.7051
+    for shell in m.shells:
+        for group in shell:
+            group[2] = [tuple(p * factor for p in poly) for poly in group[2]]
+
+
 def m_arrows(m):
     # Three arrows lying side by side (arrows and crossbow bolts share them).
     frames = []
@@ -1871,7 +1880,8 @@ MODELS = [
     ("fallback_attachment", m_fallback_attachment, 46, [], ["attachment"]),
     ("pouch", m_pouch, 47, [], ["container"]),
     ("armor_small", m_armor_small, 48, [], []),
-    ("arrows", m_arrows, 49, ["item.ammo.arrow", "item.ammo.arrow.broadhead", "item.ammo.arrow.target", "item.ammo.bolt", "item.ammo.bolt.broadhead"], []),
+    ("arrows", m_arrows, 49, ["item.ammo.arrow", "item.ammo.arrow.broadhead", "item.ammo.arrow.target"], []),
+    ("bolt", m_bolt, 50, ["item.ammo.bolt", "item.ammo.bolt.broadhead"], []),
     ("jar", m_jar, 50, [], []),
     ("bottle", m_bottle, 51, [], []),
     ("bundle", m_bundle, 52, [], []),
@@ -1892,8 +1902,8 @@ LADDER = {
     "material": {"default": ["fallback_attachment", "crate_small", "fallback_material", "crate_large"], "long": ["long_bundle"], "liquid": ["jar", "bottle"]},
     "tool": {"default": ["fallback_attachment", "fallback_tool", "crate_large"], "long": ["long_bundle"], "liquid": ["jar", "bottle"]},
     "container": {"default": ["pouch", "bag"], "liquid": ["jar", "bottle"]},
-    "armor": {"default": ["armor_small", "fallback_armor"], "headgear": ["headgear"], "eyewear": ["fallback_attachment"], "liquid": ["jar", "bottle"]},
-    "attachment": {"default": ["fallback_attachment", "fallback_tool"], "liquid": ["jar", "bottle"]},
+    "armor": {"default": ["armor_small", "fallback_armor"], "headgear": ["headgear"], "eyewear": ["fallback_attachment"]},
+    "attachment": {"default": ["fallback_attachment", "fallback_tool"]},
 }
 # Hard headwear and eyewear (in the item id), and drinks and jarred food (in the item's name).
 # Eyewear draws as the small hard case it is carried in.
@@ -1925,7 +1935,8 @@ def family(item):
         return "headgear"
     if item["class"] == "armor" and any(word in item["id"] for word in EYEWEAR_WORDS):
         return "eyewear"
-    if any(word in item["name"].lower() for word in LIQUID_WORDS):
+    words = set(re.split(r"[^a-z]+", item["name"].lower()))
+    if any(word in words for word in LIQUID_WORDS):
         return "liquid"
     if item["class"] in ("material", "tool") and is_long(item):
         return "long"
@@ -1983,6 +1994,7 @@ SIZES = {
     "pouch": (0.154, 0.133, 0.072),
     "armor_small": (0.1415, 0.0575, 0.1026),
     "arrows": (0.7051, 0.011, 0.0852),
+    "bolt": (0.40, 0.0062, 0.0483),
     "jar": (0.090, 0.130, 0.090),
     "bottle": (0.080, 0.260, 0.080),
     "bundle": (0.220, 0.089, 0.150),
@@ -2014,6 +2026,9 @@ def build_models(plant):
             lift = Vector((0.0, 0.0, 0.018))
             model.shells[0] = [[k, t, [tuple(p + lift for p in poly) for poly in polys]] for k, t, polys in model.shells[0]]
         model.finish()
+        if model.name == "bolt":
+            for island in model.islands:
+                island.polys = [(list(pts), [(u * 2.0, v * 2.0) for u, v in uvs]) for pts, uvs in island.polys]
         models.append(model)
     return models
 
@@ -2283,7 +2298,7 @@ def ladder_route(item, plant=None):
     if item["id"] == "item.food.preserves.jar":
         return "jar"
     target = expected_size(item)
-    rungs = list(LADDER[item["class"]][family(item)])
+    rungs = list(LADDER[item["class"]].get(family(item), LADDER[item["class"]]["default"]))
     if plant == "rung" and item["class"] == "consumable" and family(item) == "default":
         rungs.append("ration_pack")
     return min(rungs, key=lambda name: (abs(math.log(max(SIZES[name]) / target)), name))
