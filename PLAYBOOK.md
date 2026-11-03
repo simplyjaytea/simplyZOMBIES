@@ -768,7 +768,6 @@ pause policy), and docs/41's "For the owner" list. Every one has a default alrea
 - First-person arms: art (in flight on `claude/fp-arms`, Codex paints its atlas), then the
   presentation code and its ARMS gate lane.
 - Codex's paint scripts (`codex/fp-survivor-paint`) are local only; decide whether they land.
-- The ceiling follow-up for #310 (`sz-shared/reviews/followup-ceilings.md`).
 - The shambler and the other six zombie kinds on the new organic base, with a lighter version
   for hordes (measure the frame cost first).
 - The clothing layer system that follows the worn slots: a design note for the owner first.
@@ -780,8 +779,6 @@ pause policy), and docs/41's "For the owner" list. Every one has a default alrea
 
 - In the third-person testing view the held weapon stays at the eye, so it floats beside the
   body (#313's capture).
-- 78 indoor counter, shelf and partition tiles across 9 building templates have no ceiling; the
-  sky shows from inside (found by #310's confirmation review).
 - Godot generates untracked `*.translation` files from the art-docs CSVs
   (`godot/art/simplyzombies/docs/`); nothing ignores them, so worktrees show as dirty.
 - `godot:check:fp_geometry` went from about 2 s to 18 s with #310's real-worldgen lane.

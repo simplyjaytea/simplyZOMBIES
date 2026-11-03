@@ -2608,6 +2608,28 @@ not a to-do list:
     and block read as low-contrast tones and brick as a two-tone checker. That is below the outpost
     pack's quality floor and is the next pass for this kit, not a blocker for the shells.
 
+- **Ceilings over counters, shelves and partitions, 2026-11-04.** A fix forward on the building
+  finishes above. From inside, 77 template tiles holding a counter, shelf or partition, across nine
+  templates (clinic_storefront, gatehouse_yard, hall_civic, kiosk_corner, shop_corner,
+  store_grocery, unit_industrial, warehouse_brick, workshop_unit), showed the sky. #310's
+  confirmation review found them and counted 78; the 78th, unit_industrial's one indoor window, is
+  closed from above by its lintel.
+  - **The fix.** `build_finishes.py` drew the ceiling face only over an indoor tile of open floor. It
+    now draws it over every indoor tile, and the 22 GLBs are rebuilt. Blender re-encoded the atlas
+    with identical pixels.
+  - **The gate.** `godot:check:fp_geometry` gains a CEILINGS lane on the WORLDGEN lane's four real
+    districts. Every tile the sim marks indoors in a finished building, walls excepted, is crossed by
+    two vertical rays from 5 cm above the floor, and each must meet a downward-facing face the
+    building draws no higher than `SimSpace.FULL_MM` and no lower than 25 mm under it, or under the
+    bottom of the tile's own head band (a window's lintel, a door's head). It judges 15242 indoor
+    tiles, 1113 of them counters, shelves or partitions. On every run the ceiling is stripped in
+    memory from one counter tile's mesh, and the same rays refuse that tile and no other.
+  - **Measured.** Against main's GLBs the lane fails with `1113 of 15242 indoor tiles have no ceiling
+    at 2550 mm (77 distinct tiles of 9 templates); the first is (11, 32) in building.kiosk.corner
+    (district.residential_suburb)`. On the rebuilt GLBs it prints 0 without a ceiling. The lane
+    adds under half a second to the gate: about 14.4 s to 14.7 s on one quiet machine, and inside
+    the run-to-run noise (15.6 to 17.2 s) when the old and new gate alternate.
+
 - **The gunsmith bench as a place in first person, 2026-11-01.** W5 of docs/41: walk up to a bench,
   press E, and the assembly screen opens on the weapon carried. `godot/presentation/first_person/bench_view.gd`
   draws every sim `workbench` whose kind is the gunsmith's at its own position: the starter kit's desk
