@@ -85,15 +85,14 @@ static func phrases() -> Array[String]:
 	return out
 
 
-## Does the player see `ent` right now: the same `detail` test the player's own sightings use, so a
-## colonist behind a wall or behind the player's back is not seen.
+## Does the player see `ent` right now: the same `detail_body` test the player's own sightings use, so a
+## colonist behind a wall, behind the player's back or crouched behind a car is not seen.
 static func in_sight(world: Variant, ent: int) -> bool:
 	if world.vision == null:
 		return false
-	var at: Variant = world.components.get_component(ent, "position")
-	if not at is Dictionary or int(world.player) < 0:
+	if not world.components.has_component(ent, "position") or int(world.player) < 0:
 		return false
-	return int(world.vision.call("detail", int(world.player), float((at as Dictionary)["x"]), float((at as Dictionary)["y"]))) != 0
+	return int(world.vision.call("detail_body", int(world.player), ent)) != 0
 
 
 ## One short lowercase phrase, or "" for somebody this does not describe (the dead, the player's own

@@ -28,7 +28,7 @@ static func register_module(world: Variant) -> void:
 			var at: Variant = w.components.get_component(int(entity), "position")
 			if at == null:
 				continue
-			survivors.append({"x": float((at as Dictionary)["x"]), "y": float((at as Dictionary)["y"])})
+			survivors.append({"entity": int(entity), "x": float((at as Dictionary)["x"]), "y": float((at as Dictionary)["y"])})
 		if survivors.is_empty():
 			return
 		for entity in w.components.query(["position", "observer", "alarm"]):
@@ -43,7 +43,9 @@ static func register_module(world: Variant) -> void:
 			var seen: bool = false
 			for s in survivors:
 				var sd: Dictionary = s as Dictionary
-				if int(w.vision.call("detail", int(entity), float(sd["x"]), float(sd["y"]))) != SimVisibility.Detail.Unseen:
+				# The body, by its head and chest, so a survivor crouched below a sill does not set it off
+				# (docs/40, "Perception").
+				if int(w.vision.call("detail", int(entity), float(sd["x"]), float(sd["y"]), -1, int(sd["entity"]))) != SimVisibility.Detail.Unseen:
 					seen = true
 					break
 			if not seen:

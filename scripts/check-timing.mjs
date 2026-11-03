@@ -3,7 +3,7 @@
 // the way that file assumes -- `godot:m2` still delegates to it, and scripts/run-godot.mjs still
 // prints the GATE_TIME line every row of the table is built from.
 //
-// Every assertion here has a true positive and a true negative, per CLAUDE.md's "a gate that
+// Every assertion here has a true positive and a true negative, per PLAYBOOK.md's "a gate that
 // cannot fail is worse than no gate": a fabricated set of GATE_TIME lines for three modes
 // produces a three-row table in the right (slowest-first) order with the right total, and a
 // table missing a mode the chain ran -- or carrying one it never ran -- is refused rather than

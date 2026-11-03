@@ -6,7 +6,7 @@
 # packaging of whatever the ref already is, and CI's own gates are what said the ref was green.
 #
 # The engine pin and the template pin are the same version and SHA-512 as ci.yml, pages.yml and
-# scripts/setup-web-session.sh -- change one, change all of them (CLAUDE.md, the engine pin).
+# scripts/setup-web-session.sh -- change one, change all of them (PLAYBOOK.md, the engine pin).
 
 name: Release
 

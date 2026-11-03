@@ -13,7 +13,7 @@ extends RefCounted
 #
 # The names are the seam: `desk.glb`, `ledger.glb`, `shelf.glb`, `barricade.glb`, `wall_module.glb`.
 # The desk and ledger are read by `prop_view.gd`, the shelf by `container_view.gd`, and the barricade
-# and wall module by `district_view.gd`.
+# and wall module by `district_view.gd`. Building finishes use the manifest in `building_view.gd`.
 
 const DIR: String = "res://assets/first_person/"
 const DESK: String = DIR + "desk.glb"

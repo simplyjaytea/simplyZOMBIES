@@ -80,8 +80,9 @@ func _run() -> void:
 	ok = _the_drop_lands_where_the_string_keys_landed_it() and ok
 	ok = _the_stockpile_memo_is_the_fresh_list() and ok
 	ok = _the_walls_box_is_read_once_and_kept_while_the_tiles_hold() and ok
+	ok = _the_vertical_test_is_the_fresh_segment() and ok
 	if ok:
-		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square query care claw sky observe ambient seek far-think spread impair dress scent arcs table recall swing near-ties player-cast order drop stock-memo walls-box")
+		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square query care claw sky observe ambient seek far-think spread impair dress scent arcs table recall swing near-ties player-cast order drop stock-memo walls-box vertical")
 		quit(0)
 	else:
 		push_error("M2_TICK_FAIL")
@@ -2553,3 +2554,110 @@ func _reference_retreat_tile(w: Variant, annex: Rect2i, here: Vector2i) -> Vecto
 		if not SimPath.find(w, here, inside[n]).is_empty():
 			return inside[n]
 	return Vector2i(-1, -1)
+
+
+# --- slice 4 of the first-person contract: the vertical test ----------------------------------------
+#
+# `SimVisibility.detail_body` answers a body by the cached 2D view (CAST above holds it to the slow
+# cast), then `SimSpace.sight_clear` from the observer's eye to the body's eye and chest, which skips
+# its walk for a line inside the open corridor (the standing broadphase) and reads each tile's class
+# byte before it builds a key. VERTICAL holds that to a fresh answer: the same 2D detail, then
+# `SimSpace.segment_clear(..., SIGHT)` with no broadphase and no byte table, on a copy of the district
+# that keeps only the tiles whose profile key is in SIGHT_PARTIAL -- so the slow side builds every key
+# itself -- for every observer and every body, with every survivor crouched and some of the dead
+# crawling so the walk has lines to judge. The negatives: some pair must be hidden by height, some
+# must walk, some must be skipped by the corridor, and the same comparison with SIGHT_BY_HEIGHT pinned
+# off must disagree, or this lane cannot tell the vertical test from its absence.
+const SimSpace = preload("res://sim/space/space.gd")
+const SimStancesV = preload("res://sim/stances.gd")
+
+
+func _the_vertical_test_is_the_fresh_segment() -> bool:
+	var w: Variant = _stepped_world()
+	var people: Array = SimAllegiance.people_with_position(w)
+	for p in people:
+		w.components.set_component(int(p), "posture", SimStancesV.make_posture(SimStancesV.Stance.Crouch))
+	var crawlers: int = 0
+	for z in w.components.query(["shambler", "body"]):
+		if int(z) % 3 == 0:
+			(w.components.get_component(int(z), "body") as Dictionary)["legs"] = 0
+			crawlers += 1
+	for i in 4:
+		w.step()
+	var mask: Variant = _partial_only_copy(w.tilemap)
+	var counts: Dictionary = _vertical_compare(w, mask)
+	if counts.has("error"):
+		return _fail("VERTICAL", String(counts["error"]))
+	if int(counts["pairs"]) == 0 or int(counts["hidden"]) == 0:
+		return _fail("VERTICAL", "no pair was hidden by height (%s); the lane judged nothing the vertical test decides" % str(counts))
+	if int(counts["walked"]) == 0 or int(counts["corridor"]) == 0:
+		return _fail("VERTICAL", "the walk or the corridor was never exercised (%s)" % str(counts))
+	var was: bool = SimVisibility.SIGHT_BY_HEIGHT
+	SimVisibility.SIGHT_BY_HEIGHT = false
+	var off: Dictionary = _vertical_compare(w, mask)
+	SimVisibility.SIGHT_BY_HEIGHT = was
+	if not off.has("error"):
+		return _fail("VERTICAL", "with SIGHT_BY_HEIGHT off the comparison still agreed (%s), so it cannot see the vertical test" % str(off))
+	print("VERTICAL OK %d pairs agree (%d hidden by height, %d walked, %d inside the corridor; %d people crouched, %d crawlers); off disagrees" % [int(counts["pairs"]), int(counts["hidden"]), int(counts["walked"]), int(counts["corridor"]), people.size(), crawlers])
+	return true
+
+
+# Every observer against every positioned body, `detail_body` and `detail` at a low point against the
+# fresh answer. {"error": why} at the first disagreement.
+func _vertical_compare(w: Variant, mask: Variant) -> Dictionary:
+	var counts: Dictionary = {"pairs": 0, "hidden": 0, "walked": 0, "corridor": 0}
+	var bodies: Array = w.components.query(["position", "body"])
+	for ob in w.components.query(["observer", "position"]):
+		var view: Variant = w.vision._views.get(int(ob))
+		if view == null:
+			continue
+		var eye: Dictionary = {"x": float((view as Dictionary)["x"]), "y": float((view as Dictionary)["y"]), "h": SimSpace.eye_of(w, int(ob))}
+		for b in bodies:
+			if int(b) == int(ob):
+				continue
+			var at: Vector2 = _positioned(w, int(b))
+			var flat: int = int(w.vision.detail(int(ob), at.x, at.y))
+			var fast: int = int(w.vision.detail_body(int(ob), int(b)))
+			var height: int = int(SimSpace.body_of(w, int(b))["height"])
+			@warning_ignore("integer_division")
+			var points: Array[int] = [SimSpace.eye_of(w, int(b)), height * SimSpace.CHEST_PERMILLE / 1000]
+			var slow: int = flat
+			if flat != SimVisibility.Detail.Unseen:
+				counts["pairs"] = int(counts["pairs"]) + 1
+				var clear: bool = false
+				for h in points:
+					if mini(int(eye["h"]), h) >= SimSpace.SIGHT_OPEN_FROM_MM and maxi(int(eye["h"]), h) <= SimSpace.SIGHT_OPEN_TO_MM:
+						counts["corridor"] = int(counts["corridor"]) + 1
+					else:
+						counts["walked"] = int(counts["walked"]) + 1
+					if SimSpace.segment_clear(mask, eye, {"x": at.x, "y": at.y, "h": h}, SimSpace.SIGHT):
+						clear = true
+						break
+				if not clear:
+					slow = SimVisibility.Detail.Unseen
+					counts["hidden"] = int(counts["hidden"]) + 1
+			if fast != slow:
+				return {"error": "observer %d, body %d at (%.2f, %.2f): detail_body %d, the fresh segment %d" % [int(ob), int(b), at.x, at.y, fast, slow]}
+			# The place form with a height, at a knee-high point on the same spot.
+			if flat != SimVisibility.Detail.Unseen:
+				var low_fast: int = int(w.vision.detail(int(ob), at.x, at.y, 500))
+				var low_slow: int = flat if SimSpace.segment_clear(mask, eye, {"x": at.x, "y": at.y, "h": 500}, SimSpace.SIGHT) else SimVisibility.Detail.Unseen
+				if low_fast != low_slow:
+					return {"error": "observer %d, a point 500 mm up at (%.2f, %.2f): detail %d, the fresh segment %d" % [int(ob), at.x, at.y, low_fast, low_slow]}
+	return counts
+
+
+# A copy of `map` holding only the tiles whose own profile key is partial for sight, overlays and all;
+# every other tile is open floor. Built through `SimSpace.profile_key`, not the class byte table.
+func _partial_only_copy(map: Variant) -> Variant:
+	var out: Variant = SimTileMap.blank_map(int(map.w), int(map.h))
+	for ty in int(map.h):
+		for tx in int(map.w):
+			if not SimSpace.SIGHT_PARTIAL.has(SimSpace.profile_key(map, tx, ty)):
+				continue
+			var idx: int = ty * int(map.w) + tx
+			out.tiles[idx] = map.tiles[idx]
+			var ov: Variant = SimTileMap.overlay_at(map, tx, ty)
+			if ov is Dictionary:
+				out.overlays[idx] = (ov as Dictionary).duplicate()
+	return out

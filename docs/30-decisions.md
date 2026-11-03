@@ -6359,7 +6359,7 @@ pack, a tile, or a despawn. `godot:m2:stockpile` EMPTY and FULL hold the two pat
 ## The release plan and the content arcs, 2026-10-26
 
 Decided by the owner, 2026-10-26, from a proposal in the coordinator's chat. Four calls, each
-recorded once here; the plan itself is [docs/38's "The release plan"](38-playbook.md#the-release-plan)
+recorded once here; the plan itself is [the playbook's "The release plan"](../PLAYBOOK.md#the-release-plan)
 and the pieces it opens are in docs/23's what's left under "Content arcs".
 
 - **The projection stays flat top-down.** An isometric view in Project Zomboid's manner was
@@ -7731,3 +7731,132 @@ NPC's chest. What follows is what it left open.
   because NaN passes `canonical`. It now refuses one whole, so the yaw, the feet and the pitch stay
   as they were, the way `clamp_pitch` already read a NaN pitch as level. `godot:m2:aim` PITCH holds
   it, with the comparison written so a NaN cannot pass it.
+
+## A body is seen at its eye and its chest, 2026-11-01
+
+Slice 4 of docs/40 ("Perception with heights") built the owner's question 3 at its recommended
+default, "yes", behind one switch, `SimVisibility.SIGHT_BY_HEIGHT`. The question stays the owner's
+(docs/33). These are the engineering calls the slice took; docs/40 fixes the rest.
+
+- **The head point is the body's eye.** docs/40 says a body is seen if its head point or its chest
+  point clears, and names no head height. The eye (`SimSpace.eye_of`) is the one that makes the
+  head test symmetric: A sees B's head exactly when B sees A's, at any two heights, so a crouched
+  survivor under a sill who cannot be seen from outside cannot see out either. The chest is
+  `SimSpace.CHEST_PERMILLE`, the point slice 3 already aims at. The top of the cylinder was the
+  other reading, and it fails docs/40's own case: a crouched head's top (1150 mm) is above a
+  1100 mm car, so no car would ever hide a crouched survivor from a standing zombie.
+- **The vertical test counts only the partial-height tiles.** `SimSpace.sight_clear` is
+  `segment_clear(..., SIGHT)` with only the tiles in `SimSpace.SIGHT_PARTIAL` counted (Low, a
+  window, a stage-3 board, an open door's lintel). A wall, a screen or a closed door is the 2D
+  layer's: the standing shadowcast already judged it, tile centre to tile centre. Counting it again
+  by the exact segment would hide a body at every corner the cast sees round, which is a second,
+  different sight rule and no part of this slice. `SIGHT_PARTIAL` is derived from PROFILE and
+  `godot:m2:sight` HEIGHT holds the two equal.
+- **The broadphase is the open corridor, not the cast's square.** docs/40 has the cast record
+  whether its square holds a partial tile. A 48 m square in the district holds a car almost always,
+  and cars move (`vehicles.gd` writes Low tiles as it drives), so a precomputed index would need its
+  own invalidation. Instead no partial tile's sight band lies between 1100 and 2100 mm, so a line
+  wholly inside that corridor needs no walk (`SimSpace.SIGHT_OPEN_FROM_MM`, `SIGHT_OPEN_TO_MM`).
+  Every line between standing bodies is inside it, so only a crouched or crawling eye or body pays.
+  Outside it, the walk reads each tile's class byte straight off the map and builds a key only for a
+  partial one. HEIGHT holds the corridor to PROFILE band by band, and that it is the widest one.
+- **The lintel is reached only by a place with a height.** No body point is above 1620 mm, so an
+  open door's 2200 mm lintel never hides a body on one floor. `detail(observer, x, y, h)` asks it
+  for a point, and HEIGHT holds a line rising through a doorway against one just under the lintel.
+- **`detail_body(observer, entity)` as docs/40 names it, and the body as `detail`'s fifth
+  argument.** The sightings loop, the dead's eyes and the screamer already hold the body's position
+  from the position table, and ask `detail(observer, x, y, -1, body)`: the 2D tests run first, and
+  nothing more is looked up for a body they refuse, which is most of the bodies in a square.
+  `detail_body` looks the position up and asks the same, for the order and Colony-screen callers.
+  The first cut had a separate body method in front of `detail`, and that one extra call per
+  candidate showed in the district's tick. As built, the tick is flat against the base (docs/23's
+  record has the numbers), and the BEHIND-READER lane's scan for `detail` in `_observe_one` stands
+  unchanged.
+- **The vision holds its world weakly.** `detail` has no world argument, and a body's height needs
+  one. `refresh` keeps a `WeakRef` to the world it read, because the world owns the vision and a
+  strong reference back would be a cycle neither could free.
+- **The switch gives back the planar rule exactly.** With `SIGHT_BY_HEIGHT` false a crouched
+  observer casts from `Eye.Crouched` again, the target's height is never asked, and `detail_body`
+  is `detail` at the body's position. The EYE lane runs in that state and passes unchanged. With it
+  true, the observer's `eye` names the cast it gets, which is now always `Eye.Standing`, so
+  `check_m2_tick.gd`'s recasts from it stay true, and a crouched eye from an older save is put right
+  on the first refresh.
+- **Jobs, orders and the Colony screen switch too.** docs/40 names them with sightings. A
+  colonist's order target and the Colony screen's "in sight" are questions about a body, so a
+  colonist crouched behind a car is not "in sight". The views (the top-down entity pass and the
+  first-person `body_view.gd`) still ask `detail` at the body's spot. Drawing bodies through
+  `detail_body` is docs/40's slice 7. Until then a crouched player's screen can draw a crouched or
+  crawling body behind a car that the sim's sightings do not record.
+
+## First person is the default boot; third person is a testing view, 2026-11-01
+
+The owner's call, 2026-11-01: "let's make the default mode be first person. From first person you
+can switch to 3rd. This is only for testing." It is recorded as what it is: first person is the game,
+and third person is a view for testing, not a game mode.
+
+- **The default.** `project.godot`'s `run/main_scene` names `presentation/first_person/first_person.tscn`.
+  `npm run godot:run` and the exported builds open first person. The top-down game is kept for testing:
+  `npm run godot:run:topdown` opens `presentation/main.tscn` directly, and the first-person scene's
+  Escape leads to that title, where New run starts the top-down game. The title row is now "first
+  person". Save slots are unchanged, and the first-person slot stays separate from the top-down one.
+- **The testing view.** F2 toggles third person: the camera steps back 2.75 m behind the eye, 0.4 m
+  up and 0.25 m right. A wall on the line from the eye pulls it in, read as the sim's own sight line
+  (`SimSpace.segment_clear`, SIGHT). The player's own body is drawn only in third person, with
+  `survivor.glb` playing the clip the sim's state names. The flag is presentation only: the sim never
+  reads it and the save never holds it. Movement, aim and interaction still come from the eye.
+- **The held weapon stays at the camera in third person.** The body carries no weapon yet, so a
+  third-person screen shows the first-person weapon. This is a known limit of the testing view.
+- **Gates.** `godot:check:first_person` holds BOOT (the boot scene, and a refused top-down line) and
+  THIRD (the body hidden in first person; shown, placed and animated in third; the camera pulled in
+  by a wall, and not pulled in on an open line). `godot:check:play`'s SCENE lane asserts the first-person boot.
+- **Left open.** Whether third person ever becomes a player-facing mode is not decided here; docs/39
+  does not name one.
+
+## The playbook, one file, 2026-11-01
+
+The owner's call: `CLAUDE.md`, `AGENTS.md` and docs/38 merge into one root `PLAYBOOK.md`. In
+the owner's words, "the playbook file is going to have both the AGENTS.md file and all that
+stuff inside of it. It's going to include workflows, a plan of what we did, a to-do list, some
+bugs, and just things we need to work on. Most crucially it's going to include our workflow
+inside of Orca." This reverses the 2026-10-23 split ("The playbook, and AGENTS.md as a
+pointer", above), which kept the repository's rules in `CLAUDE.md` and the project's running in
+docs/38: with every agent now a terminal inside Orca, the rules, the roster and the dispatch loop
+are read by the same reader at the same moment, and two files that each said "read the other
+first" cost every session a second orientation.
+
+- **One file, in one order.** Start here; the team and the Orca workflow (the owner's "most
+  crucial" part, so it sits near the top); what the project is; how the code fits together;
+  where the work is; the slice workflow; verifying; pushing; the standing bans; conventions;
+  the traps pointer; then docs/38's content whole (who decides what, how the owner works, how
+  work flows, the release plan, the content arcs, the shared folder, art conventions,
+  performance, screenshots, the pause handoff); then the session record, the to-do list, the
+  known bugs and the lessons; and the routing table last, because `check:routing` reads it by
+  its heading and it is the longest section. Content moved; no rule was rewritten in the move,
+  and duplication between the three sources was removed rather than repeated.
+- **The three sources are stubs.** `CLAUDE.md` is an `@PLAYBOOK.md` import plus one sentence,
+  so Claude Code still loads the rules on every session. `AGENTS.md` says read the playbook
+  first and keeps its first-commands block, because Codex, Cursor and Kimi look for that name.
+  docs/38 keeps every old section heading, each a link to the matching playbook anchor, so the
+  links written against it in docs/23, docs/30 and the project chat still land.
+- **`check:routing` reads `PLAYBOOK.md`.** `TABLE_FILE` moved with the table; the self-test's
+  fixture moved with it. The routing table's own links say `PLAYBOOK.md#...`. Every link in
+  `docs/` and `README.md` that pointed at a `CLAUDE.md` or docs/38 anchor now points at the
+  playbook's, and the pointers in the steward skill, the pull request template, the CI comment
+  and the scripts' comments followed.
+- **The roster may name models; authorship may not.** The owner's amendment to the
+  no-model-identifiers rule: the team table in the playbook names the model each role runs on
+  (coordinator, workhorse, modeler, art, the strong tier and the writer on demand), because a
+  roster says who runs what. Nothing else changed: a commit message, a pull request title or
+  body, a code comment or a doc never says which model wrote it, and no `Co-Authored-By`
+  trailer names one. That entry's "model routing is described by role, not by name"
+  is superseded in that one place and holds everywhere else.
+- **The session record is a section, not a ledger.** What the session did, the to-do list, the
+  known bugs and the lessons are prose and bullets with no checkboxes, per the convention that
+  retired `HANDOFF.md`; docs/23 stays the authority on what landed with what evidence, and a
+  bullet in the playbook that outlives its fact is deleted, not ticked.
+
+**How to apply:** a reader starts at `PLAYBOOK.md` and nowhere else. A rule goes into the
+playbook's section for it; a fact about the build goes in the doc that owns it (docs/23 for
+status, docs/30 for a call, docs/33 for an open owner question) and the playbook links to it.
+The session record, to-do and bugs sections are rewritten at the end of a session, not appended
+to forever.
