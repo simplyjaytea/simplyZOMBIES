@@ -1889,9 +1889,9 @@ MODELS = [
 # Each class has a default ladder and, where its items differ in kind, a family ladder.
 LADDER = {
     "consumable": {"default": ["fallback_consumable", "bundle", "fallback_material"], "liquid": ["jar", "bottle"]},
-    "material": {"default": ["fallback_attachment", "crate_small", "fallback_material", "crate_large"], "long": ["long_bundle"]},
-    "tool": {"default": ["fallback_attachment", "fallback_tool", "crate_large"], "long": ["long_bundle"]},
-    "container": {"default": ["pouch", "bag"]},
+    "material": {"default": ["fallback_attachment", "crate_small", "fallback_material", "crate_large"], "long": ["long_bundle"], "liquid": ["jar", "bottle"]},
+    "tool": {"default": ["fallback_attachment", "fallback_tool", "crate_large"], "long": ["long_bundle"], "liquid": ["jar", "bottle"]},
+    "container": {"default": ["pouch", "bag"], "liquid": ["jar", "bottle"]},
     "armor": {"default": ["armor_small", "fallback_armor"], "headgear": ["headgear"], "eyewear": ["fallback_attachment"]},
     "attachment": {"default": ["fallback_attachment", "fallback_tool"]},
 }
@@ -1925,7 +1925,7 @@ def family(item):
         return "headgear"
     if item["class"] == "armor" and any(word in item["id"] for word in EYEWEAR_WORDS):
         return "eyewear"
-    if item["class"] == "consumable" and any(word in item["name"].lower() for word in LIQUID_WORDS):
+    if any(word in item["name"].lower() for word in LIQUID_WORDS):
         return "liquid"
     if item["class"] in ("material", "tool") and is_long(item):
         return "long"

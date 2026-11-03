@@ -1937,12 +1937,12 @@
       "match": {
         "id": "item.can.fuel"
       },
-      "glb": "res://assets/first_person/items/crate_small.glb",
+      "glb": "res://assets/first_person/items/bottle.glb",
       "pose": "world",
       "sizeM": [
-        0.258,
-        0.158,
-        0.188
+        0.08,
+        0.26,
+        0.08
       ]
     },
     {
