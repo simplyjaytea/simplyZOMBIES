@@ -411,7 +411,7 @@ def hand_obstacle(kin, side, frame, curls, triangles):
         if name in poses:
             transform = poses[name] @ np.linalg.inv(kin.R[name])
             points[indices] = (kin.skin_rest[indices] @ transform.T)[:, :3]
-    owned = np.array([kin.dominant[i].endswith("." + side) for i in range(len(points))])
+    owned = np.array([kin.dominant[i] in poses for i in range(len(points))])
     keep = [tri for tri in triangles if owned[list(tri)].all()]
     return Obstacle(points, keep)
 
@@ -481,7 +481,7 @@ def solve_classes(kin, skin_triangles):
     classes["pistol"] = {
         "weapon": pistol, "idle": W, "aim": straight_on_axis(pistol, 0.40),
         "rel_r": np.linalg.inv(W) @ right, "rel_l": np.linalg.inv(right) @ left, "left_on": "hand",
-        "curls": {"R": curls_r, "L": curls_l}, "protract": {"R": 0.10, "L": 0.40},
+        "curls": {"R": curls_r, "L": curls_l}, "protract": {"R": 0.10, "L": 0.52},
     }
     # Long gun (the jig): the right hand on the raked grip as on the pistol, the left under the
     # handguard at grip_l; carried low right with the muzzle toward the screen centre.
@@ -529,7 +529,7 @@ def solve_classes(kin, skin_triangles):
 
 def unarmed_frame(side, drop=False):
     sign = 1 if side == "R" else -1
-    wrist = game_to_blender((sign * 0.22, -0.25 if not drop else -0.62, -0.31))
+    wrist = game_to_blender((sign * 0.22, -0.25 if not drop else -0.58, -0.31 if not drop else -0.29))
     u = game_to_blender((-sign * 0.30, 0.30, -1.0))
     w = game_to_blender((-sign * 0.55, -0.80, 0.10))
     frame = hand_frame_in(np.eye(4), u, w, side, np.zeros(3))

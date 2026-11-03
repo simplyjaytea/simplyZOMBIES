@@ -1,6 +1,6 @@
 {
   "atlas": "res://assets/first_person/arms/arms_atlas.png",
-  "atlas_used": 0.0998,
+  "atlas_used": 0.2861,
   "bones": [
     "view",
     "shoulder.R",
@@ -153,7 +153,7 @@
           0.0,
           -0.0,
           -1.0,
-          0.07283
+          0.06074
         ],
         [
           0.0,

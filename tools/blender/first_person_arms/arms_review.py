@@ -1,11 +1,9 @@
 """Review renders: each hold class at idle, aim and the inspect mid-point, from the eye at the
 game's 75 degree vertical field of view, at 4:3, 16:9 and 21:9, holding the real weapon GLB (the
-long-gun jig stands in for long guns). Clay versions, and sheets beside the owner's concept, whose
-right half is read only for the sheet and never enters an asset.
+long-gun jig stands in for long guns). Includes clay views, motion strips and before/after sheets.
 """
 
 import math
-from array import array
 from pathlib import Path
 
 import bpy
@@ -39,7 +37,7 @@ def setup():
     camera.rotation_euler = (math.radians(90), 0, 0)
     camera.data.sensor_fit = "VERTICAL"
     camera.data.angle_y = math.radians(75)
-    camera.data.clip_start = 0.02
+    camera.data.clip_start = 0.06
     scene.camera = camera
     bpy.ops.mesh.primitive_plane_add(size=40, location=(0, 0, -1.62))
     ground = bpy.context.object
@@ -81,8 +79,8 @@ def remove(objects):
         bpy.data.objects.remove(obj, do_unlink=True)
 
 
-def key_states(build):
-    clips = clips_.frames(build)
+def key_states(build, clips=None):
+    clips = clips or clips_.frames(build)
     result = []
     for cls in poses.CLASSES:
         keys = [("idle", clips[f"idle_{cls}"][1][0])]
@@ -99,7 +97,8 @@ def render(build, out, clay_too=True):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     scene = setup()
-    states = key_states(build)
+    clips = clips_.frames(build)
+    states = key_states(build, clips)
     passes = [("", None)]
     if clay_too:
         clay = bpy.data.materials.new("clay")
@@ -113,8 +112,7 @@ def render(build, out, clay_too=True):
             for slot in ([material] if material else originals[obj.name]):
                 obj.data.materials.append(slot)
         for cls, key, state in states:
-            frames = {side: frame for side, frame in (("R", state.R), ("L", state.L)) if frame is not None}
-            build.set_pose(build.pose(cls, state.W, frames))
+            pose_state(build, cls, state)
             props = place_weapon(cls, build.classes[cls]["weapon"], state.W) if state.W is not None else []
             for width, height in ASPECTS:
                 scene.render.resolution_x = HEIGHT * width // height
@@ -123,6 +121,43 @@ def render(build, out, clay_too=True):
                 bpy.ops.render.render(write_still=True)
             remove(props)
         sheet(out, prefix, states)
+    for obj in (build.skin, build.sleeve):
+        obj.data.materials.clear()
+        for slot in originals[obj.name]:
+            obj.data.materials.append(slot)
+    motion_strips(build, out, scene, clips)
+
+
+def pose_state(build, cls, state):
+    frames = {side: frame for side, frame in (("R", state.R), ("L", state.L)) if frame is not None}
+    build.set_pose(build.pose(cls, state.W, frames))
+
+
+def motion_strips(build, out, scene, clips):
+    cell_w, cell_h = 384, 216
+    scene.render.resolution_x, scene.render.resolution_y = cell_w, cell_h
+    temporary = out / "_strip_frame.png"
+    for cls in poses.CLASSES:
+        kinds = [kind for kind in ("idle", "sway", "raise", "lower", "inspect") if kind == "sway" or f"{kind}_{cls}" in clips]
+        for kind in kinds:
+            if kind == "sway":
+                base = clips_.ready(build, cls)
+                states = [clips_.sway(base, index / 5) for index in range(5)]
+            else:
+                available = clips[f"{kind}_{cls}"][1]
+                divisor = 5 if kind == "idle" else 4
+                states = [available[round(index * (len(available) - 1) / divisor)] for index in range(5)]
+            canvas = np.zeros((cell_h, cell_w * 5, 4), dtype=np.float32)
+            canvas[:, :] = (0.06, 0.06, 0.06, 1)
+            for index, state in enumerate(states):
+                pose_state(build, cls, state)
+                props = place_weapon(cls, build.classes[cls]["weapon"], state.W) if state.W is not None else []
+                scene.render.filepath = str(temporary)
+                bpy.ops.render.render(write_still=True)
+                paste(canvas, load(temporary), index * cell_w, 0, cell_w, cell_h)
+                remove(props)
+            save_canvas(canvas, out / f"strip_{cls}_{kind}.png", f"strip_{cls}_{kind}")
+    temporary.unlink(missing_ok=True)
 
 
 def load(path):
@@ -147,6 +182,15 @@ def paste(canvas, image, left, top, width, height):
     canvas[y0 : y0 + dh, x0 : x0 + dw] = image[ys][:, xs]
 
 
+def save_canvas(canvas, path, name):
+    data = bpy.data.images.new(name, width=canvas.shape[1], height=canvas.shape[0], alpha=True)
+    data.pixels.foreach_set(canvas.ravel())
+    data.filepath_raw = str(path)
+    data.file_format = "PNG"
+    data.save()
+    bpy.data.images.remove(data)
+
+
 def sheet(out, prefix, states):
     # The concept's right half (the first-person frame), then every class's key poses at 16:9.
     columns = 3
@@ -163,9 +207,16 @@ def sheet(out, prefix, states):
     for index, (cls, key, _) in enumerate(states):
         image = load(out / f"{prefix}{cls}_{key}_16x9.png")
         paste(canvas, image, 960 + (index % columns) * cell_w, (index // columns) * cell_h, cell_w, cell_h)
-    data = bpy.data.images.new(f"{prefix}sheet", width=width, height=height, alpha=True)
-    data.pixels.foreach_set(canvas.ravel())
-    data.filepath_raw = str(out / f"{prefix}concept_comparison.png")
-    data.file_format = "PNG"
-    data.save()
-    bpy.data.images.remove(data)
+    save_canvas(canvas, out / f"{prefix}concept_comparison.png", f"{prefix}sheet")
+
+
+def comparisons(before, out):
+    before, out = Path(before), Path(out)
+    for cls in poses.CLASSES:
+        keys = [key for key in ("idle", "aim", "inspect") if (before / f"{cls}_{key}_16x9.png").is_file() and (out / f"{cls}_{key}_16x9.png").is_file()]
+        canvas = np.zeros((270 * len(keys), 960, 4), dtype=np.float32)
+        canvas[:, :] = (0.06, 0.06, 0.06, 1)
+        for row, key in enumerate(keys):
+            paste(canvas, load(before / f"{cls}_{key}_16x9.png"), 0, row * 270, 480, 270)
+            paste(canvas, load(out / f"{cls}_{key}_16x9.png"), 480, row * 270, 480, 270)
+        save_canvas(canvas, out / f"compare_{cls}.png", f"compare_{cls}")

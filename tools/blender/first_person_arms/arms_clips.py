@@ -106,25 +106,53 @@ def holstered(state, cls):
 
 
 def inspected(build, cls, state):
-    # The weapon turned toward the camera's centre, rolled to show its side, brought a little closer.
+    # Show the outer side rather than rolling the hands over the slide or receiver.
     W = state.W
-    turned = spin_about_bore(W, math.radians(-65 if cls != "melee2" else -35))
-    turned = moved(turned, right=-0.08, drop=-0.04, back=0.10 if cls in TWO_HANDED else 0.06, yaw=math.radians(18 if cls != "long" else 8))
+    angle = {"pistol": 35, "long": 15, "melee1": -50, "melee2": -35}[cls]
+    turned = spin_about_bore(W, math.radians(angle))
+    offset = {
+        "pistol": dict(right=-0.12, drop=-0.10, back=0.04, yaw=math.radians(-20)),
+        "long": dict(right=-0.10, drop=-0.10, back=-0.02, yaw=math.radians(-20)),
+        "melee1": dict(right=-0.07, drop=-0.03, back=0.02, yaw=math.radians(14)),
+        "melee2": dict(right=-0.08, drop=-0.04, back=0.06, yaw=math.radians(18)),
+    }[cls]
+    turned = moved(turned, **offset)
     return State(turned, None, state.L, state.keep_left)
 
 
 def breathing(state, phase, amount=1.0):
-    lift = 0.0030 * amount * math.sin(2 * math.pi * phase)
-    tip = 0.0030 * amount * (1 - math.cos(2 * math.pi * phase))
-    return state.map(lambda f: moved(f, drop=-lift, pitch=tip))
+    angle = 2 * math.pi * phase
+
+    def primary(frame):
+        return moved(frame, drop=-0.0024 * amount * math.sin(angle), right=0.0012 * amount * (math.sin(angle + 0.35) - math.sin(0.35)), pitch=0.0022 * amount * (1 - math.cos(angle)), roll=0.0025 * amount * math.sin(angle))
+
+    def secondary(frame):
+        return moved(frame, drop=-0.0019 * amount * (math.sin(angle + 0.40) - math.sin(0.40)), right=-0.0008 * amount * (math.sin(angle + 0.75) - math.sin(0.75)), pitch=0.0018 * amount * (math.cos(0.40) - math.cos(angle + 0.40)), roll=-0.0020 * amount * (math.sin(angle + 0.40) - math.sin(0.40)))
+
+    result = state.map(primary)
+    if state.L is not None and (state.keep_left or state.W is None):
+        result.L = secondary(state.L)
+    return result
 
 
-def aim_sway(state, phase):
-    lift = 0.0006 * math.sin(2 * math.pi * phase)
-    tip = 0.0006 * (1 - math.cos(2 * math.pi * phase))
-    W = state.W.copy()
-    # Turn about the sight, so the sight holds the axis while the gun breathes.
-    return State(moved(W, drop=-lift, pitch=tip))
+def aim_sway(state, phase, sight):
+    angle = 2 * math.pi * phase
+    lift = 0.0006 * math.sin(angle)
+    tip = 0.0006 * (1 - math.cos(angle))
+    turned = moved(state.W, drop=-lift, right=0.00035 * math.sin(angle), pitch=tip, roll=0.0004 * math.sin(angle))
+    before = (state.W @ np.r_[sight, 1.0])[:3]
+    after = (turned @ np.r_[sight, 1.0])[:3]
+    turned[:3, 3] += before - after
+    return State(turned)
+
+
+def sway(state, phase):
+    # Review-only stand-in for the presentation layer's movement sway; it is not a shipped clip.
+    angle = 2 * math.pi * phase
+    result = state.map(lambda f: moved(f, right=0.006 * math.sin(angle), drop=-0.003 * math.sin(2 * angle), pitch=0.008 * math.sin(angle), roll=0.006 * math.sin(angle)))
+    if state.L is not None and (state.keep_left or state.W is None):
+        result.L = moved(state.L, right=-0.004 * math.sin(angle), drop=-0.002 * math.sin(2 * angle + 0.4), pitch=0.006 * math.sin(angle + 0.4), roll=-0.004 * math.sin(angle))
+    return result
 
 
 def frames(build, plant=None):
@@ -139,7 +167,8 @@ def frames(build, plant=None):
                 if kind == "idle":
                     state = breathing(base, 0.0 if index == count else x)
                 elif kind == "aim":
-                    state = aim_sway(aimed(build, cls), 0.0 if index == count else x)
+                    sight = build.classes[cls]["weapon"].points["sight"][:3, 3]
+                    state = aim_sway(aimed(build, cls), 0.0 if index == count else x, sight)
                 elif kind == "raise":
                     state = base.lerp(aimed(build, cls), ease(x))
                     if plant == "pop" and index == count - 1:
@@ -152,9 +181,12 @@ def frames(build, plant=None):
                     peak = inspected(build, cls, base)
                     amount = ease(x / 0.3) if x < 0.3 else (1.0 if x <= 0.7 else ease((1 - x) / 0.3))
                     state = base.lerp(peak, amount)
+                    state = state.map(lambda f: moved(f, right=0.002 * amount * math.sin(2 * math.pi * x), drop=-0.0015 * amount * math.sin(4 * math.pi * x), roll=0.004 * amount * math.sin(2 * math.pi * x)))
                 states.append(state)
             if plant == "seam" and kind == "idle" and cls == "pistol":
                 states[-1] = states[-1].map(lambda f: moved(f, drop=0.002))
+            if plant == "rotation-pop" and kind == "inspect" and cls == "pistol":
+                states[-1] = states[-1].map(lambda f: moved(f, pitch=math.radians(2)))
             name = f"{kind}_{cls}"
             if plant == "clip-rename" and name == "inspect_melee1":
                 name = "inspect_knife"

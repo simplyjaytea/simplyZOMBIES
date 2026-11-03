@@ -17,6 +17,7 @@ blender --background --factory-startup --python tools/blender/first_person_arms/
 blender --background --factory-startup --python tools/blender/first_person_arms/build_arms.py -- --check
 blender --background --factory-startup --python tools/blender/first_person_arms/build_arms.py -- --plant <name>
 blender --background --factory-startup --python tools/blender/first_person_arms/build_arms.py -- --render-dir <dir> --uv-layout-dir <dir>
+blender --background --factory-startup --python tools/blender/first_person_arms/build_arms.py -- --render-dir <round-2> --compare-dir <round-1>
 ```
 
 The rebuild writes `godot/assets/first_person/arms/arms_base.glb`, `arms_atlas.png` and
@@ -25,8 +26,10 @@ builds elsewhere. `--check` builds into a temporary folder, runs the checks ther
 the three outputs byte for byte with the committed ones; it prints `ARMS_CHECK_OK`, or
 `ARMS_CHECK_FAIL: <check>: <reason>` and exits 1. `--plant <name>` builds with one known defect and
 prints `ARMS_PLANT_REFUSED` when the named checks catch it, or `ARMS_PLANT_FAIL` and exits 1.
-`--render-dir` writes the review renders, and `--uv-layout-dir` the atlas layout for the texture
-painter. No `.blend` is kept. CI has no Blender, so these run by hand, as the other kits' do.
+`--render-dir` writes the review renders and five-frame idle, sway, raise, lower and inspect strips;
+`--compare-dir <round-1>` adds per-class sheets with round 1 left and the new render right.
+`--uv-layout-dir` writes the atlas layout. No `.blend` is kept. CI has no Blender, so these run by
+hand, as the other kits' do.
 
 The outputs live under `arms/`, not beside the `*.manifest.json` files, so `Models.manifests()`
 never mistakes the arms for a loot model.
@@ -47,13 +50,14 @@ never mistakes the arms for a loot model.
   weapon's `grip_l` node.
 - **Meshes.** `arms_skin` (both hands and wrists, about 1,040 triangles a hand) and `arms_sleeve`
   (the base top's sleeve, cuff to deltoid, 24 segments a ring), skinned to the one skeleton with at
-  most four normalized influences. The skin reaches 35 mm up inside the sleeve. 3,616 triangles in
+  most four normalized influences. The skin reaches 35 mm up inside the sleeve. 3,712 triangles in
   all (budget 4,000). One material, `ArmsAtlas`, single-sided, nearest with nearest mipmaps.
 - **Hands.** Five separately jointed digits, a thumb whose metacarpal sits in a thenar pad, a
   hypothenar pad, knuckle ridges and a wrist, fused into one surface by a voxel remesh, relaxed and
   decimated to budget. The hand is scaled so its length is the survivor's.
 - **Sleeves.** Lofted through cross-sections cut from the survivor's own arm surface (wrist to
-  0.40 m up the arm), so their girth is the body's.
+  0.40 m up the arm), so their girth is the body's. An inner lip and a bridged rim keep the cuff
+  from disappearing under backface culling.
 
 ### Hold classes and anchors
 
@@ -92,15 +96,15 @@ not a clip (it follows the sim's `coneHalf`, in code).
 ## The atlas
 
 `arms_atlas.png` is 256 x 256 at 128 px/m on every triangle. The sleeves are unwrapped as the
-survivor's arm is (one cylinder an arm, one rear-inner seam); their texels are copied value for
-value from the survivor atlas's `arm.L` / `arm.R` islands, at the survivor's own UV of the same body
-point, so a body repaint repaints the sleeves on the next rebuild. The hands are unwrapped by
-Blender's angle-limited projection (33 degrees, so every triangle keeps 128 px/m +/- 25%). Their
-paint comes from `arms_paint.png` beside the builder when the texture painter delivers it (only
-texels inside the hand islands are read), else a placeholder in the BRIEF skin ramp. The layout
-for the painter (`uv_layout.png`, `uv_position.png`, `uv_layout.json` with islands, the fingertip
-direction in each, and landmarks: knuckles, nails, thumb tips, wrist backs, cuff edges) is written
-by `--uv-layout-dir`.
+survivor's arm is (one cylinder an arm, one rear-inner seam), with separate small bands for the inner
+cuff and rim. Their final paint uses charcoal texels sampled from the survivor's front and sleeve
+islands, with broad normal-driven form shading and a darker cuff; it never uses the warm back or
+atlas-cell noise. The hands are unwrapped by Blender's angle-limited projection (45 degrees, so every
+triangle keeps 128 px/m +/- 25%), with fewer, larger islands. Their final paint is generated in hand
+space from the BRIEF skin ramp: broad dorsal, turning-edge and palm zones. Every island receives 4 px
+of non-background dilation, including diagonal neighbours. The layout (`uv_layout.png`,
+`uv_position.png`, `uv_layout.json` with islands, the fingertip direction in each, and landmarks:
+knuckles, nails, thumb tips, wrist backs, cuff edges) is written by `--uv-layout-dir`.
 
 ## What `--check` holds
 
@@ -112,26 +116,27 @@ Measured on the exported GLB, frame by frame at 60 fps, against the committed we
 | `bytes` | GLB, atlas and `arms.json` rebuild byte-identical | `flip-byte` |
 | `names` | the 43 bones, the 23 clips and their lengths; loop seams within 0.1 mm / 0.01 deg | `clip-rename`, `seam` |
 | `anchor` | `grip_r` at idle frame 0 within 5 mm / 1 deg of each class's anchor, on the exported node | `bone-roll` |
+| `bone-length` | upper-arm and forearm joint distances within 0.5 mm of rest on every frame; no disconnected wrist from an unreachable target | `stretch-arm` |
 | `grip-land` | `grip_l` within 5 mm of the reference weapon's `grip_l` at every key pose of melee2 and long; the pistol's support hand within 5 mm of its cup pose relative to `hand.R` | `grip-off` |
 | `wrap` | no hand vertex over 2 mm inside the weapon; middle, ring and pinky pads within 4 mm of the grip at key poses | `finger-through` |
-| `sight-line` | at the end of `raise_*` and through `aim_*`, the sight within 3 mm of the camera axis, the bore within 1 deg of -Z | `sight-off` |
+| `sight-line` | at the end of `raise_*` and on every `aim_*` frame, the sight within 3 mm of the camera axis, the bore within 1 deg of -Z | `sight-off` |
 | `near-plane` | every visible vertex (vertical 75 deg, up to 21:9) at least 0.06 m deep, every frame | `near-clip` |
 | `stump` | the sleeve's open end out of view at 21:9, every frame | `short-arm` |
 | `in-frame` | at idle and aim, 80% of the right hand in the 4:3 frame (both hands for melee2, long, unarmed); at `draw` frame 0 and the end of `lower`, both hands below the bottom edge | `hand-out` |
-| `chain` | each one-shot's first and last poses equal the poses it joins within 1 mm, and it starts and ends at rest | `pop` |
+| `chain` | each one-shot's joined poses agree in position and rotation, and it starts and ends at translational and rotational rest | `pop`, `rotation-pop` |
 | `smooth` | no joint's angular speed jumps more than 3x between frames | `pop` |
 | `weights` | four normalized influences at most; every vertex within 3 cm of the elbow or wrist has two; a 60 deg wrist twist keeps 70% of the forearm's section | `rigid-wrist` |
-| `cuff` | the sleeve overlaps the skin by 3 mm at every frame, with no gap inside the cuff | `cuff-gap` |
-| `density` | every triangle 128 px/m +/- 25% on both axes, in Blender and in the GLB | `squash-uv` |
-| `paint-match` | sleeve texels equal the survivor atlas's arm islands; skin texels only from the BRIEF skin ramp | `repaint` |
+| `cuff` | the sleeve overlaps the skin by 3 mm at every frame, and the inner lip has a measured, non-empty skin band with no gap over 3.5 mm | `cuff-gap` |
+| `density` | every triangle has a finite UV Jacobian at 128 px/m +/- 25% on both axes, in Blender and in the GLB; degenerates fail | `squash-uv` |
+| `paint-match` | sleeves use only the survivor's charcoal front/sleeve ramp; skin uses only the BRIEF ramp; no dark atlas-cell checker; every island has 4 px of non-background padding | `repaint`, `paint-cells`, `short-padding` |
 | `body-match` | hand length, wrist and forearm girth and shoulder-to-wrist within 3 mm of `survivor.glb` in rest | `fat-wrist` |
 | `budget` | at most 4,000 triangles, 1,100 a hand; one single-sided, nearest-filtered material | `second-material`, `linear` |
 
 How the contract's wording is read, where it needed a number:
 
-- **"Zero velocity at the ends"** (`chain`): the first and last frame steps are under 5% of the
-  clip's largest step (a quintic ease gives about 1.5%; the arm solve amplifies the start a
-  little). A pop at the end of a clip fails it.
+- **"Zero velocity at the ends"** (`chain`): the first and last translation steps are under 5% of
+  the clip's largest step, and rotation steps under 10% (the two-bone solve amplifies the quintic's
+  start a little). Joined poses agree within 1 mm and 0.2 deg. A pop at the end of a clip fails it.
 - **"3x jump"** (`smooth`): judged against speeds that matter. A joint easing in or out of rest,
   below a quarter of its own peak speed in the clip or 0.3 rad/s, may change speed faster; a quintic
   ease otherwise changes speed 7x across its last two frames by construction.

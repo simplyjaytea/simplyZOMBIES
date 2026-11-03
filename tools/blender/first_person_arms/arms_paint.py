@@ -1,19 +1,16 @@
 """The arms' unwrap at 128 px/m and their atlas.
 
 - The sleeve is unwrapped as the survivor's arm is: one cylinder per arm, one rear-inner seam,
-  s around the ring and t up the arm, both at 128 px/m. Its texels are copied, value for value,
-  from the survivor atlas's arm.L / arm.R islands, at the survivor's own UV of the same body point
-  (found by the nearest point on the survivor's arm surface in rest). A body repaint therefore
-  repaints the sleeves on the next rebuild.
-- The hands are unwrapped by Blender's angle-limited projection (every face within 33 degrees of
-  its island's plane, so every triangle keeps 128 px/m +/- 25%), scaled to 128 px/m and placed
-  beside the sleeves. Their pixels come from a committed painted source when there is one
-  (arms_paint.png, by the texture painter), else a placeholder in the BRIEF skin ramp.
+  s around the ring and t up the arm, both at 128 px/m. Its charcoal paint uses colours sampled from
+  the survivor's front and sleeve islands, with normal-driven form shading and a darker cuff.
+- The hands are unwrapped by Blender's angle-limited projection (45 degrees, so every triangle keeps
+  128 px/m +/- 25%), scaled to 128 px/m and placed beside the sleeves. Their final paint is generated
+  in hand space from the BRIEF skin ramp: broad dorsal, turning-edge and palm zones. Every island gets
+  4 px of non-background dilation. No atlas-cell noise or texel-level anatomical accents.
 """
 
 import math
 import sys
-from pathlib import Path
 
 import bmesh
 import bpy
@@ -26,12 +23,12 @@ import arms_body as body
 ATLAS = 256
 DENSITY = 128.0
 SKIN_RAMP = ["#c08a64", "#a8714f", "#8a5a3e", "#6b4430"]
+# Charcoal texels sampled from the survivor's front and sleeve islands, darkest to lit.
+SLEEVE_RAMP = ["#1c1b19", "#252522", "#2e2c2a", "#403c35"]
 BACKGROUND = "#1c1712"
-SLEEVE_ORIGIN = {"R": (2, 2), "L": (52, 2)}
+SLEEVE_ORIGIN = {"R": (2, 4), "L": (52, 4)}
 SKIN_ORIGIN = (100, 2)
-GUTTER = 2
-HERE = Path(__file__).resolve().parent
-PAINT_SOURCE = HERE / "arms_paint.png"
+GUTTER = 4
 
 
 def hex_rgb(value):
@@ -49,7 +46,8 @@ def unwrap_sleeve(sleeve, rows_info, plant=None):
     coords = {}
     extents = {}
     positions = np.array([tuple(v.co) for v in sleeve.data.vertices])
-    for side, offset, rows in rows_info:
+    scales = {}
+    for side, offset, rows, inner_map in rows_info:
         count = len(rows)
         grid = positions[offset : offset + count * segments].reshape(count, segments, 3)
         # s: chord length around each ring, centred on the column opposite the seam so neighbouring
@@ -68,23 +66,38 @@ def unwrap_sleeve(sleeve, rows_info, plant=None):
             t[row] = t[row - 1] + np.linalg.norm(columns[row] - columns[row - 1], axis=1)
         x0, y0 = SLEEVE_ORIGIN[side]
         scale = DENSITY * (0.35 if plant == "squash-uv" else 1.0)
+        scales[offset] = scale
         for row in range(count):
             for k in range(segments + 1):
                 coords[(offset, row, k)] = ((x0 + s[row, k] * scale) / ATLAS, (y0 + t[row, k] * scale) / ATLAS)
         extents[side] = (x0, y0, int(math.ceil(s.max() * DENSITY)) + 1, int(math.ceil(t.max() * DENSITY)) + 1)
     lookup = {}
-    for side, offset, rows in rows_info:
+    inner_coords = {}
+    inner_inset = {}
+    for side, offset, rows, inner_map in rows_info:
         for row in range(len(rows)):
             for k in range(segments):
                 lookup[offset + row * segments + k] = (offset, row, k)
+        for vertex, (row, k, inset) in inner_map.items():
+            key = (offset, row, k)
+            lookup[vertex] = key
+            uv = coords[key]
+            inner_coords[vertex] = (uv[0], (64.0 - inset * scales[offset] + rows[row] * scales[offset]) / ATLAS)
+            inner_inset[vertex] = inset
     for polygon in sleeve.data.polygons:
         keys = [lookup[v] for v in polygon.vertices]
         ks = [k for _, _, k in keys]
         wraps = max(ks) - min(ks) > 1
-        for loop_index, (offset, row, k) in zip(polygon.loop_indices, keys):
+        rim = any(v in inner_coords for v in polygon.vertices) and any(v not in inner_coords for v in polygon.vertices)
+        for loop_index, vertex, (offset, row, k) in zip(polygon.loop_indices, polygon.vertices, keys):
+            uv = inner_coords.get(vertex, coords[(offset, row, k)])
             if wraps and k == 0:
                 k = segments
-            layer.data[loop_index].uv = coords[(offset, row, k)]
+                uv = (coords[(offset, row, k)][0], uv[1])
+            if rim:
+                y = 64.0 - (0.79 * inner_inset[vertex] * scales[offset] if vertex in inner_coords else 0.0)
+                uv = (uv[0], y / ATLAS)
+            layer.data[loop_index].uv = uv
     return extents
 
 
@@ -96,7 +109,7 @@ def unwrap_skin(skin, plant=None):
         skin.data.uv_layers.new(name="UVMap")
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.uv.smart_project(angle_limit=math.radians(33), margin_method="FRACTION", island_margin=0.006, area_weight=0.0, correct_aspect=True, scale_to_bounds=False)
+    bpy.ops.uv.smart_project(angle_limit=math.radians(45), margin_method="FRACTION", island_margin=0.015, area_weight=0.0, correct_aspect=True, scale_to_bounds=False)
     bpy.ops.object.mode_set(mode="OBJECT")
     layer = skin.data.uv_layers.active
     uv = np.zeros(len(layer.data) * 2)
@@ -211,31 +224,44 @@ def paint(skin, skin_labels, sleeve, sleeve_labels, rest, survivor_paint, plant=
     image[:, :] = hex_rgb(BACKGROUND)
     owner = np.zeros((ATLAS, ATLAS), dtype=np.int64)  # 0 empty, 1 sleeve, 2 skin
     sleeve_points = np.array([tuple(v.co) for v in sleeve.data.vertices])
+    sleeve_normals = np.array([tuple(v.normal) for v in sleeve.data.vertices])
+    sleeve_ramp = [hex_rgb(c) for c in SLEEVE_RAMP]
     for index, x, y, weights in raster([uv for _, uv in mesh_triangles_cache(sleeve)]):
         ids = mesh_triangles_cache(sleeve)[index][0]
         point = sum(w * sleeve_points[i] for w, i in zip(weights, ids))
+        normal = sum(w * sleeve_normals[i] for w, i in zip(weights, ids))
         side = sleeve_labels[ids[0]].split(":")[0]
-        image[y, x] = survivor_paint.colour(side, point)
+        image[y, x] = sleeve_colour(rest, side, point, normal, sleeve_ramp)
         owner[y, x] = 1
-    painted = load_paint()
     skin_points = np.array([tuple(v.co) for v in skin.data.vertices])
     normals = np.array([tuple(v.normal) for v in skin.data.vertices])
     ramp = [hex_rgb(c) for c in SKIN_RAMP]
     for index, x, y, weights in raster([uv for _, uv in mesh_triangles_cache(skin)]):
         ids = mesh_triangles_cache(skin)[index][0]
         owner[y, x] = 2
-        if painted is not None:
-            image[y, x] = painted[y, x]
-            continue
         point = sum(w * skin_points[i] for w, i in zip(weights, ids))
         normal = sum(w * normals[i] for w, i in zip(weights, ids))
         label = skin_labels[ids[int(np.argmax(weights))]]
-        image[y, x] = placeholder(rest, label, point, normal, ramp, x, y)
-    dilate(image, owner)
+        image[y, x] = skin_colour(rest, label, point, normal, ramp)
+        if plant == "paint-cells":
+            image[y, x] = ramp[2 + ((x + y) % 2)]
+    dilate(image, owner, 1 if plant == "short-padding" else GUTTER)
     if plant == "repaint":
         ys, xs = np.nonzero(owner == 1)
         image[ys[len(ys) // 2], xs[len(xs) // 2]] = (255, 0, 255)
     return image, owner
+
+
+def sleeve_colour(rest, side, point, normal, ramp):
+    arm = rest.arms[side]
+    axis = body.unit(arm["elbow"] - arm["wrist"])
+    cuff_t = float(np.dot(point - arm["wrist"], axis))
+    normal = normal / max(1e-9, np.linalg.norm(normal))
+    light = 0.5 + 0.5 * float(np.dot(normal, body.unit(np.array([-0.35, -0.55, 0.85]))))
+    tone = int(np.clip(math.floor(light * len(ramp)), 0, len(ramp) - 1))
+    if 0.0 <= cuff_t < 0.028:
+        tone = max(0, tone - 1)
+    return ramp[tone]
 
 
 _CACHE = {}
@@ -248,51 +274,30 @@ def mesh_triangles_cache(obj):
     return _CACHE[key]
 
 
-def placeholder(rest, label, point, normal, ramp, x, y):
-    # Painted light in the skin ramp: the back of the hand lit, the palm in shadow, a dark turning
-    # edge, lighter knuckle ridges and fingernails.
-    side, part = label.split(":")
+def skin_colour(rest, label, point, normal, ramp):
+    # Three broad anatomical zones: lit dorsal skin, turning edges, and the palm's shadow. The
+    # low-poly surface and scene light supply the smaller forms; the atlas adds no texel-level noise.
+    side, _ = label.split(":")
     frame = rest.hand_frame(side)
     local_normal = np.linalg.solve(frame[:3, :3], normal / max(1e-9, np.linalg.norm(normal)))
-    dorsal = -local_normal[2]
-    tone = 1
-    if dorsal > 0.45:
-        tone = 0
-    elif dorsal < -0.35:
-        tone = 2
-    if abs(dorsal) < 0.12:
-        tone = 3 if (x + y) % 2 == 0 else 2
-    if part.startswith("knuckle") and dorsal > 0.2:
-        tone = 0
-    if part in ("index", "middle", "ring", "pinky", "thumb"):
-        chain = rest.chain(side, part)
-        if np.linalg.norm(point - chain[-1]) < 0.012 * rest.scale and dorsal > 0.3:
-            tone = 0
+    dorsal = float(np.clip(-local_normal[2], -1.0, 1.0))
+    tone = 0 if dorsal > 0.05 else (1 if dorsal > -0.55 else 2)
     return ramp[tone]
 
 
-def load_paint():
-    if not PAINT_SOURCE.is_file():
-        return None
-    image = bpy.data.images.load(str(PAINT_SOURCE), check_existing=False)
-    if tuple(image.size) != (ATLAS, ATLAS):
-        raise ValueError(f"arms paint must be {ATLAS} x {ATLAS}")
-    pixels = np.zeros(ATLAS * ATLAS * 4, dtype=np.float32)
-    image.pixels.foreach_get(pixels)
-    bpy.data.images.remove(image)
-    return np.round(pixels.reshape(ATLAS, ATLAS, 4)[:, :, :3] * 255).astype(np.int64)
-
-
-def dilate(image, owner):
-    for _ in range(GUTTER):
-        filled = owner > 0
+def dilate(image, owner, steps=GUTTER):
+    for _ in range(steps):
+        filled = owner != 0
         grow = np.zeros_like(filled)
         source = np.zeros_like(image)
-        for dy, dx in ((0, 1), (0, -1), (1, 0), (-1, 0)):
-            shifted = np.roll(np.roll(filled, dy, 0), dx, 1)
-            take = shifted & ~filled & ~grow
-            source[take] = np.roll(np.roll(image, dy, 0), dx, 1)[take]
-            grow |= take
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                if not dy and not dx:
+                    continue
+                shifted = np.roll(np.roll(filled, dy, 0), dx, 1)
+                take = shifted & ~filled & ~grow
+                source[take] = np.roll(np.roll(image, dy, 0), dx, 1)[take]
+                grow |= take
         image[grow] = source[grow]
         owner[grow] = -1
 

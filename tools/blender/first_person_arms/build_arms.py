@@ -115,6 +115,9 @@ class Build:
             frames["R"] = frames["R"].copy()
             toward_eye = -frames["R"][:3, 3] / np.linalg.norm(frames["R"][:3, 3])
             frames["R"][:3, 3] = frames["R"][:3, 3] + toward_eye * 0.40
+        if plant == "stretch-arm" and cls == "melee1":
+            frames["L"] = frames["L"].copy()
+            frames["L"][:3, 3] += np.array([0.0, 0.0, -0.12])
         if plant == "grip-off" and cls in ("long", "melee2"):
             frames["L"] = frames["L"].copy()
             frames["L"][:3, 3] = frames["L"][:3, 3] + frames["L"][:3, 0] * 0.012
@@ -320,7 +323,7 @@ def render_setup(clay):
     camera.rotation_euler = (math.radians(90), 0, 0)
     camera.data.sensor_fit = "VERTICAL"
     camera.data.angle_y = math.radians(75)
-    camera.data.clip_start = 0.02
+    camera.data.clip_start = 0.06
     scene.camera = camera
     if clay:
         material = bpy.data.materials.new("clay")
@@ -379,6 +382,7 @@ PLANTS = {
     "clip-rename": ("names",),
     "seam": ("names",),
     "bone-roll": ("anchor",),
+    "stretch-arm": ("bone-length",),
     "grip-off": ("grip-land",),
     "finger-through": ("wrap",),
     "sight-off": ("sight-line",),
@@ -386,10 +390,13 @@ PLANTS = {
     "short-arm": ("stump",),
     "hand-out": ("in-frame",),
     "pop": ("chain", "smooth"),
+    "rotation-pop": ("chain",),
     "rigid-wrist": ("weights",),
     "cuff-gap": ("cuff",),
     "squash-uv": ("density",),
     "repaint": ("paint-match",),
+    "paint-cells": ("paint-match",),
+    "short-padding": ("paint-match",),
     "fat-wrist": ("body-match",),
     "second-material": ("budget",),
     "linear": ("budget",),
@@ -426,6 +433,7 @@ def main():
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--plant", choices=sorted(PLANTS))
     parser.add_argument("--render-dir", type=Path)
+    parser.add_argument("--compare-dir", type=Path)
     parser.add_argument("--uv-layout-dir", type=Path)
     parser.add_argument("--preview", type=Path)
     parser.add_argument("--clay", action="store_true")
@@ -468,6 +476,8 @@ def main():
         import arms_review
 
         arms_review.render(build, args.render_dir)
+        if args.compare_dir:
+            arms_review.comparisons(args.compare_dir, args.render_dir)
     print("ARMS_BUILD_OK")
     return 0
 

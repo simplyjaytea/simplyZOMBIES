@@ -18,7 +18,7 @@ import arms_clips as clips_
 import arms_mesh as mesh
 import arms_paint as paint_
 import arms_poses as poses
-from gltf_read import Glb
+from gltf_read import Glb, sample
 
 FPS = 60
 V_HALF = math.radians(75) / 2
@@ -191,6 +191,20 @@ def check_anchor(ex):
     return fails
 
 
+def check_bone_length(ex):
+    fails = []
+    pairs = [(f"upper_arm.{side}", f"forearm.{side}") for side in ("R", "L")] + [(f"forearm.{side}", f"hand.{side}") for side in ("R", "L")]
+    rest = {pair: np.linalg.norm(ex.rest_joints[pair[0]] - ex.rest_joints[pair[1]]) for pair in pairs}
+    for clip, frame in every_frame(ex):
+        globals_, _, _ = ex.state(clip, frame)
+        for pair in pairs:
+            measured = np.linalg.norm(ex.node(globals_, pair[0])[:3, 3] - ex.node(globals_, pair[1])[:3, 3])
+            if abs(measured - rest[pair]) > 0.0005:
+                fails.append(f"{clip} f{frame}: {pair[0]} to {pair[1]} is {measured * 1000:.1f} mm, rest {rest[pair] * 1000:.1f} mm")
+                return fails
+    return fails
+
+
 def check_grip_land(ex):
     fails = []
     for cls in ("melee2", "long"):
@@ -261,7 +275,7 @@ def check_sight_line(ex):
     for cls in ("pistol", "long"):
         weapon = poses.Weapon(poses.REFERENCE[cls])
         sight = weapon.points["sight"][:3, 3]
-        poses_to_check = [(f"raise_{cls}", ex.clip_frames(f"raise_{cls}"))] + [(f"aim_{cls}", k) for k in range(0, ex.clip_frames(f"aim_{cls}") + 1, 4)]
+        poses_to_check = [(f"raise_{cls}", ex.clip_frames(f"raise_{cls}"))] + [(f"aim_{cls}", k) for k in range(ex.clip_frames(f"aim_{cls}") + 1)]
         for clip, frame in poses_to_check:
             globals_, _, _ = ex.state(clip, frame)
             grip = ex.node(globals_, "grip_r")
@@ -344,6 +358,10 @@ def joint_positions(ex, globals_):
     return np.array([ex.node(globals_, name)[:3, 3] for name in ex.joint_names])
 
 
+def joint_rotations(ex, globals_):
+    return np.array([ex.node(globals_, name)[:3, :3] for name in ex.joint_names])
+
+
 def check_chain(ex):
     fails = []
     joins = []
@@ -356,19 +374,38 @@ def check_chain(ex):
             joins.append((f"inspect_{cls}", (f"idle_{cls}", 0), (f"idle_{cls}", 0)))
     for clip, start, end in joins:
         count = ex.clip_frames(clip)
-        first = joint_positions(ex, ex.state(clip, 0)[0])
-        last = joint_positions(ex, ex.state(clip, count)[0])
-        for label, pose, joined in (("first", first, start), ("last", last, end)):
+        first_globals = ex.state(clip, 0)[0]
+        last_globals = ex.state(clip, count)[0]
+        first = joint_positions(ex, first_globals)
+        last = joint_positions(ex, last_globals)
+        for label, pose, globals_, joined in (("first", first, first_globals, start), ("last", last, last_globals, end)):
             if joined is None:
                 continue
-            other = joint_positions(ex, ex.state(*joined)[0])
+            other_globals = ex.state(*joined)[0]
+            other = joint_positions(ex, other_globals)
             error = np.abs(pose - other).max()
             if error > 0.001:
                 fails.append(f"{clip}'s {label} pose is {error * 1000:.1f} mm from {joined[0]}")
+            angles = [angle_between(a, b) for a, b in zip(joint_rotations(ex, globals_), joint_rotations(ex, other_globals))]
+            if max(angles) > 0.20:
+                fails.append(f"{clip}'s {label} pose turns {max(angles):.3f} deg from {joined[0]}")
         steps = [np.abs(joint_positions(ex, ex.state(clip, k + 1)[0]) - joint_positions(ex, ex.state(clip, k)[0])).max() for k in range(count)]
         start_step, end_step, peak = steps[0], steps[-1], max(steps)
         if max(start_step, end_step) > max(0.0002, 0.05 * peak):
             fails.append(f"{clip} does not start and end at rest ({start_step * 1000:.2f} / {end_step * 1000:.2f} mm per frame)")
+        angular = []
+        for node, paths in ex.glb.clip_tracks(clip).items():
+            if "rotation" not in paths:
+                continue
+            times, keys = paths["rotation"]
+            values = np.array([sample(times, keys, frame / FPS, True) for frame in range(count + 1)])
+            values = values / np.linalg.norm(values, axis=1, keepdims=True)
+            dots = np.clip(np.abs(np.sum(values[1:] * values[:-1], axis=1)), -1, 1)
+            angular.append(2 * np.arccos(dots))
+        if angular:
+            speed = np.max(np.array(angular), axis=0)
+            if max(speed[0], speed[-1]) > max(0.00005, 0.10 * speed.max()):
+                fails.append(f"{clip} does not start and end at rotational rest ({speed[0]:.5f} / {speed[-1]:.5f} rad per frame)")
     return fails
 
 
@@ -464,8 +501,8 @@ def cuff_edges(ex):
         t = (rest[mine] - wrist) @ axis
         radial = np.linalg.norm(rest[mine] - wrist - np.outer(t, axis), axis=1)
         edge = mine[(np.abs(t) < 0.001)]
-        outer = edge[radial[np.abs(t) < 0.001] >= np.median(radial[np.abs(t) < 0.001])]
-        result[side] = outer
+        inner = edge[radial[np.abs(t) < 0.001] <= radial[np.abs(t) < 0.001].min() + 0.001]
+        result[side] = inner
     return result
 
 
@@ -486,17 +523,22 @@ def check_cuff(ex):
             t = (mine - wrist) @ axis
             radial = np.linalg.norm(mine - wrist - np.outer(t, axis), axis=1)
             near = radial < 0.06
+            if not near.any():
+                fails.append(f"{clip} f{frame}: no {side} wrist skin can be measured inside the cuff")
+                return fails
             overlap = float(t[near].max()) - edge_t
             if overlap < 0.003:
                 fails.append(f"{clip} f{frame}: the {side} sleeve overlaps the skin by {overlap * 1000:.1f} mm")
                 return fails
             band = near & (t > edge_t) & (t < edge_t + 0.008)
-            if band.any():
-                cuff_r = np.linalg.norm(ring - centre - np.outer((ring - centre) @ axis, axis), axis=1)
-                skin_r = np.linalg.norm(mine[band] - centre - np.outer((mine[band] - centre) @ axis, axis), axis=1)
-                if cuff_r.mean() - skin_r.max() > 0.008:
-                    fails.append(f"{clip} f{frame}: a {(cuff_r.mean() - skin_r.max()) * 1000:.1f} mm gap shows inside the {side} cuff")
-                    return fails
+            if not band.any():
+                fails.append(f"{clip} f{frame}: no {side} skin occupies the inner cuff band")
+                return fails
+            cuff_r = np.linalg.norm(ring - centre - np.outer((ring - centre) @ axis, axis), axis=1)
+            skin_r = np.linalg.norm(mine[band] - centre - np.outer((mine[band] - centre) @ axis, axis), axis=1)
+            if cuff_r.mean() - skin_r.max() > 0.0035:
+                fails.append(f"{clip} f{frame}: a {(cuff_r.mean() - skin_r.max()) * 1000:.1f} mm gap shows inside the {side} cuff")
+                return fails
     return fails
 
 
@@ -504,16 +546,21 @@ def density_fails(label, triangles, positions, uvs, size=paint_.ATLAS):
     low, high = 128 * 0.75, 128 * 1.25
     worst = None
     count = 0
+    degenerate = 0
     for tri in triangles:
         measured = triangle_density([positions[i] for i in tri], [uvs[i] for i in tri], size)
-        if measured is None:
+        if measured is None or not np.isfinite(measured).all():
+            degenerate += 1
             continue
         if measured[0] < low or measured[1] > high:
             count += 1
             worst = measured if worst is None or measured[0] < worst[0] else worst
+    fails = []
+    if degenerate:
+        fails.append(f"{label}: {degenerate} degenerate triangles have no measurable texel density")
     if count:
-        return [f"{label}: {count} triangles outside 128 px/m +/-25% (worst {worst[0]:.0f}..{worst[1]:.0f})"]
-    return []
+        fails.append(f"{label}: {count} triangles outside 128 px/m +/-25% (worst {worst[0]:.0f}..{worst[1]:.0f})")
+    return fails
 
 
 def check_density(ex, blender_objects=None):
@@ -546,29 +593,47 @@ def check_paint_match(ex, survivor_paint):
     image.pixels.foreach_get(pixels)
     bpy.data.images.remove(image)
     atlas = np.round(pixels.reshape(paint_.ATLAS, paint_.ATLAS, 4)[:, :, :3] * 255).astype(np.int64)
-    rest_glb = ex.sleeve["positions"]
-    points = body.to_blender(rest_glb)
+    sleeve_ramp = {paint_.hex_rgb(c) for c in paint_.SLEEVE_RAMP}
     uv_px = np.c_[ex.sleeve["uvs"][:, 0] * paint_.ATLAS, (1 - ex.sleeve["uvs"][:, 1]) * paint_.ATLAS]
-    tris = ex.sleeve["triangles"]
-    mismatched = 0
-    checked = 0
-    for index, x, y, weights in paint_.raster([[uv_px[i] for i in tri] for tri in tris]):
-        tri = tris[index]
-        point = sum(w * points[i] for w, i in zip(weights, tri))
-        side = "R" if point[0] > 0 else "L"
-        checked += 1
-        if tuple(atlas[y, x]) != survivor_paint.colour(side, point):
-            mismatched += 1
-    if mismatched:
-        fails.append(f"{mismatched} of {checked} sleeve texels differ from the survivor atlas's arm islands")
+    sleeve_texels = set()
+    for index, x, y, _ in paint_.raster([[uv_px[i] for i in tri] for tri in ex.sleeve["triangles"]]):
+        sleeve_texels.add((x, y))
+        if tuple(atlas[y, x]) not in sleeve_ramp:
+            fails.append(f"sleeve texel {(x, y)} leaves the survivor's charcoal front/sleeve ramp")
+            break
     ramp = {paint_.hex_rgb(c) for c in paint_.SKIN_RAMP}
     uv_px = np.c_[ex.skin["uvs"][:, 0] * paint_.ATLAS, (1 - ex.skin["uvs"][:, 1]) * paint_.ATLAS]
     off = 0
+    skin_texels = set()
     for index, x, y, _ in paint_.raster([[uv_px[i] for i in tri] for tri in ex.skin["triangles"]]):
+        skin_texels.add((x, y))
         if tuple(atlas[y, x]) not in ramp:
             off += 1
     if off:
         fails.append(f"{off} skin texels are outside the BRIEF skin ramp")
+    checker = 0
+    for x, y in skin_texels:
+        if not {(x + 1, y), (x, y + 1), (x + 1, y + 1)} <= skin_texels:
+            continue
+        a, b = tuple(atlas[y, x]), tuple(atlas[y, x + 1])
+        c, d = tuple(atlas[y + 1, x]), tuple(atlas[y + 1, x + 1])
+        if a == d and b == c and a != b and {a, b} == {paint_.hex_rgb(paint_.SKIN_RAMP[2]), paint_.hex_rgb(paint_.SKIN_RAMP[3])}:
+            checker += 1
+    if checker > 12:
+        fails.append(f"{checker} alternating dark skin cells follow the atlas grid, not the hand's form")
+    background = paint_.hex_rgb(paint_.BACKGROUND)
+    unpadded = 0
+    for x, y in sleeve_texels | skin_texels:
+        for yy in range(max(0, y - 4), min(paint_.ATLAS, y + 5)):
+            for xx in range(max(0, x - 4), min(paint_.ATLAS, x + 5)):
+                if tuple(atlas[yy, xx]) == background:
+                    unpadded += 1
+                    break
+            else:
+                continue
+            break
+    if unpadded:
+        fails.append(f"{unpadded} island texels have atlas background within 4 px")
     return fails
 
 
@@ -624,7 +689,7 @@ def check_budget(ex):
     return fails
 
 
-CHECKS = ["names", "anchor", "grip-land", "wrap", "sight-line", "near-plane", "stump", "in-frame", "chain", "smooth", "weights", "cuff", "density", "paint-match", "body-match", "budget"]
+CHECKS = ["names", "anchor", "bone-length", "grip-land", "wrap", "sight-line", "near-plane", "stump", "in-frame", "chain", "smooth", "weights", "cuff", "density", "paint-match", "body-match", "budget"]
 
 
 def run(folder, survivor, survivor_paint, blender_objects=None):
