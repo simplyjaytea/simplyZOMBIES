@@ -214,13 +214,10 @@ conversion. The source baseline is archived on GitHub at
   outputs are `godot/assets/first_person/items.manifest.json` and the GLBs in `items/`:
   - the neutral bottle is a dark-green wine bottle with a blank label, and canteens and the Jar of
     Preserves draw as it, while the hip flask and sports drink take the 13 cm jar; a canteen or flask
-    rung, or routing preserves to the jar, would read better;
-  - the fuel bottle and lamp oil draw as crates, because the `liquid` family in `family()` only applies
-    to consumables (`LIQUID_WORDS`);
+    rung would read better;
   - `headgear` draws a military steel helmet, which is right for hard hats and bike helmets but a
     stretch for gas masks and half-mask respirators, which need their own rung;
-  - the gun case draws as a soft roll-top bag, and the crossbow bolt draws the 71 cm arrow, where a
-    bolt is about 40 cm (`LENGTH_HINTS`); a long-case rung and a bolt length hint would tighten both.
+  - the gun case draws as a soft roll-top bag; a long-case rung would tighten it.
 - **Zombie target by distance alone (#282 review).** `SimShambler._contact_target`
   (`godot/sim/modules/shambler.gd`) takes the nearest survivor with no reach test, unlike the player's
   nearest-reachable swing in `melee.gd`. A shared sim module; needs a READS lane in `godot:m2:space`.
@@ -2457,6 +2454,12 @@ as one slice without touching `GRABS_ENABLED`:
   `base.json` would have moved every type except the one that ships.
 
 #### The record, by system
+
+- **Item kit polish (#299 round 3 minors), 2026-11-04.** In `tools/blender/first_person_items/build_items.py`:
+  liquids now take the liquid family whatever their category, the Jar of Preserves routes to the
+  13 cm jar, and the crossbow bolt carries a 40 cm `LENGTH_HINTS` entry. **The record.** `ITEMS_CHECK_OK`
+  (every item within 2x of expected size, no laddered item drawn as another's model). **The gate.**
+  `npm run godot:check:first_person`, `npm run godot:smoke`, `npm run check:routing`.
 
 What landed and what proved it, system by system (condensed from the retired backlog; the spec
 links in the slice-scope table above are the authority on each). The open tails that used to end
