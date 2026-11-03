@@ -2457,6 +2457,50 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Reach chooses whom a zombie touches, and whether a colonist swings, 2026-11-04.** The two
+  #282 follow-ups from the first-person group: a shambler's contact target by distance alone, and
+  a colonist's swing it cannot land. Both make the sim keep docs/40's promise that reach stops at
+  walls; the calls are in docs/30, "A reach test chooses whom, not whether".
+  - **The record.** `SimShambler._contact_target` (`godot/sim/modules/shambler.gd`) takes the
+    world and the reacher from five callers (the Pursue chase, the Seek and Wander catch, the swipe
+    and the grab) and returns the nearest survivor inside the radius that `_clear_contact` says
+    the reacher can arrive at, the order `SimMelee._resolve_strike` already used for the player's
+    swing. When nobody inside the radius is reachable it returns the nearest by distance, as it
+    did before, so whether anybody is in contact never changes: a shambler pressed to a window at
+    somebody it cannot touch stays in Pursue, and the swipe and the grab refuse that survivor
+    through `_clear_contact` as they always did. The Dormant wake asks only whether anybody is in
+    contact and is not traced. One survivor in the radius is never traced; with several the
+    nearest is traced first. `SimNpcCombat._in_reach` (`godot/sim/modules/npc_combat.gd`, new) is
+    the melee half of `can_strike`: inside `_melee_reach` and `SimSpace.reach_clear`. `can_strike`,
+    `_engage` (both its ordinary and its defending branch) and `npc.instinct-defense` ask it, so
+    no colonist and no idle player winds up a swing `_resolve_strike` will refuse. In `_engage`'s
+    ordinary branch an unreachable threat falls through to the shot, the order `can_strike`
+    already had. Instinct asks before it turns, so it no longer turns towards a claw it cannot
+    answer. No number is drawn, no save field moves.
+  - **The gate.** `godot:m2:space` READS gains two lanes. READS `_contact_target` runs the live
+    shambler loop with two walls meeting diagonally: a pursuing shambler that cannot move has the
+    player 0.64 m off across the corner and a second survivor 0.86 m off in the clear. It asserts
+    the geometry first (the corner refuses the nearer, the farther is clear). Every swipe and grab
+    lands on the farther survivor. With the farther one gone nothing lands and the shambler is still
+    in Pursue. With the walls gone the nearer one is taken. READS npc swing runs a colonist's engage
+    and the unattended player's instinct, each 1.70 m from a pursuing shambler with the bat, and
+    counts swings started (`stamina.spent`) and landed: a wall and a wire fence between start none,
+    an open window and open ground start swings that land. Both lanes were run against the previous
+    modules: the contact lane failed ("reached nobody"), and the swing lane failed on all four
+    refusing rows (5 or 6 swings started, none landed).
+  - **Measured.** `npm run godot:playtest` (seed 20260805, ten days asked), base `5a14791a` in a
+    snapshot against this branch, side by side: both wipe on day 7 (`day_reached=7`, three deaths,
+    six kills, 79 bites, 3,076 player swings, 87 colonist swings and 45 hits), every day line equal
+    but for tick timing; 2,207 s and 2,199 s of wall clock. The case never arises on that seed.
+    `godot:m2:balance`'s fast tier prints the same lines on base and branch, byte for byte, all four
+    seeds and both armour arms. `godot:bench:runtime` over two alternating rounds: the shipped tick
+    4.58 and 4.80 ms before, 4.67 and 4.80 after; the colony tick 5.29 and 5.49 before, 5.38 and
+    5.48 after, flat inside the noise.
+  - **Verified.** The full `godot:m2` chain as its four CI shards, all green (shard 2 under
+    `xvfb-run`: on the desktop display `godot:check:grade` fails on base and branch alike, with no
+    HUD chrome in its capture). Also `godot:m2:space`, `godot:check:first_person`,
+    `godot:check:fp_expedition`, `godot:smoke`, `godot:test` and `check:routing`.
+
 - **Perception with heights, 2026-11-01.** Slice 4 of docs/40: sight works by height. It builds the
   recommended default of the owner's question 3 (docs/33, "Do Low cover and windows work by
   height?"), behind one switch, `SimVisibility.SIGHT_BY_HEIGHT`, which ships true. The question
