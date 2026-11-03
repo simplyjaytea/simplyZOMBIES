@@ -1892,14 +1892,14 @@ LADDER = {
     "material": {"default": ["fallback_attachment", "crate_small", "fallback_material", "crate_large"], "long": ["long_bundle"], "liquid": ["jar", "bottle"]},
     "tool": {"default": ["fallback_attachment", "fallback_tool", "crate_large"], "long": ["long_bundle"], "liquid": ["jar", "bottle"]},
     "container": {"default": ["pouch", "bag"], "liquid": ["jar", "bottle"]},
-    "armor": {"default": ["armor_small", "fallback_armor"], "headgear": ["headgear"], "eyewear": ["fallback_attachment"]},
-    "attachment": {"default": ["fallback_attachment", "fallback_tool"]},
+    "armor": {"default": ["armor_small", "fallback_armor"], "headgear": ["headgear"], "eyewear": ["fallback_attachment"], "liquid": ["jar", "bottle"]},
+    "attachment": {"default": ["fallback_attachment", "fallback_tool"], "liquid": ["jar", "bottle"]},
 }
 # Hard headwear and eyewear (in the item id), and drinks and jarred food (in the item's name).
 # Eyewear draws as the small hard case it is carried in.
 HEADGEAR_WORDS = ("helmet", "hardhat", "mask.gas", "respirator")
 EYEWEAR_WORDS = ("goggles", "glasses")
-LIQUID_WORDS = ("bottle", "jar", "carton", "canteen", "flask", "drink")
+LIQUID_WORDS = ("bottle", "jar", "carton", "canteen", "flask", "drink", "oil")
 # Items whose one-cell grid footprint hides their length. Matched on the id and its variants.
 LENGTH_HINTS = {"item.ammo.arrow": 0.72, "item.ammo.bolt": 0.40}
 # The scale check: a laddered or class-fallback model must be within 2x of the item's expected
@@ -2280,6 +2280,8 @@ def hand_ids():
 
 
 def ladder_route(item, plant=None):
+    if item["id"] == "item.food.preserves.jar":
+        return "jar"
     target = expected_size(item)
     rungs = list(LADDER[item["class"]][family(item)])
     if plant == "rung" and item["class"] == "consumable" and family(item) == "default":

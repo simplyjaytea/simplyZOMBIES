@@ -1433,12 +1433,12 @@
       "match": {
         "id": "item.attach.muzzle.filter"
       },
-      "glb": "res://assets/first_person/items/fallback_attachment.glb",
+      "glb": "res://assets/first_person/items/jar.glb",
       "pose": "world",
       "sizeM": [
-        0.1224,
-        0.0477,
-        0.0862
+        0.09,
+        0.13,
+        0.09
       ]
     },
     {
@@ -2765,12 +2765,12 @@
       "match": {
         "id": "item.food.preserves.jar"
       },
-      "glb": "res://assets/first_person/items/bottle.glb",
+      "glb": "res://assets/first_person/items/jar.glb",
       "pose": "world",
       "sizeM": [
-        0.08,
-        0.26,
-        0.08
+        0.09,
+        0.13,
+        0.09
       ]
     },
     {
@@ -3389,36 +3389,36 @@
       "match": {
         "id": "item.oil.gun"
       },
-      "glb": "res://assets/first_person/items/fallback_attachment.glb",
+      "glb": "res://assets/first_person/items/jar.glb",
       "pose": "world",
       "sizeM": [
-        0.1224,
-        0.0477,
-        0.0862
+        0.09,
+        0.13,
+        0.09
       ]
     },
     {
       "match": {
         "id": "item.oil.lamp"
       },
-      "glb": "res://assets/first_person/items/crate_small.glb",
+      "glb": "res://assets/first_person/items/bottle.glb",
       "pose": "world",
       "sizeM": [
-        0.258,
-        0.158,
-        0.188
+        0.08,
+        0.26,
+        0.08
       ]
     },
     {
       "match": {
         "id": "item.oil.machine"
       },
-      "glb": "res://assets/first_person/items/fallback_attachment.glb",
+      "glb": "res://assets/first_person/items/jar.glb",
       "pose": "world",
       "sizeM": [
-        0.1224,
-        0.0477,
-        0.0862
+        0.09,
+        0.13,
+        0.09
       ]
     },
     {
