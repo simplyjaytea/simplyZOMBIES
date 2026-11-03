@@ -765,8 +765,10 @@ pause policy), and docs/41's "For the owner" list. Every one has a default alrea
   owner's call without waiting for CI), and fix forward whatever is red.
 - Push `kimi/fp-survivor-base` as its own PR (independent art review first), then improve the
   survivor further (the owner: "a lot").
-- First-person arms: art (in flight on `claude/fp-arms`, Codex paints its atlas), then the
-  presentation code and its ARMS gate lane.
+- First-person arms: art round 2 is in flight on `claude/fp-arms`. The presentation code
+  (`arms_view.gd`) and its ARMS lane are built on `claude/fp-arms-view`, stacked on it; they
+  merge after the art, and the swap timing, the screen lowering and the hold-class rule wait on
+  the owner's look.
 - Codex's paint scripts (`codex/fp-survivor-paint`) are local only; decide whether they land.
 - The ceiling follow-up for #310 (`sz-shared/reviews/followup-ceilings.md`).
 - The shambler and the other six zombie kinds on the new organic base, with a lighter version
@@ -778,8 +780,9 @@ pause policy), and docs/41's "For the owner" list. Every one has a default alrea
 
 ## Known bugs
 
-- In the third-person testing view the held weapon stays at the eye, so it floats beside the
-  body (#313's capture).
+- In the third-person testing view the held weapon is not drawn in the body's hand. The view
+  model hides there (`claude/fp-arms-view`), which ends it floating beside the body (#313's
+  capture), but nothing draws it on the body yet.
 - 78 indoor counter, shelf and partition tiles across 9 building templates have no ceiling; the
   sky shows from inside (found by #310's confirmation review).
 - Godot generates untracked `*.translation` files from the art-docs CSVs
@@ -788,7 +791,8 @@ pause policy), and docs/41's "For the owner" list. Every one has a default alrea
 - In the survivor review scene the light is flat grey; it does not show the game's mood, so
   colour judgements made there run dark.
 - No presentation code draws a lowered weapon yet (`SimAim.holds`, `FireState` have no reader).
-- #309's bench screen does not hide the held weapon (`first_person.gd:887` on that branch).
+- #309's bench screen does not hide the held weapon (`first_person.gd:887` on that branch); the
+  arms on `claude/fp-arms-view` lower it behind every screen, the bench's included.
 
 ## Lessons from the session
 
@@ -848,7 +852,7 @@ row when a system gains a home; the gate goes red when a route stops being true.
 | The first-person weapon kit: receivers, parts, melee, their sockets | [the weapon kit's README](tools/blender/first_person_weapons/README.md), the socket contract | `tools/blender/first_person_weapons/build_weapons.py`, `godot/assets/first_person/weapons/`, `godot/assets/first_person/weapons.manifest.json` | `blender --background --factory-startup --python tools/blender/first_person_weapons/build_weapons.py -- --check` prints `WEAPONS_CHECK_OK` (bounds, sockets against content slots, origins, single-sided single material, coplanar faces, texel density, assembly contact, byte reproducibility); `-- --prove` plants an error per check | the record |
 | The first-person view-model arms: hands, sleeves, rig and clips for every hold class | [the arms kit's README](tools/blender/first_person_arms/README.md), the arms contract | `tools/blender/first_person_arms/build_arms.py`, `godot/assets/first_person/arms/` | `blender --background --factory-startup --python tools/blender/first_person_arms/build_arms.py -- --check` prints `ARMS_CHECK_OK` (bytes, names, anchor, grip-land, wrap, sight-line, near-plane, stump, in-frame, chain, smooth, weights, cuff, density, paint-match, body-match, budget, measured on the exported GLB); `-- --plant <name>` turns each check red | the record |
 | The first-person loot-item kit: world-pose models for the things a player picks up | [the item kit's README](tools/blender/first_person_items/README.md) | `tools/blender/first_person_items/build_items.py`, `godot/assets/first_person/items/`, `godot/assets/first_person/items.manifest.json` | `blender --background --factory-startup --python tools/blender/first_person_items/build_items.py -- --check` proves bounds, origins, bodies resting on the floor, item ids and coverage, every item within 2x of its expected size, no laddered item drawn as another item's own model, one single-sided closed material per model, no coplanar faces, texel density per face and byte reproducibility; each check has a `--plant` that turns it red | the record |
-| First-person presentation | [the foundation report](docs/planning/first-person-foundation-report.md), [docs/37](docs/37-traps.md) | `godot/presentation/first_person/`, `godot/check_first_person.gd`, `godot/check_fp_expedition.gd` | `npm run godot:check:first_person` runs the headless gate, whose MODELS lane holds the manifest loader (`godot/presentation/first_person/models.gd`) and the loose items it draws (`godot/presentation/first_person/loose_view.gd`), and whose BODIES lane holds the character bodies (`godot/presentation/first_person/body_view.gd`); `npm run godot:check:fp_expedition` runs the one-run expedition gate (ledger, door, container take, F5/F9, a shambler struck, and two true negatives); `npm run godot:run:first_person` launches the opt-in scene | the report |
+| First-person presentation | [the foundation report](docs/planning/first-person-foundation-report.md), [docs/37](docs/37-traps.md) | `godot/presentation/first_person/`, `godot/check_first_person.gd`, `godot/check_fp_expedition.gd` | `npm run godot:check:first_person` runs the headless gate, whose MODELS lane holds the manifest loader (`godot/presentation/first_person/models.gd`) and the loose items it draws (`godot/presentation/first_person/loose_view.gd`), and whose BODIES lane holds the character bodies (`godot/presentation/first_person/body_view.gd`), and whose ARMS lane holds the view-model arms and the weapon in their hand (`godot/presentation/first_person/arms_view.gd`); `npm run godot:check:fp_expedition` runs the one-run expedition gate (ledger, door, container take, F5/F9, a shambler struck, and two true negatives); `npm run godot:run:first_person` launches the opt-in scene | the report |
 | Art somebody drew for us | [the brief](godot/assets/sprites/README.md), [art we did not generate](docs/30-decisions.md#art-we-did-not-generate-2026-09-09) | `godot/assets/sprites/authored.json` declares it; the PNG sits beside it | `npm run godot:check:authored` holds it to the published bounds and refuses art nothing reads; `npm run sprites:check` proves it is present at the canvas it declares | the record |
 | Art from the outpost pack | [the pack's own README](godot/art/simplyzombies/README.md), [the outpost pack, adopted](docs/30-decisions.md#the-outpost-pack-adopted-2026-09-17) | `godot/assets/sprites/authored.json` declares it, with a `source` (a path, optional `crop`/`pad`) under `godot/art/simplyzombies/`, or as a member of a `source`-carrying `members` family | `npm run sprites:check` reproduces the committed PNG from its source and compares decoded pixels; `npm run godot:check:authored`'s MANIFEST, TIER and SOURCE lanes hold the declaration to shape and the READS lane to a real reader; the look gate of whichever family it lands in (`godot:check:<look>`) once that piece exists | the record |
 | The screens' frames, glyphs, cursors and motion: the UI Field Kit | [the kit's own README](godot/art/simplyzombies-ui/README.md), [the UI Field Kit, live](docs/30-decisions.md#the-ui-field-kit-live-2026-09-25) | the approved kit under `godot/art/simplyzombies-ui/` (`godot/art/simplyzombies-ui/manifest.json` and `godot/art/simplyzombies-ui/styles/*.tres` are the spec, read as text; the game never loads a kit `.tres`), resolved by `godot/ui/kit.gd` and worn through `godot/ui/chrome.gd`'s helpers | `npm run godot:check:ui_skin` (`godot/check_ui_skin.gd`): KIT holds `Kit.NINE` to the manifest and the `.tres`, RESOLVE proves every consumed PNG loads headless, PANEL follows `Chrome.panel` to the kit, HELPERS refuses a chrome helper nothing calls, FONT holds every screen to `Chrome.font()` (the kit's VT323, `godot/art/simplyzombies-ui/fonts/VT323-Pixel.res`) and every text size to `Chrome.LADDER` | the record |

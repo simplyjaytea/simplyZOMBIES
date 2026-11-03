@@ -2463,6 +2463,62 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **First-person arms in the view, 2026-11-04.** docs/41 item W1, the held weapon: the player's
+  own arms under the eye, holding the item the sim says is in hand; bare hands show the arms alone.
+  It plays the arms kit (`tools/blender/first_person_arms/README.md`, round 1) through its README's
+  interface, so later art rounds drop in.
+  - **The record.** `godot/presentation/first_person/arms_view.gd` (new) is the view model. It is a
+    child of the camera, `Eye`, with an identity transform, and loads `arms_base.glb` through the
+    manifest loader under a sway pivot. A BoneAttachment3D named `grip_r` follows the skeleton's
+    `grip_r` bone, and `held_weapon.gd`'s grip node is mounted under it with an identity
+    transform (`mount`), so the weapon kit's GLBs, whose origin is their own `grip_r`, sit in the
+    hand. The hold class is read from the sim: `SimMelee.is_unarmed` is `unarmed`; a firearm
+    whose base equips to the sidearm slot is `pistol`, any other is `long`; a melee base that is a
+    polearm, two cells wide or four long is `melee2`, a shorter one `melee1`. The clips run on the
+    view's own clock (`advance`, manual process mode): `draw_<class>` up from below the frame,
+    then the `idle_<class>` loop. A change of the item in hand lowers the old class with a copy of
+    the old model in the hand (`lower_<class>`) and then draws the new one, so the sim's drawn set
+    still changes on its tick. A screen over the view (the ledger, the sheet, a conversation, the
+    bench, the key reference, the end panel; `first_person.gd`'s `view_covered`) lowers the arms
+    and hides them until it closes; the third-person view hides them at once, which also ends the
+    weapon floating at the eye there. `inspect_<class>` plays only while L is held, goes round
+    while it stays held and blends back to idle on release; the bare hands have none. L is in the
+    F1 key reference. Sway is code, as the README asks: a lag behind a turn of the head, a bob from
+    the body's speed and a breath scaled by `SimRanged.cone_half`. The raise and aim clips have no
+    reader, because the sim has no aim-down-sights state. No wall clipping: every view-model
+    surface draws through a cached copy of its material with Godot's `use_fov_override` at the
+    view model's own 75 degrees (the lens the arms were posed at) and `use_z_clip_scale` at 0.05,
+    which pulls the view model's depth toward the near plane in the vertex stage, so a wall can no
+    longer cut the hands or the weapon while the hands still sort among themselves. It works in
+    the Compatibility renderer; the shared atlases the world draws are never changed. View-model
+    meshes cast no shadow. Presentation only: `godot/sim/` is untouched.
+  - **The gate.** `godot:check:first_person` ARMS, driven by the scene's own frame and key
+    dispatch, with the sim's `item.pickup`, `item.equip`, `item.unequip` and `item.drop` commands
+    changing what is in hand. The node under the Eye carries `arms_view.gd`, the frame drives it,
+    and the held weapon's grip is inside it, while the held-weapon node fails the same test. Bare
+    hands are `unarmed` and idle; the service pistol is `pistol`, played after `lower_unarmed`;
+    the wooden bat is `melee2`, with a copy of the pistol lowered first and gone after; the
+    kitchen knife is `melee1`; the hunting rifle is `long`. The grip node's parent is the `grip_r`
+    attachment, and at idle frame 0, sway off, the pistol and the bat sit on their `arms.json`
+    anchors within 5 mm and 1 degree in camera space while each is refused against another
+    class's anchor. L: four seconds without it never inspect; held, it plays `inspect_pistol`
+    and still does past the clip's end; one frame after release it is idle; with bare hands it
+    stays idle; an L swallowed by the key reference leaves no inspect behind. F1 and the sheet
+    play `lower_pistol` and hide the arms, and closing brings them back; F2 hides them on the
+    frame and F2 brings them back. Every mesh in the view model draws with the view-model lens,
+    and a plain mesh planted in the hand is refused. The lane holds the clock and restores it, so
+    the lanes after it read the same colony. LEGEND knows L. One red run per key assertion (the
+    frame not driving the arms, F2 not hiding them, screens not covering, the two-handed rule,
+    the weapon not mounted, a 1 cm grip offset, a release ignored, the depth not pulled in, the
+    L row removed) each failed the gate with its own line.
+  - **Measured.** Captures at 1280 x 720 of each hold class and of a long gun and the bat 0.3 m
+    from a wall, with and without the lens (without it the wall swallows the weapon and the arms).
+    A throwaway driver toggling the arms' visibility over five interleaved rounds of 240 frames
+    put the arms and a pistol at +0.024 ms of render CPU and +0.013 ms of GPU a frame. The drivers
+    were deleted. `godot:bench:frame` draws the top-down scene and is not moved by this.
+  - **Verified.** `godot:check:first_person`, `godot:check:fp_expedition`,
+    `godot:check:fp_geometry`, `godot:smoke` and `check:routing`.
+
 - **Perception with heights, 2026-11-01.** Slice 4 of docs/40: sight works by height. It builds the
   recommended default of the owner's question 3 (docs/33, "Do Low cover and windows work by
   height?"), behind one switch, `SimVisibility.SIGHT_BY_HEIGHT`, which ships true. The question

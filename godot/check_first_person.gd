@@ -98,6 +98,20 @@ extends SceneTree
 #             walking is swallowed while it is up and Escape closes it and recaptures the mouse. Out
 #             of reach, off the aim, through a wall, at a zombie and at a raider: no panel.
 
+#   ARMS      the view-model arms (`arms_view.gd`) are what the scene uses: the node under the Eye with an
+#             identity transform carries that script, the scene's frame drives it, and the held weapon's
+#             grip is under it (a node with another script fails the same test). In first person the
+#             arms are up and idle; F2 hides them and F2 brings them back; the key reference and the
+#             sheet lower them out of the frame and closing brings them back. The hold class follows
+#             the item the sim's own `item.equip` and `item.unequip` commands put in hand -- bare hands
+#             unarmed, the service pistol pistol, the bat melee2, the kitchen knife melee1, the hunting
+#             rifle long -- and a swap lowers a copy of the old model before the new one is drawn. The
+#             weapon's grip node is a child of the `grip_r` bone attachment, and at idle frame 0 the
+#             weapon sits on the class's anchor from `arms.json` within 5 mm and 1 degree in camera
+#             space, while the same weapon is refused against another class's anchor. Inspect plays only
+#             while L is held (it goes round while held and is idle a frame after the release), never
+#             with bare hands and never through a screen. Every view-model surface draws with the view
+#             model's own lens and pulled-in depth, and a planted plain mesh in the hand is refused.
 #   MODELS    every weapons-manifest entry loads and its box is its sizeM within 1 cm; an id match beats a class match and an unknown id resolves to null; two GLBs that embed the atlas share one mipmapped texture; a loose bat the sim drops is drawn with its model at its resting position, and an item with no model has no node.
 
 
@@ -140,6 +154,7 @@ const SimAim = preload("res://sim/aim.gd")
 const SaveSlot = preload("res://presentation/first_person/save_slot.gd")
 const Models = preload("res://presentation/first_person/models.gd")
 const Appearance = preload("res://presentation/appearance.gd")
+const ArmsView = preload("res://presentation/first_person/arms_view.gd")
 
 # The district the gate boots. Small on purpose: every lane walks the sim, and the shipped 256 district
 # is for the player, not for a gate. DISTRICT proves this is really smaller than the shipped default.
@@ -218,6 +233,7 @@ func _run() -> void:
 		ok = _lane("LIGHT", _light(scene), "noon is bright and midnight dark, and a carried torch lights the eye") and ok
 		ok = _lane("SUCCESSION", _succession(scene), "a death hands the camera to an heir and the dead body is drawn") and ok
 		ok = _lane("LEGEND", _legend(scene), "F1 lists every key the scene handles and the scene handles every key it lists") and ok
+		ok = _lane("ARMS", _arms(scene), "the view-model arms are the scene's own under the Eye, lower for screens and third person, follow the sim's equipped hold class, hold the weapon on grip_r at the anchor, inspect only while L is held and never cut into a wall") and ok
 		ok = _lane("THIRD", _third_person(scene), "F2 steps the camera behind the eye and back, the own body is drawn and plays the sim's clip only in third person, and a wall pulls the camera in while an open line does not") and ok
 		ok = _lane("TALK", _talk(scene), "a colonist in reach talks in the read models' own words") and ok
 		ok = _lane("ANIM", _anim(scene), "every body names its animation state from the sim with a phase in 0..1") and ok
@@ -2984,7 +3000,7 @@ const KEY_NAMES: Dictionary = {
 	"KEY_F": KEY_F, "KEY_F1": KEY_F1, "KEY_F2": KEY_F2, "KEY_F5": KEY_F5, "KEY_F9": KEY_F9, "KEY_G": KEY_G,
 	"KEY_KP_ENTER": KEY_KP_ENTER, "KEY_P": KEY_P, "KEY_R": KEY_R, "KEY_S": KEY_S, "KEY_SHIFT": KEY_SHIFT,
 	"KEY_W": KEY_W, "KEY_MINUS": KEY_MINUS, "KEY_KP_SUBTRACT": KEY_KP_SUBTRACT, "KEY_EQUAL": KEY_EQUAL,
-	"KEY_KP_ADD": KEY_KP_ADD,
+	"KEY_KP_ADD": KEY_KP_ADD, "KEY_L": KEY_L,
 }
 
 
@@ -3048,6 +3064,311 @@ func _legend(scene: Node) -> bool:
 	if bool(scene.call("legend_open")):
 		ok = _fail("LEGEND", "a second F1 did not close the key reference")
 	return ok
+
+
+# --- ARMS ------------------------------------------------------------------------------------
+#
+# The view-model arms. Everything is driven through the scene's own frame (`_process` at 60 fps) and its
+# real key dispatch; the item in hand changes only through the sim's own equip commands.
+
+const ARMS_SCRIPT: String = "res://presentation/first_person/arms_view.gd"
+const ARMS_FRAME_S: float = 1.0 / 60.0
+# The kit's own anchor tolerance (`--check`'s `anchor`): 5 mm and 1 degree.
+const ARMS_ANCHOR_M: float = 0.005
+const ARMS_ANCHOR_DEG: float = 1.0
+
+
+func _arms(scene: Node) -> bool:
+	var world: Variant = scene.get("world")
+	var player: int = int(world.player)
+	var camera: Camera3D = scene.get("camera") as Camera3D
+	_arms_clear_screens(scene)
+	if bool(scene.get("third_person")):
+		scene.call("toggle_view")
+	# The clock is held so the many frames below change nothing the later lanes read; the equip
+	# commands still run, one explicit tick each.
+	var was_paused: bool = bool(scene.get("paused"))
+	scene.set("paused", true)
+	var ok_arms: bool = _arms_body(scene, world, player, camera)
+	scene.set("paused", was_paused)
+	return ok_arms
+
+
+func _arms_body(scene: Node, world: Variant, player: int, camera: Camera3D) -> bool:
+	var ok: bool = true
+	_place_player(scene, _find_open_area((scene.get("map") as Variant), 2))
+	scene.call("set_look", 0.0, 0.0)
+
+	# The dead socket: the node under the Eye is arms_view.gd, the frame drives it, and the weapon is in it.
+	var arms: Node3D = scene.call("arms_node") as Node3D
+	if arms == null:
+		return _fail("ARMS", "the scene has no arms view")
+	if not _is_arms_view(arms):
+		return _fail("ARMS", "the scene's view model is not %s" % ARMS_SCRIPT)
+	if arms.get_parent() != camera or String(camera.name) != "Eye" or not arms.transform.is_equal_approx(Transform3D.IDENTITY):
+		ok = _fail("ARMS", "the arms are not under the Eye with an identity transform")
+	if not bool(arms.call("arms_loaded")):
+		return _fail("ARMS", "arms_base.glb did not load: no skeleton, no AnimationPlayer or no grip_r bone")
+	var held: Node3D = scene.call("held_weapon_node") as Node3D
+	if held == null or not arms.is_ancestor_of(held.call("grip_node") as Node3D):
+		ok = _fail("ARMS", "the held weapon's grip is not inside the arms the scene uses")
+	if _is_arms_view(held):
+		ok = _fail("ARMS", "the dead-socket test passed the held-weapon node, which is not the arms view")
+	var updates: int = int(arms.call("updates"))
+	scene.call("_process", ARMS_FRAME_S)
+	if int(arms.call("updates")) <= updates:
+		ok = _fail("ARMS", "the scene's frame does not update the arms")
+
+	# Bare hands through the sim's own unequip: the unarmed class, up and idle, with nothing in hand.
+	_arms_unequip_all(scene, world, player)
+	_arms_settle(scene, 1.5)
+	ok = _arms_shows(arms, "unarmed", "bare hands") and ok
+	if bool(scene.call("held_weapon_visible")):
+		ok = _fail("ARMS", "bare hands drew a weapon")
+	if not (arms.call("arms_model") as Node3D).is_visible_in_tree():
+		ok = _fail("ARMS", "the arms model is not drawn in first person")
+
+	# Inspect is refused with bare hands: the unarmed class has no inspect clip.
+	_key(KEY_L, true)
+	_arms_settle(scene, 0.5)
+	if String(arms.call("clip_playing")) != "idle_unarmed":
+		ok = _fail("ARMS", "L with bare hands played '%s', not idle_unarmed" % String(arms.call("clip_playing")))
+	_key(KEY_L, false)
+
+	# The service pistol through item.equip: the old class lowers first, then the pistol is drawn.
+	var pistol: int = _arms_equip(scene, world, player, "item.pistol.service")
+	if pistol < 0:
+		return _fail("ARMS", "the service pistol would not spawn, stow and equip through item.equip")
+	if String(arms.call("clip_playing")) != "lower_unarmed":
+		ok = _fail("ARMS", "equipping the pistol played '%s', not lower_unarmed first" % String(arms.call("clip_playing")))
+	_arms_settle(scene, 1.5)
+	ok = _arms_shows(arms, "pistol", "the service pistol") and ok
+	ok = _arms_on_grip(scene, arms, camera, "pistol") and ok
+
+	# Inspect: only while L is held. Four seconds without it never inspect; held, it inspects and goes
+	# round past the clip's three seconds; one frame after the release it is idle again.
+	for _i in 240:
+		scene.call("_process", ARMS_FRAME_S)
+		if String(arms.call("clip_playing")).begins_with("inspect_"):
+			ok = _fail("ARMS", "the arms inspected with L up")
+			break
+	_key(KEY_L, true)
+	scene.call("_process", ARMS_FRAME_S)
+	if String(arms.call("clip_playing")) != "inspect_pistol":
+		ok = _fail("ARMS", "L held played '%s', not inspect_pistol" % String(arms.call("clip_playing")))
+	_arms_settle(scene, 3.5)
+	if String(arms.call("clip_playing")) != "inspect_pistol":
+		ok = _fail("ARMS", "with L still held past the clip's end the arms play '%s'" % String(arms.call("clip_playing")))
+	_key(KEY_L, false)
+	scene.call("_process", ARMS_FRAME_S)
+	if String(arms.call("clip_playing")) != "idle_pistol":
+		ok = _fail("ARMS", "a frame after L was let go the arms play '%s', not idle_pistol" % String(arms.call("clip_playing")))
+	# L held when a screen opens is let go with the walking keys: no inspect after the screen closes.
+	_key(KEY_L, true)
+	scene.call("_process", ARMS_FRAME_S)
+	_key(KEY_F1, true)
+	_key(KEY_F1, false)
+	_key(KEY_L, false)
+	_key(KEY_F1, true)
+	_key(KEY_F1, false)
+	_arms_settle(scene, 1.5)
+	if bool(scene.call("inspect_held")) or String(arms.call("clip_playing")).begins_with("inspect_"):
+		ok = _fail("ARMS", "an L swallowed by the key reference left the arms inspecting")
+
+	# Screens: the key reference and the sheet each lower the arms out of the frame and hide them; closing
+	# brings them back up.
+	_key(KEY_F1, true)
+	_key(KEY_F1, false)
+	scene.call("_process", ARMS_FRAME_S)
+	if String(arms.call("clip_playing")) != "lower_pistol":
+		ok = _fail("ARMS", "the key reference opened and the arms play '%s', not lower_pistol" % String(arms.call("clip_playing")))
+	_arms_settle(scene, 0.5)
+	if bool(arms.call("arms_shown")):
+		ok = _fail("ARMS", "the arms are still drawn behind the key reference")
+	_key(KEY_F1, true)
+	_key(KEY_F1, false)
+	_arms_settle(scene, 1.0)
+	ok = _arms_shows(arms, "pistol", "the pistol after the key reference closed") and ok
+	scene.call("open_inventory")
+	_arms_settle(scene, 0.5)
+	if bool(arms.call("arms_shown")):
+		ok = _fail("ARMS", "the arms are still drawn behind the sheet")
+	scene.call("close_inventory")
+	_arms_settle(scene, 1.0)
+	ok = _arms_shows(arms, "pistol", "the pistol after the sheet closed") and ok
+
+	# Third person hides them at once; first person brings them back.
+	_key(FirstPerson.VIEW_KEY, true)
+	_key(FirstPerson.VIEW_KEY, false)
+	scene.call("_process", ARMS_FRAME_S)
+	if bool(arms.call("arms_shown")):
+		ok = _fail("ARMS", "the arms are drawn in the third-person view")
+	_key(FirstPerson.VIEW_KEY, true)
+	_key(FirstPerson.VIEW_KEY, false)
+	_arms_settle(scene, 1.0)
+	ok = _arms_shows(arms, "pistol", "the pistol back in first person") and ok
+
+	# No wall clipping: every surface in the view model, the pistol's parts included, draws through the
+	# view model's lens; a plain mesh planted in the hand is refused by the same test.
+	var judged: int = _collect_meshes_count(arms)
+	if judged < 3:
+		ok = _fail("ARMS", "the view model has %d meshes, not the arms and a weapon" % judged)
+	var unlensed: Array = ArmsView.unlensed_meshes(arms)
+	if not unlensed.is_empty():
+		ok = _fail("ARMS", "%d view-model meshes draw with the world's lens and depth (%s)" % [unlensed.size(), String((unlensed[0] as Node).name)])
+	var planted: MeshInstance3D = MeshInstance3D.new()
+	planted.mesh = BoxMesh.new()
+	planted.material_override = StandardMaterial3D.new()
+	(arms.call("grip_r") as Node3D).add_child(planted)
+	if not ArmsView.unlensed_meshes(arms).has(planted):
+		ok = _fail("ARMS", "a plain mesh planted in the hand passed the lens test")
+	planted.free()
+
+	# A swap: pistol to bat. The pistol's copy lowers in the hand, then the bat is drawn two-handed.
+	_arms_unequip_all(scene, world, player)
+	var bat: int = _arms_equip(scene, world, player, "item.bat.wood")
+	if bat < 0:
+		return _fail("ARMS", "the bat would not spawn, stow and equip through item.equip")
+	var lowering: Node = (arms.call("grip_r") as Node).find_child("Lowering", false, false)
+	if not bool(arms.call("swapping")) or lowering == null or _collect_meshes_count(lowering) == 0:
+		ok = _fail("ARMS", "a swap from the pistol did not lower a copy of the pistol in the hand")
+	_arms_settle(scene, 1.5)
+	ok = _arms_shows(arms, "melee2", "the bat") and ok
+	if (arms.call("grip_r") as Node).find_child("Lowering", false, false) != null:
+		ok = _fail("ARMS", "the lowered copy is still in the hand after the swap")
+	ok = _arms_on_grip(scene, arms, camera, "melee2") and ok
+
+	# The knife is one-handed and the hunting rifle long.
+	_arms_unequip_all(scene, world, player)
+	if _arms_equip(scene, world, player, "item.knife.kitchen") < 0:
+		return _fail("ARMS", "the kitchen knife would not equip through item.equip")
+	_arms_settle(scene, 1.5)
+	ok = _arms_shows(arms, "melee1", "the kitchen knife") and ok
+	_arms_unequip_all(scene, world, player)
+	if _arms_equip(scene, world, player, "item.rifle.hunting") < 0:
+		return _fail("ARMS", "the hunting rifle would not equip through item.equip")
+	_arms_settle(scene, 1.5)
+	ok = _arms_shows(arms, "long", "the hunting rifle") and ok
+
+	# Back to bare hands for the lanes after this one.
+	_arms_unequip_all(scene, world, player)
+	_arms_settle(scene, 1.5)
+	ok = _arms_shows(arms, "unarmed", "bare hands again") and ok
+	return ok
+
+
+func _is_arms_view(node: Node) -> bool:
+	var script: Script = node.get_script() as Script if node != null else null
+	return script != null and script.resource_path == ARMS_SCRIPT
+
+
+# The arms are up and idle in `want`, and the sim agrees that is the class in hand.
+func _arms_shows(arms: Node3D, want: String, what: String) -> bool:
+	var ok: bool = true
+	if String(arms.call("shown_class")) != want:
+		ok = _fail("ARMS", "%s shows the %s class, not %s" % [what, String(arms.call("shown_class")), want])
+	if String(arms.call("clip_playing")) != "idle_" + want:
+		ok = _fail("ARMS", "%s plays '%s', not idle_%s" % [what, String(arms.call("clip_playing")), want])
+	if not bool(arms.call("arms_shown")):
+		ok = _fail("ARMS", "%s: the arms are not drawn in first person with no screen up" % what)
+	return ok
+
+
+# The weapon's grip node is the child of the `grip_r` bone attachment, and at idle frame 0 the weapon is
+# on the class's anchor in camera space; the same transform is refused against another class's anchor.
+func _arms_on_grip(scene: Node, arms: Node3D, camera: Camera3D, hold_class: String) -> bool:
+	var ok: bool = true
+	var held: Node3D = scene.call("held_weapon_node") as Node3D
+	var grip: Node3D = held.call("grip_node") as Node3D
+	var parent: Node = grip.get_parent()
+	if not (parent is BoneAttachment3D) or String(parent.name) != "grip_r" or String((parent as BoneAttachment3D).bone_name) != "grip_r":
+		return _fail("ARMS", "the %s's grip node hangs under '%s', not the grip_r bone" % [hold_class, String(parent.name)])
+	var weapon: Node3D = held.call("receiver_node") as Node3D
+	if weapon == null or not weapon.is_visible_in_tree():
+		return _fail("ARMS", "the %s has no drawn model in the hand" % hold_class)
+	arms.set("sway_scale", 0.0)
+	scene.call("_process", ARMS_FRAME_S)
+	arms.call("pose_at", "idle_" + hold_class, 0.0)
+	var at: Transform3D = camera.global_transform.affine_inverse() * weapon.global_transform
+	var want: Transform3D = arms.call("anchor_of", hold_class) as Transform3D
+	if not _arms_near(at, want):
+		ok = _fail("ARMS", "the %s sits at %s, %.2f deg off, not on its anchor %s" % [hold_class, str(at.origin), rad_to_deg(_arms_angle(at.basis, want.basis)), str(want.origin)])
+	var other: String = "melee2" if hold_class != "melee2" else "pistol"
+	if _arms_near(at, arms.call("anchor_of", other) as Transform3D):
+		ok = _fail("ARMS", "the %s also passed against the %s anchor" % [hold_class, other])
+	arms.set("sway_scale", 1.0)
+	return ok
+
+
+func _arms_near(a: Transform3D, b: Transform3D) -> bool:
+	return a.origin.distance_to(b.origin) <= ARMS_ANCHOR_M and rad_to_deg(_arms_angle(a.basis, b.basis)) <= ARMS_ANCHOR_DEG
+
+
+func _arms_angle(a: Basis, b: Basis) -> float:
+	var q: Quaternion = (a.orthonormalized().inverse() * b.orthonormalized()).get_rotation_quaternion()
+	return 2.0 * acos(clampf(absf(q.w), 0.0, 1.0))
+
+
+func _arms_settle(scene: Node, seconds: float) -> void:
+	for _i in int(ceil(seconds / ARMS_FRAME_S)):
+		scene.call("_process", ARMS_FRAME_S)
+
+
+func _arms_clear_screens(scene: Node) -> void:
+	if bool(scene.get("menu_open")):
+		scene.call("close_ledger_menu")
+	if bool(scene.get("inventory_open")):
+		scene.call("close_inventory")
+	if bool(scene.get("talk_open")):
+		scene.call("close_talk")
+	if bool(scene.call("legend_open")):
+		scene.call("close_legend")
+
+
+# Spawns an item at the player's feet, picks it up through the sim's `item.pickup` command and equips
+# it through `item.equip` (a pick-up that found no room in the bags has already put it in hand), then
+# runs the one frame that sees it. -1 when any step is refused.
+func _arms_equip(scene: Node, world: Variant, player: int, item_id: String) -> int:
+	var item: int = int(SimItems.spawn_item(world, item_id, {"tier": "scavenged"}))
+	if item < 0:
+		return -1
+	var at: Vector2 = _player_pos(world)
+	world.components.set_component(item, "position", {"x": at.x, "y": at.y})
+	world.commands.push({"type": "item.pickup", "item": item})
+	scene.call("step_sim_once")
+	if not SimInventory.owns(world, player, item):
+		return -1
+	if not SimInventory.equipped_items(world, player).has(item):
+		world.commands.push({"type": "item.equip", "item": item})
+		scene.call("step_sim_once")
+	scene.call("_process", ARMS_FRAME_S)
+	if not SimInventory.equipped_items(world, player).has(item):
+		return -1
+	return item
+
+
+# Empties both hands through the sim's `item.unequip` command, and drops what came out of them with
+# `item.drop`, so the bags have room for the next item.
+func _arms_unequip_all(scene: Node, world: Variant, player: int) -> void:
+	var eq: Variant = world.components.get_component(player, "equipment")
+	var emptied: Array[int] = []
+	if eq is Dictionary:
+		var slots: Dictionary = (eq as Dictionary).get("slots", {}) as Dictionary
+		for slot in ["primary", "secondary"]:
+			if slots.get(slot) != null:
+				emptied.append(int(slots[slot]))
+				world.commands.push({"type": "item.unequip", "slot": slot, "item": int(slots[slot])})
+	scene.call("step_sim_once")
+	for item in emptied:
+		world.commands.push({"type": "item.drop", "item": item})
+	scene.call("step_sim_once")
+	scene.call("_process", ARMS_FRAME_S)
+
+
+func _collect_meshes_count(node: Node) -> int:
+	var meshes: Array[MeshInstance3D] = []
+	_collect_meshes(node, meshes)
+	return meshes.size()
 
 
 # The key names a source file's code compares or names: KEY_ identifiers on lines that are not comments,
