@@ -958,7 +958,8 @@ func _build_held_weapon() -> void:
 func _update_held_weapon() -> void:
 	if _held_weapon == null or world == null:
 		return
-	_held_weapon.call("update", world, Time.get_ticks_msec() / 1000.0, _run_over_open)
+	var hide: bool = _run_over_open or bench_open or inventory_open or _reports_open or talk_open
+	_held_weapon.call("update", world, Time.get_ticks_msec() / 1000.0, hide)
 
 
 func held_weapon_visible() -> bool:
