@@ -219,6 +219,7 @@ func _run() -> void:
 		ok = _lane("SUCCESSION", _succession(scene), "a death hands the camera to an heir and the dead body is drawn") and ok
 		ok = _lane("LEGEND", _legend(scene), "F1 lists every key the scene handles and the scene handles every key it lists") and ok
 		ok = _lane("THIRD", _third_person(scene), "F2 steps the camera behind the eye and back, the own body is drawn and plays the sim's clip only in third person, and a wall pulls the camera in while an open line does not") and ok
+		ok = _lane("HIDE", _held_visibility(scene), "the held weapon hides while the bench, inventory, ledger, talk and third-person screens are open and shows otherwise") and ok
 		ok = _lane("TALK", _talk(scene), "a colonist in reach talks in the read models' own words") and ok
 		ok = _lane("ANIM", _anim(scene), "every body names its animation state from the sim with a phase in 0..1") and ok
 		ok = _lane("RUN-OVER", _run_over(scene), "killing the colony opens the end panel and W sends nothing") and ok
@@ -3952,3 +3953,45 @@ func _walkable_floor(map: Variant, tx: int, ty: int) -> bool:
 		return false
 	var index: int = ty * int(map.w) + tx
 	return int(map.surfaces[index]) != SimTileMap.SURFACE_WATER
+
+
+func _held_visibility(scene: Node) -> bool:
+	var ok: bool = true
+	# bench
+	scene.set("bench_open", true)
+	scene.call("_update_held_weapon")
+	if bool(scene.call("held_weapon_visible")):
+		ok = _fail("HIDE", "held weapon visible while bench open")
+	scene.set("bench_open", false)
+	scene.call("_update_held_weapon")
+	# inventory
+	scene.set("inventory_open", true)
+	scene.call("_update_held_weapon")
+	if bool(scene.call("held_weapon_visible")):
+		ok = _fail("HIDE", "held weapon visible while inventory open")
+	scene.set("inventory_open", false)
+	scene.call("_update_held_weapon")
+	# reports (ledger)
+	scene.set("_reports_open", true)
+	scene.call("_update_held_weapon")
+	if bool(scene.call("held_weapon_visible")):
+		ok = _fail("HIDE", "held weapon visible while reports open")
+	scene.set("_reports_open", false)
+	scene.call("_update_held_weapon")
+	# talk
+	scene.set("talk_open", true)
+	scene.call("_update_held_weapon")
+	if bool(scene.call("held_weapon_visible")):
+		ok = _fail("HIDE", "held weapon visible while talk open")
+	scene.set("talk_open", false)
+	scene.call("_update_held_weapon")
+	# third person
+	scene.set("third_person", true)
+	scene.call("_update_render", 1.0)
+	scene.call("_update_held_weapon")
+	if bool(scene.call("held_weapon_visible")):
+		ok = _fail("HIDE", "held weapon visible in third person")
+	scene.set("third_person", false)
+	scene.call("_update_render", 1.0)
+	scene.call("_update_held_weapon")
+	return ok
