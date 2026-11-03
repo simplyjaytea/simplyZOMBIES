@@ -221,12 +221,6 @@ conversion. The source baseline is archived on GitHub at
     stretch for gas masks and half-mask respirators, which need their own rung;
   - the gun case draws as a soft roll-top bag, and the crossbow bolt draws the 71 cm arrow, where a
     bolt is about 40 cm (`LENGTH_HINTS`); a long-case rung and a bolt length hint would tighten both.
-- **Zombie target by distance alone (#282 review).** `SimShambler._contact_target`
-  (`godot/sim/modules/shambler.gd`) takes the nearest survivor with no reach test, unlike the player's
-  nearest-reachable swing in `melee.gd`. A shared sim module; needs a READS lane in `godot:m2:space`.
-- **Colonist swings it cannot land (#282 record).** `npc_combat.gd` `_engage` and
-  `npc.instinct-defense` start a swing on distance alone, and `_resolve_strike` then refuses it at a
-  window. Ask `SimSpace.reach_clear` before starting, as `can_strike` does.
 
 ##### UI overhaul
 

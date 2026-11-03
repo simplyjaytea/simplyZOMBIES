@@ -32,6 +32,15 @@ extends SceneTree
 #             swing (`_resolve_strike`), the claw and grab (`_clear_contact`, through the live
 #             shambler loop) and the attack walk (`can_strike`) each refuse crouched and land
 #             standing, and each lands crouched with the Low tile replaced by floor.
+#   READS _contact_target   the live shambler loop chooses whom it reaches, not only whether: with a
+#             survivor nearer but across a wall's corner and another a step farther in the clear, its
+#             swipe and grab land on the farther one (before #282's fix they landed on nobody); with
+#             the farther one gone it reaches nobody and keeps pursuing (it does not wander off a
+#             survivor it is pressed against); with the walls gone the nearer one wins.
+#   READS npc swing         a colonist's engage and the unattended player's instinct start a swing
+#             only where the blow arrives: a wall or a wire fence between (both in sight here, so the
+#             threat is chosen) starts no swing at all, where before #282's fix it wound one up that
+#             the resolve refused; an open window and open ground start one that lands.
 
 const World = preload("res://sim/world.gd")
 const SimSpace = preload("res://sim/space/space.gd")
@@ -42,6 +51,7 @@ const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimStances = preload("res://sim/stances.gd")
+const SimNeeds = preload("res://sim/modules/needs.gd")
 
 const T: int = SimTileMap.Tile.Floor
 const PURPOSES: Array = [["SIGHT", SimSpace.SIGHT], ["SHOT", SimSpace.SHOT], ["REACH", SimSpace.REACH]]
@@ -68,7 +78,7 @@ func _run() -> void:
 	ok = _swing() and ok
 	ok = _reads() and ok
 	if ok:
-		print("M2_SPACE_OK every wall, window, sill, lintel, board, door, Low, screen and fence case answers each purpose and flips with its pair; a swing through a wall is refused and through a window lands; mirrored segments agree; the swing, the claw and the attack walk each read segment_clear")
+		print("M2_SPACE_OK every wall, window, sill, lintel, board, door, Low, screen and fence case answers each purpose and flips with its pair; a swing through a wall is refused and through a window lands; mirrored segments agree; the swing, the claw and the attack walk each read segment_clear; a shambler reaches the nearest survivor it can touch, and a colonist starts no swing the blow cannot land")
 		quit(0)
 		return
 	for failure in _failures:
@@ -437,6 +447,8 @@ func _reads() -> bool:
 	var ok: bool = _reads_swing()
 	ok = _reads_contact() and ok
 	ok = _reads_can_strike() and ok
+	ok = _reads_contact_target() and ok
+	ok = _reads_npc_swing() and ok
 	return ok
 
 
@@ -555,4 +567,176 @@ func _reads_can_strike() -> bool:
 			ok = _fail(lane, "%s: can_strike said %s, wants %s" % [String(row[0]), str(got), str(bool(row[3]))])
 	if ok:
 		print("  READS can_strike refuses a crouched blow over a Low tile and through a wall, and allows it standing, through a window and in the open")
+	return ok
+
+
+# The live shambler loop choosing whom it reaches. Two wall tiles meet diagonally at (16, 16), on
+# (16, 15) and (15, 16). The shambler stands at (15.8, 15.8), pursuing and unable to move. NEAR, the
+# player, stands across that corner at (16.25, 16.25), 0.64 m off, so the line between runs through
+# the corner (CORNER: refused). FAR, a second survivor, stands in the shambler's own tile at
+# (15.1, 15.3), 0.86 m off: farther, inside the grab's metre and the swipe's 1.1, and in the clear.
+func _target_world(seed_val: int, walls: bool, with_far: bool) -> Dictionary:
+	var w: Variant = _column_world(seed_val, SimStances.Stance.Walk, T)
+	if walls:
+		w.tilemap.tiles[15 * 32 + 16] = SimTileMap.Tile.Wall
+		w.tilemap.tiles[16 * 32 + 15] = SimTileMap.Tile.Wall
+	w.adopt_map(w.tilemap)
+	var near: int = int(w.player)
+	var pos: Dictionary = w.components.get_component(near, "position") as Dictionary
+	pos["x"] = 16.25
+	pos["y"] = 16.25
+	var far: int = -1
+	if with_far:
+		far = int(w.entities.spawn())
+		w.components.set_component(far, "position", {"x": 15.1, "y": 15.3})
+		w.components.set_component(far, "velocity", {"dx": 0.0, "dy": 0.0})
+		w.components.set_component(far, "facing", {"radians": 0.0})
+		w.components.set_component(far, "identity", {"id": "survivor.test", "name": "Far", "traits": []})
+		SimHealth.make_survivor_body(w, far)
+	SimShambler.register_module(w, null)
+	var zed: int = int(w.entities.spawn())
+	w.components.set_component(zed, "position", {"x": 15.8, "y": 15.8})
+	w.components.set_component(zed, "velocity", {"dx": 0.0, "dy": 0.0})
+	w.components.set_component(zed, "facing", {"radians": 0.0})
+	w.components.set_component(zed, "body", SimCombat.ZOMBIE_BODY.duplicate())
+	w.components.set_component(zed, "zombieType", {"id": "zombie.shambler", "tint": ""})
+	SimShambler.make_shambler(w, zed, w.rng.stream("shambler"))
+	var sd: Dictionary = w.components.get_component(zed, "shambler") as Dictionary
+	sd["seekSpeed"] = 0.0
+	sd["wanderSpeed"] = 0.0
+	sd["millSpeed"] = 0.0
+	sd["state"] = SimShambler.ShamblerState["Pursue"]
+	return {"world": w, "zed": zed, "near": near, "far": far, "sd": sd}
+
+
+# Steps the loop and returns every swipe and grab the shambler made, by victim.
+func _target_contacts(fx: Dictionary, ticks: int) -> Array:
+	var w: Variant = fx["world"]
+	var zed: int = int(fx["zed"])
+	var contacts: Array = []
+	w.events.subscribe({"id": "gate.space-target-claw", "type": "attack.connected", "handler": func(e: Dictionary) -> void:
+		if int(e.get("attacker", -1)) == zed:
+			contacts.append(["swipe", int(e["target"])])
+	})
+	w.events.subscribe({"id": "gate.space-target-grab", "type": "grab.started", "handler": func(e: Dictionary) -> void:
+		if int(e.get("source", -1)) == zed:
+			contacts.append(["grab", int(e["victim"])])
+	})
+	for i in ticks:
+		w.step()
+	return contacts
+
+
+func _reads_contact_target() -> bool:
+	var lane: String = "READS _contact_target"
+	var ok: bool = true
+	# The geometry first: if the corner did not refuse NEAR, or FAR were not clear, the lane would be
+	# measuring distance.
+	var probe: Dictionary = _target_world(7500, true, true)
+	var pw: Variant = probe["world"]
+	var zpos: Dictionary = pw.components.get_component(int(probe["zed"]), "position") as Dictionary
+	var npos: Dictionary = pw.components.get_component(int(probe["near"]), "position") as Dictionary
+	var fpos: Dictionary = pw.components.get_component(int(probe["far"]), "position") as Dictionary
+	if SimShambler._clear_contact(pw, zpos, npos, int(probe["zed"]), int(probe["near"])):
+		return _fail(lane, "the wall corner does not refuse the shambler's reach to the nearer survivor")
+	if not SimShambler._clear_contact(pw, zpos, fpos, int(probe["zed"]), int(probe["far"])):
+		return _fail(lane, "the farther survivor is not in the clear, so the lane cannot tell a choice from a refusal")
+	# Positive: the nearer survivor is unreachable, the farther is not. Every contact is on FAR.
+	var both: Dictionary = _target_world(7500, true, true)
+	var got: Array = _target_contacts(both, 120)
+	if got.is_empty():
+		ok = _fail(lane, "with a nearer survivor across the corner and a reachable one a step farther, the shambler reached nobody (it chose by distance alone)")
+	for c in got:
+		if int((c as Array)[1]) != int(both["far"]):
+			ok = _fail(lane, "the shambler's %s landed on %d, wants only the reachable survivor %d" % [String((c as Array)[0]), int((c as Array)[1]), int(both["far"])])
+			break
+	# Negative: nobody reachable. No contact, and the shambler is still pursuing the survivor it is
+	# pressed against: the reach test changes whom it chooses, never whether anyone is in contact.
+	var alone: Dictionary = _target_world(7500, true, false)
+	var none: Array = _target_contacts(alone, 120)
+	if not none.is_empty():
+		ok = _fail(lane, "a shambler reached a survivor across a wall's corner: %s" % str(none))
+	if int((alone["sd"] as Dictionary)["state"]) != SimShambler.ShamblerState["Pursue"]:
+		ok = _fail(lane, "with nobody reachable the shambler left Pursue (state %d): the fix must not make it wander off" % int((alone["sd"] as Dictionary)["state"]))
+	# Control: with the walls gone the nearer survivor is reachable and is the one chosen.
+	var open: Dictionary = _target_world(7500, false, true)
+	var open_got: Array = _target_contacts(open, 120)
+	if open_got.is_empty():
+		ok = _fail(lane, "with the walls gone the shambler reached nobody, so the positive proves nothing")
+	for c2 in open_got:
+		if int((c2 as Array)[1]) != int(open["near"]):
+			ok = _fail(lane, "with the walls gone the %s landed on %d, wants the nearer survivor %d" % [String((c2 as Array)[0]), int((c2 as Array)[1]), int(open["near"])])
+			break
+	if ok:
+		print("  READS _contact_target (live swipe and grab) passes over a nearer survivor across a corner for a reachable farther one (%s), reaches nobody and keeps pursuing when only the corner one is there, and takes the nearer in the open (%s)" % [str(got), str(open_got)])
+	return ok
+
+
+# A colonist (needs, not controlled) or the unattended player, armed with the bat, 1.70 m from a
+# pursuing shambler with `tile` (and `overlay`) down column 16 between them. The shambler has no AI
+# here, so it never claws back; the column world has no vision, so `_nearest_threat` chooses the
+# shambler whatever is between (as it does in the game at a window or a wire fence, which an eye
+# crosses). Returns how many swings the survivor started (`stamina.spent` from `try_begin_swing`)
+# and how many landed.
+func _npc_swings(seed_val: int, tile: int, overlay: Variant, instinct: bool) -> Dictionary:
+	var w: Variant = _column_world(seed_val, SimStances.Stance.Walk, tile, overlay)
+	SimMelee.register_module(w)
+	SimNpcCombat.register_module(w)
+	var who: int = int(w.player)
+	if instinct:
+		SimMelee.make_melee_armed(w, who)
+	else:
+		# The player stands well away, so the colonist's swing has nobody else in its arc.
+		var pp: Dictionary = w.components.get_component(who, "position") as Dictionary
+		pp["x"] = 2.5
+		pp["y"] = 2.5
+		who = int(w.entities.spawn())
+		w.components.set_component(who, "position", {"x": SWING_FROM_X, "y": ROW_Y})
+		w.components.set_component(who, "velocity", {"dx": 0.0, "dy": 0.0})
+		w.components.set_component(who, "facing", {"radians": 0.0})
+		w.components.set_component(who, "identity", {"id": "survivor.test", "name": "Test", "traits": []})
+		SimHealth.make_survivor_body(w, who)
+		SimHealth.make_stamina(w, who, 100)
+		SimNeeds.attach(w, who)
+		SimMelee.make_melee_armed(w, who)
+	var zed: int = _zombie(w, SWING_TO_X, ROW_Y)
+	SimShambler.make_shambler(w, zed, w.rng.stream("shambler"))
+	(w.components.get_component(zed, "shambler") as Dictionary)["state"] = SimShambler.ShamblerState["Pursue"]
+	var counts: Dictionary = {"started": 0, "landed": 0}
+	w.events.subscribe({"id": "gate.space-npc-start", "type": "stamina.spent", "handler": func(e: Dictionary) -> void:
+		if int(e.get("entity", -1)) == who:
+			counts["started"] = int(counts["started"]) + 1
+	})
+	w.events.subscribe({"id": "gate.space-npc-land", "type": "attack.connected", "handler": func(e: Dictionary) -> void:
+		if int(e.get("attacker", -1)) == who:
+			counts["landed"] = int(counts["landed"]) + 1
+	})
+	# Past DEFEND_INSTINCT_TICKS with no command, so instinct is awake for most of the run.
+	for i in SimNpcCombat.DEFEND_INSTINCT_TICKS + 80:
+		w.step()
+	return counts
+
+
+func _reads_npc_swing() -> bool:
+	var lane: String = "READS npc swing"
+	var ok: bool = true
+	var rows: Array = [
+		["a wall between", SimTileMap.Tile.Wall, null, false],
+		["a wire fence between", T, {"kind": "fence"}, false],
+		["an open window between", SimTileMap.Tile.Window, null, true],
+		["open ground", T, null, true],
+	]
+	var seen: Array = []
+	for who in ["colonist", "instinct"]:
+		for r in rows:
+			var row: Array = r as Array
+			var got: Dictionary = _npc_swings(7600, int(row[1]), row[2], who == "instinct")
+			var lands: bool = bool(row[3])
+			if lands and (int(got["started"]) < 1 or int(got["landed"]) < 1):
+				ok = _fail(lane, "%s, %s: started %d swings and landed %d, wants a swing that lands" % [who, String(row[0]), int(got["started"]), int(got["landed"])])
+			if not lands and int(got["started"]) != 0:
+				ok = _fail(lane, "%s, %s: started %d swings the blow cannot land (landed %d), wants none" % [who, String(row[0]), int(got["started"]), int(got["landed"])])
+			seen.append("%s %s %d/%d" % [who, String(row[0]), int(got["started"]), int(got["landed"])])
+	if ok:
+		print("  READS npc swing: a colonist's engage and the player's instinct start no swing through a wall or a wire fence and land one through a window and in the open (%s)" % ", ".join(seen))
 	return ok
