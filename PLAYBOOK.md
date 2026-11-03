@@ -238,6 +238,10 @@ alpha"). [docs/23](docs/23-roadmap.md) is the authority on what is built and wha
 piece by piece under [what's left](docs/23-roadmap.md#whats-left-in-milestone-2). Facts that
 matter every session:
 
+- **First person is the game; top-down is legacy** (2026-11-04, docs/30): first person is the
+  default boot and every new piece is first person; the top-down game stays, boots with
+  `npm run godot:run:topdown`, and keeps its gates, but gets no new features or UI slices unless
+  the owner asks. Shared sim modules serve both.
 - **The survival loop is built, gated and on.** `SimShambler.GRABS_ENABLED` ships `true`. Any
   gate that pins the flag restores the previous value.
 - **The alpha stopped at a balance wall on 2026-10-21.** The target was a colony alive on day 10

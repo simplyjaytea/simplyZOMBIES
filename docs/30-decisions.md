@@ -7812,6 +7812,17 @@ and third person is a view for testing, not a game mode.
 - **Left open.** Whether third person ever becomes a player-facing mode is not decided here; docs/39
   does not name one.
 
+## The top-down game is legacy, 2026-11-04
+
+The owner's words, 2026-11-04: "Remember, the priority is working on first person mode. If
+anything, the game should default to it and leave top down as a legacy thing."
+
+- **First person is the game.** Every new piece is first person.
+- **The top-down game stays.** It still boots with `npm run godot:run:topdown`, and its gates keep
+  passing.
+- **No new features, no new UI-overhaul slices** (docs/32) for top-down, unless the owner asks.
+- **Shared sim modules serve both modes**, so a sim fix still lands in both.
+
 ## The playbook, one file, 2026-11-01
 
 The owner's call: `CLAUDE.md`, `AGENTS.md` and docs/38 merge into one root `PLAYBOOK.md`. In

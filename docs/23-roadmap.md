@@ -159,8 +159,9 @@ and nothing that has to be ticked.
 ##### First-person survival colony pivot
 
 Owner-authorized 2026-11-01; [docs/39](39-first-person-pivot.md) is the phased
-plan and spatial/art contract. The existing default remains top-down during
-conversion. The source baseline is archived on GitHub at
+plan and spatial/art contract. First person is the default boot, and the top-down
+game is legacy ([docs/30](30-decisions.md#the-top-down-game-is-legacy-2026-11-04)).
+The source baseline is archived on GitHub at
 `archive/topdown-colony-pre-first-person-2026-11-01`. Planned pieces:
 
 - **Blender pixel-textured colony starter kit.** Original desk, ledger, shelf,
@@ -237,6 +238,8 @@ equipment arranged around it. [The design brief](32-ui-overhaul.md) specifies th
 navigation, every surface, integration seams and acceptance; [docs/30](30-decisions.md#the-whole-interface-2026-10-03)
 records the owner's choices. This is new work, not a claim that the redesign has shipped.
 The old Field Kit implementation remains the current baseline until replaced slice by slice.
+Under the 2026-11-04 legacy call, this group is paused for the top-down game and resumes only
+on the owner's word or where a slice is reused by first person.
 
 The grid-plus-fast-list recommendation is now the owner's decision, and the inventory's own
 look is settled as the Salvage Locker (docs/30, "The inventory's look"; the record's "UI — the
