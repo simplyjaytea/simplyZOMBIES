@@ -1916,6 +1916,9 @@ LENGTH_HINTS = {"item.ammo.arrow": 0.72, "item.ammo.bolt": 0.40}
 # size; a hand-chosen shared model (a penlight drawn as the torch) within 4x.
 SCALE_LADDER = 2.0
 SCALE_HAND = 4.0
+# The length check: an item with a LENGTH_HINTS entry is drawn by a model whose longest axis, as
+# exported, is within 25% of the hint (a crossbow bolt drawn as the 71 cm arrows fails).
+LENGTH_TOL = 0.25
 
 
 def length_hint(item_id):
@@ -2317,6 +2320,9 @@ def manifest_document(plant, repo):
         for item_id in ids:
             if plant == "id" and item_id == "item.food.canned":
                 item_id = "item.food.caned"
+            if plant == "length" and item_id == "item.ammo.bolt.broadhead":
+                models.append(entry({"id": item_id}, "arrows"))
+                continue
             models.append(entry({"id": item_id}, name))
     for item_id in sorted(records):
         item = records[item_id]
@@ -2531,7 +2537,7 @@ def item_catalogue(repo):
 
 def validate(asset_root, repo, floors=None):
     """Every check, against the files under asset_root. Returns {check: [failures]}."""
-    failures = {name: [] for name in ("bounds", "origin", "floor", "ids", "coverage", "scale", "rung", "material", "single_sided", "coplanar", "density", "manifest")}
+    failures = {name: [] for name in ("bounds", "origin", "floor", "ids", "coverage", "scale", "rung", "length", "material", "single_sided", "coplanar", "density", "manifest")}
     manifest_path = asset_root / (KIT + ".manifest.json")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     ids, classes = item_catalogue(repo)
@@ -2644,6 +2650,24 @@ def validate(asset_root, repo, floors=None):
             high = max(b[1] for b in bad)
             failures["density"].append(f"{filename}: {len(bad)} triangles outside {target} texels/m +/-25% (range {low:.0f}..{high:.0f})")
         report[filename] = (measured, len(tris), target, path.stat().st_size)
+    # The longest axis is measured on the exported GLB; the manifest's sizeM stands in only for a
+    # GLB that failed to load (already a manifest failure).
+    hinted = {prefix: 0 for prefix in LENGTH_HINTS}
+    for item_id in sorted(records):
+        hint = length_hint(item_id)
+        chosen = resolved.get(item_id) or by_class.get(records[item_id]["class"])
+        if hint is None or chosen is None:
+            continue
+        for prefix in hinted:
+            if item_id == prefix or item_id.startswith(prefix + "."):
+                hinted[prefix] += 1
+        filename = chosen["glb"].rsplit("/", 1)[-1]
+        longest = max(report[filename][0]) if filename in report else max(chosen["sizeM"])
+        if abs(longest / hint - 1.0) > LENGTH_TOL:
+            failures["length"].append(f"{item_id} ({records[item_id]['name']}) is drawn by {filename}, {longest:.3f} m long against its {hint:.2f} m hint (limit +/-{LENGTH_TOL:.0%})")
+    for prefix, count in sorted(hinted.items()):
+        if count == 0:
+            failures["length"].append(f"LENGTH_HINTS entry {prefix} matches no drawn item")
     return failures, report
 
 
@@ -2688,7 +2712,7 @@ def main():
     arguments = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--plant", choices=("bounds", "float", "id", "scale", "rung", "material", "doublesided", "winding", "coplanar", "density", "bytes"))
+    parser.add_argument("--plant", choices=("bounds", "float", "id", "scale", "rung", "length", "material", "doublesided", "winding", "coplanar", "density", "bytes"))
     args = parser.parse_args(arguments)
     repo = Path(__file__).resolve().parents[3]
     try:

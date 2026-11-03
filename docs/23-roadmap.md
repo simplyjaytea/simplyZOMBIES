@@ -212,9 +212,13 @@ conversion. The source baseline is archived on GitHub at
     dedupes the embedded atlas copies at runtime, so the files stay large on disk.
 - **Item kit polish (#299 round 3 minors).** In `tools/blender/first_person_items/build_items.py`, whose
   outputs are `godot/assets/first_person/items.manifest.json` and the GLBs in `items/`:
-  - the neutral bottle is a dark-green wine bottle with a blank label, and canteens and the Jar of
-    Preserves draw as it, while the hip flask and sports drink take the 13 cm jar; a canteen or flask
-    rung would read better;
+  - the neutral bottle is a dark-green wine bottle with a blank label, and canteens, the Fuel Bottle
+    and Lamp Oil draw as it, while the hip flask and sports drink take the 13 cm jar; a canteen or
+    flask rung would read better;
+  - the bolt is the arrows scaled to 57%, so its shaft is 4.5 mm across where a real bolt is as
+    thick as an arrow or thicker, and it reads as a short thin arrow; the fletching on both barely
+    clears the shaft (on the arrows the vanes reach 4.0 mm from the axis of a shaft of 4.0 mm
+    radius), so neither shows its vanes;
   - `headgear` draws a military steel helmet, which is right for hard hats and bike helmets but a
     stretch for gas masks and half-mask respirators, which need their own rung;
   - the gun case draws as a soft roll-top bag; a long-case rung would tighten it.
@@ -2455,16 +2459,33 @@ as one slice without touching `GRABS_ENABLED`:
 
 #### The record, by system
 
-- **Item kit polish (#299 round 3 minors), 2026-11-04.** In `tools/blender/first_person_items/build_items.py`:
-  liquids now take the liquid family whatever their category, the Jar of Preserves routes to the
-  13 cm jar, and the crossbow bolt carries a 40 cm `LENGTH_HINTS` entry. **The record.** `ITEMS_CHECK_OK`
-  (every item within 2x of expected size, no laddered item drawn as another's model). **The gate.**
-  `npm run godot:check:first_person`, `npm run godot:smoke`, `npm run check:routing`.
-
 What landed and what proved it, system by system (condensed from the retired backlog; the spec
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **Item kit polish (#299 round 3 minors), 2026-11-04.** Three mapping fixes in the first-person
+  item kit's builder, `tools/blender/first_person_items/build_items.py`, and one new model.
+  - **The record.** `family()` now matches `LIQUID_WORDS` against the whole words of an item's
+    name, in every class, and the list gains `oil`. Material, tool and container gain the liquid
+    ladder (jar, bottle); armor and attachments have none and keep their default ladder, so the
+    Oil-Filter Can muzzle device stays the parts case. The Jar of Preserves is routed to the jar by
+    id. The crossbow bolts get their own model, `bolt.glb` (`m_bolt`: the arrows scaled to 0.40 m,
+    which `LENGTH_HINTS` already asked for). Against `origin/main` the manifest changes for exactly
+    seven items: the Fuel Bottle (`item.can.fuel`) and Lamp Oil (`item.oil.lamp`) go from
+    `crate_small` to `bottle`; the Jar of Preserves goes from `bottle` to `jar`; Gun Oil and Machine
+    Oil (`item.oil.gun`, `item.oil.machine`) go from `fallback_attachment` to `jar`; and the
+    Crossbow Bolt and Broadhead Bolt (`item.ammo.bolt`, `.broadhead`) go from `arrows` (0.705 m) to
+    `bolt` (0.40 m). The other 41 models sample the same atlas texels as before at 15 interior
+    points of every triangle (the atlas was repacked around the bolt's islands, by whole texels).
+  - **The gate.** `build_items.py -- --check` prints `ITEMS_CHECK_OK`, with a new `length` check:
+    every item with a `LENGTH_HINTS` entry is drawn by a model whose longest axis, measured on the
+    exported GLB, is within 25% of the hint, and every hint matches a drawn item. Its plant,
+    `--plant=length`, draws the Broadhead Bolt as the arrows and is refused with
+    `ITEMS_CHECK_FAIL: length, bytes`; `scale` alone passed that (a hand-chosen model is allowed
+    4x, and 0.705 m is 1.76x). No check would refuse an attachment drawn as the jar: the jar is
+    0.80x the Oil-Filter Can's expected size, inside `scale`'s 2x, and the jar is not a hand-chosen
+    model, so `rung` passes it. `godot:check:first_person`, `godot:smoke` and `check:routing` pass.
 
 - **Perception with heights, 2026-11-01.** Slice 4 of docs/40: sight works by height. It builds the
   recommended default of the owner's question 3 (docs/33, "Do Low cover and windows work by
