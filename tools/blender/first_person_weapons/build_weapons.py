@@ -1258,7 +1258,7 @@ def make_objects(model, material, extra_material):
         obj.data.materials.append(extra_material)
     layer = mesh.uv_layers.new(name="AtlasUV")
     for index, (polygon, face_uv) in enumerate(zip(mesh.polygons, uvs)):
-        polygon.use_smooth = False
+        polygon.use_smooth = True
         if model.extra_material_faces and index % 2:
             polygon.material_index = 1
         for loop_index, uv in zip(polygon.loop_indices, face_uv):
