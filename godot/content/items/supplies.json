@@ -535,8 +535,8 @@
   },
   {
     "id": "item.food.jerky",
-    "name": "Beef Jerky",
-    "description": "Dried meat in a torn wrapper. Salt and chewing, and it keeps forever.",
+    "name": "Dried Squid",
+    "description": "Dried squid in a torn wrapper. Salt and chewing, and it keeps forever.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -553,8 +553,8 @@
   },
   {
     "id": "item.food.crackers",
-    "name": "Crackers",
-    "description": "A sleeve of crackers, mostly crumbs.",
+    "name": "Rice Crackers",
+    "description": "A sleeve of rice crackers, mostly crumbs.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -610,7 +610,7 @@
   {
     "id": "item.soda.can",
     "name": "Soda",
-    "description": "A can of soda, warm and flat. Sugar and water.",
+    "description": "A can of fizzy drink, warm and flat. Sugar and water.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -656,8 +656,8 @@
   },
   {
     "id": "item.spirits.bottle",
-    "name": "Bottle of Spirits",
-    "description": "A bottle of spirits. It cleans a wound, and it does other things too.",
+    "name": "Bottle of Shochu",
+    "description": "A bottle of shochu. It cleans a wound, and it does other things too.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -735,8 +735,8 @@
   },
   {
     "id": "item.food.pickles.jar",
-    "name": "Jar of Pickles",
-    "description": "A jar of pickles in cloudy brine. Sharp, salty, and it has outlived its shop.",
+    "name": "Jar of Pickled Plums",
+    "description": "A jar of pickled plums in cloudy brine. Sharp, salty, and it has outlived its shop.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -792,8 +792,8 @@
   },
   {
     "id": "item.food.soup.tin",
-    "name": "Tin of Soup",
-    "description": "Condensed soup. Warmed through it is almost a meal, and cold it is still something.",
+    "name": "Retort Curry Pouch",
+    "description": "A foil pouch of curry. Warmed through it is almost a meal, and cold it is still something.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -810,8 +810,8 @@
   },
   {
     "id": "item.food.fish.tin",
-    "name": "Tin of Fish",
-    "description": "Oily fish packed flat. It smells for a long time afterwards and nobody minds much.",
+    "name": "Tin of Mackerel",
+    "description": "Oily mackerel packed flat. It smells for a long time afterwards and nobody minds much.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -903,8 +903,8 @@
   },
   {
     "id": "item.food.pasta.dry",
-    "name": "Dried Pasta",
-    "description": "A box of dried pasta, mostly intact. It rattles when you carry it.",
+    "name": "Dried Noodles",
+    "description": "A box of dried noodles, mostly intact. It rattles when you carry it.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -921,8 +921,8 @@
   },
   {
     "id": "item.food.oats",
-    "name": "Porridge Oats",
-    "description": "A drum of rolled oats. Grey, warm, and it does keep you going until noon.",
+    "name": "Pressed Barley",
+    "description": "A drum of pressed barley. Grey, warm, and it does keep you going until noon.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -1031,8 +1031,8 @@
   },
   {
     "id": "item.food.apples",
-    "name": "Apples",
-    "description": "Windfalls with bruises on one side. They keep better than anything else off a tree.",
+    "name": "Persimmons",
+    "description": "Windfall persimmons with bruises on one side. They keep better than anything else off a tree.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -1140,8 +1140,8 @@
   },
   {
     "id": "item.drink.tea",
-    "name": "Box of Tea",
-    "description": "A box of bags gone slightly papery. It is hot and it is a ritual, which is most of it.",
+    "name": "Box of Green Tea",
+    "description": "A box of green tea bags gone slightly papery. It is hot and it is a ritual, which is most of it.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -1191,7 +1191,7 @@
   },
   {
     "id": "item.drink.cordial",
-    "name": "Bottle of Cordial",
+    "name": "Bottle of Plum Syrup",
     "description": "Sticky concentrate, cut with water. It makes untreated water taste like a choice.",
     "class": "consumable",
     "size": {

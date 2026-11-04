@@ -2502,6 +2502,20 @@ not a to-do list:
     and the stamp byte-identical at 64 and 256. `npm run godot:check:roof` prints `ROOF_LOOK_OK`.
     `npm run godot:check:worldgen` prints `WORLDGEN_OK` on the renamed templates, and
     `npm run godot:check:fp_geometry` prints `FP_GEOMETRY_OK`, so the finishes matched by id still hold.
+- **Rename R5: food and drink are the valley's, 2026-11-04.** The Ome–Okutama brief's fifth rename
+  (docs/42 section 5, the food and drink rows). Twelve items take the names docs/42 proposes, ids
+  unchanged: `item.food.jerky` is Dried Squid, `item.food.crackers` is Rice Crackers,
+  `item.food.soup.tin` is Retort Curry Pouch, `item.food.fish.tin` is Tin of Mackerel,
+  `item.food.pickles.jar` is Jar of Pickled Plums, `item.food.pasta.dry` is Dried Noodles,
+  `item.food.oats` is Pressed Barley, `item.food.apples` is Persimmons, `item.drink.tea` is Box of
+  Green Tea, `item.drink.cordial` is Bottle of Plum Syrup, `item.spirits.bottle` is Bottle of Shochu,
+  and `item.pot.camp` (the billy can) is Camp Pot. Eleven descriptions name the valley's foods or
+  drop a Western word. Two items stay named as they are because `godot/check_m2_stockpile.gd` pins
+  their names: Tin of Beans and Tin of Peaches.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`, and `npm run godot:check:inventory`,
+    `npm run godot:check:hud`, `npm run godot:check:loot`, `npm run godot:m2:transform` and
+    `npm run godot:m2:needs` all hold on the renamed content. `npm run godot:m2:stockpile` still
+    holds the two pinned names.
   - **Measured.** Nothing measured. A name change is not a balance claim.
 - **Item kit polish (#299 round 3 minors), 2026-11-04.** Three mapping fixes in the first-person
   item kit's builder, `tools/blender/first_person_items/build_items.py`, and one new model.
