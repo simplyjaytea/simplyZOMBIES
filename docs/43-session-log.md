@@ -1,0 +1,173 @@
+# Session log: what each session did and left, newest first
+
+Each entry is the handoff a session wrote when it stopped, moved here from PLAYBOOK.md so the
+playbook stays current. Read the newest entry first. Links are relative to this folder.
+
+## Where we left off (2026-11-04, stopped by the owner)
+
+The first session on the owner's Linux machine. The roster above is out of date here. Claude
+(Opus 5.5) coordinates. Kimi Code (K3.1 Pro) does the models and now also the final paint; Codex
+was dropped and its `codex/fp-survivor-paint` branch deleted. Two OpenCode terminals do mechanical
+code. The terminals run in herdr (`hc ls`, `hc send`, `hc read`, `hc wait`), not Orca. The shared
+folder is `/home/jtf/sz-shared/`, with worker rules in `WORKER_RULES.md`. The Windows folder's
+contents did not carry over, including the owner's survivor concept image. Every Godot and Blender
+job runs under `xvfb-run -a`, so no window opens on the owner's desktop. This machine's Blender
+links zlib-ng, so rebuilt GLBs and PNGs differ in bytes, not pixels, from Windows-built files.
+Compare pixels before calling a byte change a bug.
+
+**The owner's calls today** (docs/30): first person is the game and top-down is legacy; the setting
+is Japan, inspired by the Ome–Okutama valley. Remote leftovers were deleted after a bundle backup
+(`/home/jtf/sz-shared/backups/`). The archive branch
+`archive/topdown-colony-pre-first-person-2026-11-01` is kept.
+
+**Open pull requests, waiting on the owner's go-ahead to merge.** Each passed its local gates. All
+of them touch docs/23's record, and most touch this file. Merge one at a time: merge `main` into
+the next PR (never rebase), keep both sides of docs conflicts, and wait for CI on the new head.
+
+1. #316: the held weapon hides behind screens and in third person (HIDE lane).
+2. #317: every indoor tile gets a ceiling (CEILINGS lane of `godot:check:fp_geometry`).
+3. #318: the weapon kit's lathes are smoothed (SHADING check), and the README says what horde use
+   costs.
+4. #319: zombies and colonists stop reaching for what a wall keeps out. It has one owner question:
+   a colonist carrying a melee weapon and a gun now shoots across a fence instead of swinging at it
+   (docs/30, "A reach test chooses whom, not whether").
+5. #320: the item kit draws liquids, preserves and the bolt correctly (`length` check). The bolt
+   model itself is weak art.
+6. This docs pull request: the legacy call, the setting call, and this handoff.
+
+**Stacked branches, no pull request yet; the order matters.**
+
+1. `kimi/fp-survivor-base`. The independent review (`sz-shared/reviews/fp-survivor-base/`) found
+   three blocking faults, so it is fix-then-merge. The paint follows atlas islands (the back of the
+   top is brown while the front and sleeves are charcoal), the density claim does not hold (hands
+   73–91 px/m against 128), and the README numbers are stale. Kimi's spec is
+   `sz-shared/fp-survivor-base/task-kimi.md`. It starts by merging `main` in, since the branch is
+   30+ commits behind. After the fixes, the same reviewer does a confirmation pass.
+2. `claude/fp-arms`, the arms art. Round 2 (`cecb4c45`) prints `ARMS_CHECK_OK` and refuses all 22
+   plants. Its in-engine comparison is `sz-shared/fp-arms/round-2/in-engine/comparison.png`. A
+   first look found the round 1 faults gone: no black streaks on the hands, and charcoal knit
+   sleeves instead of the camouflage-like pattern. The formal independent review has not been done.
+   The `long` class still shows a placeholder box, because the weapon kit has no rifle.
+3. `claude/fp-arms-view`, the arms in the game (`arms_view.gd`, the ARMS lane; head 96c579be). It
+   needs the two above first, and will conflict with #316 in `_update_held_weapon`: fold #316's
+   hide into `view_covered()`. It has six owner questions, each with a default built: lower behind
+   every screen; a swap of 0.3 s lowering then 0.5 s drawing; the hold-class rule; inspect repeating
+   while L is held; no aim-down-sights yet; and no weapon in third person.
+
+**Next session, start here, in order.**
+
+1. `gh pr list`, and each PR's CI. If the owner has given the go-ahead, run the merge train in this
+   order: #321 (docs, so later sessions read this from `main`), #316, #317, #318, #319, #320. After
+   each merge, merge `main` into the next PR, rerun its touched gates, and wait for CI on its new
+   head.
+2. Ask the owner what is still open: #319's shooting default, the six arms defaults
+   (`claude/fp-arms-view`), docs/33's firearms card, and the survivor concept image, which goes in
+   `/home/jtf/sz-shared/concept/`.
+3. Send Kimi `/home/jtf/sz-shared/fp-survivor-base/task-kimi.md` (the survivor fixes). It has
+   not started.
+4. Meanwhile, start an Opus subagent on an independent review of arms round 2. It gets the branch,
+   its in-engine captures and this file's art rules. If the review is clear, open the arms art PR
+   once the survivor's PR has merged, then `claude/fp-arms-view`'s PR.
+5. With the workhorses free, write the Ome–Okutama setting brief, a new doc (see docs/23's planned
+   piece). Only after the brief come Japanese building templates for Kimi and content renames for
+   the workhorses.
+6. Then, from the to-do list: a rifle model for the `long` class, the zombie kinds, and the
+   clothing note.
+
+**Worktrees left on disk** under `.claude/worktrees/`: `fp-arms`, `fp-arms-view`,
+`fp-survivor-base` (with work still to do), and the PR branches `fp-cleanup`, `fp-ceilings`,
+`fp-weapon-polish`, `fp-item-polish`, `fp-reach` and `topdown-legacy`. Remove each PR branch's
+worktree once its PR merges.
+
+**Lessons.** The OpenCode workers, at the owner's medium effort, did the first easy step and then
+reported done. Three times running they skipped the gate, the plant and the docs. A specific list
+of what was missing got the fixes done. Pieces that need a new gate went to an Opus worker. Read
+every worker's diff and manifest before trusting its report.
+
+## Where we left off (2026-11-01, paused by the owner)
+
+The first-person conversion ([docs/39](39-first-person-pivot.md)) is the work in hand. The
+default boot is the first-person scene; the top-down game is reached with
+`npm run godot:run:topdown`, and the title's "first person" row returns to first person. This
+section is the handoff written when the owner paused the morning's work; the queue it lists has merged since
+(#288 to #302, through #306's integration), and the session record below it is the current
+state. Read both, then `gh pr list` and each pull request's CI, because both move.
+
+**On `main`.** The pivot plan (docs/39), the spatial contract
+([docs/40](40-first-person-spatial-contract.md)), the first-person foundation and its
+integration (containers, save and load, death and succession, doors, stance and gait, interim
+fighting, the title row, day, night and the carried light, the ledger's Reports page, the shipped
+district size, art that loads from a clean checkout), spatial slice 1 (`SimSpace`'s height
+profile) and slice 2 (melee and zombie reach stop at walls), game speed, the Blender starter kit
+and the weapon kit, the README's first-person section, the owner cards in docs/33, and the
+review follow-ups in docs/23's first-person group.
+
+**The queue that has since landed, in the order it merged.** Each merged `main` in and waited
+for CI on its new head first (How work flows, step 5); the conflicts were docs/23's record list
+(keep both entries) and the lane list and OK sentence of `godot/check_first_person.gd` (keep both
+lanes).
+
+1. #292 the starter kit drawn in the scene (walls, boards, shelves), and #290 aim pitch
+   (spatial slice 3; the save stays at its version, reasoned in docs/30 "A pitch with no yaw").
+2. #294 body animation state, then #297 talking to a colonist (stacked on #294); #295 the F1
+   key reference; #296 the end-to-end expedition gate.
+3. #299 the loot-item kit (art review clear after three rounds), then #301 the model loader
+   (reads every `*.manifest.json`, shares one mipmapped texture per atlas, draws loose items),
+   then #300 the held weapon assembled from the sim's installed parts.
+4. #288 the survivor and shambler, after the independent art review's round 3. Then the body
+   view plays its clips from #294's animation state.
+5. #302, docs only: the weapon and item kit polish minors.
+
+**In flight when paused.** The Kimi terminal was researching and prototyping better buildings
+and walls (the owner: they look rather large and not good enough; make them look like Project
+Zomboid). Its brief: a proposal at the coordinator's scratch path, a prototype on branch
+`kimi/fp-buildings-proto` (no pull request), and before-and-after captures. The likely cause is
+that a wall is a whole 1 m tile 2.55 m tall where Zomboid's walls are thin and on tile edges;
+the proposal separates art-only fixes from sim changes (edge walls, a finer grid, a lower wall
+band), which touch shared modules and may be owner calls. Read the branch and its report before
+starting anything on buildings.
+
+**Next, in order.** Review Kimi's buildings proposal with the owner. Then
+[docs/41](41-weapons-characters-world-plan.md), the plan for weapons, characters and a
+bigger world: the bodies and the held weapon in the scene first, then a dressed and furnished
+town, modular weapons, and docs/40's slices 4 to 7. The seven zombie kinds are the art lead's
+next piece after the characters clear. A small cleanup is owed: `check_first_person.gd` prints
+one hand-written OK sentence that every parallel branch edits; generate it from the lane list so
+it stops conflicting.
+
+**Waiting on the owner.** docs/33's first-person cards (the seven questions from docs/40 and the
+pause policy), and docs/41's "For the owner" list. Every one has a default already being built.
+
+## What the session of 2026-11-01 did
+
+- **The survivor base body.** The box-segment `survivor.glb` was replaced by an organic,
+  smooth-skinned woman matching the owner's concept art: 7,810 triangles, a modelled face,
+  volumed hair with a high bun, painted pixel textures at 256 px/m (head) and 128 px/m (body).
+  Four model rounds and five atlas versions. The modeler began it and handed off for usage; an
+  Opus worker finished it. Committed on `kimi/fp-survivor-base`, not yet pushed; the owner
+  called it "a good base, it can be improved upon. A lot."
+- **The in-engine review driver** (`godot:shots:survivor`), PR #312, merged.
+- **First person is the default boot;** F2 toggles a third-person testing view; the top-down
+  game opens with `npm run godot:run:topdown`. PR #313.
+- **The first-person arms contract** (`sz-shared/fp-arms/CONTRACT.md`) with the owner's answers:
+  bare hands (gloves only when worn), inspect on a held `L`, an own view-model FOV with no wall
+  clipping, 128 px/m for arms and bodies. The arms art started on `claude/fp-arms`.
+- **PR #310** (building finishes) failed its first independent review (windows drawn as
+  solid wall, inside-out hip roofs, a CRLF manifest), was fixed by an Opus worker with a
+  real-worldgen window gate, and passed its confirmation pass.
+- **The merge train, done.** #312, #308, #307, #313, #309, #310 and #311 merged, in that order.
+  The owner chose to merge the last five without waiting for CI on their final heads.
+- **Repo cleanup:** 41 merged worktrees removed, 37 merged local branches deleted, local main
+  fast-forwarded.
+- **This playbook.** `CLAUDE.md`, `AGENTS.md` and docs/38 merged into one root file, the
+  owner's call, and the roster amendment of the model-identifier rule (docs/30).
+
+## Lessons from the session
+
+- Render the existing asset before judging it; the "blocky" problem was visible in one render.
+- The in-engine sheet is the judge; Blender renders flattered the model each round.
+- A hand-painted 2D target for first-person arms did not converge; the 3D model sets the pose.
+- An independent reviewer catches what a gate misses: the window bug passed its gate because
+  the gate stamped templates without real worldgen.
+- Stacked PRs (a PR based on another PR's branch) keep dependent work moving; the coordinator
+  retargets them to main after the base merges.

@@ -514,19 +514,53 @@ static func _drift_upscent(field: Variant, pos: Dictionary, vel: Dictionary, sha
 	vel["dy"] = sin(angle) * speed
 
 
-static func _contact_target(survivors: Array, pos: Dictionary, radius_metres: float) -> Variant:
+# The survivor a body at `pos` is in contact with: the nearest inside `radius_metres`, and, when the
+# caller names the world and the reacher, the nearest of those the reacher's arm can actually arrive
+# at (`_clear_contact`, the reach question every blow asks). The player's swing has always chosen
+# this way (`SimMelee._resolve_strike`, nearest-first among bodies the blow can reach); before this,
+# a shambler took the nearest by distance alone, so a survivor behind a window held its swipe and its
+# grab while a reachable one stood a step further off (#282's review).
+#
+# Whether anybody is in contact does not change. When nobody inside the radius is reachable, the
+# nearest by distance is still returned, so a shambler pressed to a window at somebody it cannot
+# touch keeps pressing (it stays in Pursue and does not wander off), and the swipe and the grab, which
+# ask `_clear_contact` of whatever comes back, refuse it exactly as they did. All that moves is which
+# survivor is chosen when there is a reachable one. One survivor inside the radius is the answer
+# either way, so it is never traced, and with several the nearest is traced first and nearly always
+# answers; no number is drawn.
+static func _contact_target(survivors: Array, pos: Dictionary, radius_metres: float, world: Variant = null, reacher: int = -1) -> Variant:
 	var limit: float = radius_metres * radius_metres
 	var best: Variant = null
 	var best_dist: float = limit
+	var best_at: Dictionary = {}
+	var inside: Array = []
 	for survivor in survivors:
 		var s: Dictionary = survivor as Dictionary
 		var dx: float = float(s["x"]) - float(pos["x"])
 		var dy: float = float(s["y"]) - float(pos["y"])
 		var dist: float = dx * dx + dy * dy
+		if dist <= limit:
+			inside.append([s, dist])
 		if dist <= best_dist:
 			best = s["entity"]
 			best_dist = dist
-	return best
+			best_at = s
+	if world == null or inside.size() < 2:
+		return best
+	if _clear_contact(world, pos, best_at, reacher, int(best)):
+		return best
+	# The same tie rule as the walk above: in list order, a later survivor at an equal distance wins.
+	var reachable: Variant = null
+	var reachable_dist: float = limit
+	for pair in inside:
+		var c: Dictionary = (pair as Array)[0] as Dictionary
+		var d: float = float((pair as Array)[1])
+		if int(c["entity"]) == int(best) or d > reachable_dist:
+			continue
+		if _clear_contact(world, pos, c, reacher, int(c["entity"])):
+			reachable = c["entity"]
+			reachable_dist = d
+	return reachable if reachable != null else best
 
 
 # Who a shambler can see worth chasing. The corpse skip is not cosmetic: `identity` survives
@@ -1169,7 +1203,7 @@ static func register_module(world: Variant, _map: Variant) -> void:
 						sd["state"] = ShamblerState["Wander"]
 						sd["ticksToTurn"] = 0
 				ShamblerState["Pursue"]:
-					var target: Variant = _contact_target(survivors, pd, RELEASE_METRES)
+					var target: Variant = _contact_target(survivors, pd, RELEASE_METRES, w, int(entity))
 					if target == null:
 						sd["state"] = ShamblerState["Wander"]
 						sd["ticksToTurn"] = int(rng.call("int_range", 20, 120))
@@ -1178,7 +1212,7 @@ static func register_module(world: Variant, _map: Variant) -> void:
 						_chase(w, int(target), pd, vd, sd, seek)
 				ShamblerState["Seek"]:
 					seek = _speed_of(w, int(entity), sd, "seekSpeed", sky)
-					var caught: Variant = _contact_target(survivors, pd, CONTACT_METRES)
+					var caught: Variant = _contact_target(survivors, pd, CONTACT_METRES, w, int(entity))
 					var seen: Variant = _seen_target(w, int(entity), survivors, sd, fog)
 					if caught != null:
 						sd["state"] = ShamblerState["Pursue"]
@@ -1215,7 +1249,7 @@ static func register_module(world: Variant, _map: Variant) -> void:
 						sd["ticksToTurn"] = int(sd["ticksToTurn"]) - 1
 				_:
 					seek = _speed_of(w, int(entity), sd, "seekSpeed", sky)
-					var caught2: Variant = _contact_target(survivors, pd, CONTACT_METRES)
+					var caught2: Variant = _contact_target(survivors, pd, CONTACT_METRES, w, int(entity))
 					var seen2: Variant = _seen_target(w, int(entity), survivors, sd, fog)
 					if caught2 != null:
 						sd["state"] = ShamblerState["Pursue"]
@@ -1264,7 +1298,7 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			var mark: Variant = null
 			if int(sw["state"]) == ShamblerState["Pursue"] and not w.components.has_component(int(swiper), "grabState"):
 				var from_sw: Dictionary = w.components.get_component(int(swiper), "position") as Dictionary
-				var reached: Variant = _contact_target(survivors, from_sw, SWIPE_METRES)
+				var reached: Variant = _contact_target(survivors, from_sw, SWIPE_METRES, w, int(swiper))
 				# A held body is being bitten, not swiped -- piling swipes onto a grapple would
 				# hand the flip's lethality question a new variable through the back door. And a
 				# wall between refuses the swipe the same way it refuses a grab.
@@ -1431,7 +1465,7 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			if w.components.has_component(int(source4), "grabState"):
 				continue
 			var from4: Dictionary = w.components.get_component(int(source4), "position") as Dictionary
-			var new_victim: Variant = _contact_target(survivors, from4, GRAB_METRES)
+			var new_victim: Variant = _contact_target(survivors, from4, GRAB_METRES, w, int(source4))
 			if new_victim == null:
 				continue
 			var at4: Dictionary = w.components.get_component(int(new_victim), "position") as Dictionary
