@@ -16,6 +16,9 @@ the matching headings below.
 
 ## Start here
 
+**Coordinators resuming the project:** go first to [Where we left off (2026-11-04)](#where-we-left-off-2026-11-04-stopped-by-the-owner)
+and its "Next session, start here" list, then [the herdr workflow](#the-herdr-workflow-current).
+
 ```bash
 bash scripts/setup-web-session.sh   # verify or install the pinned engine and npm packages
 npm run godot:smoke                 # the project boots
@@ -42,6 +45,16 @@ Then read, in order:
    not the whole file.
 
 ## The team
+
+**The current team (Linux, since 2026-11-04).** The owner's machine runs the terminals in herdr,
+not Orca. The table below the herdr workflow is the Windows-era roster, kept for its role rules.
+
+| Role | Agent and model | Does | Does not |
+|---|---|---|---|
+| Coordinator | Claude Code, Opus 5.5 | Reads the state, writes every spec, dispatches, verifies every report against the diff, renders and gates, opens PRs, merges after the owner's go-ahead | Write the work itself, beyond small fixes to docs and records |
+| Modeler and painter | Kimi Code, K3.1 Pro, thinking high, in "Never Ask" mode | 3D models, rigs, clips and, since Codex was dropped, the final painted textures | Edit another worker's worktree |
+| Workhorses (two) | OpenCode, Beam Free, at **medium** effort (the owner's setting; do not raise it) | Mechanical code and docs, given a one-step spec with an exact acceptance list | New gates, shared sim modules, art judgement |
+| Strong tier | Opus subagents the coordinator starts | New gates, shared sim modules, art reviews, and finishing anything a workhorse left short | Merge |
 
 The owner decides. Everything else is done by agents running as terminals inside Orca, each
 on its own model, coordinated by one of them. The owner's call of 2026-11-01: this roster may
@@ -70,6 +83,34 @@ current assignment. The roles that hold whatever the models are:
   any piece that touches a shared sim module (`godot/sim/modules/jobs.gd`,
   `godot/sim/modules/stockpile.gd`, `godot/sim/modules/needs.gd` and the like) or the save format
   (the owner's call, 2026-10-27).
+
+## The herdr workflow (current)
+
+The Orca loop below still describes the method. On the Linux machine it runs like this:
+
+- **Find the terminals.** `hc ls` lists them, in the workspace "simplyZOMBIES / 1". Addresses such
+  as `t1p` change between runs: Kimi is the `kimi-code` row, and the two workhorses are the
+  `opencode` rows. Start a new one with
+  `hc run --bg --name <n> --cwd <worktree> --outlive-parent <cmd>`.
+- **Specs.** Write each spec to `/home/jtf/sz-shared/<piece>/task-<who>.md`. Every worker reads
+  `/home/jtf/sz-shared/WORKER_RULES.md`. Dispatch with
+  `hc send <t> "Read <spec> and WORKER_RULES.md, then do the task without stopping"`. Each worker
+  reports in `<piece>/REPORT.md`, or `HANDOFF.md` if it runs out.
+- **Wait.** `hc wait <t>` returns on every status change. Loop it until `REPORT.md` appears or the
+  terminal goes idle, then read `hc read <t>` if no report came.
+- **Kimi's approvals.** Kimi asks before each shell command unless it is in "Never Ask" mode. Turn
+  that on with raw keys: `hc keys <t> / y o l o enter`. `hc send` wraps its text in `<hc>` tags, so
+  a slash command sent that way becomes a chat message.
+- **Subagents** cannot write files under `sz-shared`. The coordinator writes their `REPORT.md`
+  from the hand-back.
+- **Displays.** Every Godot and Blender job runs under `xvfb-run -a`. A window must never open on
+  the owner's desktop display.
+- **Worktrees.** Each piece gets a worktree under `.claude/worktrees/<piece>` on branch
+  `<agent>/<piece>`. Symlink `node_modules` from the main checkout into it; the symlink is
+  excluded in `.git/info/exclude`.
+- **Verify before a PR.** Read the worker's diff yourself, and its manifest or map where there is
+  one. Rerun the gates the spec names. Workhorses have reported work as done when it was not, three
+  times in one session.
 
 ## The Orca workflow
 
@@ -172,6 +213,10 @@ Management moves to physical ledgers and conversations. Earlier projection and
 sprite rules describe the preserved baseline, not constraints on new 3D assets.
 The standing verification and merge rules remain.
 
+**Setting.** The game is set in Japan, inspired by the real Ome–Okutama valley in western Tokyo
+(docs/30). Place names, businesses and brands are fictional; the real layout, landscape and
+architecture are the inspiration. The re-theme is planned work, listed in docs/23.
+
 A hardcore zombie survival colony sim: RimWorld's colony management and work priorities,
 Project Zomboid's unforgiving survival, Zero Sievert's top-down pixel art. One attention system
 (noise, scent, light) ties survival to the pressure the dead put on the colony: the better you
@@ -238,6 +283,12 @@ alpha"). [docs/23](docs/23-roadmap.md) is the authority on what is built and wha
 piece by piece under [what's left](docs/23-roadmap.md#whats-left-in-milestone-2). Facts that
 matter every session:
 
+- **First person is the game; top-down is legacy** (2026-11-04, docs/30): first person is the
+  default boot and every new piece is first person; the top-down game stays, boots with
+  `npm run godot:run:topdown`, and keeps its gates, but gets no new features or UI slices unless
+  the owner asks. Shared sim modules serve both.
+- **The setting is Japan (Ome–Okutama), 2026-11-04** (docs/30): inspired by the real Ome–Okutama
+  valley in western Tokyo; names are fictional. The re-theme is planned work, listed in docs/23.
 - **The survival loop is built, gated and on.** `SimShambler.GRABS_ENABLED` ships `true`. Any
   gate that pins the flag restores the previous value.
 - **The alpha stopped at a balance wall on 2026-10-21.** The target was a colony alive on day 10
@@ -681,6 +732,87 @@ The scenes and window sizes are in `godot/review/scenes.gd`. Many branches edit 
 attracts merge conflicts. Add your scene in a small, separate hunk, and rebase onto `main` before
 you push.
 
+## Where we left off (2026-11-04, stopped by the owner)
+
+The first session on the owner's Linux machine. The roster above is out of date here. Claude
+(Opus 5.5) coordinates. Kimi Code (K3.1 Pro) does the models and now also the final paint; Codex
+was dropped and its `codex/fp-survivor-paint` branch deleted. Two OpenCode terminals do mechanical
+code. The terminals run in herdr (`hc ls`, `hc send`, `hc read`, `hc wait`), not Orca. The shared
+folder is `/home/jtf/sz-shared/`, with worker rules in `WORKER_RULES.md`. The Windows folder's
+contents did not carry over, including the owner's survivor concept image. Every Godot and Blender
+job runs under `xvfb-run -a`, so no window opens on the owner's desktop. This machine's Blender
+links zlib-ng, so rebuilt GLBs and PNGs differ in bytes, not pixels, from Windows-built files.
+Compare pixels before calling a byte change a bug.
+
+**The owner's calls today** (docs/30): first person is the game and top-down is legacy; the setting
+is Japan, inspired by the Ome–Okutama valley. Remote leftovers were deleted after a bundle backup
+(`/home/jtf/sz-shared/backups/`). The archive branch
+`archive/topdown-colony-pre-first-person-2026-11-01` is kept.
+
+**Open pull requests, waiting on the owner's go-ahead to merge.** Each passed its local gates. All
+of them touch docs/23's record, and most touch this file. Merge one at a time: merge `main` into
+the next PR (never rebase), keep both sides of docs conflicts, and wait for CI on the new head.
+
+1. #316: the held weapon hides behind screens and in third person (HIDE lane).
+2. #317: every indoor tile gets a ceiling (CEILINGS lane of `godot:check:fp_geometry`).
+3. #318: the weapon kit's lathes are smoothed (SHADING check), and the README says what horde use
+   costs.
+4. #319: zombies and colonists stop reaching for what a wall keeps out. It has one owner question:
+   a colonist carrying a melee weapon and a gun now shoots across a fence instead of swinging at it
+   (docs/30, "A reach test chooses whom, not whether").
+5. #320: the item kit draws liquids, preserves and the bolt correctly (`length` check). The bolt
+   model itself is weak art.
+6. This docs pull request: the legacy call, the setting call, and this handoff.
+
+**Stacked branches, no pull request yet; the order matters.**
+
+1. `kimi/fp-survivor-base`. The independent review (`sz-shared/reviews/fp-survivor-base/`) found
+   three blocking faults, so it is fix-then-merge. The paint follows atlas islands (the back of the
+   top is brown while the front and sleeves are charcoal), the density claim does not hold (hands
+   73–91 px/m against 128), and the README numbers are stale. Kimi's spec is
+   `sz-shared/fp-survivor-base/task-kimi.md`. It starts by merging `main` in, since the branch is
+   30+ commits behind. After the fixes, the same reviewer does a confirmation pass.
+2. `claude/fp-arms`, the arms art. Round 2 (`cecb4c45`) prints `ARMS_CHECK_OK` and refuses all 22
+   plants. Its in-engine comparison is `sz-shared/fp-arms/round-2/in-engine/comparison.png`. A
+   first look found the round 1 faults gone: no black streaks on the hands, and charcoal knit
+   sleeves instead of the camouflage-like pattern. The formal independent review has not been done.
+   The `long` class still shows a placeholder box, because the weapon kit has no rifle.
+3. `claude/fp-arms-view`, the arms in the game (`arms_view.gd`, the ARMS lane; head 96c579be). It
+   needs the two above first, and will conflict with #316 in `_update_held_weapon`: fold #316's
+   hide into `view_covered()`. It has six owner questions, each with a default built: lower behind
+   every screen; a swap of 0.3 s lowering then 0.5 s drawing; the hold-class rule; inspect repeating
+   while L is held; no aim-down-sights yet; and no weapon in third person.
+
+**Next session, start here, in order.**
+
+1. `gh pr list`, and each PR's CI. If the owner has given the go-ahead, run the merge train in this
+   order: #321 (docs, so later sessions read this from `main`), #316, #317, #318, #319, #320. After
+   each merge, merge `main` into the next PR, rerun its touched gates, and wait for CI on its new
+   head.
+2. Ask the owner what is still open: #319's shooting default, the six arms defaults
+   (`claude/fp-arms-view`), docs/33's firearms card, and the survivor concept image, which goes in
+   `/home/jtf/sz-shared/concept/`.
+3. Send Kimi `/home/jtf/sz-shared/fp-survivor-base/task-kimi.md` (the survivor fixes). It has
+   not started.
+4. Meanwhile, start an Opus subagent on an independent review of arms round 2. It gets the branch,
+   its in-engine captures and this file's art rules. If the review is clear, open the arms art PR
+   once the survivor's PR has merged, then `claude/fp-arms-view`'s PR.
+5. With the workhorses free, write the Ome–Okutama setting brief, a new doc (see docs/23's planned
+   piece). Only after the brief come Japanese building templates for Kimi and content renames for
+   the workhorses.
+6. Then, from the to-do list: a rifle model for the `long` class, the zombie kinds, and the
+   clothing note.
+
+**Worktrees left on disk** under `.claude/worktrees/`: `fp-arms`, `fp-arms-view`,
+`fp-survivor-base` (with work still to do), and the PR branches `fp-cleanup`, `fp-ceilings`,
+`fp-weapon-polish`, `fp-item-polish`, `fp-reach` and `topdown-legacy`. Remove each PR branch's
+worktree once its PR merges.
+
+**Lessons.** The OpenCode workers, at the owner's medium effort, did the first easy step and then
+reported done. Three times running they skipped the gate, the plant and the docs. A specific list
+of what was missing got the fixes done. Pieces that need a new gate went to an Opus worker. Read
+every worker's diff and manifest before trusting its report.
+
 ## Where we left off (2026-11-01, paused by the owner)
 
 The first-person conversion ([docs/39](docs/39-first-person-pivot.md)) is the work in hand. The
@@ -761,20 +893,19 @@ pause policy), and docs/41's "For the owner" list. Every one has a default alrea
 
 ## To do
 
-- Confirm CI green on `main` after the merge train (#307, #313, #309, #310 and #311 merged on the
-  owner's call without waiting for CI), and fix forward whatever is red.
-- Push `kimi/fp-survivor-base` as its own PR (independent art review first), then improve the
-  survivor further (the owner: "a lot").
-- First-person arms: art (in flight on `claude/fp-arms`, Codex paints its atlas), then the
-  presentation code and its ARMS gate lane.
-- Codex's paint scripts (`codex/fp-survivor-paint`) are local only; decide whether they land.
-- The ceiling follow-up for #310 (`sz-shared/reviews/followup-ceilings.md`).
+- Merge #316 to #320 and this docs pull request, one at a time, on the owner's go-ahead.
+- Follow "Next session, start here" under Where we left off (2026-11-04).
+- The survivor fixes, then a confirmation review and its PR. Then the arms art round 2 review,
+  then the arms art PR, then `claude/fp-arms-view`'s PR.
+- The owner's open questions: the shooting default in #319, the six arms defaults, and docs/33's
+  firearms card. Also ask the owner to copy the survivor concept image to
+  `/home/jtf/sz-shared/concept/` for the next likeness check.
+- The Ome–Okutama setting brief: a new doc, before any Japanese buildings or renames (docs/23).
+- Art lead: a real crossbow bolt; fuel, oil and canteen bottles; a rifle model for the `long`
+  hold class, which shows a placeholder box today.
 - The shambler and the other six zombie kinds on the new organic base, with a lighter version
   for hordes (measure the frame cost first).
 - The clothing layer system that follows the worn slots: a design note for the owner first.
-- Remote branch cleanup (the owner's call): 40 merged remote branches; unmerged leftovers
-  `claude/fp-profile` (6 lines), `kimi/fp-buildings-proto` (a prototype the finishes appear to
-  supersede), `claude/project-thread-jqq1u5` (unexamined).
 
 ## Known bugs
 

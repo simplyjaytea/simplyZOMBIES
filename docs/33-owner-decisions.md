@@ -492,3 +492,9 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
     own shots leave, which is carried by piece B3 of the next batch: spent cases dropped per shot,
     picked up, and one case spent per hand-loaded round. (C), a separate reloading bench, is not
     chosen.
+
+**How common are firearms in a Japanese setting?** Civilian guns are rare in Japan. Firearms
+would be police revolvers, hunting shotguns, and rifles from hunting clubs, and melee would be
+the main way to fight. This changes the modular firearms plan (docs/41 W2). Default: firearms
+are rare and come from these sources, and the weapon work already built stays in the game. The
+default is not built yet.
