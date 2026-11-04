@@ -180,16 +180,16 @@ func _ambient_of(w: Variant, device: int) -> float:
 
 # --- PINNED -----------------------------------------------------------------------------------
 #
-# Additive or it is a rebalance, and the owner said so in as many words: the existing alarm line and
-# noisemaker stay free and unchanged. `check_m2_materials.gd`'s PINNED lane asserts that from the
-# recipe table's side -- no price has appeared for any of the five free verbs. This asserts it from
-# the behaviour's side, which is the half a recipe table cannot see: the bait still goes down for
-# nothing, still reads 45 at the field, still runs for its twelve thousand ticks, and the alarm line
-# still trips at 8.
+# The bait's numbers are the owner's and did not move: it still reads 45 at the field, still runs
+# for its twelve thousand ticks, and the alarm line still trips at 8. What moved on 2026-11-04 is the
+# price of placing it -- one unit of scrap metal, the same substance the barricade spends -- so the
+# lane now asks the behaviour's half of that: an empty pack places nothing, and a pack holding one
+# unit places the bait and spends exactly that unit. `check_m2_materials.gd`'s PINNED lane asserts
+# the recipe table's side.
 func _the_free_bait_is_still_free_and_still_works() -> bool:
 	var lane: String = "PINNED"
 	for verb in SimFortify.RECIPES.keys():
-		if ["window", "alarm", "noisemaker", "wind", "camp", "noisedevice", "noiselift"].has(String(verb)):
+		if ["window", "wind", "camp", "noisedevice", "noiselift"].has(String(verb)):
 			push_error("%s: '%s' has acquired a price ('%s') -- the free verbs were free before this slice and the owner kept them free" % [lane, String(verb), String(SimFortify.RECIPES[verb])])
 			return false
 	if absf(float(SimFortify.NOISEMAKER_MAG) - 45.0) > 1e-9 or int(SimFortify.NOISEMAKER_TICKS) != 12000:
@@ -199,19 +199,38 @@ func _the_free_bait_is_still_free_and_still_works() -> bool:
 		push_error("%s: the alarm line trips at %.1f and it tripped at 8" % [lane, float(SimFortify.ALARM_NOISE)])
 		return false
 
-	# And it still goes down, out of an empty pack, and the field still hears it. A pack with
-	# nothing in it is the point: the free bait costs nothing, and a lane that handed it a
-	# firecracker first would not be able to tell.
+	# An empty pack places nothing: the price is real, so the refusal is measured, not assumed.
+	var empty: Variant = _world(5152)
+	if SimInventory.carried_items(empty, empty.player).size() != 1:
+		push_error("%s: the fixture pack is not empty, so the refusal is not what this measures" % lane)
+		return false
+	empty.commands.push({"type": "bait.noisemaker.place", "tx": BAIT_X, "ty": BAIT_Y})
+	for _i in SimFortify.CHANNEL_TICKS + 2:
+		empty.step()
+	if empty.components.query(["noisemaker"]).size() != 0:
+		push_error("%s: a noisemaker went down out of a pack holding no scrap metal" % lane)
+		return false
+
+	# It goes down out of a pack holding one unit of scrap metal, the field hears it, and that unit is
+	# the one spent.
 	var w: Variant = _world(5151)
 	if SimInventory.carried_items(w, w.player).size() != 1:
 		push_error("%s: the fixture pack is not empty, so 'it cost nothing' is not what this measures" % lane)
 		return false
+	var scrap: int = SimItems.spawn_item(w, "item.scrap.metal", {"tier": "scavenged", "count": 1})
+	if not SimInventory.stow(w, w.player, scrap):
+		push_error("%s: could not stow the unit of scrap metal" % lane)
+		return false
+	w.events.drain()
 	w.commands.push({"type": "bait.noisemaker.place", "tx": BAIT_X, "ty": BAIT_Y})
 	for _i in SimFortify.CHANNEL_TICKS + 2:
 		w.step()
 	var bait: Array[int] = w.components.query(["noisemaker"])
 	if bait.size() != 1:
-		push_error("%s: %d noisemakers after a full channel with an empty pack" % [lane, bait.size()])
+		push_error("%s: %d noisemakers after a full channel with one unit of scrap metal" % [lane, bait.size()])
+		return false
+	if SimFortify.material_count(w, w.player, "metal") != 0:
+		push_error("%s: the noisemaker spent %d units of metal, not the one it costs" % [lane, 1 - SimFortify.material_count(w, w.player, "metal")])
 		return false
 	if absf(_ambient_of(w, bait[0]) - 45.0) > 1e-9:
 		push_error("%s: the free noisemaker is emitting %.2f, not 45" % [lane, _ambient_of(w, bait[0])])
@@ -220,13 +239,13 @@ func _the_free_bait_is_still_free_and_still_works() -> bool:
 	if w.field.noise_at(float(BAIT_X) + 0.5, float(BAIT_Y) + 0.5) < 20.0:
 		push_error("%s: the free noisemaker reads %.2f at the field" % [lane, w.field.noise_at(float(BAIT_X) + 0.5, float(BAIT_Y) + 0.5)])
 		return false
-	# The true negative for the free half: the *new* verbs are the ones that cost an item, and this
-	# is where a lane of "nothing costs anything" would pass on a slice that shipped nothing. An
+	# The true negative for the noise device, which is still free: the *new* verbs cost an item, and
+	# this is where a lane of "nothing costs anything" would pass on a slice that shipped nothing. An
 	# empty pack cannot place a device.
 	if SimFortify.can_place_noise(w, w.player):
 		push_error("%s: a body carrying no device at all can still place one -- the new verb costs nothing either, so this slice shipped no item" % lane)
 		return false
-	print("  %s: the alarm line still trips at %.0f, the free noisemaker still goes down out of an empty pack at %.0f for %d ticks, and the new verb still needs a thing in the pack" % [lane, float(SimFortify.ALARM_NOISE), float(SimFortify.NOISEMAKER_MAG), int(SimFortify.NOISEMAKER_TICKS)])
+	print("  %s: the alarm line still trips at %.0f, the noisemaker still reads %.0f for %d ticks and goes down out of one unit of scrap metal, not an empty pack, and the noise device still needs a thing in the pack" % [lane, float(SimFortify.ALARM_NOISE), float(SimFortify.NOISEMAKER_MAG), int(SimFortify.NOISEMAKER_TICKS)])
 	return true
 
 
@@ -774,8 +793,9 @@ func _a_device_comes_back_up_and_goes_down_again() -> bool:
 	w.commands.push({"type": "use.context"})
 	w.step()
 	# The *verb*, not merely "a channel started". E is a ladder and its lower rungs are still there:
-	# with the lift rung deleted, E on an empty tile falls through to laying an alarm line, a
-	# channel starts, and an assertion that only asked whether one had would pass. Sabotaged in and
+	# with the lift rung deleted, E on an empty tile falls through to laying an alarm line (when a unit
+	# of wire is carried, which it is not in this fixture), a channel starts, and an assertion that
+	# only asked whether one had would pass. Sabotaged in and
 	# confirmed -- this is the line that names what went wrong.
 	var chan: Variant = w.components.get_component(w.player, "construct")
 	if not (chan is Dictionary) or String((chan as Dictionary).get("verb", "")) != "noiselift":

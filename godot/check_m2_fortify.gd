@@ -34,7 +34,7 @@ func _run() -> void:
 	ok = _raised_walls() and ok
 	ok = _e_orders_the_walls_above_the_free_placements() and ok
 	if ok:
-		print("M2_FORTIFY_OK board scrap alarm bait v18, doors that open, close and break, a crowd that presses through, the three raised walls, and the E ladder that puts them above the alarm")
+		print("M2_FORTIFY_OK board scrap alarm bait v18, doors that open, close and break, a crowd that presses through, the three raised walls, the E ladder that puts them above the alarm, and the alarm and noisemaker priced")
 		quit(0)
 	else:
 		push_error("M2_FORTIFY_FAIL")
@@ -61,6 +61,14 @@ func _channel(w: Variant, cmd: Dictionary) -> void:
 	w.commands.push(cmd)
 	for _i in SimFortify.CHANNEL_TICKS + 2:
 		w.step()
+
+# One unit of a shipped base in the pack: the price the alarm (wire) and the noisemaker (scrap
+# metal) now ask for. Stowed the way the materials gate's `_give` stows, so the scan finds it.
+func _carry(w: Variant, id: String) -> void:
+	var item: int = SimItems.spawn_item(w, id, {"tier": "scavenged", "count": 1})
+	if not SimInventory.stow(w, w.player, item):
+		push_error("could not stow %s" % id)
+	w.events.drain()
 
 func _set_tile(w: Variant, tx: int, ty: int, tile: int) -> void:
 	w.tilemap.tiles[ty * int(w.tilemap.w) + tx] = tile
@@ -168,6 +176,7 @@ func _scrap_choke() -> bool:
 
 func _alarm_no_dps() -> bool:
 	var w: Variant = _world(8.5, 13.5)
+	_carry(w, "item.wire.steel")
 	_channel(w, {"type": "trap.alarm.place", "tx": 8, "ty": 12})
 	var alarm: Variant = w.components.query(["alarmLine"])
 	if alarm.is_empty():
@@ -204,6 +213,7 @@ func _alarm_no_dps() -> bool:
 
 func _noisemaker_field() -> bool:
 	var w: Variant = _world(12.5, 13.5)
+	_carry(w, "item.scrap.metal")
 	_channel(w, {"type": "bait.noisemaker.place", "tx": 12, "ty": 12})
 	var found: Array[int] = w.components.query(["noisemaker"])
 	if found.is_empty():
@@ -647,35 +657,63 @@ func _raised_walls() -> bool:
 
 
 # The ladder's order, pinned: the raised walls sit above the alarm and the noisemaker, by design
-# (docs/30, "Three walls"), so E on open floor with a plank in the pack raises a timber wall, and
-# with nothing to build from falls through to the free alarm. Both the read (`rung_of`) and the key
+# (docs/30, "Three walls"), and the alarm and the noisemaker are priced (2026-11-04), so each is
+# offered only while its unit is carried. Wire builds the wire fence as well as the trip line, and
+# the fence sits above the alarm, so a lone wire on open ground strings a fence; the alarm is laid
+# with wire only where a wall cannot go up, which is indoors. Both the read (`rung_of`) and the key
 # (`use.context`) are asked, because they are two functions that must name the same rung.
 func _e_orders_the_walls_above_the_free_placements() -> bool:
 	var lane: String = "E-LADDER"
 	var bare: Variant = _world()
-	var bare_rung: Dictionary = SimFortify.rung_of(bare, bare.player)
-	if String(bare_rung.get("verb", "")) != "alarm":
-		push_error("%s: E on open floor with no material names '%s', not the alarm" % [lane, str(bare_rung.get("verb", ""))])
+	if not SimFortify.rung_of(bare, bare.player).is_empty():
+		push_error("%s: E on open floor with an empty pack names '%s', not nothing" % [lane, str(SimFortify.rung_of(bare, bare.player).get("verb", ""))])
 		return false
 	_channel(bare, {"type": "use.context"})
-	if (bare.components.query(["alarmLine"]) as Array).is_empty() or not (bare.components.query(["timberWall"]) as Array).is_empty():
-		push_error("%s: E with no material did not lay the alarm" % lane)
+	if not (bare.components.query(["alarmLine"]) as Array).is_empty() or not (bare.components.query(["timberWall"]) as Array).is_empty():
+		push_error("%s: E with an empty pack laid something" % lane)
 		return false
 
-	var armed: Variant = _world()
-	var plank: int = SimItems.spawn_item(armed, "item.plank.sawn", {"tier": "scavenged", "count": 1})
-	if not SimInventory.stow(armed, armed.player, plank):
-		push_error("%s: could not stow a plank" % lane)
+	# Outdoors, wire is a fence: the wall rung is above the alarm, so the alarm is not offered.
+	var fenced: Variant = _world()
+	_carry(fenced, "item.wire.steel")
+	var fence_rung: Dictionary = SimFortify.rung_of(fenced, fenced.player)
+	if String(fence_rung.get("verb", "")) != "fence":
+		push_error("%s: E on open ground with wire names '%s', not the wire fence the wall rung puts above the alarm" % [lane, str(fence_rung.get("verb", ""))])
 		return false
+	_channel_build(fenced, {"type": "use.context"}, "fence")
+	if (fenced.components.query(["wireFence"]) as Array).size() != 1 or not (fenced.components.query(["alarmLine"]) as Array).is_empty():
+		push_error("%s: E with wire on open ground did not string the fence in place of the alarm" % lane)
+		return false
+
+	# Indoors, no wall goes up, so the one unit of wire lays the alarm and is spent.
+	var indoor: Variant = _world()
+	indoor.tilemap.indoors[12 * int(indoor.tilemap.w) + 10] = 1
+	_carry(indoor, "item.wire.steel")
+	var alarm_rung: Dictionary = SimFortify.rung_of(indoor, indoor.player)
+	if String(alarm_rung.get("verb", "")) != "alarm":
+		push_error("%s: E indoors with wire names '%s', not the trip alarm" % [lane, str(alarm_rung.get("verb", ""))])
+		return false
+	_channel(indoor, {"type": "use.context"})
+	if (indoor.components.query(["alarmLine"]) as Array).is_empty():
+		push_error("%s: E indoors with wire did not lay the alarm" % lane)
+		return false
+	if SimFortify.material_count(indoor, indoor.player, "wire") != 0:
+		push_error("%s: the alarm laid by E did not spend its wire" % lane)
+		return false
+
+	# Outdoors with a plank and wire both, the timber wall is the rung, not the alarm.
+	var armed: Variant = _world()
+	_carry(armed, "item.plank.sawn")
+	_carry(armed, "item.wire.steel")
 	var rung: Dictionary = SimFortify.rung_of(armed, armed.player)
 	if String(rung.get("verb", "")) != "timber":
 		push_error("%s: E on open floor with a plank names '%s', not the timber wall" % [lane, str(rung.get("verb", ""))])
 		return false
 	_channel_build(armed, {"type": "use.context"}, "timber")
 	if (armed.components.query(["timberWall"]) as Array).size() != 1 or not (armed.components.query(["alarmLine"]) as Array).is_empty():
-		push_error("%s: E with a plank did not raise the wall in place of the alarm" % lane)
+		push_error("%s: E with a plank and wire did not raise the wall in place of the alarm" % lane)
 		return false
-	print("  E-LADDER: E on open floor lays the alarm with no material and raises a timber wall, not the alarm, with a plank in the pack")
+	print("  E-LADDER: an empty pack offers nothing; outdoors a lone wire strings the fence above the alarm; indoors it lays the alarm and spends the wire; a plank raises the timber wall")
 	return true
 
 
