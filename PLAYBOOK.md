@@ -587,30 +587,20 @@ blocks a piece.
 
 ## The shared folder
 
-In Orca, the shared folder is `C:/Users/jtf/orca/sz-shared/`, one subfolder per piece, holding
-each task's spec (`task-<who>.md`), a shared `BRIEF.md` where several workers share one, the
-art reviews (`review_round-N.md`, `OPUS_VERDICT.md`) and handoffs. It is not in the repository.
+The shared folder is `/home/jtf/sz-shared/`, outside the repository. It holds one folder per piece:
 
-A Claude project shares `/mnt/project-files/` between its threads. The folder is not in the
-repository, and agents outside the project do not have it. It holds evidence and plans, not
-instructions.
-
-| Folder | What is in it |
+| Path | What is in it |
 |---|---|
-| `planning/` | Plans, one subfolder per topic. Dated plans (the 2026-10-19 alpha plan, the 2026-10-24 feature plans) sit at the top. |
-| `planning/balance/` | Playtest reports (`report.md`, `report-noise.md`, `report-ten-seed.md`), raw runs, and `ten-seed/`, one file per commit and seed |
-| `planning/<topic>/` | One per feature or slice (`stockpile/`, `night-torch/`, `ui-slice-N/` and so on): its review, its before and after shots, its QA rounds |
-| `planning/repo-cleanup/` | The branch audit and the 2026-10-23 cleanup plan |
-| `a7-animation/` | Walk exports |
-| `a8-actions/` | Action strips (`clothed/`, `clothed/falls-roundN/`, `zombies/roundN/`), each round with its QA report `qa-roundN.md` |
-| `a9-aim/` | Aim exports |
+| `<piece>/task-<who>.md` | The spec for one worker: target worktree and branch, the change, constraints, acceptance |
+| `<piece>/BRIEF.md` | Where several workers share a piece: the owner's words verbatim and the technical contract |
+| `<piece>/REPORT.md` or `HANDOFF.md` | What a worker did and gated, or what it leaves when it runs out |
+| `reviews/<piece>/` | Independent art and placement reviews (`review_round-N.md`, `OPUS_VERDICT.md`) |
+| `backups/` | Branch bundles, taken before a remote branch is deleted |
+| `concept/` | The owner's concept art, for likeness checks |
+| `WORKER_RULES.md` | The rules every worker reads, held by the coordinator (see Rules for every worker) |
 
-- Put new files in a topic subfolder.
-- The folder is a network mount. Put a trailing slash on its path, and read a shared file again
-  before you change it, because the last write wins.
-- **Never cite a shared-folder path inside the routing table.** `npm run check:routing` resolves
-  every backticked path in that section against the repository, so such a path turns the gate
-  red.
+Never cite a shared-folder path inside the routing table. `npm run check:routing` resolves every
+backticked path in that section against the repository, so such a path turns the gate red.
 
 ## Art and animation conventions
 
