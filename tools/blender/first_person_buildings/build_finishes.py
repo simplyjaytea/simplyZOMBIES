@@ -716,8 +716,9 @@ def build_pieces(template, plant=None):
     for y in range(template["size"]["h"]):
         for x in range(template["size"]["w"]):
             tile = tile_at(template, x, y)
-            if indoors_at(template, x, y) and tile == 0:
-                pieces.finish.face((x, floor_y, y), (1, 0, 0), (0, 0, 1), interior["floor"][0], interior["floor"], (0, 1, 0))
+            if indoors_at(template, x, y):
+                if tile == 0:
+                    pieces.finish.face((x, floor_y, y), (1, 0, 0), (0, 0, 1), interior["floor"][0], interior["floor"], (0, 1, 0))
                 pieces.finish.face((x, CEILING_Y, y), (1, 0, 0), (0, 0, 1), "ceiling", normal=(0, -1, 0))
             if tile == 1:
                 build_wall_tile(pieces, template, x, y)
