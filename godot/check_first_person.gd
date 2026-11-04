@@ -4280,74 +4280,91 @@ func _held_visibility(scene: Node) -> bool:
 	var ok: bool = true
 	# The ARMS lane leaves the colonist bare-handed. Arm again through the sim's own equip, hold the
 	# clock while the arms settle (as the ARMS lane does), and unequip at the end so the later lanes
-	# read the same colony they did before this lane ran.
+	# read the same colony they did before this lane ran. A pistol, not the bat: the bench opens on a
+	# firearm with slots, and the bench is the one screen this lane opens through the sim.
 	var world: Variant = scene.get("world")
 	var player: int = int(world.player)
 	var was_paused: bool = bool(scene.get("paused"))
 	scene.set("paused", true)
-	if _arms_equip(scene, world, player, "item.bat.wood") < 0:
+	if _arms_equip(scene, world, player, "item.pistol.service") < 0:
 		scene.set("paused", was_paused)
-		return _fail("HIDE", "the bat would not equip for the held-weapon lane")
+		return _fail("HIDE", "the pistol would not equip for the held-weapon lane")
 	# Precondition: armed and visible with every screen closed.
-	# The bench flag is re-read from its panel every frame (first_person.gd _sync_bench_panel), so the
-	# lane opens and closes the panel itself.
-	var bench_panel: Control = scene.call("bench_panel_node") as Control
-	bench_panel.visible = false
 	scene.set("inventory_open", false)
 	scene.set("_reports_open", false)
 	scene.set("talk_open", false)
 	scene.set("third_person", false)
 	scene.call("_update_render", 1.0)
 	_arms_settle(scene, 1.5)
-	if not bool(scene.call("held_weapon_visible")):
-		ok = _fail("HIDE", "precondition failed: held weapon not visible with all screens closed")
-	# bench
-	bench_panel.visible = true
+	if not bool(scene.call("held_weapon_drawn")):
+		ok = _fail("HIDE", "precondition failed: held weapon not drawn with all screens closed")
+	# bench: the sim's bench.open puts benchFocus on the held pistol; _sync_bench_panel shows the panel
+	# while the sim holds the focus, and the panel closes itself when the focus goes.
+	if not _hide_bench_open(scene, world, player):
+		ok = _fail("HIDE", "bench.open did not open the held pistol for the held-weapon lane")
 	_arms_settle(scene, 1.5)
-	if bool(scene.call("held_weapon_visible")):
+	if bool(scene.call("held_weapon_drawn")):
 		ok = _fail("HIDE", "held weapon visible while bench open")
-	bench_panel.visible = false
+	_hide_bench_close(scene, world, player)
 	_arms_settle(scene, 1.5)
-	if not bool(scene.call("held_weapon_visible")):
+	if not bool(scene.call("held_weapon_drawn")):
 		ok = _fail("HIDE", "held weapon stays hidden after bench closes")
 	# inventory
 	scene.set("inventory_open", true)
 	_arms_settle(scene, 1.5)
-	if bool(scene.call("held_weapon_visible")):
+	if bool(scene.call("held_weapon_drawn")):
 		ok = _fail("HIDE", "held weapon visible while inventory open")
 	scene.set("inventory_open", false)
 	_arms_settle(scene, 1.5)
-	if not bool(scene.call("held_weapon_visible")):
+	if not bool(scene.call("held_weapon_drawn")):
 		ok = _fail("HIDE", "held weapon stays hidden after inventory closes")
 	# reports (ledger)
 	scene.set("_reports_open", true)
 	_arms_settle(scene, 1.5)
-	if bool(scene.call("held_weapon_visible")):
+	if bool(scene.call("held_weapon_drawn")):
 		ok = _fail("HIDE", "held weapon visible while reports open")
 	scene.set("_reports_open", false)
 	_arms_settle(scene, 1.5)
-	if not bool(scene.call("held_weapon_visible")):
+	if not bool(scene.call("held_weapon_drawn")):
 		ok = _fail("HIDE", "held weapon stays hidden after reports closes")
 	# talk
 	scene.set("talk_open", true)
 	_arms_settle(scene, 1.5)
-	if bool(scene.call("held_weapon_visible")):
+	if bool(scene.call("held_weapon_drawn")):
 		ok = _fail("HIDE", "held weapon visible while talk open")
 	scene.set("talk_open", false)
 	_arms_settle(scene, 1.5)
-	if not bool(scene.call("held_weapon_visible")):
+	if not bool(scene.call("held_weapon_drawn")):
 		ok = _fail("HIDE", "held weapon stays hidden after talk closes")
 	# third person
 	scene.set("third_person", true)
 	scene.call("_update_render", 1.0)
 	_arms_settle(scene, 1.5)
-	if bool(scene.call("held_weapon_visible")):
+	if bool(scene.call("held_weapon_drawn")):
 		ok = _fail("HIDE", "held weapon visible in third person")
 	scene.set("third_person", false)
 	scene.call("_update_render", 1.0)
 	_arms_settle(scene, 1.5)
-	if not bool(scene.call("held_weapon_visible")):
+	if not bool(scene.call("held_weapon_drawn")):
 		ok = _fail("HIDE", "held weapon stays hidden after returning to first person")
 	_arms_unequip_all(scene, world, player)
 	scene.set("paused", was_paused)
 	return ok
+
+
+# The sim's own bench.open on the held firearm, one tick, the way E at a bench does it. Away from a
+# bench it opens only a carried firearm with slots (SimGunsmith.field_work).
+func _hide_bench_open(scene: Node, world: Variant, player: int) -> bool:
+	var item: int = SimGunsmith.first_workpiece(world, player)
+	if item < 0:
+		return false
+	world.commands.push({"type": "bench.open", "item": item})
+	scene.call("step_sim_once")
+	return SimGunsmith.focus_of(world, player) == item
+
+
+func _hide_bench_close(scene: Node, world: Variant, player: int) -> void:
+	world.commands.push({"type": "bench.close"})
+	scene.call("step_sim_once")
+	if SimGunsmith.focus_of(world, player) >= 0:
+		push_error("HIDE: bench.close left the sim's bench focus in place")

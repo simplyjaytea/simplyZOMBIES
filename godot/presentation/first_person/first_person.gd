@@ -995,6 +995,12 @@ func held_weapon_visible() -> bool:
 	return _held_weapon != null and bool(_held_weapon.call("visible_any")) and _held_weapon.is_visible_in_tree()
 
 
+## The held weapon is drawn for the view: held_weapon_visible() and the arms are shown. The arms
+## being down (lowered under a screen, or the third-person view) hides it.
+func held_weapon_drawn() -> bool:
+	return held_weapon_visible() and _arms != null and bool(_arms.call("arms_shown"))
+
+
 ## The held-weapon view for the gate: the assembled model, its drawn set and its sockets.
 func held_weapon_node() -> Node3D:
 	return _held_weapon
