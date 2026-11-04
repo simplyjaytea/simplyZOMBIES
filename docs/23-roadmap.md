@@ -174,6 +174,7 @@ The source baseline is archived on GitHub at
   draw on, a fictional map of the valley, building types, and the item and district renames. After
   the brief: Japanese building templates and props by the art lead, then content renames. See
   [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
+  The brief is [docs/42](42-ome-okutama-setting.md); its section 6 is the order of the work.
 - **First-person spatial combat and perception.** One coherent obstruction and
   hit contract across visible geometry, sim movement, combat and NPC sight.
 - **First-person people and settlement operation.** Ledger animations, reports,
@@ -211,11 +212,13 @@ The source baseline is archived on GitHub at
   - the crowbar's claw is a flattened tip with no nail slot.
 - **Item kit polish (#299 round 3 minors).** In `tools/blender/first_person_items/build_items.py`, whose
   outputs are `godot/assets/first_person/items.manifest.json` and the GLBs in `items/`:
-  - the neutral bottle is a dark-green wine bottle with a blank label, and canteens and the Jar of
-    Preserves draw as it, while the hip flask and sports drink take the 13 cm jar; a canteen or flask
-    rung, or routing preserves to the jar, would read better;
-  - the fuel bottle and lamp oil draw as crates, because the `liquid` family in `family()` only applies
-    to consumables (`LIQUID_WORDS`);
+  - the neutral bottle is a dark-green wine bottle with a blank label, and canteens, the Fuel Bottle
+    and Lamp Oil draw as it, while the hip flask and sports drink take the 13 cm jar; a canteen or
+    flask rung would read better;
+  - the bolt is the arrows scaled to 57%, so its shaft is 4.5 mm across where a real bolt is as
+    thick as an arrow or thicker, and it reads as a short thin arrow; the fletching on both barely
+    clears the shaft (on the arrows the vanes reach 4.0 mm from the axis of a shaft of 4.0 mm
+    radius), so neither shows its vanes;
   - `headgear` draws a military steel helmet, which is right for hard hats and bike helmets but a
     stretch for gas masks and half-mask respirators, which need their own rung;
   - the gun case draws as a soft roll-top bag, and the crossbow bolt draws the 71 cm arrow, where a
@@ -2458,6 +2461,28 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Item kit polish (#299 round 3 minors), 2026-11-04.** Three mapping fixes in the first-person
+  item kit's builder, `tools/blender/first_person_items/build_items.py`, and one new model.
+  - **The record.** `family()` now matches `LIQUID_WORDS` against the whole words of an item's
+    name, in every class, and the list gains `oil`. Material, tool and container gain the liquid
+    ladder (jar, bottle); armor and attachments have none and keep their default ladder, so the
+    Oil-Filter Can muzzle device stays the parts case. The Jar of Preserves is routed to the jar by
+    id. The crossbow bolts get their own model, `bolt.glb` (`m_bolt`: the arrows scaled to 0.40 m,
+    which `LENGTH_HINTS` already asked for). Against `origin/main` the manifest changes for exactly
+    seven items: the Fuel Bottle (`item.can.fuel`) and Lamp Oil (`item.oil.lamp`) go from
+    `crate_small` to `bottle`; the Jar of Preserves goes from `bottle` to `jar`; Gun Oil and Machine
+    Oil (`item.oil.gun`, `item.oil.machine`) go from `fallback_attachment` to `jar`; and the
+    Crossbow Bolt and Broadhead Bolt (`item.ammo.bolt`, `.broadhead`) go from `arrows` (0.705 m) to
+    `bolt` (0.40 m). The other 41 models sample the same atlas texels as before at 15 interior
+    points of every triangle (the atlas was repacked around the bolt's islands, by whole texels).
+  - **The gate.** `build_items.py -- --check` prints `ITEMS_CHECK_OK`, with a new `length` check:
+    every item with a `LENGTH_HINTS` entry is drawn by a model whose longest axis, measured on the
+    exported GLB, is within 25% of the hint, and every hint matches a drawn item. Its plant,
+    `--plant=length`, draws the Broadhead Bolt as the arrows and is refused with
+    `ITEMS_CHECK_FAIL: length, bytes`; `scale` alone passed that (a hand-chosen model is allowed
+    4x, and 0.705 m is 1.76x). No check would refuse an attachment drawn as the jar: the jar is
+    0.80x the Oil-Filter Can's expected size, inside `scale`'s 2x, and the jar is not a hand-chosen
+    model, so `rung` passes it. `godot:check:first_person`, `godot:smoke` and `check:routing` pass.
 - **Reach chooses whom a zombie touches, and whether a colonist swings, 2026-11-04.** The two
   #282 follow-ups from the first-person group: a shambler's contact target by distance alone, and
   a colonist's swing it cannot land. Both make the sim keep docs/40's promise that reach stops at
