@@ -2461,6 +2461,20 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Rename R7: tools, comfort and melee are the valley's, 2026-11-04.** The Ome–Okutama brief's seventh
+  rename (docs/42 section 5, the tools, comfort and melee rows). Seven items take the names docs/42
+  proposes, ids unchanged: `item.machete.rusted` is Rusted Nata, `item.sabre.cavalry` is Old Army Sword,
+  `item.pitchfork.barn` is Hay Fork, `item.rosary.wooden` is Prayer Beads, `item.chess.travel` is
+  Travelling Shogi Set, `item.cards.deck` is Hanafuda Deck, and `item.bell.wind` is Wind Chime. Four
+  descriptions change: the nata, the army sword, the chime, and the road flare ("highway" becomes
+  "roadside"). Items the inventory flags with no docs/42 proposal keep their names (the bats, the road
+  flare, the torches, the bushcraft handbook, The Long Walk, the soap flakes) and are listed in the
+  report. The deer rifle, the blasting cap and the siren keep their names, as docs/42 says.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:check:inventory`,
+    `npm run godot:check:hud`, `npm run godot:m2:comfort`, `npm run godot:m2:noise`,
+    `npm run godot:m2:teach`, `npm run godot:m2:light_burn`, `npm run godot:check:mods` and
+    `npm run godot:m2:bench` hold on the renamed content, and so does `npm run godot:smoke`.
+  - **Measured.** Nothing measured. A name change is not a balance claim.
 - **Item kit polish (#299 round 3 minors), 2026-11-04.** Three mapping fixes in the first-person
   item kit's builder, `tools/blender/first_person_items/build_items.py`, and one new model.
   - **The record.** `family()` now matches `LIQUID_WORDS` against the whole words of an item's
