@@ -1,6 +1,6 @@
 {
   "id": "vehicle.truck",
-  "name": "Flatbed truck",
+  "name": "Kei Truck",
   "drive": {
     "power": "engine",
     "speed": 8,
