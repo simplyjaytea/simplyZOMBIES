@@ -599,11 +599,6 @@ system.
   repricing them is a rebalance that would turn a shipped gate red rather than a content addition.
   What closes it is giving each an item to spend and moving that PINNED assertion with it, in one
   commit, with the before-and-after run that a rebalance owes.
-- **A purifier is spent but never refilled.** The transform slice gives the pump filter forty uses
-  and the billy can six, and when a purifier runs out it is simply a thing with nothing left in it.
-  There is no cartridge to replace and no way to boil the filter clean, so the best purifier in the
-  game is strictly a countdown. A refill recipe is the obvious close, and it wants the buildables
-  economy above rather than a key of its own.
 - ~~**Comfort that is not food**~~ — **landed** 2026-09-12, see the record.
 - ~~**The mask that filters**~~ — **landed** 2026-09-12, see the record.
 - **The explosives docs/09 says already exist.** docs/09's cut list asserted *"they exist as rare
@@ -2464,6 +2459,28 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **The purifier refill: a carried material repacks a spent filter, 2026-11-04.** The pump filter
+  (`item.filter.pump`) has a `refill` block in `godot/content/items/kitchen.json`: one lump of
+  `charcoal` restores forty uses, up to its `purifies` of forty. The block is in
+  `godot/content/schemas/item.schema.json`, its `kind` enum held equal to `buildMaterial`'s. The sim
+  is `SimNeeds.refill` in `godot/sim/modules/needs.gd`, beside `purify`: it picks the carried purifier
+  that takes a refill, is not full and has the fewest uses left, spends one unit through
+  `SimFortify.consume_material` (the build path's consumer), and publishes `need.refilled`. A
+  `purify` that spends the last use of a refillable purifier now leaves it at zero instead of
+  despawning it. The stove is unchanged: `MATERIAL_KINDS` has no fuel kind. The billy can and the
+  tablets take no refill. The verb is the E ladder's `repack the filter` in `fortify.gd`'s `rung_of`,
+  placed above the free placements, and a `purifier.refill` command in `need.intake` reaches the same
+  function.
+  - **The gate.** `npm run godot:m2:transform` prints `M2_TRANSFORM_OK pinned content cook order boil
+    purify rank reach refill`. Its REFILL lane runs a filter down by forty real bottles, then repacks
+    it from one lump of charcoal to forty and checks the lump is spent and `need.refilled` published;
+    a part-used filter at ten tops up to forty, not past it; no charcoal and a full filter refuse
+    with nothing spent; tablets and a billy can refuse even with charcoal carried; the E ladder offers
+    `refill` and pressing E repacks; the command does the same. The schema lane refuses a refill whose
+    kind is not in `MATERIAL_KINDS` or whose count is below one, with a planted `unobtainium` block.
+  - **The plant.** Commenting out the material consume in `refill` turns the gate red:
+    `REFILL: the charcoal is still in the pack after the repack spent it`.
+  - **Measured.** Nothing measured. The entry makes no balance claim.
 - **Weapon kit lathes smoothed, and what horde use costs, 2026-11-04.** Two of #298's round 1
   minors in the weapon kit (`tools/blender/first_person_weapons/build_weapons.py`).
   - **The record.** `lathe()` now gives each of its faces smoothed corner normals: a corner takes

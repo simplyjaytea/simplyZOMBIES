@@ -7894,3 +7894,19 @@ playbook's section for it; a fact about the build goes in the doc that owns it (
 status, docs/30 for a call, docs/33 for an open owner question) and the playbook links to it.
 The session record, to-do and bugs sections are rewritten at the end of a session, not appended
 to forever.
+
+## The purifier refill is a material, not a key, 2026-11-04
+
+docs/23's what's-left entry for a spent purifier said it: a refill "wants the buildables economy
+above rather than a key of its own". So the refill is content that names a build material, and the
+economy spends it.
+
+- **A `refill` block, not a new key.** A purifier names `refill: {kind, uses}`. The kind is a
+  `MATERIAL_KINDS` kind, and the unit is spent by the same consumer a build stage uses.
+- **A spent purifier is kept, not spent.** A refillable purifier stays in the pack at zero when its
+  last use goes, so there is something to repack. A purifier with no refill still runs out.
+- **Only the filter takes one.** The pump filter takes charcoal. The stove stays as it is, since no
+  fuel kind exists. The billy can is a pot and the tablets are a consumable.
+- **E offers it above the free placements.** An empty floor offers a trip alarm whether or not one is
+  carried, so a rung below them is never reached on open ground. The repack takes E over a placement
+  while a spent filter and its charcoal are carried.

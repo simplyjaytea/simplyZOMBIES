@@ -209,7 +209,8 @@
     "class": "material",
     "size": { "w": 2, "h": 2 },
     "massKg": 0.5,
-    "purifies": 40
+    "purifies": 40,
+    "refill": { "kind": "charcoal", "uses": 40 }
   },
   {
     "id": "item.tablets.purification",

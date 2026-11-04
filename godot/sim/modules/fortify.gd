@@ -625,6 +625,11 @@ static func rung_of(world: Variant, actor: int) -> Dictionary:
 		return {"verb": "stone", "target": face, "prose": "raise a stone course"}
 	if _buildable_rung(world, actor, "fence"):
 		return {"verb": "fence", "target": face, "prose": "string a wire fence"}
+	# Repacking sits above the free placements: an empty floor offers a trip alarm whether or not one
+	# is carried, so a rung below them is never reached on open ground. Nothing above it is taken from:
+	# the window, trip line, noisemaker, scrap and the raised buildables have all been asked already.
+	if _would_refill(world, actor):
+		return {"verb": "refill", "target": -1, "prose": "repack the filter"}
 	if _empty_floor(world, face.x, face.y):
 		if alarm == null:
 			return {"verb": "alarm", "target": face, "prose": "lay a trip alarm"}
@@ -691,6 +696,19 @@ static func _would_purify(world: Variant, actor: int) -> bool:
 	if not (found is Dictionary) or int((found as Dictionary).get("item", -1)) < 0:
 		return false
 	return int(Needs.call("_carried_purifier", world, actor)) >= 0
+
+
+# Whether `SimNeeds.refill` would take: a carried purifier that takes a refill and is not full, and a
+# unit of its material in the same pack.
+static func _would_refill(world: Variant, actor: int) -> bool:
+	var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
+	if Needs == null or not Needs.has_method("_carried_refillable") or not Needs.has_method("refill_of"):
+		return false
+	var tool: int = int(Needs.call("_carried_refillable", world, actor))
+	if tool < 0:
+		return false
+	var block: Dictionary = Needs.call("refill_of", world, tool) as Dictionary
+	return carried_material(world, actor, String(block.get("kind", ""))) >= 0
 
 
 # Whether `Gunsmith.open_bench` would take: the reach and the empty focus are already this
@@ -807,6 +825,9 @@ static func _use_context(world: Variant, actor: int) -> void:
 		"purify":
 			if Needs != null:
 				Needs.call("purify", world, actor)
+		"refill":
+			if Needs != null:
+				Needs.call("refill", world, actor)
 		"well":
 			if Needs != null:
 				Needs.call("use_well", world, actor, int(rung.get("target", -1)))
