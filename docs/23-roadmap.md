@@ -159,8 +159,9 @@ and nothing that has to be ticked.
 ##### First-person survival colony pivot
 
 Owner-authorized 2026-11-01; [docs/39](39-first-person-pivot.md) is the phased
-plan and spatial/art contract. The existing default remains top-down during
-conversion. The source baseline is archived on GitHub at
+plan and spatial/art contract. First person is the default boot, and the top-down
+game is legacy ([docs/30](30-decisions.md#the-top-down-game-is-legacy-2026-11-04)).
+The source baseline is archived on GitHub at
 `archive/topdown-colony-pre-first-person-2026-11-01`. Planned pieces:
 
 - **Blender pixel-textured colony starter kit.** Original desk, ledger, shelf,
@@ -169,6 +170,10 @@ conversion. The source baseline is archived on GitHub at
   verify dimensions and reach, make headed shots and independent art review.
 - **First-person scavenging and personal equipment.** Real world containers,
   search/take/stow/equip through a revised grid UI; skill and condition access.
+- **The Ome–Okutama re-theme.** A setting brief first, as a new doc. It covers the real places to
+  draw on, a fictional map of the valley, building types, and the item and district renames. After
+  the brief: Japanese building templates and props by the art lead, then content renames. See
+  [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
 - **First-person spatial combat and perception.** One coherent obstruction and
   hit contract across visible geometry, sim movement, combat and NPC sight.
 - **First-person people and settlement operation.** Ledger animations, reports,
@@ -237,6 +242,8 @@ equipment arranged around it. [The design brief](32-ui-overhaul.md) specifies th
 navigation, every surface, integration seams and acceptance; [docs/30](30-decisions.md#the-whole-interface-2026-10-03)
 records the owner's choices. This is new work, not a claim that the redesign has shipped.
 The old Field Kit implementation remains the current baseline until replaced slice by slice.
+Under the 2026-11-04 legacy call, this group is paused for the top-down game and resumes only
+on the owner's word or where a slice is reused by first person.
 
 The grid-plus-fast-list recommendation is now the owner's decision, and the inventory's own
 look is settled as the Salvage Locker (docs/30, "The inventory's look"; the record's "UI — the
@@ -2462,6 +2469,19 @@ What landed and what proved it, system by system (condensed from the retired bac
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **The held weapon gives way to screens, 2026-11-04.** Fixes two known bugs: the view model
+  floated beside the body in the third-person testing view (#313's capture), and it drew over the
+  gunsmith bench's screen (#309).
+  - **The record.** `first_person.gd`'s `_update_held_weapon` hides the view model while the run-over
+    panel, the bench, the inventory sheet, the ledger's Reports page or a talk is open, and in third
+    person. `held_weapon.gd` gains `set_view_visible`, which hides only the drawn pivot and keeps the
+    assembly, so the same model shows again when the screen closes. Godot's generated
+    `*.translation` files beside the art-docs CSVs are ignored.
+  - **The gate.** The HIDE lane of `npm run godot:check:first_person` first requires the armed
+    player's weapon to be visible with every screen closed, then opens each screen in turn and
+    requires it hidden, and shown again once the screen closes. With the hide line removed the lane
+    fails on all five screens.
 
 - **Perception with heights, 2026-11-01.** Slice 4 of docs/40: sight works by height. It builds the
   recommended default of the owner's question 3 (docs/33, "Do Low cover and windows work by
