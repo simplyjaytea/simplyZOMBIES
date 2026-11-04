@@ -2538,6 +2538,19 @@ not a to-do list:
   - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:check:wrecks`,
     `npm run godot:m2:vehicles` (`M2_VEHICLES_OK`) and `npm run godot:m2:light_burn` hold on the renamed
     content, and so does `npm run godot:smoke`.
+- **Rename R10: the descriptions are the valley's, 2026-11-04.** The Ome–Okutama brief's tenth rename
+  (docs/42 section 5, and the inventory's western-thing and brand rows the earlier renames did not take).
+  Two items take docs/42's names, ids unchanged: `item.food.beans.tin` is Tin of Corn and
+  `item.food.fruit.tin` is Tin of Mandarins, which R5 left pinned. The pin in
+  `godot/check_m2_stockpile.gd` (the summary lane) moved to the new names in the same commit, in the
+  same order. Three descriptions change: the corn tin ("a tin of sweet corn in brine"), the mandarin tin
+  ("halved mandarins in syrup"), the superglue ("a tube of quick-set glue"), and the charcoal sack ("a
+  paper sack of charcoal", without "barbecue"). The superglue and the canvas work pants keep their names,
+  which docs/42 does not propose. The container rows carry only a kind string, and docs/42 keeps those
+  kinds, so no container changed and no district file moved.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`, and `npm run godot:m2:stockpile`
+    (the moved pin, its summary lane) holds. `npm run godot:check:inventory`, `npm run godot:check:hud`,
+    `npm run godot:check:loot`, `npm run godot:m2:district` and `npm run godot:smoke` hold too.
   - **Measured.** Nothing measured. A name change is not a balance claim.
 - **Item kit polish (#299 round 3 minors), 2026-11-04.** Three mapping fixes in the first-person
   item kit's builder, `tools/blender/first_person_items/build_items.py`, and one new model.

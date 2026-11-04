@@ -173,7 +173,7 @@
   {
     "id": "item.charcoal.sack",
     "name": "Sack of Charcoal",
-    "description": "A paper sack of barbecue charcoal, gone soft at the corners.",
+    "description": "A paper sack of charcoal, gone soft at the corners.",
     "class": "material",
     "size": { "w": 2, "h": 2 },
     "massKg": 5.0,

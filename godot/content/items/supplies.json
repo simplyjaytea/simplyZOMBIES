@@ -686,7 +686,7 @@
   {
     "id": "item.superglue.tube",
     "name": "Tube of Superglue",
-    "description": "A tube of superglue. Field medics used it before there were field medics, and it holds.",
+    "description": "A tube of quick-set glue. Field medics used it before there were field medics, and it holds.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -771,8 +771,8 @@
   },
   {
     "id": "item.food.beans.tin",
-    "name": "Tin of Beans",
-    "description": "A tin of beans in sauce. Filling, dull, and it will outlast everyone who argues about it.",
+    "name": "Tin of Corn",
+    "description": "A tin of sweet corn in brine. Filling, dull, and it will outlast everyone who argues about it.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -831,8 +831,8 @@
   },
   {
     "id": "item.food.fruit.tin",
-    "name": "Tin of Peaches",
-    "description": "Halved peaches in syrup. Someone always goes quiet after the first mouthful.",
+    "name": "Tin of Mandarins",
+    "description": "Halved mandarins in syrup. Someone always goes quiet after the first mouthful.",
     "class": "consumable",
     "size": {
       "w": 1,
