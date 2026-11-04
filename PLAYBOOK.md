@@ -575,32 +575,27 @@ you push.
 
 ## Where we are
 
-The newest handoff is the first entry of [the session log](docs/43-session-log.md). For what is
-open, run `gh pr list`.
+First person is the game, and top-down is legacy (docs/30, 2026-11-04). The setting is Japan, the
+Ome–Okutama valley, briefed in docs/42 (PR #323). For what is open, run `gh pr list`; for the last
+handoff, read the newest entry in [docs/43](docs/43-session-log.md).
 
-## To do
+The open art line: survivor base (`kimi/fp-survivor-base`, confirmation review CLEAR); arms (`claude/fp-arms`,
+round 3 in progress after a FIX-THEN-MERGE review); arms in the game (`claude/fp-arms-view`). Reviews are
+in `/home/jtf/sz-shared/reviews/`.
 
-- Merge #316 to #320 and this docs pull request, one at a time, on the owner's go-ahead.
-- Follow "Next session, start here" under Where we left off (2026-11-04).
-- The survivor fixes, then a confirmation review and its PR. Then the arms art round 2 review,
-  then the arms art PR, then `claude/fp-arms-view`'s PR.
-- The owner's open questions: the shooting default in #319, the six arms defaults, and docs/33's
-  firearms card. Also ask the owner to copy the survivor concept image to
-  `/home/jtf/sz-shared/concept/` for the next likeness check.
-- The Ome–Okutama setting brief: a new doc, before any Japanese buildings or renames (docs/23).
-- Art lead: a real crossbow bolt; fuel, oil and canteen bottles; a rifle model for the `long`
-  hold class, which shows a placeholder box today.
-- The shambler and the other six zombie kinds on the new organic base, with a lighter version
-  for hordes (measure the frame cost first).
-- The clothing layer system that follows the worn slots: a design note for the owner first.
+**To do**
+- Merge the open pull requests one at a time, on the owner's go-ahead. #316 and #321 are on `main`.
+- Survivor base: open its pull request. Arms: finish round 3 and its review, then its pull request, then `claude/fp-arms-view`'s.
+- Ask the owner: #319's shooting default, the six arms defaults, docs/33's firearms card, and the survivor concept image.
+- Land the setting brief (docs/42) before any Japanese buildings or renames (docs/23).
+- Art lead: a real crossbow bolt, fuel, oil and canteen bottles, and a rifle for the `long` hold class.
+- The shambler and six zombie kinds on the new organic base, with a lighter version for hordes.
+- The clothing layer system for the worn slots: a design note for the owner first.
 
-## Known bugs
-
-- 78 indoor counter, shelf and partition tiles across 9 building templates have no ceiling; the
-  sky shows from inside (found by #310's confirmation review).
+**Known bugs**
+- 78 indoor counter, shelf and partition tiles have no ceiling, so the sky shows from inside. #317 fixes it; it is not on `main` yet.
 - `godot:check:fp_geometry` went from about 2 s to 18 s with #310's real-worldgen lane.
-- In the survivor review scene the light is flat grey; it does not show the game's mood, so
-  colour judgements made there run dark.
+- The survivor review scene's light is flat grey, so colour judgements made there run dark.
 - No presentation code draws a lowered weapon yet (`SimAim.holds`, `FireState` have no reader).
 
 ## The docs map
