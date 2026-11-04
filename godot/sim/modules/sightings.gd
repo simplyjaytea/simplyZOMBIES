@@ -328,8 +328,10 @@ static func _observe_one(world: Variant, observer: int, candidates: Array) -> vo
 		# arc behind the observer's facing was being recorded, remembered, and reported on the HUD
 		# -- information the hardcore contract's clause 4 says the player has not earned.
 		# 0 is `SimVisibility.Detail.Unseen`; the literal because this module cannot name that
-		# class at parse time (`_observe_containers` above reads it the same way).
-		if int(world.vision.call("detail", observer, x, y)) == 0:
+		# class at parse time (`_observe_containers` above reads it the same way). Asked as the body
+		# (the fifth argument), because this is a question about somebody: `detail`'s arc and range,
+		# then whether the line to its head or chest clears a car or a sill (docs/40, "Perception").
+		if int(world.vision.call("detail", observer, x, y, -1, int(other))) == 0:
 			continue
 		# Watched it fall. A body you saw go down is not a body you are still wary of, so the
 		# record goes rather than ageing out -- and a kill out of sight leaves its record

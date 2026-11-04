@@ -237,6 +237,12 @@ what a zombie sees obey the same bands the camera draws.
   `jobs.gd`, `orders.gd`, `work_read.gd` and the view all switch to it when they are asking about a
   body. They keep `detail` when they are asking about a place.
 
+Slice 4 took the head point as the body's eye, which makes the head test symmetric, and replaced
+the per-cast record with an open corridor: no partial tile's sight band lies between 1100 and
+2100 mm, so a line between standing bodies needs no walk at all. The vertical test counts only the
+partial tiles; full-height ones stay the 2D layer's (docs/30, "A body is seen at its eye and its
+chest").
+
 The result is the physical one. A shambler standing six metres off cannot see a crouched survivor
 behind a car. It can see a standing one. The crouched survivor sees a standing head over the car,
 not a crouched body. Someone crouched under a window is unseen from outside except from close and
@@ -296,7 +302,7 @@ None is deleted or loosened:
 ## The slices
 
 Each slice is one session with one gate that has a true positive and a true negative. A new gate
-touches the five places CLAUDE.md lists, plus a routing row. **Shared** marks a slice that touches
+touches the five places PLAYBOOK.md lists, plus a routing row. **Shared** marks a slice that touches
 a shared sim module and so runs the full `npm run godot:m2` chain before its commit. The slices
 assume the foundation has merged.
 

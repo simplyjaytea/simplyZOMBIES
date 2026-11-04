@@ -26,7 +26,8 @@ function testWindows() {
   // ponytail: --quit-after dumps ObjectDB/RID/resource leaks as ERROR and may
   // exit 1; any "at exit" line is shutdown noise, not a failed boot.
   const bootError = /SCRIPT ERROR:/.test(output) || /(?:^|\n)ERROR:(?!.*at exit)/.test(output);
-  if (!output.includes("GODOT_R1_READY") || bootError) {
+  // The default boot is the first-person scene (docs/30, 2026-11-01), which prints its own ready line.
+  if (!output.includes("GODOT_FIRST_PERSON_READY") || bootError) {
     throw new Error(`Windows export failed to boot:\n${result.stdout}\n${result.stderr}`);
   }
   console.log("GODOT_WINDOWS_EXPORT_SMOKE_OK");
@@ -78,7 +79,7 @@ async function testWeb() {
     page.on("pageerror", (error) => errors.push(`page: ${String(error)}`));
     page.on("console", (message) => {
       if (message.type() === "error") errors.push(`console: ${message.text()}`);
-      if (message.text().includes("GODOT_R1_READY")) ready();
+      if (message.text().includes("GODOT_FIRST_PERSON_READY")) ready();
     });
     page.on("response", (response) => {
       if (response.status() >= 400) errors.push(`${response.status()} for ${response.url()}`);

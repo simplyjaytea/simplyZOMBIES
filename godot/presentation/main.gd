@@ -18,8 +18,8 @@ const Chrome = preload("res://ui/chrome.gd")
 const UiCursors = preload("res://ui/cursors.gd")
 const QuickStrip = preload("res://ui/quick_strip.gd")
 
-# The pivot's opt-in scene, reachable only from the title's experimental row. `project.godot`
-# still names this file's scene as the main scene; the default switch is a later piece (docs/39).
+# The first-person scene: the game's default boot (`project.godot`'s main scene), and the row on this
+# top-down title that returns to it. This file's scene is the top-down testing game (docs/39).
 const FIRST_PERSON_SCENE: String = "res://presentation/first_person/first_person.tscn"
 # The tag beside the player's body: big enough to read at a glance mid-fight, small enough that it
 # is not competing with the HUD's own columns.
@@ -1209,8 +1209,7 @@ func _on_shell_action(id: String) -> void:
 		"quit_to_title":
 			_quit_to_title()
 		"first_person":
-			# The experiment beside the game: it swaps the whole scene for the first-person one and
-			# leaves the default boot, new run and continue on this top-down screen untouched. A
+			# The way back to the default boot: it swaps the whole scene for the first-person one. A
 			# failed swap stays here and says so rather than leaving a blank window.
 			if get_tree().change_scene_to_file(FIRST_PERSON_SCENE) != OK:
 				_show_shell("the first-person scene could not be opened")

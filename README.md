@@ -102,29 +102,45 @@ When your survivor dies, the run can carry on through whoever is left.
 
 Sleeping fast-forwards the night, and stops when a zombie comes close.
 
-## First person (experimental)
+## First person
 
-The title screen has a row, **first person (experimental)**, above quit. It opens the same district
-and colony in a first-person view. `Esc` frees the mouse, and a second `Esc` takes you back to the
-title. The top-down game is still the default: New run starts the top-down game, as before.
+The game boots into a first-person view of the district and colony. `Esc` frees the mouse, and a
+second `Esc` takes you back to the title. The top-down game is kept as the testing build:
+`npm run godot:run:topdown` opens it directly, and New run on the title starts it.
 
 - **Look and walk:** the mouse turns you, `W` `A` `S` `D` walk, `Shift` sprints. `Ctrl+Z`, `Ctrl+C`,
   `Ctrl+S` and `Ctrl+V` go prone, crouch, stand and jog. Your eye height follows your stance.
-- **Act:** `E` opens the ledger when you stand in front of the desk, opens a cupboard you are
-  facing, or opens or shuts a door you are facing. A prompt at the bottom of the screen names what
-  `E` will do. `LMB` or `F` swings, `G` fires, `R` reloads.
+- **Testing view:** `F2` steps the camera back behind your own body (third person), and `F2` again
+  returns to your eye. It is for testing only; first person is the game, and the view is not saved.
+- **Act:** `E` works on whatever you face: the ledger at the desk, a cupboard, shelf or chest, a door,
+  or one of your colonists. A prompt at the bottom of the screen names what `E` will do. `LMB` or `F`
+  swings, `G` fires, `R` reloads.
+- **Talk:** `E` on one of your colonists in reach opens a short conversation: their name, how they
+  feel, and what they are doing, in the words the Colony screen uses. Walking stops while it is up,
+  and `Esc` closes it.
 - **The ledger:** the work grid, with the skill web one button away. The Reports button lists what
   happened while you were away, in the chronicle's own words, and marks what is new. `Esc` goes
   back from Reports to the grid, and from the grid to the street.
+- **Time:** `-` and `=` run the clock slower or faster (normal or three times speed), and `P` holds
+  the world still. The clock keeps running while the ledger or a sheet is open, and your body stops.
+- **Keys:** `F1` lists the keys the first-person view handles, and that list is the one to trust.
 - **Save and load:** `F5` saves and `F9` loads, in a slot of its own, so the first-person save never
   replaces your top-down one.
 - **When your survivor dies:** the camera moves to whoever is left. If nobody is left, the run ends
   and an end panel shows the last things that happened. `Esc` or `Enter` returns to the title.
 - **Night:** the sky follows the day, and a carried torch lights a cone in front of you.
 
-What is still placeholder: walls, desks and cupboards are plain boxes with labels, and bodies are
-cylinders. There is no crosshair, by design. Combat is interim: you aim with the mouse, and the sim
-decides hits on the ground plane, so a shot does not yet travel the way you see it. Sound is minimal.
+What you see: walls are drawn as the kit's wall modules, with boards over a boarded window. Shelves
+are drawn as shelves, and things lying on the floor are drawn as their own models: tins, bottles,
+tools, bags and the like. A held gun is built from the parts it has, so a fitted suppressor or optic is
+in your hands; a bat or an axe is drawn whole. Survivors and colonists are drawn as people, and zombies as shamblers,
+with their own clips for standing, walking, crouching, lunging and falling. Cupboards, tool chests and
+wardrobes are still labelled boxes.
+
+What is still placeholder: benches are being added. Your own arms and legs are not drawn yet; they
+are the next piece, so you see your weapon and nothing of your body. There is no crosshair, by
+design. Combat is interim: you aim with the mouse, and the sim decides hits on the ground plane, so
+a shot does not yet travel the way you see it. Sound is minimal.
 
 ## Where it stands
 
@@ -142,7 +158,8 @@ Node.js 22 for the project's scripts.
 git clone https://github.com/simplyjaytea/simplyZOMBIES.git
 cd simplyZOMBIES
 bash scripts/setup-web-session.sh   # Linux: installs the pinned engine and npm packages
-npm run godot:run                   # play
+npm run godot:run                   # play (the default boot: first person)
+npm run godot:run:topdown           # the top-down game, for testing
 npm run godot:editor                # open the project in the Godot editor
 ```
 
@@ -152,5 +169,5 @@ Godot executable if `godot` is not on your `PATH`. The scripts refuse any other 
 ## Contributing
 
 The project is built mostly by AI agents working with its owner. Start with
-[CLAUDE.md](CLAUDE.md): it is the entry point for anyone changing the code, person or agent, and
+[PLAYBOOK.md](PLAYBOOK.md): it is the entry point for anyone changing the code, person or agent, and
 leads to the design documents, the roadmap and the checks every change must pass.
