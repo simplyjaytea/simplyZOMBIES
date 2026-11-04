@@ -49,9 +49,10 @@ decides. Agents do the rest, each on its own model, coordinated by the coordinat
 
 | Role | Agent | Does | Does not |
 |---|---|---|---|
-| Coordinator | Claude Code, Opus 5.5 | Reads the state, writes every spec, dispatches, verifies every report against the diff, renders and gates, opens PRs, merges after the owner's go-ahead | Write the work itself, beyond small fixes to docs and records |
+| Coordinator | Claude Code, Fable 5.1 | The orchestrator and planner, and nothing else: reads the state, writes every spec, dispatches, verifies every report against the diff, renders and gates, opens PRs, merges | Write the work itself, beyond small fixes to docs and records |
 | Art lead | Kimi Code, K3.1 Pro, thinking high, in "Never Ask" mode | Every 3D model, rig, clip, UV layout and painted texture | Edit another worker's worktree |
-| Workers (two) | Claude Code, Haiku 5.5 | All non-art work: code, gates, docs, keeping pull requests current with main, and independent reviews of work they did not make | Merge |
+| Workers (two) | Claude Code, Haiku 5.5 | Every piece of work that is not art: code, gates, docs, keeping pull requests current with main, and independent reviews of work they did not make | Merge |
+| Strong tier, on demand | Claude Code, Opus 5.5, a subagent the coordinator starts | Only a piece that needs higher thinking: a plan, a new gate, a shared sim module, the save format, an independent art review | Merge; routine work, which stays with the workers |
 
 The roster may name models, because it says who runs what. Authorship never does: a commit, PR
 title or body, code comment or doc does not say which model wrote it (the owner's call, 2026-11-01,
@@ -552,27 +553,50 @@ you push.
 
 ## Where we are
 
-First person is the game, and top-down is legacy (docs/30, 2026-11-04). The setting is Japan, the
-Ome–Okutama valley, briefed in docs/42 (PR #323). For what is open, run `gh pr list`; for the last
-handoff, read the newest entry in [docs/43](docs/43-session-log.md).
+First person is the game; top-down is legacy (docs/30). Setting: Japan, the Ome–Okutama valley
+(brief docs/42, PR #323). For what is open, `gh pr list`; for the last session, [docs/43](docs/43-session-log.md).
 
-The open art line: survivor base (`kimi/fp-survivor-base`, confirmation review CLEAR); arms (`claude/fp-arms`,
-round 3 in progress after a FIX-THEN-MERGE review); arms in the game (`claude/fp-arms-view`). Reviews are
-in `/home/jtf/sz-shared/reviews/`.
+**Team** (the owner's call, 2026-11-04). Claude Fable coordinates, plans and merges. Kimi does all 3D
+and art. Two Claude Code Haiku workers do everything else; an Opus subagent is started only for a
+piece that needs higher thinking. The OpenCode workers were retired on 2026-11-04.
 
-**To do**
-- Merge the open pull requests one at a time, on the owner's go-ahead. #316 and #321 are on `main`.
-- Survivor base: open its pull request. Arms: finish round 3 and its review, then its pull request, then `claude/fp-arms-view`'s.
-- Ask the owner: #319's shooting default, the six arms defaults, docs/33's firearms card, and the survivor concept image.
-- Land the setting brief (docs/42) before any Japanese buildings or renames (docs/23).
-- Art lead: a real crossbow bolt, fuel, oil and canteen bottles, and a rifle for the `long` hold class.
-- The shambler and six zombie kinds on the new organic base, with a lighter version for hordes.
-- The clothing layer system for the worn slots: a design note for the owner first.
+**Merged:** #321, #316 (held weapon hides behind screens and in third person), #317 (indoor ceilings),
+#318 (the weapon kit's smoothed lathes).
+Branches deleted; the owner approved deleting each PR's branch once it merges.
+
+**Merge train, in order:** #319, #320, #322, #324, #323, then this playbook's PR. A worker merges `main` in (spec: `merge-train/task-opencode.md`); the coordinator
+checks diff and CI, merges with `--match-head-commit`, deletes the branch. #319 asks the owner: a
+colonist with a melee weapon and a gun shoots across a fence.
+
+**Art line, stacked:** `kimi/fp-survivor-base` (`ff835d90`, confirmation review CLEAR per the
+coordinator); `claude/fp-arms` (FIX-THEN-MERGE, `reviews/fp-arms/review_round-1.md`; round 3 in
+progress, WIP `64d81aec`, checkpoint `fp-arms/HANDOFF.md`); `claude/fp-arms-view` (`d83bedce`, main
+merged in). Its HIDE lane is red, with three causes; the held-weapon body needs a coordinator decision
+(`fp-arms-view/REPORT-hide.md`). PRs open in that order, each after `main` is merged in.
+
+**Waiting on the owner:** the survivor PR with flat paint (the coordinator recommends yes); #319's
+shooting default; the six arms-view defaults; docs/33's firearms card (default rare); the survivor
+concept image, for `/home/jtf/sz-shared/concept/` (not there yet); docs/42's ten cards.
+
+**Next session, start here**, in order:
+
+1. `gh pr list` and CI; continue the train from where it stopped.
+2. Kimi resumes arms round 3 (`fp-arms/HANDOFF.md`); a Haiku worker, not Kimi, then reviews it.
+3. Ask the owner the open questions; open the survivor PR on a yes.
+4. Decide the HIDE question, then merge `claude/fp-arms` into `claude/fp-arms-view` and open the PRs.
+5. After #323 merges and its cards are answered: Kimi's first Japanese buildings (docs/42 section 6);
+   renames R1 to R11 to the Haiku workers, against `setting-brief/INVENTORY.md` (118 rows).
+6. Then a rifle for the `long` class, the zombie kinds, the clothing note; next gate speed-up is caching
+   the four worldgen districts (`translation-ignore/REPORT.md`).
+
+**To do:** crossbow bolt, fuel, oil and canteen bottles, and the `long` rifle (Kimi); the shambler and
+six zombie kinds on the organic base, with a lighter horde version; the clothing layer system, with a
+design note for the owner first.
 
 **Known bugs**
-- 78 indoor counter, shelf and partition tiles have no ceiling, so the sky shows from inside. #317 fixes it; it is not on `main` yet.
-- `godot:check:fp_geometry` went from about 2 s to 18 s with #310's real-worldgen lane.
-- The survivor review scene's light is flat grey, so colour judgements made there run dark.
+
+- `godot:check:fp_geometry` went from about 2 s to 18 s with #310's real-worldgen lane; #324 cuts it.
+- The survivor review scene's light is flat grey, so colour judgements there run dark.
 - No presentation code draws a lowered weapon yet (`SimAim.holds`, `FireState` have no reader).
 
 ## The docs map
