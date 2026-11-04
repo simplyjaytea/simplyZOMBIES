@@ -4278,61 +4278,76 @@ func _walkable_floor(map: Variant, tx: int, ty: int) -> bool:
 
 func _held_visibility(scene: Node) -> bool:
 	var ok: bool = true
+	# The ARMS lane leaves the colonist bare-handed. Arm again through the sim's own equip, hold the
+	# clock while the arms settle (as the ARMS lane does), and unequip at the end so the later lanes
+	# read the same colony they did before this lane ran.
+	var world: Variant = scene.get("world")
+	var player: int = int(world.player)
+	var was_paused: bool = bool(scene.get("paused"))
+	scene.set("paused", true)
+	if _arms_equip(scene, world, player, "item.bat.wood") < 0:
+		scene.set("paused", was_paused)
+		return _fail("HIDE", "the bat would not equip for the held-weapon lane")
 	# Precondition: armed and visible with every screen closed.
-	scene.set("bench_open", false)
+	# The bench flag is re-read from its panel every frame (first_person.gd _sync_bench_panel), so the
+	# lane opens and closes the panel itself.
+	var bench_panel: Control = scene.call("bench_panel_node") as Control
+	bench_panel.visible = false
 	scene.set("inventory_open", false)
 	scene.set("_reports_open", false)
 	scene.set("talk_open", false)
 	scene.set("third_person", false)
 	scene.call("_update_render", 1.0)
-	scene.call("_update_held_weapon")
+	_arms_settle(scene, 1.5)
 	if not bool(scene.call("held_weapon_visible")):
 		ok = _fail("HIDE", "precondition failed: held weapon not visible with all screens closed")
 	# bench
-	scene.set("bench_open", true)
-	scene.call("_update_held_weapon")
+	bench_panel.visible = true
+	_arms_settle(scene, 1.5)
 	if bool(scene.call("held_weapon_visible")):
 		ok = _fail("HIDE", "held weapon visible while bench open")
-	scene.set("bench_open", false)
-	scene.call("_update_held_weapon")
+	bench_panel.visible = false
+	_arms_settle(scene, 1.5)
 	if not bool(scene.call("held_weapon_visible")):
 		ok = _fail("HIDE", "held weapon stays hidden after bench closes")
 	# inventory
 	scene.set("inventory_open", true)
-	scene.call("_update_held_weapon")
+	_arms_settle(scene, 1.5)
 	if bool(scene.call("held_weapon_visible")):
 		ok = _fail("HIDE", "held weapon visible while inventory open")
 	scene.set("inventory_open", false)
-	scene.call("_update_held_weapon")
+	_arms_settle(scene, 1.5)
 	if not bool(scene.call("held_weapon_visible")):
 		ok = _fail("HIDE", "held weapon stays hidden after inventory closes")
 	# reports (ledger)
 	scene.set("_reports_open", true)
-	scene.call("_update_held_weapon")
+	_arms_settle(scene, 1.5)
 	if bool(scene.call("held_weapon_visible")):
 		ok = _fail("HIDE", "held weapon visible while reports open")
 	scene.set("_reports_open", false)
-	scene.call("_update_held_weapon")
+	_arms_settle(scene, 1.5)
 	if not bool(scene.call("held_weapon_visible")):
 		ok = _fail("HIDE", "held weapon stays hidden after reports closes")
 	# talk
 	scene.set("talk_open", true)
-	scene.call("_update_held_weapon")
+	_arms_settle(scene, 1.5)
 	if bool(scene.call("held_weapon_visible")):
 		ok = _fail("HIDE", "held weapon visible while talk open")
 	scene.set("talk_open", false)
-	scene.call("_update_held_weapon")
+	_arms_settle(scene, 1.5)
 	if not bool(scene.call("held_weapon_visible")):
 		ok = _fail("HIDE", "held weapon stays hidden after talk closes")
 	# third person
 	scene.set("third_person", true)
 	scene.call("_update_render", 1.0)
-	scene.call("_update_held_weapon")
+	_arms_settle(scene, 1.5)
 	if bool(scene.call("held_weapon_visible")):
 		ok = _fail("HIDE", "held weapon visible in third person")
 	scene.set("third_person", false)
 	scene.call("_update_render", 1.0)
-	scene.call("_update_held_weapon")
+	_arms_settle(scene, 1.5)
 	if not bool(scene.call("held_weapon_visible")):
 		ok = _fail("HIDE", "held weapon stays hidden after returning to first person")
+	_arms_unequip_all(scene, world, player)
+	scene.set("paused", was_paused)
 	return ok

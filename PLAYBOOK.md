@@ -893,16 +893,6 @@ pause policy), and docs/41's "For the owner" list. Every one has a default alrea
 
 ## To do
 
-- Confirm CI green on `main` after the merge train (#307, #313, #309, #310 and #311 merged on the
-  owner's call without waiting for CI), and fix forward whatever is red.
-- Push `kimi/fp-survivor-base` as its own PR (independent art review first), then improve the
-  survivor further (the owner: "a lot").
-- First-person arms: art round 2 is in flight on `claude/fp-arms`. The presentation code
-  (`arms_view.gd`) and its ARMS lane are built on `claude/fp-arms-view`, stacked on it; they
-  merge after the art, and the swap timing, the screen lowering and the hold-class rule wait on
-  the owner's look.
-- Codex's paint scripts (`codex/fp-survivor-paint`) are local only; decide whether they land.
-- The ceiling follow-up for #310 (`sz-shared/reviews/followup-ceilings.md`).
 - Merge #316 to #320 and this docs pull request, one at a time, on the owner's go-ahead.
 - Follow "Next session, start here" under Where we left off (2026-11-04).
 - The survivor fixes, then a confirmation review and its PR. Then the arms art round 2 review,
@@ -922,14 +912,10 @@ pause policy), and docs/41's "For the owner" list. Every one has a default alrea
 - In the third-person testing view the held weapon is not drawn in the body's hand. The view
   model hides there (`claude/fp-arms-view`), which ends it floating beside the body (#313's
   capture), but nothing draws it on the body yet.
-- 78 indoor counter, shelf and partition tiles across 9 building templates have no ceiling; the
-  sky shows from inside (found by #310's confirmation review).
 - `godot:check:fp_geometry` went from about 2 s to 18 s with #310's real-worldgen lane.
 - In the survivor review scene the light is flat grey; it does not show the game's mood, so
   colour judgements made there run dark.
 - No presentation code draws a lowered weapon yet (`SimAim.holds`, `FireState` have no reader).
-- #309's bench screen does not hide the held weapon (`first_person.gd:887` on that branch); the
-  arms on `claude/fp-arms-view` lower it behind every screen, the bench's included.
 
 ## Lessons from the session
 
