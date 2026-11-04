@@ -1,8 +1,8 @@
 # PLAYBOOK.md
 
 The one entry point for anyone changing this repository, agent or person. It says what the
-project is, who works on it and how the work is dispatched inside Orca, where the work is, how a
-unit of work runs, how to verify and push it, what must not be broken, how the project around
+project is, who works on it and how the work is dispatched, where the work is, how a unit of work
+runs, how to verify and push it, what must not be broken, how the project around
 the repository runs (who decides what, how a pull request reaches `main`, the shared folder, what
 is open), what the last session did and left, and where every system lives. `README.md` is for
 players; this file is for builders. Other assistants read it too: it is the project's rules, not
@@ -10,9 +10,7 @@ a Claude-only file (`CLAUDE.md` imports it so Claude Code loads it, and `AGENTS.
 Where it states a fact about the build, it names the file or gate that proves it. Where it says
 how the owner works, it records the owner's standing instructions.
 
-It merged `CLAUDE.md`, `AGENTS.md` and docs/38 on 2026-11-01, the owner's call (docs/30, "The
-playbook, one file"). Those three are now stubs that point here, and their old anchors land on
-the matching headings below.
+`CLAUDE.md`, `AGENTS.md` and docs/38 are stubs that point here (docs/30, "The playbook, one file").
 
 ## Start here
 
@@ -36,7 +34,7 @@ Then read, in order:
 2. [What's left in Milestone 2](docs/23-roadmap.md#whats-left-in-milestone-2), the open work, and
    [the record, by system](docs/23-roadmap.md#the-record-by-system) for how the neighbouring
    systems landed. Both are far too large to read whole: read your piece's entry and the record
-   of the systems it touches ([briefing a thread](#how-work-flows)).
+   of the systems it touches ([briefing a worker](#the-dispatch-workflow)).
 3. [Waiting on the owner](docs/33-owner-decisions.md#waiting-on-the-owner): decisions that are
    not yours to make.
 4. [docs/37, the traps](docs/37-traps.md), before touching the sim.
@@ -289,7 +287,7 @@ matter every session:
 
 The longer state notes, the art history and the full dead-socket list are in
 [the state of the build](docs/36-state-of-the-build.md). What the last session did and left is in [the session log](docs/43-session-log.md).
-The open items are under [To do](#to-do) below.
+The open items are under [Where we are](#where-we-are).
 
 ## The workflow
 
@@ -459,6 +457,8 @@ gates, which is not a failure:
   the owner as a decision card with one recommended option. Elsewhere, put it in the pull
   request. The card never blocks work: build the default, say that you did, and change it if
   the owner picks something else.
+- **The open calls are listed in [docs/33](docs/33-owner-decisions.md#waiting-on-the-owner)**, the only
+  list. Each has a default already built, so none of them blocks a piece.
 - **Steps that cannot be undone wait for the owner's own words.** Merging under the owner's
   standing authorization (below) is the one exception.
 
@@ -498,12 +498,7 @@ The four arcs are zombies (seven to fourteen kinds), raiders (four to nine arche
 the band), firearms (every number a sum of its parts) and melee (frames rather than weapons; finished
 2026-10-27). The open calls from the arcs are in [docs/33](docs/33-owner-decisions.md#waiting-on-the-owner).
 
-## Open owner calls
 
-[docs/33](docs/33-owner-decisions.md#waiting-on-the-owner) is the list, and the only one. This
-file names no card on purpose: a list copied here is out of date after the next card, the same
-reason it carries no commit hash. Every card has a default that is already built, so none of them
-blocks a piece.
 
 ## The shared folder
 
