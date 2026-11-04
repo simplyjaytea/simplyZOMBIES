@@ -2483,6 +2483,25 @@ not a to-do list:
   - **Not judged.** Likeness to the owner's concept image is unjudged: the image was not on this machine,
     so the review sheet carries a `concept unavailable` placeholder. The review's non-blocking items stay
     open: flat mitten hands, conical bust forms, the nape silhouette, slab-like side hair.
+- **Rename R9: the people are the valley's, 2026-11-04.** The Ome–Okutama brief's ninth rename
+  (docs/42 section 5, "People"). The generator's survivor given names and surnames (12 each) take
+  docs/42's names, ten Japanese and two non-Japanese each, so the lists keep their length. The raider
+  given names and surnames (16 each) take the same treatment, fourteen and two, which removes the
+  surname "Ashgrove". The eight survivor backstories and the eight raider occupation lines take valley
+  jobs (a shrine caretaker, a clinic nurse, a Kagase Line driver, a minshuku cook, a mountain courier, a
+  works hand, a forestry hand, a door man at a bar in Umezaki). Ids and kits are unchanged, and each new
+  label keeps a word the skill web's `focusHistory` reads, so the focus link is kept. The boot colony's
+  two named survivors, Mara Sato and Ellis Okafor, keep their names, which docs/42 says; the owner
+  should confirm that. Raider roles (Gunhand, Watcher, Bagman, Scavenger) keep their names.
+  - **The pin.** `godot/check_m2_people.gd` pins the canonical seed's first two rolls and a second
+    seed's roll as strings, and those draws carry names. They are re-pinned to the renamed lists in the
+    same commit, which is the one exception the brief allows. The draw order is unchanged.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:m2:people`
+    prints `M2_PEOPLE_OK` on the re-pinned strings, and `npm run godot:m2:settlers`,
+    `npm run godot:m2:roster`, `npm run godot:m2:recruits`, `npm run godot:m2:raiders`,
+    `npm run godot:check:speech` (bubbles still show no name), `npm run godot:check:hud` and
+    `npm run godot:smoke` hold.
+  - **Measured.** Nothing measured. A name change is not a balance claim.
 - **Item kit polish (#299 round 3 minors), 2026-11-04.** Three mapping fixes in the first-person
   item kit's builder, `tools/blender/first_person_items/build_items.py`, and one new model.
   - **The record.** `family()` now matches `LIQUID_WORDS` against the whole words of an item's

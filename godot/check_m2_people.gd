@@ -11,13 +11,16 @@ const SimPeople = preload("res://sim/modules/people.gd")
 
 # Seed 20260805, `SimBoot.playable(seed, 64)`, two consecutive `SimRecruits.roll` calls on the
 # `recruits` stream, serialised with JSON.stringify (sorted keys). Taken before the roll moved.
+# Re-pinned 2026-11-04 by the rename of the generator's given and surnames lists and its backstory
+# labels (rename R9). The draw order is unchanged; the strings are what the renamed lists roll. The
+# pre-extraction bytes were the pin until then.
 const PIN_SEED: int = 20260805
-const PIN_FIRST: String = '{"age":36,"aptitudes":{"con":4,"dex":5,"str":6},"backstory":"night auditor","backstoryId":"night_auditor","features":["broad shoulders","tired eyes","crooked nose"],"kit":[],"look":"colony.look.03","name":"Asha Chen","traits":["light_sleeper","optimist","iron_stomach"]}'
-const PIN_SECOND: String = '{"age":53,"aptitudes":{"con":7,"dex":4,"str":4},"backstory":"cyclist","backstoryId":"cyclist","features":["tired eyes","broad shoulders","crooked nose"],"kit":[],"look":"colony.look.04","name":"Dmitri Novak","traits":["steady_hands","fast_healer","squeamish"]}'
+const PIN_FIRST: String = '{"age":36,"aptitudes":{"con":4,"dex":5,"str":6},"backstory":"minshuku night keeper","backstoryId":"night_auditor","features":["broad shoulders","tired eyes","crooked nose"],"kit":[],"look":"colony.look.03","name":"Haruto Takahashi","traits":["light_sleeper","optimist","iron_stomach"]}'
+const PIN_SECOND: String = '{"age":53,"aptitudes":{"con":7,"dex":4,"str":4},"backstory":"mountain courier","backstoryId":"cyclist","features":["tired eyes","broad shoulders","crooked nose"],"kit":[],"look":"colony.look.04","name":"Ren Nguyen","traits":["steady_hands","fast_healer","squeamish"]}'
 # A second seed, pinned the same way, so the negative is "a different seed differs from the
 # canonical pin AND matches its own" -- a pin that only ever equals a constant cannot fail.
 const OTHER_SEED: int = 404
-const PIN_OTHER: String = '{"age":24,"aptitudes":{"con":4,"dex":6,"str":5},"backstory":"cyclist","backstoryId":"cyclist","features":["sun-worn face","broad shoulders"],"kit":[],"look":"colony.look.02","name":"Gwen Haddad","traits":["squeamish","light_sleeper","night_blind"]}'
+const PIN_OTHER: String = '{"age":24,"aptitudes":{"con":4,"dex":6,"str":5},"backstory":"mountain courier","backstoryId":"cyclist","features":["sun-worn face","broad shoulders"],"kit":[],"look":"colony.look.02","name":"Mio Nakamura","traits":["squeamish","light_sleeper","night_blind"]}'
 
 
 func _init() -> void:
@@ -56,7 +59,7 @@ func _pin() -> bool:
 	if second != PIN_SECOND:
 		push_error("PIN: second roll moved -- the first consumed a different number of draws\n  got  %s\n  want %s" % [second, PIN_SECOND])
 		return false
-	print("PIN OK seed %d rolls 1 and 2 byte-identical to the pre-extraction roll" % PIN_SEED)
+	print("PIN OK seed %d rolls 1 and 2 match the pinned rolls" % PIN_SEED)
 	return true
 
 
