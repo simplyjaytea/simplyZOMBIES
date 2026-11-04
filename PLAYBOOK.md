@@ -459,8 +459,6 @@ gates, which is not a failure:
 - `README.md` is for players and this file is for agents.
 - The owner closes idle threads, and threads whose pull requests have merged get resolved.
 
-
-
 ## The release plan
 
 Decided by the owner on 2026-10-26 ([docs/30](docs/30-decisions.md#the-release-plan-and-the-content-arcs-2026-10-26)).
@@ -482,8 +480,6 @@ nothing resolves is not authored; a kind, part or frame gets its picture in the 
 The four arcs are zombies (seven to fourteen kinds), raiders (four to nine archetypes and a doctrine on
 the band), firearms (every number a sum of its parts) and melee (frames rather than weapons; finished
 2026-10-27). The open calls from the arcs are in [docs/33](docs/33-owner-decisions.md#waiting-on-the-owner).
-
-
 
 ## The shared folder
 
