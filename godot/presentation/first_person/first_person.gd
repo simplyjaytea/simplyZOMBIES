@@ -976,10 +976,10 @@ func _update_held_weapon(delta: float = 0.0) -> void:
 	_arms.call("update", world, delta, view_covered(), third_person, _inspect_held, Vector2(yaw, pitch), speed, _run_over_open)
 
 
-## A screen is over the view: the ledger, the sheet, a conversation, the bench, the key reference or
+## A screen is over the view: the ledger, the reports page, the sheet, a conversation, the bench, the key reference or
 ## the end panel. The arms lower out of the frame while one is up.
 func view_covered() -> bool:
-	return menu_open or inventory_open or talk_open or bench_open or _legend_open or _run_over_open or _waiting_for_heir()
+	return menu_open or _reports_open or inventory_open or talk_open or bench_open or _legend_open or _run_over_open or _waiting_for_heir()
 
 
 ## The arms view, for the gate.
@@ -992,7 +992,7 @@ func inspect_held() -> bool:
 
 
 func held_weapon_visible() -> bool:
-	return _held_weapon != null and bool(_held_weapon.call("visible_any"))
+	return _held_weapon != null and bool(_held_weapon.call("visible_any")) and _held_weapon.is_visible_in_tree()
 
 
 ## The held-weapon view for the gate: the assembled model, its drawn set and its sockets.
