@@ -159,6 +159,35 @@ A brief names the parts that bear on it: the piece's entry in docs/23's what's l
 for those systems (search by the system's name). The worker reads this file, docs/37 and those parts.
 A worker that finds it needs more reads more; the brief is a floor, not a fence.
 
+## Rules for every worker
+
+Every worker reads `/home/jtf/sz-shared/WORKER_RULES.md` with its spec. The coordinator maintains that
+file; this section is the same rules as the repository holds them.
+
+- Read this file in your worktree first: Standing bans, Conventions, Traps and Verifying a change. It
+  is the project's rules.
+- Work only in the worktree your spec names, on its branch. Never switch branches in the main checkout.
+- Never push to `main`, never merge a pull request, never force-push, never rebase a pushed branch,
+  and never skip or loosen a gate.
+- **No OS-level input and no desktop screenshots, ever.** Drive Godot from inside (the gate harness,
+  `Input.parse_input_event`, a throwaway GDScript driver) and capture only the game viewport, or render
+  through Blender. A worker's synthetic keys once landed in the owner's browser.
+- Run every Godot gate, capture and Blender job under `xvfb-run -a` (or `env -u WAYLAND_DISPLAY DISPLAY=`).
+  Never let a window open on the owner's display `:0`.
+- Commits use the repository's local git identity, `worker`, and carry no attribution trailer: no
+  Co-Authored-By line and no session link. Commits, PR text, code comments and docs never name the model
+  or agent that wrote them.
+- Spin up your own subagents when it helps.
+- Stuck on a design question (anything a player would notice that the spec does not settle)? Build the
+  most conservative default, note it in your report, and keep going.
+- Ask the coordinator in your `REPORT.md`. Never open a question prompt nobody can answer.
+- When done, or blocked, or out of usage: commit, push your branch (`git push -u origin <branch>`),
+  write `REPORT.md` in your piece's folder (what changed, the gates run with their exact OK or FAIL
+  lines, the head SHA, anything left or doubtful), then end your turn. Out of usage mid-task: commit a
+  WIP checkpoint and write `HANDOFF.md` instead (method, what works, what fails and why, next steps,
+  traps).
+- Do not open the pull request. The coordinator does.
+
 ## What the project is
 
 **Current direction: the first-person survival colony pivot, authorized 2026-11-01.**
