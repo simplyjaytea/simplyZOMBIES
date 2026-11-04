@@ -174,6 +174,12 @@ extends RefCounted
 # is not promised: `save.gd` refuses any version but its own, and pre-1.0 saves are not migrated.
 # Bumping would refuse every v33 save to guard a downgrade (docs/30, "A pitch with no yaw").
 # No version bump.
+# The bloodhound's nose (docs/30, "The bloodhound's nose is a gradient, not a level, 2026-11-04")
+# adds a seventh shambler state, Track (6), and an optional `scentTrail` key on the `shambler`
+# component of a kind whose content names `sensory.trail`. A v33 save's bloodhounds have no
+# `scentTrail` and restore as bodies that do not track, which is how they were before; every other
+# kind's component is the shape it always was.
+# No version bump.
 const SAVE_VERSION: int = 33
 
 

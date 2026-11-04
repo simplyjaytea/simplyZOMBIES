@@ -104,10 +104,11 @@ func _run() -> void:
 	ok = _a_refused_candidate_moves_the_colony_to_the_next_one() and ok
 	ok = _the_boot_population_scales_with_the_district() and ok
 	ok = _the_bloodhound_follows_scent_alone() and ok
+	ok = _the_bloodhound_hunts_by_nose() and ok
 	ok = _the_gate_gap_is_doored() and ok
 	ok = _the_boot_ring_keeps_the_dead_off_the_colony() and ok
 	if ok:
-		print("M2_DISTRICT_OK validate blit annex anchors boot isolation walls generator roads enterable determinism district-data reserve siting survivability re-site density scent-only gap-doored boot-ring")
+		print("M2_DISTRICT_OK validate blit annex anchors boot isolation walls generator roads enterable determinism district-data reserve siting survivability re-site density scent-only trail gap-doored boot-ring")
 		quit(0)
 	else:
 		push_error("M2_DISTRICT_FAIL")
@@ -1742,3 +1743,149 @@ func _run_body(type_id: String, scent_x: float, noise_x: float) -> Dictionary:
 		if int(sd["state"]) == SimShambler.ShamblerState["Seek"]:
 			seeks += 1
 	return {"dx": snappedf(float(pos["x"]) - 12.5, 0.01), "seeks": seeks, "noise": sd.get("noiseSense"), "scent": sd.get("scentSense")}
+
+
+# TRAIL (SCENT-ONLY's second half) -- the bloodhound hunts by nose: a scent-led Seek, `Track`, entered
+# on a scent *gradient* and never on a level (docs/30, "The bloodhound's nose is a gradient, not a
+# level, 2026-11-04"). On the 64-tile district at the canonical seed, along its open street at row 45:
+# a source of 15 (docs/03's cooking) left to stand TRAIL_WARM ticks, so its plume is the one a camp
+# that has been there a while gives off, and a body TRAIL_FROM metres downwind of it.
+#
+#   - TRUE POSITIVE: the bloodhound takes the trail, walks it at its own seekSpeed and is within
+#     TRAIL_REACH_METRES of the source inside TRAIL_WINDOW ticks.
+#   - CONTROL: the shambler, from the same spot with the same plume, is not there inside the window
+#     (it drifts at wander speed, which is what it has always done) and never enters Track.
+#   - TRUE NEGATIVES, each the self-smell wake that threw scent out as a wake channel in 2026-09:
+#     the bloodhound alone on the same street with no source never leaves Wander in TRAIL_TICKS, so
+#     its own trail never sets it tracking; one lying on a hill of its own (500 in its own cell, a
+#     hundred thousand times its smell threshold) does not wake on the level; and a field planted to
+#     answer `uphill_scent` with the body's own cell does not wake it, where the same plant naming the
+#     next cell west does (the positive that shows the plant reaches the reader).
+const TRAIL_SOURCE: Vector2 = Vector2(8.5, 45.5)
+const TRAIL_MAGNITUDE: float = 15.0
+const TRAIL_WARM: int = 6000
+const TRAIL_FROM: float = 20.0
+const TRAIL_WINDOW: int = 400
+const TRAIL_TICKS: int = 2000
+const TRAIL_REACH_METRES: float = 2.0
+const TRAIL_PLANT_TICKS: int = 200
+
+# A field that answers every `uphill_scent` with one fixed neighbour, so a lane can hand the reader
+# an answer the real field never gives. Everything else (decay, diffusion, the levels) is the real
+# field's, built from the real one's own grid.
+class PlantedField extends "res://sim/field/attention.gd":
+	var planted: Dictionary = {}
+
+	func _init(from: Variant, answer: Dictionary) -> void:
+		super(int(from.cols), int(from.rows), from._solid, from.calibration, 20.0)
+		planted = answer
+
+	func uphill_scent(_x: float, _y: float) -> Variant:
+		return planted.duplicate()
+
+
+func _the_bloodhound_hunts_by_nose() -> bool:
+	var want: float = float(((_tree()["zombies/bloodhound.json"] as Dictionary)["sensory"] as Dictionary).get("trail", -1.0))
+	var hound: Dictionary = _hunt(TYPE_BLOODHOUND, TRAIL_MAGNITUDE, TRAIL_TICKS)
+	var shambler: Dictionary = _hunt(SimRoster.TYPE_SHAMBLER, TRAIL_MAGNITUDE, TRAIL_TICKS)
+	var alone: Dictionary = _hunt(TYPE_BLOODHOUND, 0.0, TRAIL_TICKS)
+	# READ: the threshold on the body is the content's, and the shambler's component carries none.
+	if want <= 0.0 or float(hound["trail"]) != want or shambler["trail"] != null:
+		push_error("TRAIL: the trail threshold is not the content's (content %s, bloodhound %s, shambler %s)" % [str(want), str(hound["trail"]), str(shambler["trail"])])
+		return false
+	# TRUE POSITIVE: on the trail, at seek speed, and there inside the window.
+	if int(hound["first_track"]) < 0 or int(hound["reached"]) < 0 or int(hound["reached"]) > TRAIL_WINDOW:
+		push_error("TRAIL: the bloodhound did not walk the trail to the source inside %d ticks (%s)" % [TRAIL_WINDOW, str(hound)])
+		return false
+	if absf(float(hound["track_speed"]) - float(hound["seek_speed"])) > 0.001:
+		push_error("TRAIL: the bloodhound walked the trail at %.3f m/s, not its seekSpeed %.3f (%s)" % [float(hound["track_speed"]), float(hound["seek_speed"]), str(hound)])
+		return false
+	# CONTROL: the shambler from the same spot is not there inside the window, and never tracks.
+	if int(shambler["track_ticks"]) != 0 or (int(shambler["reached"]) >= 0 and int(shambler["reached"]) <= TRAIL_WINDOW):
+		push_error("TRAIL: the shambler tracked or reached the source inside the window, so the lane tells the kinds apart by nothing (%s)" % str(shambler))
+		return false
+	# TRUE NEGATIVE: alone, no source, its own trail never sets it tracking.
+	if int(alone["off_wander"]) != 0:
+		push_error("TRAIL: a bloodhound alone with no source left Wander on %d of %d ticks, so it tracked its own smell (%s)" % [int(alone["off_wander"]), TRAIL_TICKS, str(alone)])
+		return false
+	# TRUE NEGATIVE: a hill under it is a level, not a trail, for as long as it lies in that cell. The
+	# same run's positive: once its wander takes it a cell off, the hill is a neighbour that smells
+	# more than it does, and it turns back on it.
+	var hill: Dictionary = _hunt(TYPE_BLOODHOUND, 0.0, TRAIL_PLANT_TICKS, {"own_hill": 500.0})
+	if int(hill["home_ticks"]) < 20 or int(hill["off_wander_home"]) != 0:
+		push_error("TRAIL: a bloodhound lying on 500 of scent in its own cell left Wander before it left the cell, so it woke on the level (%s)" % str(hill))
+		return false
+	if int(hill["first_track"]) <= int(hill["home_ticks"]):
+		push_error("TRAIL: a bloodhound a cell off a hill of 500 did not turn back on it, so the hill negative judges a reader that never fires (%s)" % str(hill))
+		return false
+	# TRUE NEGATIVE and its positive: a field that names the body's own cell as uphill does not wake
+	# it; the same plant naming the cell west of it does.
+	var own: Dictionary = _hunt(TYPE_BLOODHOUND, 0.0, TRAIL_PLANT_TICKS, {"plant": {"dx": 0, "dy": 0, "value": 1000.0}})
+	var west: Dictionary = _hunt(TYPE_BLOODHOUND, 0.0, TRAIL_PLANT_TICKS, {"plant": {"dx": -1, "dy": 0, "value": 1000.0}})
+	if int(west["first_track"]) < 0:
+		push_error("TRAIL: the planted field naming the next cell west did not set the bloodhound tracking, so the plant reaches nothing (%s)" % str(west))
+		return false
+	if int(own["off_wander"]) != 0:
+		push_error("TRAIL: a planted uphill naming the body's own cell set it off (%s)" % str(own))
+		return false
+	print("TRAIL OK the bloodhound takes a scent trail on its gradient (a rise of %.0f over its own cell) and walks it at its seekSpeed %.2f m/s, within %.0f m of a source %.0f m upwind at tick %d where the shambler from the same spot is %.1f m off at tick %d and never tracks; alone with no source it never leaves Wander in %d ticks, a hill of 500 in its own cell does not wake it in the %d ticks it lies there (and turns it back at tick %d once it has stepped off), and a planted uphill naming its own cell does not, where one naming the next cell does (tick %d)" % [want, float(hound["seek_speed"]), TRAIL_REACH_METRES, TRAIL_FROM, int(hound["reached"]), float(shambler["at_window"]), TRAIL_WINDOW, TRAIL_TICKS, int(hill["home_ticks"]), int(hill["first_track"]), int(west["first_track"])])
+	return true
+
+
+# One body on the district street TRAIL_FROM metres downwind of TRAIL_SOURCE, a source of `magnitude`
+# (none at 0) warmed for TRAIL_WARM ticks first, run `ticks`. `plant` swaps in a PlantedField and
+# `own_hill` lays that much scent in the body's own cell; both are the negatives' fixtures.
+func _hunt(type_id: String, magnitude: float, ticks: int, fixture: Dictionary = {}) -> Dictionary:
+	var boot: Dictionary = SimBoot.bare(CANON_SEED, GATE_SIZE)
+	var w: Variant = boot["world"]
+	if magnitude > 0.0:
+		var source: int = int(w.entities.spawn())
+		w.components.set_component(source, "position", {"x": TRAIL_SOURCE.x, "y": TRAIL_SOURCE.y})
+		w.components.set_component(source, "attention_emitter", {"walking": 0.0, "sprinting": 0.0, "ambient": 0.0, "scent": magnitude})
+		for i in TRAIL_WARM:
+			w.step()
+	var start: Vector2 = Vector2(TRAIL_SOURCE.x + TRAIL_FROM, TRAIL_SOURCE.y)
+	var zed: int = SimRoster.spawn_zombie(w, start.x, start.y, type_id, w.rng.stream("placement"))
+	if fixture.has("plant"):
+		w.field = PlantedField.new(w.field, fixture["plant"] as Dictionary)
+	if fixture.has("own_hill"):
+		w.field.add_scent(start.x, start.y, float(fixture["own_hill"]))
+	var sd: Dictionary = w.components.get_component(zed, "shambler") as Dictionary
+	var pos: Dictionary = w.components.get_component(zed, "position") as Dictionary
+	var track: int = int(SimShambler.ShamblerState["Track"])
+	var home: int = w.field.cell_at(start.x, start.y)
+	var out: Dictionary = {"reached": -1, "first_track": -1, "track_ticks": 0, "off_wander": 0, "at_window": -1.0, "home_ticks": 0, "off_wander_home": 0,
+		"trail": sd.get("scentTrail"), "seek_speed": float(sd["seekSpeed"]), "track_speed": 0.0}
+	var walked: float = 0.0
+	var steps: int = 0
+	var was: Vector2 = start
+	var was_tracking: bool = false
+	for i in ticks:
+		w.step()
+		var now: Vector2 = Vector2(float(pos["x"]), float(pos["y"]))
+		var tracking: bool = int(sd["state"]) == track
+		# The speed on the trail, from where the body went rather than what it was told: a tick
+		# counts when it began and ended in Track.
+		if tracking and was_tracking:
+			walked += now.distance_to(was)
+			steps += 1
+		was = now
+		was_tracking = tracking
+		if tracking:
+			out["track_ticks"] = int(out["track_ticks"]) + 1
+			if int(out["first_track"]) < 0:
+				out["first_track"] = i + 1
+		var off: bool = int(sd["state"]) != int(SimShambler.ShamblerState["Wander"])
+		if off:
+			out["off_wander"] = int(out["off_wander"]) + 1
+		# Ticks in the cell it started in, counted until the first tick it stands anywhere else.
+		if int(out["home_ticks"]) == i and w.field.cell_at(now.x, now.y) == home:
+			out["home_ticks"] = i + 1
+			if off:
+				out["off_wander_home"] = int(out["off_wander_home"]) + 1
+		if int(out["reached"]) < 0 and now.distance_to(TRAIL_SOURCE) <= TRAIL_REACH_METRES:
+			out["reached"] = i + 1
+		if i + 1 == TRAIL_WINDOW:
+			out["at_window"] = snappedf(now.distance_to(TRAIL_SOURCE), 0.1)
+	out["track_speed"] = walked / float(steps) * 20.0 if steps > 0 else 0.0
+	return out
