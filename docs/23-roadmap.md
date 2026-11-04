@@ -2583,6 +2583,14 @@ not a to-do list:
     `npm run godot:check:speech` (bubbles still show no name), `npm run godot:check:hud` and
     `npm run godot:smoke` hold.
   - **Measured.** Nothing measured. A name change is not a balance claim.
+- **Rename R11: the playbook and README name the Kagase valley, 2026-11-04.** The Ome–Okutama brief's
+  last rename (docs/42 section 6). The playbook's setting paragraph names the Kagase valley, points at
+  docs/42, and lists the rename pull requests (R1 #333, R3 #334, R5 #335, R6 #341, R7 #337, R8 #339,
+  R9 #342, R10 #340; R2 held for the owner's save decision). The README's opening places the game in
+  the Kagase valley in the mountains west of Tokyo, with fictional names. No mechanic is described
+  differently.
+  - **The gate.** `npm run check:routing` prints `ROUTING_OK`.
+  - **Measured.** Nothing measured.
 - **Item kit polish (#299 round 3 minors), 2026-11-04.** Three mapping fixes in the first-person
   item kit's builder, `tools/blender/first_person_items/build_items.py`, and one new model.
   - **The record.** `family()` now matches `LIQUID_WORDS` against the whole words of an item's
