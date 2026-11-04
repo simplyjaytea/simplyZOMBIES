@@ -2483,6 +2483,20 @@ not a to-do list:
   - **Not judged.** Likeness to the owner's concept image is unjudged: the image was not on this machine,
     so the review sheet carries a `concept unavailable` placeholder. The review's non-blocking items stay
     open: flat mitten hands, conical bust forms, the nape silhouette, slab-like side hair.
+- **Rename R6: the cartridges are the valley's, 2026-11-04.** The Ome–Okutama brief's sixth rename
+  (docs/42 section 5, the cartridge and brass table). Twelve items take docs/42's names, ids unchanged:
+  the .308 family becomes .308 Rifle Round, .308 Match, .308 Surplus and .308 Hand-load; the 9mm family
+  becomes 9mm Pistol Round, 9mm Hollow Point, 9mm Subsonic and 9mm Hand-load; the .45 family becomes
+  .45 Auto, .45 Auto Hollow Point and .45 Auto Hand-load; and `item.brass.9mm` becomes 9mm Brass. The
+  brand words (Winchester, Parabellum, ACP) go. The .38, .22 and 12-gauge families keep their names, as
+  docs/42 says. No description changes, since none names a brand or carries a digit. The stockpile's
+  ammunition-row pin in `godot/check_play.gd` (the STOCKPILE lane) moved from ".308 Winchester Match" to
+  ".308 Match" in the same commit.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:check:inventory`
+    (the STRIP and INSPECT lanes read names through `name_is_allowed`), `npm run godot:check:hud`,
+    `npm run godot:check:loot`, `npm run godot:m2:ammo`, `npm run godot:m2:bench`,
+    `npm run godot:m2:ranged`, `npm run godot:check:play` (the moved pin) and `npm run godot:smoke` hold.
+  - **Measured.** Nothing measured. A name change is not a balance claim.
 - **Item kit polish (#299 round 3 minors), 2026-11-04.** Three mapping fixes in the first-person
   item kit's builder, `tools/blender/first_person_items/build_items.py`, and one new model.
   - **The record.** `family()` now matches `LIQUID_WORDS` against the whole words of an item's

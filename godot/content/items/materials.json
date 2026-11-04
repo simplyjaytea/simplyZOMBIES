@@ -304,7 +304,7 @@
   },
   {
     "id": "item.brass.9mm",
-    "name": "9x19mm Brass",
+    "name": "9mm Brass",
     "description": "A spent pistol case, dull and dented at the mouth. A hand-loader can use it again.",
     "class": "material",
     "size": { "w": 1, "h": 1 },
