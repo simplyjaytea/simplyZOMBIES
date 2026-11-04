@@ -2529,6 +2529,15 @@ not a to-do list:
     `npm run godot:check:hud`, `npm run godot:m2:comfort`, `npm run godot:m2:noise`,
     `npm run godot:m2:teach`, `npm run godot:m2:light_burn`, `npm run godot:check:mods` and
     `npm run godot:m2:bench` hold on the renamed content, and so does `npm run godot:smoke`.
+- **Rename R8: the vehicles are the valley's, 2026-11-04.** The Ome–Okutama brief's eighth rename
+  (docs/42 section 5, the vehicle rows). One vehicle takes its proposed name, id unchanged:
+  `vehicle.truck` is Kei Truck (was "Flatbed truck"). `vehicle.sedan` stays "Sedan" for now: the
+  `MOUNT` lane of `godot/check_vehicles.gd` asserts the HUD clause "a sedan beside you", and that clause
+  is built from the name, so the rename waits for that pin to move. The other vehicles keep their names,
+  as docs/42 says. The vehicle files carry no description field.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:check:wrecks`,
+    `npm run godot:m2:vehicles` (`M2_VEHICLES_OK`) and `npm run godot:m2:light_burn` hold on the renamed
+    content, and so does `npm run godot:smoke`.
   - **Measured.** Nothing measured. A name change is not a balance claim.
 - **Item kit polish (#299 round 3 minors), 2026-11-04.** Three mapping fixes in the first-person
   item kit's builder, `tools/blender/first_person_items/build_items.py`, and one new model.
