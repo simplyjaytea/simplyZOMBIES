@@ -2483,6 +2483,17 @@ not a to-do list:
   - **Not judged.** Likeness to the owner's concept image is unjudged: the image was not on this machine,
     so the review sheet carries a `concept unavailable` placeholder. The review's non-blocking items stay
     open: flat mitten hands, conical bust forms, the nape silhouette, slab-like side hair.
+- **Rename R1: the districts and the region are the Kagase valley's, 2026-11-04.** The Ome–Okutama
+  brief's first rename (docs/42 section 6). Four districts and the region take new names, ids
+  unchanged (card 5): `district.town_center` is Umezaki Ekimae, `district.residential_suburb` is
+  Hinatadai, `district.industrial_park` is Kawahara Yards, `district.forest_edge` is Kaminose Shore,
+  and `region.main_area` is Kagase. The names live in `godot/content/districts/*.json` and
+  `godot/content/regions/main_area.json`. The old region name is still a raider surname in
+  `godot/content/colony/raider_looks.json`; that is a person name, for R9.
+  - **The gate.** `npm run godot:m2:district` prints `M2_DISTRICT_OK`, and `npm run godot:m2:region`
+    prints `M2_REGION_OK`, both with the new names in the content they boot. `npm run godot:check:hud`
+    prints `HUD_OK`, so the district name the HUD speaks stays digit-free prose.
+  - **Measured.** Nothing measured. A name change is not a balance claim.
 - **Item kit polish (#299 round 3 minors), 2026-11-04.** Three mapping fixes in the first-person
   item kit's builder, `tools/blender/first_person_items/build_items.py`, and one new model.
   - **The record.** `family()` now matches `LIQUID_WORDS` against the whole words of an item's
