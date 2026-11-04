@@ -1,7 +1,9 @@
 # simplyZOMBIES
 
 A hardcore zombie survival colony sim. You lead one survivor and a handful of others through a
-dead town, and every comfort you make is a signal the dead can follow.
+dead town in the Kagase valley, in the mountains west of Tokyo, and every comfort you make is a
+signal the dead can follow. The valley and its towns have fictional names; the real Ome–Okutama
+valley is the inspiration.
 
 **The better you live, the harder they come.**
 
