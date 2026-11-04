@@ -2493,6 +2493,15 @@ not a to-do list:
   - **The gate.** `npm run godot:m2:district` prints `M2_DISTRICT_OK`, and `npm run godot:m2:region`
     prints `M2_REGION_OK`, both with the new names in the content they boot. `npm run godot:check:hud`
     prints `HUD_OK`, so the district name the HUD speaks stays digit-free prose.
+- **Rename R3: the building templates are the Kagase valley's, 2026-11-04.** The Ome–Okutama brief's
+  third rename (docs/42 sections 4 and 5). The 22 templates in `godot/content/buildings/` take the
+  names docs/42 section 4 gives them, ids unchanged (card 5). The look retags (`kawara`, `siding`,
+  dropping `brick`) are R4's and are not in this entry. Examples: `building.house.gable` is Tiled-roof
+  house, `building.shed.lockup` is Kura storehouse, `building.store.grocery` is Supermarket.
+  - **The gate.** `npm run godot:check:buildings` prints `BUILDINGS_OK`, with every template placeable
+    and the stamp byte-identical at 64 and 256. `npm run godot:check:roof` prints `ROOF_LOOK_OK`.
+    `npm run godot:check:worldgen` prints `WORLDGEN_OK` on the renamed templates, and
+    `npm run godot:check:fp_geometry` prints `FP_GEOMETRY_OK`, so the finishes matched by id still hold.
   - **Measured.** Nothing measured. A name change is not a balance claim.
 - **Item kit polish (#299 round 3 minors), 2026-11-04.** Three mapping fixes in the first-person
   item kit's builder, `tools/blender/first_person_items/build_items.py`, and one new model.
