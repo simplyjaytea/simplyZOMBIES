@@ -909,17 +909,12 @@ pause policy), and docs/41's "For the owner" list. Every one has a default alrea
 
 ## Known bugs
 
-- In the third-person testing view the held weapon stays at the eye, so it floats beside the
-  body (#313's capture).
 - 78 indoor counter, shelf and partition tiles across 9 building templates have no ceiling; the
   sky shows from inside (found by #310's confirmation review).
-- Godot generates untracked `*.translation` files from the art-docs CSVs
-  (`godot/art/simplyzombies/docs/`); nothing ignores them, so worktrees show as dirty.
 - `godot:check:fp_geometry` went from about 2 s to 18 s with #310's real-worldgen lane.
 - In the survivor review scene the light is flat grey; it does not show the game's mood, so
   colour judgements made there run dark.
 - No presentation code draws a lowered weapon yet (`SimAim.holds`, `FireState` have no reader).
-- #309's bench screen does not hide the held weapon (`first_person.gd:887` on that branch).
 
 ## Lessons from the session
 

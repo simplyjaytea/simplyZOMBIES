@@ -2470,6 +2470,19 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **The held weapon gives way to screens, 2026-11-04.** Fixes two known bugs: the view model
+  floated beside the body in the third-person testing view (#313's capture), and it drew over the
+  gunsmith bench's screen (#309).
+  - **The record.** `first_person.gd`'s `_update_held_weapon` hides the view model while the run-over
+    panel, the bench, the inventory sheet, the ledger's Reports page or a talk is open, and in third
+    person. `held_weapon.gd` gains `set_view_visible`, which hides only the drawn pivot and keeps the
+    assembly, so the same model shows again when the screen closes. Godot's generated
+    `*.translation` files beside the art-docs CSVs are ignored.
+  - **The gate.** The HIDE lane of `npm run godot:check:first_person` first requires the armed
+    player's weapon to be visible with every screen closed, then opens each screen in turn and
+    requires it hidden, and shown again once the screen closes. With the hide line removed the lane
+    fails on all five screens.
+
 - **Perception with heights, 2026-11-01.** Slice 4 of docs/40: sight works by height. It builds the
   recommended default of the owner's question 3 (docs/33, "Do Low cover and windows work by
   height?"), behind one switch, `SimVisibility.SIGHT_BY_HEIGHT`, which ships true. The question
