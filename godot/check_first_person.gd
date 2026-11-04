@@ -3255,7 +3255,81 @@ func _arms_body(scene: Node, world: Variant, player: int, camera: Camera3D) -> b
 	_arms_unequip_all(scene, world, player)
 	_arms_settle(scene, 1.5)
 	ok = _arms_shows(arms, "unarmed", "bare hands again") and ok
+	ok = _arms_clip_order(arms) and ok
 	return ok
+
+
+# Review N1: a clip's pose must not depend on the clip before it. GLTFDocument drops every track equal to
+# its bone's rest pose, so a bone a clip leaves at rest keeps the previous clip's pose unless the mixer is
+# deterministic. Two clips that leave the index finger at different poses play to their end, then
+# idle_pistol settles; the finger must read what it reads after a fresh load that plays idle_pistol first.
+const ARMS_GLB_PATH: String = "res://assets/first_person/arms/arms_base.glb"
+const CLIP_ORDER_BONES: Array = ["index_02.R", "index_03.R"]
+const CLIP_ORDER_DEG: float = 0.5
+
+
+func _arms_clip_order(arms: Node3D) -> bool:
+	var player: AnimationPlayer = arms.get("_player") as AnimationPlayer
+	var skeleton: Skeleton3D = arms.get("_skeleton") as Skeleton3D
+	if player == null or skeleton == null:
+		return _fail("ARMS", "the arms view has no AnimationPlayer or skeleton to read a clip order from")
+	# The view's own clip and place are put back after the reads, so the lanes after this one see the same arms.
+	var was_clip: String = player.current_animation
+	var was_pos: float = player.current_animation_position
+	var ok: bool = true
+	var fresh: Node3D = Models.instance_of(ARMS_GLB_PATH)
+	if fresh == null:
+		return _fail("ARMS", "%s did not load for the fresh-load pose" % ARMS_GLB_PATH)
+	arms.get_parent().add_child(fresh)
+	var fresh_player: AnimationPlayer = _arms_first(fresh, "AnimationPlayer") as AnimationPlayer
+	var fresh_skeleton: Skeleton3D = _arms_first(fresh, "Skeleton3D") as Skeleton3D
+	fresh_player.deterministic = player.deterministic
+	var reference: Dictionary = {}
+	var after_melee: Dictionary = {}
+	var after_unarmed: Dictionary = {}
+	for bone in CLIP_ORDER_BONES:
+		reference[bone] = _clip_pose(fresh_player, fresh_skeleton, ["idle_pistol"], String(bone))
+		after_melee[bone] = _clip_pose(player, skeleton, ["idle_melee2", "idle_pistol"], String(bone))
+		after_unarmed[bone] = _clip_pose(player, skeleton, ["idle_unarmed", "idle_pistol"], String(bone))
+	arms.get_parent().remove_child(fresh)
+	fresh.free()
+	if not was_clip.is_empty():
+		player.play(was_clip, 0.0)
+		player.seek(was_pos, true)
+	for bone in CLIP_ORDER_BONES:
+		for seq_name in [["after idle_melee2", after_melee], ["after idle_unarmed", after_unarmed]]:
+			var got: Quaternion = (seq_name[1] as Dictionary)[bone] as Quaternion
+			var want: Quaternion = reference[bone] as Quaternion
+			var deg: float = rad_to_deg(got.angle_to(want))
+			if deg > CLIP_ORDER_DEG:
+				ok = _fail("ARMS", "a clip's pose depends on the clip before it (%s differs by %.1f deg, %s against a fresh load)" % [bone, deg, String(seq_name[0])])
+				return ok
+	return ok
+
+
+func _arms_first(node: Node, type_name: String) -> Node:
+	if node.is_class(type_name):
+		return node
+	for child in node.get_children():
+		var found: Node = _arms_first(child, type_name)
+		if found != null:
+			return found
+	return null
+
+
+# The pose of `bone` after the clips play in order: each clip but the last runs to its end, the last
+# settles for half a second. Bone rotation as the skeleton holds it after the advance.
+func _clip_pose(player: AnimationPlayer, skeleton: Skeleton3D, seq: Array, bone: String) -> Quaternion:
+	for i in seq.size():
+		var clip: String = String(seq[i])
+		player.play(clip, 0.0)
+		if i < seq.size() - 1:
+			player.seek(player.get_animation(clip).length, true)
+		else:
+			player.seek(0.0, true)
+			player.advance(0.5)
+	var idx: int = skeleton.find_bone(bone)
+	return skeleton.get_bone_pose_rotation(idx) if idx >= 0 else Quaternion.IDENTITY
 
 
 func _is_arms_view(node: Node) -> bool:

@@ -220,6 +220,11 @@ The source baseline is archived on GitHub at
     stretch for gas masks and half-mask respirators, which need their own rung;
   - the gun case draws as a soft roll-top bag, and the crossbow bolt draws the 71 cm arrow, where a
     bolt is about 40 cm (`LENGTH_HINTS`); a long-case rung and a bolt length hint would tighten both.
+- **Arms polish (round 2 minors).** The open items of the arms review's round 2 (`claude/fp-arms`), each
+  still to do: the pistol inspect shows the back of the slide, a roll about the view axis; the hands sit
+  under the HUD key bar (presentation); skin tone changes at UV seams more than across the surface, with
+  144 islands in the GLB against the 44 charts the build prints; `paint-match` checks the sleeve against
+  the builder's constant rather than the survivor's atlas.
 
 ##### UI overhaul
 

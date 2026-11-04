@@ -139,6 +139,10 @@ func build() -> void:
 		var animation: Animation = _player.get_animation(clip)
 		animation.loop_mode = Animation.LOOP_LINEAR if (name_s.begins_with("idle_") or name_s.begins_with("aim_")) else Animation.LOOP_NONE
 	_player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+	# GLTFDocument drops every track equal to its bone's rest pose, so a bone a clip leaves at rest has
+	# no track in that clip. Without this the mixer keeps that bone at the previous clip's pose, and the
+	# pose of a clip then depends on the clip before it. Deterministic resets an untracked bone to rest.
+	_player.deterministic = true
 	_grip_r = _attachment("grip_r")
 	_grip_l = _attachment("grip_l")
 	_held.call("mount", _grip_r)
