@@ -174,6 +174,7 @@ The source baseline is archived on GitHub at
   draw on, a fictional map of the valley, building types, and the item and district renames. After
   the brief: Japanese building templates and props by the art lead, then content renames. See
   [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
+  The brief is [docs/42](42-ome-okutama-setting.md); its section 6 is the order of the work.
 - **First-person spatial combat and perception.** One coherent obstruction and
   hit contract across visible geometry, sim movement, combat and NPC sight.
 - **First-person people and settlement operation.** Ledger animations, reports,

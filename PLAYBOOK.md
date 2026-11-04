@@ -936,6 +936,7 @@ pause policy), and docs/41's "For the owner" list. Every one has a default alrea
 | Need | Read |
 |---|---|
 | First-person conversion: approved direction, phases, spatial contracts and archive | [docs/39](docs/39-first-person-pivot.md) |
+| The setting: the fictional valley, the building types, the renames and their order | [docs/42](docs/42-ome-okutama-setting.md) |
 | What is open, what landed, with evidence | [docs/23, the roadmap](docs/23-roadmap.md) |
 | Which release stage a piece belongs to, and the four content arcs | [The release plan](#the-release-plan), [The content arcs](#the-content-arcs) |
 | Why something is shaped the way it is | [docs/30, the decisions](docs/30-decisions.md), oldest first |
