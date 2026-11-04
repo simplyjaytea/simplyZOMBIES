@@ -207,6 +207,17 @@ func visible_any() -> bool:
 	return _armed and _pivot != null and _pivot.visible
 
 
+## Presentation-only visibility toggle for screens that cover the view (bench, inventory, ledger, talk,
+## third person). Keeps the assembled model and its signature intact so it redraws correctly when the
+## screen closes; only the drawn pivot is hidden.
+func set_view_visible(shown: bool) -> void:
+	if _pivot == null:
+		return
+	_pivot.visible = shown
+	if not shown and _placeholder != null:
+		_placeholder.visible = false
+
+
 ## True when the assembly drawn is the assembly the sim holds now. The gate's mismatch negative uses
 ## it: draw, change the sim's parts, and the drawn set no longer answers true until `update` runs.
 func verify(world: Variant) -> bool:
