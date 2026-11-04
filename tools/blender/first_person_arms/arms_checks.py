@@ -260,13 +260,25 @@ def check_wrap(ex):
             if distances.min() < -0.002:
                 fails.append(f"{clip}: a hand vertex sits {-distances.min() * 1000:.1f} mm inside the {weapon.name}")
             for side in on_weapon:
-                for digit in WRAPPING:
+                digits = ("index",) + WRAPPING if cls == "pistol" and side == "R" else WRAPPING
+                for digit in digits:
                     pad = dominant == f"{digit}_03.{side}"
                     if not pad.any():
                         continue
                     gap = np.abs(weapon.signed(local[pad])).min()
                     if gap > 0.004:
                         fails.append(f"{clip}: the {side} {digit} pad is {gap * 1000:.1f} mm off the grip")
+            if cls == "pistol":
+                right_fingers = np.array([name.startswith(("index_", "middle_", "ring_", "pinky_")) and name.endswith(".R") for name in dominant])
+                triangles = [tuple(triangle) for triangle in ex.skin["triangles"] if right_fingers[list(triangle)].all()]
+                right_tree = BVHTree.FromPolygons([tuple(point) for point in skin], triangles)
+                for digit in WRAPPING:
+                    pad = dominant == f"{digit}_03.L"
+                    hand_gap = min(right_tree.find_nearest(Vector(point))[3] for point in skin[pad])
+                    weapon_gap = np.abs(weapon.signed(local[pad])).min()
+                    gap = min(hand_gap, weapon_gap)
+                    if gap > 0.004:
+                        fails.append(f"{clip}: the support {digit} pad is {gap * 1000:.1f} mm off the right fingers or grip")
     return fails
 
 
@@ -637,6 +649,28 @@ def check_paint_match(ex, survivor_paint):
     return fails
 
 
+def check_background(ex):
+    image = bpy.data.images.load(str(ex.folder / "arms_atlas.png"), check_existing=False)
+    pixels = np.zeros(paint_.ATLAS * paint_.ATLAS * 4, dtype=np.float32)
+    image.pixels.foreach_get(pixels)
+    bpy.data.images.remove(image)
+    atlas = np.round(pixels.reshape(paint_.ATLAS, paint_.ATLAS, 4)[:, :, :3] * 255).astype(np.int64)
+    background = paint_.hex_rgb(paint_.BACKGROUND)
+    fails = []
+    for label, arrays in (("skin", ex.skin), ("sleeve", ex.sleeve)):
+        uv_px = np.c_[arrays["uvs"][:, 0] * paint_.ATLAS, (1 - arrays["uvs"][:, 1]) * paint_.ATLAS]
+        bad = set()
+        for triangle_index, triangle in enumerate(arrays["triangles"]):
+            coords = [[uv_px[i] for i in triangle]]
+            for _, x, y, _ in paint_.raster(coords, conservative=True):
+                if tuple(atlas[y, x]) == background:
+                    bad.add(triangle_index)
+                    break
+        if bad:
+            fails.append(f"{len(bad)} {label} triangles sample atlas background in their UV footprint")
+    return fails
+
+
 def check_body_match(ex, survivor):
     fails = []
     skin = body.to_blender(ex.skin["positions"])
@@ -683,13 +717,13 @@ def check_budget(ex):
             fails.append("the material is double-sided")
     for sampler in doc.get("samplers", []):
         if sampler.get("magFilter") != 9728 or sampler.get("minFilter") not in (9984, 9986):
-            fails.append(f"the atlas is not sampled nearest with nearest mipmaps ({sampler})")
+            fails.append(f"the atlas is not sampled with nearest filtering ({sampler})")
     if len(doc.get("images", [])) != 1:
         fails.append("more than one image")
     return fails
 
 
-CHECKS = ["names", "anchor", "bone-length", "grip-land", "wrap", "sight-line", "near-plane", "stump", "in-frame", "chain", "smooth", "weights", "cuff", "density", "paint-match", "body-match", "budget"]
+CHECKS = ["names", "anchor", "bone-length", "grip-land", "wrap", "sight-line", "near-plane", "stump", "in-frame", "chain", "smooth", "weights", "cuff", "density", "background", "paint-match", "body-match", "budget"]
 
 
 def run(folder, survivor, survivor_paint, blender_objects=None):

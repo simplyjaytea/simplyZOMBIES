@@ -468,16 +468,16 @@ def solve_classes(kin, skin_triangles):
     weapons = {cls: Weapon(name) for cls, name in REFERENCE.items()}
     classes = {}
     zero = {digit: (0, 0, 0, 0, 0) for digit in DIGITS}
-    discipline = {**zero, "index": (12, 28, 14, 4, 0), "pinky": (0, 0, 0, -3, 0)}
+    discipline = {**zero, "index": (0, 0, 0, 0, 0), "pinky": (0, 0, 0, -3, 0)}
     # Pistol: the contract's anchor; the right hand high on the raked grip, index along the frame,
-    # the left hand cupping the right.
+    # the left hand cupping the right with its fingers wrapping across the front strap.
     pistol = weapons["pistol"]
     W = anchor((0.22, -0.20, -0.45), godot_euler(-6, 14, 0))
     obstacles = [placed(pistol, W)]
     centre = grip_centre(pistol, -0.048, -0.004) + np.array([0.0, 0.020, -0.004])
     right, curls_r = closed_hand(kin, "R", W, obstacles, (0, -S20, -C20), (-1, 0, 0), (0.060, -0.004, 0.0), centre, discipline, ("middle", "ring", "pinky"))
     support = obstacles + [hand_obstacle(kin, "R", right, curls_r, skin_triangles)]
-    left, curls_l = closed_hand(kin, "L", W, support, (0, -S20, -C20), (1, 0, 0), (0.058, -0.004, 0.0), centre + np.array([-0.004, -0.006, -0.012]), {**zero, "pinky": (0, 0, 0, -3, 0)}, ("index", "middle", "ring", "pinky"))
+    left, curls_l = closed_hand(kin, "L", W, support, (1.0, -0.10, -0.20), (0, -S20, -C20), (0.058, -0.004, 0.0), centre + np.array([-0.004, -0.006, -0.012]), {**zero, "pinky": (0, 0, 0, -3, 0)}, ("index", "middle", "ring", "pinky"))
     classes["pistol"] = {
         "weapon": pistol, "idle": W, "aim": straight_on_axis(pistol, 0.40),
         "rel_r": np.linalg.inv(W) @ right, "rel_l": np.linalg.inv(right) @ left, "left_on": "hand",
