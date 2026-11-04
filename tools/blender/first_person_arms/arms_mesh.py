@@ -18,7 +18,7 @@ ATLAS = 256
 DENSITY = 128.0
 VOXEL = 0.0016
 HAND_TRIANGLES = 1040  # per hand; the contract allows 1,100
-SLEEVE_STATIONS = [0.0, 0.015, 0.035, 0.065, 0.10, 0.13, 0.154, 0.18, 0.215, 0.24, 0.257, 0.275, 0.30, 0.335, 0.37, body.SLEEVE_TOP]
+SLEEVE_STATIONS = [0.0, 0.012, 0.035, 0.065, 0.10, 0.13, 0.154, 0.18, 0.215, 0.24, 0.257, 0.275, 0.30, 0.335, 0.37, body.SLEEVE_TOP]
 LIP_INSET = 0.0025
 LIP_DEPTH = 0.012
 SIDES = (("R", 1), ("L", -1))
@@ -201,6 +201,10 @@ def build_skin(rest, plant=None):
     decimate.ratio = min(1.0, 2 * HAND_TRIANGLES / max(1, 2 * len(obj.data.polygons)))
     decimate.use_collapse_triangulate = True
     apply(obj, decimate)
+    round_edges = obj.modifiers.new("round_edges", "SMOOTH")
+    round_edges.factor = 0.18
+    round_edges.iterations = 1
+    apply(obj, round_edges)
     bm = bmesh.new()
     bm.from_mesh(obj.data)
     bmesh.ops.triangulate(bm, faces=list(bm.faces), quad_method="BEAUTY", ngon_method="BEAUTY")
@@ -215,8 +219,8 @@ def build_skin(rest, plant=None):
 
 
 def build_sleeve(rest, plant=None):
-    # One tube per arm through the survivor's own cross-sections, open at the cuff and at the
-    # deltoid. Rows run from the cuff edge up the arm.
+    # One tube per arm through the survivor's own cross-sections, open only at the deltoid. The cuff
+    # has an inward-facing lip and a bridged rim, all deforming with the wrist.
     vertices, faces, rows_info = [], [], []
     labels = []
     for side, _ in SIDES:
@@ -225,6 +229,10 @@ def build_sleeve(rest, plant=None):
         stations = [t for t in SLEEVE_STATIONS if t <= 0.26] if plant == "short-arm" else SLEEVE_STATIONS
         for t in stations:
             ring, _, _, _, _ = survivor.ring(side, t, body.SLEEVE_SEGMENTS)
+            if t <= 0.035:
+                centre = ring.mean(0)
+                taper = float(np.interp(t, [0.0, 0.012, 0.035], [0.993, 0.978, 0.995]))
+                ring = centre + (ring - centre) * taper
             rows.append((t, ring))
         if plant == "fat-wrist":
             for index, (t, ring) in enumerate(rows):
@@ -247,7 +255,21 @@ def build_sleeve(rest, plant=None):
         if flip:
             start = len(faces) - (len(rows) - 1) * segments
             faces[start:] = [tuple(reversed(face)) for face in faces[start:]]
-        rows_info.append((side, offset, [t for t, _ in rows]))
+        inner = len(vertices)
+        inner_map = {}
+        lip_row = stations.index(LIP_DEPTH)
+        for lip_index, t in enumerate((0.0, LIP_DEPTH)):
+            ring, _, _, _, _ = survivor.ring(side, t, segments, LIP_INSET)
+            vertices.extend(ring)
+            labels.extend([side + ":cuff_inner"] * segments)
+            for index in range(segments):
+                inner_map[inner + lip_index * segments + index] = ((0 if lip_index == 0 else lip_row), index, LIP_INSET)
+        for index in range(segments):
+            following = (index + 1) % segments
+            face = (inner + following, inner + index, inner + segments + index, inner + segments + following)
+            faces.append(tuple(reversed(face)) if not flip else face)
+            faces.append((offset + index, inner + index, inner + following, offset + following))
+        rows_info.append((side, offset, [t for t, _ in rows], inner_map))
     obj = object_from("arms_sleeve", vertices, faces)
     bm = bmesh.new()
     bm.from_mesh(obj.data)

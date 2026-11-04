@@ -5,7 +5,7 @@
     blender --background --factory-startup --python tools/blender/first_person_arms/build_arms.py -- --plant <name>
     blender --background --factory-startup --python tools/blender/first_person_arms/build_arms.py -- --render-dir <dir>
 
-See README.md beside this file and the arms contract.
+See README.md beside this file for the contract, outputs and checks.
 """
 
 import argparse
@@ -115,6 +115,9 @@ class Build:
             frames["R"] = frames["R"].copy()
             toward_eye = -frames["R"][:3, 3] / np.linalg.norm(frames["R"][:3, 3])
             frames["R"][:3, 3] = frames["R"][:3, 3] + toward_eye * 0.40
+        if plant == "stretch-arm" and cls == "melee1":
+            frames["L"] = frames["L"].copy()
+            frames["L"][:3, 3] += np.array([0.0, 0.0, -0.12])
         if plant == "grip-off" and cls in ("long", "melee2"):
             frames["L"] = frames["L"].copy()
             frames["L"][:3, 3] = frames["L"][:3, 3] + frames["L"][:3, 0] * 0.012
@@ -122,6 +125,11 @@ class Build:
             index = list(curls["R"]["index"])
             index[0] += 15.0
             curls["R"]["index"] = tuple(index)
+        if plant == "support-wrap" and cls == "pistol":
+            for digit in ("middle", "ring", "pinky"):
+                values = list(curls["L"][digit])
+                values[0] -= 45.0
+                curls["L"][digit] = tuple(values)
         result = {"view": kin.R["view"]}
         for side, _ in mesh.SIDES:
             arm, excess = kin.arm(side, frames[side], data["protract"][side], (0.7, -0.35, -0.6), self.idle_roll.get((cls, side)))
@@ -150,12 +158,18 @@ class Build:
     def finish(self, out):
         plant = self.plant
         extents = paint_.unwrap_sleeve(self.sleeve, self.sleeve_rows, plant)
-        skin_extent = paint_.unwrap_skin(self.skin, plant)
+        skin_extent = paint_.unwrap_skin(self.skin, self.rest, self.skin_labels, plant)
         self.extents = {"sleeve.R": extents["R"], "sleeve.L": extents["L"], "skin": skin_extent}
         survivor_paint = paint_.SurvivorPaint(self.survivor)
         image, owner = paint_.paint(self.skin, self.skin_labels, self.sleeve, self.sleeve_labels, self.rest, survivor_paint, plant)
         self.owner = owner
         self.atlas_used = round(float((owner != 0).mean()), 4)
+        if plant == "subtexel-island":
+            # Move one triangle after painting: a non-degenerate sub-texel island in untouched atlas.
+            layer = self.skin.data.uv_layers.active
+            polygon = self.skin.data.polygons[0]
+            for loop, uv in zip(polygon.loop_indices, ((1.10, 1.10), (1.20, 1.10), (1.10, 1.20))):
+                layer.data[loop].uv = (uv[0] / paint_.ATLAS, uv[1] / paint_.ATLAS)
         out.mkdir(parents=True, exist_ok=True)
         atlas = paint_.save(image, out / "arms_atlas.png")
         material = make_material(atlas, plant)
@@ -320,7 +334,7 @@ def render_setup(clay):
     camera.rotation_euler = (math.radians(90), 0, 0)
     camera.data.sensor_fit = "VERTICAL"
     camera.data.angle_y = math.radians(75)
-    camera.data.clip_start = 0.02
+    camera.data.clip_start = 0.06
     scene.camera = camera
     if clay:
         material = bpy.data.materials.new("clay")
@@ -379,17 +393,23 @@ PLANTS = {
     "clip-rename": ("names",),
     "seam": ("names",),
     "bone-roll": ("anchor",),
+    "stretch-arm": ("bone-length",),
     "grip-off": ("grip-land",),
     "finger-through": ("wrap",),
+    "support-wrap": ("wrap",),
     "sight-off": ("sight-line",),
     "near-clip": ("near-plane",),
     "short-arm": ("stump",),
     "hand-out": ("in-frame",),
     "pop": ("chain", "smooth"),
+    "rotation-pop": ("chain",),
     "rigid-wrist": ("weights",),
     "cuff-gap": ("cuff",),
     "squash-uv": ("density",),
+    "subtexel-island": ("background",),
     "repaint": ("paint-match",),
+    "paint-cells": ("paint-match",),
+    "short-padding": ("paint-match",),
     "fat-wrist": ("body-match",),
     "second-material": ("budget",),
     "linear": ("budget",),
@@ -426,6 +446,7 @@ def main():
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--plant", choices=sorted(PLANTS))
     parser.add_argument("--render-dir", type=Path)
+    parser.add_argument("--compare-dir", type=Path)
     parser.add_argument("--uv-layout-dir", type=Path)
     parser.add_argument("--preview", type=Path)
     parser.add_argument("--clay", action="store_true")
@@ -468,6 +489,8 @@ def main():
         import arms_review
 
         arms_review.render(build, args.render_dir)
+        if args.compare_dir:
+            arms_review.comparisons(args.compare_dir, args.render_dir)
     print("ARMS_BUILD_OK")
     return 0
 

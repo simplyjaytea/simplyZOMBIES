@@ -125,7 +125,7 @@ def publish(build, folder):
             "name": name,
             "pixel_rect": [x0, paint_.ATLAS - y0 - h, w, h],
             "orientation": "x runs around the arm from its rear-inner seam (centred on the outer side), y up the arm: the cuff edge is the bottom row, the deltoid the top",
-            "paint": "do not paint: copied from the survivor atlas's arm islands at build time",
+            "paint": "generated at build time: charcoal front/sleeve ramp, normal-driven form and a darker cuff",
         })
     layer = skin.data.uv_layers.active
     for label, faces in islands(skin, build.skin_labels):

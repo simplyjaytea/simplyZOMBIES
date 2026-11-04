@@ -50,8 +50,6 @@ DEATH = {
     "survivor": {"land": -0.45, "yaw": 0.45, "arm_out.L": 0.55, "arm_out.R": 0.85, "elbow.L": 0.35, "elbow.R": 0.20, "knee.L": 0.13, "knee.R": 0.26},
     "shambler": {"land": -0.42, "yaw": -0.50, "arm_out.L": 0.90, "arm_out.R": 0.45, "elbow.L": 0.25, "elbow.R": 0.45, "knee.L": 0.24, "knee.R": 0.14},
 }
-# The share of the organic survivor's surface that must sit at its island's texel density.
-SURVIVOR_DENSITY_SHARE = 0.85
 # The organic survivor's held death lies back this far (radians of pelvis roll).
 SURVIVOR_LIE = 1.50
 # Each plant mode builds with one deliberate defect and must be refused by the named checks.
@@ -59,6 +57,7 @@ PLANTS = {
     "death-one-boot": ("death-parts", "death-centroid", "death-slide"),
     "death-slide": ("death-slide",),
     "cap-density": ("density",),
+    "survivor-density": ("density",),
     "arm-phase": ("arm-phase",),
     "walk-crouch": ("walk-height",),
 }
@@ -1807,12 +1806,11 @@ def validate_export(path, character):
 
 
 def survivor_density(path, measured_triangles):
-    # The organic survivor is painted on islands of 256 px/m (head, neck), 128 px/m (body) and
-    # tapered hair locks. A smooth body cannot keep every triangle at its island's density: the
-    # cylindrical islands pinch at their poles (the crown under the hair, boot soles, finger ends).
-    # So the check is area-weighted: at least SURVIVOR_DENSITY_SHARE of the surface must sit within
-    # 0.6-1.67x its island's authored density on both axes, and both authored bands must be present.
-    from organic_survivor import CHART_DENSITY, FROZEN, ATLAS_SIZE as SIZE
+    # Judge the exported UV mapping against the contract, never against a chart's refitted scale.
+    # Cylindrical charts pinch at poles and finger ends, so each island's area-weighted median of
+    # the two singular values' geometric mean must land in its nominal band. The detailed percentiles
+    # expose the remaining spread instead of hiding it behind a single global share.
+    from organic_survivor import BODY_DENSITY, HEAD_DENSITY, FROZEN, ATLAS_SIZE as SIZE
 
     def island(centre):
         x, y = centre[0] * SIZE, (1 - centre[1]) * SIZE  # glTF texture V runs downward
@@ -1822,31 +1820,44 @@ def survivor_density(path, measured_triangles):
                 return name
         return None
 
-    total = within = 0.0
-    bands = {"body": 0.0, "head": 0.0}
-    worst = {}
+    samples = {}
     for area, centre, values in measured_triangles:
         name = island(centre)
-        nominal = CHART_DENSITY.get(name)
-        if nominal is None:
+        if name is None:
             raise ValueError(f"[density] {path.name}: a triangle samples the atlas outside every island")
-        nominal = [nominal, nominal] if isinstance(nominal, float) else [min(min(pair) for pair in nominal), max(max(pair) for pair in nominal)]
-        total += area
-        if all(0.6 * nominal[0] <= value <= 1.67 * nominal[1] for value in values):
-            within += area
-        else:
-            worst[name] = worst.get(name, 0.0) + area
-        if all(100 <= value <= 160 for value in values):
-            bands["body"] += area
-        if all(200 <= value <= 310 for value in values):
-            bands["head"] += area
-    share = within / total
-    offenders = ", ".join(f"{name} {area / total:.1%}" for name, area in sorted(worst.items(), key=lambda item: -item[1])[:4])
-    if share < SURVIVOR_DENSITY_SHARE:
-        raise ValueError(f"[density] {path.name}: only {share:.1%} of the surface is within its island's texel density (need {SURVIVOR_DENSITY_SHARE:.0%}); off: {offenders}")
-    if bands["body"] < 0.25 * total or bands["head"] < 0.03 * total:
-        raise ValueError(f"[density] {path.name}: the authored 128 px/m body or 256 px/m head band is missing ({bands['body'] / total:.1%}, {bands['head'] / total:.1%} of the surface)")
-    return f"{share:.1%} of the surface at its island's texel density (off: {offenders or 'none'})"
+        if name.startswith("hair_"):
+            continue
+        density = math.sqrt(max(0.0, values[0] * values[1]))
+        samples.setdefault(name, []).append((area, density))
+
+    def percentile(rows, fraction):
+        ordered = sorted(rows, key=lambda row: row[1])
+        total = sum(row[0] for row in ordered)
+        running = 0.0
+        for area, value in ordered:
+            running += area
+            if running >= total * fraction:
+                return value
+        return ordered[-1][1]
+
+    expected = {name for name in FROZEN if not name.startswith("hair_")}
+    missing = expected - set(samples)
+    if missing:
+        raise ValueError(f"[density] {path.name}: no exported triangles for {', '.join(sorted(missing))}")
+    offenders = []
+    medians = {}
+    for name in sorted(samples):
+        nominal = HEAD_DENSITY if name.startswith("head_") or name == "neck" else BODY_DENSITY
+        low, median, high = (percentile(samples[name], fraction) for fraction in (0.1, 0.5, 0.9))
+        medians[name] = median
+        print(f"DENSITY survivor {name}: p10/p50/p90 {low:.1f}/{median:.1f}/{high:.1f} px/m, nominal {nominal}")
+        if not nominal * 0.9 <= median <= nominal * 1.1:
+            offenders.append(f"{name} p50 {median:.1f} (need {nominal * 0.9:.1f}..{nominal * 1.1:.1f})")
+    if abs(medians["arm.L"] - medians["arm.R"]) > BODY_DENSITY * 0.02:
+        offenders.append(f"arms differ: L {medians['arm.L']:.1f}, R {medians['arm.R']:.1f} px/m")
+    if offenders:
+        raise ValueError(f"[density] {path.name}: nominal island density failed: " + "; ".join(offenders))
+    return f"all {len(samples)} non-hair islands at nominal body {BODY_DENSITY}/head {HEAD_DENSITY} px/m +/-10% (area-weighted p50)"
 
 
 def export_character(character, armature, mesh, path):

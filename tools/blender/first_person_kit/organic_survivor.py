@@ -48,15 +48,17 @@ def neckline_z(y):
     return 1.452 - 0.20 * y
 
 
-# Island rectangles and chart origins frozen from UV layout v2 (kimi/uv_layout.json): x, y (bottom
-# left), w, h in atlas pixels, then the chart's s and t origin in metres. Freezing them keeps the
-# painted atlas registered to the body while the mesh is refined. A chart whose new extent no longer
-# fits its rectangle is refitted into it (and reported); hair locks always fill their rectangle.
+# Island rectangles and chart origins: x, y (bottom left), w, h in atlas pixels, then the chart's
+# s and t origin in metres. The face and original garment charts keep their v2 registration. The
+# review's v3 packing moves clamped or refitted charts into the empty upper half at full density;
+# REPACKED charts are centred at their measured extents rather than fitted to the old origins.
 FROZEN = {
-    "arm.L": (184, 0, 47, 75, -0.16554, 0.9028),
-    "arm.R": (231, 0, 47, 75, -0.16496, 0.90333),
-    "boot.L": (395, 103, 69, 27, -0.26168, 0.00498),
-    "boot.R": (0, 166, 69, 27, -0.25506, 0.00499),
+    "arm.L": (0, 300, 64, 76, 0.0, 0.0),
+    "arm.R": (64, 300, 64, 76, 0.0, 0.0),
+    "boot.L": (140, 300, 84, 30, 0.0, 0.0),
+    "boot.R": (224, 300, 84, 30, 0.0, 0.0),
+    "boot_sole.L": (312, 300, 24, 38, 0.0, 0.0),
+    "boot_sole.R": (336, 300, 24, 38, 0.0, 0.0),
     "hair_00": (168, 103, 28, 37, 0.0, 0.0),
     "hair_01": (140, 103, 28, 39, 0.0, 0.0),
     "hair_02": (397, 166, 28, 18, 0.0, 0.0),
@@ -73,24 +75,25 @@ FROZEN = {
     "hair_13": (69, 166, 28, 27, 0.0, 0.0),
     "hair_14": (453, 166, 28, 18, 0.0, 0.0),
     "hair_15": (481, 166, 28, 18, 0.0, 0.0),
-    "hand_back.L": (0, 193, 18, 18, 0.17839, 0.80353),
-    "hand_back.R": (18, 193, 18, 18, 0.17908, 0.8021),
-    "hand_front.L": (367, 166, 15, 21, 0.19781, 0.77517),
-    "hand_front.R": (382, 166, 15, 21, 0.19775, 0.77498),
-    "head_back": (278, 0, 67, 71, -0.12233, 1.47834),
+    "hand_back.L": (0, 440, 20, 30, 0.0, 0.0),
+    "hand_back.R": (20, 440, 20, 30, 0.0, 0.0),
+    "hand_front.L": (40, 440, 20, 30, 0.0, 0.0),
+    "hand_front.R": (60, 440, 20, 30, 0.0, 0.0),
+    "head_back": (370, 300, 96, 76, 0.0, 0.0),
     "head_front": (345, 0, 108, 70, -0.1616, 1.4809),
     "leg_back.L": (57, 0, 56, 103, -0.20023, 0.16999),
     "leg_back.R": (0, 0, 57, 103, -0.20332, 0.16885),
     "leg_front.L": (113, 0, 36, 103, -0.12668, 0.17073),
     "leg_front.R": (149, 0, 35, 103, -0.1159, 0.1703),
-    "neck": (280, 103, 87, 31, -0.16038, 1.38956),
+    "neck": (100, 400, 128, 24, 0.0, 0.0),
     "pelvis_back": (181, 166, 65, 24, -0.23961, 0.85989),
     "pelvis_front": (246, 166, 65, 24, -0.23799, 0.86009),
     "torso_back": (0, 103, 70, 63, -0.25408, 1.00878),
     "torso_front": (70, 103, 70, 62, -0.25162, 1.00724),
 }
+REPACKED = {"arm.L", "arm.R", "boot.L", "boot.R", "boot_sole.L", "boot_sole.R", "hand_back.L", "hand_back.R", "hand_front.L", "hand_front.R", "head_back", "neck"}
 HAIR_RECTS = sorted((name for name in FROZEN if name.startswith("hair_")), key=lambda name: (-FROZEN[name][3], name))
-# Chart densities actually used by the last build, read by the export density check.
+# Chart densities actually used by the last build.
 CHART_DENSITY = {}
 
 
@@ -571,7 +574,7 @@ def hair_source():
 # ---------------------------------------------------------------------------------------------
 
 
-def region_chart(point, label):
+def region_chart(point, label, normal=None):
     x, y, z = point
     side = "L" if x < 0 else "R"
     if label.startswith(("arm", "hand")):
@@ -585,6 +588,8 @@ def region_chart(point, label):
             return "head_front" if y > HEAD_SPLIT_Y else "head_back"
         return "neck"
     if z < BOOT_Z:
+        if z < 0.025 and normal is not None and normal.z < -0.5:
+            return "boot_sole." + side
         return "boot." + side
     if z < SEAT_Z:
         return f"leg_{'front' if y > -0.005 else 'back'}." + side
@@ -602,14 +607,16 @@ def chart_density(name):
 
 
 def cylindrical_radius(name):
-    if name.startswith("head"):
+    if name == "head_back":
+        return 0.086
+    if name == "head_front":
         return 0.082
     if name == "neck":
-        return 0.048
+        return 0.072
     if name.startswith("torso") or name.startswith("pelvis"):
         return 0.150
     if name.startswith("arm"):
-        return 0.048
+        return 0.046
     if name.startswith("leg"):
         return 0.065
     return 0.070
@@ -633,6 +640,8 @@ def chart_coordinate(name, point):
         outer = name.startswith("hand_front")
         facing = 1 if outer == name.endswith(".R") else -1
         return (y * facing, z)
+    if name.startswith("boot_sole"):
+        return x, y
     cx, cy = chart_centre(name, z)
     if name == "neck" or name.startswith("arm") or name.startswith("boot"):
         theta = math.atan2(y - cy, x - cx)
@@ -645,7 +654,7 @@ def chart_coordinate(name, point):
 
 def polygon_coordinates(name, points):
     coordinates = [chart_coordinate(name, point) for point in points]
-    if name == "neck" or name.startswith("arm") or name.startswith("boot"):
+    if name == "neck" or name.startswith("arm") or (name.startswith("boot") and not name.startswith("boot_sole")):
         radius = cylindrical_radius(name)
         angles = [coord[0] / radius for coord in coordinates]
         reference = angles[0]
@@ -670,7 +679,7 @@ def build_charts(body, face_labels, hair, hair_rects, hair_uvs):
 
     body_charts = []
     for polygon, label in zip(body.data.polygons, face_labels):
-        name = region_chart(tuple(polygon.center), label)
+        name = region_chart(tuple(polygon.center), label, polygon.normal)
         points = [tuple(body.data.vertices[index].co) for index in polygon.vertices]
         ensure(name)["polygons"].append(polygon_coordinates(name, points))
         charts[name]["positions"].append(points)
@@ -682,8 +691,8 @@ def build_charts(body, face_labels, hair, hair_rects, hair_uvs):
 
 
 def place_charts(charts, plant=None):
-    # Each body chart keeps its v2 registration when its new extent fits the frozen rectangle (a
-    # spill of up to three texels is clamped); otherwise it is refitted into the rectangle.
+    # Original charts keep their paint registration. Repacked charts are centred at full nominal
+    # density; an undersized rectangle is still reported and the export gate refuses its density.
     refitted = []
     for name in sorted(charts):
         chart = charts[name]
@@ -700,18 +709,21 @@ def place_charts(charts, plant=None):
         density = chart["density"]
         room_s = (w - 2 * PAD) / density
         room_t = (h - 2 * PAD) / density
-        spill = max(s0 - low_s, high_s - (s0 + room_s), t0 - low_t, high_t - (t0 + room_t)) * density
-        # The head keeps its registration whatever spills: only the crown pole, under the hair, can.
-        if spill <= 3.0 or name.startswith("head_"):
-            chart.update(min_s=s0, min_t=t0, scale=1.0)
+        if name in REPACKED:
+            chart.update(min_s=low_s - (room_s - (high_s - low_s)) / 2, min_t=low_t - (room_t - (high_t - low_t)) / 2, scale=1.0)
         else:
-            scale = min(1.0, room_s / (high_s - low_s), room_t / (high_t - low_t))
-            chart.update(min_s=low_s - (room_s / scale - (high_s - low_s)) / 2, min_t=low_t - (room_t / scale - (high_t - low_t)) / 2, scale=scale)
-            refitted.append(f"{name} x{scale:.2f}")
+            spill = max(s0 - low_s, high_s - (s0 + room_s), t0 - low_t, high_t - (t0 + room_t)) * density
+            # The face keeps its registration whatever spills: only the crown pole, under hair, can.
+            if spill <= 3.0 or name == "head_front":
+                chart.update(min_s=s0, min_t=t0, scale=1.0)
+            else:
+                scale = min(1.0, room_s / (high_s - low_s), room_t / (high_t - low_t))
+                chart.update(min_s=low_s - (room_s / scale - (high_s - low_s)) / 2, min_t=low_t - (room_t / scale - (high_t - low_t)) / 2, scale=scale)
+                refitted.append(f"{name} x{scale:.2f}")
         CHART_DENSITY[name] = density * chart["scale"]
-        if plant == "cap-density":
+        if plant in ("cap-density", "survivor-density"):
             chart["scale"] *= 0.35
-    print("SURVIVOR_ATLAS frozen v2 layout; refitted: " + (", ".join(refitted) or "none"))
+    print("SURVIVOR_ATLAS v3 nominal-density layout; refitted: " + (", ".join(refitted) or "none"))
 
 
 def uv_for(chart, coord):
