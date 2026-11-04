@@ -14,8 +14,7 @@ below are kept so old links still land; each points at the section that holds it
 
 ## Where we left off
 
-[Where we left off (2026-11-01, paused by the owner)](../PLAYBOOK.md#where-we-left-off-2026-11-01-paused-by-the-owner),
-then [What the session of 2026-11-01 did](../PLAYBOOK.md#what-the-session-of-2026-11-01-did),
+[Where we are](../PLAYBOOK.md#where-we-are) and [the session log](43-session-log.md),
 [To do](../PLAYBOOK.md#to-do) and [Known bugs](../PLAYBOOK.md#known-bugs).
 
 ## Who decides what
