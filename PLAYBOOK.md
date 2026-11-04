@@ -595,7 +595,9 @@ design note for the owner first.
 
 **Known bugs**
 
-- `godot:check:fp_geometry` went from about 2 s to 18 s with #310's real-worldgen lane; #324 cuts it.
+- `godot:check:fp_geometry` takes about 13 s (12.69–13.01 s of engine time, 15.8–16.1 s wall), and
+  its real-worldgen lane is most of it: four districts generated for real, with the window rays and
+  the ceilings check over them, measured at about 10.6 s of the 11.5 s the script itself spends.
 - The survivor review scene's light is flat grey, so colour judgements there run dark.
 - No presentation code draws a lowered weapon yet (`SimAim.holds`, `FireState` have no reader).
 
