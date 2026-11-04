@@ -2496,6 +2496,20 @@ not a to-do list:
   - **The gate.** `npm run godot:m2:district` prints `M2_DISTRICT_OK`, and `npm run godot:m2:region`
     prints `M2_REGION_OK`, both with the new names in the content they boot. `npm run godot:check:hud`
     prints `HUD_OK`, so the district name the HUD speaks stays digit-free prose.
+- **Rename R2: the region runs up-valley, 2026-11-04.** The Ome–Okutama brief's second rename
+  (docs/42 section 3 and section 6). The four cells of `region.main_area` are re-placed so that x runs
+  up-valley: the lower-valley cells sit at x=0 and the upper-valley cells at x=1. Old cell order: (0,0)
+  town_center, (1,0) forest_edge, (0,1) industrial_park, (1,1) residential_suburb. New: (0,0)
+  town_center, (1,0) industrial_park, (0,1) residential_suburb, (1,1) forest_edge. Cell count, cell
+  size, district ids and every other value are unchanged. The colony's region-wide site moves from
+  (76, 78) to (85, 286); it is printed by the gate and asserted by none, so no assertion moved.
+  - **The save bump.** The map is regenerated from the seed and content, so a saved region world would
+    load onto different ground. The rule in serialize.gd (the v28 water case) is a save bump, so
+    `SAVE_VERSION` goes from 33 to 34 in the same commit, and a v33 save is refused. docs/30 records why.
+  - **The gate.** `npm run godot:m2:region` prints `M2_REGION_OK`, `npm run godot:m2:district` prints
+    `M2_DISTRICT_OK`, `npm run godot:check:worldgen` prints `WORLDGEN_OK` in 24 s, `npm run godot:check:fp_geometry`
+    prints `FP_GEOMETRY_OK` in 16 s, and `npm run godot:m2:save` prints `M2_SAVE_OK`.
+  - **Measured.** Nothing measured. A cell order is not a balance claim.
 - **Rename R3: the building templates are the Kagase valley's, 2026-11-04.** The Ome–Okutama brief's
   third rename (docs/42 sections 4 and 5). The 22 templates in `godot/content/buildings/` take the
   names docs/42 section 4 gives them, ids unchanged (card 5). The look retags (`kawara`, `siding`,
@@ -2519,6 +2533,19 @@ not a to-do list:
     `npm run godot:check:hud`, `npm run godot:check:loot`, `npm run godot:m2:transform` and
     `npm run godot:m2:needs` all hold on the renamed content. `npm run godot:m2:stockpile` still
     holds the two pinned names.
+- **Rename R6: the cartridges are the valley's, 2026-11-04.** The Ome–Okutama brief's sixth rename
+  (docs/42 section 5, the cartridge and brass table). Twelve items take docs/42's names, ids unchanged:
+  the .308 family becomes .308 Rifle Round, .308 Match, .308 Surplus and .308 Hand-load; the 9mm family
+  becomes 9mm Pistol Round, 9mm Hollow Point, 9mm Subsonic and 9mm Hand-load; the .45 family becomes
+  .45 Auto, .45 Auto Hollow Point and .45 Auto Hand-load; and `item.brass.9mm` becomes 9mm Brass. The
+  brand words (Winchester, Parabellum, ACP) go. The .38, .22 and 12-gauge families keep their names, as
+  docs/42 says. No description changes, since none names a brand or carries a digit. The stockpile's
+  ammunition-row pin in `godot/check_play.gd` (the STOCKPILE lane) moved from ".308 Winchester Match" to
+  ".308 Match" in the same commit.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:check:inventory`
+    (the STRIP and INSPECT lanes read names through `name_is_allowed`), `npm run godot:check:hud`,
+    `npm run godot:check:loot`, `npm run godot:m2:ammo`, `npm run godot:m2:bench`,
+    `npm run godot:m2:ranged`, `npm run godot:check:play` (the moved pin) and `npm run godot:smoke` hold.
 - **Rename R7: tools, comfort and melee are the valley's, 2026-11-04.** The Ome–Okutama brief's seventh
   rename (docs/42 section 5, the tools, comfort and melee rows). Seven items take the names docs/42
   proposes, ids unchanged: `item.machete.rusted` is Rusted Nata, `item.sabre.cavalry` is Old Army Sword,
@@ -2541,32 +2568,6 @@ not a to-do list:
   - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:check:wrecks`,
     `npm run godot:m2:vehicles` (`M2_VEHICLES_OK`) and `npm run godot:m2:light_burn` hold on the renamed
     content, and so does `npm run godot:smoke`.
-- **Rename R10: the descriptions are the valley's, 2026-11-04.** The Ome–Okutama brief's tenth rename
-  (docs/42 section 5, and the inventory's western-thing and brand rows the earlier renames did not take).
-  Two items take docs/42's names, ids unchanged: `item.food.beans.tin` is Tin of Corn and
-  `item.food.fruit.tin` is Tin of Mandarins, which R5 left pinned. The pin in
-  `godot/check_m2_stockpile.gd` (the summary lane) moved to the new names in the same commit, in the
-  same order. Three descriptions change: the corn tin ("a tin of sweet corn in brine"), the mandarin tin
-  ("halved mandarins in syrup"), the superglue ("a tube of quick-set glue"), and the charcoal sack ("a
-  paper sack of charcoal", without "barbecue"). The superglue and the canvas work pants keep their names,
-  which docs/42 does not propose. The container rows carry only a kind string, and docs/42 keeps those
-  kinds, so no container changed and no district file moved.
-  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`, and `npm run godot:m2:stockpile`
-    (the moved pin, its summary lane) holds. `npm run godot:check:inventory`, `npm run godot:check:hud`,
-    `npm run godot:check:loot`, `npm run godot:m2:district` and `npm run godot:smoke` hold too.
-- **Rename R6: the cartridges are the valley's, 2026-11-04.** The Ome–Okutama brief's sixth rename
-  (docs/42 section 5, the cartridge and brass table). Twelve items take docs/42's names, ids unchanged:
-  the .308 family becomes .308 Rifle Round, .308 Match, .308 Surplus and .308 Hand-load; the 9mm family
-  becomes 9mm Pistol Round, 9mm Hollow Point, 9mm Subsonic and 9mm Hand-load; the .45 family becomes
-  .45 Auto, .45 Auto Hollow Point and .45 Auto Hand-load; and `item.brass.9mm` becomes 9mm Brass. The
-  brand words (Winchester, Parabellum, ACP) go. The .38, .22 and 12-gauge families keep their names, as
-  docs/42 says. No description changes, since none names a brand or carries a digit. The stockpile's
-  ammunition-row pin in `godot/check_play.gd` (the STOCKPILE lane) moved from ".308 Winchester Match" to
-  ".308 Match" in the same commit.
-  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:check:inventory`
-    (the STRIP and INSPECT lanes read names through `name_is_allowed`), `npm run godot:check:hud`,
-    `npm run godot:check:loot`, `npm run godot:m2:ammo`, `npm run godot:m2:bench`,
-    `npm run godot:m2:ranged`, `npm run godot:check:play` (the moved pin) and `npm run godot:smoke` hold.
 - **Rename R9: the people are the valley's, 2026-11-04.** The Ome–Okutama brief's ninth rename
   (docs/42 section 5, "People"). The generator's survivor given names and surnames (12 each) take
   docs/42's names, ten Japanese and two non-Japanese each, so the lists keep their length. The raider
@@ -2586,28 +2587,27 @@ not a to-do list:
     `npm run godot:check:speech` (bubbles still show no name), `npm run godot:check:hud` and
     `npm run godot:smoke` hold.
   - **Measured.** Nothing measured. A name change is not a balance claim.
+- **Rename R10: the descriptions are the valley's, 2026-11-04.** The Ome–Okutama brief's tenth rename
+  (docs/42 section 5, and the inventory's western-thing and brand rows the earlier renames did not take).
+  Two items take docs/42's names, ids unchanged: `item.food.beans.tin` is Tin of Corn and
+  `item.food.fruit.tin` is Tin of Mandarins, which R5 left pinned. The pin in
+  `godot/check_m2_stockpile.gd` (the summary lane) moved to the new names in the same commit, in the
+  same order. Three descriptions change: the corn tin ("a tin of sweet corn in brine"), the mandarin tin
+  ("halved mandarins in syrup"), the superglue ("a tube of quick-set glue"), and the charcoal sack ("a
+  paper sack of charcoal", without "barbecue"). The superglue and the canvas work pants keep their names,
+  which docs/42 does not propose. The container rows carry only a kind string, and docs/42 keeps those
+  kinds, so no container changed and no district file moved.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`, and `npm run godot:m2:stockpile`
+    (the moved pin, its summary lane) holds. `npm run godot:check:inventory`, `npm run godot:check:hud`,
+    `npm run godot:check:loot`, `npm run godot:m2:district` and `npm run godot:smoke` hold too.
 - **Rename R11: the playbook and README name the Kagase valley, 2026-11-04.** The Ome–Okutama brief's
   last rename (docs/42 section 6). The playbook's setting paragraph names the Kagase valley, points at
   docs/42, and lists the rename pull requests (R1 #333, R3 #334, R5 #335, R6 #341, R7 #337, R8 #339,
-  R9 #342, R10 #340; R2 held for the owner's save decision). The README's opening places the game in
+  R9 #342, R10 #340; R2 is #344, which bumps the save format to v34). The README's opening places the game in
   the Kagase valley in the mountains west of Tokyo, with fictional names. No mechanic is described
   differently.
   - **The gate.** `npm run check:routing` prints `ROUTING_OK`.
   - **Measured.** Nothing measured.
-- **Rename R2: the region runs up-valley, 2026-11-04.** The Ome–Okutama brief's second rename
-  (docs/42 section 3 and section 6). The four cells of `region.main_area` are re-placed so that x runs
-  up-valley: the lower-valley cells sit at x=0 and the upper-valley cells at x=1. Old cell order: (0,0)
-  town_center, (1,0) forest_edge, (0,1) industrial_park, (1,1) residential_suburb. New: (0,0)
-  town_center, (1,0) industrial_park, (0,1) residential_suburb, (1,1) forest_edge. Cell count, cell
-  size, district ids and every other value are unchanged. The colony's region-wide site moves from
-  (76, 78) to (85, 286); it is printed by the gate and asserted by none, so no assertion moved.
-  - **The save bump.** The map is regenerated from the seed and content, so a saved region world would
-    load onto different ground. The rule in serialize.gd (the v28 water case) is a save bump, so
-    `SAVE_VERSION` goes from 33 to 34 in the same commit, and a v33 save is refused. docs/30 records why.
-  - **The gate.** `npm run godot:m2:region` prints `M2_REGION_OK`, `npm run godot:m2:district` prints
-    `M2_DISTRICT_OK`, `npm run godot:check:worldgen` prints `WORLDGEN_OK` in 24 s, `npm run godot:check:fp_geometry`
-    prints `FP_GEOMETRY_OK` in 16 s, and `npm run godot:m2:save` prints `M2_SAVE_OK`.
-  - **Measured.** Nothing measured. A cell order is not a balance claim.
 - **Item kit polish (#299 round 3 minors), 2026-11-04.** Three mapping fixes in the first-person
   item kit's builder, `tools/blender/first_person_items/build_items.py`, and one new model.
   - **The record.** `family()` now matches `LIQUID_WORDS` against the whole words of an item's

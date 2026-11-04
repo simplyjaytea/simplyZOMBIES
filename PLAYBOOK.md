@@ -186,8 +186,8 @@ are in [docs/42](docs/42-ome-okutama-setting.md) (the map in section 3, the rena
 Place names, businesses and brands are fictional. The renames are on their pull requests: R1 #333
 (the districts and region), R3 #334 (the building templates), R5 #335 (food and drink), R6 #341
 (cartridges and brass), R7 #337 (tools, comfort and melee), R8 #339 (vehicles), R9 #342 (the
-people) and R10 #340 (the descriptions). R2, the region's cell order, is held for an owner decision
-on the save format. The real layout, landscape and architecture are the inspiration. The re-theme
+people) and R10 #340 (the descriptions). R2, the region's cell order, is #344 (it bumps the save
+format to v34). The real layout, landscape and architecture are the inspiration. The re-theme
 is planned work, listed in docs/23.
 
 A hardcore zombie survival colony sim: RimWorld's colony management and work priorities,
