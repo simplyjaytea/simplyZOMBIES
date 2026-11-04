@@ -62,13 +62,23 @@ is not byte-reproducible.
     floats.
   - The barrel's own `socket_muzzle`, carried through `socket_barrel`, lands within 1 mm of the
     receiver's `socket_muzzle`.
+- **Shading.** Each triangle in the GLB is traced to the built face that holds its corners, and
+  its normals are judged as the file stores them.
+  - A lathe's faces are smooth round each ring: at every ring vertex, the corners of the faces
+    of one band agree within 0.5 degrees, and neighbouring vertices round a ring turn by no
+    more than the ring step (30 degrees at 12 segments) or, on the axe's oval haft, by no more
+    than the facets beside them turn, with 0.5 degrees of slack. Where the profile turns by
+    more than 30 degrees (a shoulder, a cap, a muzzle face), the builder keeps a hard edge.
+  - Every other face is flat: its corners agree within 0.05 degrees. A box, a slide or a
+    magazine exports exactly the normals it had before lathes were smoothed.
 - **Bytes.** All 16 outputs rebuild byte-identical to the committed files.
 
 **`--prove`** shows that each check can fail. It plants one error per build: a size 2 cm off, a
 misnamed socket, a slot with no socket, a misspelt id, a part shifted off its origin, an optic
 lifted off the slide, a muzzle socket 3 mm out, a second material, a double-sided material,
 linear filtering, one face wound backwards, a coplanar decal face, a flush extractor, a squashed
-unwrap, and a flipped byte. It prints `PLANT <name> CAUGHT: <message>` for each, then
+unwrap, lathes exported with their face normals (`flat_lathe`), the barrel's hood smoothed
+(`smooth_box`), and a flipped byte. It prints `PLANT <name> CAUGHT: <message>` for each, then
 `WEAPONS_PROVE_OK`. If any planted error passes, it prints `WEAPONS_CHECK_FAIL` instead.
 
 CI has no Blender, so these checks run by hand, as the starter kit's do.
@@ -170,9 +180,9 @@ Which key is the coordinator's call, because the format is shared.
 - The frame has an open trigger guard, a short accessory rail, and slide-stop, takedown and
   magazine-release tabs.
 - The default assembly is 1,430 triangles. 1,106 of them are in the receiver, barrel, magazine
-  and extractor. The other 324 are hidden internals, 276 of them the recoil spring's coil, which
-  is kept for a bench cutaway. With the suppressor, red dot and extended magazine the assembly
-  is 2,002 triangles.
+  and extractor. The other 324 are hidden internals, 276 of them the recoil spring (212 in its
+  coil, 64 in its guide rod), which is kept for a bench cutaway. With the suppressor, red dot
+  and extended magazine the assembly is 2,002 triangles.
 
 **The melee weapons.**
 
@@ -180,6 +190,30 @@ Which key is the coordinator's call, because the format is shared.
 - The knife has a ground bevel, a full tang and riveted scales.
 - The crowbar is a hexagonal bar swept into a gooseneck. Its chisel end and claw are flattened.
 - The fire axe has an oval hickory haft, a red head with a ground edge, and a pick.
+
+**Shading.** Every lathe (the bat, the axe's haft, the barrel's tube, the suppressor, the
+recoil spring's guide rod, the optic's battery cap and the knife's rivets) carries smoothed
+corner normals, so it reads round at 8 or 12 segments. Everything else is flat-shaded. The
+smoothed normals are written as Blender's `custom_normal` corner attribute, which the glTF
+exporter carries into the file; the triangle and vertex counts are unchanged by them.
+
+## What horde use costs
+
+Measured on the rebuilt GLBs (the `MODEL` and `ASSEMBLY` lines `--check` prints). Every GLB is
+one mesh with one primitive, so each model is one draw.
+
+- A default pistol is 1,430 triangles in 7 meshes: the receiver, barrel, standard magazine,
+  action, recoil spring, sear and extractor. 324 of those triangles are hidden inside the
+  receiver: the recoil spring's 276 (212 in its coil), the action's 24 and the sear's 24.
+- The alternate assembly, with the suppressor, red dot and extended magazine, is 2,002
+  triangles in 9 meshes.
+- The melee weapons are one mesh each: the bat 408 triangles, the knife 540, the crowbar 260 and
+  the axe 420.
+
+A pistol is cheap for the player's hands and dear for a crowd. An NPC that carries one in
+numbers, such as a raider band, should skip the hidden internals outside a bench view, which
+saves 324 triangles and 3 draws a pistol, or use a merged world LOD of one mesh and one draw.
+That LOD is not built yet.
 
 ## Atlas, densities and look
 
@@ -189,7 +223,9 @@ Which key is the coordinator's call, because the format is shared.
 - Four regions of 64 px: glass, bore, and two end grains.
 
 Every region is sampled by some model, and the check fails if one is not. Each GLB embeds its
-own copy of the atlas, about 85 KB, which is the starter kit's arrangement.
+own copy of the atlas, which is the starter kit's arrangement. The PNG is 84 to 115 KB: its
+pixels are fixed, but its deflate stream depends on the zlib Blender is linked against (stock
+zlib or zlib-ng), so the byte check holds on one machine's Blender, not across builds of it.
 
 **Densities.**
 
