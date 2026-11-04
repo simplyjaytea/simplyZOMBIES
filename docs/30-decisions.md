@@ -7894,3 +7894,36 @@ playbook's section for it; a fact about the build goes in the doc that owns it (
 status, docs/30 for a call, docs/33 for an open owner question) and the playbook links to it.
 The session record, to-do and bugs sections are rewritten at the end of a session, not appended
 to forever.
+
+## A reach test chooses whom, not whether, 2026-11-04
+
+The two #282 follow-ups (docs/23's first-person group: a zombie's contact target by distance
+alone, and a colonist's swing it cannot land) took these engineering calls. Both make the sim keep
+the promise docs/40 already makes, that reach stops at walls; neither is a new mechanic.
+
+- **A shambler's contact target is the nearest survivor it can reach, and still the nearest one
+  when it can reach nobody.** `SimShambler._contact_target` names one survivor for five callers:
+  the Pursue chase, the Seek and Wander arms' "caught" (which moves a body into Pursue), the swipe
+  and the grab. Asking `_clear_contact` and returning null when nobody is reachable would have
+  turned a shambler pressed against a window at somebody inside back to Wander, and a dormant one
+  would stop waking for somebody touching it through a wall; both are changes a player would see.
+  So the reach test only reorders: among the survivors inside the radius, the nearest reachable one
+  wins, and with none reachable the nearest by distance comes back as before, where the swipe and
+  the grab ask `_clear_contact` of it and refuse it as they always did. The Dormant arm asks only
+  whether anybody is in contact, so it passes no world and is never traced. With one survivor in the
+  radius the answer is the same either way, so nothing is traced; with several, the nearest is
+  traced first. `godot:m2:space` READS `_contact_target` holds all three cases.
+- **A colonist's engage, its defence and the player's instinct ask one melee question,
+  `SimNpcCombat._in_reach`**: inside `_melee_reach`, and `SimSpace.reach_clear` from here to the
+  threat. `can_strike` asks the same function, so the attack walk and the swing cannot disagree.
+  This supersedes the 2026-11-01 entry's "`npc_combat._engage` still starts a swing on distance".
+- **A threat out of reach falls through to the shot.** In `_engage`'s ordinary branch the melee
+  test was already followed by the ranged one (it fell through when `try_begin_swing` refused, on
+  stamina for instance), and `can_strike` falls through the same way for the attack walk. So a
+  colonist carrying both, facing a shambler across a wire fence or a window it cannot swing over,
+  now fires if the shot is in range and in sight, where it used to wind up a swing that hit
+  nothing. A colonist with only a melee weapon does nothing there, and a critically injured one
+  (the defending branch, melee only) does nothing there either.
+- **The instinct defence does not turn to face a claw it cannot answer.** It used to turn and then
+  swing; the reach test now comes before the turn, so an idle player is not spun towards a shambler
+  on the far side of a wire fence it can see and not touch.
