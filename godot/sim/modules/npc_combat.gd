@@ -103,6 +103,10 @@ static func register_module(world: Variant) -> void:
 			var sd: Variant = w.components.get_component(threat, "shambler")
 			if not (sd is Dictionary) or int((sd as Dictionary)["state"]) != SimShamblerRes.ShamblerState["Pursue"]:
 				continue
+			# A claw through a wall, or a window the blow cannot cross, is not a claw on you: no
+			# swing that `_resolve_strike` would only refuse (#282).
+			if not _in_reach(w, int(ent), threat, reach):
+				continue
 			_face(w, int(ent), threat)
 			SimMelee.try_begin_swing(w, int(ent))
 	)
@@ -211,7 +215,7 @@ static func _engage(world: Variant, ent: int, anyone_held: bool = false) -> void
 	_face(world, ent, threat)
 	if defending:
 		# Defense is the melee branch alone, and only for a claw already in reach.
-		if reach > 0.0 and _distance(world, ent, threat) <= reach:
+		if _in_reach(world, ent, threat, reach):
 			SimMelee.try_begin_swing(world, ent)
 		return
 	# Rescue first, because _nearest_threat has already preferred a shambler with somebody in its
@@ -226,8 +230,11 @@ static func _engage(world: Variant, ent: int, anyone_held: bool = false) -> void
 			if SimShamblerRes.try_begin_rescue(world, ent, victim):
 				return
 	# Reach first: a shambler at arm's length is a melee problem even for someone holding a bow,
-	# and a survivor carrying both should not be raising a weapon while being grabbed.
-	if reach > 0.0 and _distance(world, ent, threat) <= reach:
+	# and a survivor carrying both should not be raising a weapon while being grabbed. At arm's
+	# length means the blow arrives (`_in_reach`, the question `can_strike` asks): a shambler on the
+	# far side of a wall or a window the swing cannot cross is no melee problem, and falls through to
+	# the shot, exactly as `can_strike` falls through for the attack walk (#282).
+	if _in_reach(world, ent, threat, reach):
 		if SimMelee.try_begin_swing(world, ent):
 			return
 	if range_metres > 0.0 and _distance(world, ent, threat) <= range_metres:
@@ -351,18 +358,28 @@ static func _ordered_target(world: Variant, ent: int, metres: float) -> int:
 # `_resolve_strike` asks), or the ranged envelope with a sightline. Asked by the attack walk, so the
 # colonist stops exactly where the fight begins -- and not with a wall between them and it.
 static func can_strike(world: Variant, ent: int, target: int) -> bool:
+	if _in_reach(world, ent, target, _melee_reach(world, ent)):
+		return true
 	var d: float = _distance(world, ent, target)
-	var reach: float = _melee_reach(world, ent)
-	if reach > 0.0 and d <= reach:
-		var here: Variant = world.components.get_component(ent, "position")
-		var at: Variant = world.components.get_component(target, "position")
-		if here is Dictionary and at is Dictionary and SimSpaceRes.reach_clear(world, here as Dictionary, at as Dictionary, ent, target):
-			return true
 	var range_metres: float = _ranged_range(world, ent)
 	if range_metres <= 0.0 or d > range_metres:
 		return false
 	var there: Dictionary = world.components.get_component(target, "position") as Dictionary
 	return SimRanged.can_target(world, ent, float(there["x"]), float(there["y"]))
+
+
+# Whether a swing `ent` starts now at `target` would arrive: inside `reach` (`_melee_reach`, the
+# number `_resolve_strike` measures against) with nothing in the way of the blow
+# (`SimSpace.reach_clear`, the question `_resolve_strike` asks). The one melee answer for the attack
+# walk (`can_strike`), the engage (`_engage`) and instinct (`npc.instinct-defense`): before #282's
+# record the last two asked distance alone, so a colonist at a window wound up swing after swing that
+# the resolve refused.
+static func _in_reach(world: Variant, ent: int, target: int, reach: float) -> bool:
+	if reach <= 0.0 or _distance(world, ent, target) > reach:
+		return false
+	var here: Variant = world.components.get_component(ent, "position")
+	var at: Variant = world.components.get_component(target, "position")
+	return here is Dictionary and at is Dictionary and SimSpaceRes.reach_clear(world, here as Dictionary, at as Dictionary, ent, target)
 
 
 static func _distance(world: Variant, a: int, b: int) -> float:

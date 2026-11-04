@@ -174,6 +174,7 @@ The source baseline is archived on GitHub at
   draw on, a fictional map of the valley, building types, and the item and district renames. After
   the brief: Japanese building templates and props by the art lead, then content renames. See
   [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
+  The brief is [docs/42](42-ome-okutama-setting.md); its section 6 is the order of the work.
 - **First-person spatial combat and perception.** One coherent obstruction and
   hit contract across visible geometry, sim movement, combat and NPC sight.
 - **First-person people and settlement operation.** Ledger animations, reports,
@@ -194,10 +195,7 @@ The source baseline is archived on GitHub at
     heel-and-toe roll, so the builder should measure the sole's height as well as its slide;
   - the held death pose's hands hover above the floor: the survivor's by 2.3 and 5.7 cm, and the
     shambler's right hand by 16.2 cm, because the elbows bend up while the upper arms lie flat at
-    3 mm;
-  - under 1 m the survivor's jacket mottling, in 2 to 4 pixel tonal clumps, still reads faintly as
-    camouflage; it reads as worn fabric from 2 m;
-  - under 1 m the survivor's brown face blotches read as skin marks rather than dirt.
+    3 mm.
 - **Weapon kit polish (#298 round 1 minors).** In `tools/blender/first_person_weapons/build_weapons.py`,
   whose outputs are `godot/assets/first_person/weapons.manifest.json` and the GLBs beside it:
   - the polymer grip's stipple is single 7.8 mm texels, which read as dice dots or dirt; a moulded
@@ -211,21 +209,17 @@ The source baseline is archived on GitHub at
   - the crowbar's claw is a flattened tip with no nail slot.
 - **Item kit polish (#299 round 3 minors).** In `tools/blender/first_person_items/build_items.py`, whose
   outputs are `godot/assets/first_person/items.manifest.json` and the GLBs in `items/`:
-  - the neutral bottle is a dark-green wine bottle with a blank label, and canteens and the Jar of
-    Preserves draw as it, while the hip flask and sports drink take the 13 cm jar; a canteen or flask
-    rung, or routing preserves to the jar, would read better;
-  - the fuel bottle and lamp oil draw as crates, because the `liquid` family in `family()` only applies
-    to consumables (`LIQUID_WORDS`);
+  - the neutral bottle is a dark-green wine bottle with a blank label, and canteens, the Fuel Bottle
+    and Lamp Oil draw as it, while the hip flask and sports drink take the 13 cm jar; a canteen or
+    flask rung would read better;
+  - the bolt is the arrows scaled to 57%, so its shaft is 4.5 mm across where a real bolt is as
+    thick as an arrow or thicker, and it reads as a short thin arrow; the fletching on both barely
+    clears the shaft (on the arrows the vanes reach 4.0 mm from the axis of a shaft of 4.0 mm
+    radius), so neither shows its vanes;
   - `headgear` draws a military steel helmet, which is right for hard hats and bike helmets but a
     stretch for gas masks and half-mask respirators, which need their own rung;
   - the gun case draws as a soft roll-top bag, and the crossbow bolt draws the 71 cm arrow, where a
     bolt is about 40 cm (`LENGTH_HINTS`); a long-case rung and a bolt length hint would tighten both.
-- **Zombie target by distance alone (#282 review).** `SimShambler._contact_target`
-  (`godot/sim/modules/shambler.gd`) takes the nearest survivor with no reach test, unlike the player's
-  nearest-reachable swing in `melee.gd`. A shared sim module; needs a READS lane in `godot:m2:space`.
-- **Colonist swings it cannot land (#282 record).** `npc_combat.gd` `_engage` and
-  `npc.instinct-defense` start a swing on distance alone, and `_resolve_strike` then refuses it at a
-  window. Ask `SimSpace.reach_clear` before starting, as `can_strike` does.
 
 ##### UI overhaul
 
@@ -2464,6 +2458,96 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **The organic survivor, 2026-11-04.** The first-person survivor body is replaced: the box-segment
+  `survivor.glb` gives way to an organic, smooth-skinned woman built by `organic_survivor.py` in the
+  Blender character kit (`tools/blender/first_person_kit/build_characters.py`). She has 7,810 triangles,
+  a modelled face (nose, brow, lips and eye sockets), a high bun, and painted pixel textures from a new
+  `survivor_atlas.png`: 256 px/m on the head and neck, 128 px/m on the body. This entry closes the
+  survivor's jacket-mottling and face-blotch bullets in "Character kit polish" under what's left; its
+  two shambler bullets stay open.
+  - **The gate.** `blender --background --factory-startup --python tools/blender/first_person_kit/build_characters.py -- --check`
+    prints `VALID survivor: 7810 triangles, height 1.830 m, radius 0.268 m, all 21 non-hair islands at
+    nominal body 128/head 256 px/m +/-10% (area-weighted p50)`. The density check measures the exported
+    GLB against the nominal bands, not against an island's own shrunk scale: each non-hair island's
+    area-weighted p50 must sit within 10% of its band, and the arm medians must match within 2% of
+    128 px/m. The `survivor-density` plant is refused: the arm p50 falls to 47.4 px/m against a band of
+    115.2 to 140.8 (`CHARACTER_PLANT_REFUSED survivor-density`), and the other plants stay refused too.
+  - **Measured.** Exported area-weighted p50 densities: arms 135.5 and 135.3 px/m; hand backs 122.0 and
+    121.0; hand fronts 123.1 and 123.5; boot uppers 116.4 and 116.6; boot soles 128.0 and 128.0; head
+    back and front 234.0 and 257.8; neck 232.8 px/m. All 21 non-hair islands pass their nominal band.
+  - **The byte-identity step.** The check's last line, `CHARACTER_CHECK_FAIL: rebuilt outputs differ:
+    shambler.glb, characters_atlas.png`, is the cross-machine difference, not a survivor fault. This
+    Linux Blender links zlib-ng, so the unchanged shambler GLB and the shared atlas differ from the
+    Windows files in bytes. The atlas's decoded pixels are identical (`ATLAS_PIXELS_IDENTICAL
+    characters_atlas.png: True`).
+  - **Not judged.** Likeness to the owner's concept image is unjudged: the image was not on this machine,
+    so the review sheet carries a `concept unavailable` placeholder. The review's non-blocking items stay
+    open: flat mitten hands, conical bust forms, the nape silhouette, slab-like side hair.
+- **Item kit polish (#299 round 3 minors), 2026-11-04.** Three mapping fixes in the first-person
+  item kit's builder, `tools/blender/first_person_items/build_items.py`, and one new model.
+  - **The record.** `family()` now matches `LIQUID_WORDS` against the whole words of an item's
+    name, in every class, and the list gains `oil`. Material, tool and container gain the liquid
+    ladder (jar, bottle); armor and attachments have none and keep their default ladder, so the
+    Oil-Filter Can muzzle device stays the parts case. The Jar of Preserves is routed to the jar by
+    id. The crossbow bolts get their own model, `bolt.glb` (`m_bolt`: the arrows scaled to 0.40 m,
+    which `LENGTH_HINTS` already asked for). Against `origin/main` the manifest changes for exactly
+    seven items: the Fuel Bottle (`item.can.fuel`) and Lamp Oil (`item.oil.lamp`) go from
+    `crate_small` to `bottle`; the Jar of Preserves goes from `bottle` to `jar`; Gun Oil and Machine
+    Oil (`item.oil.gun`, `item.oil.machine`) go from `fallback_attachment` to `jar`; and the
+    Crossbow Bolt and Broadhead Bolt (`item.ammo.bolt`, `.broadhead`) go from `arrows` (0.705 m) to
+    `bolt` (0.40 m). The other 41 models sample the same atlas texels as before at 15 interior
+    points of every triangle (the atlas was repacked around the bolt's islands, by whole texels).
+  - **The gate.** `build_items.py -- --check` prints `ITEMS_CHECK_OK`, with a new `length` check:
+    every item with a `LENGTH_HINTS` entry is drawn by a model whose longest axis, measured on the
+    exported GLB, is within 25% of the hint, and every hint matches a drawn item. Its plant,
+    `--plant=length`, draws the Broadhead Bolt as the arrows and is refused with
+    `ITEMS_CHECK_FAIL: length, bytes`; `scale` alone passed that (a hand-chosen model is allowed
+    4x, and 0.705 m is 1.76x). No check would refuse an attachment drawn as the jar: the jar is
+    0.80x the Oil-Filter Can's expected size, inside `scale`'s 2x, and the jar is not a hand-chosen
+    model, so `rung` passes it. `godot:check:first_person`, `godot:smoke` and `check:routing` pass.
+- **Reach chooses whom a zombie touches, and whether a colonist swings, 2026-11-04.** The two
+  #282 follow-ups from the first-person group: a shambler's contact target by distance alone, and
+  a colonist's swing it cannot land. Both make the sim keep docs/40's promise that reach stops at
+  walls; the calls are in docs/30, "A reach test chooses whom, not whether".
+  - **The record.** `SimShambler._contact_target` (`godot/sim/modules/shambler.gd`) takes the
+    world and the reacher from five callers (the Pursue chase, the Seek and Wander catch, the swipe
+    and the grab) and returns the nearest survivor inside the radius that `_clear_contact` says
+    the reacher can arrive at, the order `SimMelee._resolve_strike` already used for the player's
+    swing. When nobody inside the radius is reachable it returns the nearest by distance, as it
+    did before, so whether anybody is in contact never changes: a shambler pressed to a window at
+    somebody it cannot touch stays in Pursue, and the swipe and the grab refuse that survivor
+    through `_clear_contact` as they always did. The Dormant wake asks only whether anybody is in
+    contact and is not traced. One survivor in the radius is never traced; with several the
+    nearest is traced first. `SimNpcCombat._in_reach` (`godot/sim/modules/npc_combat.gd`, new) is
+    the melee half of `can_strike`: inside `_melee_reach` and `SimSpace.reach_clear`. `can_strike`,
+    `_engage` (both its ordinary and its defending branch) and `npc.instinct-defense` ask it, so
+    no colonist and no idle player winds up a swing `_resolve_strike` will refuse. In `_engage`'s
+    ordinary branch an unreachable threat falls through to the shot, the order `can_strike`
+    already had. Instinct asks before it turns, so it no longer turns towards a claw it cannot
+    answer. No number is drawn, no save field moves.
+  - **The gate.** `godot:m2:space` READS gains two lanes. READS `_contact_target` runs the live
+    shambler loop with two walls meeting diagonally: a pursuing shambler that cannot move has the
+    player 0.64 m off across the corner and a second survivor 0.86 m off in the clear. It asserts
+    the geometry first (the corner refuses the nearer, the farther is clear). Every swipe and grab
+    lands on the farther survivor. With the farther one gone nothing lands and the shambler is still
+    in Pursue. With the walls gone the nearer one is taken. READS npc swing runs a colonist's engage
+    and the unattended player's instinct, each 1.70 m from a pursuing shambler with the bat, and
+    counts swings started (`stamina.spent`) and landed: a wall and a wire fence between start none,
+    an open window and open ground start swings that land. Both lanes were run against the previous
+    modules: the contact lane failed ("reached nobody"), and the swing lane failed on all four
+    refusing rows (5 or 6 swings started, none landed).
+  - **Measured.** `npm run godot:playtest` (seed 20260805, ten days asked), base `5a14791a` in a
+    snapshot against this branch, side by side: both wipe on day 7 (`day_reached=7`, three deaths,
+    six kills, 79 bites, 3,076 player swings, 87 colonist swings and 45 hits), every day line equal
+    but for tick timing; 2,207 s and 2,199 s of wall clock. The case never arises on that seed.
+    `godot:m2:balance`'s fast tier prints the same lines on base and branch, byte for byte, all four
+    seeds and both armour arms. `godot:bench:runtime` over two alternating rounds: the shipped tick
+    4.58 and 4.80 ms before, 4.67 and 4.80 after; the colony tick 5.29 and 5.49 before, 5.38 and
+    5.48 after, flat inside the noise.
+  - **Verified.** The full `godot:m2` chain as its four CI shards, all green (shard 2 under
+    `xvfb-run`: on the desktop display `godot:check:grade` fails on base and branch alike, with no
+    HUD chrome in its capture). Also `godot:m2:space`, `godot:check:first_person`,
+    `godot:check:fp_expedition`, `godot:smoke`, `godot:test` and `check:routing`.
 - **Weapon kit lathes smoothed, and what horde use costs, 2026-11-04.** Two of #298's round 1
   minors in the weapon kit (`tools/blender/first_person_weapons/build_weapons.py`).
   - **The record.** `lathe()` now gives each of its faces smoothed corner normals: a corner takes
