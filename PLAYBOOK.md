@@ -46,43 +46,21 @@ Then read, in order:
 
 ## The team
 
-**The current team (Linux, since 2026-11-04).** The owner's machine runs the terminals in herdr,
-not Orca. The table below the herdr workflow is the Windows-era roster, kept for its role rules.
+**Linux, since 2026-11-04.** The owner's machine runs the terminals in herdr, not Orca. The owner
+decides. Agents do the rest, each on its own model, coordinated by the coordinator.
 
-| Role | Agent and model | Does | Does not |
+| Role | Agent | Does | Does not |
 |---|---|---|---|
 | Coordinator | Claude Code, Opus 5.5 | Reads the state, writes every spec, dispatches, verifies every report against the diff, renders and gates, opens PRs, merges after the owner's go-ahead | Write the work itself, beyond small fixes to docs and records |
-| Modeler and painter | Kimi Code, K3.1 Pro, thinking high, in "Never Ask" mode | 3D models, rigs, clips and, since Codex was dropped, the final painted textures | Edit another worker's worktree |
-| Workhorses (two) | OpenCode, Beam Free, at **medium** effort (the owner's setting; do not raise it) | Mechanical code and docs, given a one-step spec with an exact acceptance list | New gates, shared sim modules, art judgement |
-| Strong tier | Opus subagents the coordinator starts | New gates, shared sim modules, art reviews, and finishing anything a workhorse left short | Merge |
+| Art lead | Kimi Code, K3.1 Pro, thinking high, in "Never Ask" mode | Every 3D model, rig, clip, UV layout and painted texture | Edit another worker's worktree |
+| Workers (two) | Claude Code, Haiku 5.5 | All non-art work: code, gates, docs, keeping pull requests current with main, and independent reviews of work they did not make | Merge |
 
-The owner decides. Everything else is done by agents running as terminals inside Orca, each
-on its own model, coordinated by one of them. The owner's call of 2026-11-01: this roster may
-name models; the rule against model identifiers still holds for authorship (a commit, PR title
-or body, code comment or doc never says which model wrote it).
+The roster may name models, because it says who runs what. Authorship never does: a commit, PR
+title or body, code comment or doc does not say which model wrote it (the owner's call, 2026-11-01,
+docs/30).
 
-| Role | Agent and model | Does | Does not |
-|---|---|---|---|
-| Coordinator | Claude Code, Opus 5.5, high effort | Reads the state, picks the pieces, writes every task spec, dispatches, judges every render and report, merges after the owner's go-ahead, keeps the owner informed | Write the work itself, beyond small reads and checks |
-| Workhorse | Claude Code, Haiku 5.5, high effort | Mechanical and engineering work: tooling, presentation code, gates, keeping pull requests current with main, driving CI green; spawns its own subagents | Merge; touch art builders it does not own |
-| Modeler | Kimi Code, K3.1 Pro, thinking high | 3D models: Blender builders, meshes, rigs, UVs, animation, `--check` and plant modes | Paint the final textures (Codex does) |
-| Art | Codex, GPT-6.1-Sol (the owner runs it at high; it ran at medium on 2026-11-01) | Painted pixel textures on the modeler's UV layout, 2D look targets, palette, and an independent second eye on every model round | Edit the modeler's worktree |
-| Strong tier, on demand | Claude Code, Opus 5.5, high, started by the coordinator | Shared sim modules, the save format, taking over a modeler who ran out of usage, independent art reviews and their confirmation passes | Merge |
-| Writer, on demand | Claude Code, Fable 5.1, started by the coordinator | Large writing and restructuring work, such as this playbook's merge | Merge |
-
-Kimi has priority for models. When Kimi runs out of usage, an Opus worker takes over the same
-worktree from Kimi's handoff (see [When a worker runs out](#when-a-worker-runs-out)).
-
-**Model routing, by role.** The owner assigns models by role, and the roster above is the
-current assignment. The roles that hold whatever the models are:
-
-- The coordinator, and the end review of a feature, on the coordinator's model.
-- Working threads, on the fast tier at high effort.
-- On the strongest tier at high effort, from the start: planning threads; anything that cannot
-  be undone (merges, deletes); all art, design and visual placement, and the art reviewers; and
-  any piece that touches a shared sim module (`godot/sim/modules/jobs.gd`,
-  `godot/sim/modules/stockpile.gd`, `godot/sim/modules/needs.gd` and the like) or the save format
-  (the owner's call, 2026-10-27).
+Kimi has priority for models; if Kimi runs out of usage, a worker takes over its worktree from its
+HANDOFF.md (see [When a worker runs out](#when-a-worker-runs-out)).
 
 ## The herdr workflow (current)
 
