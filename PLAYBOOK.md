@@ -782,8 +782,6 @@ pause policy), and docs/41's "For the owner" list. Every one has a default alrea
   body (#313's capture).
 - 78 indoor counter, shelf and partition tiles across 9 building templates have no ceiling; the
   sky shows from inside (found by #310's confirmation review).
-- Godot generates untracked `*.translation` files from the art-docs CSVs
-  (`godot/art/simplyzombies/docs/`); nothing ignores them, so worktrees show as dirty.
 - `godot:check:fp_geometry` went from about 2 s to 18 s with #310's real-worldgen lane.
 - In the survivor review scene the light is flat grey; it does not show the game's mood, so
   colour judgements made there run dark.
