@@ -62,95 +62,80 @@ HANDOFF.md (see [When a worker runs out](#when-a-worker-runs-out)).
 
 ## The dispatch workflow
 
-One coordinator dispatches work into live terminals, and each worker reports back in a file. Two
-rules hold throughout: workers never share a worktree at the same time, and nobody switches branches
-in the main checkout (`/home/jtf/simplyZOMBIES`).
+One coordinator dispatches work into live terminals, and each worker reports back in a file. Workers
+never share a worktree at the same time, and nobody switches branches in the main checkout.
 
-1. **Orient.** The coordinator reads the state: open PRs (`gh pr list`), `origin/main` against the
-   local checkout, the worktrees, and the owner's request. It renders the current asset before
-   judging it.
-2. **Specs live in the shared folder.** Each task is a self-contained markdown spec,
-   `/home/jtf/sz-shared/<piece>/task-<who>.md`: target worktree and branch, the change, constraints,
-   ownership, observable acceptance. Where several workers share one piece, a `BRIEF.md` beside
-   them carries the owner's words verbatim and the technical contract.
-3. **One worktree per worker.** The coordinator creates it first:
-   `git worktree add -b <agent>/<piece> .claude/worktrees/<piece> origin/main` (or off the PR it
-   stacks on). Every worktree sits under `.claude/worktrees/` (ignored by git) on a branch named
-   `<agent>/<piece>`. Symlink `node_modules` from the main checkout into it; the symlink is excluded
-   in `.git/info/exclude`.
-4. **Dispatch.** `hc ls` lists the terminals, in the workspace "simplyZOMBIES / 1". Addresses such as
-   `t1p` change between runs: Kimi is the `kimi-code` row, and the two workers are the Haiku rows.
-   Start a new one with `hc run --bg --name <n> --cwd <worktree> --outlive-parent <cmd>`, then
-   dispatch with `hc send <t> "Read <spec> and WORKER_RULES.md, then do the task without stopping"`.
-   `hc send` wraps its text in `<hc>` tags, so a slash command sent that way becomes a chat message.
+1. **Orient.** Read the state: open PRs (`gh pr list`), `origin/main` against the local checkout, the
+   worktrees, and the owner's request. Render the current asset before judging it.
+2. **Specs live in the shared folder.** Each task is a markdown spec,
+   `/home/jtf/sz-shared/<piece>/task-<who>.md`: worktree and branch, the change, constraints,
+   ownership, acceptance. Workers sharing a piece also get a `BRIEF.md` with the owner's words verbatim.
+3. **One worktree per worker.** `git worktree add -b <agent>/<piece> .claude/worktrees/<piece> origin/main`
+   (or off the PR it stacks on). Worktrees sit under `.claude/worktrees/`, on branches named
+   `<agent>/<piece>`. Symlink `node_modules` from the main checkout; the symlink is excluded in
+   `.git/info/exclude`.
+4. **Dispatch.** `hc ls` lists the terminals in the workspace "simplyZOMBIES / 1". Addresses such as
+   `t1p` change between runs: Kimi is the `kimi-code` row, and the workers are the Haiku rows. Start one
+   with `hc run --bg --name <n> --cwd <worktree> --outlive-parent <cmd>`, then
+   `hc send <t> "Read <spec> and WORKER_RULES.md, then do the task without stopping"`. `hc send` wraps
+   its text in `<hc>` tags, so a slash command sent that way becomes a chat message. Kimi asks before
+   each shell command unless it is in "Never Ask" mode: `hc keys <t> / y o l o enter` turns that on.
 5. **Wait.** `hc wait <t>` returns on every status change. Loop it until `REPORT.md` appears or the
-   terminal goes idle, then read `hc read <t>` if no report came. A worker that runs out writes
-   `HANDOFF.md` instead.
-6. **Verify before anything merges.** Read the worker's diff yourself, and its manifest or map where
-   there is one. Rerun the gates the spec names. Workers have reported work as done when it was not,
-   three times in one session.
-7. **Settle the terminal.** Once the report is verified, reuse the terminal for the next task.
-   Subagents cannot write files under `sz-shared`, so the coordinator writes their `REPORT.md` from
-   the hand-back.
-
-Kimi asks before each shell command unless it is in "Never Ask" mode. Turn that on with raw keys:
-`hc keys <t> / y o l o enter`.
+   terminal goes idle, then `hc read <t>`. A worker that runs out writes `HANDOFF.md` instead.
+6. **Verify.** Read the diff yourself, and the manifest or map where there is one, and rerun the gates
+   the spec names. Workers have reported work as done when it was not, three times in one session.
+7. **Settle.** Reuse the terminal for the next task once the report is verified. Subagents cannot write
+   under `sz-shared`, so the coordinator writes their `REPORT.md` from the hand-back.
 
 ### Art in rounds
 
-- The art lead publishes the UV layout early (`uv_layout.png` + `.json` with island rects,
-  orientation, landmarks, mirroring and a position bake), so the paint starts in parallel.
-- Every round renders the same views, side by side with the owner's concept: Blender clay and
-  textured, plus the in-engine sheet from `npm run godot:shots:survivor -- --glb=<path>
-  --out=<dir>`. The coordinator judges the in-engine sheet, not only Blender.
-- Each round gets an independent review (see below). The coordinator writes a ranked verdict
-  (`OPUS_VERDICT.md`) and sends it, with the review, to the art lead. Geometry is locked before
-  final paint, and paint is locked last.
-- The owner sees the accepted model before any pull request.
+- The art lead publishes the UV layout early (`uv_layout.png` + `.json` with island rects, orientation,
+  landmarks, mirroring and a position bake), so the paint starts in parallel.
+- Every round renders the same views beside the owner's concept: Blender clay and textured, and the
+  in-engine sheet from `npm run godot:shots:survivor -- --glb=<path> --out=<dir>`. The coordinator judges
+  the in-engine sheet, not only Blender.
+- Each round gets an independent review. The coordinator writes a ranked verdict (`OPUS_VERDICT.md`)
+  and sends it, with the review, to the art lead. Geometry is locked before final paint, and paint is
+  locked last. The owner sees the accepted model before any pull request.
 
 ### Independent review and the merge train
 
-- **Art and placement review** (the owner's call, 2026-10-27). An art or placement PR merges only
-  after an independent, read-only reviewer checks it, and after fixes, a confirmation pass by the
-  same reviewer against its first report. A push after a verdict voids it.
-  - The coordinator spawns the reviewer, never the worker that made the art. The brief is fixed: the
-    PR, its head commit, its base commit, and the report's folder, `/home/jtf/sz-shared/reviews/<piece>/`.
-    A confirmation pass also gets the previous report. The reviewer is not told the worker's account
-    of what changed; those are what it checks.
-  - The reviewer makes its own shots with `godot:shots` on the base and on the head, and compares
-    them. It measures the noise floor (base against base) before calling a difference. The report
-    names both commits.
-  - Round 3 is the last full round. Findings land as commits on the same PR. A later pass checks only
-    the previous findings and raises only blockers. Minor findings in a clear round go into docs/23.
-  - Docs-only, gate-only and 1 to 2 px gate-verified follow-ups need no review.
-- **The merge train.** Pieces built side by side merge one by one, each as it goes green (the owner's
-  call, 2026-10-27). Merge the first green one. The next merges `main` in (never rebase, never
-  force-push), waits for CI on its new head, and merges in turn. Conflicts in the tails of docs/23 and
-  docs/30 are settled in that merge of `main`, by keeping both entries. A piece that waits on another
-  names it in its body and merges after it.
-- After each merge, the coordinator tells the open workers the new `main`. A worker keeps its queue
+- **Art and placement review** (the owner's call, 2026-10-27). An art or placement PR merges only after
+  an independent read-only reviewer checks it, and after fixes, a confirmation pass by the same reviewer
+  against its first report. A push after a verdict voids it.
+  - The coordinator spawns the reviewer, never the worker that made the art. The brief is the PR, its
+    head and base commits, and `/home/jtf/sz-shared/reviews/<piece>/` for the report. A confirmation pass
+    also gets the previous report. The reviewer is not told the worker's account of what changed.
+  - The reviewer makes its own shots of base and head with `godot:shots`, measures the noise floor
+    (base against base) before calling a difference, and names both commits in the report.
+  - Round 3 is the last full round. Later passes check only the previous findings and raise only
+    blockers. Minor findings in a clear round go into docs/23. Docs-only, gate-only and 1 to 2 px
+    gate-verified follow-ups need no review.
+- **The merge train** (the owner's call, 2026-10-27). Pieces built side by side merge one by one, each as
+  it goes green. The next merges `main` in (never rebase, never force-push), waits for CI on its new head,
+  and merges in turn. Conflicts in the tails of docs/23 and docs/30 are settled by keeping both entries.
+  A piece that waits on another names it in its body.
+- After each merge the coordinator tells the open workers the new `main`. A worker keeps the queue
   current: it merges `main` into the next PR, reruns the touched gates, and reports a table (number,
   head, CI, local gates, preconditions, risk).
-- CI capacity is the bottleneck. A bundle of pieces that conflict in code goes into one integration
-  pull request that names the pull requests it closes (#289 closed twelve). Docs-only pull requests
-  merge after a clean local merge and `check:routing`, since no Godot gate reads them.
+- A bundle of pieces that conflict in code goes into one integration PR that names the PRs it closes
+  (#289 closed twelve). Docs-only PRs merge after a clean local merge and `check:routing`.
 
 ### When a worker runs out
 
 1. Tell it to stop. It commits a WIP checkpoint even if checks fail, and writes `HANDOFF.md` (method,
    what works, what fails and why, next steps, traps).
 2. Wait for it to go idle before anything else touches the worktree.
-3. Start the replacement in the same worktree (`hc run ... --cwd <worktree>`), its spec pointing at
-   the handoff and the original task. An Opus worker takes over Kimi's art worktree this way.
+3. Start the replacement in the same worktree (`hc run ... --cwd <worktree>`), its spec pointing at the
+   handoff and the original task.
 
-A worker revived after days can wake with stale context, so brief it on the current `main` before it
-acts. Push at a clean point before a long run.
+A worker revived after days can wake with stale context, so brief it on the current `main` first. Push
+at a clean point before a long run.
 
-**Briefing a worker.** docs/23 and docs/30 are far too large to read whole at the start of a piece.
-A brief names the parts that bear on it: the piece's entry in docs/23's what's left, its row in the
-[routing table](#routing-table), the record entries of the systems it touches, and the docs/30 entries
-for those systems (search by the system's name). The worker reads this file, docs/37 and those parts.
-A worker that finds it needs more reads more; the brief is a floor, not a fence.
+**Briefing a worker.** docs/23 and docs/30 are too large to read whole. A brief names the parts that
+bear on the piece: its entry in docs/23's what's left, its row in the [routing table](#routing-table),
+the record entries of the systems it touches, and the docs/30 entries for those systems. The worker reads
+this file, docs/37 and those parts. A worker that needs more reads more; the brief is a floor, not a fence.
 
 ## Rules for every worker
 
