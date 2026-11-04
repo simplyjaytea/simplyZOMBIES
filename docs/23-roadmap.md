@@ -159,8 +159,9 @@ and nothing that has to be ticked.
 ##### First-person survival colony pivot
 
 Owner-authorized 2026-11-01; [docs/39](39-first-person-pivot.md) is the phased
-plan and spatial/art contract. The existing default remains top-down during
-conversion. The source baseline is archived on GitHub at
+plan and spatial/art contract. First person is the default boot, and the top-down
+game is legacy ([docs/30](30-decisions.md#the-top-down-game-is-legacy-2026-11-04)).
+The source baseline is archived on GitHub at
 `archive/topdown-colony-pre-first-person-2026-11-01`. Planned pieces:
 
 - **Blender pixel-textured colony starter kit.** Original desk, ledger, shelf,
@@ -169,6 +170,10 @@ conversion. The source baseline is archived on GitHub at
   verify dimensions and reach, make headed shots and independent art review.
 - **First-person scavenging and personal equipment.** Real world containers,
   search/take/stow/equip through a revised grid UI; skill and condition access.
+- **The Ome–Okutama re-theme.** A setting brief first, as a new doc. It covers the real places to
+  draw on, a fictional map of the valley, building types, and the item and district renames. After
+  the brief: Japanese building templates and props by the art lead, then content renames. See
+  [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
 - **First-person spatial combat and perception.** One coherent obstruction and
   hit contract across visible geometry, sim movement, combat and NPC sight.
 - **First-person people and settlement operation.** Ledger animations, reports,
@@ -231,6 +236,8 @@ equipment arranged around it. [The design brief](32-ui-overhaul.md) specifies th
 navigation, every surface, integration seams and acceptance; [docs/30](30-decisions.md#the-whole-interface-2026-10-03)
 records the owner's choices. This is new work, not a claim that the redesign has shipped.
 The old Field Kit implementation remains the current baseline until replaced slice by slice.
+Under the 2026-11-04 legacy call, this group is paused for the top-down game and resumes only
+on the owner's word or where a slice is reused by first person.
 
 The grid-plus-fast-list recommendation is now the owner's decision, and the inventory's own
 look is settled as the Salvage Locker (docs/30, "The inventory's look"; the record's "UI — the
@@ -2486,6 +2493,19 @@ not a to-do list:
     from one camera, show the lathes round with their creases kept and the receiver
     pixel-identical.
 
+- **The held weapon gives way to screens, 2026-11-04.** Fixes two known bugs: the view model
+  floated beside the body in the third-person testing view (#313's capture), and it drew over the
+  gunsmith bench's screen (#309).
+  - **The record.** `first_person.gd`'s `_update_held_weapon` hides the view model while the run-over
+    panel, the bench, the inventory sheet, the ledger's Reports page or a talk is open, and in third
+    person. `held_weapon.gd` gains `set_view_visible`, which hides only the drawn pivot and keeps the
+    assembly, so the same model shows again when the screen closes. Godot's generated
+    `*.translation` files beside the art-docs CSVs are ignored.
+  - **The gate.** The HIDE lane of `npm run godot:check:first_person` first requires the armed
+    player's weapon to be visible with every screen closed, then opens each screen in turn and
+    requires it hidden, and shown again once the screen closes. With the hide line removed the lane
+    fails on all five screens.
+
 - **Perception with heights, 2026-11-01.** Slice 4 of docs/40: sight works by height. It builds the
   recommended default of the owner's question 3 (docs/33, "Do Low cover and windows work by
   height?"), behind one switch, `SimVisibility.SIGHT_BY_HEIGHT`, which ships true. The question
@@ -2630,6 +2650,28 @@ not a to-do list:
     unused (44 % of the texture), and each used cell holds two to five flat colours, so siding, render
     and block read as low-contrast tones and brick as a two-tone checker. That is below the outpost
     pack's quality floor and is the next pass for this kit, not a blocker for the shells.
+
+- **Ceilings over counters, shelves and partitions, 2026-11-04.** A fix forward on the building
+  finishes above. From inside, 77 template tiles holding a counter, shelf or partition, across nine
+  templates (clinic_storefront, gatehouse_yard, hall_civic, kiosk_corner, shop_corner,
+  store_grocery, unit_industrial, warehouse_brick, workshop_unit), showed the sky. #310's
+  confirmation review found them and counted 78; the 78th, unit_industrial's one indoor window, is
+  closed from above by its lintel.
+  - **The fix.** `build_finishes.py` drew the ceiling face only over an indoor tile of open floor. It
+    now draws it over every indoor tile, and the 22 GLBs are rebuilt. Blender re-encoded the atlas
+    with identical pixels.
+  - **The gate.** `godot:check:fp_geometry` gains a CEILINGS lane on the WORLDGEN lane's four real
+    districts. Every tile the sim marks indoors in a finished building, walls excepted, is crossed by
+    two vertical rays from 5 cm above the floor, and each must meet a downward-facing face the
+    building draws no higher than `SimSpace.FULL_MM` and no lower than 25 mm under it, or under the
+    bottom of the tile's own head band (a window's lintel, a door's head). It judges 15242 indoor
+    tiles, 1113 of them counters, shelves or partitions. On every run the ceiling is stripped in
+    memory from one counter tile's mesh, and the same rays refuse that tile and no other.
+  - **Measured.** Against main's GLBs the lane fails with `1113 of 15242 indoor tiles have no ceiling
+    at 2550 mm (77 distinct tiles of 9 templates); the first is (11, 32) in building.kiosk.corner
+    (district.residential_suburb)`. On the rebuilt GLBs it prints 0 without a ceiling. The lane
+    adds under half a second to the gate: about 14.4 s to 14.7 s on one quiet machine, and inside
+    the run-to-run noise (15.6 to 17.2 s) when the old and new gate alternate.
 
 - **The gunsmith bench as a place in first person, 2026-11-01.** W5 of docs/41: walk up to a bench,
   press E, and the assembly screen opens on the weapon carried. `godot/presentation/first_person/bench_view.gd`
