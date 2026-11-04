@@ -159,8 +159,9 @@ and nothing that has to be ticked.
 ##### First-person survival colony pivot
 
 Owner-authorized 2026-11-01; [docs/39](39-first-person-pivot.md) is the phased
-plan and spatial/art contract. The existing default remains top-down during
-conversion. The source baseline is archived on GitHub at
+plan and spatial/art contract. First person is the default boot, and the top-down
+game is legacy ([docs/30](30-decisions.md#the-top-down-game-is-legacy-2026-11-04)).
+The source baseline is archived on GitHub at
 `archive/topdown-colony-pre-first-person-2026-11-01`. Planned pieces:
 
 - **Blender pixel-textured colony starter kit.** Original desk, ledger, shelf,
@@ -169,6 +170,10 @@ conversion. The source baseline is archived on GitHub at
   verify dimensions and reach, make headed shots and independent art review.
 - **First-person scavenging and personal equipment.** Real world containers,
   search/take/stow/equip through a revised grid UI; skill and condition access.
+- **The Ome–Okutama re-theme.** A setting brief first, as a new doc. It covers the real places to
+  draw on, a fictional map of the valley, building types, and the item and district renames. After
+  the brief: Japanese building templates and props by the art lead, then content renames. See
+  [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
 - **First-person spatial combat and perception.** One coherent obstruction and
   hit contract across visible geometry, sim movement, combat and NPC sight.
 - **First-person people and settlement operation.** Ledger animations, reports,
@@ -195,8 +200,6 @@ conversion. The source baseline is archived on GitHub at
   - under 1 m the survivor's brown face blotches read as skin marks rather than dirt.
 - **Weapon kit polish (#298 round 1 minors).** In `tools/blender/first_person_weapons/build_weapons.py`,
   whose outputs are `godot/assets/first_person/weapons.manifest.json` and the GLBs beside it:
-  - the lathes (`lathe()`) use each triangle's face normal, so the bat, suppressor and barrel read
-    faceted at 0.45 m; smoothed vertex normals across each lathe would read round at no triangle cost;
   - the polymer grip's stipple is single 7.8 mm texels, which read as dice dots or dirt; a moulded
     texture of several texels, or none, is the fix;
   - the grip-side texel grid is projected on the receiver axes, so it is not raked with the 20° grip,
@@ -205,11 +208,7 @@ conversion. The source baseline is archived on GitHub at
     grime reads as camouflage in the view model;
   - the knife's ground bevel is one texel wide and alternates tones, so at 1280 x 720 the edge reads
     as saw teeth;
-  - the crowbar's claw is a flattened tip with no nail slot;
-  - the README does not say what horde use costs: a default pistol is 1,430 triangles in 7 meshes,
-    324 of them hidden (276 in the spring coil), and the alternate is 2,002 in 10. An NPC in numbers
-    should skip the hidden internals outside a bench view, or merge to a world LOD. The loader (#301)
-    dedupes the embedded atlas copies at runtime, so the files stay large on disk.
+  - the crowbar's claw is a flattened tip with no nail slot.
 - **Item kit polish (#299 round 3 minors).** In `tools/blender/first_person_items/build_items.py`, whose
   outputs are `godot/assets/first_person/items.manifest.json` and the GLBs in `items/`:
   - the neutral bottle is a dark-green wine bottle with a blank label, and canteens, the Fuel Bottle
@@ -221,13 +220,8 @@ conversion. The source baseline is archived on GitHub at
     radius), so neither shows its vanes;
   - `headgear` draws a military steel helmet, which is right for hard hats and bike helmets but a
     stretch for gas masks and half-mask respirators, which need their own rung;
-  - the gun case draws as a soft roll-top bag; a long-case rung would tighten it.
-- **Zombie target by distance alone (#282 review).** `SimShambler._contact_target`
-  (`godot/sim/modules/shambler.gd`) takes the nearest survivor with no reach test, unlike the player's
-  nearest-reachable swing in `melee.gd`. A shared sim module; needs a READS lane in `godot:m2:space`.
-- **Colonist swings it cannot land (#282 record).** `npc_combat.gd` `_engage` and
-  `npc.instinct-defense` start a swing on distance alone, and `_resolve_strike` then refuses it at a
-  window. Ask `SimSpace.reach_clear` before starting, as `can_strike` does.
+  - the gun case draws as a soft roll-top bag, and the crossbow bolt draws the 71 cm arrow, where a
+    bolt is about 40 cm (`LENGTH_HINTS`); a long-case rung and a bolt length hint would tighten both.
 
 ##### UI overhaul
 
@@ -238,6 +232,8 @@ equipment arranged around it. [The design brief](32-ui-overhaul.md) specifies th
 navigation, every surface, integration seams and acceptance; [docs/30](30-decisions.md#the-whole-interface-2026-10-03)
 records the owner's choices. This is new work, not a claim that the redesign has shipped.
 The old Field Kit implementation remains the current baseline until replaced slice by slice.
+Under the 2026-11-04 legacy call, this group is paused for the top-down game and resumes only
+on the owner's word or where a slice is reused by first person.
 
 The grid-plus-fast-list recommendation is now the owner's decision, and the inventory's own
 look is settled as the Salvage Locker (docs/30, "The inventory's look"; the record's "UI — the
@@ -2486,6 +2482,90 @@ not a to-do list:
     4x, and 0.705 m is 1.76x). No check would refuse an attachment drawn as the jar: the jar is
     0.80x the Oil-Filter Can's expected size, inside `scale`'s 2x, and the jar is not a hand-chosen
     model, so `rung` passes it. `godot:check:first_person`, `godot:smoke` and `check:routing` pass.
+- **Reach chooses whom a zombie touches, and whether a colonist swings, 2026-11-04.** The two
+  #282 follow-ups from the first-person group: a shambler's contact target by distance alone, and
+  a colonist's swing it cannot land. Both make the sim keep docs/40's promise that reach stops at
+  walls; the calls are in docs/30, "A reach test chooses whom, not whether".
+  - **The record.** `SimShambler._contact_target` (`godot/sim/modules/shambler.gd`) takes the
+    world and the reacher from five callers (the Pursue chase, the Seek and Wander catch, the swipe
+    and the grab) and returns the nearest survivor inside the radius that `_clear_contact` says
+    the reacher can arrive at, the order `SimMelee._resolve_strike` already used for the player's
+    swing. When nobody inside the radius is reachable it returns the nearest by distance, as it
+    did before, so whether anybody is in contact never changes: a shambler pressed to a window at
+    somebody it cannot touch stays in Pursue, and the swipe and the grab refuse that survivor
+    through `_clear_contact` as they always did. The Dormant wake asks only whether anybody is in
+    contact and is not traced. One survivor in the radius is never traced; with several the
+    nearest is traced first. `SimNpcCombat._in_reach` (`godot/sim/modules/npc_combat.gd`, new) is
+    the melee half of `can_strike`: inside `_melee_reach` and `SimSpace.reach_clear`. `can_strike`,
+    `_engage` (both its ordinary and its defending branch) and `npc.instinct-defense` ask it, so
+    no colonist and no idle player winds up a swing `_resolve_strike` will refuse. In `_engage`'s
+    ordinary branch an unreachable threat falls through to the shot, the order `can_strike`
+    already had. Instinct asks before it turns, so it no longer turns towards a claw it cannot
+    answer. No number is drawn, no save field moves.
+  - **The gate.** `godot:m2:space` READS gains two lanes. READS `_contact_target` runs the live
+    shambler loop with two walls meeting diagonally: a pursuing shambler that cannot move has the
+    player 0.64 m off across the corner and a second survivor 0.86 m off in the clear. It asserts
+    the geometry first (the corner refuses the nearer, the farther is clear). Every swipe and grab
+    lands on the farther survivor. With the farther one gone nothing lands and the shambler is still
+    in Pursue. With the walls gone the nearer one is taken. READS npc swing runs a colonist's engage
+    and the unattended player's instinct, each 1.70 m from a pursuing shambler with the bat, and
+    counts swings started (`stamina.spent`) and landed: a wall and a wire fence between start none,
+    an open window and open ground start swings that land. Both lanes were run against the previous
+    modules: the contact lane failed ("reached nobody"), and the swing lane failed on all four
+    refusing rows (5 or 6 swings started, none landed).
+  - **Measured.** `npm run godot:playtest` (seed 20260805, ten days asked), base `5a14791a` in a
+    snapshot against this branch, side by side: both wipe on day 7 (`day_reached=7`, three deaths,
+    six kills, 79 bites, 3,076 player swings, 87 colonist swings and 45 hits), every day line equal
+    but for tick timing; 2,207 s and 2,199 s of wall clock. The case never arises on that seed.
+    `godot:m2:balance`'s fast tier prints the same lines on base and branch, byte for byte, all four
+    seeds and both armour arms. `godot:bench:runtime` over two alternating rounds: the shipped tick
+    4.58 and 4.80 ms before, 4.67 and 4.80 after; the colony tick 5.29 and 5.49 before, 5.38 and
+    5.48 after, flat inside the noise.
+  - **Verified.** The full `godot:m2` chain as its four CI shards, all green (shard 2 under
+    `xvfb-run`: on the desktop display `godot:check:grade` fails on base and branch alike, with no
+    HUD chrome in its capture). Also `godot:m2:space`, `godot:check:first_person`,
+    `godot:check:fp_expedition`, `godot:smoke`, `godot:test` and `check:routing`.
+- **Weapon kit lathes smoothed, and what horde use costs, 2026-11-04.** Two of #298's round 1
+  minors in the weapon kit (`tools/blender/first_person_weapons/build_weapons.py`).
+  - **The record.** `lathe()` now gives each of its faces smoothed corner normals: a corner takes
+    the mean of the two faces of its band that meet there, and of the neighbouring band's two
+    unless the profile turns by more than 30 degrees at that ring (`CREASE_DEG`), so a shoulder,
+    a cap or a muzzle face keeps its hard edge. `make_objects` writes them as Blender's
+    `custom_normal` corner attribute and gives every other face the very normal Blender computes
+    for it flat, so the receiver, slides, magazines and boxes export the same normals as before,
+    and the triangle and vertex counts of all 14 GLBs are unchanged. Seven models carry lathes:
+    the bat, the axe's haft, the barrel, the suppressor, the recoil spring's guide rod, the
+    optic's battery cap and the knife's rivets. A blanket `use_smooth` would have changed nothing,
+    because no two faces share a vertex. The README gains "What horde use costs", measured on the
+    rebuilt files: a default pistol is 1,430 triangles in 7 meshes, 324 of them hidden (276 in the
+    recoil spring, 212 of those in its coil), and the alternate assembly is 2,002 in 9 meshes; an
+    NPC in numbers should skip the hidden internals outside a bench view or use a merged world LOD,
+    which is not built yet. The atlas's pixels are unchanged; its PNG bytes differ from main's only
+    because this Blender links zlib-ng, so every GLB that embeds it differs from main's too.
+  - **The gate.** `-- --check` gains SHADING, judged on the exported GLB: each triangle is traced to
+    the built face holding its corners. On a lathe, the corners of one band at each ring vertex
+    agree within 0.5 degrees, and neighbouring ring vertices turn by no more than the ring step
+    (or, on the oval haft, the facets' own turn) plus 0.5; every other face's corners agree within
+    0.05 degrees. It prints `SHADING 1480 lathe ring vertices in 7 models smooth (worst seam 0.03
+    deg, worst turn +0.00 deg past its step), 2422 other triangles flat`. `-- --prove` gains two
+    plants, both caught: `flat_lathe` exports lathes with face normals (the barrel's tube is
+    faceted by 45 degrees at a ring vertex) and `smooth_box` tilts the barrel hood's corners (33.4
+    degrees). Blender renders of the bat, the suppressor and the pistol receiver before and after,
+    from one camera, show the lathes round with their creases kept and the receiver
+    pixel-identical.
+
+- **The held weapon gives way to screens, 2026-11-04.** Fixes two known bugs: the view model
+  floated beside the body in the third-person testing view (#313's capture), and it drew over the
+  gunsmith bench's screen (#309).
+  - **The record.** `first_person.gd`'s `_update_held_weapon` hides the view model while the run-over
+    panel, the bench, the inventory sheet, the ledger's Reports page or a talk is open, and in third
+    person. `held_weapon.gd` gains `set_view_visible`, which hides only the drawn pivot and keeps the
+    assembly, so the same model shows again when the screen closes. Godot's generated
+    `*.translation` files beside the art-docs CSVs are ignored.
+  - **The gate.** The HIDE lane of `npm run godot:check:first_person` first requires the armed
+    player's weapon to be visible with every screen closed, then opens each screen in turn and
+    requires it hidden, and shown again once the screen closes. With the hide line removed the lane
+    fails on all five screens.
 
 - **Perception with heights, 2026-11-01.** Slice 4 of docs/40: sight works by height. It builds the
   recommended default of the owner's question 3 (docs/33, "Do Low cover and windows work by
@@ -2631,6 +2711,28 @@ not a to-do list:
     unused (44 % of the texture), and each used cell holds two to five flat colours, so siding, render
     and block read as low-contrast tones and brick as a two-tone checker. That is below the outpost
     pack's quality floor and is the next pass for this kit, not a blocker for the shells.
+
+- **Ceilings over counters, shelves and partitions, 2026-11-04.** A fix forward on the building
+  finishes above. From inside, 77 template tiles holding a counter, shelf or partition, across nine
+  templates (clinic_storefront, gatehouse_yard, hall_civic, kiosk_corner, shop_corner,
+  store_grocery, unit_industrial, warehouse_brick, workshop_unit), showed the sky. #310's
+  confirmation review found them and counted 78; the 78th, unit_industrial's one indoor window, is
+  closed from above by its lintel.
+  - **The fix.** `build_finishes.py` drew the ceiling face only over an indoor tile of open floor. It
+    now draws it over every indoor tile, and the 22 GLBs are rebuilt. Blender re-encoded the atlas
+    with identical pixels.
+  - **The gate.** `godot:check:fp_geometry` gains a CEILINGS lane on the WORLDGEN lane's four real
+    districts. Every tile the sim marks indoors in a finished building, walls excepted, is crossed by
+    two vertical rays from 5 cm above the floor, and each must meet a downward-facing face the
+    building draws no higher than `SimSpace.FULL_MM` and no lower than 25 mm under it, or under the
+    bottom of the tile's own head band (a window's lintel, a door's head). It judges 15242 indoor
+    tiles, 1113 of them counters, shelves or partitions. On every run the ceiling is stripped in
+    memory from one counter tile's mesh, and the same rays refuse that tile and no other.
+  - **Measured.** Against main's GLBs the lane fails with `1113 of 15242 indoor tiles have no ceiling
+    at 2550 mm (77 distinct tiles of 9 templates); the first is (11, 32) in building.kiosk.corner
+    (district.residential_suburb)`. On the rebuilt GLBs it prints 0 without a ceiling. The lane
+    adds under half a second to the gate: about 14.4 s to 14.7 s on one quiet machine, and inside
+    the run-to-run noise (15.6 to 17.2 s) when the old and new gate alternate.
 
 - **The gunsmith bench as a place in first person, 2026-11-01.** W5 of docs/41: walk up to a bench,
   press E, and the assembly screen opens on the weapon carried. `godot/presentation/first_person/bench_view.gd`

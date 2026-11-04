@@ -7812,6 +7812,40 @@ and third person is a view for testing, not a game mode.
 - **Left open.** Whether third person ever becomes a player-facing mode is not decided here; docs/39
   does not name one.
 
+## The top-down game is legacy, 2026-11-04
+
+The owner's words, 2026-11-04: "Remember, the priority is working on first person mode. If
+anything, the game should default to it and leave top down as a legacy thing."
+
+- **First person is the game.** Every new piece is first person.
+- **The top-down game stays.** It still boots with `npm run godot:run:topdown`, and its gates keep
+  passing.
+- **No new features, no new UI-overhaul slices** (docs/32) for top-down, unless the owner asks.
+- **Shared sim modules serve both modes**, so a sim fix still lands in both.
+
+## The setting is Japan: the Ome–Okutama valley, 2026-11-04
+
+The owner's words, 2026-11-04: "Add to the playbook, I want the game's setting to be Japan.
+Inspired from real places." They chose the Ome–Okutama valley in western Tokyo from four options:
+Ome–Okutama, Kiryu, Hakodate and Tono.
+
+- **The setting.** The game is set in Japan, inspired by the real Ome–Okutama valley: the upper
+  Tama River gorge at the far end of the JR Ome Line, in western Tokyo.
+- **Fictional names.** Place names, businesses and brands are fictional. The real layout,
+  landscape and architecture are the inspiration: shuttered Showa-era shopping arcades, wooden
+  two-storey houses with tiled roofs, small stations, lumber yards, shrines, the river, and forested
+  mountains as the map's natural edges.
+- **The premise.** The last stop on the line out of Tokyo.
+- **Why it was chosen.** It is low-rise, which suits the engine while z-levels are deferred
+  (docs/23 "Deferred: z-levels"). The valley is defensible. The river is a water source. The first
+  expedition reads clearly: down the valley toward the city.
+- **Chosen over three others.** Kiryu (a flat textile town), Hakodate (a port with winter, but
+  sloped) and Tono (rural folklore country, with few buildings to scavenge). Towns in the Fukushima
+  exclusion zone were ruled out out of respect.
+- **What it changes is not decided here.** The current content is Western: building templates, item
+  names and the district names such as `district.residential_suburb`. The re-theme is planned work,
+  listed in docs/23.
+
 ## The playbook, one file, 2026-11-01
 
 The owner's call: `CLAUDE.md`, `AGENTS.md` and docs/38 merge into one root `PLAYBOOK.md`. In
@@ -7860,3 +7894,36 @@ playbook's section for it; a fact about the build goes in the doc that owns it (
 status, docs/30 for a call, docs/33 for an open owner question) and the playbook links to it.
 The session record, to-do and bugs sections are rewritten at the end of a session, not appended
 to forever.
+
+## A reach test chooses whom, not whether, 2026-11-04
+
+The two #282 follow-ups (docs/23's first-person group: a zombie's contact target by distance
+alone, and a colonist's swing it cannot land) took these engineering calls. Both make the sim keep
+the promise docs/40 already makes, that reach stops at walls; neither is a new mechanic.
+
+- **A shambler's contact target is the nearest survivor it can reach, and still the nearest one
+  when it can reach nobody.** `SimShambler._contact_target` names one survivor for five callers:
+  the Pursue chase, the Seek and Wander arms' "caught" (which moves a body into Pursue), the swipe
+  and the grab. Asking `_clear_contact` and returning null when nobody is reachable would have
+  turned a shambler pressed against a window at somebody inside back to Wander, and a dormant one
+  would stop waking for somebody touching it through a wall; both are changes a player would see.
+  So the reach test only reorders: among the survivors inside the radius, the nearest reachable one
+  wins, and with none reachable the nearest by distance comes back as before, where the swipe and
+  the grab ask `_clear_contact` of it and refuse it as they always did. The Dormant arm asks only
+  whether anybody is in contact, so it passes no world and is never traced. With one survivor in the
+  radius the answer is the same either way, so nothing is traced; with several, the nearest is
+  traced first. `godot:m2:space` READS `_contact_target` holds all three cases.
+- **A colonist's engage, its defence and the player's instinct ask one melee question,
+  `SimNpcCombat._in_reach`**: inside `_melee_reach`, and `SimSpace.reach_clear` from here to the
+  threat. `can_strike` asks the same function, so the attack walk and the swing cannot disagree.
+  This supersedes the 2026-11-01 entry's "`npc_combat._engage` still starts a swing on distance".
+- **A threat out of reach falls through to the shot.** In `_engage`'s ordinary branch the melee
+  test was already followed by the ranged one (it fell through when `try_begin_swing` refused, on
+  stamina for instance), and `can_strike` falls through the same way for the attack walk. So a
+  colonist carrying both, facing a shambler across a wire fence or a window it cannot swing over,
+  now fires if the shot is in range and in sight, where it used to wind up a swing that hit
+  nothing. A colonist with only a melee weapon does nothing there, and a critically injured one
+  (the defending branch, melee only) does nothing there either.
+- **The instinct defence does not turn to face a claw it cannot answer.** It used to turn and then
+  swing; the reach test now comes before the turn, so an idle player is not spun towards a shambler
+  on the far side of a wire fence it can see and not touch.

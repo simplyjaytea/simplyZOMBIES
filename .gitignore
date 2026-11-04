@@ -24,3 +24,5 @@ godot/assets/first_person/weapons/*.import
 godot/assets/first_person/weapons/*_weapons_atlas.png
 godot/assets/first_person/items/*.import
 godot/assets/first_person/items/*_items_atlas.png
+# Godot-generated translation files beside the CSVs (docs/23).
+godot/art/simplyzombies/docs/*.translation
