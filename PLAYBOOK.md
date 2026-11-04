@@ -569,7 +569,7 @@ trimmed playbook), #326 (the organic survivor). Their branches and worktrees are
 **The merge train.** A PR merges only when its head contains `origin/main` and CI is green on that
 head; after each merge the next PR merges `main` in and waits for CI again. CI is the bottleneck
 (nine runs queued at once this session), so the eleven renames go in as one integration PR. Order:
-the renames integration (closes #332, #333, #334, #335, #337, #339, #340, #341, #342, #343, #344),
+#346, the renames integration (closes #332, #333, #334, #335, #337, #339, #340, #341, #342, #343, #344),
 then #338 (arms art), then #331 (arms view, retargeted to `main` **before** the arms branch is
 deleted: GitHub closes a PR whose base branch goes), then #327 (purifier refill), #329 (crawler),
 #336 (bloodhound), #328 (clothing note). #322 is a no-op (its rule is already on `main`): close it.
@@ -599,7 +599,7 @@ and the tiled-roof house) was in progress at the pause: read `sz-shared/fp-build
 follow its review.
 
 **In flight at the pause, with a checkpoint each:** the alarm and noisemaker priced
-(`claude/alarm-priced`, `sz-shared/alarm-priced/`), the renames integration, the buildings batch.
+(`claude/alarm-priced`, `sz-shared/alarm-priced/`) and the buildings batch.
 
 **Waiting on the owner:** the six arms-view defaults (#331); docs/33's firearms card (default rare);
 docs/44's five clothing cards; the survivor concept image for `/home/jtf/sz-shared/concept/`; whether
@@ -609,7 +609,7 @@ after). Every one has a default built.
 **Next session, start here**, in order:
 
 1. `hc ls`; read every `HANDOFF.md` or `REPORT.md` under `sz-shared/` for the three in-flight pieces
-   and resume them (a Haiku each for the integration and the alarm, Kimi for the buildings).
+   and resume them (a Haiku for the alarm, Kimi for the buildings).
 2. `gh pr list` and CI; run the merge train in the order above. Retarget #331 to `main` before
    deleting `claude/fp-arms`.
 3. After the integration merges: R4 waits on Kimi's materials; then the rifle round 2 to Kimi after
