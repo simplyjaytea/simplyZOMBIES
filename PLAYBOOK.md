@@ -776,7 +776,6 @@ the next PR (never rebase), keep both sides of docs conflicts, and wait for CI o
    plants. Its in-engine comparison is `sz-shared/fp-arms/round-2/in-engine/comparison.png`. A
    first look found the round 1 faults gone: no black streaks on the hands, and charcoal knit
    sleeves instead of the camouflage-like pattern. The formal independent review has not been done.
-   The `long` class still shows a placeholder box, because the weapon kit has no rifle.
 3. `claude/fp-arms-view`, the arms in the game (`arms_view.gd`, the ARMS lane; head 96c579be). It
    needs the two above first, and will conflict with #316 in `_update_held_weapon`: fold #316's
    hide into `view_covered()`. It has six owner questions, each with a default built: lower behind
@@ -800,8 +799,7 @@ the next PR (never rebase), keep both sides of docs conflicts, and wait for CI o
 5. With the workhorses free, write the Ome–Okutama setting brief, a new doc (see docs/23's planned
    piece). Only after the brief come Japanese building templates for Kimi and content renames for
    the workhorses.
-6. Then, from the to-do list: a rifle model for the `long` class, the zombie kinds, and the
-   clothing note.
+6. Then, from the to-do list: the zombie kinds and the clothing note.
 
 **Worktrees left on disk** under `.claude/worktrees/`: `fp-arms`, `fp-arms-view`,
 `fp-survivor-base` (with work still to do), and the PR branches `fp-cleanup`, `fp-ceilings`,
@@ -901,8 +899,7 @@ pause policy), and docs/41's "For the owner" list. Every one has a default alrea
   firearms card. Also ask the owner to copy the survivor concept image to
   `/home/jtf/sz-shared/concept/` for the next likeness check.
 - The Ome–Okutama setting brief: a new doc, before any Japanese buildings or renames (docs/23).
-- Art lead: a real crossbow bolt; fuel, oil and canteen bottles; a rifle model for the `long`
-  hold class, which shows a placeholder box today.
+- Art lead: a real crossbow bolt; fuel, oil and canteen bottles.
 - The shambler and the other six zombie kinds on the new organic base, with a lighter version
   for hordes (measure the frame cost first).
 - The clothing layer system that follows the worn slots: a design note for the owner first.

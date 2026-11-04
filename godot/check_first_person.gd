@@ -41,8 +41,9 @@ extends SceneTree
 #   HELD      the equipped weapon in the lower right is the item's own model, assembled from the
 #             sim's installed visible parts, each under its socket: a service pistol shows its
 #             receiver, barrel and magazine; fitting the suppressor through `item.attach` puts it on
-#             the barrel's socket_muzzle; a view that no longer matches the sim fails its own check;
-#             bare hands show nothing; the bat is drawn whole with no added head.
+#             the barrel's socket_muzzle; the hunting rifle draws its longer barrel and full stock;
+#             a view that no longer matches the sim fails its own check; bare hands show nothing;
+#             the bat is drawn whole with no added head.
 #   BENCH     a gunsmith bench is drawn where the sim has one; E at it in reach and on the aim opens
 #             the sim's own assembly screen on the held pistol, a part fitted through the screen
 #             moves the sim's installed parts and the held view, a refused recipe leaves the parts
@@ -98,7 +99,11 @@ extends SceneTree
 #             walking is swallowed while it is up and Escape closes it and recaptures the mouse. Out
 #             of reach, off the aim, through a wall, at a zombie and at a raider: no panel.
 
-#   MODELS    every weapons-manifest entry loads and its box is its sizeM within 1 cm; an id match beats a class match and an unknown id resolves to null; two GLBs that embed the atlas share one mipmapped texture; a loose bat the sim drops is drawn with its model at its resting position, and an item with no model has no node.
+#   MODELS    every weapons-manifest entry loads and its box is its sizeM within 1 cm; a
+#             receiver-qualified id beats an unqualified id, which beats a class, and a qualified
+#             part never leaks to another receiver; an unknown id resolves to null; two GLBs that
+#             embed the atlas share one mipmapped texture; a loose bat the sim drops is drawn with
+#             its model at its resting position, and an item with no model has no node.
 
 
 const SCENE_PATH: String = "res://presentation/first_person/first_person.tscn"
@@ -1371,6 +1376,40 @@ func _held(scene: Node) -> bool:
 			ok = _fail("HELD", "a hidden slot %s was drawn" % slot)
 		if not (held.call("socket_name", slot) as String).begins_with("socket_"):
 			ok = _fail("HELD", "slot %s is not on a socket node" % slot)
+
+	# The hunting rifle uses its own parts on the same shared content ids, not the pistol-scale models.
+	var rifle: int = int(SimItems.spawn_item(world, "item.rifle.hunting", {"tier": "scavenged"}))
+	if rifle < 0:
+		return _fail("HELD", "the hunting rifle would not spawn")
+	if not SimInventory.equip(world, player, rifle):
+		return _fail("HELD", "the hunting rifle would not equip")
+	scene.call("step_sim_once")
+	scene.call("_process", TICK_SECONDS)
+	want = _held_visible_parts(world, rifle)
+	drawn = held.call("drawn") as Dictionary
+	if String(drawn.get("receiver", "")) != "item.rifle.hunting":
+		ok = _fail("HELD", "the rifle drew receiver '%s'" % String(drawn.get("receiver", "")))
+	slots = held.call("drawn_slots") as Array
+	want_slots = want.keys()
+	want_slots.sort()
+	if slots != want_slots:
+		ok = _fail("HELD", "the rifle drew slots %s, not the sim's visible %s" % [slots, want_slots])
+	for slot_v in want.keys():
+		var slot: String = String(slot_v)
+		ok = _held_socket_ok(held, slot, String(want[slot_v]), "socket_%s" % slot) and ok
+	if not (held.call("missing_parts") as Array).is_empty():
+		ok = _fail("HELD", "the default rifle has parts with no model: %s" % str(held.call("missing_parts")))
+	var rifle_barrel: Node3D = held.call("part_node", "barrel") as Node3D
+	var rifle_stock: Node3D = held.call("part_node", "furniture") as Node3D
+	if rifle_barrel == null or absf(Models.bounds(rifle_barrel).size.z - 0.570) > 0.001:
+		ok = _fail("HELD", "the rifle barrel is not the 570 mm rifle model")
+	if rifle_stock == null or absf(Models.bounds(rifle_stock).size.z - 0.853) > 0.001:
+		ok = _fail("HELD", "the rifle stock is not the full-length rifle model")
+	if not bool(held.call("verify", world)):
+		ok = _fail("HELD", "the rifle view does not match the sim's installed parts")
+	SimInventory.unequip(world, player, "primary")
+	scene.call("step_sim_once")
+	scene.call("_process", TICK_SECONDS)
 
 	# Bare hands again, then the bat whole.
 	SimInventory.unequip(world, player, "secondary")
@@ -3589,6 +3628,31 @@ func _models(scene: Node) -> bool:
 		ok = _fail("MODELS", "an unknown id and class resolved to a model")
 	if Models.resolve_in(fabricated, "", "") != null:
 		ok = _fail("MODELS", "an empty id and class resolved to a model")
+
+	# Receiver-qualified ids beat generic ids on the real kit, and never leak onto another receiver.
+	var weapon_manifest: Array = [{"models": weapons}]
+	var qualified_only: Array = [{"models": [
+		{"match": {"id": "item.part.barrel.standard", "receiver": "item.rifle.hunting"}, "glb": "rifle.glb"},
+	]}]
+	if Models.resolve_in(qualified_only, "item.part.barrel.standard", "attachment", "item.pistol.service") != null:
+		ok = _fail("MODELS", "a rifle-qualified part resolved on the pistol")
+	var rifle_parts: Dictionary = {
+		"item.part.barrel.standard": "rifle_barrel_standard",
+		"item.part.magazine.standard": "rifle_magazine_standard",
+		"item.part.action.standard": "rifle_action_standard",
+		"item.part.spring.standard": "rifle_spring_standard",
+		"item.part.sear.standard": "rifle_sear_standard",
+		"item.part.extractor.standard": "rifle_extractor_standard",
+		"item.part.stock.standard": "rifle_stock_standard",
+	}
+	for part_id in rifle_parts:
+		var entry: Variant = Models.resolve_in(weapon_manifest, String(part_id), "attachment", "item.rifle.hunting")
+		var suffix: String = String(rifle_parts[part_id]) + ".glb"
+		if not (entry is Dictionary) or not String((entry as Dictionary)["glb"]).ends_with(suffix):
+			ok = _fail("MODELS", "%s on the rifle did not resolve to %s" % [part_id, suffix])
+	var pistol_barrel: Variant = Models.resolve_in(weapon_manifest, "item.part.barrel.standard", "attachment", "item.pistol.service")
+	if not (pistol_barrel is Dictionary) or not String((pistol_barrel as Dictionary)["glb"]).ends_with("pistol_barrel_standard.glb"):
+		ok = _fail("MODELS", "the pistol no longer resolves its own barrel")
 	var real_bat: Variant = Models.resolve("item.bat.wood", "weapon.melee")
 	if not (real_bat is Dictionary) or not String((real_bat as Dictionary)["glb"]).ends_with("bat_wood.glb"):
 		ok = _fail("MODELS", "the committed kit does not resolve item.bat.wood to bat_wood.glb")

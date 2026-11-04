@@ -3,9 +3,9 @@ extends RefCounted
 # manifests and the GLB bytes, and it writes nothing into the sim.
 #
 # A manifest is a `*.manifest.json` under `res://assets/first_person/`. Each entry names a GLB and
-# the item it draws, by `match`: an item id (`{"id": ...}`) or a class (`{"class": ...}`). An id
-# match beats a class match, and an item with neither resolves to null, so the caller keeps whatever
-# placeholder it already has.
+# the item it draws, by `match`: an item id (`{"id": ...}`), optionally qualified by `receiver`, or
+# a class (`{"class": ...}`). A receiver-qualified id beats an unqualified id, which beats a class.
+# An item with no match resolves to null, so the caller keeps whatever placeholder it already has.
 #
 # Loading is from bytes, as `assets.gd` does, so a clean checkout needs no `.import` files. Each GLB is
 # parsed once and cached as a template that is never put in the tree; `instance_of` hands out a
@@ -49,19 +49,26 @@ static func manifests() -> Array:
 	return _manifests
 
 
-## The manifest entry that draws an item, or null. An id match beats a class match, in any manifest.
-static func resolve(item_id: String, item_class: String) -> Variant:
-	return resolve_in(manifests(), item_id, item_class)
+## The manifest entry that draws an item, or null. A receiver-qualified id match beats an unqualified
+## id match, which beats a class match, in any manifest. Qualified entries never match another receiver.
+static func resolve(item_id: String, item_class: String, receiver_id: String = "") -> Variant:
+	return resolve_in(manifests(), item_id, item_class, receiver_id)
 
 
 ## `resolve`, over a list of manifests the caller holds. The gate uses it to test the rule on fabricated
 ## manifests as well as the real ones.
-static func resolve_in(manifest_list: Array, item_id: String, item_class: String) -> Variant:
+static func resolve_in(manifest_list: Array, item_id: String, item_class: String, receiver_id: String = "") -> Variant:
+	if not item_id.is_empty() and not receiver_id.is_empty():
+		for manifest in manifest_list:
+			for entry in (manifest as Dictionary)["models"] as Array:
+				var match_block: Dictionary = (entry as Dictionary).get("match", {}) as Dictionary
+				if String(match_block.get("id", "")) == item_id and String(match_block.get("receiver", "")) == receiver_id:
+					return entry
 	if not item_id.is_empty():
 		for manifest in manifest_list:
 			for entry in (manifest as Dictionary)["models"] as Array:
 				var match_block: Dictionary = (entry as Dictionary).get("match", {}) as Dictionary
-				if String(match_block.get("id", "")) == item_id:
+				if String(match_block.get("id", "")) == item_id and not match_block.has("receiver"):
 					return entry
 	if not item_class.is_empty():
 		for manifest in manifest_list:
@@ -73,8 +80,8 @@ static func resolve_in(manifest_list: Array, item_id: String, item_class: String
 
 
 ## A fresh instance of the model that draws this item, or null when no manifest names it.
-static func model_for(item_id: String, item_class: String) -> Node3D:
-	var entry: Variant = resolve(item_id, item_class)
+static func model_for(item_id: String, item_class: String, receiver_id: String = "") -> Node3D:
+	var entry: Variant = resolve(item_id, item_class, receiver_id)
 	if not (entry is Dictionary):
 		return null
 	return instance_of(String((entry as Dictionary).get("glb", "")))

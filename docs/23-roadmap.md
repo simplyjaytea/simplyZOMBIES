@@ -2931,6 +2931,25 @@ not a to-do list:
     cutaway of the internals, and separate melee part models, are later.
   - **Record.** `docs/planning/first-person-held-weapon-report.md`.
 
+- **The hunting rifle and receiver-qualified parts, 2026-11-04.** Advances the weapon plan's
+  second receiver and gives the arms' `long` hold class a real model instead of the placeholder.
+  - **The art.** `rifle_hunting` is a bolt-action receiver with all ten sockets and both hand
+    grips. Seven separate default GLBs supply the barrel, magazine, action, spring, sear,
+    extractor and full walnut stock. The default assembly is 1.061 m long and 1,450 triangles;
+    the held view draws the receiver, barrel, magazine and stock (796 triangles, four meshes).
+    `grip_r` is at the origin and `grip_l` is (0, 0.022, -0.250) m from it, exactly the arms'
+    long anchor. Blued steel and dark wood use the shared weapons atlas at the kit's densities.
+  - **The match rule.** A manifest part may match `id` plus `receiver`. The loader resolves that
+    ahead of an unqualified id and then class, and the held assembler passes the host receiver,
+    so shared content ids select the rifle's parts on the rifle and the pistol's on the pistol.
+  - **Verified.** `build_weapons.py -- --check` and `-- --prove` cover every model, socket,
+    origin, material, winding, coplanarity, density, assembly contact, shading and byte output;
+    the rifle-grip plant is refused. `godot:check:first_person` (MODELS and HELD) loads every
+    entry, resolves all seven rifle defaults and checks the equipped assembly. Blender turnaround
+    sheets and 1280x720 held/loose engine captures accompany the piece.
+  - **Not in this piece.** No scope model; the arms integration remains its own branch. The loose
+    capture driver assembles the dropped item's installed visible parts for the review image.
+
 - **The first-person loot-item kit, 2026-11-01.** Advances "First-person scavenging and personal
   equipment": the things a player picks up now have world-pose models. Only the art lands here: no
   scene reads the manifest yet. Wiring it is a separate code piece.

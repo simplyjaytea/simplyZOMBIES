@@ -147,6 +147,131 @@
     },
     {
       "match": {
+        "id": "item.rifle.hunting"
+      },
+      "glb": "res://assets/first_person/weapons/rifle_hunting.glb",
+      "pose": "held",
+      "sockets": {
+        "barrel": "socket_barrel",
+        "extractor": "socket_extractor",
+        "furniture": "socket_furniture",
+        "internal": "socket_internal",
+        "magazine": "socket_magazine",
+        "muzzle": "socket_muzzle",
+        "optic": "socket_optic",
+        "sear": "socket_sear",
+        "spring": "socket_spring",
+        "underbarrel": "socket_underbarrel"
+      },
+      "grip": "grip_r",
+      "sizeM": [
+        0.044,
+        0.162,
+        0.285
+      ]
+    },
+    {
+      "match": {
+        "id": "item.part.barrel.standard",
+        "receiver": "item.rifle.hunting"
+      },
+      "glb": "res://assets/first_person/weapons/rifle_barrel_standard.glb",
+      "pose": "held",
+      "sockets": {
+        "muzzle": "socket_muzzle"
+      },
+      "sizeM": [
+        0.018,
+        0.04,
+        0.57
+      ]
+    },
+    {
+      "match": {
+        "id": "item.part.magazine.standard",
+        "receiver": "item.rifle.hunting"
+      },
+      "glb": "res://assets/first_person/weapons/rifle_magazine_standard.glb",
+      "pose": "held",
+      "sockets": {},
+      "sizeM": [
+        0.03,
+        0.049,
+        0.072
+      ]
+    },
+    {
+      "match": {
+        "id": "item.part.action.standard",
+        "receiver": "item.rifle.hunting"
+      },
+      "glb": "res://assets/first_person/weapons/rifle_action_standard.glb",
+      "pose": "held",
+      "sockets": {},
+      "sizeM": [
+        0.05,
+        0.017,
+        0.16
+      ]
+    },
+    {
+      "match": {
+        "id": "item.part.spring.standard",
+        "receiver": "item.rifle.hunting"
+      },
+      "glb": "res://assets/first_person/weapons/rifle_spring_standard.glb",
+      "pose": "held",
+      "sockets": {},
+      "sizeM": [
+        0.012,
+        0.012,
+        0.1
+      ]
+    },
+    {
+      "match": {
+        "id": "item.part.sear.standard",
+        "receiver": "item.rifle.hunting"
+      },
+      "glb": "res://assets/first_person/weapons/rifle_sear_standard.glb",
+      "pose": "held",
+      "sockets": {},
+      "sizeM": [
+        0.012,
+        0.015,
+        0.028
+      ]
+    },
+    {
+      "match": {
+        "id": "item.part.extractor.standard",
+        "receiver": "item.rifle.hunting"
+      },
+      "glb": "res://assets/first_person/weapons/rifle_extractor_standard.glb",
+      "pose": "held",
+      "sockets": {},
+      "sizeM": [
+        0.006,
+        0.012,
+        0.046
+      ]
+    },
+    {
+      "match": {
+        "id": "item.part.stock.standard",
+        "receiver": "item.rifle.hunting"
+      },
+      "glb": "res://assets/first_person/weapons/rifle_stock_standard.glb",
+      "pose": "held",
+      "sockets": {},
+      "sizeM": [
+        0.052,
+        0.155,
+        0.853
+      ]
+    },
+    {
+      "match": {
         "id": "item.bat.wood"
       },
       "glb": "res://assets/first_person/weapons/bat_wood.glb",

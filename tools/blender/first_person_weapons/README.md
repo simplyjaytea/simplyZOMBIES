@@ -1,13 +1,13 @@
 # First-person weapon kit
 
-The service pistol's receiver with a socket for each of its ten slots, its six default parts
-and three alternatives, and four whole melee weapons with a socket line for later parts. All
-of it shares one pixel atlas. The builder is the source. The GLBs, the atlas and the manifest
-are its outputs, and the game reads only those outputs.
+The service pistol and hunting rifle's receivers have one socket for each of their ten slots,
+with six default pistol parts and seven default rifle parts. The pistol also has three
+alternatives; four whole melee weapons carry a socket line for later parts. All of it shares one
+pixel atlas. The builder is the source. The GLBs, atlas and manifest are its outputs, and the
+game's loader and assembler read those outputs.
 
 This is art piece 1 of the weapon plan: the socket contract, and the first models built to
-it. Nothing in the game reads these files yet. The assembler that reads the manifest is a
-separate code piece.
+it.
 
 ## Rebuild and check
 
@@ -23,7 +23,7 @@ blender --background --factory-startup --python tools/blender/first_person_weapo
 
 - `godot/assets/first_person/weapons.manifest.json`
 - `godot/assets/first_person/weapons/weapons_atlas.png`
-- 14 GLBs in the same folder.
+- 22 GLBs in the same folder.
 
 It then runs the checks on what it wrote. Every pattern comes from integer hashes, fixed seeds
 and fixed formulae, so the rebuild is byte-identical. `-- --out <folder>` builds somewhere
@@ -37,8 +37,10 @@ is not byte-reproducible.
   declared sizes are real-world sizes, written by hand in `MODELS`. They are not read back from
   the geometry.
 - **Sockets.** Every socket the manifest names exists in the GLB as an empty node, inside the
-  model's bounds (1 mm of slack). The GLB holds no `socket_*` node the manifest does not name,
-  and no grip node but `grip_r` and `grip_l`.
+  model's bounds (1 mm of slack). The one exception is a receiver's fallback `socket_muzzle`,
+  which may sit at its separate barrel's crown; the assembly chain still holds it to 1 mm. The
+  GLB holds no `socket_*` node the manifest does not name, and no grip node but `grip_r` and
+  `grip_l`. The rifle's `grip_l` is also held to the arms' long anchor within 5 mm.
 - **Content.**
   - An item that declares `slots` in `godot/content/items` has exactly one socket per slot, no
     more and no fewer.
@@ -71,14 +73,15 @@ is not byte-reproducible.
     more than 30 degrees (a shoulder, a cap, a muzzle face), the builder keeps a hard edge.
   - Every other face is flat: its corners agree within 0.05 degrees. A box, a slide or a
     magazine exports exactly the normals it had before lathes were smoothed.
-- **Bytes.** All 16 outputs rebuild byte-identical to the committed files.
+- **Bytes.** All 24 outputs rebuild byte-identical to the committed files.
 
 **`--prove`** shows that each check can fail. It plants one error per build: a size 2 cm off, a
-misnamed socket, a slot with no socket, a misspelt id, a part shifted off its origin, an optic
-lifted off the slide, a muzzle socket 3 mm out, a second material, a double-sided material,
-linear filtering, one face wound backwards, a coplanar decal face, a flush extractor, a squashed
-unwrap, lathes exported with their face normals (`flat_lathe`), the barrel's hood smoothed
-(`smooth_box`), and a flipped byte. It prints `PLANT <name> CAUGHT: <message>` for each, then
+misnamed socket, a slot with no socket, a misspelt part or receiver id, a part shifted off its
+origin, an optic lifted off the slide, a muzzle socket 3 mm out, the rifle's support grip 6 mm off,
+a second material, a double-sided material, linear filtering, one face wound backwards, a coplanar
+decal face, a flush extractor, a squashed unwrap, lathes exported with their face normals
+(`flat_lathe`), the barrel's hood smoothed (`smooth_box`), and a flipped byte. It prints
+`PLANT <name> CAUGHT: <message>` for each, then
 `WEAPONS_PROVE_OK`. If any planted error passes, it prints `WEAPONS_CHECK_FAIL` instead.
 
 CI has no Blender, so these checks run by hand, as the starter kit's do.
@@ -147,11 +150,11 @@ CI has no Blender, so these checks run by hand, as the starter kit's do.
 - Parts list only the sockets they carry (the barrel lists `muzzle`).
 - `grip` appears on held weapons and is left out on parts.
 
-**One limit of the format.** `match` is an item id or class, and the sim's standard parts
-(`item.part.barrel.standard` and the rest) are shared by every receiver. The part GLBs here
-are drawn at pistol scale, which is why their file names start with `pistol_`. When a second
-receiver lands (art piece 2), the manifest needs a match keyed by receiver as well as part id.
-Which key is the coordinator's call, because the format is shared.
+**Receiver-qualified parts.** `match` may carry `{"id": "<part id>", "receiver":
+"<receiver item id>"}`. A qualified id match beats an unqualified id, which beats a class;
+a qualified entry never matches another receiver. The sim's standard part ids are shared, so
+all seven rifle defaults use this qualifier. The unqualified `pistol_` models remain the generic
+fallbacks, while shared attachments such as the suppressor need no qualifier.
 
 ## The models
 
@@ -167,6 +170,14 @@ Which key is the coordinator's call, because the format is shared.
 | `pistol_suppressor` | `item.attach.suppressor` (muzzle) | 0.0324 x 0.0324 x 0.149 | |
 | `pistol_optic_red_dot` | `item.attach.optic.red_dot` (optic) | 0.022 x 0.0215 x 0.032 | |
 | `pistol_magazine_extended` | `item.attach.magazine.extended` (magazine) | 0.0256 x 0.1345 x 0.0375 | |
+| `rifle_hunting` | `item.rifle.hunting` | 0.044 x 0.162 x 0.285 | all ten slots, `grip_r`, `grip_l` |
+| `rifle_barrel_standard` | `item.part.barrel.standard` on the rifle | 0.018 x 0.040 x 0.570 | `socket_muzzle` |
+| `rifle_magazine_standard` | `item.part.magazine.standard` on the rifle | 0.030 x 0.049 x 0.072 | |
+| `rifle_action_standard` | `item.part.action.standard` on the rifle | 0.050 x 0.017 x 0.160 | |
+| `rifle_spring_standard` | `item.part.spring.standard` on the rifle | 0.012 x 0.012 x 0.100 | |
+| `rifle_sear_standard` | `item.part.sear.standard` on the rifle | 0.012 x 0.015 x 0.028 | |
+| `rifle_extractor_standard` | `item.part.extractor.standard` on the rifle | 0.006 x 0.012 x 0.046 | |
+| `rifle_stock_standard` | `item.part.stock.standard` on the rifle | 0.052 x 0.155 x 0.853 | |
 | `bat_wood` | `item.bat.wood` | 0.066 x 0.066 x 0.840 | stud, weight, wrap; `grip_r`, `grip_l` |
 | `knife_kitchen` | `item.knife.kitchen` | 0.019 x 0.046 x 0.322 | edge, wrap; `grip_r` |
 | `crowbar_steel` | `item.crowbar.steel` | 0.0275 x 0.102 x 0.600 | weight, wrap; `grip_r` |
@@ -184,6 +195,29 @@ Which key is the coordinator's call, because the format is shared.
   coil, 64 in its guide rod), which is kept for a bench cutaway. With the suppressor, red dot
   and extended magazine the assembly is 2,002 triangles.
 
+**The hunting rifle.**
+
+- A bolt-action hunting rifle, 1.061 m long in its default assembly. The receiver is 285 mm
+  long; the separate barrel is 570 mm and the full walnut stock is 853 mm from fore-end to butt.
+- The receiver is the action housing, open trigger group, trigger and rear sight. The barrel
+  carries the front sight and muzzle socket. The stock includes the firing-hand wrist, fore-end
+  and butt plate; it touches the receiver at the furniture socket.
+- `grip_r` is the origin at the small of the stock. The arms' long idle anchor places it at
+  (0.10, -0.15, -0.24) m in camera space, rotated (2.695, 2.075, 0) degrees. `grip_l` is
+  (0, 0.022, -0.250) m relative to `grip_r`, on the stock's fore-end. The exported receiver
+  measures 0.0 mm from the long contract at both grips, within its 5 mm tolerance.
+- Sockets in receiver coordinates: optic (0, 0.082, -0.055); barrel (0, 0.055, -0.180);
+  muzzle (0, 0.055, -0.750); magazine (0, -0.005, -0.055); furniture (0, 0.025, -0.060);
+  internal (0, 0.055, -0.035); spring (0, 0.055, 0.015); sear (0, -0.005, 0.020);
+  extractor (0.022, 0.058, -0.105); underbarrel (0, -0.020, -0.170).
+- The seven defaults are `rifle_barrel_standard`, `rifle_magazine_standard`,
+  `rifle_action_standard`, `rifle_spring_standard`, `rifle_sear_standard`,
+  `rifle_extractor_standard` and `rifle_stock_standard`. Each manifest match carries the part
+  id and `receiver: item.rifle.hunting`, so neither side of the pistol/rifle scale split leaks.
+- The default assembly is 1,450 triangles. The held view draws 796 in four meshes: receiver,
+  barrel, magazine and stock. The action, spring, sear and extractor remain separate for a bench
+  cutaway but are hidden in hand. No scope model is included.
+
 **The melee weapons.**
 
 - The bat is an ash lathe with a knob and a cupped end.
@@ -191,9 +225,10 @@ Which key is the coordinator's call, because the format is shared.
 - The crowbar is a hexagonal bar swept into a gooseneck. Its chisel end and claw are flattened.
 - The fire axe has an oval hickory haft, a red head with a ground edge, and a pick.
 
-**Shading.** Every lathe (the bat, the axe's haft, the barrel's tube, the suppressor, the
-recoil spring's guide rod, the optic's battery cap and the knife's rivets) carries smoothed
-corner normals, so it reads round at 8 or 12 segments. Everything else is flat-shaded. The
+**Shading.** Every lathe (the bat, the axe's haft, both barrels' tubes, the rifle's receiver,
+bolt and spring guide, the suppressor, the recoil spring's guide rod, the optic's battery cap and
+the knife's rivets) carries smoothed corner normals, so it reads round at 8 or 12 segments.
+Everything else is flat-shaded. The
 smoothed normals are written as Blender's `custom_normal` corner attribute, which the glTF
 exporter carries into the file; the triangle and vertex counts are unchanged by them.
 
@@ -207,10 +242,12 @@ one mesh with one primitive, so each model is one draw.
   receiver: the recoil spring's 276 (212 in its coil), the action's 24 and the sear's 24.
 - The alternate assembly, with the suppressor, red dot and extended magazine, is 2,002
   triangles in 9 meshes.
+- A default rifle is 1,450 triangles in 8 meshes. The held view skips all four internal parts,
+  leaving 796 triangles in 4 meshes: receiver, barrel, magazine and stock.
 - The melee weapons are one mesh each: the bat 408 triangles, the knife 540, the crowbar 260 and
   the axe 420.
 
-A pistol is cheap for the player's hands and dear for a crowd. An NPC that carries one in
+A firearm is cheap for the player's hands and dear for a crowd. An NPC that carries one in
 numbers, such as a raider band, should skip the hidden internals outside a bench view, which
 saves 324 triangles and 3 draws a pistol, or use a merged world LOD of one mesh and one draw.
 That LOD is not built yet.
@@ -230,10 +267,10 @@ zlib or zlib-ng), so the byte check holds on one machine's Blender, not across b
 **Densities.**
 
 - **128 texels per metre** is the plan's allowance for close-up hand-held surfaces. This kit uses
-  it on every surface a held weapon shows: the receiver, barrel, magazines, extractor,
-  suppressor, optic and all four melee weapons.
-- **64 texels per metre** is the world density. It is used on the three parts the receiver
-  hides: the action, the recoil spring and the sear.
+  it on every surface a held weapon shows: both receivers, barrels, magazines, extractors, the
+  rifle stock, suppressor, optic and all four melee weapons.
+- **64 texels per metre** is the world density. It is used on the parts the receiver hides:
+  both actions, springs and sears.
 - One texel is 7.8 mm at 128 per metre. The pistol's side is about 24 x 17 texels, so geometry
   carries the detail and the texture carries the material.
 
@@ -268,7 +305,8 @@ columns, and it never forms a figure.
 - Polymer: `#242527`, `#2b2c2e`, `#333436`, `#3c3d3f`, `#48494a`.
 - Fire-axe red: `#3f1814`, `#55201a`, `#6a2a20`, `#7e3628`, `#8e4533`.
 - Ash: `#5f5444`, `#736755`, `#877a65`, `#9a8c74`, `#ab9c83`.
-- Hickory: `#3f2c1d`, `#533b28`, `#684b33`, `#7c5c40`, `#8e6d4e`.
+- Hickory and the rifle's oiled walnut share the dark-wood ramp: `#3f2c1d`, `#533b28`,
+  `#684b33`, `#7c5c40`, `#8e6d4e`.
 
 The full set is `PALETTE` in the builder. Everything is original: there is no downloaded,
 copied or traced source.

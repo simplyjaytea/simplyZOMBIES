@@ -1,4 +1,4 @@
-"""The first-person weapon kit: one receiver with its sockets, its parts, four melee weapons.
+"""The first-person weapon kit: two receivers with their sockets and parts, four melee weapons.
 
 Run with Blender 5.2 from the repository root:
 
@@ -1227,6 +1227,125 @@ def axe_fire():
 
 
 # ---------------------------------------------------------------------------------------------
+# The hunting rifle. The bore is 55 mm above grip_r; grip_l matches the arms' long-gun fore-end.
+# The stock is authored in the assembled frame, then shifted back to its furniture attach origin.
+
+RIFLE_GRIP_L = Vector((0.0, 0.022, -0.250))
+RIFLE_GRIP_TOLERANCE_M = 0.005
+
+
+def rifle_hunting():
+    m = Model("rifle_hunting", HELD_DENSITY)
+    frame = axes_frame((0, 0.055, 0), (1, 0, 0), (0, 0, 1))
+    profile = [(0.0, 0.105), (0.020, 0.105), (0.022, 0.098), (0.022, -0.170), (0.020, -0.180), (0.0, -0.180)]
+    lathe(m, profile, 12, "action", lambda i: E if i in (0, 3, 4) else B, frame)
+    cbox(m, (0, 0.005, -0.0375), (0.038, 0.055, 0.225), B, "lower_action", 0.0030, E)
+    guard = [(-0.035, -0.025), (0.065, -0.025), (0.073, -0.060), (0.050, -0.070), (-0.030, -0.070), (-0.043, -0.055)]
+    xbox(m, guard, -0.004, 0.004, B, "trigger_guard", 0.0010, E)
+    trigger = [(-0.018, -0.025), (-0.010, -0.026), (-0.007, -0.047), (-0.013, -0.055), (-0.019, -0.050)]
+    xbox(m, trigger, -0.0025, 0.0025, B, "trigger", 0.0005, E)
+    cbox(m, (0, 0.087, -0.115), (0.012, 0.010, 0.018), B, "rear_sight", 0.0010, E)
+    m.sockets = {
+        "grip_r": Matrix.Identity(4),
+        "grip_l": Matrix.Translation(RIFLE_GRIP_L + Vector((0.006, 0, 0)) if PLANT == "rifle_grip" else RIFLE_GRIP_L),
+        "socket_optic": Matrix.Translation((0, 0.082, -0.055)),
+        "socket_barrel": Matrix.Translation((0, 0.055, -0.180)),
+        "socket_muzzle": Matrix.Translation((0, 0.055, -0.750)),
+        "socket_magazine": Matrix.Translation((0, -0.005, -0.055)),
+        "socket_furniture": Matrix.Translation((0, 0.025, -0.060)),
+        "socket_internal": Matrix.Translation((0, 0.055, -0.035)),
+        "socket_spring": Matrix.Translation((0, 0.055, 0.015)),
+        "socket_sear": Matrix.Translation((0, -0.005, 0.020)),
+        "socket_extractor": Matrix.Translation((0.022, 0.058, -0.105)),
+        "socket_underbarrel": Matrix.Translation((0, -0.020, -0.170)),
+    }
+    m.finish()
+    return m
+
+
+def rifle_barrel_standard():
+    m = Model("rifle_barrel_standard", HELD_DENSITY)
+    profile = [(0.0, 0.0), (0.009, 0.0), (0.009, -0.500), (0.010, -0.515), (0.010, -0.565), (0.007, -0.570), (0.0, -0.570)]
+    styles = [B, B, B, E, "bore", "bore"]
+    lathe(m, profile, 12, "barrel", lambda i: styles[i])
+    cbox(m, (0, 0.018, -0.525), (0.004, 0.024, 0.012), B, "front_sight", 0.0008, E)
+    m.sockets = {"socket_muzzle": Matrix.Translation((0, 0, -0.570))}
+    m.finish()
+    return m
+
+
+def rifle_magazine_standard():
+    m = Model("rifle_magazine_standard", HELD_DENSITY)
+    cbox(m, (0, -0.022, 0), (0.026, 0.044, 0.068), B, "box", 0.0012, E)
+    cbox(m, (0, -0.046, 0), (0.030, 0.006, 0.072), B, "base", 0.0010, E)
+    m.finish()
+    return m
+
+
+def rifle_action_standard():
+    m = Model("rifle_action_standard", HIDDEN_DENSITY)
+    profile = [(0.0, 0.080), (0.007, 0.080), (0.008, 0.070), (0.008, -0.070), (0.007, -0.080), (0.0, -0.080)]
+    lathe(m, profile, 10, "bolt", lambda i: "steel_bare")
+    cbox(m, (0.026, -0.005, 0.035), (0.036, 0.008, 0.010), "steel_bare", "handle", 0.0015, E)
+    cbox(m, (0.044, -0.010, 0.035), (0.012, 0.014, 0.014), B, "knob", 0.0040, E)
+    m.finish()
+    return m
+
+
+def rifle_spring_standard():
+    m = Model("rifle_spring_standard", HIDDEN_DENSITY)
+    profile = [(0.0, 0.050), (0.004, 0.050), (0.004, -0.050), (0.0, -0.050)]
+    lathe(m, profile, 8, "guide", lambda i: "steel_bare")
+    turns, per_turn, coil, wire = 6, 5, 0.0050, 0.0008
+    count = turns * per_turn + 1
+    path, normals = [], []
+    for i in range(count):
+        a = 2 * math.pi * i / per_turn
+        z = -0.047 + 0.094 * i / (count - 1)
+        path.append((coil * math.cos(a), coil * math.sin(a), z))
+        normals.append((math.cos(a), math.sin(a), 0.0))
+    section = [(wire * math.cos(2 * math.pi * k / 3), wire * math.sin(2 * math.pi * k / 3)) for k in range(3)]
+    sweep(m, path, [(1, 1)] * count, section, "coil", lambda i: "steel_bare", ("steel_bare", "steel_bare"), normals)
+    m.finish()
+    return m
+
+
+def rifle_sear_standard():
+    m = Model("rifle_sear_standard", HIDDEN_DENSITY)
+    cbox(m, (0, 0, 0), (0.012, 0.010, 0.024), "steel_bare", "body", 0.0008)
+    cbox(m, (0, 0.005, -0.010), (0.008, 0.005, 0.008), "steel_bare", "nose", 0.0006)
+    m.finish()
+    return m
+
+
+def rifle_extractor_standard():
+    m = Model("rifle_extractor_standard", HELD_DENSITY)
+    cbox(m, (0, 0, 0), (0.004, 0.012, 0.042), B, "rail", 0.0008, E)
+    cbox(m, (-0.0015, -0.004, -0.018), (0.006, 0.006, 0.008), B, "hook", 0.0007, E)
+    m.finish()
+    return m
+
+
+def rifle_stock_standard():
+    m = Model("rifle_stock_standard", HELD_DENSITY)
+    path = [
+        (0, 0.012, -0.540), (0, 0.020, -0.480), (0, 0.022, -0.250),
+        (0, 0.010, -0.120), (0, -0.005, -0.020), (0, -0.035, 0.055),
+        (0, -0.055, 0.135), (0, -0.050, 0.220), (0, -0.035, 0.300),
+    ]
+    scales = [
+        (0.016, 0.018), (0.020, 0.025), (0.024, 0.028),
+        (0.026, 0.030), (0.022, 0.035), (0.022, 0.045),
+        (0.021, 0.042), (0.025, 0.055), (0.026, 0.060),
+    ]
+    section = rect_profile(1.0, 1.0, 0.28)
+    sweep(m, path, scales, section, "stock", lambda i: "hickory", ("endgrain_hickory", "endgrain_hickory"))
+    cbox(m, (0, -0.035, 0.302), (0.052, 0.120, 0.006), "coat_dark", "butt_plate", 0.0015, E)
+    m.finish(Vector((0, -0.025, 0.060)))
+    return m
+
+
+# ---------------------------------------------------------------------------------------------
 # What the kit declares. sizeM is the real-world size each model is built to, written by hand;
 # the check holds the geometry to it.
 
@@ -1244,12 +1363,20 @@ MODELS = [
     ("pistol_suppressor", pistol_suppressor, {"id": "item.attach.suppressor"}, "part", [0.0324, 0.0324, 0.149], {}),
     ("pistol_optic_red_dot", pistol_optic_red_dot, {"id": "item.attach.optic.red_dot"}, "part", [0.022, 0.0215, 0.032], {}),
     ("pistol_magazine_extended", lambda: magazine("pistol_magazine_extended", True), {"id": "item.attach.magazine.extended"}, "part", [0.0256, 0.1345, 0.0375], {}),
+    ("rifle_hunting", rifle_hunting, {"id": "item.rifle.hunting"}, "receiver", [0.044, 0.162, 0.285], {s: f"socket_{s}" for s in RECEIVER_SLOTS}),
+    ("rifle_barrel_standard", rifle_barrel_standard, {"id": "item.part.barrel.standard", "receiver": "item.rifle.hunting"}, "part", [0.018, 0.040, 0.570], {"muzzle": "socket_muzzle"}),
+    ("rifle_magazine_standard", rifle_magazine_standard, {"id": "item.part.magazine.standard", "receiver": "item.rifle.hunting"}, "part", [0.030, 0.049, 0.072], {}),
+    ("rifle_action_standard", rifle_action_standard, {"id": "item.part.action.standard", "receiver": "item.rifle.hunting"}, "part", [0.050, 0.017, 0.160], {}),
+    ("rifle_spring_standard", rifle_spring_standard, {"id": "item.part.spring.standard", "receiver": "item.rifle.hunting"}, "part", [0.012, 0.012, 0.100], {}),
+    ("rifle_sear_standard", rifle_sear_standard, {"id": "item.part.sear.standard", "receiver": "item.rifle.hunting"}, "part", [0.012, 0.015, 0.028], {}),
+    ("rifle_extractor_standard", rifle_extractor_standard, {"id": "item.part.extractor.standard", "receiver": "item.rifle.hunting"}, "part", [0.006, 0.012, 0.046], {}),
+    ("rifle_stock_standard", rifle_stock_standard, {"id": "item.part.stock.standard", "receiver": "item.rifle.hunting"}, "part", [0.052, 0.155, 0.853], {}),
     ("bat_wood", bat_wood, {"id": "item.bat.wood"}, "melee", [0.066, 0.066, 0.840], {"stud": "socket_stud", "weight": "socket_weight", "wrap": "socket_wrap"}),
     ("knife_kitchen", knife_kitchen, {"id": "item.knife.kitchen"}, "melee", [0.019, 0.046, 0.322], {"edge": "socket_edge", "wrap": "socket_wrap"}),
     ("crowbar_steel", crowbar_steel, {"id": "item.crowbar.steel"}, "melee", [0.0275, 0.102, 0.600], {"weight": "socket_weight", "wrap": "socket_wrap"}),
     ("axe_fire", axe_fire, {"id": "item.axe.fire"}, "melee", [0.034, 0.334, 0.910], {"head": "socket_head", "haft": "socket_haft", "wrap": "socket_wrap"}),
 ]
-DENSITY = {stem: (HIDDEN_DENSITY if stem in ("pistol_action_standard", "pistol_spring_standard", "pistol_sear_standard") else HELD_DENSITY) for stem, *_ in MODELS}
+DENSITY = {stem: (HIDDEN_DENSITY if stem in ("pistol_action_standard", "pistol_spring_standard", "pistol_sear_standard", "rifle_action_standard", "rifle_spring_standard", "rifle_sear_standard") else HELD_DENSITY) for stem, *_ in MODELS}
 BUILDERS = {stem: builder for stem, builder, *_ in MODELS}
 
 # The assemblies the check builds on the receiver: the content's defaultParts, and the
@@ -1274,7 +1401,18 @@ ASSEMBLIES = {
             "muzzle": "pistol_suppressor",
             "optic": "pistol_optic_red_dot",
         },
-    }
+    },
+    "rifle_hunting": {
+        "default": {
+            "barrel": "rifle_barrel_standard",
+            "magazine": "rifle_magazine_standard",
+            "internal": "rifle_action_standard",
+            "spring": "rifle_spring_standard",
+            "sear": "rifle_sear_standard",
+            "extractor": "rifle_extractor_standard",
+            "furniture": "rifle_stock_standard",
+        },
+    },
 }
 
 
@@ -1288,6 +1426,8 @@ def manifest_document():
             sockets = {k: v for k, v in sockets.items() if k != "underbarrel"}
         if PLANT == "content" and stem == "pistol_barrel_standard":
             match = {"id": "item.part.barrel.standrad"}
+        if PLANT == "receiver_match" and stem == "rifle_barrel_standard":
+            match = {**match, "receiver": "item.rifle.missing"}
         entry = {"match": match, "glb": RES_DIR + stem + ".glb", "pose": "held", "sockets": dict(sorted(sockets.items()))}
         if kind != "part":
             entry["grip"] = "grip_r"
@@ -1733,7 +1873,7 @@ def validate(root, repo):
     loaded = {}
     report = []
     used_regions = set()
-    by_id = {}
+    by_stem = {}
     shaded = {"rings": 0, "flat": 0, "lathes": 0, "seam": 0.0, "over": -180.0}
     for entry in manifest["models"]:
         stem = entry["glb"].rsplit("/", 1)[1][: -len(".glb")]
@@ -1744,7 +1884,10 @@ def validate(root, repo):
         item_id = entry["match"].get("id")
         if item_id not in content:
             raise ValueError(f"{stem}: match id {item_id} is not an item in godot/content/items")
-        by_id[item_id] = stem
+        receiver_id = entry["match"].get("receiver")
+        if receiver_id is not None and receiver_id not in content:
+            raise ValueError(f"{stem}: match receiver {receiver_id} is not an item in godot/content/items")
+        by_stem[stem] = item_id
         glb = Loaded(root / "weapons" / f"{stem}.glb")
         loaded[stem] = glb
         doc = glb.document
@@ -1771,7 +1914,9 @@ def validate(root, repo):
                 raise ValueError(f"{stem}: socket for {slot} must be named socket_{slot}, not {node}")
             if node not in glb.nodes or glb.nodes[node]["mesh"]:
                 raise ValueError(f"{stem}: missing socket {node} (named in the manifest)")
-            if point_gap(glb.nodes[node]["matrix"].translation, lo, hi) > ORIGIN_M:
+            gap = point_gap(glb.nodes[node]["matrix"].translation, lo, hi)
+            chained_muzzle = node == "socket_muzzle" and "socket_barrel" in names
+            if gap > ORIGIN_M and not chained_muzzle:
                 raise ValueError(f"{stem}: {node} lies outside the model")
         grips = {"grip_r", "grip_l"}
         stray = [n for n in glb.nodes if (n.startswith("socket_") and n not in names) or (n.startswith("grip_") and n not in grips)]
@@ -1792,6 +1937,15 @@ def validate(root, repo):
                 raise ValueError(f"{stem}: grip node {entry['grip']} is missing")
             if glb.nodes[entry["grip"]]["matrix"].translation.length > 1e-4:
                 raise ValueError(f"{stem}: origin is not at {entry['grip']}")
+            if stem == "rifle_hunting":
+                if "grip_l" not in glb.nodes:
+                    raise ValueError(f"{stem}: grip_l is missing")
+                grip_r = glb.nodes["grip_r"]["matrix"].translation
+                grip_l = glb.nodes["grip_l"]["matrix"].translation
+                error = (grip_l - grip_r - RIFLE_GRIP_L).length
+                if error > RIFLE_GRIP_TOLERANCE_M:
+                    raise ValueError(f"{stem}: grip_l is {error * 1000:.1f} mm from the arms' long anchor")
+                report.append(f"GRIP {stem}: grip_r {grip_r.length * 1000:.1f} mm from the long anchor; grip_l {error * 1000:.1f} mm from the long anchor")
         else:
             if "attachment" not in item:
                 raise ValueError(f"{stem}: {item_id} is not an attachment")
@@ -1850,7 +2004,7 @@ def validate(root, repo):
         receiver = loaded[receiver_stem]
         receiver_item = content[next(e["match"]["id"] for e in manifest["models"] if e["glb"].endswith(f"/{receiver_stem}.glb"))]
         defaults = receiver_item.get("defaultParts", {})
-        drawn_defaults = {slot: next(i for i, s in by_id.items() if s == stem) for slot, stem in configs["default"].items()}
+        drawn_defaults = {slot: by_stem[stem] for slot, stem in configs["default"].items()}
         if drawn_defaults != defaults:
             raise ValueError(f"{receiver_stem}: the default assembly {drawn_defaults} is not the content's defaultParts {defaults}")
         pieces = components(receiver.triangles)
@@ -1864,7 +2018,7 @@ def validate(root, repo):
                     raise ValueError(f"{receiver_stem}: the barrel's muzzle socket is {(chained.translation - muzzle.translation).length * 1000:.1f} mm from the receiver's")
                 muzzle = chained
             for slot, stem in parts.items():
-                item = content[next(i for i, s in by_id.items() if s == stem)]
+                item = content[by_stem[stem]]
                 if slot not in item["attachment"]["fits"]:
                     raise ValueError(f"{stem} does not fit the {slot} slot")
                 socket = muzzle if slot == "muzzle" else receiver.nodes[f"socket_{slot}"]["matrix"]
@@ -1915,7 +2069,7 @@ def check(repo):
         compare(temp, committed_root(repo))
     for line in report:
         print(line)
-    print("BYTES all 16 outputs rebuild byte-identical to the committed files")
+    print(f"BYTES all {len(output_names())} outputs rebuild byte-identical to the committed files")
     print("WEAPONS_CHECK_OK")
 
 
@@ -1924,9 +2078,11 @@ PLANTS = [
     ("socket_name", "missing socket socket_optic"),
     ("coverage", "slots without a socket"),
     ("content", "is not an item"),
+    ("receiver_match", "match receiver"),
     ("part_origin", "attach origin"),
     ("floating", "floats"),
     ("muzzle_chain", "muzzle socket"),
+    ("rifle_grip", "grip_l"),
     ("material", "one material per model"),
     ("double_sided", "single-sided"),
     ("filter", "NEAREST"),
