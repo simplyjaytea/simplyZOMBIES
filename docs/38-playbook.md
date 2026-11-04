@@ -14,9 +14,7 @@ below are kept so old links still land; each points at the section that holds it
 
 ## Where we left off
 
-[Where we left off (2026-11-01, paused by the owner)](../PLAYBOOK.md#where-we-left-off-2026-11-01-paused-by-the-owner),
-then [What the session of 2026-11-01 did](../PLAYBOOK.md#what-the-session-of-2026-11-01-did),
-[To do](../PLAYBOOK.md#to-do) and [Known bugs](../PLAYBOOK.md#known-bugs).
+[Where we are](../PLAYBOOK.md#where-we-are) and [the session log](43-session-log.md).
 
 ## Who decides what
 
@@ -28,8 +26,8 @@ then [What the session of 2026-11-01 did](../PLAYBOOK.md#what-the-session-of-202
 
 ## How work flows
 
-[How work flows](../PLAYBOOK.md#how-work-flows), and the Orca side of it under
-[The Orca workflow](../PLAYBOOK.md#the-orca-workflow). Model routing by role is under
+[The dispatch workflow](../PLAYBOOK.md#the-dispatch-workflow), with its rules for workers under
+[Rules for every worker](../PLAYBOOK.md#rules-for-every-worker). The roster is under
 [The team](../PLAYBOOK.md#the-team).
 
 ## Verifying a change
@@ -50,7 +48,7 @@ then [What the session of 2026-11-01 did](../PLAYBOOK.md#what-the-session-of-202
 
 ## Open owner calls
 
-[Open owner calls](../PLAYBOOK.md#open-owner-calls).
+[Who decides what](../PLAYBOOK.md#who-decides-what) lists where the open calls are.
 
 ## The shared folder
 
