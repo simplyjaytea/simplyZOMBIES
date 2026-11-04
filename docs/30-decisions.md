@@ -7927,3 +7927,22 @@ the promise docs/40 already makes, that reach stops at walls; neither is a new m
 - **The instinct defence does not turn to face a claw it cannot answer.** It used to turn and then
   swing; the reach test now comes before the turn, so an idle player is not spun towards a shambler
   on the far side of a wire fence it can see and not touch.
+
+## The region runs up-valley, and a region save from before it is refused, 2026-11-04
+
+The region `region.main_area` is re-ordered so that x runs up-valley (docs/42 section 3): the
+lower-valley cells, Umezaki Ekimae and Hinatadai, at x=0, and the upper-valley cells, Kawahara Yards
+and Kaminose Shore, at x=1. The cell count, the cell size and every district id are unchanged.
+
+The reason for the save bump is the one `serialize.gd` already records for water (v28). A region's map
+is regenerated from its seed and its cell order, so a save made on the old order would load its
+districts onto ground that has moved under its doors, containers and survivors. A save carries only the
+seed, not which region or which cell order it was rolled on, so the refusal cannot be narrowed to region
+saves. Every v33 save is therefore refused, district saves included. A district's own map is unchanged,
+so that refusal is an over-refusal, and the price of a seed-only save.
+
+- **The bump.** `SAVE_VERSION` goes from 33 to 34, with a note in `godot/sim/kernel/serialize.gd`.
+- **The pins.** `check_m2_save.gd` and `check_m2_fortify.gd` pin the number and move with it. The save
+  gate now also refuses a v33 save, so the refusal is asserted rather than assumed.
+- **Why now.** The save format is not frozen until stage 4 of the release plan, and the owner's
+  coordinator decided the bump (`rename-r2`), so it is taken before a player holds a region save.

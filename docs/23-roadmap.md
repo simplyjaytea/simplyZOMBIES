@@ -2591,6 +2591,20 @@ not a to-do list:
   differently.
   - **The gate.** `npm run check:routing` prints `ROUTING_OK`.
   - **Measured.** Nothing measured.
+- **Rename R2: the region runs up-valley, 2026-11-04.** The Ome–Okutama brief's second rename
+  (docs/42 section 3 and section 6). The four cells of `region.main_area` are re-placed so that x runs
+  up-valley: the lower-valley cells sit at x=0 and the upper-valley cells at x=1. Old cell order: (0,0)
+  town_center, (1,0) forest_edge, (0,1) industrial_park, (1,1) residential_suburb. New: (0,0)
+  town_center, (1,0) industrial_park, (0,1) residential_suburb, (1,1) forest_edge. Cell count, cell
+  size, district ids and every other value are unchanged. The colony's region-wide site moves from
+  (76, 78) to (85, 286); it is printed by the gate and asserted by none, so no assertion moved.
+  - **The save bump.** The map is regenerated from the seed and content, so a saved region world would
+    load onto different ground. The rule in serialize.gd (the v28 water case) is a save bump, so
+    `SAVE_VERSION` goes from 33 to 34 in the same commit, and a v33 save is refused. docs/30 records why.
+  - **The gate.** `npm run godot:m2:region` prints `M2_REGION_OK`, `npm run godot:m2:district` prints
+    `M2_DISTRICT_OK`, `npm run godot:check:worldgen` prints `WORLDGEN_OK` in 24 s, `npm run godot:check:fp_geometry`
+    prints `FP_GEOMETRY_OK` in 16 s, and `npm run godot:m2:save` prints `M2_SAVE_OK`.
+  - **Measured.** Nothing measured. A cell order is not a balance claim.
 - **Item kit polish (#299 round 3 minors), 2026-11-04.** Three mapping fixes in the first-person
   item kit's builder, `tools/blender/first_person_items/build_items.py`, and one new model.
   - **The record.** `family()` now matches `LIQUID_WORDS` against the whole words of an item's
