@@ -106,9 +106,11 @@ What the build checks, on the exported GLBs and on the evaluated, skinned mesh f
   bone) weights on at least 25% of its vertices.
 - **Texel density (`density`):** every triangle is measured from its real UVs and positions (the
   singular values of its UV mapping) in the exported GLB. Shambler: both axes 64 px/m +/-25% on
-  every triangle, end caps included. Survivor (revised, see below): at least 85% of the surface
-  area within 0.6-1.67x its island's authored density on both axes, with the 128 px/m body and
-  256 px/m head bands both present.
+  every triangle, end caps included. Survivor: every non-hair island's area-weighted median of the
+  singular values' geometric mean is within 128 px/m +/-10% for the body or 256 px/m +/-10% for
+  the head and neck, measured against those nominal bands rather than a refitted chart scale. The
+  two arms must also have medians within 2% of 128 px/m of each other. The check prints every
+  island's p10/p50/p90 so polar pinching and finger-tip distortion remain visible.
 - **Floor and feet (`floor`, `feet`):** no penetration over 5 mm; crouch and lunge soles on the
   floor; every stance sole within 5 mm of the floor; stance contact points must travel backward
   at exactly the walking speed, so at speed they hold their spot (under 1 cm per stance).
@@ -129,7 +131,7 @@ defect and must be refused by the named checks. It prints `CHARACTER_PLANT_REFUS
 when the checks catch it, or `CHARACTER_PLANT_FAIL` and exits 1 when they do not:
 
 ```bash
-for plant in death-one-boot death-slide cap-density arm-phase walk-crouch; do
+for plant in death-one-boot death-slide cap-density survivor-density arm-phase walk-crouch; do
   blender --background --factory-startup --python tools/blender/first_person_kit/build_characters.py -- --plant $plant
 done
 ```
@@ -139,6 +141,7 @@ done
 | `death-one-boot` | the round-2 death: a tipped crumple settled onto its lowest vertex | `death-parts`, `death-centroid`, `death-slide` |
 | `death-slide` | both planted feet drift 15 cm sideways during the fall | `death-slide` |
 | `cap-density` | end caps stretched over a whole 64 px cell, as in round 2; the survivor's islands drawn at 0.35x density | `density` |
+| `survivor-density` | only the survivor's islands drawn at 0.35x density, leaving the shambler valid | `density` |
 | `arm-phase` | arm swing a quarter cycle late, as in round 2 | `arm-phase` |
 | `walk-crouch` | the round-2 crouched walk pelvis (0.775 m) | `walk-height` |
 
@@ -161,11 +164,10 @@ were revised in the open, for the survivor only; the shambler keeps every origin
   above it, so the exported total height is allowed 1.73-1.84 m. The eye stays at about 1.62 m
   (the walk's eye check, 1.58-1.62 m, is unchanged), and nothing is rescaled.
 - **Texel density:** the per-triangle 64 px/m +/-25% rule cannot hold on a smooth body painted
-  on cylindrical islands: the islands pinch at their poles (the crown under the hair, boot
-  soles, finger ends). The rule is now area-weighted against each island's own authored density
-  (above), so a global drop is still refused: drawn at 0.35x, the survivor has under 20% of its
-  surface at density and is refused. (In the `cap-density` plant run, the shambler's atlas
-  check, which runs earlier in the same build, refuses first.)
+  on cylindrical islands: the islands pinch at their poles (the crown under the hair and finger
+  ends). The survivor rule instead judges every island's area-weighted median against the nominal
+  128/256 px/m bands (above). The `survivor-density` plant draws only the survivor at 0.35x and
+  proves that this exported-GLB check refuses it without relying on the shambler's earlier check.
 - **Weights:** rigid one-bone weights are replaced by blended weights across every joint, and
   the export checks that they are blended.
 - **Death:** the survivor's seat and back are round, so rolling about a fixed box edge dug 2 cm
@@ -180,18 +182,19 @@ were revised in the open, for the survivor only; the shambler keeps every origin
 - glTF 2.0 binary, metres, +Y up, facing Godot -Z, origin between the soles.
 - Survivor: 1.75 m skull crown with the bun rising to about 1.83 m, approximately 1.62 m eye height, an adult woman about
   7.5 heads tall in a fitted base layer (long-sleeve top, work trousers, boots) close to the body
-  so clothing can sit over it later. The face, freckles and scar are painted, not modelled.
+  so clothing can sit over it later. The nose, brow, lips and eye sockets are modelled; the
+  freckles are painted.
 - Shambler: the same base proportions with a hunched spine, asymmetric shoulders, torn work
   clothes, a bare bitten forearm, an uneven dragging gait, 1.65 m crown, approximately 1.45 m
   eye height, and sickly skin.
 - Both idle meshes stay inside the 0.30 m body-cylinder radius. The measured maxima are about
-  0.297 m for the survivor and 0.298 m for the shambler. Animation poses may leave that idle
+  0.268 m for the survivor and 0.298 m for the shambler. Animation poses may leave that idle
   cylinder, as a lunge or fall naturally does.
-- The survivor has about 7,500 triangles and one single-sided `SurvivorAtlas` material; the
+- The survivor has 7,810 triangles and one single-sided `SurvivorAtlas` material; the
   shambler has 424 and one `CharacterAtlas` material, with tapered head/torso, shaped hair,
   collar, a simple nose/brow, and exactly two geometric eyes.
 - The trouser legs run down over the boot tops, so the rigid shin never stands proud of the boot
-  as the ankle flexes; the boot's toe and laces show in front of the hem.
+  as the ankle flexes; the boot's toe shows in front of the hem.
 
 ## The survivor's body, hair and atlas
 
@@ -210,16 +213,17 @@ swept back, the back gathered up from the nape, a few thin flyaways) and a big m
 the crown-back (a core, five loops and two escaping strands), all weighted to the head.
 
 `survivor_atlas.png` is 512 x 512: head and neck at 256 px/m, body at 128 px/m, hair locks at
-their own tapered density. The island rectangles are frozen from UV layout v2
-(`organic_survivor.FROZEN`), so the painted source keeps its registration while the mesh changes;
-an island whose new extent no longer fits is refitted into its rectangle and reported in the build
-log. The paint is authored separately and committed as `survivor_paint.png`; the builder writes
-it into the atlas unchanged and byte-reproducibly. With no paint present, flat placeholder
-colours are used. `--uv-layout-dir` writes `uv_layout.png`/`.json` (wireframe, rectangles, face
-landmarks) and `uv_position.png` for the painter. `--render-dir` writes the review views (full
-body front, back, three-quarter and profile, four head views, first-person ranges at 0.9, 2 and
-5 m) and a sheet beside the owner's concept, which is read only for that sheet and never enters an
-asset; add `--clay` for untextured grey renders.
+their own tapered density. The face and original garment islands keep their v2 registration;
+layout v3 moves the arms, hands, boots, neck and head back into the formerly empty space at full
+nominal density. Boot soles have separate planar islands so they do not collapse at the cylindrical
+projection's pole. `organic_survivor.FROZEN` records every rectangle. The paint is authored
+separately and committed as `survivor_paint.png`; the builder writes it into the atlas unchanged
+and byte-reproducibly. With no paint present, flat placeholder colours are used. `--uv-layout-dir`
+writes `uv_layout.png`/`.json` (wireframe, rectangles, face landmarks) and `uv_position.png` for
+the painter. `--render-dir` writes the review views (full body front, back, three-quarter and
+profile, four head views, first-person ranges at 0.9, 2 and 5 m) and a sheet beside the owner's
+concept, which is read only for that sheet and never enters an asset; add `--clay` for untextured
+grey renders.
 
 ## The shambler's atlas and wear
 
