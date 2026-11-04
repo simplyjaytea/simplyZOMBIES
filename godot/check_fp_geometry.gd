@@ -460,7 +460,7 @@ func _finishes() -> bool:
 					if instance == spatial:
 						if not _spatial_vertex_allowed(template, vertex):
 							ok = _fail("FINISHES", "%s spatial vertex %s leaves a wall band or tile" % [id, vertex])
-					elif not _finish_vertex_allowed(template, vertex):
+					elif not _finish_vertex_allowed(template, vertex, entry.get("finishVolumes", []) as Array):
 						ok = _fail("FINISHES", "%s finish vertex %s enters an open tile or sinks" % [id, vertex])
 		if _template_has_window(template) and not glass_found:
 			ok = _fail("FINISHES", "%s has windows but no transparent glazing" % id)
@@ -495,6 +495,12 @@ func _finishes() -> bool:
 			ok = _fail("FINISHES", "a planted finish vertex in an open indoor tile was accepted")
 		if not _finish_vertex_allowed(house, Vector3(1.5, 0.004, 1.5)):
 			ok = _fail("FINISHES", "the valid indoor floor overlay was refused")
+		var step := Vector3(3.5, 0.06, 7.16)
+		var house_entry: Dictionary = BuildingView.entry_for("building.house.small")
+		if not _finish_vertex_allowed(house, step, house_entry.get("finishVolumes", []) as Array):
+			ok = _fail("FINISHES", "the declared genkan step was refused")
+		if _finish_vertex_allowed(house, step):
+			ok = _fail("FINISHES", "an undeclared exterior step was accepted")
 		ok = _finish_placement(house) and ok
 	ok = _finish_worldgen(templates) and ok
 	return ok
@@ -565,7 +571,17 @@ func _spatial_vertex_allowed(template: Dictionary, point: Vector3) -> bool:
 	return false
 
 
-func _finish_vertex_allowed(template: Dictionary, point: Vector3) -> bool:
+func _finish_vertex_allowed(template: Dictionary, point: Vector3, finish_volumes: Array = []) -> bool:
+	for volume_v in finish_volumes:
+		var volume: Dictionary = volume_v as Dictionary
+		var low: Array = volume.get("min", []) as Array
+		var high: Array = volume.get("max", []) as Array
+		if low.size() != 3 or high.size() != 3:
+			continue
+		var minimum := Vector3(float(low[0]), float(low[1]), float(low[2]))
+		var size := Vector3(float(high[0]), float(high[1]), float(high[2])) - minimum
+		if AABB(minimum, size).grow(EPSILON_M).has_point(point):
+			return true
 	if point.y < -EPSILON_M:
 		return false
 	if point.y >= 2.50:

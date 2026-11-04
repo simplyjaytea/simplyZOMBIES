@@ -90,7 +90,9 @@ The runtime adds the building record's `x/y` as Godot `x/z`. All export transfor
 - Interior floor finish: 0.004 m above the floor to avoid z-fighting.
 - Ceiling finish: 2.545 m, immediately below the wall top, over every indoor tile, counters,
   shelves and partitions included.
-- Eaves: 0.30 m on pitched roofs; flat roof overhang: 0.18 m.
+- Eaves: 0.30 m on pitched roofs, deepened to 0.45 m for batch A's two houses; flat roof
+  overhang: 0.18 m. The gabled house's decorative upper façade and lifted roof are finish geometry,
+  not another sim floor.
 
 Roofs, ceilings, floors, casings, glazing, curtains, foundation, skirting, and corner boards are
 presentation only. They do not create a walkable upper level or alter collision, sight, shots, or reach.
@@ -99,10 +101,32 @@ owner decision, not something this kit hides.
 
 ## Looks, roofs, and interiors
 
-The content uses four exterior wall looks, all covered: `timber`, `render`, `brick`, and `block`. Each
-has two or three quiet variants. Roof looks are `shingle`, `tin`, and `tar`. Shingle roofs are gables on
-small/narrow templates and hips at 12 × 8 m or larger; tin roofs are gables; tar roofs are flat with a
-parapet. Large shingle houses may have a brick chimney. Roof pitch is derived from template size.
+The content uses four exterior wall looks, all covered: `timber`, `render`, `brick`, and `block`.
+The kit also provides `siding` for the later schema/tag piece. Roof looks are `shingle`, `tin`, and
+`tar`, plus `kawara`. Shingle and kawara roofs are gables on small/narrow templates and hips at
+12 × 8 m or larger; tin roofs are gables; tar roofs are flat with a parapet. Large shingle houses may
+have a brick chimney. Roof pitch is derived from template size, with the gabled house's pitch chosen
+to keep its lifted roof legible from the street.
+
+### Batch A: materials and houses
+
+- **Kawara** uses cool grey glazed-clay courses (`#262a2b` through `#505653`), with alternating
+  tile offsets, a curved-tile highlight and sparse chips. Its atlas styles are `kawara` and
+  `kawara_alt`.
+- **Siding** uses vertical, weathered boards in a restrained cedar-grey ramp. Its atlas styles are
+  `siding_vertical` and `siding_vertical_alt`. The regular board and tile structure never uses cloud
+  noise or chooses a colour patch from an atlas cell.
+- `house_small` keeps its 9 × 7 m footprint, timber walls, door and windows, with a kawara roof,
+  0.45 m eaves and a 0.12 m-high genkan step outside the south door.
+- `house_gable` keeps its 11 × 8 m footprint, both doors and every window. It uses siding and
+  kawara, 0.45 m eaves and genkan steps. A decorative upper façade carries regular sash stations;
+  its roof is lifted 1.90 m and has a 2.00 m rise above the eave. The interior remains the sim's
+  ground floor, with no new collision, sight or walkable level.
+- These two overrides live in the builder and their manifest entries. The template JSON, schema enum
+  and `street.json` do not change here; R4 can retag the content after the materials have landed.
+- Each genkan step's exact bounds are declared as a `finishVolumes` entry. `check_fp_geometry.gd`
+  accepts a finish vertex inside that declared exterior attachment, but rejects the same point when
+  the declaration is absent; its open-tile negative remains in force.
 
 The templates have no room-tag field, so interiors resolve by the first recognised building tag:
 
@@ -132,7 +156,8 @@ builder measures every polygon edge and requires 48–80 texels/m; the generated
 request nearest magnification and Godot applies nearest-with-mipmaps filtering for distance.
 
 The opaque `BuildingsAtlas` and transparent `WindowGlass` materials reference the same atlas. The palette
-is faded sage timber, warm grey render, brown brick, charcoal roofs, aged cream trim, and subdued floor
-tones. Wear is sparse and surface-specific, with no camouflage-like cloud noise or copied texture pixels.
-Siding courses and floor boards are 0.125 m wide; brick courses are 0.125 m and block courses 0.25 m.
+is faded sage timber, warm grey render, brown brick, charcoal roofs, cool grey kawara, cedar-grey
+siding, aged cream trim, and subdued floor tones. Wear is sparse and surface-specific, with no
+camouflage-like cloud noise or copied texture pixels. Siding and floor boards are 0.125 m wide;
+brick courses are 0.125 m and block courses 0.25 m.
 All meshes and textures are original procedural work from fixed integer hashes.

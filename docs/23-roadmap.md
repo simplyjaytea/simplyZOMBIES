@@ -171,10 +171,10 @@ The source baseline is archived on GitHub at
 - **First-person scavenging and personal equipment.** Real world containers,
   search/take/stow/equip through a revised grid UI; skill and condition access.
 - **The Ome–Okutama re-theme.** A setting brief first, as a new doc. It covers the real places to
-  draw on, a fictional map of the valley, building types, and the item and district renames. After
-  the brief: Japanese building templates and props by the art lead, then content renames. See
+  draw on, a fictional map of the valley, building types, and the item and district renames. See
   [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
   The brief is [docs/42](42-ome-okutama-setting.md); its section 6 is the order of the work.
+  Building batch A has landed; the remaining art batches, templates, props and renames stay planned.
 - **First-person spatial combat and perception.** One coherent obstruction and
   hit contract across visible geometry, sim movement, combat and NPC sight.
 - **First-person people and settlement operation.** Ledger animations, reports,
@@ -2460,6 +2460,22 @@ What landed and what proved it, system by system (condensed from the retired bac
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **The Ome–Okutama re-theme: buildings batch A, 2026-11-05.** The first art batch of
+  [docs/42](42-ome-okutama-setting.md) adds two finishes and two whole houses without moving a
+  footprint, door, window, pool or weight.
+  - **Materials.** Kawara is a cool grey glazed-clay roof tile; siding is vertical weathered
+    cedar-grey boards. Both join the shared atlas and manifest's look tables, ready for the later
+    schema/`street.json` retag. Their regular courses and restrained wear use no cloud noise or
+    atlas-cell paint patches.
+  - **Houses.** `house_small` is the 9 x 7 m timber house with kawara, a deep eave and genkan
+    step. `house_gable` is the 11 x 8 m siding house with kawara, deep eaves, genkan steps and a
+    decorative upper sash façade. Its lifted roof does not create an upper sim floor. Existing
+    interiors, open window apertures and all 22 template resolutions remain.
+  - **Verified.** `build_finishes.py -- --check` prints `BUILDINGS_CHECK_OK`; all eight plants are
+    refused. `godot:check:fp_geometry` proves the real-district walls, windows and ceilings;
+    `godot:smoke` and `check:routing` pass. Blender turnarounds, material swatches and matched
+    1280x720 main/head street and interior captures accompany the piece.
 
 - **Item kit polish (#299 round 3 minors), 2026-11-04.** Three mapping fixes in the first-person
   item kit's builder, `tools/blender/first_person_items/build_items.py`, and one new model.

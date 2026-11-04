@@ -56,6 +56,10 @@ STYLES = {
     "concrete": (6, 3),
     "curtain": (7, 3),
     "glass": (0, 4),
+    "kawara": (1, 4),
+    "kawara_alt": (2, 4),
+    "siding_vertical": (3, 4),
+    "siding_vertical_alt": (4, 4),
 }
 PALETTES = {
     "siding": ["#586058", "#636a60", "#6d7367", "#777b6d", "#818474"],
@@ -64,6 +68,7 @@ PALETTES = {
     "wood": ["#3c332b", "#4d4033", "#5f4d3a", "#705a42", "#7d664c"],
     "floor": ["#504234", "#62503c", "#725d44", "#806a4e", "#8b7457"],
     "roof": ["#2d2f2e", "#383937", "#43423e", "#4e4a43", "#575148"],
+    "kawara": ["#262a2b", "#303536", "#3a4040", "#444a49", "#505653"],
     "stone": ["#484943", "#53544d", "#5f6056", "#69695d", "#737264"],
     "brick": ["#4c4038", "#5c493d", "#6b5243", "#755d4b", "#806652"],
     "cloth": ["#4c5150", "#585d59", "#646862", "#70736a", "#7a7c70"],
@@ -74,11 +79,13 @@ WALL_VARIANTS = {
     "render": ["render_ivory", "render_grey", "render_stain"],
     "brick": ["brick", "brick_alt"],
     "block": ["block", "block_alt"],
+    "siding": ["siding_vertical", "siding_vertical_alt"],
 }
 ROOF_VARIANTS = {
     "shingle": ["shingle", "shingle_alt"],
     "tin": ["tin", "tin_alt"],
     "tar": ["tar"],
+    "kawara": ["kawara", "kawara_alt"],
 }
 INTERIORS = {
     "residential": {"wall": ["wallpaper", "wallpaper_alt"], "floor": ["floor_boards", "floor_boards_alt"]},
@@ -231,6 +238,36 @@ def atlas_pixel(style, x, y):
         return tone("stone", 3 + (1 if n % 113 == 0 else 0) - (1 if n % 127 == 0 else 0))
     if style == "curtain":
         return tone("cloth", 2 + ((x // 4) % 2))
+    if style.startswith("kawara"):
+        row = y // 8
+        offset = 8 if row % 2 else 0
+        tile_x = (x + offset) % 16
+        variant = 1 if style == "kawara_alt" else 0
+        index = 2 + (((x + offset) // 16 + row * 3 + variant) % 3) - 1
+        if y % 8 == 0 or tile_x == 0:
+            index = 0
+        elif tile_x in (7, 8):
+            index = 4
+        elif tile_x in (6, 9) or y % 8 == 1:
+            index = 3
+        if n % 211 == 0:
+            index = 1
+        return tone("kawara", index)
+    if style.startswith("siding_vertical"):
+        board = x // 8
+        within = x % 8
+        variant = 1 if style == "siding_vertical_alt" else 0
+        index = 2 + ((board * 5 + variant) % 3) - 1
+        if within == 0:
+            index = 1
+        elif within == 1:
+            index = 3
+        grain = (y + noise(board, 0, 733) % 7) % 37
+        if grain in (3, 4) and within > 2:
+            index = max(1, index - 1)
+        if n % 191 == 0:
+            index = 1
+        return tone("siding", index)
     if style == "glass":
         edge = min(x, y, 63 - x, 63 - y)
         return tone("glass", 1 if edge < 5 and n % 3 == 0 else 3)
@@ -520,8 +557,18 @@ def side_quad(mesh, x, y, side_index, u0, u1, y0, y1, style, variants=None, offs
     mesh.face(origin + Vector((0, y0, 0)), u_axis * (u1 - u0), Vector((0, y1 - y0, 0)), style, variants, normal)
 
 
+HOUSE_FINISHES = {
+    "building.house.small": {"roof": "kawara", "wall": "timber"},
+    "building.house.gable": {"roof": "kawara", "wall": "siding"},
+}
+
+
+def finish_looks(template):
+    return HOUSE_FINISHES.get(template["id"], template["look"])
+
+
 def exterior_style(template):
-    return WALL_VARIANTS[template["look"]["wall"]]
+    return WALL_VARIANTS[finish_looks(template)["wall"]]
 
 
 def finish_for_neighbour(template, x, y, side_index):
@@ -709,6 +756,45 @@ def build_tile_trim(finish, template, x, y):
             side_quad(finish, x, y, side_index, 0.975, 1, low, high - 0.065, "dark_wood", offset=0.018)
 
 
+def genkan_volumes(template):
+    volumes = []
+    if template["id"] not in HOUSE_FINISHES:
+        return volumes
+    for door in template.get("doors", []):
+        x, y = int(door["x"]), int(door["y"])
+        volumes.append({"min": [x + 0.08, 0.0, y + 1.0], "max": [x + 0.92, 0.12, y + 1.32]})
+    return volumes
+
+
+def build_house_details(finish, template):
+    for volume in genkan_volumes(template):
+        low = volume["min"]
+        high = volume["max"]
+        finish.box(low, [high[i] - low[i] for i in range(3)], "foundation")
+    if template["id"] != "building.house.gable":
+        return
+    styles = exterior_style(template)
+    for y in range(template["size"]["h"]):
+        for x in range(template["size"]["w"]):
+            if tile_at(template, x, y) not in (1, 2, 6):
+                continue
+            for side_index, ((dx, dy), _) in enumerate(SIDES):
+                if inside(template, x + dx, y + dy):
+                    continue
+                side_quad(finish, x, y, side_index, 0, 1, WALL_TOP, 4.45, styles[0], styles)
+                tile = tile_at(template, x, y)
+                upper_window = tile == 2 or (tile == 1 and ((side_index in (0, 2) and x % 3 == 1) or (side_index in (1, 3) and y % 3 == 1)))
+                if not upper_window:
+                    continue
+                side_quad(finish, x, y, side_index, 0.12, 0.88, 2.90, 2.98, "trim", offset=0.014)
+                side_quad(finish, x, y, side_index, 0.12, 0.88, 4.02, 4.10, "trim", offset=0.014)
+                side_quad(finish, x, y, side_index, 0.12, 0.18, 2.98, 4.02, "trim", offset=0.014)
+                side_quad(finish, x, y, side_index, 0.82, 0.88, 2.98, 4.02, "trim", offset=0.014)
+                side_quad(finish, x, y, side_index, 0.18, 0.495, 2.98, 4.02, "glass", offset=0.010)
+                side_quad(finish, x, y, side_index, 0.505, 0.82, 2.98, 4.02, "glass", offset=0.010)
+                side_quad(finish, x, y, side_index, 0.495, 0.505, 2.98, 4.02, "trim", offset=0.018)
+
+
 def build_pieces(template, plant=None):
     pieces = Pieces(template)
     interior = interior_spec(template)
@@ -727,6 +813,7 @@ def build_pieces(template, plant=None):
             if tile in (1, 2, 6):
                 build_tile_trim(pieces.finish, template, x, y)
     build_roof(pieces.finish, template)
+    build_house_details(pieces.finish, template)
     finish = pieces.finish
     if plant == "coplanar" and template["id"] == "building.house.small":
         finish._polygon([Vector(v) for v in finish.vertices[:4]], finish.uvs[0], "trim")
@@ -791,27 +878,35 @@ def validation_states(template):
 
 
 def roof_form(template):
-    roof = template["look"]["roof"]
+    roof = finish_looks(template)["roof"]
     if roof == "tar":
         return "flat"
-    if roof == "shingle" and template["size"]["w"] >= 12 and template["size"]["h"] >= 8:
+    if roof in ("shingle", "kawara") and template["size"]["w"] >= 12 and template["size"]["h"] >= 8:
         return "hip"
     return "gable"
+
+
+def eave_for(template):
+    return 0.45 if template["id"] in HOUSE_FINISHES else EAVE
 
 
 def roof_peak(template):
     if roof_form(template) == "flat":
         return 2.78
+    if template["id"] == "building.house.gable":
+        return 4.62
     short = min(template["size"]["w"], template["size"]["h"])
     return 2.62 + min(1.50, 0.20 * short + 0.20)
 
 
 def build_roof(mesh, template):
+    roof_start = len(mesh.vertices)
     w, h = template["size"]["w"], template["size"]["h"]
     form = roof_form(template)
-    roof_style = template["look"]["roof"]
+    roof_style = finish_looks(template)["roof"]
     variants = ROOF_VARIANTS[roof_style]
     exterior = exterior_style(template)
+    EAVE = eave_for(template)
     # Roles let `validate_roof` judge the winding: a "roof" face must face up, a "roof_side" face
     # away from the building. Boxes (ridge, chimney) face away from their own centre and are left out.
     mesh.role = "roof"
@@ -865,6 +960,8 @@ def build_roof(mesh, template):
         roof_y = 2.62 + rise * (1.0 - abs(cz - h * 0.5) / (h * 0.5))
         mesh.box((cx - 0.24, roof_y - 0.10, cz - 0.24), (0.48, 0.78, 0.48), "brick")
         mesh.box((cx - 0.28, roof_y + 0.66, cz - 0.28), (0.56, 0.07, 0.56), "foundation")
+    if template["id"] == "building.house.gable":
+        mesh.vertices[roof_start:] = [(x, y + 1.90, z) for x, y, z in mesh.vertices[roof_start:]]
 
 
 def gltf_json(path):
@@ -1109,11 +1206,11 @@ def make_entry(template, pieces):
     minimum, maximum = source_bounds([builder for builder in builders if builder.vertices])
     kinds = [pieces.conditional[name]["kind"] for name in pieces.conditional]
     slug = template["id"].removeprefix("building.").replace(".", "_")
-    return {
+    entry = {
         "match": {"id": template["id"]},
         "glb": f"res://assets/first_person/buildings/{slug}.glb",
-        "wall": template["look"]["wall"],
-        "roof": template["look"]["roof"],
+        "wall": finish_looks(template)["wall"],
+        "roof": finish_looks(template)["roof"],
         "roofForm": roof_form(template),
         "interior": interior_key(template),
         "interiorWall": interior_spec(template)["wall"],
@@ -1122,6 +1219,10 @@ def make_entry(template, pieces):
         "bounds": {"min": [round(v, 5) for v in minimum], "max": [round(v, 5) for v in maximum]},
         "pieces": {kind: kinds.count(kind) for kind in ("jamb", "wall", "window")},
     }
+    volumes = genkan_volumes(template)
+    if volumes:
+        entry["finishVolumes"] = volumes
+    return entry
 
 
 def validate_manifest(manifest, templates, plant):
@@ -1135,13 +1236,18 @@ def validate_manifest(manifest, templates, plant):
     roof_looks = {template["look"]["roof"] for template in templates}
     if plant == "look":
         wall_looks.add("missing_look")
-    if set(manifest.get("looks", {}).get("wall", {})) != wall_looks:
+    manifest_walls = set(manifest.get("looks", {}).get("wall", {}))
+    manifest_roofs = set(manifest.get("looks", {}).get("roof", {}))
+    if manifest_walls != set(WALL_VARIANTS) or not wall_looks <= manifest_walls:
         raise ValueError("manifest does not cover every wall look")
-    if set(manifest.get("looks", {}).get("roof", {})) != roof_looks:
+    if manifest_roofs != set(ROOF_VARIANTS) or not roof_looks <= manifest_roofs:
         raise ValueError("manifest does not cover every roof look")
+    advertised = set().union(*(WALL_VARIANTS[key] for key in manifest_walls), *(ROOF_VARIANTS[key] for key in manifest_roofs))
+    if not advertised <= set(STYLES):
+        raise ValueError("manifest advertises a look with no atlas style")
     for template in templates:
         entry = by_id[template["id"]]
-        if entry["wall"] != template["look"]["wall"] or entry["roof"] != template["look"]["roof"]:
+        if entry["wall"] != finish_looks(template)["wall"] or entry["roof"] != finish_looks(template)["roof"]:
             raise ValueError(f"manifest look mismatch for {template['id']}")
         if entry["interior"] not in INTERIORS or len(entry["variation"]) < 2:
             raise ValueError(f"manifest interior/variation mismatch for {template['id']}")

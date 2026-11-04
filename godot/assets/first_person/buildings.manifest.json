@@ -60,6 +60,10 @@
   "kit": "first-person-building-finishes",
   "looks": {
     "roof": {
+      "kawara": [
+        "kawara",
+        "kawara_alt"
+      ],
       "shingle": [
         "shingle",
         "shingle_alt"
@@ -85,6 +89,10 @@
         "render_ivory",
         "render_grey",
         "render_stain"
+      ],
+      "siding": [
+        "siding_vertical",
+        "siding_vertical_alt"
       ],
       "timber": [
         "timber_sage",
@@ -412,16 +420,42 @@
     {
       "bounds": {
         "max": [
-          11.3,
-          4.19,
-          8.305
+          11.45,
+          6.52,
+          8.455
         ],
         "min": [
-          -0.3,
+          -0.45,
           0.0,
-          -0.305
+          -0.455
         ]
       },
+      "finishVolumes": [
+        {
+          "max": [
+            2.92,
+            0.12,
+            8.32
+          ],
+          "min": [
+            2.08,
+            0.0,
+            8.0
+          ]
+        },
+        {
+          "max": [
+            8.92,
+            0.12,
+            8.32
+          ],
+          "min": [
+            8.08,
+            0.0,
+            8.0
+          ]
+        }
+      ],
       "floor": [
         "carpet"
       ],
@@ -439,14 +473,14 @@
         "wall": 26,
         "window": 31
       },
-      "roof": "shingle",
+      "roof": "kawara",
       "roofForm": "gable",
       "variation": [
         "#f5f2e9",
         "#e8eee8",
         "#eee8e2"
       ],
-      "wall": "timber"
+      "wall": "siding"
     },
     {
       "bounds": {
@@ -530,16 +564,30 @@
     {
       "bounds": {
         "max": [
-          9.3,
-          4.19,
-          7.305
+          9.45,
+          4.12,
+          7.455
         ],
         "min": [
-          -0.3,
+          -0.45,
           0.0,
-          -0.305
+          -0.455
         ]
       },
+      "finishVolumes": [
+        {
+          "max": [
+            3.92,
+            0.12,
+            7.32
+          ],
+          "min": [
+            3.08,
+            0.0,
+            7.0
+          ]
+        }
+      ],
       "floor": [
         "floor_boards",
         "floor_boards_alt"
@@ -558,7 +606,7 @@
         "wall": 22,
         "window": 26
       },
-      "roof": "shingle",
+      "roof": "kawara",
       "roofForm": "gable",
       "variation": [
         "#f5f2e9",
