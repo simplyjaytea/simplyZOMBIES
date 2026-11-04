@@ -7812,6 +7812,40 @@ and third person is a view for testing, not a game mode.
 - **Left open.** Whether third person ever becomes a player-facing mode is not decided here; docs/39
   does not name one.
 
+## The top-down game is legacy, 2026-11-04
+
+The owner's words, 2026-11-04: "Remember, the priority is working on first person mode. If
+anything, the game should default to it and leave top down as a legacy thing."
+
+- **First person is the game.** Every new piece is first person.
+- **The top-down game stays.** It still boots with `npm run godot:run:topdown`, and its gates keep
+  passing.
+- **No new features, no new UI-overhaul slices** (docs/32) for top-down, unless the owner asks.
+- **Shared sim modules serve both modes**, so a sim fix still lands in both.
+
+## The setting is Japan: the Ome–Okutama valley, 2026-11-04
+
+The owner's words, 2026-11-04: "Add to the playbook, I want the game's setting to be Japan.
+Inspired from real places." They chose the Ome–Okutama valley in western Tokyo from four options:
+Ome–Okutama, Kiryu, Hakodate and Tono.
+
+- **The setting.** The game is set in Japan, inspired by the real Ome–Okutama valley: the upper
+  Tama River gorge at the far end of the JR Ome Line, in western Tokyo.
+- **Fictional names.** Place names, businesses and brands are fictional. The real layout,
+  landscape and architecture are the inspiration: shuttered Showa-era shopping arcades, wooden
+  two-storey houses with tiled roofs, small stations, lumber yards, shrines, the river, and forested
+  mountains as the map's natural edges.
+- **The premise.** The last stop on the line out of Tokyo.
+- **Why it was chosen.** It is low-rise, which suits the engine while z-levels are deferred
+  (docs/23 "Deferred: z-levels"). The valley is defensible. The river is a water source. The first
+  expedition reads clearly: down the valley toward the city.
+- **Chosen over three others.** Kiryu (a flat textile town), Hakodate (a port with winter, but
+  sloped) and Tono (rural folklore country, with few buildings to scavenge). Towns in the Fukushima
+  exclusion zone were ruled out out of respect.
+- **What it changes is not decided here.** The current content is Western: building templates, item
+  names and the district names such as `district.residential_suburb`. The re-theme is planned work,
+  listed in docs/23.
+
 ## The playbook, one file, 2026-11-01
 
 The owner's call: `CLAUDE.md`, `AGENTS.md` and docs/38 merge into one root `PLAYBOOK.md`. In
