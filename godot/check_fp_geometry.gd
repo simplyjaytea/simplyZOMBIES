@@ -33,6 +33,13 @@ extends SceneTree
 #             is left under a tile the building draws. A solid wall planted over a window worldgen
 #             opened is refused by the same rays, and a baseline that still draws the band boxes is
 #             refused by the same box count.
+#   CEILINGS  in the same four districts, every tile the sim marks indoors in a finished building, a
+#             wall excepted, is closed from above: two vertical rays from 5 cm above the floor each
+#             cross a downward-facing face the building draws no higher than `SimSpace.FULL_MM`, the
+#             top of every full-height band, and no lower than 25 mm under it, or under the bottom of
+#             the tile's own head band where its profile has one (a window's lintel, a door's head).
+#             Counters, shelves and partitions included. The ceiling stripped in memory from one
+#             counter or shelf tile's mesh is refused by the same rays, at that tile.
 
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BuildingView = preload("res://presentation/first_person/building_view.gd")
@@ -67,7 +74,7 @@ func _run() -> void:
 
 func _finish(ok: bool) -> void:
 	if ok:
-		print("FP_GEOMETRY_OK every tile and all 22 building finishes keep their profile bands, every body keeps its cylinder, finish skins stay within 25 mm of a solid host, every sim window in four generated districts is drawn open, and planted wall-over-window, band-box, window, Low-tile, module, open-tile and high-wall errors are refused")
+		print("FP_GEOMETRY_OK every tile and all 22 building finishes keep their profile bands, every body keeps its cylinder, finish skins stay within 25 mm of a solid host, every sim window in four generated districts is drawn open and every indoor tile there has a ceiling, and planted wall-over-window, stripped-ceiling, band-box, window, Low-tile, module, open-tile and high-wall errors are refused")
 		quit(0)
 		return
 	for failure in _failures:
@@ -632,6 +639,7 @@ func _finish_worldgen(templates: Dictionary) -> bool:
 	var windows: int = 0
 	var opened: int = 0
 	var planted: bool = false
+	var ceilings: Dictionary = {"judged": 0, "furnished": 0, "missing": 0, "first": "", "stripped": false, "templates": {}, "template_tiles": {}}
 	for district_id in FINISH_DISTRICTS:
 		var boot: Dictionary = SimBoot.bare(SimBoot.DISTRICT_SEED, SimTileMap.DISTRICT_TILES, district_id)
 		var map: Variant = boot["map"]
@@ -668,12 +676,20 @@ func _finish_worldgen(templates: Dictionary) -> bool:
 			if _legacy_boxes(baseline, map, drawn) == 0:
 				ok = _fail("WORLDGEN", "the band-box count found nothing in a baseline that draws the boxes")
 			baseline.free()
+		ok = _ceiling_district(view, map, district_id, ceilings) and ok
 		view.free()
 	print("FP_GEOMETRY WORLDGEN judged %d sim windows in finished buildings across %d districts, %d of them opened by worldgen" % [windows, FINISH_DISTRICTS.size(), opened])
 	if windows == 0 or opened == 0:
 		ok = _fail("WORLDGEN", "judged %d sim windows, %d opened by worldgen: nothing to judge" % [windows, opened])
 	if not planted:
 		ok = _fail("WORLDGEN", "no window worldgen opened, so the planted wall was never tried")
+	print("FP_GEOMETRY CEILINGS judged %d indoor tiles in finished buildings across %d districts, %d of them counter, shelf or partition tiles, %d without a ceiling" % [ceilings["judged"], FINISH_DISTRICTS.size(), ceilings["furnished"], ceilings["missing"]])
+	if int(ceilings["missing"]) > 0:
+		ok = _fail("CEILINGS", "%d of %d indoor tiles have no ceiling at %d mm (%d distinct tiles of %d templates); the first is %s" % [ceilings["missing"], ceilings["judged"], SimSpace.FULL_MM, (ceilings["template_tiles"] as Dictionary).size(), (ceilings["templates"] as Dictionary).size(), ceilings["first"]])
+	if int(ceilings["judged"]) == 0 or int(ceilings["furnished"]) == 0:
+		ok = _fail("CEILINGS", "judged %d indoor tiles, %d of them furnished: nothing to judge" % [ceilings["judged"], ceilings["furnished"]])
+	if not bool(ceilings["stripped"]):
+		ok = _fail("CEILINGS", "no ceiling was stripped, so the planted error was never tried")
 	return ok
 
 
@@ -786,6 +802,189 @@ func _opaque_buckets(node: Node3D) -> Dictionary:
 							buckets[key] = []
 						(buckets[key] as Array).append(triangle)
 	return buckets
+
+
+# --- CEILINGS -------------------------------------------------------------------------------
+
+# The highest ceiling face counted: the top of every full-height band, the height the sim publishes.
+const CEILING_TOP_M: float = float(SimSpace.FULL_MM) / 1000.0
+# How far under it, or under a head band's bottom, a closing face may sit (the GLBs draw the ceiling
+# 5 mm under, clear of the wall caps).
+const CEILING_SLACK_M: float = 0.025
+# No face lower than this is gathered as a ceiling: under every head band the profile holds.
+const CEILING_FLOOR_M: float = 1.5
+# Two points per tile, off both diagonals, so each triangle of a one-quad ceiling is crossed.
+const CEILING_PROBES: Array[Vector2] = [Vector2(0.3, 0.6), Vector2(0.7, 0.4)]
+
+
+# Judge one built district's ceilings into `totals`, and the first time a furnished tile (a counter,
+# shelf or partition: the tiles the old build left open to the sky) passes, strip its ceiling from the
+# instance's mesh in memory and require the same rays to refuse that tile.
+func _ceiling_district(view: Node3D, map: Variant, district_id: String, totals: Dictionary) -> bool:
+	var dresser: Node3D = view.get("building_finishes") as Node3D
+	if dresser == null:
+		return _fail("CEILINGS", "%s: no finished buildings were built" % district_id)
+	var ok: bool = true
+	for instance_v in dresser.get("instances") as Array:
+		var instance: Dictionary = instance_v as Dictionary
+		var judged: Dictionary = _judge_ceilings(map, instance)
+		totals["judged"] = int(totals["judged"]) + int(judged["judged"])
+		totals["furnished"] = int(totals["furnished"]) + int(judged["furnished"])
+		var missing: Array = judged["missing"] as Array
+		if not missing.is_empty():
+			if int(totals["missing"]) == 0:
+				totals["first"] = "%s in %s (%s)" % [missing[0], (instance["building"] as Dictionary).get("id", ""), district_id]
+			totals["missing"] = int(totals["missing"]) + missing.size()
+			var record: Dictionary = instance["building"] as Dictionary
+			(totals["templates"] as Dictionary)[record.get("id", "")] = true
+			for tile_v in missing:
+				var local: Vector2i = (tile_v as Vector2i) - Vector2i(int(record["x"]), int(record["y"]))
+				(totals["template_tiles"] as Dictionary)["%s %s" % [record.get("id", ""), local]] = true
+		var target: Variant = judged["covered_furnished"]
+		if bool(totals["stripped"]) or target == null:
+			continue
+		totals["stripped"] = true
+		# True negative: the defect the review found, one furnished tile with no ceiling over it.
+		var removed: int = _strip_ceiling(instance["node"] as Node3D, target as Vector2i)
+		var refused: Array = _judge_ceilings(map, instance)["missing"] as Array
+		if removed == 0 or refused != [target]:
+			ok = _fail("CEILINGS", "%s: the ceiling stripped from %s (%d triangles) was not refused there; the rays found %s" % [district_id, target, removed, refused])
+	return ok
+
+
+# One finished instance's indoor tiles against its downward-facing faces at the ceiling height.
+# Returns {judged, furnished, missing: [tile], covered_furnished: the first furnished tile with a
+# ceiling, or null}.
+func _judge_ceilings(map: Variant, instance: Dictionary) -> Dictionary:
+	var record: Dictionary = instance["building"] as Dictionary
+	var faces: Dictionary = _ceiling_faces(instance["node"] as Node3D)
+	var judged: int = 0
+	var furnished: int = 0
+	var missing: Array = []
+	var covered_furnished: Variant = null
+	for y in range(int(record["y"]), int(record["y"]) + int(record["h"])):
+		for x in range(int(record["x"]), int(record["x"]) + int(record["w"])):
+			if not SimTileMap.is_indoors(map, x, y):
+				continue
+			var tile_class: int = SimTileMap.tile_at(map, x, y)
+			if tile_class == SimTileMap.Tile.Wall:
+				continue
+			var tile: Vector2i = Vector2i(x, y)
+			var is_furnished: bool = tile_class in [SimTileMap.Tile.Screen, SimTileMap.Tile.Low]
+			judged += 1
+			if is_furnished:
+				furnished += 1
+			var low: float = _ceiling_low(SimSpace.profile_key(map, x, y))
+			var near: Array = []
+			for face_v in faces.get(tile, []) as Array:
+				var face: PackedVector3Array = face_v as PackedVector3Array
+				if face[0].y >= low:
+					near.append(face)
+			var covered: bool = true
+			for probe in CEILING_PROBES:
+				var foot: Vector3 = Vector3(float(x) + probe.x, 0.05, float(y) + probe.y)
+				if not _segment_hits(foot, Vector3(foot.x, CEILING_TOP_M + EPSILON_M, foot.z), near):
+					covered = false
+			if not covered:
+				missing.append(tile)
+			elif is_furnished and covered_furnished == null:
+				covered_furnished = tile
+	return {"judged": judged, "furnished": furnished, "missing": missing, "covered_furnished": covered_furnished}
+
+
+# The lowest a face closing this profile key from above may sit: CEILING_SLACK_M under the bottom of
+# a head band (one reaching FULL_MM from above the floor), or under FULL_MM itself.
+func _ceiling_low(key: String) -> float:
+	var low: float = CEILING_TOP_M
+	for band_v in SimSpace.bands(key):
+		var band: Array = band_v as Array
+		if int(band[1]) == SimSpace.FULL_MM and int(band[0]) > 0:
+			low = minf(low, float(band[0]) / 1000.0)
+	return low - CEILING_SLACK_M
+
+
+# The flat downward-facing triangles an instance draws from CEILING_FLOOR_M up to 1 mm over the
+# ceiling height, in world space, bucketed by each tile their bounds touch.
+func _ceiling_faces(node: Node3D) -> Dictionary:
+	var buckets: Dictionary = {}
+	for mesh_node in BuildingView.mesh_nodes(node):
+		var instance: MeshInstance3D = mesh_node as MeshInstance3D
+		var xform: Transform3D = instance.global_transform
+		for surface in instance.mesh.get_surface_count():
+			var arrays: Array = instance.mesh.surface_get_arrays(surface)
+			for triangle_v in _surface_ceiling_triangles(arrays, xform, CEILING_FLOOR_M):
+				var t: PackedVector3Array = (triangle_v as Array)[1] as PackedVector3Array
+				for tx in range(floori(minf(t[0].x, minf(t[1].x, t[2].x)) - 0.001), floori(maxf(t[0].x, maxf(t[1].x, t[2].x)) + 0.001) + 1):
+					for tz in range(floori(minf(t[0].z, minf(t[1].z, t[2].z)) - 0.001), floori(maxf(t[0].z, maxf(t[1].z, t[2].z)) + 0.001) + 1):
+						var key: Vector2i = Vector2i(tx, tz)
+						if not buckets.has(key):
+							buckets[key] = []
+						(buckets[key] as Array).append(t)
+	return buckets
+
+
+# Each ceiling triangle of one surface as [first index position, world triangle]. A triangle counts
+# when its three corners sit level, at or above `low` and no higher than 1 mm over the ceiling
+# height, and its vertex normals face down.
+func _surface_ceiling_triangles(arrays: Array, xform: Transform3D, low: float) -> Array:
+	var out: Array = []
+	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	if arrays[Mesh.ARRAY_NORMAL] == null:
+		return out
+	var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+	var indices: PackedInt32Array = PackedInt32Array()
+	if arrays[Mesh.ARRAY_INDEX] != null:
+		indices = arrays[Mesh.ARRAY_INDEX]
+	var count: int = indices.size() if not indices.is_empty() else vertices.size()
+	var high: float = CEILING_TOP_M + EPSILON_M
+	for i in range(0, count, 3):
+		var ia: int = indices[i] if not indices.is_empty() else i
+		var ib: int = indices[i + 1] if not indices.is_empty() else i + 1
+		var ic: int = indices[i + 2] if not indices.is_empty() else i + 2
+		var a: Vector3 = xform * vertices[ia]
+		var b: Vector3 = xform * vertices[ib]
+		var c: Vector3 = xform * vertices[ic]
+		if a.y < low or a.y > high or absf(a.y - b.y) > EPSILON_M or absf(a.y - c.y) > EPSILON_M:
+			continue
+		if (xform.basis * (normals[ia] + normals[ib] + normals[ic])).y >= 0.0:
+			continue
+		out.append([i, PackedVector3Array([a, b, c])])
+	return out
+
+
+# The planted error: drop from the instance's meshes, in memory only, every ceiling triangle within
+# CEILING_SLACK_M of the ceiling height whose centre is over `tile`. Each touched node gets its own copy of the mesh. Returns the triangles
+# removed.
+func _strip_ceiling(node: Node3D, tile: Vector2i) -> int:
+	var removed: int = 0
+	for mesh_node in BuildingView.mesh_nodes(node):
+		var instance: MeshInstance3D = mesh_node as MeshInstance3D
+		var source: Mesh = instance.mesh
+		var stripped: ArrayMesh = ArrayMesh.new()
+		var touched: bool = false
+		for surface in source.get_surface_count():
+			var arrays: Array = source.surface_get_arrays(surface)
+			if arrays[Mesh.ARRAY_INDEX] != null:
+				var drop: Dictionary = {}
+				for triangle_v in _surface_ceiling_triangles(arrays, instance.global_transform, CEILING_TOP_M - CEILING_SLACK_M):
+					var t: PackedVector3Array = (triangle_v as Array)[1] as PackedVector3Array
+					var centre: Vector3 = (t[0] + t[1] + t[2]) / 3.0
+					if Vector2i(floori(centre.x), floori(centre.z)) == tile:
+						drop[int((triangle_v as Array)[0])] = true
+				if not drop.is_empty():
+					var old: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+					var kept: PackedInt32Array = PackedInt32Array()
+					for i in range(0, old.size(), 3):
+						if not drop.has(i):
+							kept.append_array([old[i], old[i + 1], old[i + 2]])
+					arrays[Mesh.ARRAY_INDEX] = kept
+					removed += drop.size()
+					touched = true
+			stripped.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+			stripped.surface_set_material(stripped.get_surface_count() - 1, source.surface_get_material(surface))
+		if touched:
+			instance.mesh = stripped
+	return removed
 
 
 # How many of the district's band-box faces sit under a tile a finished building drew as its sim

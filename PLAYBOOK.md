@@ -909,17 +909,10 @@ pause policy), and docs/41's "For the owner" list. Every one has a default alrea
 
 ## Known bugs
 
-- In the third-person testing view the held weapon stays at the eye, so it floats beside the
-  body (#313's capture).
-- 78 indoor counter, shelf and partition tiles across 9 building templates have no ceiling; the
-  sky shows from inside (found by #310's confirmation review).
-- Godot generates untracked `*.translation` files from the art-docs CSVs
-  (`godot/art/simplyzombies/docs/`); nothing ignores them, so worktrees show as dirty.
 - `godot:check:fp_geometry` went from about 2 s to 18 s with #310's real-worldgen lane.
 - In the survivor review scene the light is flat grey; it does not show the game's mood, so
   colour judgements made there run dark.
 - No presentation code draws a lowered weapon yet (`SimAim.holds`, `FireState` have no reader).
-- #309's bench screen does not hide the held weapon (`first_person.gd:887` on that branch).
 
 ## Lessons from the session
 
@@ -1031,7 +1024,7 @@ gates, the first is the one to iterate on:
 | The ground, and water | [docs/24](docs/24-world-and-scale.md#the-ground) | `godot/sim/map/surface.gd`, `godot/sim/map/tilemap.gd` | `godot:check:water`, `godot:check:road` |
 | Vehicles | [docs/25](docs/25-vehicles.md) | `godot/sim/modules/vehicles.gd`, `godot/content/vehicles/` | `godot:m2:vehicles`, `godot:check:wrecks`, `godot:m2:light_burn` (the siphon) |
 | Sightlines and memory | [docs/28](docs/28-visibility-and-sightlines.md) | `godot/sim/vision/`, `godot/sim/modules/sightings.gd` (every body remembered with a `kind`; the per-observer `explored` bitset) | `godot:m2:sight`, `godot:check:memory` (`godot/check_memory_look.gd`) for the afterimage and the remembered map it feeds on the presentation side |
-| First-person space: the height profile, the body cylinders, the eye, and what is in the way of a blow | [docs/40](docs/40-first-person-spatial-contract.md) | `godot/sim/space/space.gd` (`SimSpace.PROFILE`, `body_of`, `eye_of`, `segment_clear`, `reach_clear`, asked by `godot/sim/modules/melee.gd`'s `_resolve_strike`, `godot/sim/modules/shambler.gd`'s `_clear_contact` and `godot/sim/modules/npc_combat.gd`'s `can_strike`), drawn by `godot/presentation/first_person/district_view.gd` and `godot/presentation/first_person/body_view.gd` | `godot:m2:space` (`godot/check_m2_space.gd`), `godot:check:fp_geometry` (`godot/check_fp_geometry.gd`) | the record |
+| First-person space: the height profile, the body cylinders, the eye, and what is in the way of a blow | [docs/40](docs/40-first-person-spatial-contract.md) | `godot/sim/space/space.gd` (`SimSpace.PROFILE`, `body_of`, `eye_of`, `segment_clear`, `reach_clear`, asked by `godot/sim/modules/melee.gd`'s `_resolve_strike`, `godot/sim/modules/shambler.gd`'s `_clear_contact` and `_contact_target`, and `godot/sim/modules/npc_combat.gd`'s `_in_reach`, which `can_strike`, `_engage` and the instinct defence share), drawn by `godot/presentation/first_person/district_view.gd` and `godot/presentation/first_person/body_view.gd` | `godot:m2:space` (`godot/check_m2_space.gd`), `godot:check:fp_geometry` (`godot/check_fp_geometry.gd`) | the record |
 | Speech: what a body says out loud | [docs/30](docs/30-decisions.md) | `godot/sim/modules/speech.gd`, `godot/content/speech/` | `godot:check:speech` |
 | Save and load | [docs/19](docs/19-architecture.md#save-model) | `godot/sim/kernel/serialize.gd`, `godot/sim/save.gd` | `godot:m2:save` |
 | The overcast day: the finished picture graded by the sky's share of daylight, off at night and under no HUD | [docs/30](docs/30-decisions.md#the-overcast-day-as-a-grade-2026-10-24) | `godot/presentation/day_grade.gd`, `godot/presentation/day_grade.gdshader`, `godot/presentation/main.gd` (`_draw_day_grade`; the world's words, bubbles and pawn tag, painted over the grade by `_paint_world_text`) | `godot:check:grade` (`godot/check_grade_look.gd`; its PIXELS lane runs headed when `DISPLAY` is set) |
