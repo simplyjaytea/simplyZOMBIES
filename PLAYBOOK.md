@@ -62,121 +62,102 @@ docs/30).
 Kimi has priority for models; if Kimi runs out of usage, a worker takes over its worktree from its
 HANDOFF.md (see [When a worker runs out](#when-a-worker-runs-out)).
 
-## The herdr workflow (current)
+## The dispatch workflow
 
-The Orca loop below still describes the method. On the Linux machine it runs like this:
+One coordinator dispatches work into live terminals, and each worker reports back in a file. Two
+rules hold throughout: workers never share a worktree at the same time, and nobody switches branches
+in the main checkout (`/home/jtf/simplyZOMBIES`).
 
-- **Find the terminals.** `hc ls` lists them, in the workspace "simplyZOMBIES / 1". Addresses such
-  as `t1p` change between runs: Kimi is the `kimi-code` row, and the two workhorses are the
-  `opencode` rows. Start a new one with
-  `hc run --bg --name <n> --cwd <worktree> --outlive-parent <cmd>`.
-- **Specs.** Write each spec to `/home/jtf/sz-shared/<piece>/task-<who>.md`. Every worker reads
-  `/home/jtf/sz-shared/WORKER_RULES.md`. Dispatch with
-  `hc send <t> "Read <spec> and WORKER_RULES.md, then do the task without stopping"`. Each worker
-  reports in `<piece>/REPORT.md`, or `HANDOFF.md` if it runs out.
-- **Wait.** `hc wait <t>` returns on every status change. Loop it until `REPORT.md` appears or the
-  terminal goes idle, then read `hc read <t>` if no report came.
-- **Kimi's approvals.** Kimi asks before each shell command unless it is in "Never Ask" mode. Turn
-  that on with raw keys: `hc keys <t> / y o l o enter`. `hc send` wraps its text in `<hc>` tags, so
-  a slash command sent that way becomes a chat message.
-- **Subagents** cannot write files under `sz-shared`. The coordinator writes their `REPORT.md`
-  from the hand-back.
-- **Displays.** Every Godot and Blender job runs under `xvfb-run -a`. A window must never open on
-  the owner's desktop display.
-- **Worktrees.** Each piece gets a worktree under `.claude/worktrees/<piece>` on branch
-  `<agent>/<piece>`. Symlink `node_modules` from the main checkout into it; the symlink is
-  excluded in `.git/info/exclude`.
-- **Verify before a PR.** Read the worker's diff yourself, and its manifest or map where there is
-  one. Rerun the gates the spec names. Workhorses have reported work as done when it was not, three
-  times in one session.
-
-## The Orca workflow
-
-The owner calls this the most crucial part of the playbook. One coordinator in the Orca app
-dispatches work into live agent terminals and subagents, and every worker reports back through
-Orca's orchestration commands, never through a terminal nobody reads.
-
-### The loop
-
-1. **Orient.** The coordinator reads the state: open PRs (`gh pr list`), `origin/main` against
-   the local checkout, the worktrees, and the owner's request. It renders the current asset
-   before judging it.
-2. **One run per objective.** `orca orchestration run-create --objective "..."`. Every task of
-   the session hangs off it.
-3. **Specs live in the shared folder.** Each task is a self-contained markdown spec in
-   `C:/Users/jtf/orca/sz-shared/<piece>/task-<who>.md`: target worktree and branch, the change,
-   constraints, ownership, observable acceptance. A brief shared by several workers
-   (`BRIEF.md`) carries the owner's words verbatim and the technical contract.
-4. **One worktree per worker.** The coordinator creates it first:
+1. **Orient.** The coordinator reads the state: open PRs (`gh pr list`), `origin/main` against the
+   local checkout, the worktrees, and the owner's request. It renders the current asset before
+   judging it.
+2. **Specs live in the shared folder.** Each task is a self-contained markdown spec,
+   `/home/jtf/sz-shared/<piece>/task-<who>.md`: target worktree and branch, the change, constraints,
+   ownership, observable acceptance. Where several workers share one piece, a `BRIEF.md` beside
+   them carries the owner's words verbatim and the technical contract.
+3. **One worktree per worker.** The coordinator creates it first:
    `git worktree add -b <agent>/<piece> .claude/worktrees/<piece> origin/main` (or off the PR it
-   stacks on). Workers never share a worktree at the same time. Every worktree sits under
-   `.claude/worktrees/` (ignored by git) on a branch named `<agent>/<piece>`; every terminal
-   shares the main checkout, so nobody switches branches there.
-5. **Dispatch.** Into an existing terminal: `orca orchestration task-create --run <run> --spec
-   "$(cat spec.md)"` then `orca orchestration dispatch --task <id> --to <handle> --inject`. A
-   new agent terminal: `orca orchestration worker-start --spec "..." --worktree path:<dir>
-   --agent claude --model <model-id> --effort high`. Handles come from `orca terminal list
-   --json` and change between Orca runs.
-6. **Wait without polling.** A small watcher script (`orchestration check --wait`, acking
-   heartbeat-only batches, exiting on the first question, status or worker_done) runs in the
-   background; the coordinator acts on each message, replies with `orchestration reply`, sends
-   follow-ups with `orchestration send --to dispatch:<id>`, and acks the batch.
-7. **Settle each worker.** On `worker_done` the coordinator checks the claim (renders, CI, SHAs)
-   and then reuses the terminal with a new dispatch, retains it (`worker-retain`) or releases
-   it (`worker-release`).
+   stacks on). Every worktree sits under `.claude/worktrees/` (ignored by git) on a branch named
+   `<agent>/<piece>`. Symlink `node_modules` from the main checkout into it; the symlink is excluded
+   in `.git/info/exclude`.
+4. **Dispatch.** `hc ls` lists the terminals, in the workspace "simplyZOMBIES / 1". Addresses such as
+   `t1p` change between runs: Kimi is the `kimi-code` row, and the two workers are the Haiku rows.
+   Start a new one with `hc run --bg --name <n> --cwd <worktree> --outlive-parent <cmd>`, then
+   dispatch with `hc send <t> "Read <spec> and WORKER_RULES.md, then do the task without stopping"`.
+   `hc send` wraps its text in `<hc>` tags, so a slash command sent that way becomes a chat message.
+5. **Wait.** `hc wait <t>` returns on every status change. Loop it until `REPORT.md` appears or the
+   terminal goes idle, then read `hc read <t>` if no report came. A worker that runs out writes
+   `HANDOFF.md` instead.
+6. **Verify before anything merges.** Read the worker's diff yourself, and its manifest or map where
+   there is one. Rerun the gates the spec names. Workers have reported work as done when it was not,
+   three times in one session.
+7. **Settle the terminal.** Once the report is verified, reuse the terminal for the next task.
+   Subagents cannot write files under `sz-shared`, so the coordinator writes their `REPORT.md` from
+   the hand-back.
+
+Kimi asks before each shell command unless it is in "Never Ask" mode. Turn that on with raw keys:
+`hc keys <t> / y o l o enter`.
 
 ### Art in rounds
 
-- The modeler publishes the UV layout early (`uv_layout.png` + `.json` with island rects,
-  orientation, landmarks, mirroring and a position bake) so the painter starts in parallel.
+- The art lead publishes the UV layout early (`uv_layout.png` + `.json` with island rects,
+  orientation, landmarks, mirroring and a position bake), so the paint starts in parallel.
 - Every round renders the same views, side by side with the owner's concept: Blender clay and
   textured, plus the in-engine sheet from `npm run godot:shots:survivor -- --glb=<path>
   --out=<dir>`. The coordinator judges the in-engine sheet, not only Blender.
-- Codex reviews each round independently (`review_round-N.md`); the coordinator writes a ranked
-  verdict (`OPUS_VERDICT.md`) and sends both to the modeler. Geometry is locked before final
-  paint, and paint is locked last.
+- Each round gets an independent review (see below). The coordinator writes a ranked verdict
+  (`OPUS_VERDICT.md`) and sends it, with the review, to the art lead. Geometry is locked before
+  final paint, and paint is locked last.
 - The owner sees the accepted model before any pull request.
 - Art kits follow one shape: a reproducible Blender builder with `-- --check` and planted-error
   modes, a `<kit>.manifest.json` in `godot/assets/first_person/`, and an independent in-engine
-  review before merge. The reviews keep finding the same faults (camouflage-like noise, paint
-  that follows atlas cells, density claims the check did not measure, bodies that float or sink),
-  so a new kit's builder should check those from the start.
+  review before merge. The reviews keep finding the same faults (camouflage-like noise, paint that
+  follows atlas cells, density claims the check did not measure, bodies that float or sink), so a
+  new kit's builder should check those from the start.
 
 ### Independent review and the merge train
 
-- An art PR merges only after an independent art review (an Opus subagent with only the PR, its
-  own renders of base and head, and this file's rules) and, after fixes, a confirmation pass by
-  the same reviewer against its first report. A push after a verdict voids it.
-- The thread that wrote a PR never merges it. The coordinator merges with a merge commit, after
-  re-checking the head SHA and CI (`gh pr merge <n> --merge --match-head-commit <sha>`), and
-  only with the owner's go-ahead: the permission check blocks `gh pr merge` otherwise.
-- The workhorse keeps the queue current: after each merge it merges `main` into the next PR
-  (never rebase, never force-push), reruns the touched gates and reports a table: number, head,
-  CI, local gates, preconditions, risk. Docs/23 record entries conflict on every merge; keep
-  both sides.
-- CI capacity is the bottleneck. When pieces stack and collide in code, one integration pull
-  request that names the pieces it closes saves many merge-and-rerun cycles (#289 did twelve).
-  Docs-only pull requests were merged after a clean local merge and `check:routing`, since no
-  Godot gate reads them.
+- **Art and placement review** (the owner's call, 2026-10-27). An art or placement PR merges only
+  after an independent, read-only reviewer checks it, and after fixes, a confirmation pass by the
+  same reviewer against its first report. A push after a verdict voids it.
+  - The coordinator spawns the reviewer, never the worker that made the art. The brief is fixed: the
+    PR, its head commit, its base commit, and the report's folder, `/home/jtf/sz-shared/reviews/<piece>/`.
+    A confirmation pass also gets the previous report. The reviewer is not told the worker's account
+    of what changed; those are what it checks.
+  - The reviewer makes its own shots with `godot:shots` on the base and on the head, and compares
+    them. It measures the noise floor (base against base) before calling a difference. The report
+    names both commits.
+  - Round 3 is the last full round. Findings land as commits on the same PR. A later pass checks only
+    the previous findings and raises only blockers. Minor findings in a clear round go into docs/23.
+  - Docs-only, gate-only and 1 to 2 px gate-verified follow-ups need no review.
+- **The merge train.** Pieces built side by side merge one by one, each as it goes green (the owner's
+  call, 2026-10-27). Merge the first green one. The next merges `main` in (never rebase, never
+  force-push), waits for CI on its new head, and merges in turn. Conflicts in the tails of docs/23 and
+  docs/30 are settled in that merge of `main`, by keeping both entries. A piece that waits on another
+  names it in its body and merges after it.
+- After each merge, the coordinator tells the open workers the new `main`. A worker keeps its queue
+  current: it merges `main` into the next PR, reruns the touched gates, and reports a table (number,
+  head, CI, local gates, preconditions, risk).
+- CI capacity is the bottleneck. A bundle of pieces that conflict in code goes into one integration
+  pull request that names the pull requests it closes (#289 closed twelve). Docs-only pull requests
+  merge after a clean local merge and `check:routing`, since no Godot gate reads them.
 
 ### When a worker runs out
 
-1. Tell it to stop, commit a WIP checkpoint even if checks fail, write `HANDOFF.md` (method,
-   what works, what fails and why, next steps, traps), and send `worker_done --outcome failed`.
-2. Wait for that `worker_done` before anything else touches the worktree.
-3. Start the replacement in the same worktree with `worker-start --worktree path:<dir> --agent
-   claude --model <opus id> --effort high`, its spec pointing at the handoff and the original
-   task.
+1. Tell it to stop. It commits a WIP checkpoint even if checks fail, and writes `HANDOFF.md` (method,
+   what works, what fails and why, next steps, traps).
+2. Wait for it to go idle before anything else touches the worktree.
+3. Start the replacement in the same worktree (`hc run ... --cwd <worktree>`), its spec pointing at
+   the handoff and the original task. An Opus worker takes over Kimi's art worktree this way.
 
-### Standing rules for workers
+A worker revived after days can wake with stale context, so brief it on the current `main` before it
+acts. Push at a clean point before a long run.
 
-- **No OS-level input and no desktop screenshots, ever.** Drive Godot from inside (the gate
-  harness, `Input.parse_input_event`, a throwaway GDScript driver) and capture only the game
-  viewport, or capture through Blender. A worker's synthetic keys once landed in the owner's
-  browser.
-- Never push to main, never merge, never skip or loosen a gate.
-- A worker asks the coordinator with the orchestration `ask` command; it never opens a local
-  question prompt nobody can answer.
+**Briefing a worker.** docs/23 and docs/30 are far too large to read whole at the start of a piece.
+A brief names the parts that bear on it: the piece's entry in docs/23's what's left, its row in the
+[routing table](#routing-table), the record entries of the systems it touches, and the docs/30 entries
+for those systems (search by the system's name). The worker reads this file, docs/37 and those parts.
+A worker that finds it needs more reads more; the brief is a floor, not a fence.
 
 ## What the project is
 
@@ -344,23 +325,24 @@ The commands, timings and CI jobs are in [the gate list](docs/35-gates.md).
 
 ## Pushing and pull requests
 
-- **One piece, one branch, one pull request,** opened from a fresh branch off `main` and based
-  on `main`. A session pushes only its own branch. Never push to `main`. A fix to another open
-  pull request is a pull request based on that one's branch ([How work flows](#how-work-flows)).
-- **No model identifiers in anything pushed, with one amendment.** Commit messages, PR titles
-  and bodies, code comments and docs never name the model that wrote them. That includes a
-  `Co-Authored-By` trailer naming a model: leave it out and keep the session link
-  (`Claude-Session:`). The amendment (the owner's call, 2026-11-01, docs/30): [the team
-  roster](#the-team) in this file may name the model each role runs on, because a roster says
-  who runs what, not who wrote what. Authorship stays unnamed everywhere, the roster included.
+- **One piece, one branch, one pull request,** opened from a fresh branch off `main` and based on
+  `main`. A worker pushes only its own branch. Never push to `main`.
+- **A fix to someone else's open pull request** is a pull request onto its branch. Branch off that
+  pull request's head, push your own branch, and open a pull request whose base is its branch. CI
+  runs on it, because `ci.yml` runs on every pull request whatever its base. It merges into that
+  branch under the same rules as a merge into `main`. #230 onto #228's branch was the first.
+- **Follow-ups start fresh.** A merged pull request is finished. New work goes on a fresh branch from
+  `main`, with a new pull request, never on top of merged history.
 - **Fill in the PR template** (`.github/pull_request_template.md`): the piece, the gate, the
   measurement, the record, what was verified.
-- **Drive it green** by the steward skill. Never skip, disable or loosen a gate to get there.
-- **Merge with a merge commit,** after re-checking the head and CI right before merging. Pieces
-  built side by side merge one by one as each goes green, and the thread that wrote a pull
-  request never merges it ([How work flows](#how-work-flows)).
-- **Cloud sessions cannot delete remote branches** (the git proxy returns 403 for any ref but
-  the session's own). Name the branches that should go and let the owner delete them.
+- **Drive it green** by the steward skill (`.claude/skills/steward/SKILL.md`). Never skip, disable or
+  loosen a gate to get there.
+- **Merge with a merge commit,** after re-checking the head and CI right before merging. The worker
+  that wrote a pull request never merges it. The coordinator merges, and only with the owner's
+  go-ahead (`gh pr merge <n> --merge --match-head-commit <sha>`). The merge train, above, sets the
+  order.
+- **Merged head branches come back** after each merge unless "Automatically delete head branches" is
+  on in the repository settings. Name the branches that should go, and the owner deletes them.
 
 ## Standing bans
 
@@ -474,67 +456,7 @@ gates, which is not a failure:
 - `README.md` is for players and this file is for agents.
 - The owner closes idle threads, and threads whose pull requests have merged get resolved.
 
-## How work flows
 
-In a Claude project, a coordinator talks with the owner in the project chat and opens one thread
-per piece of work; in Orca, the coordinator dispatches terminals ([The Orca
-workflow](#the-orca-workflow)). The rules below hold for any agent.
-[docs/34](docs/34-agents-and-environment.md) covers branch naming and worktrees for agents
-working outside a project.
-
-1. **One piece, one branch, one pull request.** Branch off `main`, base the pull request on
-   `main`, and push only your own branch. Fill in `.github/pull_request_template.md`. In a Claude
-   project the rule is enforced: a thread's git proxy refuses (403) a push to any ref but the
-   thread's own branch.
-2. **A fix to someone else's open pull request is a pull request onto its branch.** Branch off
-   that pull request's head, push your own branch, and open a pull request whose base is its
-   branch. CI runs on it, because `ci.yml` runs on every pull request whatever its base. It merges
-   into that branch under the same rules as a merge into `main` (step 4). #230 onto #228's branch
-   was the first.
-3. **Drive it green** by `.claude/skills/steward/SKILL.md`. Never skip, disable or loosen a gate.
-4. **Claude merges, with a merge commit, and never the thread that wrote it.** The owner
-   authorized merging. The coordinator, or a thread it names on the strongest tier, does it; the
-   thread that wrote a pull request does not merge its own. Re-check the head commit and CI right
-   before you merge. After a merge, tell the open threads the new `main`.
-5. **Pieces built side by side merge one by one, each as it goes green** (the owner's call,
-   2026-10-27). Merge the first green one. The next one then merges `main` in, waits for CI on
-   its new head, and merges in turn. Conflicts in the tails of docs/23 and docs/30 are settled in
-   that merge of `main`, by keeping both entries. A bundle of pieces in one integration pull
-   request is only for two pieces that conflict in code, and it names the pull requests it
-   closes. A piece that waits on another names it in its body and merges after it.
-6. **Follow-ups start fresh.** A merged pull request is finished. New work goes on a fresh branch
-   from `main` with a new pull request, never on top of merged history.
-7. **Cloud sessions cannot delete remote branches.** The git proxy returns 403 for every ref but
-   the session's own. Name the branches that should go, and the owner deletes them. Merged head
-   branches come back after each merge unless "Automatically delete head branches" is on in the
-   repository settings.
-8. **Usage limits and restarts.** Containers restart, and sessions pause at usage limits. Push
-   at a clean point before a long run. A thread revived after days can wake with stale context:
-   brief it on the current `main` before it acts.
-
-**Briefing a thread.** docs/23 and docs/30 are far too large to read whole at the start of a
-piece; "read in order" under [Start here](#start-here) means the parts that bear on it. A brief
-that opens a thread names them: the piece's entry in docs/23's what's left, its row in the
-[routing table](#routing-table), the record entries of the systems it touches, and the docs/30
-entries for those systems (search by the system's name). The thread reads this file, docs/37,
-and those parts. A thread that finds it needs more reads more; the brief is a floor, not a fence.
-
-**Art and placement review.** Before an art or placement pull request merges, an independent
-read-only reviewer checks it (the owner's call, 2026-10-27):
-
-- **The coordinator spawns the reviewer, never the thread that made the art.** Its brief is
-  fixed: the pull request, its head commit, its base commit, and the shared folder for the
-  report. A confirmation pass also gets the previous report. It is not told the thread's account
-  of what changed or the decisions so far: those are what it checks.
-- **The reviewer makes its own shots.** It runs `godot:shots` on the base and on the head commit
-  and compares them, and it does not judge from the thread's exports. It measures the noise
-  floor (base against base) before calling a difference. The report names both commits; a push
-  after the verdict voids it.
-- **Rounds.** Findings land as commits on the same pull request, and the review repeats until it
-  is clear. Round 3 is the last full round. A later pass is a confirmation pass: it checks only
-  the previous findings and raises only blockers. Minor findings in a clear round go into
-  docs/23.
-- Docs-only, gate-only and 1 to 2 px gate-verified follow-ups need no review.
 
 ## The release plan
 
