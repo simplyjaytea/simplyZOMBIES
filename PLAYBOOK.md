@@ -462,9 +462,10 @@ gates, which is not a failure:
 ## The release plan
 
 Decided by the owner on 2026-10-26 ([docs/30](docs/30-decisions.md#the-release-plan-and-the-content-arcs-2026-10-26)).
-Each stage's pieces are named in [docs/23's what's left](docs/23-roadmap.md#whats-left-in-milestone-2).
+The pieces of each stage are in [docs/23's what's left](docs/23-roadmap.md#whats-left-in-milestone-2).
 
-1. **Alpha closed: it loops.** Milestone 2's exit criterion in code, not balance.
+1. **Alpha closed: it loops.** Milestone 2's exit criterion in code, not balance. In flight at the last
+   check: colonist self-care, the buildables, the floodlight take-down.
 2. **Alpha open: it survives.** The balance wall, judged only by ten seeds and a median wipe day.
 3. **The art pass: it looks finished.** Runs beside stage 2, on the art tier.
 4. **Beta: people and the world.** The save format freezes here and migrates from then on.
