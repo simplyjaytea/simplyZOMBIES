@@ -109,11 +109,6 @@ Kimi asks before each shell command unless it is in "Never Ask" mode. Turn that 
   (`OPUS_VERDICT.md`) and sends it, with the review, to the art lead. Geometry is locked before
   final paint, and paint is locked last.
 - The owner sees the accepted model before any pull request.
-- Art kits follow one shape: a reproducible Blender builder with `-- --check` and planted-error
-  modes, a `<kit>.manifest.json` in `godot/assets/first_person/`, and an independent in-engine
-  review before merge. The reviews keep finding the same faults (camouflage-like noise, paint that
-  follows atlas cells, density claims the check did not measure, bodies that float or sink), so a
-  new kit's builder should check those from the start.
 
 ### Independent review and the merge train
 
@@ -274,7 +269,8 @@ matter every session:
 - **First person is the game; top-down is legacy** (2026-11-04, docs/30): first person is the
   default boot and every new piece is first person; the top-down game stays, boots with
   `npm run godot:run:topdown`, and keeps its gates, but gets no new features or UI slices unless
-  the owner asks. Shared sim modules serve both.
+  the owner asks. Shared sim modules serve both. The top-down rules in docs/30 and docs/32 govern
+  only the legacy build.
 - **The setting is Japan (Ome–Okutama), 2026-11-04** (docs/30): inspired by the real Ome–Okutama
   valley in western Tokyo; names are fictional. The re-theme is planned work, listed in docs/23.
 - **The survival loop is built, gated and on.** `SimShambler.GRABS_ENABLED` ships `true`. Any
@@ -283,18 +279,11 @@ matter every session:
   on 2 of 3 seeds, and it was not met. The numbers, the traces and the next measurement are in
   docs/23's "Balance after the alpha" (under what's left). The next measurement is ten seeds and
   a median wipe day, on `main` and on each candidate. No lever is judged on three seeds again.
-- **The presentation is flat top-down, not isometric,** in the Dungeon Settlers look decided
-  2026-09-03. Read docs/30 in date order before changing a body or a tile.
 - **A day is one real hour** (`Clock.DAY_SECONDS`, the owner's 2026-10-19 call). The speed
   ladder is 1x and 3x; 10x waits on the tick budget.
 - **The boot colony is three**, the player, Mara and Ellis, by the owner's 2026-09-01 decision.
 - **Dead sockets.** Complete, correct, gated code that nothing reads has turned up many times. A
   mechanism needs an assertion that something reaches it.
-- **The whole-interface redesign is a proposal being built slice by slice,** not a shipped
-  change. Read [docs/32](docs/32-ui-overhaul.md) and
-  [the owner's 2026-10-03 decision](docs/30-decisions.md#the-whole-interface-2026-10-03) before
-  applying older kit, font or chart requirements. Its work list is
-  [docs/23's UI overhaul group](docs/23-roadmap.md#ui-overhaul).
 - **For the current `main`,** run `git log origin/main -1` and look at its CI. This file carries
   no commit hash on purpose, because a hash written here is out of date after the next merge.
 
@@ -604,28 +593,31 @@ backticked path in that section against the repository, so such a path turns the
 
 ## Art and animation conventions
 
-In the game:
+The first-person art is the current direction (docs/39, docs/41).
 
-- A tile is 32 art px, drawn at 2x on the boot zoom (`godot/project.godot`'s display comment).
-- A body canvas is 32x40 with the soles on row 39. The heavy's canvas is 40x48 with the soles on
-  row 47 (`godot/assets/sprites/README.md`).
-- A clothing sheet has one row per view (S, E, N, W). Column 0 is the rest picture, columns 1 to 8
-  are the walk, and column 9 is the breath (`godot/art/simplyzombies/clothing/README.md`).
-- `npm run godot:check:action` holds every fall, lunge and stagger to the art review's bounds.
-  Its header in `godot/check_action.gd` is the full list. The main ones:
-  - Per step, the mass changes at most 15%, the centre moves at most 4 columns, and no edge moves
-    more than 6 px.
-  - The sole row is held. A stagger may rise one row for the knock-back.
-  - A fall keeps at least half a head on every beat, and the head ends within 4 px of the
-    corpse's head.
+- **Kit shape.** Every kit is a reproducible Blender builder with `-- --check` and planted-error
+  modes, a `<kit>.manifest.json` in `godot/assets/first_person/`, and an independent in-engine review
+  before merge. The reviews keep finding the same faults (camouflage-like noise, paint that follows
+  atlas cells, density claims the check did not measure, bodies that float or sink), so a new kit's
+  builder checks those from the start.
+- **Texel density:** 128 px/m for bodies and arms, 256 px/m for heads, measured on the exported GLB.
+- **Every Blender and Godot job runs under `xvfb-run -a`.**
+- **Compare pixels, not bytes.** This machine's Blender links zlib-ng, so a rebuilt PNG or GLB can
+  differ in bytes from a Windows-built one. Before calling a rebuilt file a change, compare its pixels.
 
-In the review exports in the shared folder:
+### Legacy top-down art
 
-- Survivor reload strips use 48x56 cells, with the sole on row 43 and the head top on row 16. In
-  the game the same frames use the 32x40 canvas.
-- Zombie action strips use 112x60 cells at 4x, with the sole on row 55.
+These rules govern only the legacy build (docs/30, 2026-11-04). The sprite brief is
+`godot/assets/sprites/README.md`.
 
-Read the QA report of the previous round before you start a new one.
+- A tile is 32 art px, drawn at 2x on the boot zoom (`godot/project.godot`).
+- A body canvas is 32x40 with the soles on row 39; the heavy's is 40x48 with the soles on row 47.
+- A clothing sheet has one row per view (S, E, N, W): column 0 is the rest picture, columns 1 to 8
+  the walk, column 9 the breath (`godot/art/simplyzombies/clothing/README.md`).
+- `npm run godot:check:action` holds every fall, lunge and stagger to the bounds in the header of
+  `godot/check_action.gd`.
+- Review exports in the shared folder: survivor reload strips use 48x56 cells (sole on row 43, head
+  top on row 16); zombie action strips use 112x60 cells at 4x (sole on row 55).
 
 ## Performance
 
