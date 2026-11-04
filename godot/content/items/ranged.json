@@ -70,7 +70,7 @@
   },
   {
     "id": "item.ammo.9mm",
-    "name": "9x19mm Parabellum",
+    "name": "9mm Pistol Round",
     "description": "A pistol round, brass gone dull.",
     "class": "material",
     "size": { "w": 1, "h": 1 },
@@ -135,7 +135,7 @@
   },
   {
     "id": "item.ammo.rifle",
-    "name": ".308 Winchester",
+    "name": ".308 Rifle Round",
     "description": "A rifle cartridge, long and heavy in the hand.",
     "class": "material",
     "size": {"w": 1, "h": 1},
@@ -227,7 +227,7 @@
   },
   {
     "id": "item.ammo.45",
-    "name": ".45 ACP",
+    "name": ".45 Auto",
     "description": "A fat, slow, blunt-nosed cartridge. Fewer fit anywhere, and each one lands like a thrown brick.",
     "class": "material",
     "size": {"w": 1, "h": 1},
@@ -389,7 +389,7 @@
   },
   {
     "id": "item.ammo.9mm.hollow",
-    "name": "9x19mm Hollow Point",
+    "name": "9mm Hollow Point",
     "description": "A pistol round with a dimple in the nose. It opens up in whatever it hits and does not carry as far.",
     "class": "material",
     "size": {"w": 1, "h": 1},
@@ -400,7 +400,7 @@
   },
   {
     "id": "item.ammo.9mm.sub",
-    "name": "9x19mm Subsonic",
+    "name": "9mm Subsonic",
     "description": "A heavy bullet loaded slow enough to stay under the crack. Less powder, less flash, and less of everything else.",
     "class": "material",
     "size": {"w": 1, "h": 1},
@@ -411,7 +411,7 @@
   },
   {
     "id": "item.ammo.rifle.match",
-    "name": ".308 Winchester Match",
+    "name": ".308 Match",
     "description": "Cartridges somebody loaded one at a time, weighed and trimmed. They all go to the same place.",
     "class": "material",
     "size": {"w": 1, "h": 1},
@@ -422,7 +422,7 @@
   },
   {
     "id": "item.ammo.rifle.surplus",
-    "name": ".308 Winchester Surplus",
+    "name": ".308 Surplus",
     "description": "Steel-cased army stock out of a crate older than the outbreak. It is loud, it is filthy, and there is a lot of it.",
     "class": "material",
     "size": {"w": 1, "h": 1},
@@ -455,7 +455,7 @@
   },
   {
     "id": "item.ammo.45.hollow",
-    "name": ".45 ACP Hollow Point",
+    "name": ".45 Auto Hollow Point",
     "description": "A fat slow bullet with a hole in the front of it. It was never going far anyway.",
     "class": "material",
     "size": {"w": 1, "h": 1},
@@ -499,7 +499,7 @@
   },
   {
     "id": "item.ammo.9mm.handload",
-    "name": "9x19mm Hand-load",
+    "name": "9mm Hand-load",
     "description": "A pistol round loaded by hand at a bench. Less powder than the factory load, a seating that is not always true, and a feed that stops more often.",
     "class": "material",
     "size": {"w": 1, "h": 1},
@@ -521,7 +521,7 @@
   },
   {
     "id": "item.ammo.45.handload",
-    "name": ".45 ACP Hand-load",
+    "name": ".45 Auto Hand-load",
     "description": "A fat round loaded by hand at a bench. It is slower than the factory load and it still lands like a thrown brick.",
     "class": "material",
     "size": {"w": 1, "h": 1},
@@ -532,7 +532,7 @@
   },
   {
     "id": "item.ammo.rifle.handload",
-    "name": ".308 Winchester Hand-load",
+    "name": ".308 Hand-load",
     "description": "A rifle cartridge loaded by hand at a bench. The powder charge is a guess, and the guess is a little low.",
     "class": "material",
     "size": {"w": 1, "h": 1},
