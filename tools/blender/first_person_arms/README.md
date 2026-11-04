@@ -2,10 +2,17 @@
 
 The player's own arms for the first-person view: the hands, the wrists and the base top's
 sleeves, rigged and animated for every hold class. This is art piece 8 of docs/41 ("view-model
-arms, grips, idle, sway, raise, lower, inspect"), built to the arms contract (art lead's draft of
-2026-11-01, with the owner's answers: bare hands on the base, inspect on a held key, an own
-view-model field of view, 128 px/m). The presentation code that plays it (`arms_view.gd`, the
-`ARMS` lane of `check_first_person.gd`) is a later piece; nothing in the game reads these files
+arms, grips, idle, sway, raise, lower, inspect").
+
+## Contract
+
+The base layer is bare hands; gloves are a separate layer only when the survivor wears them.
+Presentation repeats the inspect clip while the player holds `L`. The view model has its own 75
+degree vertical field of view, a 0.06 m near limit and must not clip through a nearby wall. Arms
+and survivor bodies use 128 px/m. The 23 clips and their lengths are listed below.
+
+The presentation code that plays the kit (`arms_view.gd`, the `ARMS` lane of
+`check_first_person.gd`) is a later piece; nothing in the game on this branch reads these files
 yet.
 
 ## Rebuild and check
@@ -51,7 +58,8 @@ never mistakes the arms for a loot model.
 - **Meshes.** `arms_skin` (both hands and wrists, about 1,040 triangles a hand) and `arms_sleeve`
   (the base top's sleeve, cuff to deltoid, 24 segments a ring), skinned to the one skeleton with at
   most four normalized influences. The skin reaches 35 mm up inside the sleeve. 3,712 triangles in
-  all (budget 4,000). One material, `ArmsAtlas`, single-sided, nearest with nearest mipmaps.
+  all (budget 4,000). One material, `ArmsAtlas`, single-sided. The GLB sampler uses nearest
+  magnification and minification (`magFilter` 9728, `minFilter` 9984), with no mipmaps.
 - **Hands.** Five separately jointed digits, a thumb whose metacarpal sits in a thenar pad, a
   hypothenar pad, knuckle ridges and a wrist, fused into one surface by a voxel remesh, relaxed and
   decimated to budget. The hand is scaled so its length is the survivor's.
@@ -71,9 +79,10 @@ never mistakes the arms for a loot model.
 
 The hands are solved against each reference weapon's own mesh: the palm is set on the grip and
 backed off along its normal until it clears by 0.8 mm, then each finger closes joint by joint
-until it meets the surface (the pistol's support hand closes over the right hand). The arm reaches
-the wrist with a two-bone solve whose elbow hangs down and out, the shoulder swinging forward for
-two-handed holds. `jig_long` is the authoring-only long gun the contract asks for: grip to
+until it meets the surface. The pistol's support wrist and wrapping-finger offsets are measured
+against the right hand and grip, with its index and thumb closed against those obstacles. The arm
+reaches the wrist with a two-bone solve whose elbow hangs down and out, the shoulder swinging
+forward for two-handed holds. `jig_long` is the authoring-only long gun the contract asks for: grip to
 foregrip 0.25 m, grip to butt 0.30 m, sight 0.07 m over the bore, with `grip_r`, `grip_l` and
 `sight` points. It is never shipped; every long-gun check reruns on the real receivers when they
 land. The pistol's sight is its rear sight, the highest rear point of the slide.
@@ -99,12 +108,15 @@ not a clip (it follows the sim's `coneHalf`, in code).
 survivor's arm is (one cylinder an arm, one rear-inner seam), with separate small bands for the inner
 cuff and rim. Their final paint uses charcoal texels sampled from the survivor's front and sleeve
 islands, with broad normal-driven form shading and a darker cuff; it never uses the warm back or
-atlas-cell noise. The hands are unwrapped by Blender's angle-limited projection (45 degrees, so every
-triangle keeps 128 px/m +/- 25%), with fewer, larger islands. Their final paint is generated in hand
-space from the BRIEF skin ramp: broad dorsal, turning-edge and palm zones. Every island receives 4 px
-of non-background dilation, including diagonal neighbours. The layout (`uv_layout.png`,
-`uv_position.png`, `uv_layout.json` with islands, the fingertip direction in each, and landmarks:
-knuckles, nails, thumb tips, wrist backs, cuff edges) is written by `--uv-layout-dir`.
+atlas-cell noise. The hands use seam-guided anatomical palm, edge, wrist and digit charts, unwrapped
+with LSCM and measured at 128 px/m +/- 25%; there is no angle-limited projection. A continuous
+hand-space field paints broad dorsal, turning-edge and palm zones in the survivor's skin ramp, with
+the dark tone reserved for creases and the palm edge. Conservative rasterisation fills every texel a
+triangle touches, including texels whose centres lie outside it. A four-texel margin and bounded
+four-texel dilation, including diagonal neighbours, keep every chart off the atlas edges without
+wrapping. The layout (`uv_layout.png`, `uv_position.png`, `uv_layout.json` with islands, the fingertip
+direction in each, and landmarks: knuckles, nails, thumb tips, wrist backs, cuff edges) is written by
+`--uv-layout-dir`.
 
 ## What `--check` holds
 
@@ -118,7 +130,7 @@ Measured on the exported GLB, frame by frame at 60 fps, against the committed we
 | `anchor` | `grip_r` at idle frame 0 within 5 mm / 1 deg of each class's anchor, on the exported node | `bone-roll` |
 | `bone-length` | upper-arm and forearm joint distances within 0.5 mm of rest on every frame; no disconnected wrist from an unreachable target | `stretch-arm` |
 | `grip-land` | `grip_l` within 5 mm of the reference weapon's `grip_l` at every key pose of melee2 and long; the pistol's support hand within 5 mm of its cup pose relative to `hand.R` | `grip-off` |
-| `wrap` | no hand vertex over 2 mm inside the weapon; middle, ring and pinky pads within 4 mm of the grip at key poses | `finger-through` |
+| `wrap` | no hand vertex over 2 mm inside the weapon; gripping middle, ring and pinky pads within 4 mm of the grip, the pistol's right index within 4 mm of the frame, and its support pads within 4 mm of the right fingers or grip | `finger-through`, `support-wrap` |
 | `sight-line` | at the end of `raise_*` and on every `aim_*` frame, the sight within 3 mm of the camera axis, the bore within 1 deg of -Z | `sight-off` |
 | `near-plane` | every visible vertex (vertical 75 deg, up to 21:9) at least 0.06 m deep, every frame | `near-clip` |
 | `stump` | the sleeve's open end out of view at 21:9, every frame | `short-arm` |
@@ -128,7 +140,8 @@ Measured on the exported GLB, frame by frame at 60 fps, against the committed we
 | `weights` | four normalized influences at most; every vertex within 3 cm of the elbow or wrist has two; a 60 deg wrist twist keeps 70% of the forearm's section | `rigid-wrist` |
 | `cuff` | the sleeve overlaps the skin by 3 mm at every frame, and the inner lip has a measured, non-empty skin band with no gap over 3.5 mm | `cuff-gap` |
 | `density` | every triangle has a finite UV Jacobian at 128 px/m +/- 25% on both axes, in Blender and in the GLB; degenerates fail | `squash-uv` |
-| `paint-match` | sleeves use only the survivor's charcoal front/sleeve ramp; skin uses only the BRIEF ramp; no dark atlas-cell checker; every island has 4 px of non-background padding | `repaint`, `paint-cells`, `short-padding` |
+| `background` | no skin or sleeve triangle's complete UV footprint touches an atlas-background texel | `subtexel-island` |
+| `paint-match` | sleeves use only the survivor's charcoal front/sleeve ramp; skin uses only the survivor's skin ramp; no dark atlas-cell checker; every island has 4 px of non-background padding | `repaint`, `paint-cells`, `short-padding` |
 | `body-match` | hand length, wrist and forearm girth and shoulder-to-wrist within 3 mm of `survivor.glb` in rest | `fat-wrist` |
 | `budget` | at most 4,000 triangles, 1,100 a hand; one single-sided, nearest-filtered material | `second-material`, `linear` |
 
@@ -141,8 +154,9 @@ How the contract's wording is read, where it needed a number:
   below a quarter of its own peak speed in the clip or 0.3 rad/s, may change speed faster; a quintic
   ease otherwise changes speed 7x across its last two frames by construction.
 - **"Pads"** (`wrap`): the distal phalanx of the middle, ring and pinky fingers of every hand that
-  holds the weapon. The pistol's support hand closes over the right hand, so its pads are judged by
-  the cup pose instead, and the trigger finger lies along the frame.
+  holds the weapon. The pistol's support pads are measured against the actual right-finger surface
+  or the grip, not exempted by the cup pose. The right trigger finger's distal phalanx is measured
+  against the frame above the trigger guard.
 - **The wrist twist** (`weights`): the hand turned 60 deg about the forearm with the twist bone
   carrying half, as the clips key it; the sleeve's section 1.2 cm and 3 cm above the wrist.
 - **Wrist girth** (`body-match`) is measured 2 mm above the cuff edge, where both surfaces are the

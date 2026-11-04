@@ -476,12 +476,22 @@ def solve_classes(kin, skin_triangles):
     obstacles = [placed(pistol, W)]
     centre = grip_centre(pistol, -0.048, -0.004) + np.array([0.0, 0.020, -0.004])
     right, curls_r = closed_hand(kin, "R", W, obstacles, (0, -S20, -C20), (-1, 0, 0), (0.060, -0.004, 0.0), centre, discipline, ("middle", "ring", "pinky"))
+    curls_r["index"] = (15, 0, 0, -30, 0)
     support = obstacles + [hand_obstacle(kin, "R", right, curls_r, skin_triangles)]
-    left, curls_l = closed_hand(kin, "L", W, support, (1.0, -0.10, -0.20), (0, -S20, -C20), (0.058, -0.004, 0.0), centre + np.array([-0.004, -0.006, -0.012]), {**zero, "pinky": (0, 0, 0, -3, 0)}, ("index", "middle", "ring", "pinky"))
+    left = hand_frame_in(W, (1, 0, 0), (0, 0, 1), "L", (-0.102, -0.026, -0.062))
+    curls_l = {
+        **zero,
+        "index": (35, 45, 35, 0, 0),
+        "middle": (2, 88, 54, 0, 0),
+        "ring": (18, 81, 66, 0, 0),
+        "pinky": (17, 84, 23, -3, 0),
+    }
+    curls_l = close_fingers(kin, "L", left, support, curls_l, ("index",), FINGER_LIMITS)
+    curls_l = close_fingers(kin, "L", left, support, curls_l, ("thumb",), THUMB_LIMITS)
     classes["pistol"] = {
         "weapon": pistol, "idle": W, "aim": straight_on_axis(pistol, 0.40),
         "rel_r": np.linalg.inv(W) @ right, "rel_l": np.linalg.inv(right) @ left, "left_on": "hand",
-        "curls": {"R": curls_r, "L": curls_l}, "protract": {"R": 0.10, "L": 0.52},
+        "curls": {"R": curls_r, "L": curls_l}, "protract": {"R": 0.10, "L": 0.70},
     }
     # Long gun (the jig): the right hand on the raked grip as on the pistol, the left under the
     # handguard at grip_l; carried low right with the muzzle toward the screen centre.

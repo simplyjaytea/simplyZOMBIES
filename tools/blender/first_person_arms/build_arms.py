@@ -5,7 +5,7 @@
     blender --background --factory-startup --python tools/blender/first_person_arms/build_arms.py -- --plant <name>
     blender --background --factory-startup --python tools/blender/first_person_arms/build_arms.py -- --render-dir <dir>
 
-See README.md beside this file and the arms contract.
+See README.md beside this file for the contract, outputs and checks.
 """
 
 import argparse

@@ -108,7 +108,7 @@ def holstered(state, cls):
 def inspected(build, cls, state):
     # Show the outer side rather than rolling the hands over the slide or receiver.
     W = state.W
-    angle = {"pistol": 35, "long": 15, "melee1": -50, "melee2": -35}[cls]
+    angle = {"pistol": 75, "long": 30, "melee1": -65, "melee2": -60}[cls]
     turned = spin_about_bore(W, math.radians(angle))
     offset = {
         "pistol": dict(right=-0.12, drop=-0.10, back=0.04, yaw=math.radians(-20)),
