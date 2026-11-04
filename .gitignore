@@ -26,4 +26,5 @@ godot/assets/first_person/items/*.import
 godot/assets/first_person/items/*_items_atlas.png
 
 # Godot compiles the art-docs CSVs into .translation files on import; generated, not source.
+# Godot-generated translation files beside the CSVs (docs/23).
 godot/art/simplyzombies/docs/*.translation

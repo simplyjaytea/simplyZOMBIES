@@ -88,7 +88,8 @@ The runtime adds the building record's `x/y` as Godot `x/z`. All export transfor
 - Door lintel retained from SimSpace: 2.20–2.55 m.
 - Window sill and lintel retained from SimSpace: 0.00–1.00 m and 2.10–2.55 m.
 - Interior floor finish: 0.004 m above the floor to avoid z-fighting.
-- Ceiling finish: 2.545 m, immediately below the wall top.
+- Ceiling finish: 2.545 m, immediately below the wall top, over every indoor tile, counters,
+  shelves and partitions included.
 - Eaves: 0.30 m on pitched roofs; flat roof overhang: 0.18 m.
 
 Roofs, ceilings, floors, casings, glazing, curtains, foundation, skirting, and corner boards are
