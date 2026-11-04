@@ -2,7 +2,7 @@
 //
 // Before this file, `godot:m2` was a single package.json script -- 77 `npm run` invocations
 // joined by `&&` -- so nothing recorded how long any one gate took, and the only number anyone
-// could name was the wall clock of the whole chain (CLAUDE.md's "about twenty-seven minutes").
+// could name was the wall clock of the whole chain (an earlier CLAUDE.md's "about twenty-seven minutes").
 // `godot:m2:chain` in package.json still holds that exact `&&` string, unrun, as the one
 // authoritative list of what the chain contains -- `chainScripts` below parses it, so
 // `scripts/check-routing.mjs` and this file read the same source rather than two copies drifting
@@ -90,7 +90,7 @@ export function collectGateTimes(text) {
  *  On success, returns the table sorted slowest first plus the total. On failure -- a gate whose
  *  GATE_TIME line never arrived, or an extra one nothing asked for -- returns the mismatch
  *  instead of a table, which is the true negative: a table that cannot detect a missing row is
- *  worse than no table (CLAUDE.md's "a gate that cannot fail"). */
+ *  worse than no table (PLAYBOOK.md's "a gate that cannot fail"). */
 export function buildTable(expectedModes, rows) {
   const seenCounts = new Map();
   for (const r of rows) seenCounts.set(r.mode, (seenCounts.get(r.mode) ?? 0) + 1);

@@ -3,7 +3,12 @@ extends RefCounted
 ## Who can see what — observer half of visibility primitive.
 ## Port of src/sim/vision/visibility.ts.
 ## One shadowcast per observer per tick at most, cached by tile+range+eye+generation.
-## Geometry (shadowcast) + arcs (focal/peripheral dot product) + range check.
+## Geometry (shadowcast) + arcs (focal/peripheral dot product) + range check, then, for a target with
+## a height, the vertical test (docs/40, "Perception"): the 2D cast is cast for everyone as a standing
+## eye, so Low does not block it, and `detail` with a height and `detail_body` ask `SimSpace.sight_clear`
+## from the observer's eye whether the line clears the partial-height tiles it crosses -- a car, a
+## window's sill, a stage-3 board, a lintel. SIGHT_BY_HEIGHT switches the whole of that back to the
+## planar rule it replaced.
 
 const SimTileMapRes = preload("res://sim/map/tilemap.gd")
 const SimAimRes = preload("res://sim/aim.gd")
@@ -11,11 +16,29 @@ const Shadowcast = preload("res://sim/vision/shadowcast.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
 const SimLightRes = preload("res://sim/vision/light.gd")
+const SimSpaceRes = preload("res://sim/space/space.gd")
 
 enum Detail { Unseen = 0, Peripheral = 1, Focal = 2 }
 
 var _views: Dictionary = {}
 var recomputes: int = 0
+
+## Whether sight works by height (docs/40, "Perception"; the owner's question 3 in docs/33, "Do Low
+## cover and windows work by height?", whose recommended default "yes" this is). True: the 2D cast is
+## cast for every observer as a standing eye, and a body is seen only if a line from the observer's eye
+## to its eye or its chest clears every partial-height tile between (`detail_body`). A crouched survivor
+## sees a standing head over a car, a standing zombie loses a crouched survivor behind one, and a body
+## crouched under a sill is hidden from outside. False: the planar rule before it, exactly -- a crouched
+## or crawling observer casts from `Eye.Crouched`, so Low blocks its whole cast and nothing else, the
+## target's height is never asked, and `detail_body` is `detail` at the body's position. One switch for
+## the owner's answer; a gate that pins it restores it, one gate process sharing it across every world.
+static var SIGHT_BY_HEIGHT: bool = true
+
+## The world and map the last `refresh` read, so `detail` and `detail_body` can ask a body's height and
+## walk the line without a caller handing either down. The world is held weakly: it owns this object,
+## and a strong reference back would be a cycle neither could free. Derived, never saved.
+var _world_ref: WeakRef = null
+var _map: Variant = null
 ## Observers whose eyes rest through the next `refresh`: their view is kept exactly as it stands,
 ## neither recast nor moved. `SimShambler`'s think marks a far body that will not think on the
 ## coming tick (FAR_THINK_EVERY), since nothing reads a zombie's view but its own think and the
@@ -110,6 +133,8 @@ func _light_index(world: Variant) -> Variant:
 ## key, so a changed multiplier makes every observer's view stale and every one of them recasts.
 func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 	var seen: Dictionary = {}
+	_world_ref = weakref(world) if world is Object else null
+	_map = map
 	var gen := _map_generation(world)
 	# A world that logs where its map changed (world.gd's `map_unchanged_within`) lets a view cast
 	# at an older generation stand when nothing changed inside its own square: the shadowcast reads
@@ -161,8 +186,10 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 		# Low occluder class finally has something to be low *relative to*. An entity with no
 		# posture (a zombie; a fixture that never gave one) keeps whatever its `observer` record
 		# was built with, which is `Eye.Standing` for every spawner in the tree today.
+		# Under SIGHT_BY_HEIGHT the eye's height is `SimSpace.eye_of`, asked per target in `detail`,
+		# and this one-bit eye is the planar rule's alone.
 		var posture_c: Variant = postures.get(entity)
-		if posture_c != null:
+		if posture_c != null and not SIGHT_BY_HEIGHT:
 			(obs as Dictionary)["eye"] = SimStancesRes.eye_of(int((posture_c as Dictionary)["current"]))
 		var lit_target: bool = bool((obs as Dictionary).get("lit_target", false))
 		# A lit-target observer's ambient reach is ambient alone: standing in a light does not
@@ -177,6 +204,14 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 		var cast_metres: float = float((obs as Dictionary)["range_metres"]) * sight_mul if lit_target else metres
 		var range_tiles: int = SimTileMapRes.tile_range(cast_metres)
 		var eye: int = int((obs as Dictionary)["eye"])
+		if SIGHT_BY_HEIGHT:
+			# The 2D layer casts from a standing eye for everyone (docs/40): what a lower eye loses
+			# behind a car is the vertical test's to say, per target, in `detail`. The observer's
+			# `eye` names the cast it gets, so `check_m2_tick.gd`'s recasts from it stay true, and a
+			# save written before this carries a crouched one that is put right here.
+			if eye != SimTileMapRes.Eye.Standing:
+				eye = SimTileMapRes.Eye.Standing
+				(obs as Dictionary)["eye"] = eye
 
 		var view: Variant = _views.get(entity)
 		if view == null:
@@ -363,7 +398,15 @@ func tiles_for(observer: int) -> Variant:
 	return (v as Dictionary)["tiles"]
 
 
-func detail(observer: int, x: float, y: float) -> int:
+## How much of (x, y) the observer sees: Unseen, Peripheral or Focal. Under SIGHT_BY_HEIGHT a point
+## that passes the tile, range, light and arc tests may then be asked its height: `body`, when not
+## negative, is the body standing at (x, y), seen if a line from the observer's eye (`SimSpace.eye_of`)
+## to its eye or its chest (`SimSpace.sight_points`) clears every partial-height tile between
+## (`SimSpace.sight_clear`); otherwise `h`, when not negative, is the point's own height in
+## millimetres. With neither it is a place question, answered by the 2D layer alone: the ground, a
+## cupboard, a light. Sightings, the dead's eyes and the screamer pass `body` with the position they
+## already hold, so a body the 2D tests refuse -- most of a square -- costs nothing more.
+func detail(observer: int, x: float, y: float, h: int = -1, body: int = -1) -> int:
 	var view: Variant = _views.get(observer)
 	if view == null:
 		return Detail.Unseen
@@ -376,14 +419,42 @@ func detail(observer: int, x: float, y: float) -> int:
 	var d2: float = dx * dx + dy * dy
 	if d2 > float((view as Dictionary)["range_squared"]) and not _lit_in_reach(view as Dictionary, d2, x, y):
 		return Detail.Unseen
-	if d2 == 0.0:
-		return Detail.Focal
-	var cosine: float = (dx * float((view as Dictionary)["facing_x"]) + dy * float((view as Dictionary)["facing_y"])) / sqrt(d2)
-	if cosine >= float((view as Dictionary)["cos_focal"]):
-		return Detail.Focal
-	if cosine >= float((view as Dictionary)["cos_peripheral"]):
-		return Detail.Peripheral
+	var d: int = Detail.Focal
+	if d2 != 0.0:
+		var cosine: float = (dx * float((view as Dictionary)["facing_x"]) + dy * float((view as Dictionary)["facing_y"])) / sqrt(d2)
+		if cosine >= float((view as Dictionary)["cos_focal"]):
+			d = Detail.Focal
+		elif cosine >= float((view as Dictionary)["cos_peripheral"]):
+			d = Detail.Peripheral
+		else:
+			return Detail.Unseen
+	if (h < 0 and body < 0) or not SIGHT_BY_HEIGHT:
+		return d
+	var world: Variant = _world_ref.get_ref() if _world_ref != null else null
+	if world == null:
+		return d
+	var eye: Dictionary = {"x": float((view as Dictionary)["x"]), "y": float((view as Dictionary)["y"]), "h": SimSpaceRes.eye_of(world, observer)}
+	if body < 0:
+		return d if SimSpaceRes.sight_clear(_map, eye, {"x": x, "y": y, "h": h}) else Detail.Unseen
+	for point in SimSpaceRes.sight_points(world, body):
+		if SimSpaceRes.sight_clear(_map, eye, {"x": x, "y": y, "h": int(point)}):
+			return d
 	return Detail.Unseen
+
+
+## How much of a body the observer sees (docs/40, "Perception"): `detail` at the body's position, asked
+## as that body. Under SIGHT_BY_HEIGHT it is seen if its head point or its chest point is; without it,
+## or for a world this object never refreshed, it is the 2D answer at its spot. Unseen for a body with
+## no position. A colonist's order and the Colony screen ask this; a caller already holding the
+## position passes `body` to `detail` instead.
+func detail_body(observer: int, entity: int) -> int:
+	var world: Variant = _world_ref.get_ref() if _world_ref != null else null
+	if world == null:
+		return Detail.Unseen
+	var at: Variant = world.components.get_component(entity, "position")
+	if not at is Dictionary:
+		return Detail.Unseen
+	return detail(observer, float((at as Dictionary)["x"]), float((at as Dictionary)["y"]), -1, entity)
 
 
 # The lit-target half of `detail`: beyond the ambient reach, a `lit_target` observer still sees

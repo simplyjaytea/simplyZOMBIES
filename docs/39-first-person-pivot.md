@@ -142,6 +142,13 @@ verified. Reassess web performance with actual measurements; no browser,
 multiplayer, multilevel-world or whole-campaign performance claim is implied
 by the foundation scene. Windows is the initial interactive review target.
 
+**Default switch, 2026-11-01.** The owner's call: the default mode is first person, and
+third person is a testing view reached from it with F2, not a game mode. The default scene
+(`project.godot`'s `run/main_scene`) is now `first_person.tscn`, and the top-down game is the
+testing build (`npm run godot:run:topdown`). The rest of this section, the expedition proof
+and the measured budgets, is still open. docs/30's "First person is the default boot" records
+the call; docs/23 records the gates.
+
 ## Work ownership and review
 
 One branch and worktree per piece, based on main. The coordinator owns the

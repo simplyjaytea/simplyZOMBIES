@@ -174,9 +174,10 @@ conversion. The source baseline is archived on GitHub at
 - **First-person people and settlement operation.** Ledger animations, reports,
   conversations, delegation and construction access; the captive arc stays
   separately scoped planned work under its existing group.
-- **First-person expedition and default switch.** Prepare, scavenge, encounter
-  danger, return, treat, save/reload, die and succeed; measured performance,
-  regression proof, campaign balance and human play before changing the default.
+- **First-person expedition.** Prepare, scavenge, encounter danger, return, treat,
+  save/reload, die and succeed; measured performance, regression proof, campaign
+  balance and human play. The default switch landed 2026-11-01 (docs/30, "First person
+  is the default boot"), so the boot is first person and the top-down game is the testing build.
 - **Starter-kit polish (#275 round 2).** In `tools/blender/first_person_kit/build_kit.py`: plaster
   cloud noise reads as camouflage blocks up close; oak grain steps every 8 texels, like brickwork;
   paint chips follow atlas cells, not mesh edges; barricade planks float 6 mm off the brace; wall
@@ -334,7 +335,7 @@ with thickness, roofs cut out where seen. The record below and
 they open is the art group below.)
 
 **Content arcs — opened by the owner, 2026-10-26.** The direction and the order are
-[docs/38's "The content arcs"](38-playbook.md#the-content-arcs); the decision is
+[the playbook's "The content arcs"](../PLAYBOOK.md#the-content-arcs); the decision is
 [docs/30](30-decisions.md#the-release-plan-and-the-content-arcs-2026-10-26). The rule for every
 piece: readers before content, pictures a stage behind. Each piece is one session with its gate
 red both ways; a piece that adds a body or a kind inside ten days re-baselines the ten-seed table
@@ -2462,6 +2463,235 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Perception with heights, 2026-11-01.** Slice 4 of docs/40: sight works by height. It builds the
+  recommended default of the owner's question 3 (docs/33, "Do Low cover and windows work by
+  height?"), behind one switch, `SimVisibility.SIGHT_BY_HEIGHT`, which ships true. The question
+  stays the owner's.
+  - **The record.** The 2D shadowcast is cast for every observer as a standing eye, so Low no
+    longer blocks it, and crouching no longer recasts. `SimVisibility.detail` gains a target
+    height and a body: after its tile, range, light and arc tests pass, it asks
+    `SimSpace.sight_clear` (`godot/sim/space/space.gd`, new) from the observer's eye
+    (`SimSpace.eye_of`) to the point, or to the body's eye and chest (`SimSpace.sight_points`,
+    new), and the body is seen if either clears. `detail_body(observer, entity)` is the same
+    question for a caller without the position. `sight_clear` is `segment_clear`'s integer walk
+    with only the partial-height tiles counted (`SimSpace.SIGHT_PARTIAL`: Low, a window, a
+    stage-3 board, an open door's lintel); full-height tiles stay the 2D layer's. Its broadphase is
+    an open corridor, 1100 to 2100 mm, that no partial band reaches, so a line between two standing
+    bodies never walks. Outside it the walk reads the class byte off the map and builds a key only
+    for a partial tile. Sightings (`_observe_one`), the shambler's `_seen_target`, the screamer's
+    alarm, a colonist's order target (`jobs.gd` `_target_fresh`, `orders.gd` `_seen_by_either`)
+    and the Colony screen's `SimWorkRead.in_sight` ask about the body. Containers, lights and the
+    explored map keep `detail` as a place. With the switch false the planar rule comes back exactly.
+    The calls are in docs/30, "A body is seen at its eye and its chest".
+  - **The gate.** `godot:m2:sight` HEIGHT, in place of the EYE lane as docs/40 names, every pair a
+    hit and a miss on one fixture with one thing changed. Car: a standing zombie six metres off
+    loses a survivor crouched behind it and sees them stood up, and a crouched survivor in open
+    ground is seen. Over: a crouched survivor sees a standing head over a car and not a crouched
+    body behind it, and sees the ground behind it as a place. Window: crouched under the sill is
+    unseen from six metres outside, both ways, and seen stood up, both ways, and seen from half a
+    metre outside. Board: stage 3 hides a crouched body and not a standing one, and stage 2 hides
+    both. Door: open shows the room and closed does not, and a line rising through the doorway
+    meets the lintel while one just under it passes. Symmetry: two standing survivors across a car
+    see each other, and two crouched ones do not. The table: `SIGHT_PARTIAL` and the class bytes
+    equal what PROFILE says, and the corridor meets no partial band and is the widest such
+    corridor. HEIGHT-CONSUMERS proves the readers by behaviour: the shambler picks the standing
+    survivor and not the crouched one, the screamer stays quiet over a survivor under a sill and
+    screams once they stand, and sightings keep a standing zombie over a car and not a crawling
+    one. The source scan finds the body form in all six callers. HEIGHT-OFF pins the switch false
+    and finds the old answers, with the EYE lane run unchanged inside it. BEHIND-READER is
+    unchanged. `godot:m2:tick` VERTICAL holds `detail_body` and `detail` at a 500 mm point
+    against a fresh answer for every observer and every body in the stepped district. Every
+    survivor is crouched and every third zombie crawls. The fresh answer is the 2D detail and
+    `segment_clear(..., SIGHT)` on a copy of the map that keeps only the partial tiles, built
+    through `profile_key`, with no corridor and no byte table. 55 pairs agree, 10 hidden by height,
+    47 points walked, 18 inside the corridor. With the switch off the same comparison disagrees.
+  - **Measured.** Same machine (Ryzen 7 7800X3D, Windows, other agents' gates running), the base
+    commit in a throwaway worktree against this branch, alternating. `godot:bench:runtime`'s
+    shipped tick over four rounds: mean 6.528, 6.344, 5.899, 5.847 ms before and 5.991, 5.948,
+    5.916, 5.685 after. The colony tick: 6.847, 7.622, 6.726, 6.674 before and 7.372, 7.007,
+    6.848, 6.550 after. Both are flat inside the machine's noise. The worst tick is over 16 ms on
+    both sides, the existing debt. `godot:bench`'s four synthetic rows are within 0.15 ms of
+    the base both rounds; they do not exercise sight. A throwaway driver with every survivor held
+    crouched, the case that walks, put the switch on against off at 6.78 and 6.41 ms against 6.55
+    and 6.99: no rise above the noise. The boot district's world is byte-identical to the base
+    for 700 ticks (a position hash every 100), because nobody crouches and nothing crawls there.
+    The first cut cost about 0.3 ms a tick through an extra call per candidate and was refolded
+    before this record. The drivers were deleted.
+  - **Balance.** `godot:m2:balance` and `godot:m2:harness` are green. The balance gate's fast
+    tier, run on the base and on this branch: seeds 20260805, 31337 and 90210 print the same line
+    byte for byte. Seed 404 keeps its outcome, five deaths and one survivor of three, and moves in
+    its detail: grabs 162 to 164, broken struggles 53 to 54, the most alive at once 31 to 30.
+    Slice 8 owns the re-measure.
+  - **Verified.** The full `godot:m2` chain as its four CI shards side by side, all green, then
+    `godot:m2:sight` and `godot:m2:tick` again after the last change, which touched only
+    `visibility.gd` and its three hot callers. Also `godot:test` (R1 parity, byte-identical),
+    `godot:smoke`, `godot:check:first_person`, `check:routing`, `check:shards`, `lint` and
+    `format:check`. After merging the base's second first-person integration (`e90ee7fb`, which
+    changes no file under `godot/sim/`), `godot:smoke`, `godot:test`, `godot:m2:sight`,
+    `godot:m2:tick`, `godot:check:first_person`, `godot:check:fp_geometry`,
+    `godot:check:fp_expedition`, `check:routing`, `check:shards`, `lint` and `format:check` again.
+    No existing assertion was loosened; the EYE lane runs unchanged under the switch.
+  - **What moved.** Who sees whom, where a body is crouched or crawling. A standing zombie loses a
+    crouched survivor behind a car, unless it is within about a metre and looking down over it. It
+    loses a survivor crouched under a sill, or behind a stage-3 board, except from close outside.
+    A crawling zombie behind a car is now hidden from everyone; before, only a crouched observer
+    lost it. A crouched survivor now sees over a car to standing heads, and sees the ground,
+    cupboards and lights behind it, which the planar rule blinded. The screamer, sightings and the
+    HUD's sighting line, a colonist's recall fire, an order's target and the Colony screen follow
+    the same rule. An older save's crouched `observer.eye` is reset to standing on the first
+    refresh. No `SAVE_VERSION` bump: nothing saved changed meaning.
+  - **Not in this slice.** The views (the top-down entity pass in `main.gd` and the first-person
+    `body_view.gd`) still draw a body by `detail` at its spot, so a crouched player's screen can
+    draw a crouched or crawling body behind a car that the sim does not record. Drawing through
+    `detail_body` is docs/40's slice 7. docs/28's Low row is left as written until the owner answers.
+
+- **First-person building finishes, 2026-11-01.** Advances the generated-world dressing in
+  [docs/41](41-weapons-characters-world-plan.md), P1 and art piece 17: every one of the 22 authored
+  building templates has a deterministic architectural shell. Only the residential suburb boots in
+  the first-person scene, so 14 templates are reachable in play today; the other eight
+  (arcade_retail, cabin_long, cabin_small, shop_corner, store_grocery, unit_industrial,
+  warehouse_brick, workshop_unit) are built, gated, and drawn when the district view is pointed at
+  a town, industrial or forest map, but no shipped scene shows them yet.
+  - **Kit and data.** `tools/blender/first_person_buildings/build_finishes.py` builds 22 GLBs, one
+    64-texel/m atlas and `buildings.manifest.json`. All four wall looks and three roof looks resolve;
+    roofs are gable, hip or flat from the look and footprint. With no room tags in content, interior
+    plaster/wallpaper/panelling and boards/lino/tile/carpet/concrete follow the building tag. Foundation,
+    skirting, corner boards, ceilings, floors, eaves and opening casings are included.
+  - **The picture follows the stamped map.** Worldgen's occluder pass opens template walls into
+    windows after the stamp (`SimWorldgen._dress_occluders`), so the first build drew 409 of the
+    suburb's 599 sim windows as solid wall while sight and shots passed through (the independent art
+    review's blocker 1). Each GLB now carries, beside its two always-drawn meshes, one named node per
+    tile that depends on the sim: `wall-X-Y` for a wall worldgen may open, `window-X-Y` (sill,
+    lintel, casing, glazing) for every template window and every wall that may open, and
+    `jamb-X-Y-SIDE` for a wall's face into an opening. `building_view.gd` picks them per instance
+    from `SimSpace.profile_key` on the stamped map and merges the chosen ones into one `Openings`
+    mesh; `district_view.gd` drops a tile's band boxes only where the building drew that tile's sim
+    profile, so the old light-blue sill and lintel boxes are gone under finished windows.
+  - **Roofs.** The three hip roofs (house_corner, house_large, terrace_pair) were wound inside out and
+    culled from outside (review blocker 2). `MeshBuilder.polygon` now orders its points to the
+    outward normal the caller names, and the hip ends wear the roof rather than the wall.
+  - **Windows.** Two transparent sashes, a thin muntin, edge grime and some side curtains read as
+    glazing without changing the sim's open sight/shot aperture. Residential glazing is about 0.72 m
+    wide, industrial/shed 0.80 m, and shopfronts stay broad. A window worldgen opened frames both
+    sides, and an interior partition opened that way gets no curtain. No template's window count
+    changed.
+  - **Runtime.** `building_view.gd` caches models and picks a subtle tint from district seed, template
+    id and stamped position, never runtime randomness. Doors and boards keep their dynamic band boxes.
+    The district is built once at boot, so a board nailed over a window later still draws through
+    the band boxes and barricade, as before.
+  - **Checks.** Builder `--check` prints `BUILDINGS_CHECK_OK` and compares every output byte (the
+    manifest is written with LF, and a CRLF checkout of it is folded back before the compare, which
+    is what failed on Windows). It judges every per-tile piece in three drawn states (all openable
+    walls standing, all opened, alternating): solid vertices stay in a drawn wall or in a window's sill
+    and lintel bands, and rays across every drawn window pass at 1.25 and 1.85 m and hit at 0.5 and
+    2.3 m. Every roof face faces up and every eave, fascia, parapet and gable end faces out. Eight
+    `--plant` modes fail: bounds, coplanar, density, floor contact, missing look, missing template,
+    `winding` (one hip face reversed) and `aperture` (a wall drawn across a window).
+    `godot:check:fp_geometry` FINISHES loads all 22 models, holds every wall to exactly one cap (the
+    always-drawn mesh or its own wall piece) and every manifest piece count to the nodes the view
+    parses. Its WORLDGEN lane runs `SimBoot.bare` for all four districts: 3754 sim windows in
+    finished buildings, 2433 of them opened by worldgen, are each drawn as a window with the same
+    four rays, every sim wall is drawn as a wall, and no band box is left under a drawn tile. A wall
+    planted over an opened window (`building_force_wall`) and a baseline that keeps its band boxes
+    are both refused. Run against the first build's GLBs, the lane fails on the opened windows. The lane
+    takes the gate from about 2 s to about 18 s.
+  - **Measured.** Headed 1280x720, uncapped, 300 frames after 30 warmup on the shipped 256 district
+    (the first build's numbers): before/after spawn mean 0.340/0.429 ms (4/36 draw calls), inside the
+    small house 0.334/0.550 ms (4/106 draw calls). After the window fix, the same method from a street
+    view and inside the first house_small, first build against fix: 0.33/0.32 ms (10/12 draw calls)
+    and 0.34/0.36 ms (27/36 draw calls). Building the suburb's district view went from 1.12 s to
+    1.23 s. All stay under docs/22's 10 ms target.
+  - **Not changed, and still open.** SimSpace bands, template window counts and wall footprints are
+    untouched. The 1 m-deep reveals remain; edge walls stay an owner/shared-sim decision. Room-specific
+    finishes wait for room-tag data. The review's minors stand: the atlas's top 28 of 64 cells are
+    unused (44 % of the texture), and each used cell holds two to five flat colours, so siding, render
+    and block read as low-contrast tones and brick as a two-tone checker. That is below the outpost
+    pack's quality floor and is the next pass for this kit, not a blocker for the shells.
+
+- **The gunsmith bench as a place in first person, 2026-11-01.** W5 of docs/41: walk up to a bench,
+  press E, and the assembly screen opens on the weapon carried. `godot/presentation/first_person/bench_view.gd`
+  draws every sim `workbench` whose kind is the gunsmith's at its own position: the starter kit's desk
+  model, a vice and a tool tray as code placeholders on top (a bench model is a later art piece), and a
+  label carrying the sim's kind word, "gunsmith bench". The scene keeps the drawn set in step with the
+  component each tick and rebuilds only when an id or a position moves.
+  - **E.** A bench is the fourth rung of the scene's E ladder, after the ledger and the containers and
+    before a colonist and the tile verb, as the piece asks. The verdict mirrors the sim's own open: the
+    sim's reach, the same aim cone the ledger and the boxes use, the sim's `vision.detail` for a wall,
+    and a workpiece, because a bench with nothing that comes apart offers no screen. Reach and horizon
+    refusals speak in the scene's own words. The screen itself is the top-down `godot/ui/bench_panel.gd`,
+    which already reads `benchFocus` and pushes `item.attach`, `item.detach` and `item.improvise`.
+  - **The sim keeps running.** While the screen is up the body is stopped, the mouse is released, the
+    HUD is hidden, and every key is the panel's: Escape pushes the sim's `bench.close`, and the panel's
+    arrows, WASD and Enter never reach the street. The clock is not paused -- the same reversible
+    default as the other screens -- and a handoff or the end panel hides the screen and drops the focus.
+  - **The held weapon.** A fit, strip or make goes through the sim, and the lower-right view redraws
+    from the installed parts on their sockets on the next frame, so the gun on the bench is the gun in
+    hand. A swap leaves the pistol's installed set and the drawn set each holding the suppressor.
+  - **Both benches.** A player's `bench.build` channel and a colonist's Construct job both end in
+    `SimGunsmith.make_bench`, so the drawing never asks who built the bench.
+  - **The gate.** The BENCH lane of `godot/check_first_person.gd` registers as a row in the generated
+    lane table (the OK line now lists 30 lanes). It builds a bench through the sim's own `bench.build`
+    when the small district has none, then: E in reach and on the aim opens the screen on the held
+    pistol; a walking key moves nothing while the clock ticks; a suppressor fitted through the screen's
+    command changes the sim's installed parts and the held view's drawn set; Escape closes through the
+    sim; a recipe the sim refuses -- the pack emptied of build materials, and the pistol's slots take
+    no improvised recipe, so the gate opens the screen on a bat -- leaves the parts unchanged, and the
+    screen's needs words are the sim's own; and out of reach, off the aim, or through a wall opens no
+    screen. A bench made by the sim outside the player's build is drawn too.
+
+- **Bodies drawn with the character models, 2026-11-01.** docs/41's piece C1: the first-person
+  scene draws each body with the character GLB its kind names, in place of the placeholder cylinder.
+  Survivors, colonists and raiders are `survivor.glb`; every zombie is `shambler.glb` until zombie kinds
+  have models of their own. The loader is the one in `models.gd`, and the two GLBs are loaded by path,
+  not through a manifest: the kind is decided by the sim's `zombieType`, not by an item id, so a manifest
+  would add a lookup with nothing to resolve. `body_view.gd` gives each body its own instance (sharing the
+  template's meshes and textures) and its own AnimationPlayer. The clip is `anim_state.gd`'s
+  `clip_for(kind, state)`, and the pose is its phase, set every frame with the player at speed zero, so
+  the animation follows the sim and not its own clock. The loops are `idle`, `walk`, `crouch_idle` and
+  `shamble` (`LOOPING_CLIPS`); `lunge` and `death` are one-shots that hold their last frame. A body with no
+  model, a GLB that is missing or a GLB with no player, keeps the capsule. The model turns to the sim's
+  `facing`, and a body the sim cannot see is hidden.
+  - **The gate.** The BODIES lane of `godot/check_first_person.gd` runs in a fresh scene, because its 300
+    ticks change the colony the other lanes read. It holds that a walking colonist plays `walk` at the
+    sim's phase and faces the sim's heading (0 rad looks along +x, pi/2 along +z); that a shambler in its
+    armed swipe plays `lunge` at the swipe's phase; that a corpse plays `death`, and after 300 ticks still
+    plays it at its last frame; that loops are `LOOP_LINEAR` and one-shots `LOOP_NONE`, and a one-shot
+    seeked to its end holds its last frame; that a body the sim cannot see is not drawn; and that a missing
+    model falls back to the capsule, with no player.
+  - **True negatives, run by hand.** Each rule was broken once and the lane went red: the clip always idle
+    (`plays idle, not walk`), no loop flags (`does not loop`), always visible (`a body the sim cannot see
+    is drawn`), and a death at phase 0 (`death is at 0.000 s ... not held at its last frame`).
+  - **Found on the way.** An AnimationPlayer seeked to its exact end finishes, and a finished clip clears
+    `current_animation`. A held pose therefore sits 0.1 ms short of the end, and the lane checks that.
+  - **Measured.** A headed probe at a 1280 x 720 render size (`content_scale_size`; the OS window came back
+    1247 x 1320 on this machine), 40 shamblers in a block in view, 300 frames, three runs a side, before and
+    after this change:
+    - before (capsules): mean 5.708, 5.742, 5.594 ms; median 5.554, 5.556, 5.553 ms; p95 10.717, 10.793,
+      10.130 ms;
+    - after, first version (a seek every frame): mean 6.237, 6.280, 6.263 ms; p95 13.232, 13.291, 12.612 ms;
+    - after, seek only when the phase moves: mean 6.223, 6.223, 6.261 ms; median 5.556 to 5.558 ms; p95
+      12.465, 12.234, 12.530 ms.
+    The frame sits at the 180 Hz cap for the median, so the cost shows in the tail: about 0.5 ms a frame
+    in the mean and about 2 ms at p95 with 40 horde bodies. The rest is the skinned models themselves, not
+    the animation calls.
+  - **Viewport captures** at 1280 x 720, taken from inside Godot and kept outside the repository: a walking
+    survivor, a lunging shambler and a corpse. The walking survivor is hard to tell from the horde at this
+    size; the gate is what holds it.
+  - **Not in this piece.** Zombie kinds other than the shambler still draw the shambler model. A corpse is
+    made for survivors only (`recruits.gd`'s `_make_corpse`), so a zombie's death clip is set by the
+    gate, not the sim. Horde cost beyond 40 is unmeasured, and so is a horde at the shipped district's
+    density.
+- **Art — the survivor review driver, 2026-11-01.** `npm run godot:shots:survivor` photographs a
+  candidate survivor GLB in the first-person scene's own sky, sun and lens: `SkyView` for the
+  light, the first-person 75-degree lens at the 1.62 m eye, and `models.gd` for the loader. It
+  writes full body front, back and three-quarter; head front, three-quarter, profile and back;
+  first-person ranges at 0.9, 2 and 5 m; the `walk` clip at eight phases; and a sheet with the
+  owner's concept beside them. `review.json` records the GLB's SHA-256, so two sets can be told
+  apart. It is a render, not a gate, and it needs a display. It serves the headed shots and
+  independent art review of the first-person starter-kit bullet above. The driver is
+  `godot/review/survivor_shots.gd`, with a mode in `scripts/run-godot.mjs` and a routing row. Its
+  first capture came back blank at the wrong size from the root viewport, so the stage draws in its
+  own `SubViewport`. The baseline of the current blocky survivor lives outside the repository.
 - **Pitch on the aim, 2026-11-01.** Slice 3 of docs/40: the aim has a pitch as well as a yaw.
   - **The record.** The `aim` command takes an optional `pitch` in radians, positive up. It goes
     through `SimAim.propose` (`godot/sim/aim.gd`) with the yaw, so both take or neither does. The
@@ -2830,6 +3060,34 @@ not a to-do list:
     - The melee models are whole, and their part models are art piece 6.
     - CI has no Blender, so the check runs by hand.
     - The independent art review.
+
+- **Animation state from the sim, 2026-11-01.** Advances "First-person people and settlement
+  operation", the body art: every drawn body now names the animation it should play, read from the
+  sim, before the character GLBs land.
+  - **The read model.** `presentation/first_person/anim_state.gd` is pure and static:
+    `state_of(world, entity)` returns one of idle, walk, run, crouch_idle, crouch_walk, crawl, swing,
+    lunge, grab, stagger, death, from corpse, grabbed/grabState, swing.state,
+    shambler.state/ticksToSwipe, posture, velocity and the body's legs. `phase_of` returns 0..1 in the
+    chosen clip: loops advance on the sim tick with a per-entity seat, one-shots use the sim's own
+    countdown (a swipe's wind-up, a hold's next bite), and a held pose is 1.
+  - **The clip table.** `clip_for(kind, state)` names the nearest existing character clip, so the art
+    can grow without a caller change: survivor run -> walk, crouch_walk -> crouch_idle, crawl ->
+    crouch_idle, swing/lunge -> walk, grab/stagger -> idle; shambler walk -> shamble, swing/lunge/grab
+    -> lunge, stagger -> idle. The table and why each is nearest are in the report.
+  - **The placeholder.** `body_view.gd` poses the cylinder from the state: a lean into a swing, a
+    lunge or a hold, a sideways roll on a stagger, and lying flat for a corpse; crouch and crawl are
+    already the sim's own body height. Rotation is reset each frame, the lean pivots at the feet, and
+    the hot path calls `state_of`/`phase_of`, so no Dictionary is built per body per frame.
+  - **Read-only.** The sim is never written; the gate stages the components for the states the sim has
+    no command for (a shambler's swipe, hold and stagger) and restores them. A survivor's stagger is
+    event-only (`entity.staggered`) with no component to read, so it is not named; a survivor in that
+    moment reads as its locomotion state.
+  - **The gate.** `npm run godot:check:first_person` (ANIM lane) prints `FIRST_PERSON_OK`. True
+    positives: stand, walk, run, crouch, crouch walk, crawl, a swing's wind-up and recover, a
+    shambler's armed swipe as lunge, a hold as grab, a stagger, and a death. True negatives: a body
+    that stops is idle one tick later; a corpse is still death after thirty ticks; no living body
+    reports death. Every named state's phase is 0..1.
+  - **Record.** `docs/planning/first-person-anim-state-report.md`.
 - **The segment, and melee stops going through walls, 2026-11-01.** Slice 2 of docs/40: the first
   question the sim asks of the height profile, and the three blows that now ask it.
   - **The record.** `SimSpace.segment_clear(map, a, b, purpose)` (`godot/sim/space/space.gd`) walks
@@ -3008,6 +3266,39 @@ not a to-do list:
     `godot:export` was skipped locally because this machine has no export templates; the preset
     exports all resources, so the scene is in the PCK.
   - **Record.** `docs/planning/first-person-title-report.md`.
+
+- **Default boot and the third-person testing view, 2026-11-01.** Advances "First-person
+  expedition and default switch" by the owner's call (docs/30, "First person is the default boot").
+  - **The door, moved.** `project.godot`'s `run/main_scene` names
+    `presentation/first_person/first_person.tscn`, so `npm run godot:run` and the exported builds
+    boot first person. The top-down game is reached with `npm run godot:run:topdown` (a new
+    `--topdown-run` mode opening `presentation/main.tscn`) or from the first-person scene's Escape,
+    which lands on that title. The title row is relabelled "first person" (was "first person
+    (experimental)"). Save slots are unchanged: the first-person slot is its own.
+  - **The testing view.** `first_person.gd` takes F2 (`VIEW_KEY`) to toggle `third_person`, a
+    presentation flag the sim never reads and the save never holds. Third person places the camera
+    at (0.25, eye + 0.4, 2.75) in the rig's frame, and `_camera_local` pulls it in by walking
+    `SimSpace.segment_clear` (SIGHT) from the eye toward that spot in 30 steps. The player's own body
+    is `presentation/first_person/own_body.gd`: `survivor.glb`, shown only in third person, turned to
+    the sim's facing and playing the clip `anim_state.gd` names for the sim's state. Movement, aim and
+    interaction are unchanged; they still come from the eye.
+  - **The gate.** `npm run godot:check:first_person` gains BOOT (project.godot's main scene is the
+    first-person scene; a fabricated project that names the top-down scene is refused) and THIRD
+    (first person hides the body and puts the camera at the eye; F2 shows the body, steps the camera
+    to the shoulder spot and plays the sim's clip, which is `walk` or `run` while W is held and
+    standing again after release; a wall behind the body pulls the camera in while the sim's sight
+    line to the full spot is blocked; F2 back restores first person). LEGEND holds F2 in the key
+    reference. `npm run godot:check:play` SCENE lane now asserts the boot is first person, and
+    FIRST-PERSON reads the relabelled row.
+  - **The export smoke.** `scripts/smoke-godot-exports.mjs` waited for `GODOT_R1_READY`, which only
+    the top-down scene prints. It now waits for `GODOT_FIRST_PERSON_READY`, which
+    `first_person.gd`'s `_ready` prints. The top-down scene still prints R1 and R4. CI's
+    `godot-exports` job is the check that the exported default boot reaches it.
+  - **Not in this piece.** The held weapon is drawn at the camera in third person; the body carries
+    no weapon yet. Third person is not a player-facing mode.
+  - **Captures.** Two in-engine captures (default boot, third-person survivor) are in
+    `C:/Users/jtf/orca/sz-shared/fp-default/`. They were taken with a temporary driver that is not
+    committed.
 
 - **First-person succession and the end of a run, 2026-11-01.** Advances "First-person expedition
   and default switch": dying can hand the camera to an heir, and the last death ends the run on a
@@ -4016,6 +4307,20 @@ not a to-do list:
   merged head (fe6d3a60), `context_menu` at both windows, are in the project's
   `planning/ui-slice-3/c4/`; they match the shots the art review judged byte for byte.
 
+- **Kernel & tooling — the playbook, one file, 2026-11-01.** The owner's call (docs/30, "The
+  playbook, one file"): `CLAUDE.md`, `AGENTS.md` and docs/38 merged into one root `PLAYBOOK.md`,
+  in the order start here, the team and the Orca workflow, what the project is, how the code fits
+  together, where the work is, the slice workflow, verifying, pushing, the standing bans,
+  conventions, traps, then docs/38's content whole, then the session record, to-do, known bugs
+  and lessons, and the routing table last. Content moved and duplication between the three was
+  removed; no rule was rewritten. The three sources are stubs: `CLAUDE.md` an `@PLAYBOOK.md`
+  import, `AGENTS.md` a pointer with its first-commands block, docs/38 its old headings each
+  linking to the playbook's anchor. `scripts/check-routing.mjs` reads `PLAYBOOK.md`
+  (`TABLE_FILE`, and the self-test's fixture with it). The roster in the playbook names models
+  under the owner's amendment of the no-model-identifiers rule; authorship stays unnamed. Gates:
+  `npm run check:routing` (every path, script and anchor in the moved table resolves; the
+  self-test's true negatives hold), `check:timing`, `check:shards`, `format:check`, `typecheck`,
+  `lint`, `npm test`, `godot:smoke`. No game behaviour, sim code, gate or content changed.
 - **Kernel & tooling — the playbook and the init audit, 2026-10-23.** The owner asked for the
   repository to be initialised for agents and for one playbook every agent can read. An audit of
   the build, test and gate commands against `CLAUDE.md` added three things to it: the commands for
