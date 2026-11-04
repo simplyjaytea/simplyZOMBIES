@@ -195,10 +195,7 @@ The source baseline is archived on GitHub at
     heel-and-toe roll, so the builder should measure the sole's height as well as its slide;
   - the held death pose's hands hover above the floor: the survivor's by 2.3 and 5.7 cm, and the
     shambler's right hand by 16.2 cm, because the elbows bend up while the upper arms lie flat at
-    3 mm;
-  - under 1 m the survivor's jacket mottling, in 2 to 4 pixel tonal clumps, still reads faintly as
-    camouflage; it reads as worn fabric from 2 m;
-  - under 1 m the survivor's brown face blotches read as skin marks rather than dirt.
+    3 mm.
 - **Weapon kit polish (#298 round 1 minors).** In `tools/blender/first_person_weapons/build_weapons.py`,
   whose outputs are `godot/assets/first_person/weapons.manifest.json` and the GLBs beside it:
   - the polymer grip's stipple is single 7.8 mm texels, which read as dice dots or dirt; a moulded
@@ -2461,6 +2458,31 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **The organic survivor, 2026-11-04.** The first-person survivor body is replaced: the box-segment
+  `survivor.glb` gives way to an organic, smooth-skinned woman built by `organic_survivor.py` in the
+  Blender character kit (`tools/blender/first_person_kit/build_characters.py`). She has 7,810 triangles,
+  a modelled face (nose, brow, lips and eye sockets), a high bun, and painted pixel textures from a new
+  `survivor_atlas.png`: 256 px/m on the head and neck, 128 px/m on the body. This entry closes the
+  survivor's jacket-mottling and face-blotch bullets in "Character kit polish" under what's left; its
+  two shambler bullets stay open.
+  - **The gate.** `blender --background --factory-startup --python tools/blender/first_person_kit/build_characters.py -- --check`
+    prints `VALID survivor: 7810 triangles, height 1.830 m, radius 0.268 m, all 21 non-hair islands at
+    nominal body 128/head 256 px/m +/-10% (area-weighted p50)`. The density check measures the exported
+    GLB against the nominal bands, not against an island's own shrunk scale: each non-hair island's
+    area-weighted p50 must sit within 10% of its band, and the arm medians must match within 2% of
+    128 px/m. The `survivor-density` plant is refused: the arm p50 falls to 47.4 px/m against a band of
+    115.2 to 140.8 (`CHARACTER_PLANT_REFUSED survivor-density`), and the other plants stay refused too.
+  - **Measured.** Exported area-weighted p50 densities: arms 135.5 and 135.3 px/m; hand backs 122.0 and
+    121.0; hand fronts 123.1 and 123.5; boot uppers 116.4 and 116.6; boot soles 128.0 and 128.0; head
+    back and front 234.0 and 257.8; neck 232.8 px/m. All 21 non-hair islands pass their nominal band.
+  - **The byte-identity step.** The check's last line, `CHARACTER_CHECK_FAIL: rebuilt outputs differ:
+    shambler.glb, characters_atlas.png`, is the cross-machine difference, not a survivor fault. This
+    Linux Blender links zlib-ng, so the unchanged shambler GLB and the shared atlas differ from the
+    Windows files in bytes. The atlas's decoded pixels are identical (`ATLAS_PIXELS_IDENTICAL
+    characters_atlas.png: True`).
+  - **Not judged.** Likeness to the owner's concept image is unjudged: the image was not on this machine,
+    so the review sheet carries a `concept unavailable` placeholder. The review's non-blocking items stay
+    open: flat mitten hands, conical bust forms, the nape silhouette, slab-like side hair.
 - **Item kit polish (#299 round 3 minors), 2026-11-04.** Three mapping fixes in the first-person
   item kit's builder, `tools/blender/first_person_items/build_items.py`, and one new model.
   - **The record.** `family()` now matches `LIQUID_WORDS` against the whole words of an item's
