@@ -200,8 +200,6 @@ The source baseline is archived on GitHub at
   - under 1 m the survivor's brown face blotches read as skin marks rather than dirt.
 - **Weapon kit polish (#298 round 1 minors).** In `tools/blender/first_person_weapons/build_weapons.py`,
   whose outputs are `godot/assets/first_person/weapons.manifest.json` and the GLBs beside it:
-  - the lathes (`lathe()`) use each triangle's face normal, so the bat, suppressor and barrel read
-    faceted at 0.45 m; smoothed vertex normals across each lathe would read round at no triangle cost;
   - the polymer grip's stipple is single 7.8 mm texels, which read as dice dots or dirt; a moulded
     texture of several texels, or none, is the fix;
   - the grip-side texel grid is projected on the receiver axes, so it is not raked with the 20° grip,
@@ -210,11 +208,7 @@ The source baseline is archived on GitHub at
     grime reads as camouflage in the view model;
   - the knife's ground bevel is one texel wide and alternates tones, so at 1280 x 720 the edge reads
     as saw teeth;
-  - the crowbar's claw is a flattened tip with no nail slot;
-  - the README does not say what horde use costs: a default pistol is 1,430 triangles in 7 meshes,
-    324 of them hidden (276 in the spring coil), and the alternate is 2,002 in 10. An NPC in numbers
-    should skip the hidden internals outside a bench view, or merge to a world LOD. The loader (#301)
-    dedupes the embedded atlas copies at runtime, so the files stay large on disk.
+  - the crowbar's claw is a flattened tip with no nail slot.
 - **Item kit polish (#299 round 3 minors).** In `tools/blender/first_person_items/build_items.py`, whose
   outputs are `godot/assets/first_person/items.manifest.json` and the GLBs in `items/`:
   - the neutral bottle is a dark-green wine bottle with a blank label, and canteens and the Jar of
@@ -2469,6 +2463,35 @@ What landed and what proved it, system by system (condensed from the retired bac
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **Weapon kit lathes smoothed, and what horde use costs, 2026-11-04.** Two of #298's round 1
+  minors in the weapon kit (`tools/blender/first_person_weapons/build_weapons.py`).
+  - **The record.** `lathe()` now gives each of its faces smoothed corner normals: a corner takes
+    the mean of the two faces of its band that meet there, and of the neighbouring band's two
+    unless the profile turns by more than 30 degrees at that ring (`CREASE_DEG`), so a shoulder,
+    a cap or a muzzle face keeps its hard edge. `make_objects` writes them as Blender's
+    `custom_normal` corner attribute and gives every other face the very normal Blender computes
+    for it flat, so the receiver, slides, magazines and boxes export the same normals as before,
+    and the triangle and vertex counts of all 14 GLBs are unchanged. Seven models carry lathes:
+    the bat, the axe's haft, the barrel, the suppressor, the recoil spring's guide rod, the
+    optic's battery cap and the knife's rivets. A blanket `use_smooth` would have changed nothing,
+    because no two faces share a vertex. The README gains "What horde use costs", measured on the
+    rebuilt files: a default pistol is 1,430 triangles in 7 meshes, 324 of them hidden (276 in the
+    recoil spring, 212 of those in its coil), and the alternate assembly is 2,002 in 9 meshes; an
+    NPC in numbers should skip the hidden internals outside a bench view or use a merged world LOD,
+    which is not built yet. The atlas's pixels are unchanged; its PNG bytes differ from main's only
+    because this Blender links zlib-ng, so every GLB that embeds it differs from main's too.
+  - **The gate.** `-- --check` gains SHADING, judged on the exported GLB: each triangle is traced to
+    the built face holding its corners. On a lathe, the corners of one band at each ring vertex
+    agree within 0.5 degrees, and neighbouring ring vertices turn by no more than the ring step
+    (or, on the oval haft, the facets' own turn) plus 0.5; every other face's corners agree within
+    0.05 degrees. It prints `SHADING 1480 lathe ring vertices in 7 models smooth (worst seam 0.03
+    deg, worst turn +0.00 deg past its step), 2422 other triangles flat`. `-- --prove` gains two
+    plants, both caught: `flat_lathe` exports lathes with face normals (the barrel's tube is
+    faceted by 45 degrees at a ring vertex) and `smooth_box` tilts the barrel hood's corners (33.4
+    degrees). Blender renders of the bat, the suppressor and the pistol receiver before and after,
+    from one camera, show the lathes round with their creases kept and the receiver
+    pixel-identical.
 
 - **The held weapon gives way to screens, 2026-11-04.** Fixes two known bugs: the view model
   floated beside the body in the third-person testing view (#313's capture), and it drew over the

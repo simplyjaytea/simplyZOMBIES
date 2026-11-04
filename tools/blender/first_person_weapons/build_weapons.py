@@ -39,6 +39,9 @@ DENSITY_TOLERANCE = 0.25
 COPLANAR_GAP_M = 0.0002
 CONTACT_M = 0.001
 ORIGIN_M = 0.001
+CREASE_DEG = 30.0  # a lathe profile turning more than this at a ring keeps a hard edge there
+SEAM_DEG = 0.5  # one lathe band's corners at a ring vertex agree within this; also the ring-turn slack
+FLAT_DEG = 0.05  # corners of any other face agree within this: the face is flat
 RES_DIR = "res://assets/first_person/weapons/"
 
 DEBUG = False
@@ -409,21 +412,29 @@ class Model:
         self.extra_material_faces = False
         self.fallbacks = 0
 
-    def poly(self, points, hint, style, key=None, uvm=None, basis=None, grain=None):
+    def poly(self, points, hint, style, key=None, uvm=None, basis=None, grain=None, normals=None, lathe=None):
+        """normals: one per point, for a smooth face (a lathe's); None keeps the face flat.
+        lathe: (key, band, segments, labels, column), labels one (ring, column) per point."""
         raw = [Vector(p) for p in points]
         raw_uv = list(uvm) if uvm is not None else None
+        extras = list(zip(normals, lathe[3])) if normals is not None else None
         pts = []
         uvs = []
+        kept = []
         for j, p in enumerate(raw):
             if pts and (p - pts[-1]).length < 1e-9:
                 continue
             pts.append(p)
             if raw_uv is not None:
                 uvs.append(raw_uv[j])
+            if extras is not None:
+                kept.append(extras[j])
         while len(pts) > 1 and (pts[0] - pts[-1]).length < 1e-9:
             pts.pop()
             if raw_uv is not None:
                 uvs.pop()
+            if extras is not None:
+                kept.pop()
         if len(pts) < 3:
             return
         n = newell(pts)
@@ -432,6 +443,7 @@ class Model:
         if n.dot(Vector(hint)) < 0:
             pts.reverse()
             uvs.reverse()
+            kept.reverse()
             n = -n
         if key is None:
             self.serial += 1
@@ -446,7 +458,11 @@ class Model:
         if raw_uv is None:
             u_axis, v_axis = group["basis"]
             uvs = [(p.dot(Vector(u_axis)), p.dot(Vector(v_axis))) for p in pts]
-        self.polys.append({"points": pts, "uvm": uvs, "group": group_key})
+        record = {"points": pts, "uvm": uvs, "group": group_key}
+        if extras is not None:
+            record["normals"] = [normal for normal, _ in kept]
+            record["lathe"] = (lathe[0], lathe[1], lathe[2], [label for _, label in kept], lathe[4])
+        self.polys.append(record)
         group["polys"].append(len(self.polys) - 1)
 
     def finish(self, shift=None):
@@ -562,8 +578,9 @@ def strip_uvs(rings, columns):
     return out
 
 
-def loft(model, rings, style_of, key, hint_of=None, band_basis=None, columns=False):
-    """Faces between consecutive closed rings, unwrapped by strip_uvs."""
+def loft(model, rings, style_of, key, hint_of=None, band_basis=None, columns=False, normals_of=None):
+    """Faces between consecutive closed rings, unwrapped by strip_uvs. normals_of(i, k), when
+    given, returns the four corner normals of face (i, k): the face is a lathe's and is smooth."""
     m = len(rings[0])
     uvs = strip_uvs(rings, columns)
     normals = [newell(ring) for ring in rings]
@@ -577,6 +594,10 @@ def loft(model, rings, style_of, key, hint_of=None, band_basis=None, columns=Fal
                 continue
             k1 = (k + 1) % m
             pts = [rings[i][k], rings[i][k1], rings[i + 1][k1], rings[i + 1][k]]
+            smooth = {}
+            if normals_of is not None:
+                labels = [(i, k), (i, k1), (i + 1, k1), (i + 1, k)]
+                smooth = {"normals": normals_of(i, k), "lathe": (key, i, m, labels, k)}
             if hint_of is not None:
                 hint = hint_of(i, k)
             else:
@@ -586,16 +607,16 @@ def loft(model, rings, style_of, key, hint_of=None, band_basis=None, columns=Fal
                     edge = other
                 hint = edge.cross(ring_normal)
             if planar is not None:
-                model.poly(pts, hint, style, key=f"{key}:disc", basis=planar)
+                model.poly(pts, hint, style, key=f"{key}:disc", basis=planar, **smooth)
             else:
                 uv = uvs[i][k]
                 if not unwrap_holds(pts, uv):
                     # The continuous unwrap stretches this face (a flaring band): map it alone,
                     # its v still along the band so grain keeps running the length.
                     model.fallbacks += 1
-                    model.poly(pts, hint, style, grain=rings[i + 1][k] - rings[i][k])
+                    model.poly(pts, hint, style, grain=rings[i + 1][k] - rings[i][k], **smooth)
                 else:
-                    model.poly(pts, hint, style, key=key, uvm=uv)
+                    model.poly(pts, hint, style, key=key, uvm=uv, **smooth)
 
 
 def extrude(model, profile, e1, e2, axis, t0, t1, side, key, bevel=(0.0, 0.0), bevel_style=None, caps=("same", "same"), origin=(0, 0, 0)):
@@ -681,7 +702,51 @@ def lathe(model, profile, segments, key, style_of_band, frame=None, angle0=0.0):
             return (rot @ Vector((1, 0, 0)), rot @ Vector((0, 1, 0)))
         return None
 
-    loft(model, rings, lambda i, k: style_of_band(i), key, hint_of=hint_of, band_basis=band_basis, columns=True)
+    # Smooth normals: a corner takes the mean of the two faces of its band that meet there, so
+    # the band reads round, and of the neighbouring band's two as well unless the profile turns
+    # by more than CREASE_DEG at that ring (a shoulder, a cap, a muzzle face stays a hard edge).
+    bands = len(pts) - 1
+
+    def face_normal(i, k):
+        k1 = (k + 1) % segments
+        n = newell([rings[i][k], rings[i][k1], rings[i + 1][k1], rings[i + 1][k]])
+        if n.length < 1e-14:
+            return None
+        return (n if n.dot(hint_of(i, k)) >= 0 else -n).normalized()
+
+    faces = [[face_normal(i, k) for k in range(segments)] for i in range(bands)]
+
+    def direction(i):
+        dr = ((pts[i + 1][0] + pts[i + 1][1]) - (pts[i][0] + pts[i][1])) / 2
+        dz = pts[i + 1][2] - pts[i][2]
+        length = math.hypot(dr, dz)
+        return (dr / length, dz / length) if length > 1e-12 else None
+
+    def joined(i, b):
+        if not 0 <= b < bands:
+            return False
+        a, c = direction(i), direction(b)
+        if a is None or c is None:
+            return False
+        return math.degrees(math.acos(max(-1.0, min(1.0, a[0] * c[0] + a[1] * c[1])))) <= CREASE_DEG
+
+    def corner(i, j, column):
+        neighbour = i - 1 if j == i else i + 1
+        total = Vector((0.0, 0.0, 0.0))
+        for b in [i] + ([neighbour] if joined(i, neighbour) else []):
+            for c in ((column - 1) % segments, column):
+                if faces[b][c] is not None:
+                    total += faces[b][c]
+        return total.normalized()
+
+    def normals_of(i, k):
+        k1 = (k + 1) % segments
+        return [corner(i, i, k), corner(i, i, k1), corner(i, i + 1, k1), corner(i, i + 1, k)]
+
+    loft(
+        model, rings, lambda i, k: style_of_band(i), key, hint_of=hint_of, band_basis=band_basis,
+        columns=True, normals_of=normals_of,
+    )
 
 
 def sweep(model, path, scales, section, key, style_of_ring, caps, normals=None):
@@ -1185,6 +1250,7 @@ MODELS = [
     ("axe_fire", axe_fire, {"id": "item.axe.fire"}, "melee", [0.034, 0.334, 0.910], {"head": "socket_head", "haft": "socket_haft", "wrap": "socket_wrap"}),
 ]
 DENSITY = {stem: (HIDDEN_DENSITY if stem in ("pistol_action_standard", "pistol_spring_standard", "pistol_sear_standard") else HELD_DENSITY) for stem, *_ in MODELS}
+BUILDERS = {stem: builder for stem, builder, *_ in MODELS}
 
 # The assemblies the check builds on the receiver: the content's defaultParts, and the
 # alternates this piece adds (a muzzle, an optic, and a different magazine).
@@ -1263,6 +1329,22 @@ def make_objects(model, material, extra_material):
             polygon.material_index = 1
         for loop_index, uv in zip(polygon.loop_indices, face_uv):
             layer.data[loop_index].uv = uv
+    if any("normals" in poly for poly in model.polys) and PLANT != "flat_lathe":
+        # Corner normals: a lathe face's smoothed ones; every other face keeps the very normal
+        # Blender gives it flat, so a box exports exactly as it did before lathes were smoothed.
+        corners = []
+        for poly, polygon in zip(model.polys, mesh.polygons):
+            if "normals" in poly:
+                corners.extend(to_blender(n) for n in poly["normals"])
+            elif PLANT == "smooth_box" and model.name == "pistol_barrel_standard":
+                centre = sum(poly["points"], Vector((0, 0, 0))) / len(poly["points"])
+                flat = Vector(polygon.normal)
+                corners.extend((flat + 0.3 * Vector(to_blender((p - centre).normalized()))).normalized() for p in poly["points"])
+            else:
+                corners.extend(Vector(polygon.normal) for _ in poly["points"])
+        attribute = mesh.attributes.new("custom_normal", "FLOAT_VECTOR", "CORNER")
+        attribute.data.foreach_set("vector", [c for n in corners for c in n])
+        mesh.update()
     empties = []
     for name in sorted(model.sockets):
         empty = bpy.data.objects.new(name, None)
@@ -1383,6 +1465,7 @@ class Loaded:
         self.document, binary = read_glb(path)
         self.nodes = {}
         self.triangles = []  # (p0, p1, p2, normal_from_file, uv0, uv1, uv2)
+        self.corners = []  # per triangle, its three normals as the file stores them
         doc = self.document
         scene = doc["scenes"][doc.get("scene", 0)]
 
@@ -1403,6 +1486,7 @@ class Loaded:
                         pts = [world @ Vector(positions[i]) for i in (a, b, c)]
                         normal = rot @ (Vector(normals[a]) + Vector(normals[b]) + Vector(normals[c]))
                         self.triangles.append((pts, normal, [uvs[i] for i in (a, b, c)]))
+                        self.corners.append([(rot @ Vector(normals[i])).normalized() for i in (a, b, c)])
             for child in node.get("children", []):
                 visit(child, world)
 
@@ -1556,6 +1640,81 @@ def region_of(u, v):
     return None
 
 
+def degrees(a, b):
+    return math.degrees(math.acos(max(-1.0, min(1.0, a.dot(b)))))
+
+
+def shading(stem, glb, model):
+    """Judge the normals the GLB stores against the faces the builder made. Every triangle is
+    traced to the one built face holding its three corners. A lathe face is smooth: at each ring
+    vertex the corners of its band's faces agree within SEAM_DEG, and neighbouring vertices round
+    a ring turn by no more than the faces beside them do (the ring step on a round lathe), plus
+    a small epsilon. Every other face is flat: its corners agree within FLAT_DEG. Returns
+    (lathe ring vertices judged, flat triangles judged, worst seam, worst turn over its bound)."""
+    from mathutils.kdtree import KDTree
+
+    owners_of = []
+    for index, poly in enumerate(model.polys):
+        for p in poly["points"]:
+            owners_of.append((p, index))
+    tree = KDTree(len(owners_of))
+    for n, (p, _) in enumerate(owners_of):
+        tree.insert(p, n)
+    tree.balance()
+
+    def owners(p):
+        return {owners_of[n][1] for _, n, _ in tree.find_range(p, 2e-5)}
+
+    vertices = {}  # (lathe key, band, ring, column) -> corner normals the file stores there
+    facets = {}  # (lathe key, band, column) -> the face's geometric normal
+    segments_of = {}
+    flat = 0
+    for (pts, _, _), normals in zip(glb.triangles, glb.corners):
+        geometric = triangle_normal(pts)
+        if geometric.length < 1e-12:
+            continue
+        found = [i for i in owners(pts[0]) & owners(pts[1]) & owners(pts[2]) if newell(model.polys[i]["points"]).dot(geometric) > 0]
+        where = tuple(round(c, 4) for c in (pts[0] + pts[1] + pts[2]) / 3)
+        if len(found) != 1:
+            raise ValueError(f"{stem}: a triangle near {where} traces to {len(found)} built faces, not one")
+        poly = model.polys[found[0]]
+        if "lathe" not in poly:
+            spread = max(degrees(normals[a], normals[b]) for a, b in ((0, 1), (1, 2), (0, 2)))
+            if spread > FLAT_DEG:
+                raise ValueError(f"{stem}: a face that is not a lathe's is smoothed near {where} (its corners differ by {spread:.1f} deg)")
+            flat += 1
+            continue
+        key, band, segments, labels, face_column = poly["lathe"]
+        segments_of[key] = segments
+        facets[(key, band, face_column)] = geometric.normalized()
+        for p, normal in zip(pts, normals):
+            nearest = min(range(len(poly["points"])), key=lambda j: (poly["points"][j] - p).length)
+            ring, column = labels[nearest]
+            vertices.setdefault((key, band, ring, column), []).append(normal)
+    seam = 0.0
+    over = -180.0
+    judged = 0
+    for (key, band, ring, column), normals in sorted(vertices.items()):
+        segments = segments_of[key]
+        mean = sum(normals, Vector((0, 0, 0))).normalized()
+        spread = max(degrees(a, b) for a in normals for b in normals)
+        neighbour = vertices.get((key, band, ring, (column + 1) % segments))
+        if neighbour is None:
+            continue
+        judged += 1
+        seam = max(seam, spread)
+        if spread > SEAM_DEG:
+            raise ValueError(f"{stem}: lathe {key} band {band} is faceted at ring {ring} column {column} (its faces' normals there differ by {spread:.1f} deg)")
+        sides = [facets.get((key, band, c)) for c in ((column - 1) % segments, column, (column + 1) % segments)]
+        sides = [n for n in sides if n is not None]
+        bound = max([360.0 / segments] + [degrees(a, b) for a, b in zip(sides, sides[1:])])
+        turn = degrees(mean, sum(neighbour, Vector((0, 0, 0))).normalized())
+        over = max(over, turn - bound)
+        if turn > bound + SEAM_DEG:
+            raise ValueError(f"{stem}: lathe {key} band {band} turns {turn:.1f} deg between neighbouring ring vertices, more than its {bound:.1f} deg step")
+    return judged, flat, seam, over
+
+
 def load_content(repo):
     items = {}
     for path in sorted((repo / "godot" / "content" / "items").glob("*.json")):
@@ -1575,6 +1734,7 @@ def validate(root, repo):
     report = []
     used_regions = set()
     by_id = {}
+    shaded = {"rings": 0, "flat": 0, "lathes": 0, "seam": 0.0, "over": -180.0}
     for entry in manifest["models"]:
         stem = entry["glb"].rsplit("/", 1)[1][: -len(".glb")]
         if not entry["glb"].startswith(RES_DIR):
@@ -1666,10 +1826,22 @@ def validate(root, repo):
             if abs(density / target - 1.0) > DENSITY_TOLERANCE:
                 where = tuple(round(c, 4) for c in (pts[0] + pts[1] + pts[2]) / 3)
                 raise ValueError(f"{stem}: texel density {density:.0f}/m near {where} is not within 25% of the declared {target}/m" + (f" {[tuple(round(c, 5) for c in p) for p in pts]} {px}" if DEBUG else ""))
+        # Shading: lathes smooth round their rings, every other face flat (judged on the file).
+        judged, flat, seam, over = shading(stem, glb, BUILDERS[stem]())
+        shaded["rings"] += judged
+        shaded["flat"] += flat
+        shaded["lathes"] += judged > 0
+        shaded["seam"] = max(shaded["seam"], seam)
+        shaded["over"] = max(shaded["over"], over)
         report.append(
             f"MODEL {stem}: {len(glb.triangles)} tris, size {tuple(round(s, 4) for s in size)} m, "
             f"{len(entry['sockets'])} sockets, density {target}/m (worst {worst * 100:.1f}% off)"
         )
+    report.append(
+        f"SHADING {shaded['rings']} lathe ring vertices in {shaded['lathes']} models smooth (worst seam "
+        f"{shaded['seam']:.2f} deg, worst turn {shaded['over']:+.2f} deg past its step), "
+        f"{shaded['flat']} other triangles flat"
+    )
     unused = set(REGIONS) - used_regions
     if unused:
         raise ValueError(f"atlas regions nothing samples: {sorted(unused)}")
@@ -1762,6 +1934,8 @@ PLANTS = [
     ("coplanar", "coplanar overlapping face pairs"),
     ("coplanar_assembly", "coplanar overlapping faces with the assembly"),
     ("density", "texel density"),
+    ("flat_lathe", "is faceted"),
+    ("smooth_box", "is smoothed"),
     ("bytes", "differ from the committed"),
 ]
 
