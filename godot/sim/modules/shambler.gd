@@ -37,6 +37,7 @@ const ShamblerState: Dictionary = {
 	"Staggered": 3,
 	"Pursue": 4,
 	"Dormant": 5,
+	"Track": 6,
 }
 
 const DEFAULT_LOCOMOTION: Dictionary = {"speed": 0.8, "wander": 0.35, "mill": 0.25, "crawl": 0.25}
@@ -57,6 +58,28 @@ const GRAB_METRES: float = 1.0
 const RELEASE_METRES: float = 3.2
 const MILL_TICKS: int = 90
 const COMMIT_TICKS: int = 400
+
+# **Track**, the seventh state, is the scent-led Seek: a body on a trail walks up the scent field at
+# its `seekSpeed`, which nothing else in this file does (the Wander drift turns a body toward a
+# smell at wander speed and no faster). Only a kind whose content names `sensory.trail` enters it,
+# and the shambler names none, so every kind that shipped before the bloodhound walks exactly the
+# path it walked before (docs/30, "The bloodhound's nose is a gradient, not a level, 2026-11-04").
+#
+# It is entered on a *rise*, never on a level. `sensory.trail` is how much more scent the uphill
+# neighbour must carry than the body's own cell, and it is set above anything one body lays on its
+# own: measured on the 64-tile district at seed 20260805, a lone body's own residue peaks at 19.8
+# in its own cell, and the steepest rise its own trail ever shows it is 16.6 (seven spots, a game
+# day each). A level test is the wake that was thrown out in 2026-09 -- a body's own cell holds 18
+# of its own smell, a thousand times the smell threshold -- and a rise of any size from the body's
+# own trail is the same mistake one cell over: the cell it just left is where it laid the most.
+#
+# It is kept on half that rise (TRAIL_KEEP), the two-radii rule of CONTACT_METRES and
+# RELEASE_METRES, so a body on the edge of the threshold does not flicker between Wander and Track.
+# When the rise falls below even that it holds its heading for COMMIT_TICKS, as the heard Seek
+# does, and when it stands on the top of the hill (no neighbour smells more) it has arrived: it
+# closes on the middle of that cell and mills, as docs/03's horde does at a source it finds empty.
+const TRAIL_KEEP: float = 0.5
+const TRAIL_ARRIVE_METRES: float = 0.5
 
 # How often the same body can publish `zombie.noticed` again: 200 ticks (ten seconds), so a body
 # whose contact/sight/hearing checks flicker it between Wander and Seek/Pursue on a noisy tick
@@ -280,7 +303,7 @@ static func make_shambler(world: Variant, entity: int, rng: Variant, type_id: St
 	var senses: Dictionary = _sensory_of(world, type_id)
 	var spread: float = _spread_of(world, type_id)
 	var seek_speed: float = SimLocomotionRes.zombie_speed(float(loco["speed"]))
-	world.components.set_component(entity, "shambler", {
+	var comp: Dictionary = {
 		"state": ShamblerState["Wander"],
 		"ticksToTurn": int(rng.call("int_range", 20, 120)),
 		"ticksMilling": 0,
@@ -300,7 +323,12 @@ static func make_shambler(world: Variant, entity: int, rng: Variant, type_id: St
 		"noiseSense": float(senses["noise"]),
 		"scentSense": float(senses["scent"]),
 		"lightSense": float(senses["light"]),
-	})
+	}
+	# The rise that puts this body on a trail (Track), only on a kind whose content names one, so a
+	# shambler's component is the shape it always was and a save of one is byte for byte the same.
+	if float(senses["trail"]) > 0.0:
+		comp["scentTrail"] = float(senses["trail"])
+	world.components.set_component(entity, "shambler", comp)
 
 
 # Put a body that has just been made to sleep. One door into `Dormant` rather than a caller
@@ -401,6 +429,8 @@ static func _sensory_of(world: Variant, type_id: String) -> Dictionary:
 		"noise": float(s.get("noise", NOISE_SENSITIVITY)),
 		"scent": float(s.get("scent", SCENT_SENSITIVITY)),
 		"light": float(s.get("light", LIGHT_SENSITIVITY)),
+		# 0 when the kind names none: it never tracks (Track, above).
+		"trail": float(s.get("trail", 0.0)),
 	}
 
 
@@ -525,6 +555,50 @@ static func _drift_upscent(field: Variant, pos: Dictionary, vel: Dictionary, sha
 	var angle: float = current + delta * _steps_bias(SCENT_BIAS, steps)
 	vel["dx"] = cos(angle) * speed
 	vel["dy"] = sin(angle) * speed
+
+
+# The uphill neighbour a tracker can follow from `pos`: the one `uphill_scent` names, and only when
+# it carries at least `need` more scent than the body's own cell. Null on a flat field, at the top
+# of a hill, and for an answer that names the body's own cell (dx and dy both 0), which the field
+# never gives but which is the self-smell wake if anything ever did: a body's own cell is where it
+# lays its own scent, so it is never a trail. Reads the field and nothing else; no number is drawn.
+static func _trail_of(field: Variant, pos: Dictionary, need: float) -> Variant:
+	var uphill: Variant = field.uphill_scent(float(pos["x"]), float(pos["y"]))
+	if uphill == null:
+		return null
+	var up: Dictionary = uphill as Dictionary
+	if int(up["dx"]) == 0 and int(up["dy"]) == 0:
+		return null
+	if float(up["value"]) - field.scent_at(float(pos["x"]), float(pos["y"])) < need:
+		return null
+	return up
+
+
+# The tracker's step: straight at the uphill neighbour `_trail_of` found, at `seek` (its seekSpeed
+# through `_speed_of`), with the body's own spread on top as the heard Seek has (`_steer_uphill`),
+# so two bloodhounds on one trail do not walk in each other's footprints.
+static func _steer_upscent(up: Dictionary, vel: Dictionary, shambler_data: Dictionary, seek: float) -> void:
+	var angle: float = atan2(float(up["dy"]), float(up["dx"])) + float(shambler_data["bias"])
+	vel["dx"] = cos(angle) * seek
+	vel["dy"] = sin(angle) * seek
+
+
+# A tracker on the top of the hill walks to the middle of the cell it stands in, at `seek`, and says
+# whether it still had a step to take: false once it is within TRAIL_ARRIVE_METRES of the middle,
+# which is where it stops and mills.
+static func _close_on_middle(field: Variant, pos: Dictionary, vel: Dictionary, seek: float) -> bool:
+	var cell: int = field.cell_at(float(pos["x"]), float(pos["y"]))
+	if cell == -1:
+		return false
+	var size: float = float(field.cell_metres)
+	var dx: float = (float(cell % int(field.cols)) + 0.5) * size - float(pos["x"])
+	var dy: float = (float(int(cell / int(field.cols))) + 0.5) * size - float(pos["y"])
+	var far: float = sqrt(dx * dx + dy * dy)
+	if far <= TRAIL_ARRIVE_METRES:
+		return false
+	vel["dx"] = dx / far * seek
+	vel["dy"] = dy / far * seek
+	return true
 
 
 # The survivor a body at `pos` is in contact with: the nearest inside `radius_metres`, and, when the
@@ -1151,6 +1225,8 @@ static func register_module(world: Variant, _map: Variant) -> void:
 				own_noise = maxf(float((em as Dictionary).get("ambient", 0.0)), float((em as Dictionary).get("walking", 0.0)))
 			var heard: bool = noise_sense > 0.0 and field.noise_at(float(pd["x"]), float(pd["y"])) >= own_noise + noise_floor / noise_sense
 			var smelled: bool = scent_sense > 0.0 and field.scent_at(float(pd["x"]), float(pd["y"])) >= scent_floor / scent_sense
+			# The rise that sets this body on a trail; 0 on a kind whose content names none.
+			var trail_need: float = float(sd.get("scentTrail", 0.0)) if scent_sense > 0.0 else 0.0
 			# Resolved once per shambler per tick and handed to every steer below it, rather than
 			# each of them reaching for sd["seekSpeed"] -- which is what let the cripple penalty
 			# sit on the component unread for the whole of Milestone 2.
@@ -1247,6 +1323,45 @@ static func register_module(world: Variant, _map: Variant) -> void:
 						sd["state"] = ShamblerState["Investigate"]
 						sd["ticksMilling"] = MILL_TICKS
 						sd["ticksToTurn"] = 0
+				ShamblerState["Track"]:
+					# The scent-led Seek (TRAIL_KEEP, above). Contact, sight and hearing outrank
+					# the trail in the order the Wander arm asks them; a bloodhound has neither
+					# eyes nor ears, so for it this arm is the trail and contact alone.
+					seek = _speed_of(w, int(entity), sd, "seekSpeed", sky)
+					var caught3: Variant = _contact_target(survivors, pd, CONTACT_METRES, w, int(entity))
+					var seen3: Variant = _seen_target(w, int(entity), survivors, sd, fog)
+					if caught3 != null:
+						sd["state"] = ShamblerState["Pursue"]
+						sd["ticksCommitted"] = 0
+						_chase(w, int(caught3), pd, vd, sd, seek)
+					elif seen3 != null:
+						sd["state"] = ShamblerState["Seek"]
+						sd["ticksCommitted"] = COMMIT_TICKS
+						_chase(w, int(seen3), pd, vd, sd, seek)
+					elif heard:
+						sd["state"] = ShamblerState["Seek"]
+						sd["ticksCommitted"] = COMMIT_TICKS
+						_steer_uphill(field, pd, vd, sd, seek)
+					else:
+						var trail: Variant = _trail_of(field, pd, float(sd.get("scentTrail", 0.0)) * TRAIL_KEEP)
+						if trail != null:
+							_steer_upscent(trail as Dictionary, vd, sd, seek)
+							sd["ticksCommitted"] = COMMIT_TICKS
+						elif field.uphill_scent(float(pd["x"]), float(pd["y"])) == null and int(sd["ticksCommitted"]) - 1 > 0 and _close_on_middle(field, pd, vd, seek):
+							# On the top of the hill. The field cannot say where in its four metres
+							# the smell is, so it closes on the middle of the cell and mills there;
+							# out of the same countdown, so a wall in the way cannot hold it here.
+							sd["ticksCommitted"] = int(sd["ticksCommitted"]) - 1
+						elif field.uphill_scent(float(pd["x"]), float(pd["y"])) != null and int(sd["ticksCommitted"]) - 1 > 0:
+							# Lost the trail on a slope: hold the heading, as the heard Seek does.
+							sd["ticksCommitted"] = int(sd["ticksCommitted"]) - 1
+						else:
+							# At the middle of the top cell, or the heading is spent: it has
+							# arrived, or given up, and mills either way.
+							sd["ticksCommitted"] = 0
+							sd["state"] = ShamblerState["Investigate"]
+							sd["ticksMilling"] = MILL_TICKS
+							sd["ticksToTurn"] = 0
 				ShamblerState["Investigate"]:
 					sd["ticksMilling"] = int(sd["ticksMilling"]) - 1
 					if int(sd["ticksMilling"]) <= 0:
@@ -1264,6 +1379,10 @@ static func register_module(world: Variant, _map: Variant) -> void:
 					seek = _speed_of(w, int(entity), sd, "seekSpeed", sky)
 					var caught2: Variant = _contact_target(survivors, pd, CONTACT_METRES, w, int(entity))
 					var seen2: Variant = _seen_target(w, int(entity), survivors, sd, fog)
+					# On a trail (Track): a rise of `sensory.trail` over its own cell, never a level.
+					# `trail_need` is 0 on every kind that names no trail, so the shambler asks the
+					# field nothing here and draws exactly what it drew before.
+					var trail2: Variant = _trail_of(field, pd, trail_need) if trail_need > 0.0 else null
 					if caught2 != null:
 						sd["state"] = ShamblerState["Pursue"]
 						_notice(w, int(entity), sd)
@@ -1278,6 +1397,11 @@ static func register_module(world: Variant, _map: Variant) -> void:
 						sd["ticksCommitted"] = COMMIT_TICKS
 						_notice(w, int(entity), sd)
 						_steer_uphill(field, pd, vd, sd, seek)
+					elif trail2 != null:
+						sd["state"] = ShamblerState["Track"]
+						sd["ticksCommitted"] = COMMIT_TICKS
+						_notice(w, int(entity), sd)
+						_steer_upscent(trail2 as Dictionary, vd, sd, seek)
 					elif int(sd["ticksToTurn"]) <= 0:
 						var angle2: float = rng.call("float_range", 0.0, PI * 2.0)
 						var wander: float = _speed_of(w, int(entity), sd, "wanderSpeed", sky)
