@@ -1,32 +1,32 @@
 {
   "id": "colony.generator.survivors",
   "given": [
-    "Asha",
-    "Ben",
-    "Cora",
-    "Dmitri",
-    "Elena",
-    "Farid",
-    "Gwen",
-    "Hiro",
-    "Imani",
-    "Jonas",
-    "Keiko",
-    "Luis"
+    "Haruto",
+    "Yui",
+    "Sora",
+    "Ren",
+    "Aoi",
+    "Kaito",
+    "Mio",
+    "Riku",
+    "Hina",
+    "Daichi",
+    "Minh",
+    "Maria"
   ],
   "surnames": [
-    "Adeyemi",
-    "Brooks",
-    "Chen",
-    "Diaz",
-    "Ellis",
-    "Farouk",
-    "Garcia",
-    "Haddad",
+    "Sato",
+    "Suzuki",
+    "Takahashi",
+    "Tanaka",
+    "Watanabe",
     "Ito",
-    "Khan",
-    "Novak",
-    "Okafor"
+    "Yamamoto",
+    "Nakamura",
+    "Kobayashi",
+    "Kato",
+    "Nguyen",
+    "Santos"
   ],
   "traits": [
     "light_sleeper",
@@ -66,58 +66,58 @@
   "backstories": [
     {
       "id": "school_caretaker",
-      "label": "school caretaker",
-      "line": "a school caretaker",
+      "label": "shrine caretaker",
+      "line": "a shrine caretaker",
       "kit": ["item.scrap.metal"],
       "nudge": { "str": 1 }
     },
     {
       "id": "line_cook",
-      "label": "line cook",
-      "line": "a line cook",
+      "label": "minshuku cook",
+      "line": "a minshuku cook",
       "kit": ["item.food.canned"],
       "bias": "iron_stomach",
       "nudge": { "con": 1 }
     },
     {
       "id": "long_haul_driver",
-      "label": "long-haul driver",
-      "line": "a long-haul driver",
+      "label": "Kagase Line driver",
+      "line": "a Kagase Line driver",
       "kit": ["item.water.bottle"],
       "nudge": { "con": 1 }
     },
     {
       "id": "veterinary_nurse",
-      "label": "veterinary nurse",
-      "line": "a veterinary nurse",
+      "label": "clinic nurse",
+      "line": "a clinic nurse",
       "kit": ["item.bandage.cloth"],
       "nudge": { "dex": 1 }
     },
     {
       "id": "fired_security",
-      "label": "fired security guard",
-      "line": "a fired security guard",
+      "label": "former works security",
+      "line": "a former works security man",
       "kit": ["item.bat.aluminium"],
       "nudge": { "str": 1 }
     },
     {
       "id": "cyclist",
-      "label": "cyclist",
-      "line": "a cyclist",
+      "label": "mountain courier",
+      "line": "a mountain courier",
       "kit": [],
       "nudge": { "dex": 1 }
     },
     {
       "id": "warehouse_picker",
-      "label": "warehouse picker",
-      "line": "a warehouse picker",
+      "label": "works warehouse hand",
+      "line": "a works warehouse hand",
       "kit": ["item.scrap.metal"],
       "nudge": { "str": 1 }
     },
     {
       "id": "night_auditor",
-      "label": "night auditor",
-      "line": "a night auditor",
+      "label": "minshuku night keeper",
+      "line": "a minshuku night keeper",
       "kit": [],
       "bias": "light_sleeper",
       "nudge": { "dex": 1 }

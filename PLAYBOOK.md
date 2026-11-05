@@ -1,8 +1,8 @@
 # PLAYBOOK.md
 
 The one entry point for anyone changing this repository, agent or person. It says what the
-project is, who works on it and how the work is dispatched inside Orca, where the work is, how a
-unit of work runs, how to verify and push it, what must not be broken, how the project around
+project is, who works on it and how the work is dispatched, where the work is, how a unit of work
+runs, how to verify and push it, what must not be broken, how the project around
 the repository runs (who decides what, how a pull request reaches `main`, the shared folder, what
 is open), what the last session did and left, and where every system lives. `README.md` is for
 players; this file is for builders. Other assistants read it too: it is the project's rules, not
@@ -10,14 +10,12 @@ a Claude-only file (`CLAUDE.md` imports it so Claude Code loads it, and `AGENTS.
 Where it states a fact about the build, it names the file or gate that proves it. Where it says
 how the owner works, it records the owner's standing instructions.
 
-It merged `CLAUDE.md`, `AGENTS.md` and docs/38 on 2026-11-01, the owner's call (docs/30, "The
-playbook, one file"). Those three are now stubs that point here, and their old anchors land on
-the matching headings below.
+`CLAUDE.md`, `AGENTS.md` and docs/38 are stubs that point here (docs/30, "The playbook, one file").
 
 ## Start here
 
-**Coordinators resuming the project:** go first to [Where we left off (2026-11-04)](#where-we-left-off-2026-11-04-stopped-by-the-owner)
-and its "Next session, start here" list, then [the herdr workflow](#the-herdr-workflow-current).
+**Coordinators resuming the project:** go first to [Where we are](#where-we-are) and the newest entry of
+[the session log](docs/43-session-log.md), then [the dispatch workflow](#the-dispatch-workflow).
 
 ```bash
 bash scripts/setup-web-session.sh   # verify or install the pinned engine and npm packages
@@ -36,7 +34,7 @@ Then read, in order:
 2. [What's left in Milestone 2](docs/23-roadmap.md#whats-left-in-milestone-2), the open work, and
    [the record, by system](docs/23-roadmap.md#the-record-by-system) for how the neighbouring
    systems landed. Both are far too large to read whole: read your piece's entry and the record
-   of the systems it touches ([briefing a thread](#how-work-flows)).
+   of the systems it touches ([briefing a worker](#the-dispatch-workflow)).
 3. [Waiting on the owner](docs/33-owner-decisions.md#waiting-on-the-owner): decisions that are
    not yours to make.
 4. [docs/37, the traps](docs/37-traps.md), before touching the sim.
@@ -46,159 +44,135 @@ Then read, in order:
 
 ## The team
 
-**The current team (Linux, since 2026-11-04).** The owner's machine runs the terminals in herdr,
-not Orca. The table below the herdr workflow is the Windows-era roster, kept for its role rules.
+**Linux, since 2026-11-04; this roster since 2026-11-05.** The owner's machine runs six terminals in
+herdr, not Orca, in two workspaces: "simplyZOMBIES / Main Code" (the coordinator, the advisor, the two
+workers) and "simplyZOMBIES / Modeling and Art" (the art lead and its QA). The owner decides and gives
+tasks to the coordinator directly. Agents do the rest, each on its own model.
 
-| Role | Agent and model | Does | Does not |
+| Role | Agent | Does | Does not |
 |---|---|---|---|
-| Coordinator | Claude Code, Opus 5.5 | Reads the state, writes every spec, dispatches, verifies every report against the diff, renders and gates, opens PRs, merges after the owner's go-ahead | Write the work itself, beyond small fixes to docs and records |
-| Modeler and painter | Kimi Code, K3.1 Pro, thinking high, in "Never Ask" mode | 3D models, rigs, clips and, since Codex was dropped, the final painted textures | Edit another worker's worktree |
-| Workhorses (two) | OpenCode, Beam Free, at **medium** effort (the owner's setting; do not raise it) | Mechanical code and docs, given a one-step spec with an exact acceptance list | New gates, shared sim modules, art judgement |
-| Strong tier | Opus subagents the coordinator starts | New gates, shared sim modules, art reviews, and finishing anything a workhorse left short | Merge |
+| Coordinator | Claude Code, Sonnet 5.5 | The lead: everything routes through it. Reads the state, plans, writes every spec, dispatches to the workers and the art lead, verifies every report against the diff, renders and gates, opens PRs, runs the merge train, merges | Write the work itself, beyond small fixes to docs and records |
+| Advisor | Claude Code, Fable 5.1 | Advises the coordinator: a second opinion, a harder judgement call, a plan or design review, and the questions the coordinator cannot settle. Talks to the art QA for anything that crosses the two workspaces | Dispatch, merge, or write the work; relay the owner's tasks (the owner talks to the coordinator) |
+| Art lead | Kimi Code, K3.1 Pro, thinking high, in "Never Ask" mode | Every 3D model, rig, clip, UV layout and painted texture | Edit another worker's worktree |
+| Art QA | Claude Code, Opus 5.5, a standing terminal beside Kimi | Plans Kimi's rounds, reviews every art batch independently and writes the verdict to `sz-shared/reviews/<piece>/`; the strong tier for a piece that needs higher thinking (a new gate, a shared sim module, the save format) when the coordinator asks | Merge; routine work, which stays with the workers |
+| Workers (two) | Claude Code, Haiku 5.5 | Every piece of work that is not art: code, gates, docs, keeping pull requests current with main, and independent reviews of code they did not make | Merge |
 
-The owner decides. Everything else is done by agents running as terminals inside Orca, each
-on its own model, coordinated by one of them. The owner's call of 2026-11-01: this roster may
-name models; the rule against model identifiers still holds for authorship (a commit, PR title
-or body, code comment or doc never says which model wrote it).
+The roster may name models, because it says who runs what. Authorship never does: a commit, PR
+title or body, code comment or doc does not say which model wrote it (the owner's call, 2026-11-01,
+docs/30).
 
-| Role | Agent and model | Does | Does not |
-|---|---|---|---|
-| Coordinator | Claude Code, Opus 5.5, high effort | Reads the state, picks the pieces, writes every task spec, dispatches, judges every render and report, merges after the owner's go-ahead, keeps the owner informed | Write the work itself, beyond small reads and checks |
-| Workhorse | Claude Code, Haiku 5.5, high effort | Mechanical and engineering work: tooling, presentation code, gates, keeping pull requests current with main, driving CI green; spawns its own subagents | Merge; touch art builders it does not own |
-| Modeler | Kimi Code, K3.1 Pro, thinking high | 3D models: Blender builders, meshes, rigs, UVs, animation, `--check` and plant modes | Paint the final textures (Codex does) |
-| Art | Codex, GPT-6.1-Sol (the owner runs it at high; it ran at medium on 2026-11-01) | Painted pixel textures on the modeler's UV layout, 2D look targets, palette, and an independent second eye on every model round | Edit the modeler's worktree |
-| Strong tier, on demand | Claude Code, Opus 5.5, high, started by the coordinator | Shared sim modules, the save format, taking over a modeler who ran out of usage, independent art reviews and their confirmation passes | Merge |
-| Writer, on demand | Claude Code, Fable 5.1, started by the coordinator | Large writing and restructuring work, such as this playbook's merge | Merge |
+Kimi has priority for models; if Kimi runs out of usage, a worker takes over its worktree from its
+HANDOFF.md (see [When a worker runs out](#when-a-worker-runs-out)).
 
-Kimi has priority for models. When Kimi runs out of usage, an Opus worker takes over the same
-worktree from Kimi's handoff (see [When a worker runs out](#when-a-worker-runs-out)).
+## The dispatch workflow
 
-**Model routing, by role.** The owner assigns models by role, and the roster above is the
-current assignment. The roles that hold whatever the models are:
+One coordinator dispatches work into live terminals, and each worker reports back in a file. Workers
+never share a worktree at the same time, and nobody switches branches in the main checkout.
 
-- The coordinator, and the end review of a feature, on the coordinator's model.
-- Working threads, on the fast tier at high effort.
-- On the strongest tier at high effort, from the start: planning threads; anything that cannot
-  be undone (merges, deletes); all art, design and visual placement, and the art reviewers; and
-  any piece that touches a shared sim module (`godot/sim/modules/jobs.gd`,
-  `godot/sim/modules/stockpile.gd`, `godot/sim/modules/needs.gd` and the like) or the save format
-  (the owner's call, 2026-10-27).
-
-## The herdr workflow (current)
-
-The Orca loop below still describes the method. On the Linux machine it runs like this:
-
-- **Find the terminals.** `hc ls` lists them, in the workspace "simplyZOMBIES / 1". Addresses such
-  as `t1p` change between runs: Kimi is the `kimi-code` row, and the two workhorses are the
-  `opencode` rows. Start a new one with
-  `hc run --bg --name <n> --cwd <worktree> --outlive-parent <cmd>`.
-- **Specs.** Write each spec to `/home/jtf/sz-shared/<piece>/task-<who>.md`. Every worker reads
-  `/home/jtf/sz-shared/WORKER_RULES.md`. Dispatch with
-  `hc send <t> "Read <spec> and WORKER_RULES.md, then do the task without stopping"`. Each worker
-  reports in `<piece>/REPORT.md`, or `HANDOFF.md` if it runs out.
-- **Wait.** `hc wait <t>` returns on every status change. Loop it until `REPORT.md` appears or the
-  terminal goes idle, then read `hc read <t>` if no report came.
-- **Kimi's approvals.** Kimi asks before each shell command unless it is in "Never Ask" mode. Turn
-  that on with raw keys: `hc keys <t> / y o l o enter`. `hc send` wraps its text in `<hc>` tags, so
-  a slash command sent that way becomes a chat message.
-- **Subagents** cannot write files under `sz-shared`. The coordinator writes their `REPORT.md`
-  from the hand-back.
-- **Displays.** Every Godot and Blender job runs under `xvfb-run -a`. A window must never open on
-  the owner's desktop display.
-- **Worktrees.** Each piece gets a worktree under `.claude/worktrees/<piece>` on branch
-  `<agent>/<piece>`. Symlink `node_modules` from the main checkout into it; the symlink is
-  excluded in `.git/info/exclude`.
-- **Verify before a PR.** Read the worker's diff yourself, and its manifest or map where there is
-  one. Rerun the gates the spec names. Workhorses have reported work as done when it was not, three
-  times in one session.
-
-## The Orca workflow
-
-The owner calls this the most crucial part of the playbook. One coordinator in the Orca app
-dispatches work into live agent terminals and subagents, and every worker reports back through
-Orca's orchestration commands, never through a terminal nobody reads.
-
-### The loop
-
-1. **Orient.** The coordinator reads the state: open PRs (`gh pr list`), `origin/main` against
-   the local checkout, the worktrees, and the owner's request. It renders the current asset
-   before judging it.
-2. **One run per objective.** `orca orchestration run-create --objective "..."`. Every task of
-   the session hangs off it.
-3. **Specs live in the shared folder.** Each task is a self-contained markdown spec in
-   `C:/Users/jtf/orca/sz-shared/<piece>/task-<who>.md`: target worktree and branch, the change,
-   constraints, ownership, observable acceptance. A brief shared by several workers
-   (`BRIEF.md`) carries the owner's words verbatim and the technical contract.
-4. **One worktree per worker.** The coordinator creates it first:
-   `git worktree add -b <agent>/<piece> .claude/worktrees/<piece> origin/main` (or off the PR it
-   stacks on). Workers never share a worktree at the same time. Every worktree sits under
-   `.claude/worktrees/` (ignored by git) on a branch named `<agent>/<piece>`; every terminal
-   shares the main checkout, so nobody switches branches there.
-5. **Dispatch.** Into an existing terminal: `orca orchestration task-create --run <run> --spec
-   "$(cat spec.md)"` then `orca orchestration dispatch --task <id> --to <handle> --inject`. A
-   new agent terminal: `orca orchestration worker-start --spec "..." --worktree path:<dir>
-   --agent claude --model <model-id> --effort high`. Handles come from `orca terminal list
-   --json` and change between Orca runs.
-6. **Wait without polling.** A small watcher script (`orchestration check --wait`, acking
-   heartbeat-only batches, exiting on the first question, status or worker_done) runs in the
-   background; the coordinator acts on each message, replies with `orchestration reply`, sends
-   follow-ups with `orchestration send --to dispatch:<id>`, and acks the batch.
-7. **Settle each worker.** On `worker_done` the coordinator checks the claim (renders, CI, SHAs)
-   and then reuses the terminal with a new dispatch, retains it (`worker-retain`) or releases
-   it (`worker-release`).
+1. **Orient.** Read the state: open PRs (`gh pr list`), `origin/main` against the local checkout, the
+   worktrees, and the owner's request. Render the current asset before judging it.
+2. **Specs live in the shared folder.** Each task is a markdown spec,
+   `/home/jtf/sz-shared/<piece>/task-<who>.md`: worktree and branch, the change, constraints,
+   ownership, acceptance. Workers sharing a piece also get a `BRIEF.md` with the owner's words verbatim.
+3. **One worktree per worker.** `git worktree add -b <agent>/<piece> .claude/worktrees/<piece> origin/main`
+   (or off the PR it stacks on). Worktrees sit under `.claude/worktrees/`, on branches named
+   `<agent>/<piece>`. Symlink `node_modules` from the main checkout; the symlink is excluded in
+   `.git/info/exclude`.
+4. **Dispatch.** `hc ls` lists the terminals in both workspaces, "simplyZOMBIES / Main Code" and
+   "simplyZOMBIES / Modeling and Art". Addresses such as `t1p` change between runs: Kimi is the `kimi-code`
+   row, the art QA is the Claude row beside it, and the workers are the Haiku rows (`hc read <t>` shows
+   the model on each screen). Start one
+   with `hc run --bg --name <n> --cwd <worktree> --outlive-parent <cmd>`, then
+   `hc send <t> "Read <spec> and WORKER_RULES.md, then do the task without stopping"`. `hc send` wraps
+   its text in `<hc>` tags, so a slash command sent that way becomes a chat message. Kimi asks before
+   each shell command unless it is in "Never Ask" mode: `hc keys <t> / y o l o enter` turns that on.
+5. **Wait.** `hc wait <t>` returns on every status change. Loop it until `REPORT.md` appears or the
+   terminal goes idle, then `hc read <t>`. A worker that runs out writes `HANDOFF.md` instead.
+6. **Verify.** Read the diff yourself, and the manifest or map where there is one, and rerun the gates
+   the spec names. Workers have reported work as done when it was not, three times in one session.
+7. **Settle.** Reuse the terminal for the next task once the report is verified. Subagents cannot write
+   under `sz-shared`, so the coordinator writes their `REPORT.md` from the hand-back.
 
 ### Art in rounds
 
-- The modeler publishes the UV layout early (`uv_layout.png` + `.json` with island rects,
-  orientation, landmarks, mirroring and a position bake) so the painter starts in parallel.
-- Every round renders the same views, side by side with the owner's concept: Blender clay and
-  textured, plus the in-engine sheet from `npm run godot:shots:survivor -- --glb=<path>
-  --out=<dir>`. The coordinator judges the in-engine sheet, not only Blender.
-- Codex reviews each round independently (`review_round-N.md`); the coordinator writes a ranked
-  verdict (`OPUS_VERDICT.md`) and sends both to the modeler. Geometry is locked before final
-  paint, and paint is locked last.
-- The owner sees the accepted model before any pull request.
-- Art kits follow one shape: a reproducible Blender builder with `-- --check` and planted-error
-  modes, a `<kit>.manifest.json` in `godot/assets/first_person/`, and an independent in-engine
-  review before merge. The reviews keep finding the same faults (camouflage-like noise, paint
-  that follows atlas cells, density claims the check did not measure, bodies that float or sink),
-  so a new kit's builder should check those from the start.
+- The art lead publishes the UV layout early (`uv_layout.png` + `.json` with island rects, orientation,
+  landmarks, mirroring and a position bake), so the paint starts in parallel.
+- Every round renders the same views beside the owner's concept: Blender clay and textured, and the
+  in-engine sheet from `npm run godot:shots:survivor -- --glb=<path> --out=<dir>`. The coordinator judges
+  the in-engine sheet, not only Blender.
+- Each round gets an independent review by the art QA, which writes the review and a ranked verdict
+  (`OPUS_VERDICT.md`) under `sz-shared/reviews/<piece>/` and sends both to the art lead. The coordinator
+  reads the verdict before opening the PR and merges on it. Geometry is locked before final paint, and
+  paint is locked last. The owner sees the accepted model before any pull request.
 
 ### Independent review and the merge train
 
-- An art PR merges only after an independent art review (an Opus subagent with only the PR, its
-  own renders of base and head, and this file's rules) and, after fixes, a confirmation pass by
-  the same reviewer against its first report. A push after a verdict voids it.
-- The thread that wrote a PR never merges it. The coordinator merges with a merge commit, after
-  re-checking the head SHA and CI (`gh pr merge <n> --merge --match-head-commit <sha>`), and
-  only with the owner's go-ahead: the permission check blocks `gh pr merge` otherwise.
-- The workhorse keeps the queue current: after each merge it merges `main` into the next PR
-  (never rebase, never force-push), reruns the touched gates and reports a table: number, head,
-  CI, local gates, preconditions, risk. Docs/23 record entries conflict on every merge; keep
-  both sides.
-- CI capacity is the bottleneck. When pieces stack and collide in code, one integration pull
-  request that names the pieces it closes saves many merge-and-rerun cycles (#289 did twelve).
-  Docs-only pull requests were merged after a clean local merge and `check:routing`, since no
-  Godot gate reads them.
+- **Art and placement review** (the owner's call, 2026-10-27). An art or placement PR merges only after
+  an independent read-only reviewer checks it, and after fixes, a confirmation pass by the same reviewer
+  against its first report. A push after a verdict voids it.
+  - The art QA is the reviewer, never the worker that made the art. The brief is the PR, its head and
+    base commits, and `/home/jtf/sz-shared/reviews/<piece>/` for the report. A confirmation pass also
+    gets the previous report. The reviewer is not told the worker's account of what changed. An art PR
+    merges on the art QA's written sign-off; the coordinator merges it, the art QA never does.
+  - The reviewer makes its own shots of base and head with `godot:shots`, measures the noise floor
+    (base against base) before calling a difference, and names both commits in the report.
+  - Round 3 is the last full round. Later passes check only the previous findings and raise only
+    blockers. Minor findings in a clear round go into docs/23. Docs-only, gate-only and 1 to 2 px
+    gate-verified follow-ups need no review.
+- **The merge train** (the owner's call, 2026-10-27). Pieces built side by side merge one by one, each as
+  it goes green. The next merges `main` in (never rebase, never force-push), waits for CI on its new head,
+  and merges in turn. Conflicts in the tails of docs/23 and docs/30 are settled by keeping both entries.
+  A piece that waits on another names it in its body.
+- After each merge the coordinator tells the open workers the new `main`. A worker keeps the queue
+  current: it merges `main` into the next PR, reruns the touched gates, and reports a table (number,
+  head, CI, local gates, preconditions, risk).
+- A bundle of pieces that conflict in code goes into one integration PR that names the PRs it closes
+  (#289 closed twelve). Docs-only PRs merge after a clean local merge and `check:routing`.
 
 ### When a worker runs out
 
-1. Tell it to stop, commit a WIP checkpoint even if checks fail, write `HANDOFF.md` (method,
-   what works, what fails and why, next steps, traps), and send `worker_done --outcome failed`.
-2. Wait for that `worker_done` before anything else touches the worktree.
-3. Start the replacement in the same worktree with `worker-start --worktree path:<dir> --agent
-   claude --model <opus id> --effort high`, its spec pointing at the handoff and the original
-   task.
+1. Tell it to stop. It commits a WIP checkpoint even if checks fail, and writes `HANDOFF.md` (method,
+   what works, what fails and why, next steps, traps).
+2. Wait for it to go idle before anything else touches the worktree.
+3. Start the replacement in the same worktree (`hc run ... --cwd <worktree>`), its spec pointing at the
+   handoff and the original task.
 
-### Standing rules for workers
+A worker revived after days can wake with stale context, so brief it on the current `main` first. Push
+at a clean point before a long run.
 
-- **No OS-level input and no desktop screenshots, ever.** Drive Godot from inside (the gate
-  harness, `Input.parse_input_event`, a throwaway GDScript driver) and capture only the game
-  viewport, or capture through Blender. A worker's synthetic keys once landed in the owner's
-  browser.
-- Never push to main, never merge, never skip or loosen a gate.
-- A worker asks the coordinator with the orchestration `ask` command; it never opens a local
-  question prompt nobody can answer.
+**Briefing a worker.** docs/23 and docs/30 are too large to read whole. A brief names the parts that
+bear on the piece: its entry in docs/23's what's left, its row in the [routing table](#routing-table),
+the record entries of the systems it touches, and the docs/30 entries for those systems. The worker reads
+this file, docs/37 and those parts. A worker that needs more reads more; the brief is a floor, not a fence.
+
+## Rules for every worker
+
+Every worker reads `/home/jtf/sz-shared/WORKER_RULES.md` with its spec. The coordinator maintains that
+file; this section is the same rules as the repository holds them.
+
+- Read this file in your worktree first: Standing bans, Conventions, Traps and Verifying a change. It
+  is the project's rules.
+- Work only in the worktree your spec names, on its branch. Never switch branches in the main checkout.
+- Never push to `main`, never merge a pull request, never force-push, never rebase a pushed branch,
+  and never skip or loosen a gate.
+- **No OS-level input and no desktop screenshots, ever.** Drive Godot from inside (the gate harness,
+  `Input.parse_input_event`, a throwaway GDScript driver) and capture only the game viewport, or render
+  through Blender. A worker's synthetic keys once landed in the owner's browser.
+- Run every Godot gate, capture and Blender job under `xvfb-run -a` (or `env -u WAYLAND_DISPLAY DISPLAY=`).
+  Never let a window open on the owner's display `:0`.
+- Commits use the repository's local git identity, `worker`, and carry no attribution trailer: no
+  Co-Authored-By line and no session link. Commits, PR text, code comments and docs never name the model
+  or agent that wrote them.
+- Spin up your own subagents when it helps.
+- Stuck on a design question (anything a player would notice that the spec does not settle)? Build the
+  most conservative default, note it in your report, and keep going.
+- Ask the coordinator in your `REPORT.md`. Never open a question prompt nobody can answer.
+- When done, or blocked, or out of usage: commit, push your branch (`git push -u origin <branch>`),
+  write `REPORT.md` in your piece's folder (what changed, the gates run with their exact OK or FAIL
+  lines, the head SHA, anything left or doubtful), then end your turn. Out of usage mid-task: commit a
+  WIP checkpoint and write `HANDOFF.md` instead (method, what works, what fails and why, next steps,
+  traps).
+- Do not open the pull request. The coordinator does.
 
 ## What the project is
 
@@ -213,9 +187,15 @@ Management moves to physical ledgers and conversations. Earlier projection and
 sprite rules describe the preserved baseline, not constraints on new 3D assets.
 The standing verification and merge rules remain.
 
-**Setting.** The game is set in Japan, inspired by the real Ome–Okutama valley in western Tokyo
-(docs/30). Place names, businesses and brands are fictional; the real layout, landscape and
-architecture are the inspiration. The re-theme is planned work, listed in docs/23.
+**Setting.** The game is set in Japan, in the Kagase valley in the mountains west of Tokyo (docs/30).
+The valley is fictional and inspired by the real Ome–Okutama valley; its layout, towns and districts
+are in [docs/42](docs/42-ome-okutama-setting.md) (the map in section 3, the renames in section 5).
+Place names, businesses and brands are fictional. The renames are on their pull requests: R1 #333
+(the districts and region), R3 #334 (the building templates), R5 #335 (food and drink), R6 #341
+(cartridges and brass), R7 #337 (tools, comfort and melee), R8 #339 (vehicles), R9 #342 (the
+people) and R10 #340 (the descriptions). R2, the region's cell order, is #344 (it bumps the save
+format to v34). The real layout, landscape and architecture are the inspiration. The re-theme
+is planned work, listed in docs/23.
 
 A hardcore zombie survival colony sim: RimWorld's colony management and work priorities,
 Project Zomboid's unforgiving survival, Zero Sievert's top-down pixel art. One attention system
@@ -286,7 +266,8 @@ matter every session:
 - **First person is the game; top-down is legacy** (2026-11-04, docs/30): first person is the
   default boot and every new piece is first person; the top-down game stays, boots with
   `npm run godot:run:topdown`, and keeps its gates, but gets no new features or UI slices unless
-  the owner asks. Shared sim modules serve both.
+  the owner asks. Shared sim modules serve both. The top-down rules in docs/30 and docs/32 govern
+  only the legacy build.
 - **The setting is Japan (Ome–Okutama), 2026-11-04** (docs/30): inspired by the real Ome–Okutama
   valley in western Tokyo; names are fictional. The re-theme is planned work, listed in docs/23.
 - **The survival loop is built, gated and on.** `SimShambler.GRABS_ENABLED` ships `true`. Any
@@ -295,25 +276,17 @@ matter every session:
   on 2 of 3 seeds, and it was not met. The numbers, the traces and the next measurement are in
   docs/23's "Balance after the alpha" (under what's left). The next measurement is ten seeds and
   a median wipe day, on `main` and on each candidate. No lever is judged on three seeds again.
-- **The presentation is flat top-down, not isometric,** in the Dungeon Settlers look decided
-  2026-09-03. Read docs/30 in date order before changing a body or a tile.
 - **A day is one real hour** (`Clock.DAY_SECONDS`, the owner's 2026-10-19 call). The speed
   ladder is 1x and 3x; 10x waits on the tick budget.
 - **The boot colony is three**, the player, Mara and Ellis, by the owner's 2026-09-01 decision.
 - **Dead sockets.** Complete, correct, gated code that nothing reads has turned up many times. A
   mechanism needs an assertion that something reaches it.
-- **The whole-interface redesign is a proposal being built slice by slice,** not a shipped
-  change. Read [docs/32](docs/32-ui-overhaul.md) and
-  [the owner's 2026-10-03 decision](docs/30-decisions.md#the-whole-interface-2026-10-03) before
-  applying older kit, font or chart requirements. Its work list is
-  [docs/23's UI overhaul group](docs/23-roadmap.md#ui-overhaul).
 - **For the current `main`,** run `git log origin/main -1` and look at its CI. This file carries
   no commit hash on purpose, because a hash written here is out of date after the next merge.
 
 The longer state notes, the art history and the full dead-socket list are in
-[the state of the build](docs/36-state-of-the-build.md). What the last session did and left is
-under [What the session of 2026-11-01 did](#what-the-session-of-2026-11-01-did) and
-[To do](#to-do) below.
+[the state of the build](docs/36-state-of-the-build.md). What the last session did and left is in [the session log](docs/43-session-log.md).
+The open items are under [Where we are](#where-we-are).
 
 ## The workflow
 
@@ -367,23 +340,24 @@ The commands, timings and CI jobs are in [the gate list](docs/35-gates.md).
 
 ## Pushing and pull requests
 
-- **One piece, one branch, one pull request,** opened from a fresh branch off `main` and based
-  on `main`. A session pushes only its own branch. Never push to `main`. A fix to another open
-  pull request is a pull request based on that one's branch ([How work flows](#how-work-flows)).
-- **No model identifiers in anything pushed, with one amendment.** Commit messages, PR titles
-  and bodies, code comments and docs never name the model that wrote them. That includes a
-  `Co-Authored-By` trailer naming a model: leave it out and keep the session link
-  (`Claude-Session:`). The amendment (the owner's call, 2026-11-01, docs/30): [the team
-  roster](#the-team) in this file may name the model each role runs on, because a roster says
-  who runs what, not who wrote what. Authorship stays unnamed everywhere, the roster included.
+- **One piece, one branch, one pull request,** opened from a fresh branch off `main` and based on
+  `main`. A worker pushes only its own branch. Never push to `main`.
+- **A fix to someone else's open pull request** is a pull request onto its branch. Branch off that
+  pull request's head, push your own branch, and open a pull request whose base is its branch. CI
+  runs on it, because `ci.yml` runs on every pull request whatever its base. It merges into that
+  branch under the same rules as a merge into `main`. #230 onto #228's branch was the first.
+- **Follow-ups start fresh.** A merged pull request is finished. New work goes on a fresh branch from
+  `main`, with a new pull request, never on top of merged history.
 - **Fill in the PR template** (`.github/pull_request_template.md`): the piece, the gate, the
   measurement, the record, what was verified.
-- **Drive it green** by the steward skill. Never skip, disable or loosen a gate to get there.
-- **Merge with a merge commit,** after re-checking the head and CI right before merging. Pieces
-  built side by side merge one by one as each goes green, and the thread that wrote a pull
-  request never merges it ([How work flows](#how-work-flows)).
-- **Cloud sessions cannot delete remote branches** (the git proxy returns 403 for any ref but
-  the session's own). Name the branches that should go and let the owner delete them.
+- **Drive it green** by the steward skill (`.claude/skills/steward/SKILL.md`). Never skip, disable or
+  loosen a gate to get there.
+- **Merge with a merge commit,** after re-checking the head and CI right before merging. The worker
+  that wrote a pull request never merges it. The coordinator merges, and only with the owner's
+  go-ahead (`gh pr merge <n> --merge --match-head-commit <sha>`). The merge train, above, sets the
+  order.
+- **Merged head branches come back** after each merge unless "Automatically delete head branches" is
+  on in the repository settings. Name the branches that should go, and the owner deletes them.
 
 ## Standing bans
 
@@ -482,6 +456,8 @@ gates, which is not a failure:
   the owner as a decision card with one recommended option. Elsewhere, put it in the pull
   request. The card never blocks work: build the default, say that you did, and change it if
   the owner picks something else.
+- **The open calls are listed in [docs/33](docs/33-owner-decisions.md#waiting-on-the-owner)**, the only
+  list. Each has a default already built, so none of them blocks a piece.
 - **Steps that cannot be undone wait for the owner's own words.** Merging under the owner's
   standing authorization (below) is the one exception.
 
@@ -497,217 +473,73 @@ gates, which is not a failure:
 - `README.md` is for players and this file is for agents.
 - The owner closes idle threads, and threads whose pull requests have merged get resolved.
 
-## How work flows
-
-In a Claude project, a coordinator talks with the owner in the project chat and opens one thread
-per piece of work; in Orca, the coordinator dispatches terminals ([The Orca
-workflow](#the-orca-workflow)). The rules below hold for any agent.
-[docs/34](docs/34-agents-and-environment.md) covers branch naming and worktrees for agents
-working outside a project.
-
-1. **One piece, one branch, one pull request.** Branch off `main`, base the pull request on
-   `main`, and push only your own branch. Fill in `.github/pull_request_template.md`. In a Claude
-   project the rule is enforced: a thread's git proxy refuses (403) a push to any ref but the
-   thread's own branch.
-2. **A fix to someone else's open pull request is a pull request onto its branch.** Branch off
-   that pull request's head, push your own branch, and open a pull request whose base is its
-   branch. CI runs on it, because `ci.yml` runs on every pull request whatever its base. It merges
-   into that branch under the same rules as a merge into `main` (step 4). #230 onto #228's branch
-   was the first.
-3. **Drive it green** by `.claude/skills/steward/SKILL.md`. Never skip, disable or loosen a gate.
-4. **Claude merges, with a merge commit, and never the thread that wrote it.** The owner
-   authorized merging. The coordinator, or a thread it names on the strongest tier, does it; the
-   thread that wrote a pull request does not merge its own. Re-check the head commit and CI right
-   before you merge. After a merge, tell the open threads the new `main`.
-5. **Pieces built side by side merge one by one, each as it goes green** (the owner's call,
-   2026-10-27). Merge the first green one. The next one then merges `main` in, waits for CI on
-   its new head, and merges in turn. Conflicts in the tails of docs/23 and docs/30 are settled in
-   that merge of `main`, by keeping both entries. A bundle of pieces in one integration pull
-   request is only for two pieces that conflict in code, and it names the pull requests it
-   closes. A piece that waits on another names it in its body and merges after it.
-6. **Follow-ups start fresh.** A merged pull request is finished. New work goes on a fresh branch
-   from `main` with a new pull request, never on top of merged history.
-7. **Cloud sessions cannot delete remote branches.** The git proxy returns 403 for every ref but
-   the session's own. Name the branches that should go, and the owner deletes them. Merged head
-   branches come back after each merge unless "Automatically delete head branches" is on in the
-   repository settings.
-8. **Usage limits and restarts.** Containers restart, and sessions pause at usage limits. Push
-   at a clean point before a long run. A thread revived after days can wake with stale context:
-   brief it on the current `main` before it acts.
-
-**Briefing a thread.** docs/23 and docs/30 are far too large to read whole at the start of a
-piece; "read in order" under [Start here](#start-here) means the parts that bear on it. A brief
-that opens a thread names them: the piece's entry in docs/23's what's left, its row in the
-[routing table](#routing-table), the record entries of the systems it touches, and the docs/30
-entries for those systems (search by the system's name). The thread reads this file, docs/37,
-and those parts. A thread that finds it needs more reads more; the brief is a floor, not a fence.
-
-**Art and placement review.** Before an art or placement pull request merges, an independent
-read-only reviewer checks it (the owner's call, 2026-10-27):
-
-- **The coordinator spawns the reviewer, never the thread that made the art.** Its brief is
-  fixed: the pull request, its head commit, its base commit, and the shared folder for the
-  report. A confirmation pass also gets the previous report. It is not told the thread's account
-  of what changed or the decisions so far: those are what it checks.
-- **The reviewer makes its own shots.** It runs `godot:shots` on the base and on the head commit
-  and compares them, and it does not judge from the thread's exports. It measures the noise
-  floor (base against base) before calling a difference. The report names both commits; a push
-  after the verdict voids it.
-- **Rounds.** Findings land as commits on the same pull request, and the review repeats until it
-  is clear. Round 3 is the last full round. A later pass is a confirmation pass: it checks only
-  the previous findings and raises only blockers. Minor findings in a clear round go into
-  docs/23.
-- Docs-only, gate-only and 1 to 2 px gate-verified follow-ups need no review.
-
 ## The release plan
 
 Decided by the owner on 2026-10-26 ([docs/30](docs/30-decisions.md#the-release-plan-and-the-content-arcs-2026-10-26)).
-Five stages, each with the thing it has to prove. Pieces are named in docs/23's what's left;
-this section says which stage each group belongs to, and nothing here is ticked. The art style
-does not change between stages: flat top-down, 32 px a tile at 2x, the outpost pack as the
-floor, the Dungeon Settlers mood (docs/30, 2026-09-03 and 2026-09-17). An isometric view was
-asked about and declined on 2026-10-26, for the third time; depth where wanted is oblique
-treatment inside this projection. The first-person pivot of 2026-11-01 (docs/39) adds
-conversion work ahead of this sequence and supersedes the flat-top-down art direction for the
-conversion; the stages below are the preserved plan for the game's systems.
+The pieces of each stage are in [docs/23's what's left](docs/23-roadmap.md#whats-left-in-milestone-2).
 
-1. **Alpha closed: it loops.** Milestone 2's exit criterion in code, not balance. Everything in
-   flight lands (colonist self-care, the buildables, the floodlight take-down, the Colony screen
-   nits), then the sim pieces that need no owner call: round choice and the magazine's memory,
-   the tourniquet, the purifier refill, the alarm and noisemaker priced, the plate that wears, the
-   ranged affix readers, the repair economy. UI overhaul bullets three to five. The first
-   worker-sized pieces of the content arcs below (the readers and the melee frames). Proof: the
-   `godot:m2` chain green, `godot:check:play` covering every shell state.
+1. **Alpha closed: it loops.** Milestone 2's exit criterion in code, not balance. In flight at the last
+   check: colonist self-care, the buildables, the floodlight take-down.
 2. **Alpha open: it survives.** The balance wall, judged only by ten seeds and a median wipe day.
-   The named levers (a well inside the wall, the antibiotic weight, the six-survivor checkpoint,
-   Guard and Scout, the night-3 table) and the speed pieces (sleep fast-forward, 3x and 10x, the
-   tick to its 8 ms budget) so ten days fit an evening. The first zombie kinds and raider doctrine
-   land here because they move the table. Release: the Windows build plus a Linux preset, and a
-   seed you can type on the web build.
-3. **The art pass: it looks finished.** Runs beside stage 2, on the art tier. The remaining pack
-   wall states, pictures for the buildables and every new kind, part and frame from stage 1,
-   remembered marks, the glimpse disc on the art grid, the last two held weapons, aim following
-   the cursor, stamina in the world, the re-illustrated anatomy and the 1280x720 drawer, a roster
-   for a large colony. Full before-and-after review at both windows. World draw to its 10 ms
-   budget by baking chunks.
-4. **Beta: people and the world.** Milestone 3A and the near half of 3B: relationships and grief,
-   the six attributes, the full work grid, scars and the blind eye, diagnosis by skill, procedural
-   people, the captive arc, explosives, the remaining zombie kinds and raider archetypes, the
-   camp's labour cost, evolving camps, outposts that draw raiders, the region as the default boot
-   if it plays. The save format freezes here and migrates from then on.
-5. **1.0: breadth.** The rest of 3B and Milestone 4: streaming and district tiers, breakdowns and
-   mobile bases, the industrial yard, factions and trade, the escape endgame, storyteller presets,
-   a signed macOS build. Multiplayer (3C) is off this track and is 1.x unless the owner pulls it
-   forward.
+3. **The art pass: it looks finished.** Runs beside stage 2, on the art tier.
+4. **Beta: people and the world.** The save format freezes here and migrates from then on.
+5. **1.0: breadth.** Multiplayer (3C) is 1.x unless the owner pulls it forward.
 
 ## The content arcs
 
-Opened by the owner on 2026-10-26, the same entry. Four arcs, each a group in docs/23's what's
-left with one piece per line there; this is the shape and the order, not the list. The rule that
-binds all four: **readers before content, pictures a stage behind.** A stat nothing resolves is
-not authored; a kind, part or frame gets its picture in the stage after its sim piece.
+Opened by the owner on 2026-10-26 ([docs/30](docs/30-decisions.md#the-release-plan-and-the-content-arcs-2026-10-26)).
+Each arc is a group in [docs/23's what's left](docs/23-roadmap.md#whats-left-in-milestone-2), one piece
+per line. The rule that binds all four: **readers before content, pictures a stage behind.** A stat
+nothing resolves is not authored; a kind, part or frame gets its picture in the stage after its sim piece.
 
-- **Zombies, seven to fourteen kinds.** Shipped: shambler, runner, stalker, screamer, bloater,
-  heavy, armored (`godot/content/zombies/`). Planned, in landing order, each a content file and
-  one behaviour hook with its own lane: the crawler (under sightline height, grabs ankles), the
-  bloodhound (follows scent alone, deaf to noise), the gassed bloater (a lingering tile cloud),
-  the lurker (dormant indoors, wakes on indoor noise), the juggernaut (shoves barricades), the
-  burner (spreads fire to timber; waits on fire as a sim fact), the feigner (lies among corpses,
-  rises on approach). Each re-baselines the ten-seed table and says so.
-- **Raiders, four to nine archetypes, and a doctrine on the band.** Shipped: scav, looter,
-  lookout, gunhand (`godot/content/raiders/`). A band gains a `doctrine` the director draws by
-  day: probe, raid, siege, trade. Siege camps outside the wall and waits; trade approaches
-  unarmed and offers barter, the one verb of Milestone 4's faction seam landed early. New
-  archetypes: breacher, marksman, medic, arsonist (waits on fire), dog handler (the hound is a
-  scent sensor and pairs with the bloodhound). A raider's weapon is assembled from the same part
-  tables, so a dead marksman yields the rifle as he built it. The captive arc already in docs/23
-  slots here unchanged.
-- **Firearms: every number is a sum of its parts.** The assembly model exists: a base is the
-  receiver, it spawns holding real parts, a conversion moves caliber, the bench and the field
-  swap are split (`godot/sim/modules/gunsmith.gd`, `attachments.gd`, docs/10). The arc deepens
-  it, readers first: the three stats that resolve against nothing (`noise_emission`,
-  `condition_loss`, `repair_cost`) gain readers in the shot, the wear event and the repair verb;
-  the barrel governs velocity, noise, accuracy and wear by length, quality and material;
-  conversions become kits (barrel, bolt or cylinder, magazine, all three or it jams) drawn from a
-  realism table in docs/10 keyed by receiver family, about twelve across the twelve receivers;
-  furniture reads into aim time, recoil recovery and stance; internals are parts with condition
-  and jam chance derives from the worst of them; magazines remember their load, the player picks
-  the round, hand-loads are worse; Gunsmithing decides what is field work and the botch chance.
-  The bench says it in words, never in numbers.
-- **Melee: frames, not weapons, and bespoke results.** The nineteen melee weapons become frames
-  in four families (club, blade, polearm, tool) and the slots widen from head, haft and wrap to
-  add stud (nails, screws, barbed wire, glass), guard and weight. About twenty-five physically
-  plausible recipes, each with what the modification costs the frame: nails split an aluminium
-  bat and want wood; a pitchfork head on a pipe wants cordage and a fixing; glass cuts the hand
-  without a wrap. Wear is specific: studs fall out on hits (the `hit` wear word, the attacker's
-  side; `struck` is the target's, worn by a plate), an edge dulls and wants a whetstone, a lashed
-  head flies off one swing in N. A weapon with three or more parts of the player's own may be
-  named by the player, which is how bespoke reads on a screen with no stat line. Finished
-  2026-10-27; its pictures are owed in stage 3.
-
-**Open owner calls from the arcs** (docs/33 carries them): the realism table for conversions
-(the coordinator writes it, the owner vetoes); whether fire becomes a sim fact in stage 1 or
-stage 4 (it unlocks the burner, the arsonist and timber walls that burn); whether raiders may
-trade before factions exist.
-
-## Open owner calls
-
-[docs/33](docs/33-owner-decisions.md#waiting-on-the-owner) is the list, and the only one. This
-file names no card on purpose: a list copied here is out of date after the next card, the same
-reason it carries no commit hash. Every card has a default that is already built, so none of them
-blocks a piece.
+The four arcs are zombies (seven to fourteen kinds), raiders (four to nine archetypes and a doctrine on
+the band), firearms (every number a sum of its parts) and melee (frames rather than weapons; finished
+2026-10-27). The open calls from the arcs are in [docs/33](docs/33-owner-decisions.md#waiting-on-the-owner).
 
 ## The shared folder
 
-In Orca, the shared folder is `C:/Users/jtf/orca/sz-shared/`, one subfolder per piece, holding
-each task's spec (`task-<who>.md`), a shared `BRIEF.md` where several workers share one, the
-art reviews (`review_round-N.md`, `OPUS_VERDICT.md`) and handoffs. It is not in the repository.
+The shared folder is `/home/jtf/sz-shared/`, outside the repository. It holds one folder per piece:
 
-A Claude project shares `/mnt/project-files/` between its threads. The folder is not in the
-repository, and agents outside the project do not have it. It holds evidence and plans, not
-instructions.
-
-| Folder | What is in it |
+| Path | What is in it |
 |---|---|
-| `planning/` | Plans, one subfolder per topic. Dated plans (the 2026-10-19 alpha plan, the 2026-10-24 feature plans) sit at the top. |
-| `planning/balance/` | Playtest reports (`report.md`, `report-noise.md`, `report-ten-seed.md`), raw runs, and `ten-seed/`, one file per commit and seed |
-| `planning/<topic>/` | One per feature or slice (`stockpile/`, `night-torch/`, `ui-slice-N/` and so on): its review, its before and after shots, its QA rounds |
-| `planning/repo-cleanup/` | The branch audit and the 2026-10-23 cleanup plan |
-| `a7-animation/` | Walk exports |
-| `a8-actions/` | Action strips (`clothed/`, `clothed/falls-roundN/`, `zombies/roundN/`), each round with its QA report `qa-roundN.md` |
-| `a9-aim/` | Aim exports |
+| `<piece>/task-<who>.md` | The spec for one worker: target worktree and branch, the change, constraints, acceptance |
+| `<piece>/BRIEF.md` | Where several workers share a piece: the owner's words verbatim and the technical contract |
+| `<piece>/REPORT.md` or `HANDOFF.md` | What a worker did and gated, or what it leaves when it runs out |
+| `reviews/<piece>/` | Independent art and placement reviews (`review_round-N.md`, `OPUS_VERDICT.md`) |
+| `backups/` | Branch bundles, taken before a remote branch is deleted |
+| `concept/` | The owner's concept art, for likeness checks |
+| `WORKER_RULES.md` | The rules every worker reads, held by the coordinator (see Rules for every worker) |
 
-- Put new files in a topic subfolder.
-- The folder is a network mount. Put a trailing slash on its path, and read a shared file again
-  before you change it, because the last write wins.
-- **Never cite a shared-folder path inside the routing table.** `npm run check:routing` resolves
-  every backticked path in that section against the repository, so such a path turns the gate
-  red.
+Never cite a shared-folder path inside the routing table. `npm run check:routing` resolves every
+backticked path in that section against the repository, so such a path turns the gate red.
 
 ## Art and animation conventions
 
-In the game:
+The first-person art is the current direction (docs/39, docs/41).
 
-- A tile is 32 art px, drawn at 2x on the boot zoom (`godot/project.godot`'s display comment).
-- A body canvas is 32x40 with the soles on row 39. The heavy's canvas is 40x48 with the soles on
-  row 47 (`godot/assets/sprites/README.md`).
-- A clothing sheet has one row per view (S, E, N, W). Column 0 is the rest picture, columns 1 to 8
-  are the walk, and column 9 is the breath (`godot/art/simplyzombies/clothing/README.md`).
-- `npm run godot:check:action` holds every fall, lunge and stagger to the art review's bounds.
-  Its header in `godot/check_action.gd` is the full list. The main ones:
-  - Per step, the mass changes at most 15%, the centre moves at most 4 columns, and no edge moves
-    more than 6 px.
-  - The sole row is held. A stagger may rise one row for the knock-back.
-  - A fall keeps at least half a head on every beat, and the head ends within 4 px of the
-    corpse's head.
+- **Kit shape.** Every kit is a reproducible Blender builder with `-- --check` and planted-error
+  modes, a `<kit>.manifest.json` in `godot/assets/first_person/`, and an independent in-engine review
+  before merge. The reviews keep finding the same faults (camouflage-like noise, paint that follows
+  atlas cells, density claims the check did not measure, bodies that float or sink), so a new kit's
+  builder checks those from the start.
+- **Texel density:** 128 px/m for bodies and arms, 256 px/m for heads, measured on the exported GLB.
+- **Every Blender and Godot job runs under `xvfb-run -a`.**
+- **Compare pixels, not bytes.** This machine's Blender links zlib-ng, so a rebuilt PNG or GLB can
+  differ in bytes from a Windows-built one. Before calling a rebuilt file a change, compare its pixels.
 
-In the review exports in the shared folder:
+### Legacy top-down art
 
-- Survivor reload strips use 48x56 cells, with the sole on row 43 and the head top on row 16. In
-  the game the same frames use the 32x40 canvas.
-- Zombie action strips use 112x60 cells at 4x, with the sole on row 55.
+These rules govern only the legacy build (docs/30, 2026-11-04). The sprite brief is
+`godot/assets/sprites/README.md`.
 
-Read the QA report of the previous round before you start a new one.
+- A tile is 32 art px, drawn at 2x on the boot zoom (`godot/project.godot`).
+- A body canvas is 32x40 with the soles on row 39; the heavy's is 40x48 with the soles on row 47.
+- A clothing sheet has one row per view (S, E, N, W): column 0 is the rest picture, columns 1 to 8
+  the walk, column 9 the breath (`godot/art/simplyzombies/clothing/README.md`).
+- `npm run godot:check:action` holds every fall, lunge and stagger to the bounds in the header of
+  `godot/check_action.gd`.
+- Review exports in the shared folder: survivor reload strips use 48x56 cells (sole on row 43, head
+  top on row 16); zombie action strips use 112x60 cells at 4x (sole on row 55).
 
 ## Performance
 
@@ -732,204 +564,95 @@ The scenes and window sizes are in `godot/review/scenes.gd`. Many branches edit 
 attracts merge conflicts. Add your scene in a small, separate hunk, and rebase onto `main` before
 you push.
 
-## Where we left off (2026-11-04, stopped by the owner)
+## Where we are
 
-The first session on the owner's Linux machine. The roster above is out of date here. Claude
-(Opus 5.5) coordinates. Kimi Code (K3.1 Pro) does the models and now also the final paint; Codex
-was dropped and its `codex/fp-survivor-paint` branch deleted. Two OpenCode terminals do mechanical
-code. The terminals run in herdr (`hc ls`, `hc send`, `hc read`, `hc wait`), not Orca. The shared
-folder is `/home/jtf/sz-shared/`, with worker rules in `WORKER_RULES.md`. The Windows folder's
-contents did not carry over, including the owner's survivor concept image. Every Godot and Blender
-job runs under `xvfb-run -a`, so no window opens on the owner's desktop. This machine's Blender
-links zlib-ng, so rebuilt GLBs and PNGs differ in bytes, not pixels, from Windows-built files.
-Compare pixels before calling a byte change a bug.
+First person is the game; top-down is legacy (docs/30). Setting: the Kagase valley, inspired by
+Ome–Okutama (brief docs/42, on `main`; the owner took every card's default on 2026-11-04, PR #332).
+For what is open, `gh pr list`; for the last session's handoff, the newest entry in
+[docs/43](docs/43-session-log.md).
 
-**The owner's calls today** (docs/30): first person is the game and top-down is legacy; the setting
-is Japan, inspired by the Ome–Okutama valley. Remote leftovers were deleted after a bundle backup
-(`/home/jtf/sz-shared/backups/`). The archive branch
-`archive/topdown-colony-pre-first-person-2026-11-01` is kept.
+**Team** (the owner's call, 2026-11-05). Claude Sonnet is the lead: it plans, dispatches, verifies and
+merges, and the owner gives it tasks directly. Claude Fable advises Sonnet and talks to the art QA. Kimi
+does all 3D and art; a standing Claude Opus terminal beside it plans Kimi's rounds and signs every art
+batch off before its PR. Two Claude Code Haiku workers do everything else. On 2026-11-04 Fable
+coordinated and Opus was a subagent; the OpenCode workers were retired that day.
 
-**Open pull requests, waiting on the owner's go-ahead to merge.** Each passed its local gates. All
-of them touch docs/23's record, and most touch this file. Merge one at a time: merge `main` into
-the next PR (never rebase), keep both sides of docs conflicts, and wait for CI on the new head.
+**Merged this session (evening of 2026-11-04):** #318, #319, #320, #323 (docs/42), #324, #325 (this
+trimmed playbook), #326 (the organic survivor). Their branches and worktrees are gone.
 
-1. #316: the held weapon hides behind screens and in third person (HIDE lane).
-2. #317: every indoor tile gets a ceiling (CEILINGS lane of `godot:check:fp_geometry`).
-3. #318: the weapon kit's lathes are smoothed (SHADING check), and the README says what horde use
-   costs.
-4. #319: zombies and colonists stop reaching for what a wall keeps out. It has one owner question:
-   a colonist carrying a melee weapon and a gun now shoots across a fence instead of swinging at it
-   (docs/30, "A reach test chooses whom, not whether").
-5. #320: the item kit draws liquids, preserves and the bolt correctly (`length` check). The bolt
-   model itself is weak art.
-6. This docs pull request: the legacy call, the setting call, and this handoff.
+**The merge train.** A PR merges only when its head contains `origin/main` and CI is green on that
+head; after each merge the next PR merges `main` in and waits for CI again. CI is the bottleneck
+(nine runs queued at once this session), so the eleven renames go in as one integration PR. Order:
+#346, the renames integration (closes #332, #333, #334, #335, #337, #339, #340, #341, #342, #343, #344),
+then #338 (arms art), then #331 (arms view, retargeted to `main` **before** the arms branch is
+deleted: GitHub closes a PR whose base branch goes), then #327 (purifier refill), #329 (crawler),
+#336 (bloodhound), #328 (clothing note). #322 is a no-op (its rule is already on `main`): close it.
+The merge-train spec is `sz-shared/merge-train/task-opencode.md`; its rows are in `REPORT.md` there.
 
-**Stacked branches, no pull request yet; the order matters.**
+**Open pull requests, all with local gates green at hand-off** (CI state moves: `gh pr checks <n>`):
 
-1. `kimi/fp-survivor-base`. The independent review (`sz-shared/reviews/fp-survivor-base/`) found
-   three blocking faults, so it is fix-then-merge. The paint follows atlas islands (the back of the
-   top is brown while the front and sleeves are charcoal), the density claim does not hold (hands
-   73–91 px/m against 128), and the README numbers are stale. Kimi's spec is
-   `sz-shared/fp-survivor-base/task-kimi.md`. It starts by merging `main` in, since the branch is
-   30+ commits behind. After the fixes, the same reviewer does a confirmation pass.
-2. `claude/fp-arms`, the arms art. Round 2 (`cecb4c45`) prints `ARMS_CHECK_OK` and refuses all 22
-   plants. Its in-engine comparison is `sz-shared/fp-arms/round-2/in-engine/comparison.png`. A
-   first look found the round 1 faults gone: no black streaks on the hands, and charcoal knit
-   sleeves instead of the camouflage-like pattern. The formal independent review has not been done.
-   The `long` class still shows a placeholder box, because the weapon kit has no rifle.
-3. `claude/fp-arms-view`, the arms in the game (`arms_view.gd`, the ARMS lane; head 96c579be). It
-   needs the two above first, and will conflict with #316 in `_update_held_weapon`: fold #316's
-   hide into `view_covered()`. It has six owner questions, each with a default built: lower behind
-   every screen; a swap of 0.3 s lowering then 0.5 s drawing; the hold-class rule; inspect repeating
-   while L is held; no aim-down-sights yet; and no weapon in third person.
+- The renames R1 to R11 (`claude/rename-r*`, one PR each) and the setting calls (#332): names change,
+  ids stay; R2 bumped `SAVE_VERSION` to 34 (every v33 save refused, docs/30). The integration branch
+  `claude/renames-integration` was being built by a Haiku worker when the owner paused; read
+  `sz-shared/renames-integration/REPORT.md` or `HANDOFF.md`. R4 (the kawara and siding look retag)
+  waits on Kimi's materials.
+- #338 the arms art (`claude/fp-arms`, review round 2 FIX-THEN-MERGE, its one major fixed on the view,
+  confirmation pass CLEAR; `sz-shared/reviews/fp-arms/`), #331 the arms in the game
+  (`claude/fp-arms-view`, contains #338; six owner defaults built, docs/30).
+- #327 the purifier refill, #329 the crawler, #336 the bloodhound's scent-led Seek (all touch shared
+  sim modules; each ran the full chain locally), #328 the clothing layers design note (docs/44, five
+  owner cards 28 to 32 in docs/33).
 
-**Next session, start here, in order.**
+**Art line.** The hunting rifle (`kimi/fp-rifle`, `c77c938a`) is BLOCKED by its independent review
+(`sz-shared/reviews/fp-rifle/review_round-1.md`: the receiver reads as a scope, its pieces float, no
+bolt handle, the barrel tapers backwards, the stock's comb is 91 mm low, a dropped rifle draws as a
+pipe); Kimi's round 2 spec is `sz-shared/fp-rifle/task-kimi-round2.md`, to send after the buildings.
+Japanese buildings batch A (`kimi/fp-buildings-jp`: kawara and siding materials, the small wooden house
+and the tiled-roof house) was in progress at the pause: read `sz-shared/fp-buildings-jp/HANDOFF.md` or
+`REPORT.md`. Batch B (shotengai fronts, sawmill shed, station, konbini, kōban, shrine) and prop kit A
+follow its review.
 
-1. `gh pr list`, and each PR's CI. If the owner has given the go-ahead, run the merge train in this
-   order: #321 (docs, so later sessions read this from `main`), #316, #317, #318, #319, #320. After
-   each merge, merge `main` into the next PR, rerun its touched gates, and wait for CI on its new
-   head.
-2. Ask the owner what is still open: #319's shooting default, the six arms defaults
-   (`claude/fp-arms-view`), docs/33's firearms card, and the survivor concept image, which goes in
-   `/home/jtf/sz-shared/concept/`.
-3. Send Kimi `/home/jtf/sz-shared/fp-survivor-base/task-kimi.md` (the survivor fixes). It has
-   not started.
-4. Meanwhile, start an Opus subagent on an independent review of arms round 2. It gets the branch,
-   its in-engine captures and this file's art rules. If the review is clear, open the arms art PR
-   once the survivor's PR has merged, then `claude/fp-arms-view`'s PR.
-5. With the workhorses free, write the Ome–Okutama setting brief, a new doc (see docs/23's planned
-   piece). Only after the brief come Japanese building templates for Kimi and content renames for
-   the workhorses.
-6. Then, from the to-do list: a rifle model for the `long` class, the zombie kinds, and the
-   clothing note.
+**In flight at the pause, with a checkpoint each:** the alarm and noisemaker priced
+(`claude/alarm-priced`, `sz-shared/alarm-priced/`) and the buildings batch.
 
-**Worktrees left on disk** under `.claude/worktrees/`: `fp-arms`, `fp-arms-view`,
-`fp-survivor-base` (with work still to do), and the PR branches `fp-cleanup`, `fp-ceilings`,
-`fp-weapon-polish`, `fp-item-polish`, `fp-reach` and `topdown-legacy`. Remove each PR branch's
-worktree once its PR merges.
+**Waiting on the owner:** the six arms-view defaults (#331); docs/33's firearms card (default rare);
+docs/44's five clothing cards; the survivor concept image for `/home/jtf/sz-shared/concept/`; whether
+the alarm's wire and the noisemaker's scrap metal are the right prices (the piece measures before and
+after). Every one has a default built.
 
-**Lessons.** The OpenCode workers, at the owner's medium effort, did the first easy step and then
-reported done. Three times running they skipped the gate, the plant and the docs. A specific list
-of what was missing got the fixes done. Pieces that need a new gate went to an Opus worker. Read
-every worker's diff and manifest before trusting its report.
+**Next session, start here**, in order:
 
-## Where we left off (2026-11-01, paused by the owner)
+1. `hc ls`; read every `HANDOFF.md` or `REPORT.md` under `sz-shared/` for the three in-flight pieces
+   and resume them (a Haiku for the alarm, Kimi for the buildings).
+2. `gh pr list` and CI; run the merge train in the order above. Retarget #331 to `main` before
+   deleting `claude/fp-arms`.
+3. After the integration merges: R4 waits on Kimi's materials; then the rifle round 2 to Kimi after
+   batch A's report, and an independent review of batch A by the art QA (the Opus terminal).
+4. Then from the to-do: zombie kinds on the organic base (sim kinds first: the gassed bloater, the
+   lurker, the juggernaut, the feigner; pictures a stage behind), the arms polish minors (docs/23),
+   the owed ten-seed re-baseline (stage 2) for the crawler and the bloodhound, the sedan's name
+   (`check_vehicles.gd` MOUNT pin), a crawler picture.
 
-The first-person conversion ([docs/39](docs/39-first-person-pivot.md)) is the work in hand. The
-default boot is the first-person scene; the top-down game is reached with
-`npm run godot:run:topdown`, and the title's "first person" row returns to first person. This
-section is the handoff written when the owner paused the morning's work; the queue it lists has merged since
-(#288 to #302, through #306's integration), and the session record below it is the current
-state. Read both, then `gh pr list` and each pull request's CI, because both move.
+**To do:** crossbow bolt, fuel, oil and canteen bottles (Kimi); the shambler and six zombie kinds on
+the organic base, with a lighter horde version; the clothing layers' first cut after the cards; the
+wider world by rail (a design note, docs/30 "The setting cards").
 
-**On `main`.** The pivot plan (docs/39), the spatial contract
-([docs/40](docs/40-first-person-spatial-contract.md)), the first-person foundation and its
-integration (containers, save and load, death and succession, doors, stance and gait, interim
-fighting, the title row, day, night and the carried light, the ledger's Reports page, the shipped
-district size, art that loads from a clean checkout), spatial slice 1 (`SimSpace`'s height
-profile) and slice 2 (melee and zombie reach stop at walls), game speed, the Blender starter kit
-and the weapon kit, the README's first-person section, the owner cards in docs/33, and the
-review follow-ups in docs/23's first-person group.
+**Known bugs**
 
-**The queue that has since landed, in the order it merged.** Each merged `main` in and waited
-for CI on its new head first (How work flows, step 5); the conflicts were docs/23's record list
-(keep both entries) and the lane list and OK sentence of `godot/check_first_person.gd` (keep both
-lanes).
-
-1. #292 the starter kit drawn in the scene (walls, boards, shelves), and #290 aim pitch
-   (spatial slice 3; the save stays at its version, reasoned in docs/30 "A pitch with no yaw").
-2. #294 body animation state, then #297 talking to a colonist (stacked on #294); #295 the F1
-   key reference; #296 the end-to-end expedition gate.
-3. #299 the loot-item kit (art review clear after three rounds), then #301 the model loader
-   (reads every `*.manifest.json`, shares one mipmapped texture per atlas, draws loose items),
-   then #300 the held weapon assembled from the sim's installed parts.
-4. #288 the survivor and shambler, after the independent art review's round 3. Then the body
-   view plays its clips from #294's animation state.
-5. #302, docs only: the weapon and item kit polish minors.
-
-**In flight when paused.** The Kimi terminal was researching and prototyping better buildings
-and walls (the owner: they look rather large and not good enough; make them look like Project
-Zomboid). Its brief: a proposal at the coordinator's scratch path, a prototype on branch
-`kimi/fp-buildings-proto` (no pull request), and before-and-after captures. The likely cause is
-that a wall is a whole 1 m tile 2.55 m tall where Zomboid's walls are thin and on tile edges;
-the proposal separates art-only fixes from sim changes (edge walls, a finer grid, a lower wall
-band), which touch shared modules and may be owner calls. Read the branch and its report before
-starting anything on buildings.
-
-**Next, in order.** Review Kimi's buildings proposal with the owner. Then
-[docs/41](docs/41-weapons-characters-world-plan.md), the plan for weapons, characters and a
-bigger world: the bodies and the held weapon in the scene first, then a dressed and furnished
-town, modular weapons, and docs/40's slices 4 to 7. The seven zombie kinds are the art lead's
-next piece after the characters clear. A small cleanup is owed: `check_first_person.gd` prints
-one hand-written OK sentence that every parallel branch edits; generate it from the lane list so
-it stops conflicting.
-
-**Waiting on the owner.** docs/33's first-person cards (the seven questions from docs/40 and the
-pause policy), and docs/41's "For the owner" list. Every one has a default already being built.
-
-## What the session of 2026-11-01 did
-
-- **The survivor base body.** The box-segment `survivor.glb` was replaced by an organic,
-  smooth-skinned woman matching the owner's concept art: 7,810 triangles, a modelled face,
-  volumed hair with a high bun, painted pixel textures at 256 px/m (head) and 128 px/m (body).
-  Four model rounds and five atlas versions. The modeler began it and handed off for usage; an
-  Opus worker finished it. Committed on `kimi/fp-survivor-base`, not yet pushed; the owner
-  called it "a good base, it can be improved upon. A lot."
-- **The in-engine review driver** (`godot:shots:survivor`), PR #312, merged.
-- **First person is the default boot;** F2 toggles a third-person testing view; the top-down
-  game opens with `npm run godot:run:topdown`. PR #313.
-- **The first-person arms contract** (`sz-shared/fp-arms/CONTRACT.md`) with the owner's answers:
-  bare hands (gloves only when worn), inspect on a held `L`, an own view-model FOV with no wall
-  clipping, 128 px/m for arms and bodies. The arms art started on `claude/fp-arms`.
-- **PR #310** (building finishes) failed its first independent review (windows drawn as
-  solid wall, inside-out hip roofs, a CRLF manifest), was fixed by an Opus worker with a
-  real-worldgen window gate, and passed its confirmation pass.
-- **The merge train, done.** #312, #308, #307, #313, #309, #310 and #311 merged, in that order.
-  The owner chose to merge the last five without waiting for CI on their final heads.
-- **Repo cleanup:** 41 merged worktrees removed, 37 merged local branches deleted, local main
-  fast-forwarded.
-- **This playbook.** `CLAUDE.md`, `AGENTS.md` and docs/38 merged into one root file, the
-  owner's call, and the roster amendment of the model-identifier rule (docs/30).
-
-## To do
-
-- Merge #316 to #320 and this docs pull request, one at a time, on the owner's go-ahead.
-- Follow "Next session, start here" under Where we left off (2026-11-04).
-- The survivor fixes, then a confirmation review and its PR. Then the arms art round 2 review,
-  then the arms art PR, then `claude/fp-arms-view`'s PR.
-- The owner's open questions: the shooting default in #319, the six arms defaults, and docs/33's
-  firearms card. Also ask the owner to copy the survivor concept image to
-  `/home/jtf/sz-shared/concept/` for the next likeness check.
-- The Ome–Okutama setting brief: a new doc, before any Japanese buildings or renames (docs/23).
-- Art lead: a real crossbow bolt; fuel, oil and canteen bottles; a rifle model for the `long`
-  hold class, which shows a placeholder box today.
-- The shambler and the other six zombie kinds on the new organic base, with a lighter version
-  for hordes (measure the frame cost first).
-- The clothing layer system that follows the worn slots: a design note for the owner first.
-
-## Known bugs
-
-- `godot:check:fp_geometry` went from about 2 s to 18 s with #310's real-worldgen lane.
-- In the survivor review scene the light is flat grey; it does not show the game's mood, so
-  colour judgements made there run dark.
+- `godot:check:fp_geometry` takes about 13 s; its real-worldgen lane is most of it. The next speed-up
+  is caching the four worldgen districts.
+- The survivor review scene's light is flat grey, so colour judgements there run dark.
 - No presentation code draws a lowered weapon yet (`SimAim.holds`, `FireState` have no reader).
-
-## Lessons from the session
-
-- Render the existing asset before judging it; the "blocky" problem was visible in one render.
-- The in-engine sheet is the judge; Blender renders flattered the model each round.
-- A hand-painted 2D target for first-person arms did not converge; the 3D model sets the pose.
-- An independent reviewer catches what a gate misses: the window bug passed its gate because
-  the gate stamped templates without real worldgen.
-- Stacked PRs (a PR based on another PR's branch) keep dependent work moving; the coordinator
-  retargets them to main after the base merges.
+- R2's save bump refuses every v33 save, district saves included, because a save carries only its seed.
 
 ## The docs map
 
 | Need | Read |
 |---|---|
 | First-person conversion: approved direction, phases, spatial contracts and archive | [docs/39](docs/39-first-person-pivot.md) |
+| The setting: the fictional valley, the building types, the renames and their order | [docs/42](docs/42-ome-okutama-setting.md) |
 | What is open, what landed, with evidence | [docs/23, the roadmap](docs/23-roadmap.md) |
+| What each session did and left, newest first | [docs/43, the session log](docs/43-session-log.md) |
 | Which release stage a piece belongs to, and the four content arcs | [The release plan](#the-release-plan), [The content arcs](#the-content-arcs) |
 | Why something is shaped the way it is | [docs/30, the decisions](docs/30-decisions.md), oldest first |
 | Decisions waiting on the owner | [docs/33](docs/33-owner-decisions.md) |

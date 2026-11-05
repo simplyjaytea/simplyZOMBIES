@@ -55,8 +55,8 @@
   },
   {
     "id": "item.bell.wind",
-    "name": "Wind Bell",
-    "description": "A heavy iron bell on a bracket, hung so the weather rings it. Quiet as these things go, and it keeps at it for most of an afternoon.",
+    "name": "Wind Chime",
+    "description": "A heavy iron chime on a bracket, hung so the weather rings it. Quiet as these things go, and it keeps at it for most of an afternoon.",
     "class": "tool",
     "size": { "w": 1, "h": 2 },
     "massKg": 1.6,
