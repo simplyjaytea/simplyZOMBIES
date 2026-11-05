@@ -7895,6 +7895,21 @@ status, docs/30 for a call, docs/33 for an open owner question) and the playbook
 The session record, to-do and bugs sections are rewritten at the end of a session, not appended
 to forever.
 
+## The purifier refill is a material, not a key, 2026-11-04
+
+docs/23's what's-left entry for a spent purifier said it: a refill "wants the buildables economy
+above rather than a key of its own". So the refill is content that names a build material, and the
+economy spends it.
+
+- **A `refill` block, not a new key.** A purifier names `refill: {kind, uses}`. The kind is a
+  `MATERIAL_KINDS` kind, and the unit is spent by the same consumer a build stage uses.
+- **A spent purifier is kept, not spent.** A refillable purifier stays in the pack at zero when its
+  last use goes, so there is something to repack. A purifier with no refill still runs out.
+- **Only the filter takes one.** The pump filter takes charcoal. The stove stays as it is, since no
+  fuel kind exists. The billy can is a pot and the tablets are a consumable.
+- **E offers it above the free placements.** An empty floor offers a trip alarm whether or not one is
+  carried, so a rung below them is never reached on open ground. The repack takes E over a placement
+  while a spent filter and its charcoal are carried.
 ## A reach test chooses whom, not whether, 2026-11-04
 
 The two #282 follow-ups (docs/23's first-person group: a zombie's contact target by distance
@@ -7928,6 +7943,80 @@ the promise docs/40 already makes, that reach stops at walls; neither is a new m
   swing; the reach test now comes before the turn, so an idle player is not spun towards a shambler
   on the far side of a wire fence it can see and not touch.
 
+## The bloodhound's nose is a gradient, not a level, 2026-11-04
+
+The bloodhound shipped as content on 2026-10-27, and its own entry above names what content could
+not give it: a way to walk a trail at its `seekSpeed`. This is that reader, `Track`, the seventh
+shambler state, in `shambler.gd`'s think loop. docs/23's record, "The bloodhound hunts by nose",
+has the measurement table and the gate. This entry is the design and the reason for it.
+
+- **What it is.** A scent-led Seek. From Wander, a body whose content names `sensory.trail` enters
+  Track when the uphill neighbour (`uphill_scent`) carries at least that much more scent than its
+  own cell (`SimShambler._trail_of`). It then walks at its own `seekSpeed`, straight at that
+  neighbour with its usual spread on top, as the heard Seek walks up the noise field. Contact,
+  sight and hearing outrank it in the order the Wander arm already asks them. It keeps the trail on
+  half the entry rise (`TRAIL_KEEP`). When the rise fades on a slope it holds its heading for
+  `COMMIT_TICKS`, the heard Seek's countdown. On the top of the hill it closes on the middle of that
+  cell, out of the same countdown, and mills (Investigate), which is docs/03's "on arriving at the
+  source and finding nothing, mill". No number is drawn anywhere in it, so it needs no stream of
+  its own.
+- **Why a gradient, and why this threshold: the field's own numbers.** The 2026-09-14 dormant
+  entry threw out `smelled` as a wake because a body smells itself. The level in its own cell is
+  a thousand times the threshold, and the neighbourhood was no help either. Re-measured for this
+  piece, on the 64-tile district at seed 20260805 with one bloodhound and nothing else, seven spots,
+  a 72,000-tick day each: its own residue peaks at 14.7 to 19.8 in its own cell. A stationary
+  person (scent 1) makes 18.3, so a body and a person are the same smell to the field. Its own
+  trail does show it a gradient: `uphill_scent` is non-null on 3 to 13 per cent of its Wander
+  ticks. It points back at a cell the body has lain in, with a rise of up to 16.6; toward a cell it
+  never stood in, the steepest was 0.02. Any rise above
+  zero, then, is the self-smell wake one cell over. With `_trail_of`'s rise test planted down to
+  zero, the lone bloodhound took its own trail on tick 110, the tick it first stepped out of the
+  cell it was born in, and spent 1,139 of 2,000 ticks off Wander. The rise has to be above
+  everything one body lays. The bloodhound's `trail` is 20, above the 19.8 peak itself: with only
+  its own scent in the field no cell holds 20, so no neighbour can stand 20 above it.
+- **What 20 buys, and what it costs.** It follows anything stronger than one body. Downwind of a
+  source of 15 (cooking) that has stood a while, the rise is 60.4 at 10 m, 21.7 at 20 m and 1.5 at
+  40 m. So it takes the trail from about 20 m, walks it at 2.1 m/s and is at the source in 91 ticks
+  from 10 m and 201 from 20 m, where the shambler drifts there in 373 and 814. Neither reaches it
+  from 40 m, because the field holds nothing there to follow. The cost is the honest one: it cannot
+  track one survivor by smell alone. One person's 18 is its own 18, and a nose that answered to
+  that would answer to itself. A camp, a fire, a latrine, a kill, a corpse pile or a crowd of the
+  dead is what it hunts. That matches docs/14's tracker punishing the base's location, but not yet
+  its "follows a specific survivor's trail home", which wants a per-body scent memory
+  (docs/03's cut list) and is not built.
+- **Rejected: a per-type scent bias in Wander** (the other reader the docs/23 bullet offered: a
+  `scentBias` read from content in place of the constant `SCENT_BIAS`). Measured with the bias
+  turned to 1.0 for the bloodhound, a full turn toward uphill on every think: 318 ticks from 10 m
+  and 657 from 20 m, against Track's 91 and 201. By construction it never leaves wander speed
+  (0.72 m/s against 2.10), and the bias is gated by `smelled`, the level. The same uphill it turns
+  harder toward is its own trail on 3 to 13 per cent of its ticks, so a stronger bias pins a body
+  harder to its own trail rather than sending it anywhere. (It did reach a lone person at 10 m
+  sooner, 318 ticks against 374, because nothing gates it; that is the same blindness to self.)
+  Also rejected, before it was built: ignoring the cell the body just left. Its own trail showed it
+  rises of up to 16.6 toward cells visited earlier than that, so a one-cell memory does not
+  remove the self.
+- **The shambler is unchanged by construction, and shown to be.** `trail_need` is 0 on a kind that
+  names no `trail`, so the Wander arm's new branch asks the field nothing and draws nothing, and
+  the shambler component gains no key. On four seeds, a playable 64-tile world fingerprints byte
+  for byte the same on `main` and on this head after 6,000 ticks. That holds with its boot
+  shamblers, and with three of every other kind added; `godot:m2:roster` prints the same lines on
+  both trees. The Dormant arm is untouched, so a sleeping bloodhound (deaf, blind) still wakes on
+  contact alone.
+- **The save.** An optional `scentTrail` key on a tracking kind's `shambler` component and a state
+  value 6. A v33 save's bloodhounds have no key and restore as the bodies they were, ones that do
+  not track. No version bump (`serialize.gd`'s notes).
+- **Gate.** `godot:m2:district` TRAIL, on the district street. The positive: from 20 m downwind it
+  takes the trail at exactly its `seekSpeed` and is within 2 m by tick 201. The control: the
+  shambler from the same spot is 11.3 m off at tick 400 and never tracks. The negatives: alone,
+  never off Wander in 2,000 ticks; a hill of 500 in its own cell does not wake it while it lies
+  there, and one cell off, the hill is a trail; a planted `uphill_scent` naming its own cell does
+  not wake it, where one naming the next cell does. Planted red twice, as docs/23's record says.
+- **Owed.** The FAST band (four seeds, ten days) prints the same line for every seed on `main` and
+  on this head. The ten-seed table is not re-baselined. A bloodhound arrives from day 7 and now walks
+  at 2.1 m/s toward the colony's smell where it drifted at 0.7, so its numbers move. That re-run is
+  owed in stage 2 with the zombie arc's re-baseline. `trail` 20 is the first cut, above the
+  measured self by the smallest whole margin; it is content, so retuning it is a JSON edit and
+  this lane's 20 m positive (a rise of 21.7) says so the moment it is raised past it.
 ## The crawler is a kind, not a state, 2026-11-04
 
 A legless shambler is still a shambler. The cripple is a body state: a shambler whose legs are shot
