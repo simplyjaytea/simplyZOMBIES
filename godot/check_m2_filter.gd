@@ -586,6 +586,8 @@ const LINGER_IN_TICK: int = 600
 const LINGER_LAST_TICK: int = 1799
 const LINGER_GONE_TICK: int = 1800
 const LINGER_PLANT_TICK: int = 1900
+const LINGER_WINDOW_TICKS: int = 200
+const LINGER_WINDOWS: int = 9 # SimBloater.FLAG_TICKS / LINGER_WINDOW_TICKS
 const CLOUD_CENTRE: Vector2 = Vector2(8.5, 12.5)
 const OUTSIDE: Vector2 = Vector2(20.5, 12.5)
 
@@ -620,6 +622,23 @@ func _walk_in(w: Variant, cloud: Dictionary, age: int, hold: bool) -> Dictionary
 		_hold_level(w, int(cloud["entity"]))
 	var there: bool = w.components.get_component(int(cloud["entity"]), "contamination") != null
 	return {"rolls": _exposures(w).size() - before, "there": there}
+
+
+# Stands the survivor in the cloud from its birth until the cloud is gone and counts every roll the
+# walk takes on the way. A cloud that lingers 1800 ticks with a 200-tick window rolls nine times.
+func _stay(w: Variant, cloud: Dictionary) -> int:
+	var born: int = int(cloud["born"])
+	while int(w.tick) < born:
+		w.step()
+	w.components.set_component(w.player, "position", {"x": CLOUD_CENTRE.x, "y": CLOUD_CENTRE.y})
+	var rolls: int = 0
+	while int(w.tick) < born + SimBloater.FLAG_TICKS + 2:
+		var before: int = _exposures(w).size()
+		w.step()
+		rolls += _exposures(w).size() - before
+		if w.components.get_component(int(cloud["entity"]), "contamination") == null:
+			break
+	return rolls
 
 
 func _hold_level(w: Variant, entity: int) -> void:
@@ -676,6 +695,17 @@ func _linger() -> bool:
 	if int(held["rolls"]) < 1:
 		push_error("%s: the planted field that never decays did not roll a survivor at tick %d, so GONE could not see a leak" % [lane, LINGER_PLANT_TICK])
 		return false
+
+	# The stay. A survivor who stands in the cloud for its whole life is rolled once per `hurtEvery`
+	# window, not once per cloud: at 90 s of life that is nine windows of 200 ticks (docs/30, 2026-11-06).
+	var s: Dictionary = _fresh_bloom()
+	if s.is_empty():
+		return false
+	var stayed: int = _stay(s["world"], s["cloud"])
+	if stayed != LINGER_WINDOWS:
+		push_error("%s: a survivor who stood in the cloud for its whole %d-tick life was rolled %d times, want %d (one per %d-tick window)" % [lane, SimBloater.FLAG_TICKS, stayed, LINGER_WINDOWS, LINGER_WINDOW_TICKS])
+		return false
+	print("  LINGER STAY: a survivor who stood in the cloud for its whole %d-tick life was rolled %d times, one per %d-tick window" % [SimBloater.FLAG_TICKS, stayed, LINGER_WINDOW_TICKS])
 
 	print("  LINGER: a bitten survivor walked into a bloom's cloud at tick %d (level 2/3) and was rolled %d time; at %d, the last live tick, rolled %d with the cloud there; at %d, its level at zero, rolled %d with the cloud gone; a field held at 1.0 was still rolling at %d (%d rolls)" % [
 		LINGER_IN_TICK, int(inside["rolls"]), LINGER_LAST_TICK, int(last["rolls"]), LINGER_GONE_TICK, int(gone["rolls"]), LINGER_PLANT_TICK, int(held["rolls"]),
