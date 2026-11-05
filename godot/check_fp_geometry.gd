@@ -24,10 +24,10 @@ extends SceneTree
 #             exactly once: by the always-drawn mesh, or by its own per-tile wall piece when worldgen
 #             may open it. Every per-tile piece the manifest counts is a node the view parses. Finish
 #             vertices below the roof stay in solid template tiles, except floor overlays; glazing is
-#             transparent and nearest-filtered. Declared finish volumes must be at most 0.20 m high,
-#             stay off indoor and open footprint tiles, and abut a door's exterior side. Planted
-#             open-tile, high-wall, indoor-volume, tall-volume and detached-volume cases are refused,
-#             and a stamped house really draws its finish instance.
+#             transparent and nearest-filtered. Door-step volumes stay low and abut a door's exterior
+#             side; canopies stay above 2.10 m, within 1.20 m and touch an exterior wall; wall attachments
+#             stay within 0.10 m on a permanent wall. The old cases plus canopy-low, canopy-deep,
+#             canopy-detached, wall-proud and wall-open are refused, and a stamped house draws its finish.
 #   WORLDGEN  the four districts generated for real (`SimBoot.bare`, occluder pass included): every
 #             sim wall in a finished building is drawn as a wall, and every sim window is drawn as
 #             one, rays across its aperture (1.25 and 1.85 m) passing every opaque face the building
@@ -76,7 +76,7 @@ func _run() -> void:
 
 func _finish(ok: bool) -> void:
 	if ok:
-		print("FP_GEOMETRY_OK every tile and all 22 building finishes keep their profile bands, every body keeps its cylinder, finish skins stay within 25 mm of a solid host, finish volumes are low exterior door steps, every sim window in four generated districts is drawn open and every indoor tile there has a ceiling, and planted wall-over-window, stripped-ceiling, band-box, window, Low-tile, module, open-tile, high-wall, indoor-volume, tall-volume and detached-volume errors are refused")
+		print("FP_GEOMETRY_OK every tile and all 22 building finishes keep their profile bands, every body keeps its cylinder, finish skins stay within 25 mm of a solid host, finish volumes are low exterior door steps, canopies are attached above 2.10 m and at most 1.20 m deep, wall attachments are at most 0.10 m proud on permanent walls, every sim window in four generated districts is drawn open and every indoor tile there has a ceiling, and planted wall-over-window, stripped-ceiling, band-box, window, Low-tile, module, open-tile, high-wall, indoor-volume, tall-volume, detached-volume, canopy-low, canopy-deep, canopy-detached, wall-proud and wall-open errors are refused")
 		quit(0)
 		return
 	for failure in _failures:
@@ -517,6 +517,63 @@ func _finishes() -> bool:
 		var detached_volume: Dictionary = {"min": [0.08, 0.0, 7.0], "max": [0.92, 0.12, 7.32]}
 		if _finish_vertex_allowed(house, Vector3(0.5, 0.06, 7.16), [detached_volume]):
 			ok = _fail("FINISHES", "a planted finish volume not abutting a door was accepted")
+
+		var character_entry: Dictionary = BuildingView.entry_for("building.house.gable")
+		var canopy := {}
+		var wall := {}
+		for volume_v in character_entry.get("finishVolumes", []) as Array:
+			var candidate: Dictionary = volume_v as Dictionary
+			if candidate.get("kind") == "canopy" and canopy.is_empty():
+				canopy = candidate.duplicate(true)
+			if candidate.get("kind") == "wall_attach" and wall.is_empty():
+				wall = candidate.duplicate(true)
+		if canopy.is_empty() or wall.is_empty():
+			ok = _fail("FINISHES", "the canopy/wall_attach planted cases have no valid control")
+		else:
+			if not _finish_volume_allowed(house, canopy):
+				ok = _fail("FINISHES", "the valid canopy was refused")
+			var low_canopy: Dictionary = canopy.duplicate(true)
+			(low_canopy["min"] as Array)[1] = 1.90
+			if _finish_volume_allowed(house, low_canopy):
+				ok = _fail("FINISHES", "a canopy at 1.90 m was accepted")
+			var deep_canopy: Dictionary = canopy.duplicate(true)
+			var deep_axis: int = 2 if int(deep_canopy["side"]) % 2 == 0 else 0
+			if int(deep_canopy["side"]) in [0, 3]:
+				(deep_canopy["min"] as Array)[deep_axis] = float((deep_canopy["max"] as Array)[deep_axis]) - 1.40
+			else:
+				(deep_canopy["max"] as Array)[deep_axis] = float((deep_canopy["min"] as Array)[deep_axis]) + 1.40
+			if _finish_volume_allowed(house, deep_canopy):
+				ok = _fail("FINISHES", "a canopy 1.40 m deep was accepted")
+			var detached_canopy: Dictionary = canopy.duplicate(true)
+			(detached_canopy["min"] as Array)[0] = float((detached_canopy["min"] as Array)[0]) + 2.0
+			(detached_canopy["max"] as Array)[0] = float((detached_canopy["max"] as Array)[0]) + 2.0
+			if _finish_volume_allowed(house, detached_canopy):
+				ok = _fail("FINISHES", "a detached canopy was accepted")
+			if not _finish_volume_allowed(house, wall):
+				ok = _fail("FINISHES", "the valid wall attachment was refused")
+			var proud_wall: Dictionary = wall.duplicate(true)
+			var proud_axis: int = 2 if int(proud_wall["side"]) % 2 == 0 else 0
+			if int(proud_wall["side"]) in [0, 3]:
+				(proud_wall["min"] as Array)[proud_axis] = float((proud_wall["min"] as Array)[proud_axis]) - 0.06
+			else:
+				(proud_wall["max"] as Array)[proud_axis] = float((proud_wall["max"] as Array)[proud_axis]) + 0.06
+			if _finish_volume_allowed(house, proud_wall):
+				ok = _fail("FINISHES", "a wall attachment 0.15 m proud was accepted")
+			var open_wall: Dictionary = wall.duplicate(true)
+			var planted_tile := Vector2i(-1, -1)
+			for y in range(int((house["size"] as Dictionary)["h"])):
+				for x in range(int((house["size"] as Dictionary)["w"])):
+					if _window_candidate(house, x, y):
+						planted_tile = Vector2i(x, y)
+						break
+				if planted_tile.x >= 0:
+					break
+			if planted_tile.x < 0:
+				ok = _fail("FINISHES", "no openable tile exists for the wall_attach negative")
+			else:
+				open_wall["tile"] = [planted_tile.x, planted_tile.y]
+				if _finish_volume_allowed(house, open_wall):
+					ok = _fail("FINISHES", "a wall attachment on an openable tile was accepted")
 		ok = _finish_placement(house) and ok
 	ok = _finish_worldgen(templates) and ok
 	return ok
@@ -634,6 +691,11 @@ func _finish_volume_allowed(template: Dictionary, volume_v: Variant) -> bool:
 	var maximum := Vector3(float(high[0]), float(high[1]), float(high[2]))
 	if minimum.x >= maximum.x or minimum.y >= maximum.y or minimum.z >= maximum.z:
 		return false
+	var kind: String = String(volume.get("kind", "doorstep"))
+	if kind == "canopy":
+		return _canopy_volume_allowed(template, volume, minimum, maximum)
+	if kind == "wall_attach":
+		return _wall_attachment_allowed(template, volume, minimum, maximum)
 	if minimum.y < -EPSILON_M or maximum.y > 0.20 + EPSILON_M:
 		return false
 	var size: Dictionary = template["size"] as Dictionary
@@ -663,6 +725,61 @@ func _finish_volume_allowed(template: Dictionary, volume_v: Variant) -> bool:
 			if offset == Vector2i(1, 0) and absf(minimum.x - x - 1.0) <= EPSILON_M and maximum.x > x + 1.0 and overlap_z > EPSILON_M:
 				return true
 	return false
+
+
+func _window_candidate(template: Dictionary, x: int, y: int) -> bool:
+	if _template_tile(template, x, y) != 1:
+		return false
+	var horizontal: bool = _template_tile(template, x - 1, y) not in [1, 2, 5, 7] and _template_tile(template, x + 1, y) not in [1, 2, 5, 7]
+	var vertical: bool = _template_tile(template, x, y - 1) not in [1, 2, 5, 7] and _template_tile(template, x, y + 1) not in [1, 2, 5, 7]
+	return horizontal or vertical
+
+
+func _canopy_volume_allowed(template: Dictionary, volume: Dictionary, minimum: Vector3, maximum: Vector3) -> bool:
+	if minimum.y < 2.10 - EPSILON_M:
+		return false
+	var tile: Array = volume.get("tile", []) as Array
+	var side: int = int(volume.get("side", -1))
+	if tile.size() != 2 or side < 0 or side >= 4:
+		return false
+	var axis: int = 2 if side % 2 == 0 else 0
+	if maximum[axis] - minimum[axis] > 1.20 + EPSILON_M:
+		return false
+	var x: int = int(tile[0])
+	var y: int = int(tile[1])
+	if _template_tile(template, x, y) != 1:
+		return false
+	var offset: Vector2i = SIDE_OFFSETS[side]
+	if _template_indoors(template, x + offset.x, y + offset.y) or _template_tile(template, x + offset.x, y + offset.y) != 0:
+		return false
+	var along: int = 0 if axis == 2 else 2
+	var tile_origin: float = float(x if along == 0 else y)
+	var overlap: float = minf(maximum[along], tile_origin + 1.0) - maxf(minimum[along], tile_origin)
+	if overlap <= EPSILON_M:
+		return false
+	match side:
+		0:
+			return absf(maximum.z - y) <= EPSILON_M and minimum.z < y
+		1:
+			return absf(minimum.x - x - 1.0) <= EPSILON_M and maximum.x > x + 1.0
+		2:
+			return absf(minimum.z - y - 1.0) <= EPSILON_M and maximum.z > y + 1.0
+		3:
+			return absf(maximum.x - x) <= EPSILON_M and minimum.x < x
+	return false
+
+
+func _wall_attachment_allowed(template: Dictionary, volume: Dictionary, minimum: Vector3, maximum: Vector3) -> bool:
+	var tile: Array = volume.get("tile", []) as Array
+	var side: int = int(volume.get("side", -1))
+	if tile.size() != 2 or side < 0 or side >= 4:
+		return false
+	var axis: int = 2 if side % 2 == 0 else 0
+	if maximum[axis] - minimum[axis] > 0.10 + EPSILON_M:
+		return false
+	var x: int = int(tile[0])
+	var y: int = int(tile[1])
+	return _template_tile(template, x, y) == 1 and not _window_candidate(template, x, y)
 
 
 func _template_has_window(template: Dictionary) -> bool:
