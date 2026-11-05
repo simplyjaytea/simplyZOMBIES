@@ -1,7 +1,9 @@
 extends Node3D
-# The equipped weapon in the first-person view, built from the sim's own parts. It hangs off the
-# camera at the lower right, and its model's origin is `grip_r` (the weapon kit's held pose), so the
-# model is parented with an identity transform at the grip anchor.
+# The equipped weapon in the first-person view, built from the sim's own parts. Its model's origin is
+# `grip_r` (the weapon kit's held pose), so the model is parented with an identity transform under the
+# grip node. `arms_view.gd` mounts that grip node under the arms' own `grip_r` bone (`mount`), so the
+# hand holds it and the clips move it; without the arms it hangs off the camera at the lower right,
+# at the anchor below, with its own small sway.
 #
 # What is drawn is read, not decided:
 #   rangedWeapon.source   the equipped firearm item; its base id names the receiver model.
@@ -50,6 +52,11 @@ const SWAY_ROTATION_RAD: float = 0.004
 const HIDDEN_SLOTS: Array[String] = ["internal", "spring", "sear", "extractor"]
 
 var _pivot: Node3D = null
+# Between the grip node and what is drawn: the arms hide it while a copy of the old model is lowered.
+var _in_hand: Node3D = null
+var _mounted: bool = false
+# Counts rebuilds, so the arms know when there are new meshes to put through the view-model lens.
+var _revision: int = 0
 var _model: Node3D = null
 var _receiver: Node3D = null
 var _placeholder: MeshInstance3D = null
@@ -72,7 +79,47 @@ func _ready() -> void:
 	_pivot.position = MODEL_POSITION
 	_pivot.rotation_degrees = MODEL_ROTATION_DEG
 	add_child(_pivot)
+	_in_hand = Node3D.new()
+	_in_hand.name = "InHand"
+	_pivot.add_child(_in_hand)
 	_build_placeholder()
+
+
+## Moves the grip node under `parent` (the arms' `grip_r`) with an identity transform. From then on the
+## parent places the weapon; the eye anchor and its sway are not used.
+func mount(parent: Node3D) -> void:
+	if _pivot == null or parent == null:
+		return
+	_pivot.get_parent().remove_child(_pivot)
+	parent.add_child(_pivot)
+	_pivot.transform = Transform3D.IDENTITY
+	_mounted = true
+	_placeholder.position = Vector3.ZERO
+	_placeholder.rotation = Vector3.ZERO
+
+
+## Shows or hides what is drawn in the hand, without changing what is drawn.
+func set_in_hand(shown: bool) -> void:
+	if _in_hand != null:
+		_in_hand.visible = shown
+
+
+func revision() -> int:
+	return _revision
+
+
+## The grip node: the weapon's frame, under the arms' `grip_r` once mounted.
+func grip_node() -> Node3D:
+	return _pivot
+
+
+## What is drawn in the hand now: the assembled model, the placeholder box, or null.
+func drawn_node() -> Node3D:
+	if not visible_any():
+		return null
+	if _model != null:
+		return _model
+	return _placeholder if _placeholder.visible else null
 
 
 func _build_placeholder() -> void:
@@ -88,7 +135,7 @@ func _build_placeholder() -> void:
 	_placeholder.position = PLACEHOLDER_POSITION
 	_placeholder.rotation_degrees = PLACEHOLDER_ROTATION_DEG
 	_placeholder.visible = false
-	add_child(_placeholder)
+	_in_hand.add_child(_placeholder)
 
 
 ## Reads the equipped item and redraws when its assembly changed. `now` is presentation seconds for
@@ -124,7 +171,11 @@ func update(world: Variant, now: float, hide: bool = false) -> void:
 		_rebuild(world, item, base_id, is_ranged)
 	var has_model: bool = _receiver != null
 	_placeholder.visible = not has_model
-	if has_model:
+	if _mounted:
+		# The arms' grip bone places the weapon and the arms sway; only the box's size is ours.
+		if not has_model:
+			_size_placeholder(is_ranged, range_metres, reach)
+	elif has_model:
 		_placeholder_size = Vector3.ZERO
 		_pivot.position = MODEL_POSITION + Vector3(sin(now * 1.6) * SWAY_POSITION_M, cos(now * 2.1) * SWAY_POSITION_M * 0.7, 0.0)
 		_pivot.rotation_degrees = MODEL_ROTATION_DEG + Vector3(sin(now * 1.1) * rad_to_deg(SWAY_ROTATION_RAD), cos(now * 1.3) * rad_to_deg(SWAY_ROTATION_RAD), 0.0)
@@ -241,7 +292,8 @@ func _rebuild(world: Variant, item: int, base_id: String, is_ranged: bool) -> vo
 		return
 	_model = Node3D.new()
 	_model.name = "WeaponModel"
-	_pivot.add_child(_model)
+	_in_hand.add_child(_model)
+	_revision += 1
 	_model.add_child(receiver)
 	_receiver = receiver
 	_drawn["receiver"] = base_id
@@ -362,6 +414,7 @@ func _base_id(world: Variant, item: int) -> String:
 func _clear_model() -> void:
 	if _model != null:
 		_model.queue_free()
+		_revision += 1
 	_model = null
 	_receiver = null
 
@@ -375,6 +428,9 @@ func _size_placeholder(is_ranged: bool, range_metres: float, reach: float) -> vo
 	if not size.is_equal_approx(_placeholder_size):
 		_placeholder_size = size
 		(_placeholder.mesh as BoxMesh).size = size
+		if _mounted:
+			# In the hand the box runs forward from the grip, as a weapon's bore does (-Z).
+			_placeholder.position = Vector3(0.0, 0.02, -size.z * 0.5 + 0.06)
 
 
 # --- the manifest loader seam ---------------------------------------------------------------
