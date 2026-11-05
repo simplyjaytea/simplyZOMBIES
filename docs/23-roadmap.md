@@ -2474,8 +2474,9 @@ not a to-do list:
     step. `house_gable` is the 11 x 8 m siding house with kawara, deep eaves, genkan steps and a
     decorative upper sash façade backed by dark curtains. Pitched roofs have down-facing eave and
     rake soffits; gables have two barge boards and continuous pentagonal end faces meeting the roof
-    planes and overlapping the façade seams. Genkan steps follow each door's outside neighbour. The
-    lifted roof does not create an upper sim floor. Existing interiors, open window apertures and all 22 template resolutions remain.
+    planes and overlapping the façade seams, with dark-wood triangles closing the eave corners.
+    Genkan steps follow each door's outside neighbour. The lifted roof does not create an upper sim
+    floor. Existing interiors, open window apertures and all 22 template resolutions remain.
   - **Verified.** `build_finishes.py -- --check` prints `BUILDINGS_CHECK_OK`; all eight plants are
     refused. `godot:check:fp_geometry` proves the real-district walls, windows and ceilings, and
     refuses finish volumes that overlap indoor/open footprint tiles, exceed 0.20 m or fail to abut

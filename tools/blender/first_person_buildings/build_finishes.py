@@ -945,6 +945,8 @@ def build_roof(mesh, template):
         mesh.role = "roof_side"
         for x, normal in ((-0.005, (-1, 0, 0)), (w + 0.005, (1, 0, 0))):
             mesh.polygon([(x, WALL_TOP - 0.01, 0), (x, WALL_TOP - 0.01, h), (x, wall_roof, h), (x, peak, h * 0.5), (x, wall_roof, 0)], exterior[0], normal)
+            mesh.polygon([(x, 2.53, -eave), (x, 2.53, 0), (x, wall_roof, 0)], "dark_wood", normal)
+            mesh.polygon([(x, 2.53, h), (x, 2.53, h + eave), (x, wall_roof, h)], "dark_wood", normal)
         mesh.role = ""
         mesh.box((-eave, peak - 0.04, h * 0.5 - 0.07), (w + 2 * eave, 0.04, 0.14), variants[0])
     else:
