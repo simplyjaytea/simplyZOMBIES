@@ -175,6 +175,9 @@ The source baseline is archived on GitHub at
   the brief: Japanese building templates and props by the art lead, then content renames. See
   [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
   The brief is [docs/42](42-ome-okutama-setting.md); its section 6 is the order of the work.
+- **The wider world by rail.** Other districts and cities reached by a train the colony repairs
+  first. Design first, as a note like docs/42, under the region and streaming work; nothing is
+  sized yet. See [docs/30](30-decisions.md#the-setting-cards-the-defaults-and-the-valley-is-the-first-of-several-2026-11-04).
 - **First-person spatial combat and perception.** One coherent obstruction and
   hit contract across visible geometry, sim movement, combat and NPC sight.
 - **First-person people and settlement operation.** Ledger animations, reports,
@@ -2543,6 +2546,128 @@ not a to-do list:
   - **Not judged.** Likeness to the owner's concept image is unjudged: the image was not on this machine,
     so the review sheet carries a `concept unavailable` placeholder. The review's non-blocking items stay
     open: flat mitten hands, conical bust forms, the nape silhouette, slab-like side hair.
+- **Rename R1: the districts and the region are the Kagase valley's, 2026-11-04.** The Ome–Okutama
+  brief's first rename (docs/42 section 6). Four districts and the region take new names, ids
+  unchanged (card 5): `district.town_center` is Umezaki Ekimae, `district.residential_suburb` is
+  Hinatadai, `district.industrial_park` is Kawahara Yards, `district.forest_edge` is Kaminose Shore,
+  and `region.main_area` is Kagase. The names live in `godot/content/districts/*.json` and
+  `godot/content/regions/main_area.json`. The old region name is still a raider surname in
+  `godot/content/colony/raider_looks.json`; that is a person name, for R9.
+  - **The gate.** `npm run godot:m2:district` prints `M2_DISTRICT_OK`, and `npm run godot:m2:region`
+    prints `M2_REGION_OK`, both with the new names in the content they boot. `npm run godot:check:hud`
+    prints `HUD_OK`, so the district name the HUD speaks stays digit-free prose.
+- **Rename R2: the region runs up-valley, 2026-11-04.** The Ome–Okutama brief's second rename
+  (docs/42 section 3 and section 6). The four cells of `region.main_area` are re-placed so that x runs
+  up-valley: the lower-valley cells sit at x=0 and the upper-valley cells at x=1. Old cell order: (0,0)
+  town_center, (1,0) forest_edge, (0,1) industrial_park, (1,1) residential_suburb. New: (0,0)
+  town_center, (1,0) industrial_park, (0,1) residential_suburb, (1,1) forest_edge. Cell count, cell
+  size, district ids and every other value are unchanged. The colony's region-wide site moves from
+  (76, 78) to (85, 286); it is printed by the gate and asserted by none, so no assertion moved.
+  - **The save bump.** The map is regenerated from the seed and content, so a saved region world would
+    load onto different ground. The rule in serialize.gd (the v28 water case) is a save bump, so
+    `SAVE_VERSION` goes from 33 to 34 in the same commit, and a v33 save is refused. docs/30 records why.
+  - **The gate.** `npm run godot:m2:region` prints `M2_REGION_OK`, `npm run godot:m2:district` prints
+    `M2_DISTRICT_OK`, `npm run godot:check:worldgen` prints `WORLDGEN_OK` in 24 s, `npm run godot:check:fp_geometry`
+    prints `FP_GEOMETRY_OK` in 16 s, and `npm run godot:m2:save` prints `M2_SAVE_OK`.
+  - **Measured.** Nothing measured. A cell order is not a balance claim.
+- **Rename R3: the building templates are the Kagase valley's, 2026-11-04.** The Ome–Okutama brief's
+  third rename (docs/42 sections 4 and 5). The 22 templates in `godot/content/buildings/` take the
+  names docs/42 section 4 gives them, ids unchanged (card 5). The look retags (`kawara`, `siding`,
+  dropping `brick`) are R4's and are not in this entry. Examples: `building.house.gable` is Tiled-roof
+  house, `building.shed.lockup` is Kura storehouse, `building.store.grocery` is Supermarket.
+  - **The gate.** `npm run godot:check:buildings` prints `BUILDINGS_OK`, with every template placeable
+    and the stamp byte-identical at 64 and 256. `npm run godot:check:roof` prints `ROOF_LOOK_OK`.
+    `npm run godot:check:worldgen` prints `WORLDGEN_OK` on the renamed templates, and
+    `npm run godot:check:fp_geometry` prints `FP_GEOMETRY_OK`, so the finishes matched by id still hold.
+- **Rename R5: food and drink are the valley's, 2026-11-04.** The Ome–Okutama brief's fifth rename
+  (docs/42 section 5, the food and drink rows). Twelve items take the names docs/42 proposes, ids
+  unchanged: `item.food.jerky` is Dried Squid, `item.food.crackers` is Rice Crackers,
+  `item.food.soup.tin` is Retort Curry Pouch, `item.food.fish.tin` is Tin of Mackerel,
+  `item.food.pickles.jar` is Jar of Pickled Plums, `item.food.pasta.dry` is Dried Noodles,
+  `item.food.oats` is Pressed Barley, `item.food.apples` is Persimmons, `item.drink.tea` is Box of
+  Green Tea, `item.drink.cordial` is Bottle of Plum Syrup, `item.spirits.bottle` is Bottle of Shochu,
+  and `item.pot.camp` (the billy can) is Camp Pot. Eleven descriptions name the valley's foods or
+  drop a Western word. Two items stay named as they are because `godot/check_m2_stockpile.gd` pins
+  their names: Tin of Beans and Tin of Peaches.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`, and `npm run godot:check:inventory`,
+    `npm run godot:check:hud`, `npm run godot:check:loot`, `npm run godot:m2:transform` and
+    `npm run godot:m2:needs` all hold on the renamed content. `npm run godot:m2:stockpile` still
+    holds the two pinned names.
+- **Rename R6: the cartridges are the valley's, 2026-11-04.** The Ome–Okutama brief's sixth rename
+  (docs/42 section 5, the cartridge and brass table). Twelve items take docs/42's names, ids unchanged:
+  the .308 family becomes .308 Rifle Round, .308 Match, .308 Surplus and .308 Hand-load; the 9mm family
+  becomes 9mm Pistol Round, 9mm Hollow Point, 9mm Subsonic and 9mm Hand-load; the .45 family becomes
+  .45 Auto, .45 Auto Hollow Point and .45 Auto Hand-load; and `item.brass.9mm` becomes 9mm Brass. The
+  brand words (Winchester, Parabellum, ACP) go. The .38, .22 and 12-gauge families keep their names, as
+  docs/42 says. No description changes, since none names a brand or carries a digit. The stockpile's
+  ammunition-row pin in `godot/check_play.gd` (the STOCKPILE lane) moved from ".308 Winchester Match" to
+  ".308 Match" in the same commit.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:check:inventory`
+    (the STRIP and INSPECT lanes read names through `name_is_allowed`), `npm run godot:check:hud`,
+    `npm run godot:check:loot`, `npm run godot:m2:ammo`, `npm run godot:m2:bench`,
+    `npm run godot:m2:ranged`, `npm run godot:check:play` (the moved pin) and `npm run godot:smoke` hold.
+- **Rename R7: tools, comfort and melee are the valley's, 2026-11-04.** The Ome–Okutama brief's seventh
+  rename (docs/42 section 5, the tools, comfort and melee rows). Seven items take the names docs/42
+  proposes, ids unchanged: `item.machete.rusted` is Rusted Nata, `item.sabre.cavalry` is Old Army Sword,
+  `item.pitchfork.barn` is Hay Fork, `item.rosary.wooden` is Prayer Beads, `item.chess.travel` is
+  Travelling Shogi Set, `item.cards.deck` is Hanafuda Deck, and `item.bell.wind` is Wind Chime. Four
+  descriptions change: the nata, the army sword, the chime, and the road flare ("highway" becomes
+  "roadside"). Items the inventory flags with no docs/42 proposal keep their names (the bats, the road
+  flare, the torches, the bushcraft handbook, The Long Walk, the soap flakes) and are listed in the
+  report. The deer rifle, the blasting cap and the siren keep their names, as docs/42 says.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:check:inventory`,
+    `npm run godot:check:hud`, `npm run godot:m2:comfort`, `npm run godot:m2:noise`,
+    `npm run godot:m2:teach`, `npm run godot:m2:light_burn`, `npm run godot:check:mods` and
+    `npm run godot:m2:bench` hold on the renamed content, and so does `npm run godot:smoke`.
+- **Rename R8: the vehicles are the valley's, 2026-11-04.** The Ome–Okutama brief's eighth rename
+  (docs/42 section 5, the vehicle rows). One vehicle takes its proposed name, id unchanged:
+  `vehicle.truck` is Kei Truck (was "Flatbed truck"). `vehicle.sedan` stays "Sedan" for now: the
+  `MOUNT` lane of `godot/check_vehicles.gd` asserts the HUD clause "a sedan beside you", and that clause
+  is built from the name, so the rename waits for that pin to move. The other vehicles keep their names,
+  as docs/42 says. The vehicle files carry no description field.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:check:wrecks`,
+    `npm run godot:m2:vehicles` (`M2_VEHICLES_OK`) and `npm run godot:m2:light_burn` hold on the renamed
+    content, and so does `npm run godot:smoke`.
+- **Rename R9: the people are the valley's, 2026-11-04.** The Ome–Okutama brief's ninth rename
+  (docs/42 section 5, "People"). The generator's survivor given names and surnames (12 each) take
+  docs/42's names, ten Japanese and two non-Japanese each, so the lists keep their length. The raider
+  given names and surnames (16 each) take the same treatment, fourteen and two, which removes the
+  surname "Ashgrove". The eight survivor backstories and the eight raider occupation lines take valley
+  jobs (a shrine caretaker, a clinic nurse, a Kagase Line driver, a minshuku cook, a mountain courier, a
+  works hand, a forestry hand, a door man at a bar in Umezaki). Ids and kits are unchanged, and each new
+  label keeps a word the skill web's `focusHistory` reads, so the focus link is kept. The boot colony's
+  two named survivors, Mara Sato and Ellis Okafor, keep their names, which docs/42 says; the owner
+  should confirm that. Raider roles (Gunhand, Watcher, Bagman, Scavenger) keep their names.
+  - **The pin.** `godot/check_m2_people.gd` pins the canonical seed's first two rolls and a second
+    seed's roll as strings, and those draws carry names. They are re-pinned to the renamed lists in the
+    same commit, which is the one exception the brief allows. The draw order is unchanged.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:m2:people`
+    prints `M2_PEOPLE_OK` on the re-pinned strings, and `npm run godot:m2:settlers`,
+    `npm run godot:m2:roster`, `npm run godot:m2:recruits`, `npm run godot:m2:raiders`,
+    `npm run godot:check:speech` (bubbles still show no name), `npm run godot:check:hud` and
+    `npm run godot:smoke` hold.
+  - **Measured.** Nothing measured. A name change is not a balance claim.
+- **Rename R10: the descriptions are the valley's, 2026-11-04.** The Ome–Okutama brief's tenth rename
+  (docs/42 section 5, and the inventory's western-thing and brand rows the earlier renames did not take).
+  Two items take docs/42's names, ids unchanged: `item.food.beans.tin` is Tin of Corn and
+  `item.food.fruit.tin` is Tin of Mandarins, which R5 left pinned. The pin in
+  `godot/check_m2_stockpile.gd` (the summary lane) moved to the new names in the same commit, in the
+  same order. Three descriptions change: the corn tin ("a tin of sweet corn in brine"), the mandarin tin
+  ("halved mandarins in syrup"), the superglue ("a tube of quick-set glue"), and the charcoal sack ("a
+  paper sack of charcoal", without "barbecue"). The superglue and the canvas work pants keep their names,
+  which docs/42 does not propose. The container rows carry only a kind string, and docs/42 keeps those
+  kinds, so no container changed and no district file moved.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`, and `npm run godot:m2:stockpile`
+    (the moved pin, its summary lane) holds. `npm run godot:check:inventory`, `npm run godot:check:hud`,
+    `npm run godot:check:loot`, `npm run godot:m2:district` and `npm run godot:smoke` hold too.
+- **Rename R11: the playbook and README name the Kagase valley, 2026-11-04.** The Ome–Okutama brief's
+  last rename (docs/42 section 6). The playbook's setting paragraph names the Kagase valley, points at
+  docs/42, and lists the rename pull requests (R1 #333, R3 #334, R5 #335, R6 #341, R7 #337, R8 #339,
+  R9 #342, R10 #340; R2 is #344, which bumps the save format to v34). The README's opening places the game in
+  the Kagase valley in the mountains west of Tokyo, with fictional names. No mechanic is described
+  differently.
+  - **The gate.** `npm run check:routing` prints `ROUTING_OK`.
+  - **Measured.** Nothing measured.
 - **Item kit polish (#299 round 3 minors), 2026-11-04.** Three mapping fixes in the first-person
   item kit's builder, `tools/blender/first_person_items/build_items.py`, and one new model.
   - **The record.** `family()` now matches `LIQUID_WORDS` against the whole words of an item's
