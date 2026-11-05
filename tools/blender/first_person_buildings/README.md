@@ -123,8 +123,9 @@ to keep its lifted roof legible from the street.
   `siding_vertical_alt`. The regular board and tile structure never uses cloud noise or chooses a
   colour patch from an atlas cell.
 - Every pitched roof has down-facing soffits from the wall lines to its eave and rake edges. Gables
-  have barge boards on both rakes and one continuous triangular face at each end, meeting the roof
-  plane without stepped strips or sky gaps.
+  have barge boards on both rakes and one continuous pentagonal face at each end, meeting the roof
+  plane and overlapping the façade by 10 mm without stepped strips or sky gaps. The lifted house's
+  upper corners have narrow trim boards closing the façade-to-gable seam.
 - `house_small` keeps its 9 × 7 m footprint, timber walls, door and windows, with a kawara roof,
   0.45 m eaves and a 0.12 m-high genkan step outside its door.
 - `house_gable` keeps its 11 × 8 m footprint, both doors and every window. It uses siding and

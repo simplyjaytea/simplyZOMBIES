@@ -939,11 +939,12 @@ def build_roof(mesh, template):
     peak = roof_peak(template)
     rise = peak - 2.62
     if form == "gable":
+        wall_roof = 2.62 + rise * eave / (h * 0.5 + eave)
         mesh.face((-eave, 2.62, -eave), (w + 2 * eave, 0, 0), (0, rise, h * 0.5 + eave), variants[0], variants, (0, 1, -0.4))
         mesh.face((-eave, peak, h * 0.5), (w + 2 * eave, 0, 0), (0, -rise, h * 0.5 + eave), variants[0], variants, (0, 1, 0.4))
         mesh.role = "roof_side"
         for x, normal in ((-0.005, (-1, 0, 0)), (w + 0.005, (1, 0, 0))):
-            mesh.polygon([(x, WALL_TOP, 0), (x, WALL_TOP, h), (x, peak, h * 0.5)], exterior[0], normal)
+            mesh.polygon([(x, WALL_TOP - 0.01, 0), (x, WALL_TOP - 0.01, h), (x, wall_roof, h), (x, peak, h * 0.5), (x, wall_roof, 0)], exterior[0], normal)
         mesh.role = ""
         mesh.box((-eave, peak - 0.04, h * 0.5 - 0.07), (w + 2 * eave, 0.04, 0.14), variants[0])
     else:
@@ -962,7 +963,7 @@ def build_roof(mesh, template):
         for x in (-eave, w):
             mesh.face((x, 2.53, 0), (eave, 0, 0), (0, 0, h), "dark_wood", normal=(0, -1, 0))
     else:
-        for x0, x1 in ((-eave, 0.0), (w, w + eave)):
+        for x0, x1 in ((-eave, -0.005), (w + 0.005, w + eave)):
             mesh.polygon([(x0, 2.53, -eave), (x1, 2.53, -eave), (x1, peak - 0.09, h * 0.5), (x0, peak - 0.09, h * 0.5)], "dark_wood", (0, -1, 0))
             mesh.polygon([(x0, peak - 0.09, h * 0.5), (x1, peak - 0.09, h * 0.5), (x1, 2.53, h + eave), (x0, 2.53, h + eave)], "dark_wood", (0, -1, 0))
         mesh.role = "roof_side"
@@ -990,6 +991,9 @@ def build_roof(mesh, template):
         mesh.box((cx - 0.28, roof_y + 0.66, cz - 0.28), (0.56, 0.07, 0.56), "foundation")
     if template["id"] == "building.house.gable":
         mesh.vertices[roof_start:] = [(x, y + 1.90, z) for x, y, z in mesh.vertices[roof_start:]]
+        for x in (0.0, w):
+            for z in (0.0, h):
+                mesh.box((x - 0.012, WALL_TOP, z - 0.012), (0.024, wall_roof + 1.90 - WALL_TOP, 0.024), "trim")
 
 
 def gltf_json(path):
