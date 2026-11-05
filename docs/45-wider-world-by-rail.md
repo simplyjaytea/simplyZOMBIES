@@ -90,7 +90,7 @@ region's cells and the district types in docs/24 do not scale to a city, and a c
 destination that needs streaming, so **a city waits for Milestone 3B.** Towns do not.
 
 **Tokyo** is the far end of the line, as the premise says. It is not a destination in this note. It
-is a horizon (card 4). The one real place name allowed in game text is Tokyo, by docs/42 card 2.
+is a horizon (card 36). The one real place name allowed in game text is Tokyo, by docs/42 card 2.
 
 ## 4. The train as the colony's project
 
@@ -151,7 +151,7 @@ at home.
 - **Return.** The same ride back. The destination is generated from its seed again, so a destination
   the player did not change needs no save. A change made there does, and that is the save question in
   section 3.
-- **Home while away.** Not decided. Card 5.
+- **Home while away.** Not decided. Card 37.
 
 ## 6. The order of work
 
@@ -177,29 +177,29 @@ As docs/42 section 6 lays out its order, each step with its gate, none sized:
 Each has one recommended default. The default is built only when the owner picks it, and the cards
 are numbered after the last card in [docs/33](33-owner-decisions.md#waiting-on-the-owner).
 
-28. **How many destinations in the first cut?** Default: **one**, Asahigaoka, the next town down the
+33. **How many destinations in the first cut?** Default: **one**, Asahigaoka, the next town down the
     line. Recommended: one until the transition works in play. More is content, and it waits on step 5.
-29. **Does the train run on a timetable or on demand?** Default: **on demand**. The player calls it
+34. **Does the train run on a timetable or on demand?** Default: **on demand**. The player calls it
     from the platform when the car is repaired, fuelled and crewed. A timetable is a later layer,
     and it would need the district tier that the alpha does not build.
-30. **Can raiders use the line?** Default: **no** in the first cut. docs/24 says raiders use roads. A
+35. **Can raiders use the line?** Default: **no** in the first cut. docs/24 says raiders use roads. A
     raider on the line would reach a destination's resident map without the player, and the alpha has no
     rule for that. Later, a raider may board at a station, as docs/18 may allow.
-31. **Is Tokyo a destination or a horizon?** Default: **a horizon**. Tokyo appears on the line's map and
+36. **Is Tokyo a destination or a horizon?** Default: **a horizon**. Tokyo appears on the line's map and
     at the far end of the premise, and no shipped piece makes it resident. The owner's "maybe even
     Tokyo" stays open for the city arc.
-32. **What happens to the colony while the player is away?** Default: **frozen**. Home is not
+37. **What happens to the colony while the player is away?** Default: **frozen**. Home is not
     simulated while the player is elsewhere. On return, the days away are not replayed; the colony
     resumes where it stopped. Recommended: frozen. A later card can change it to a six-number home,
     which docs/24's district tier describes and the alpha does not build.
-33. **Does the car need a second crew member?** Default: **no**. One driver, as a vehicle has one
+38. **Does the car need a second crew member?** Default: **no**. One driver, as a vehicle has one
     driver seat. A second colonist for signalling is a balance question, and it is open.
-34. **Which tier of parts is the hardest?** Default: **Tier III**, the fuel system and electrics, found
+39. **Which tier of parts is the hardest?** Default: **Tier III**, the fuel system and electrics, found
     only at the Hikage Works warehouse. It is the valley's one industrial site, so the hardest part and
     the fuel question are found in the same place.
 
-**Numbering.** Cards 28 to 34 are the numbers this note takes. The clothing layers note (docs/44,
-on its own branch) also proposes cards 28 to 32. Whichever merges second renumbers its cards.
+**Numbering.** Cards 33 to 39 are the numbers this note takes. The clothing layers note (PR #328,
+docs/44) takes cards 28 to 32 and merges first, so these follow it.
 
 ## 8. Sources
 
