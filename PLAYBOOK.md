@@ -44,15 +44,18 @@ Then read, in order:
 
 ## The team
 
-**Linux, since 2026-11-04.** The owner's machine runs the terminals in herdr, not Orca. The owner
-decides. Agents do the rest, each on its own model, coordinated by the coordinator.
+**Linux, since 2026-11-04; this roster since 2026-11-05.** The owner's machine runs six terminals in
+herdr, not Orca, in two workspaces: "simplyZOMBIES / Main Code" (the coordinator, the advisor, the two
+workers) and "simplyZOMBIES / Modeling and Art" (the art lead and its QA). The owner decides and gives
+tasks to the coordinator directly. Agents do the rest, each on its own model.
 
 | Role | Agent | Does | Does not |
 |---|---|---|---|
-| Coordinator | Claude Code, Fable 5.1 | The orchestrator and planner, and nothing else: reads the state, writes every spec, dispatches, verifies every report against the diff, renders and gates, opens PRs, merges | Write the work itself, beyond small fixes to docs and records |
+| Coordinator | Claude Code, Sonnet 5.5 | The lead: everything routes through it. Reads the state, plans, writes every spec, dispatches to the workers and the art lead, verifies every report against the diff, renders and gates, opens PRs, runs the merge train, merges | Write the work itself, beyond small fixes to docs and records |
+| Advisor | Claude Code, Fable 5.1 | Advises the coordinator: a second opinion, a harder judgement call, a plan or design review, and the questions the coordinator cannot settle. Talks to the art QA for anything that crosses the two workspaces | Dispatch, merge, or write the work; relay the owner's tasks (the owner talks to the coordinator) |
 | Art lead | Kimi Code, K3.1 Pro, thinking high, in "Never Ask" mode | Every 3D model, rig, clip, UV layout and painted texture | Edit another worker's worktree |
-| Workers (two) | Claude Code, Haiku 5.5 | Every piece of work that is not art: code, gates, docs, keeping pull requests current with main, and independent reviews of work they did not make | Merge |
-| Strong tier, on demand | Claude Code, Opus 5.5, a subagent the coordinator starts | Only a piece that needs higher thinking: a plan, a new gate, a shared sim module, the save format, an independent art review | Merge; routine work, which stays with the workers |
+| Art QA | Claude Code, Opus 5.5, a standing terminal beside Kimi | Plans Kimi's rounds, reviews every art batch independently and writes the verdict to `sz-shared/reviews/<piece>/`; the strong tier for a piece that needs higher thinking (a new gate, a shared sim module, the save format) when the coordinator asks | Merge; routine work, which stays with the workers |
+| Workers (two) | Claude Code, Haiku 5.5 | Every piece of work that is not art: code, gates, docs, keeping pull requests current with main, and independent reviews of code they did not make | Merge |
 
 The roster may name models, because it says who runs what. Authorship never does: a commit, PR
 title or body, code comment or doc does not say which model wrote it (the owner's call, 2026-11-01,
@@ -75,8 +78,10 @@ never share a worktree at the same time, and nobody switches branches in the mai
    (or off the PR it stacks on). Worktrees sit under `.claude/worktrees/`, on branches named
    `<agent>/<piece>`. Symlink `node_modules` from the main checkout; the symlink is excluded in
    `.git/info/exclude`.
-4. **Dispatch.** `hc ls` lists the terminals in the workspace "simplyZOMBIES / 1". Addresses such as
-   `t1p` change between runs: Kimi is the `kimi-code` row, and the workers are the Haiku rows. Start one
+4. **Dispatch.** `hc ls` lists the terminals in both workspaces, "simplyZOMBIES / Main Code" and
+   "simplyZOMBIES / Modeling and Art". Addresses such as `t1p` change between runs: Kimi is the `kimi-code`
+   row, the art QA is the Claude row beside it, and the workers are the Haiku rows (`hc read <t>` shows
+   the model on each screen). Start one
    with `hc run --bg --name <n> --cwd <worktree> --outlive-parent <cmd>`, then
    `hc send <t> "Read <spec> and WORKER_RULES.md, then do the task without stopping"`. `hc send` wraps
    its text in `<hc>` tags, so a slash command sent that way becomes a chat message. Kimi asks before
@@ -95,18 +100,20 @@ never share a worktree at the same time, and nobody switches branches in the mai
 - Every round renders the same views beside the owner's concept: Blender clay and textured, and the
   in-engine sheet from `npm run godot:shots:survivor -- --glb=<path> --out=<dir>`. The coordinator judges
   the in-engine sheet, not only Blender.
-- Each round gets an independent review. The coordinator writes a ranked verdict (`OPUS_VERDICT.md`)
-  and sends it, with the review, to the art lead. Geometry is locked before final paint, and paint is
-  locked last. The owner sees the accepted model before any pull request.
+- Each round gets an independent review by the art QA, which writes the review and a ranked verdict
+  (`OPUS_VERDICT.md`) under `sz-shared/reviews/<piece>/` and sends both to the art lead. The coordinator
+  reads the verdict before opening the PR and merges on it. Geometry is locked before final paint, and
+  paint is locked last. The owner sees the accepted model before any pull request.
 
 ### Independent review and the merge train
 
 - **Art and placement review** (the owner's call, 2026-10-27). An art or placement PR merges only after
   an independent read-only reviewer checks it, and after fixes, a confirmation pass by the same reviewer
   against its first report. A push after a verdict voids it.
-  - The coordinator spawns the reviewer, never the worker that made the art. The brief is the PR, its
-    head and base commits, and `/home/jtf/sz-shared/reviews/<piece>/` for the report. A confirmation pass
-    also gets the previous report. The reviewer is not told the worker's account of what changed.
+  - The art QA is the reviewer, never the worker that made the art. The brief is the PR, its head and
+    base commits, and `/home/jtf/sz-shared/reviews/<piece>/` for the report. A confirmation pass also
+    gets the previous report. The reviewer is not told the worker's account of what changed. An art PR
+    merges on the art QA's written sign-off; the coordinator merges it, the art QA never does.
   - The reviewer makes its own shots of base and head with `godot:shots`, measures the noise floor
     (base against base) before calling a difference, and names both commits in the report.
   - Round 3 is the last full round. Later passes check only the previous findings and raise only
@@ -564,10 +571,11 @@ Ome–Okutama (brief docs/42, on `main`; the owner took every card's default on 
 For what is open, `gh pr list`; for the last session's handoff, the newest entry in
 [docs/43](docs/43-session-log.md).
 
-**Team** (the owner's call, 2026-11-04). Claude Fable coordinates, plans and merges. Kimi does all 3D
-and art. Two Claude Code Haiku workers do everything else; an Opus subagent is started only for a
-piece that needs higher thinking (independent art reviews, a design note, a shared-module piece with
-a measurement trap). The OpenCode workers were retired on 2026-11-04.
+**Team** (the owner's call, 2026-11-05). Claude Sonnet is the lead: it plans, dispatches, verifies and
+merges, and the owner gives it tasks directly. Claude Fable advises Sonnet and talks to the art QA. Kimi
+does all 3D and art; a standing Claude Opus terminal beside it plans Kimi's rounds and signs every art
+batch off before its PR. Two Claude Code Haiku workers do everything else. On 2026-11-04 Fable
+coordinated and Opus was a subagent; the OpenCode workers were retired that day.
 
 **Merged this session (evening of 2026-11-04):** #318, #319, #320, #323 (docs/42), #324, #325 (this
 trimmed playbook), #326 (the organic survivor). Their branches and worktrees are gone.
@@ -619,7 +627,7 @@ after). Every one has a default built.
 2. `gh pr list` and CI; run the merge train in the order above. Retarget #331 to `main` before
    deleting `claude/fp-arms`.
 3. After the integration merges: R4 waits on Kimi's materials; then the rifle round 2 to Kimi after
-   batch A's report, and an independent review (Opus subagent) of batch A.
+   batch A's report, and an independent review of batch A by the art QA (the Opus terminal).
 4. Then from the to-do: zombie kinds on the organic base (sim kinds first: the gassed bloater, the
    lurker, the juggernaut, the feigner; pictures a stage behind), the arms polish minors (docs/23),
    the owed ten-seed re-baseline (stage 2) for the crawler and the bloodhound, the sedan's name
