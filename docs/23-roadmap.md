@@ -588,14 +588,8 @@ system.
   before-and-after run that a rebalance owes.
 - ~~**Light that burns down, and what feeds it**~~ — **landed** 2026-09-12, see the record.
 - ~~**Noise that is an item**~~ — **landed** 2026-09-12, see the record. Half of it: the eight new
-  devices are real, and the alarm and the noisemaker are **still free world singletons**, by the
-  owner's decision of 2026-09-12. Repricing them is below.
-- **The alarm and the noisemaker still cost nothing to place.** They are `fortify.gd` world
-  singletons that consume no item, and the noise slice deliberately left them that way: the owner
-  chose new items only, and `check_m2_materials.gd`'s PINNED lane asserts both by name, so
-  repricing them is a rebalance that would turn a shipped gate red rather than a content addition.
-  What closes it is giving each an item to spend and moving that PINNED assertion with it, in one
-  commit, with the before-and-after run that a rebalance owes.
+  devices are real, and the alarm and the noisemaker were **free world singletons** until
+  2026-11-05, by the owner's decision of 2026-09-12. They are priced now; see the record.
 - **A purifier is spent but never refilled.** The transform slice gives the pump filter forty uses
   and the billy can six, and when a purifier runs out it is simply a thing with nothing left in it.
   There is no cartridge to replace and no way to boil the filter clean, so the best purifier in the
