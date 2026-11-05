@@ -41,6 +41,7 @@ func _run() -> void:
 	ok = _the_new_kinds_are_content() and ok
 	ok = _the_new_senses_are_read() and ok
 	ok = _crawlers_are_born_legless() and ok
+	ok = _the_juggernaut_is_content() and ok
 	if ok:
 		print("M2_ROSTER_OK mix alarm bloom exhausted, every zombie has eyes, extends resolved, senses and waves are content, the screamer sees what is lit at night, the dead write to the field from content, residue in every state, one roll a cloud, four wave kinds are JSON entries a body reads, and crawlers are born legless")
 		quit(0)
@@ -1127,4 +1128,42 @@ func _crawlers_are_born_legless() -> bool:
 		push_error("CRAWLERS: %d of %d shamblers crawled -- the shambler's legless share is not the base's few percent, so the crawler's answer proves nothing" % [crawling_sham, sham_total])
 		return false
 	print("CRAWLERS OK %d of %d crawler spawns over %d seeds are legless from the first tick; %d of %d shamblers crawl at the base's share" % [CRAWLER_SPAWNS * CRAWLER_SEEDS.size(), CRAWLER_SPAWNS * CRAWLER_SEEDS.size(), CRAWLER_SEEDS.size(), crawling_sham, sham_total])
+	return true
+
+
+# The juggernaut is a heavy that shoves barricades: it resolves as content, declares a `shoves` block
+# that the roster reads into a `shove` component on the body, takes its share of the day roll at the
+# weight and wave the content names, and has eyes. Its picture is the heavy's.
+const TYPE_JUGGERNAUT: String = "zombie.juggernaut"
+
+
+func _the_juggernaut_is_content() -> bool:
+	var lane: String = "JUGGERNAUT"
+	var probe: Variant = _daylight_world(73)
+	var entry: Variant = SimRoster.content_entry(probe, TYPE_JUGGERNAUT)
+	if not entry is Dictionary:
+		push_error("%s: %s does not resolve -- its content file is not in the tree" % [lane, TYPE_JUGGERNAUT])
+		return false
+	var block: Variant = (entry as Dictionary).get("shoves")
+	if not block is Dictionary or not bool((block as Dictionary).get("barricades", false)):
+		push_error("%s: %s declares no shoves block that reaches barricades" % [lane, TYPE_JUGGERNAUT])
+		return false
+	if SimRoster.weight_of(probe, TYPE_JUGGERNAUT) < 1:
+		push_error("%s: %s has weight %d, so the day roll never draws it" % [lane, TYPE_JUGGERNAUT, SimRoster.weight_of(probe, TYPE_JUGGERNAUT)])
+		return false
+	var zed: int = SimRoster.spawn_zombie(probe, 12.5, 12.5, TYPE_JUGGERNAUT, probe.rng.stream("shambler"))
+	var shove: Variant = probe.components.get_component(zed, "shove")
+	if not (shove is Dictionary) or float((shove as Dictionary)["perHit"]) != float((block as Dictionary)["perHit"]):
+		push_error("%s: a spawned %s does not carry its shoves block as a shove component" % [lane, TYPE_JUGGERNAUT])
+		return false
+	if not probe.components.get_component(zed, "observer") is Dictionary:
+		push_error("%s: a spawned %s has no observer, so it is blind" % [lane, TYPE_JUGGERNAUT])
+		return false
+	var plain: int = SimRoster.spawn_zombie(probe, 14.5, 12.5, "zombie.heavy", probe.rng.stream("shambler"))
+	if probe.components.get_component(plain, "shove") != null:
+		push_error("%s: a heavy, which declares no shoves block, carries a shove component" % lane)
+		return false
+	print("%s OK %s resolves as content with a shoves block (%.0f per hit, every %d ticks), weight %d from wave %d, carries its shove as a component, and has eyes; a heavy carries none" % [
+		lane, TYPE_JUGGERNAUT, float((block as Dictionary)["perHit"]), int((block as Dictionary)["cooldownTicks"]), SimRoster.weight_of(probe, TYPE_JUGGERNAUT), int((entry as Dictionary).get("introducedInWave", 0)),
+	])
 	return true

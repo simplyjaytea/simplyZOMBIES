@@ -1044,7 +1044,7 @@ static func _place_scrap(world: Variant, actor: int, tx: int, ty: int) -> void:
 		return
 	var ent: int = int(world.entities.spawn())
 	world.components.set_component(ent, "position", {"x": float(tx) + 0.5, "y": float(ty) + 0.5})
-	world.components.set_component(ent, "scrapBarricade", {})
+	world.components.set_component(ent, "scrapBarricade", {"condition": BARRICADE_CONDITION["scrap"]})
 	sync_map(world, false)
 
 
@@ -1060,7 +1060,10 @@ static func _place_wall(world: Variant, actor: int, verb: String, tx: int, ty: i
 		return
 	var ent: int = int(world.entities.spawn())
 	world.components.set_component(ent, "position", {"x": float(tx) + 0.5, "y": float(ty) + 0.5})
-	world.components.set_component(ent, String(BLOCKERS[verb]), {"kind": verb, "stage": 0, "contactTicks": 0})
+	var wall: Dictionary = {"kind": verb, "stage": 0, "contactTicks": 0}
+	if BARRICADE_CONDITION.has(verb):
+		wall["condition"] = BARRICADE_CONDITION[verb]
+	world.components.set_component(ent, String(BLOCKERS[verb]), wall)
 	sync_map(world, false)
 
 
@@ -1284,7 +1287,93 @@ static func _presses(world: Variant) -> Dictionary:
 	return out
 
 
+# The juggernaut's shove (docs/23, "The juggernaut"). A scrap barricade and a timber wall carry a
+# `condition` the sim owns: full at the value here, and a shove takes its body's `perHit` off it. At
+# zero the barrier is gone, the way a breached one is -- there is no dismantle verb for them, so
+# nothing drops. A component with no condition (a barrier from before the field) reads as full.
+# Window boards, wire fences and doors are not shoved: they keep the contact pressure alone.
+const BARRICADE_CONDITION: Dictionary = {"scrap": 60.0, "timber": 150.0}
+const SHOVE_BARRIERS: Array[String] = ["scrap", "timber"]
+const SHOVE_REACH_METRES: float = 2.5
+
+
+static func condition_of(component: Dictionary, kind: String) -> float:
+	return float(component.get("condition", BARRICADE_CONDITION.get(kind, 0.0)))
+
+
+# The barrier standing on tile (tx, ty) that a shove can reach: its entity, kind and component, or {}.
+static func _barricade_at(world: Variant, tx: int, ty: int) -> Dictionary:
+	for entity in world.components.query(["scrapBarricade", "position"]):
+		var at: Variant = world.components.get_component(int(entity), "position")
+		if at is Dictionary and floori(float((at as Dictionary)["x"])) == tx and floori(float((at as Dictionary)["y"])) == ty:
+			return {"entity": int(entity), "kind": "scrap", "component": world.components.get_component(int(entity), "scrapBarricade")}
+	for entity in world.components.query(["timberWall", "position"]):
+		var at2: Variant = world.components.get_component(int(entity), "position")
+		if at2 is Dictionary and floori(float((at2 as Dictionary)["x"])) == tx and floori(float((at2 as Dictionary)["y"])) == ty:
+			return {"entity": int(entity), "kind": "timber", "component": world.components.get_component(int(entity), "timberWall")}
+	return {}
+
+
+# A living body on the far side of the barrier from the juggernaut, within reach of it: the shove
+# needs somebody behind the barricade to be a shove at all.
+static func _living_behind(world: Variant, zed: int, tx: int, ty: int) -> bool:
+	var zpos: Variant = world.components.get_component(zed, "position")
+	if not (zpos is Dictionary):
+		return false
+	var bx: float = float(tx) + 0.5
+	var by: float = float(ty) + 0.5
+	var dx: float = bx - float((zpos as Dictionary)["x"])
+	var dy: float = by - float((zpos as Dictionary)["y"])
+	for body_entity in world.components.query(["body", "position"]):
+		if int(body_entity) == zed or world.components.has_component(int(body_entity), "shambler") or world.components.has_component(int(body_entity), "corpse"):
+			continue
+		var body: Variant = world.components.get_component(int(body_entity), "body")
+		if not (body is Dictionary) or int((body as Dictionary).get("head", 0)) <= 0:
+			continue
+		var at: Variant = world.components.get_component(int(body_entity), "position")
+		if not (at is Dictionary):
+			continue
+		var ex: float = float((at as Dictionary)["x"]) - bx
+		var ey: float = float((at as Dictionary)["y"]) - by
+		if sqrt(ex * ex + ey * ey) <= SHOVE_REACH_METRES and ex * dx + ey * dy > 0.0:
+			return true
+	return false
+
+
+# Every body that shoves, pressed against a barrier it can reach with a living body behind it: its
+# barrier loses `perHit` and its cooldown restarts. The contact pressure is separate, and unchanged.
+static func _tick_shoves(world: Variant) -> void:
+	for zed in world.components.query(["shambler", "velocity", "shove"]):
+		var shove: Dictionary = world.components.get_component(int(zed), "shove") as Dictionary
+		if int(shove.get("cooldown", 0)) > 0:
+			shove["cooldown"] = int(shove["cooldown"]) - 1
+			continue
+		var vel: Variant = world.components.get_component(int(zed), "velocity")
+		if not (vel is Dictionary):
+			continue
+		var px: int = int((vel as Dictionary).get("pressX", -1))
+		var py: int = int((vel as Dictionary).get("pressY", -1))
+		if px < 0 or py < 0:
+			continue
+		var hit: Dictionary = _barricade_at(world, px, py)
+		if hit.is_empty() or not _living_behind(world, int(zed), px, py):
+			continue
+		var kind: String = String(hit["kind"])
+		var comp: Dictionary = hit["component"] as Dictionary
+		var condition: float = condition_of(comp, kind) - float(shove.get("perHit", 0.0))
+		comp["condition"] = condition
+		# Set to one less than the cooldown: the decrement above spends the tick it is read on, so a
+		# shove lands every `cooldownTicks` ticks exactly.
+		shove["cooldown"] = maxi(0, int(shove.get("cooldownTicks", 1)) - 1)
+		world.events.publish({"type": "fortify.shove", "entity": int(zed), "tx": px, "ty": py, "kind": kind, "condition": condition})
+		if condition <= 0.0:
+			world.despawn(int(hit["entity"]))
+			sync_map(world, false)
+			world.events.publish({"type": "fortify.breached", "tx": px, "ty": py, "kind": kind})
+
+
 static func _tick_contact(world: Variant) -> void:
+	_tick_shoves(world)
 	var presses: Dictionary = _presses(world)
 	if presses.is_empty():
 		return

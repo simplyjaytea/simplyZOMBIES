@@ -594,6 +594,9 @@ const ROSTER: Array[Dictionary] = [
 	{"id": "zombie.runner", "kind": "zombie", "probe": {"ztype": "zombie.runner"}, "tinted": false},
 	{"id": "zombie.armored", "kind": "zombie", "probe": {"ztype": "zombie.armored"}, "tinted": false},
 	{"id": "zombie.heavy", "kind": "zombie", "probe": {"ztype": "zombie.heavy"}, "tinted": false},
+	# The juggernaut wears the heavy's picture: a kind whose difference is that it shoves barricades,
+	# not what it looks like (docs/23, the juggernaut).
+	{"id": "zombie.juggernaut", "kind": "zombie", "probe": {"ztype": "zombie.juggernaut"}, "tinted": false},
 	{"id": "zombie.bloodhound", "kind": "zombie", "probe": {"ztype": "zombie.bloodhound"}, "tinted": false},
 	# The crawler wears the shambler's workwear picture, as the bloodhound does: a kind whose
 	# difference is its legs, not its clothes, so no new picture is drawn for it (docs/23, the crawler).
@@ -642,6 +645,7 @@ const ROSTER_SHARED: Array = [
 	# decision: the art is a stage behind the content arc (docs/38), so it shares the shambler's
 	# file until a bloodhound body is drawn.
 	["zombie.shambler", "zombie.bloodhound"],
+	["zombie.heavy", "zombie.juggernaut"],
 	[
 		"player.body", "survivor.unique.mara", "survivor.unique.ellis",
 		"colony.look.01", "colony.look.02", "colony.look.03", "colony.look.04", "colony.look.05", "colony.look.06",
