@@ -1,0 +1,68 @@
+{
+  "id": "zombie.crawler",
+  "extends": "zombie.base",
+  "name": "Crawler",
+  "introducedInWave": 2,
+  "weight": 3,
+  "appearance": {
+    "sprite": "body_zombie_workwear",
+    "hitFx": "fx_blood_hit",
+    "corpseSprites": [
+      "corpse_zombie_workwear_supine",
+      "corpse_zombie_workwear_prone"
+    ],
+    "variants": [
+      {
+        "sprite": "body_zombie_workwear",
+        "corpseSprites": [
+          "corpse_zombie_workwear_supine",
+          "corpse_zombie_workwear_prone"
+        ]
+      },
+      {
+        "sprite": "body_zombie_commuter",
+        "corpseSprites": [
+          "corpse_zombie_commuter_supine",
+          "corpse_zombie_commuter_prone"
+        ]
+      },
+      {
+        "sprite": "body_zombie_raincoat",
+        "corpseSprites": [
+          "corpse_zombie_raincoat_supine",
+          "corpse_zombie_raincoat_prone"
+        ]
+      }
+    ]
+  },
+  "sensory": {
+    "noise": 0.5,
+    "light": 0.2,
+    "scent": 0.9
+  },
+  "locomotion": {
+    "speed": 0.8,
+    "wander": 0.35,
+    "mill": 0.25,
+    "crawl": 0.45
+  },
+  "body": {
+    "head": 5,
+    "torso": 15,
+    "legs": 80
+  },
+  "variance": {
+    "crawlers": 1.0
+  },
+  "grab": {
+    "strength": 0.6,
+    "bites": {
+      "head": 0.05,
+      "torso": 0.15,
+      "leg_left": 0.35,
+      "leg_right": 0.35,
+      "foot_left": 0.05,
+      "foot_right": 0.05
+    }
+  }
+}

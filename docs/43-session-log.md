@@ -3,6 +3,44 @@
 Each entry is the handoff a session wrote when it stopped, moved here from PLAYBOOK.md so the
 playbook stays current. Read the newest entry first. Links are relative to this folder.
 
+## Roster change (2026-11-05 afternoon)
+
+The owner's call: Fable orchestrates and plans, Sonnet is the lead engineer (reviews every worker change, runs the merge train), the rest unchanged; the playbook's team table says so.
+
+## Where we left off (2026-11-04 evening, paused by the owner, usage)
+
+The second session on the Linux machine, the first with the new roster: Claude Fable coordinates,
+plans and merges; two Claude Code Haiku terminals do every piece that is not art; Kimi does the art;
+Opus subagents did the independent reviews (arms round 2 and its confirmation pass, the rifle), the
+clothing design note (docs/44) and the bloodhound's scent-led Seek. The playbook's "Where we are"
+section carries the state; this entry is the record of what the session did.
+
+**Merged:** #318, #319, #320, #323 (the setting brief, docs/42), #324, #325 (the trimmed playbook,
+one team table, the dispatch workflow for herdr, history moved here), #326 (the organic survivor).
+
+**Opened, all green locally:** #327 the purifier refill (a carried material repacks a spent filter);
+#328 the clothing layers design note; #329 the crawler (zombie kind nine, legless from spawn, bites
+the legs through a new `grab.bites` reader); #331 and #338 the first-person arms, art and view (the
+review's N1, a clip's pose depending on the clip before it, fixed by a deterministic player and an
+ARMS-lane assertion); #332 the owner's setting calls (every docs/42 card at its default; the valley is
+the first of several; other districts and cities by a train the colony repairs, a plan only); #333
+to #344 the renames R1 to R11 (districts and region, templates, food, cartridges, tools and melee,
+vehicles, people, descriptions, the playbook and README, the region's cells up-valley with
+`SAVE_VERSION` 34); #336 the bloodhound hunts by nose (a Track state on a scent gradient of 20, the
+measured ceiling of a body's own smell, so it never tracks itself).
+
+**Art.** Kimi finished the arms round 3 (`7bf7236b`, all 24 plants refused) and the hunting rifle
+(`c77c938a`), which the independent review BLOCKED on shape (a receiver that reads as a scope); the
+round 2 spec is written. Kimi started the Japanese buildings batch A.
+
+**Lessons.** A pipeline hides a failed `gh pr merge` (`| tail` swallowed the exit code and the next
+step deleted the branch; #318 had to be reopened): never pipe the merge. `--match-head-commit` wants
+the full 40-character SHA. Deleting a merged PR's head branch closes every PR based on it (#330 became
+#338): retarget stacked PRs first. Branch protection wants CI even on docs-only PRs. The Haiku
+workers end their turn with a gate shell still running unless told not to; every spec now says so.
+CI capacity, not the workers, set the pace once a dozen PRs were open: batch collisions into one
+integration PR early.
+
 ## Where we left off (2026-11-04, stopped by the owner)
 
 The first session on the owner's Linux machine. The roster above is out of date here. Claude

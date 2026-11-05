@@ -12,8 +12,9 @@ extends SceneTree
 #
 # The views: full body front, three-quarter and back; head close-ups front, three-quarter, profile and
 # back; the first-person ranges 0.9 m, 2 m and 5 m from the eye; the `walk` clip at eight phases, one frame
-# each and as one strip. Then `sheet.png`: the concept beside the renders, labelled. `review.json` records
-# which GLB (by SHA-256), tick, size and lenses made the set, so two sets can be told apart later.
+# each and as one strip. Then `sheet.png`: the concept beside the renders, labelled, or a labelled
+# placeholder when no concept is available. `review.json` records which GLB (by SHA-256), tick, size
+# and lenses made the set, so two sets can be told apart later.
 #
 # The look is the first-person scene's own: `SkyView` builds the same environment, sun, fog and eye light
 # from the sim's clock (`--tick`, noon by default), the camera is the first-person lens (75 degrees, near
@@ -243,10 +244,14 @@ func _sheet(figures: Array, heads: Array, fp: Array[Image], strip: Image) -> boo
 	var concept_path: String = _arg("--concept=")
 	if concept_path.is_empty():
 		concept_path = DEFAULT_CONCEPT
-	var concept: Image = Image.load_from_file(concept_path)
+	var concept: Image = null
+	if FileAccess.file_exists(concept_path):
+		concept = Image.load_from_file(concept_path)
+	var concept_label: String = "concept (owner)"
 	if concept == null or concept.is_empty():
-		_refuse("no concept image to set beside the renders")
-		return false
+		concept = Image.create(780, 600, false, Image.FORMAT_RGBA8)
+		concept.fill(SHEET_BACKGROUND)
+		concept_label = "concept unavailable"
 	for pair in figures + heads:
 		if pair[1] == null:
 			_refuse("%s is missing, so the sheet cannot be composed" % pair[0])
@@ -266,7 +271,7 @@ func _sheet(figures: Array, heads: Array, fp: Array[Image], strip: Image) -> boo
 	var concept_w: float = 780.0
 	var concept_scaled: Image = concept.duplicate() as Image
 	concept_scaled.resize(int(concept_w), int(concept_w * float(concept.get_height()) / float(concept.get_width())), Image.INTERPOLATE_LANCZOS)
-	cells.append({"label": "concept (owner)", "image": concept_scaled, "at": Vector2(SHEET_MARGIN, y)})
+	cells.append({"label": concept_label, "image": concept_scaled, "at": Vector2(SHEET_MARGIN, y)})
 	var x: float = SHEET_MARGIN + concept_w + SHEET_GAP
 	for pair in figures:
 		cells.append({"label": pair[0], "image": _column(pair[1] as Image, Vector2i(int(row_h * 0.5), int(row_h))), "at": Vector2(x, y)})

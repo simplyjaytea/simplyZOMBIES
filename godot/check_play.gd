@@ -3295,7 +3295,7 @@ func _the_colony_screen_reads_the_stockpile(main: Node) -> bool:
 		for d in drawn:
 			if String((d as Dictionary)["group"]) == "ammunition":
 				ammo_names = String((d as Dictionary)["names"])
-		if ammo_names.find(".308 Winchester Match") < 0:
+		if ammo_names.find(".308 Match") < 0:
 			push_error("STOCKPILE: the ammunition row names %s, not the rounds on the pile" % ammo_names)
 			ok = false
 		var laid: Dictionary = panel.call("_layout") as Dictionary
