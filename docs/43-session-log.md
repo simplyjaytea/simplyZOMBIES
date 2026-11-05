@@ -11,10 +11,10 @@ current, Kimi does the art and the art QA signs it off. `PLAYBOOK.md`'s "Where w
 `sz-shared/merge-train-2026-11-05/TRAIN.md` the heads and CI of the open PRs.
 
 **Merged:** #338 (arms art), #348 (the roster), #329 (the crawler), #331 (the arms in the game), #336 (the
-bloodhound's scent-led Seek), #327 (the purifier refill), #328 (the clothing layers note, docs/44). #346 and
+bloodhound's scent-led Seek), #327 (the purifier refill), #328 (the clothing layers note, docs/44), #349 (the alarm and noisemaker priced). #346 and
 #347 merged first; #322 was closed as a no-op by the owner; fourteen merged remote branches were deleted.
 
-**Opened and queued:** #349 alarm and noisemaker priced, #350 the lurker, #351 the Kei Car, #352 the
+**Opened and queued:** #350 the lurker, #351 the Kei Car, #352 the
 bloater's gas decay, #353 the feigner, #354 docs/45 (the wider world by rail), #355 arms polish. The code
 pieces are gated on their branches (full chain per shared-module piece); none merged, because the heads need
 `main` and CI again.

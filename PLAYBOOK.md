@@ -584,7 +584,7 @@ On 2026-11-04 Fable coordinated and Opus was a subagent; the OpenCode workers we
 
 **Merged this session (2026-11-05 to 06):** #338 (arms art), #348 (this roster), #329 (crawler), #331 (arms
 view in the game, retargeted to `main` before `claude/fp-arms` was deleted), #336 (bloodhound's scent-led
-Seek), #327 (purifier refill), #328 (clothing layers note, docs/44). #346 (the renames R1 to R11) and #347
+Seek), #327 (purifier refill), #328 (clothing layers note, docs/44), #349 (the trip alarm and noisemaker priced, the last merge of the night). #346 (the renames R1 to R11) and #347
 merged just before. #322 was closed as a no-op by the owner. Fourteen merged remote branches were deleted by
 the owner; the rest of the merged `claude/*` branches are still on the remote. R4 was never built.
 
@@ -595,8 +595,7 @@ view lagged a pushed branch until an empty commit push refreshed it. Docs-only m
 queue drains (one early docs merge voided every queued head). Two docs PRs that append `docs/33` cards collide
 on numbers: number against the queue, not `main`. State of the train: `sz-shared/merge-train-2026-11-05/TRAIN.md`.
 
-**Open pull requests at the pause (the train, in order; heads and CI in TRAIN.md):** #349 the trip alarm and
-noisemaker priced (owner kept (a): E lays the alarm only where a wall cannot go up); #350 the lurker (a dormant
+**Open pull requests at the pause (the train, in order; heads and CI in TRAIN.md):** #350 the lurker (a dormant
 kind, 20% of declared dormant slots, wakes on indoor noise); #351 the sedan is a Kei Car; #352 the bloater's gas
 decays (the owner changed card 2: a survivor in the cloud is rolled again every 10 s; re-review the reworked
 head); #353 the feigner (reads as a corpse in the sight memory until a living body comes within 2.5 m; every
@@ -616,8 +615,8 @@ hunting rifle's round 2 is done on `kimi/fp-rifle` (`sz-shared/fp-rifle/REPORT_r
 independent review. Arms: the skin tone at the UV seams (n1) stays open. The art QA's method is
 `sz-shared/reviews/fp-buildings-jp/METHOD.md`; its handoff is `sz-shared/art-qa/HANDOFF.md`.
 
-**Code in flight.** The juggernaut (`claude/juggernaut`, `sz-shared/juggernaut/HANDOFF.md`) waits behind #349
-(both touch `fortify.gd`).
+**Code in flight.** The juggernaut (`claude/juggernaut`, `sz-shared/juggernaut/HANDOFF.md`) waited behind #349 (both touch
+`fortify.gd`); #349 is on `main`, so it can resume.
 
 **Waiting on the owner:** docs/33's firearms card (default rare); docs/44's five clothing cards (28 to 32);
 the survivor concept image for `/home/jtf/sz-shared/concept/`. Every one has a default built.
@@ -626,12 +625,12 @@ the survivor concept image for `/home/jtf/sz-shared/concept/`. Every one has a d
 
 1. `hc ls`; read `sz-shared/merge-train-2026-11-05/TRAIN.md` and every `HANDOFF.md` or `REPORT.md` it and the
    art line name.
-2. Run the train: merge `main` into #349, CI, merge; then down the list. #352 and #354 only on their reworked
+2. Run the train: merge `main` into #350, CI, merge; then down the list. (#349 landed with the owner's card (a): E lays the alarm only where a wall cannot go up.) #352 and #354 only on their reworked
    heads after the lead engineer's re-review; #355 only with the art QA's written verdict (or an empty diff
    on the covered paths).
 3. Art: Kimi resumes round 5 from its handoff, the art QA reviews it as a full round, the owner sees it, then
    the PR; then R4, batch B and the rifle round 2.
-4. The juggernaut once #349 is on `main`.
+4. The juggernaut, now that #349 is on `main`.
 5. After the train: the docs/33 decided-cards sweep, then the ten-seed re-baseline (stage 2) for the crawler,
    lurker, bloater gas, feigner and juggernaut, on a quiet machine. The burner waits on fire; raiders'
    archetypes follow the zombie kinds.
