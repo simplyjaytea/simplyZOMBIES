@@ -7928,6 +7928,23 @@ the promise docs/40 already makes, that reach stops at walls; neither is a new m
   swing; the reach test now comes before the turn, so an idle player is not spun towards a shambler
   on the far side of a wire fence it can see and not touch.
 
+## The crawler is a kind, not a state, 2026-11-04
+
+A legless shambler is still a shambler. The cripple is a body state: a shambler whose legs are shot
+out crawls at `crawlFactor`, and that path is unchanged. The crawler is a kind that always spawns
+legless and bites low, so it is a row in content (`godot/content/zombies/crawler.json`), and the
+roll that decides it is `variance.crawlers` at 1.0, the same roll a shambler's 0.05 rides on.
+
+Its bites are the decision that needed a reader. A held bite is rolled over the **victim's** survivor
+parts, so the biter's own `body` cannot say where it lands: the crawler's 80 of 100 on the legs is a
+table the biter names, `grab.bites`. Absent, the shared held table applies, and every shipped kind
+still takes it, so no existing campaign's bites move. The table is the design's answer to "grabs
+ankles", and it is written so a later kind can take a different share without new code.
+
+Two numbers were chosen and are cheap to change: wave 2 and weight 3, so the kind arrives on day 5
+at a few per cent of spawns. Its picture is the shambler's, a stage behind, because the content arcs
+say readers come before pictures. The ten-seed table is not re-run here; it is owed in stage 2.
+
 ## The region runs up-valley, and a region save from before it is refused, 2026-11-04
 
 The region `region.main_area` is re-ordered so that x runs up-valley (docs/42 section 3): the
@@ -7976,3 +7993,4 @@ It supersedes nothing. The rail plan does not change the recorded region decisio
 opt-in", one resident map), streaming (Milestone 3B, Risk 7), district-tier simulation, or the vehicle
 decisions (docs/25 and the district `vehicles` block). A train that needs repair is a new mechanic,
 and it is designed with the region.
+

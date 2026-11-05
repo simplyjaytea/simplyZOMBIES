@@ -40,8 +40,9 @@ func _run() -> void:
 	ok = _a_second_cloud_rolls_again() and ok
 	ok = _the_new_kinds_are_content() and ok
 	ok = _the_new_senses_are_read() and ok
+	ok = _crawlers_are_born_legless() and ok
 	if ok:
-		print("M2_ROSTER_OK mix alarm bloom exhausted, every zombie has eyes, extends resolved, senses and waves are content, the screamer sees what is lit at night, the dead write to the field from content, residue in every state, one roll a cloud, four wave kinds are JSON entries a body reads")
+		print("M2_ROSTER_OK mix alarm bloom exhausted, every zombie has eyes, extends resolved, senses and waves are content, the screamer sees what is lit at night, the dead write to the field from content, residue in every state, one roll a cloud, four wave kinds are JSON entries a body reads, and crawlers are born legless")
 		quit(0)
 	else:
 		push_error("M2_ROSTER_FAIL")
@@ -72,6 +73,10 @@ func _fixture(seed_val: int, w: int = 24, h: int = 24) -> Dictionary:
 #    carries the campaign half of the same change (docs/23). What the pin still guarantees, and
 #    why it is worth keeping: days 1 and 2 are untouched (QUIET below), and from here on any
 #    *unintended* movement of the draw is red again.
+#
+#    **Re-pinned a third time, 2026-11-04, for the crawler** (wave 2, weight 3): it joins the day-7
+#    pool as the nine-kind draw `w`, and the HEAVY fixture below lists it at weight 1 so the bloater
+#    still draws overwhelmingly. Same reasoning as the two re-pins above.
 #  * SILENCED -- a fixture tree with the shambler at `weight: 0` never draws one in 200 draws,
 #    where the shipped tree draws it two times in three. PINNED alone would pass against code
 #    that still had the constants in it; this is what says the number in the JSON is read.
@@ -102,12 +107,13 @@ const TYPE_RUNNER: String = "zombie.runner"
 const TYPE_ARMORED: String = "zombie.armored"
 const TYPE_HEAVY: String = "zombie.heavy"
 const TYPE_BLOODHOUND: String = "zombie.bloodhound"
+const TYPE_CRAWLER: String = "zombie.crawler"
 
 const PINNED_SEED: int = 20260805
 const PINNED_STREAM: String = "mixProbe"
-# h shambler, c screamer, b bloater, t stalker, r runner, a armored, y heavy, d bloodhound -- the
-# first fifty draws on day 7, where all eight kinds are due.
-const PINNED_DRAWS: String = "hhhthaabchbrychhahrhhhthhaadhhthhhhchhhthcrhhhhhhh"
+# h shambler, c screamer, b bloater, t stalker, r runner, a armored, y heavy, d bloodhound, w crawler
+# -- the first fifty draws on day 7, where all nine kinds are due.
+const PINNED_DRAWS: String = "hhhthaabchbrwchhahyhhhthhaadhhthhhhchchthcyhhhhhhh"
 # The share each kind's 2000-draw count may stray from its content weight, either way.
 const SHARE_TOLERANCE: float = 0.25
 const SHARE_DRAWS: int = 2000
@@ -116,7 +122,7 @@ const SHARE_DRAWS: int = 2000
 func _mix() -> bool:
 	var day7: int = Clock.tick_on_day(7, 0.5)
 	var day1: int = Clock.tick_on_day(1, 0.5)
-	var code: Dictionary = {SimRoster.TYPE_SHAMBLER: "h", SimRoster.TYPE_SCREAMER: "c", SimRoster.TYPE_BLOATER: "b", TYPE_STALKER: "t", TYPE_RUNNER: "r", TYPE_ARMORED: "a", TYPE_HEAVY: "y", TYPE_BLOODHOUND: "d"}
+	var code: Dictionary = {SimRoster.TYPE_SHAMBLER: "h", SimRoster.TYPE_SCREAMER: "c", SimRoster.TYPE_BLOATER: "b", TYPE_STALKER: "t", TYPE_RUNNER: "r", TYPE_ARMORED: "a", TYPE_HEAVY: "y", TYPE_CRAWLER: "w", TYPE_BLOODHOUND: "d"}
 
 	# PINNED.
 	var world: Variant = World.new(_fixture(PINNED_SEED))
@@ -152,7 +158,7 @@ func _mix() -> bool:
 	# the one under test is flattened to 1, so the fixtures stay comparable as the roster grows.
 	var shipped: Dictionary = _draw_counts(null, day7, 200)
 	var silenced: Dictionary = _draw_counts(_tree_with_weights({SimRoster.TYPE_SHAMBLER: 0}), day7, 200)
-	var heavy: Dictionary = _draw_counts(_tree_with_weights({SimRoster.TYPE_BLOATER: 100, SimRoster.TYPE_SHAMBLER: 1, SimRoster.TYPE_SCREAMER: 1, TYPE_STALKER: 1, TYPE_RUNNER: 1, TYPE_ARMORED: 1, TYPE_HEAVY: 1, TYPE_BLOODHOUND: 1}), day7, 200)
+	var heavy: Dictionary = _draw_counts(_tree_with_weights({SimRoster.TYPE_BLOATER: 100, SimRoster.TYPE_SHAMBLER: 1, SimRoster.TYPE_SCREAMER: 1, TYPE_STALKER: 1, TYPE_RUNNER: 1, TYPE_ARMORED: 1, TYPE_HEAVY: 1, TYPE_BLOODHOUND: 1, TYPE_CRAWLER: 1}), day7, 200)
 	# The floor is a majority of 200. It was 110 while the shambler held 80 of 128; the bloodhound
 	# (weight 6) takes the summed weight to 134, so the shambler's expected count falls from 125 to
 	# 120 and 110 would fail a mix that is still what content asked for.
@@ -917,6 +923,7 @@ const NEW_KIND_PROFILES: Dictionary = {
 	"zombie.armored": {"noise": 0.5, "light": 0.15, "scent": 0.5, "speed": 0.8, "wander": 0.3, "mill": 0.25},
 	"zombie.heavy": {"noise": 0.9, "light": 0.1, "scent": 0.2, "speed": 0.6, "wander": 0.25, "mill": 0.2},
 	"zombie.bloodhound": {"noise": 0.0, "light": 0.0, "scent": 1.0, "speed": 1.0, "wander": 0.35, "mill": 0.25},
+	"zombie.crawler": {"noise": 0.5, "light": 0.2, "scent": 0.9, "speed": 0.8, "wander": 0.35, "mill": 0.25},
 }
 # The fixture profile the negative writes over each kind. Every number differs from both shipped
 # rows above, so a component built from a constant cannot match it by accident.
@@ -1088,4 +1095,36 @@ func _the_new_senses_are_read() -> bool:
 	print("READER OK sight at 10 m: runner reach %.2f m closes, shambler reach %.2f m does not; sound at 3x floor %.5f: stalker needs %.5f and seeks, shambler needs %.5f and does not" % [
 		float(runner_saw["reach"]), float(shambler_saw["reach"]), floor_v * 3.0, float(stalker_heard["needs"]), float(shambler_heard["needs"]),
 	])
+	return true
+
+
+# CRAWLERS. A crawler is a kind whose every body is born legless: `variance.crawlers` 1.0 makes the
+# roll in `SimRoster.roll_look` true for each spawn, and `spawn_zombie` zeroes the legs after the
+# maxima are taken, so `SimHealth.is_crawling` answers true from the first tick. Checked over four
+# seeds and two hundred spawns each. The shambler inherits the base's `crawlers` of 0.05, so a
+# small share of shamblers crawl and the rest do not: the negative is that the crawler's answer is
+# not the shambler's. Also checks that a crawler's bite table (`grab.bites`) is what it reads.
+const CRAWLER_SEEDS: Array = [20260805, 404, 31337, 90210]
+const CRAWLER_SPAWNS: int = 200
+
+func _crawlers_are_born_legless() -> bool:
+	var crawling_sham: int = 0
+	var sham_total: int = 0
+	for seed_val in CRAWLER_SEEDS:
+		var w: Variant = _daylight_world(int(seed_val))
+		var rng: Variant = w.rng.stream("shambler")
+		for i in CRAWLER_SPAWNS:
+			var zed: int = SimRoster.spawn_zombie(w, 12.5, 12.5, TYPE_CRAWLER, rng)
+			var body: Dictionary = w.components.get_component(zed, "body") as Dictionary
+			if not SimHealth.is_crawling(body):
+				push_error("CRAWLERS: a zombie.crawler spawned on seed %d with legs %s -- it is not crawling" % [int(seed_val), str(body.get("legs", "absent"))])
+				return false
+			var sham: int = SimRoster.spawn_zombie(w, 12.5, 12.5, SimRoster.TYPE_SHAMBLER, rng)
+			sham_total += 1
+			if SimHealth.is_crawling(w.components.get_component(sham, "body") as Dictionary):
+				crawling_sham += 1
+	if crawling_sham == 0 or crawling_sham * 2 >= sham_total:
+		push_error("CRAWLERS: %d of %d shamblers crawled -- the shambler's legless share is not the base's few percent, so the crawler's answer proves nothing" % [crawling_sham, sham_total])
+		return false
+	print("CRAWLERS OK %d of %d crawler spawns over %d seeds are legless from the first tick; %d of %d shamblers crawl at the base's share" % [CRAWLER_SPAWNS * CRAWLER_SEEDS.size(), CRAWLER_SPAWNS * CRAWLER_SEEDS.size(), CRAWLER_SEEDS.size(), crawling_sham, sham_total])
 	return true
