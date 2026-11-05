@@ -80,6 +80,12 @@
           "type": "number",
           "minimum": 0,
           "maximum": 1
+        },
+        "trail": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5000,
+          "description": "How much more scent the uphill neighbour cell must carry than the body's own cell before it takes the trail: Track, a seek up the scent field at the type's seek speed (SimShambler._trail_of). A rise, never a level, and set above the 16.6 a lone body's own trail shows it, so a body never tracks itself. It keeps the trail on half this rise. Absent or 0, the type never tracks; only the bloodhound names one. docs/30, \"The bloodhound's nose is a gradient, not a level, 2026-11-04\"."
         }
       }
     },
@@ -136,6 +142,23 @@
         "strength": {
           "type": "number",
           "minimum": 0
+        },
+        "bites": {
+          "type": "object",
+          "description": "Where this kind's held bites land: a weight per survivor body part, summing to 1. A bite is rolled over the VICTIM's survivor parts (SimShambler's bite loop), so this table is what the biter's kind asks for, not the biter's own `body`. Absent, a bite takes the shared held table (SimCombat.HELD_HIT_LOCATION_WEIGHTS). The crawler's is what makes it grab ankles: 80 of 100 on the legs and feet.",
+          "additionalProperties": false,
+          "properties": {
+            "head": { "type": "number", "minimum": 0, "maximum": 1 },
+            "torso": { "type": "number", "minimum": 0, "maximum": 1 },
+            "arm_left": { "type": "number", "minimum": 0, "maximum": 1 },
+            "arm_right": { "type": "number", "minimum": 0, "maximum": 1 },
+            "hand_left": { "type": "number", "minimum": 0, "maximum": 1 },
+            "hand_right": { "type": "number", "minimum": 0, "maximum": 1 },
+            "leg_left": { "type": "number", "minimum": 0, "maximum": 1 },
+            "leg_right": { "type": "number", "minimum": 0, "maximum": 1 },
+            "foot_left": { "type": "number", "minimum": 0, "maximum": 1 },
+            "foot_right": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
         }
       }
     },

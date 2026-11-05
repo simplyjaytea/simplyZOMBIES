@@ -223,6 +223,11 @@ The source baseline is archived on GitHub at
     stretch for gas masks and half-mask respirators, which need their own rung;
   - the gun case draws as a soft roll-top bag, and the crossbow bolt draws the 71 cm arrow, where a
     bolt is about 40 cm (`LENGTH_HINTS`); a long-case rung and a bolt length hint would tighten both.
+- **Arms polish (round 2 minors).** The open items of the arms review's round 2 (`claude/fp-arms`), each
+  still to do: the pistol inspect shows the back of the slide, a roll about the view axis; the hands sit
+  under the HUD key bar (presentation); skin tone changes at UV seams more than across the surface, with
+  144 islands in the GLB against the 44 charts the build prints; `paint-match` checks the sleeve against
+  the builder's constant rather than the survivor's atlas.
 
 ##### UI overhaul
 
@@ -360,15 +365,6 @@ owes is pictures, a stage behind: the art group's "Pictures for the melee arc".
 
 *Zombies, seven to fourteen (stage 2 for the first four, stage 4 for the rest):*
 
-- **The crawler.** Legless, slow, below sightline height, grabs ankles. Reader: a prone-height
-  check in `sightings.gd`. Gate: `godot:m2:sight` LOW and `godot:m2:contact`.
-- **The bloodhound's nose as a seek.** The bloodhound shipped as content (the record, 2026-10-27),
-  and content can only widen its nose: `scentSense` moves the smell threshold, the turn toward
-  scent is the constant `SCENT_BIAS` in `shambler.gd`, and it acts only in Wander, at wander
-  speed. Seek is entered through `heard` or a seen target, and the bloodhound has neither, so it
-  never walks a trail at `seekSpeed`. Reader: a scent-led Seek, or a per-type scent bias, in
-  `shambler.gd`'s think loop (a shared sim module: strongest tier). Gate: `godot:m2:district`
-  SCENT-ONLY gains a lane where the bloodhound reaches a scent source the shambler does not.
 - **The gassed bloater.** Its burst leaves a tile cloud that lingers and hurts. Reader: a tile
   status field with a decay. Gate: `godot:m2:filter` (the mask already reads it) and a CLOUD lane.
 - **The lurker.** Dormant indoors, wakes on indoor noise. Reuses the dormant placement seam from
@@ -1456,6 +1452,10 @@ tables and day lines are report-noise.md in the project's planning/balance folde
 
 **Proof — what closes the milestone, in this order:**
 
+- **The ten-seed re-baseline after the zombie kinds.** The crawler (2026-11-04) joins the day-5 pool,
+  so every campaign's spawns from day 5 on move, and its piece did not re-run the ten-seed table.
+  The re-baseline is owed in stage 2: ten seeds and a median wipe day, on `main` and on each
+  candidate, as the balance wall above says. Each later zombie kind owes the same run.
 - **Distribution assertions.** Quiet nights, sieges, deaths and run lengths asserted as
   distributions in the balance harness, not as single-seed anecdotes.
 - **The melee-vs-ranged parity measurement.** Risk 6's checkpoint: melee-only against ranged-only
@@ -2483,6 +2483,61 @@ not a to-do list:
     a door's exterior side. `godot:smoke` and `check:routing` pass. Material swatches and matched
     1280x720 main/head street, corner, oblique, eave, aerial and interior captures accompany the piece.
 
+- **First-person arms in the view, 2026-11-04.** docs/41 item W1, the held weapon: the player's
+  own arms under the eye, holding the item the sim says is in hand; bare hands show the arms alone.
+  It plays the arms kit (`tools/blender/first_person_arms/README.md`, round 1) through its README's
+  interface, so later art rounds drop in.
+  - **The record.** `godot/presentation/first_person/arms_view.gd` (new) is the view model. It is a
+    child of the camera, `Eye`, with an identity transform, and loads `arms_base.glb` through the
+    manifest loader under a sway pivot. A BoneAttachment3D named `grip_r` follows the skeleton's
+    `grip_r` bone, and `held_weapon.gd`'s grip node is mounted under it with an identity
+    transform (`mount`), so the weapon kit's GLBs, whose origin is their own `grip_r`, sit in the
+    hand. The hold class is read from the sim: `SimMelee.is_unarmed` is `unarmed`; a firearm
+    whose base equips to the sidearm slot is `pistol`, any other is `long`; a melee base that is a
+    polearm, two cells wide or four long is `melee2`, a shorter one `melee1`. The clips run on the
+    view's own clock (`advance`, manual process mode): `draw_<class>` up from below the frame,
+    then the `idle_<class>` loop. A change of the item in hand lowers the old class with a copy of
+    the old model in the hand (`lower_<class>`) and then draws the new one, so the sim's drawn set
+    still changes on its tick. A screen over the view (the ledger, the sheet, a conversation, the
+    bench, the key reference, the end panel; `first_person.gd`'s `view_covered`) lowers the arms
+    and hides them until it closes; the third-person view hides them at once, which also ends the
+    weapon floating at the eye there. `inspect_<class>` plays only while L is held, goes round
+    while it stays held and blends back to idle on release; the bare hands have none. L is in the
+    F1 key reference. Sway is code, as the README asks: a lag behind a turn of the head, a bob from
+    the body's speed and a breath scaled by `SimRanged.cone_half`. The raise and aim clips have no
+    reader, because the sim has no aim-down-sights state. No wall clipping: every view-model
+    surface draws through a cached copy of its material with Godot's `use_fov_override` at the
+    view model's own 75 degrees (the lens the arms were posed at) and `use_z_clip_scale` at 0.05,
+    which pulls the view model's depth toward the near plane in the vertex stage, so a wall can no
+    longer cut the hands or the weapon while the hands still sort among themselves. It works in
+    the Compatibility renderer; the shared atlases the world draws are never changed. View-model
+    meshes cast no shadow. Presentation only: `godot/sim/` is untouched.
+  - **The gate.** `godot:check:first_person` ARMS, driven by the scene's own frame and key
+    dispatch, with the sim's `item.pickup`, `item.equip`, `item.unequip` and `item.drop` commands
+    changing what is in hand. The node under the Eye carries `arms_view.gd`, the frame drives it,
+    and the held weapon's grip is inside it, while the held-weapon node fails the same test. Bare
+    hands are `unarmed` and idle; the service pistol is `pistol`, played after `lower_unarmed`;
+    the wooden bat is `melee2`, with a copy of the pistol lowered first and gone after; the
+    kitchen knife is `melee1`; the hunting rifle is `long`. The grip node's parent is the `grip_r`
+    attachment, and at idle frame 0, sway off, the pistol and the bat sit on their `arms.json`
+    anchors within 5 mm and 1 degree in camera space while each is refused against another
+    class's anchor. L: four seconds without it never inspect; held, it plays `inspect_pistol`
+    and still does past the clip's end; one frame after release it is idle; with bare hands it
+    stays idle; an L swallowed by the key reference leaves no inspect behind. F1 and the sheet
+    play `lower_pistol` and hide the arms, and closing brings them back; F2 hides them on the
+    frame and F2 brings them back. Every mesh in the view model draws with the view-model lens,
+    and a plain mesh planted in the hand is refused. The lane holds the clock and restores it, so
+    the lanes after it read the same colony. LEGEND knows L. One red run per key assertion (the
+    frame not driving the arms, F2 not hiding them, screens not covering, the two-handed rule,
+    the weapon not mounted, a 1 cm grip offset, a release ignored, the depth not pulled in, the
+    L row removed) each failed the gate with its own line.
+  - **Measured.** Captures at 1280 x 720 of each hold class and of a long gun and the bat 0.3 m
+    from a wall, with and without the lens (without it the wall swallows the weapon and the arms).
+    A throwaway driver toggling the arms' visibility over five interleaved rounds of 240 frames
+    put the arms and a pistol at +0.024 ms of render CPU and +0.013 ms of GPU a frame. The drivers
+    were deleted. `godot:bench:frame` draws the top-down scene and is not moved by this.
+  - **Verified.** `godot:check:first_person`, `godot:check:fp_expedition`,
+    `godot:check:fp_geometry`, `godot:smoke` and `check:routing`.
 - **The organic survivor, 2026-11-04.** The first-person survivor body is replaced: the box-segment
   `survivor.glb` gives way to an organic, smooth-skinned woman built by `organic_survivor.py` in the
   Blender character kit (`tools/blender/first_person_kit/build_characters.py`). She has 7,810 triangles,
@@ -4107,7 +4162,96 @@ not a to-do list:
   the ten-seed table: see docs/30's "The bloodhound, 2026-10-27". What content could not say: its
   scent 1.0 widens the nose a tenth over the shambler's and nothing more, because the turn toward
   scent is a constant and runs only in Wander, so it never Seeks; that is the open bullet "The
+  bloodhound's nose as a seek" under what's left, and docs/30's entry has the arithmetic. (It
+  landed on 2026-11-04: the next entry.)
+- **The bloodhound hunts by nose, 2026-11-04.** The reader the bloodhound's record above named as
+  missing: a scent-led Seek, `Track`, the seventh shambler state. A body walks up the scent field at
+  its own `seekSpeed` (2.1 m/s for the bloodhound). It is entered from Wander on a *gradient*, never
+  on a level: the uphill neighbour must carry `sensory.trail` more scent than the body's own cell
+  (`SimShambler._trail_of`). The key is new in the zombie schema, and only `bloodhound.json` names
+  it (20), so every other kind asks the field nothing new and draws exactly what it drew. The
+  threshold is set above anything one body lays on its own. On the 64-tile district at seed
+  20260805, a lone bloodhound's own residue peaks at 19.8 in its own cell, and the steepest rise its
+  own trail shows it is 16.6 (seven spots, a game day each). It keeps the trail on half the rise,
+  the two-radii rule, and holds its heading for `COMMIT_TICKS` when the rise fades, as the heard
+  Seek does. On the top of the hill it closes on the middle of that cell (the field cannot say
+  where in its four metres the smell is) and mills. Contact, sight and hearing outrank the trail in
+  the Wander arm's order. The Dormant arm is untouched: a sleeping body still wakes on noise and
+  contact only.
+
+  Measured with a throwaway driver (deleted) on the 64-tile district at seed 20260805, along the
+  open street at row 45. The source is a stationary emitter of 15 (docs/03's cooking) at (8.5,
+  45.5), left 6,000 ticks to stand, with one body placed 10, 20 or 40 m downwind (east), run 2,000
+  ticks. Each cell gives ticks to within 2 m of the source, then the mean speed to there (over the
+  whole run where it never arrived: 0.72 m/s for the bloodhound, 0.57 for the shambler, both trees).
+  Before is `main` at 3b274730; after is this head, the same driver on both.
+
+  | Body, distance | Rise at start | Before | After |
+  |---|---|---|---|
+  | bloodhound, 10 m | 60.4 | 374 ticks, 0.64 m/s | **91 ticks, 2.10 m/s** |
+  | shambler, 10 m | 60.4 | 373 ticks, 0.52 m/s | 373 ticks, 0.52 m/s |
+  | bloodhound, 20 m | 21.7 | 678 ticks, 0.69 m/s | **201 ticks, 2.10 m/s** |
+  | shambler, 20 m | 21.7 | 814 ticks, 0.55 m/s | 814 ticks, 0.55 m/s |
+  | bloodhound, 40 m | 1.5 | never (closest 39.5 m) | never (closest 39.5 m) |
+  | shambler, 40 m | 1.5 | never (closest 39.5 m) | never (closest 39.5 m) |
+
+  At 40 m the field holds a rise of 1.5, below even the shambler's drift, so neither kind smells the
+  source in 2,000 ticks: on this calibration a plume of 15 carries about 20 m downwind, and no
+  reader can follow what the field does not hold. The shambler's numbers are identical before and
+  after: it never enters Track. The self-smell negative:
+  the bloodhound alone, with no source, at each of the three spots, stays in Wander on all 2,000
+  ticks. At seven more spots (corners, edges, a room) it stays in Wander for a whole 72,000-tick
+  day. What it cannot do: a source of 1, one person, makes the same 18 in its cell that a lone body
+  makes in its own, so the bloodhound cannot tell one survivor from itself. It reached such a
+  source at 10 m in 374 ticks, the same as before, and at 20 and 40 m never. What it follows is
+  anything that smells stronger than one body: a fire, a kill, a latrine, a crowd, a camp.
+
+  Proof that nothing else moved: on four seeds (20260805, 404, 31337, 90210), a playable 64-tile
+  world fingerprints byte for byte the same on `main` and on this head after 6,000 ticks. That holds
+  with its boot shamblers alone, and again with three of every other kind added (armored, bloater,
+  heavy, runner, screamer, shambler, stalker). `godot:m2:roster`'s output is identical line for
+  line on both trees. The shambler component gains no key (`scentTrail` is set only for a kind
+  that names a trail), so no save changes shape. The no-bump reason is in `serialize.gd`'s
+  version notes.
+
+  Gate: `godot:m2:district` TRAIL, beside SCENT-ONLY, on the same district street. The bloodhound
+  20 m downwind of the warmed source takes the trail and walks it at exactly its `seekSpeed`, and
+  is within 2 m by tick 201, inside a 400-tick window. The shambler from the same spot is 11.3 m off
+  at tick 400 and never enters Track. The true negatives: alone with no source, it never leaves
+  Wander in 2,000 ticks; on a hill of 500 in its own cell it does not wake in the 108 ticks it lies
+  there (the same run's positive: one cell off, the hill is a trail, and it turns back at tick 110);
+  and a planted field whose `uphill_scent` names the body's own cell does not wake it, where the
+  same plant naming the next cell does. READ holds the threshold to the content's and the shambler
+  to none. Broken on purpose: with `_trail_of`'s rise test dropped to any rise above zero, TRAIL
+  goes red: alone, it tracked its own trail from tick 110 and left Wander on 1,139 of 2,000 ticks.
+  With the own-cell guard removed, the planted negative goes red. Both were restored.
+
+  Ran green: the full `godot:m2` chain (four shards), `godot:smoke`, `godot:validate`, `npm test`,
+  `check:routing`. Balance, same machine, FAST band (`godot:m2:balance`, four seeds, ten days):
+  `M2_BALANCE_OK` on `main` and on this head, every seed's line identical, so no bloodhound that
+  arrived from day 7 on those four campaigns walked a trail that changed an outcome. The ten-seed
+  table was not re-baselined. That is owed in stage 2 with the
+  zombie arc's re-baseline, since a bloodhound arrives from day 7 and now walks at 2.1 m/s where it
+  drifted at 0.7. docs/30's "The bloodhound's nose is a gradient, not a level, 2026-11-04" has the
+  design, the rejected one, and why.
   bloodhound's nose as a seek" under what's left, and docs/30's entry has the arithmetic.
+- **The crawler, 2026-11-04.** Zombie kind nine: `godot/content/zombies/crawler.json`, wave 2,
+  weight 3, speed 0.8 with `crawl` 0.45, `sensory` noise 0.5, light 0.2, scent 0.9, and
+  `variance.crawlers` 1.0, so every spawn is born legless (`roster.gd`'s `bool_chance(1.0)` is
+  always true, so nothing in the roll changed). It spawns with its legs at 0 and `bodyMax` at the
+  content's 80, which is what `SimHealth.is_crawling` reads. Its bites are the new part:
+  `grab.bites` (schema and `SimShambler.bite_weights_of`) puts 0.80 of a held bite on the victim's
+  legs and feet, rolled over the victim's survivor parts, and a kind with no table takes the shared
+  held table, which every shipped kind still does. Appearance is the shambler's workwear picture
+  with its variants, as the bloodhound's is: a gap, not a decision, until a crawler picture is drawn.
+  Gates: `godot:m2:sight` CRAWLER (behind a Low tile a standing survivor sees a shambler at the same
+  spot and not the crawler, a crawling survivor does not see it, and with its legs restored the
+  crawler is seen); `godot:m2:contact` CRAWLER (0.797 of 4000 held rolls on the legs and feet, a
+  shambler 0.186, a planted table with no legs 0.000, and 38 of 48 live held bites on the legs);
+  `godot:m2:roster` MIX, re-pinned for the day-7 pool over nine kinds, KINDS, and CRAWLERS (800 of 800
+  spawns over four seeds legless from the first tick, 36 of 800 shamblers crawling at the base's
+  0.05); `godot:check:appearance` ROSTER. The ten-seed table was not re-run; see "The ten-seed
+  re-baseline after the zombie kinds" under Proof.
 - **Colony screen follow-ups, 2026-10-26.** Three nits the Colony and HUD bullets named, one piece.
   - **Reopen scrolls to the pick.** `work_panel.gd` clears `_scrolled_for` on
     `NOTIFICATION_VISIBILITY_CHANGED`, so a reopened screen scrolls to the game's pick afresh.

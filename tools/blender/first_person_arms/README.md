@@ -2,6 +2,11 @@
 
 The player's own arms for the first-person view: the hands, the wrists and the base top's
 sleeves, rigged and animated for every hold class. This is art piece 8 of docs/41 ("view-model
+arms, grips, idle, sway, raise, lower, inspect"), built to the arms contract (art lead's draft of
+2026-11-01, with the owner's answers: bare hands on the base, inspect on a held key, an own
+view-model field of view, 128 px/m). The game plays it through
+`godot/presentation/first_person/arms_view.gd`; see [In the game](#in-the-game).
+
 arms, grips, idle, sway, raise, lower, inspect").
 
 ## Contract
@@ -10,10 +15,6 @@ The base layer is bare hands; gloves are a separate layer only when the survivor
 Presentation repeats the inspect clip while the player holds `L`. The view model has its own 75
 degree vertical field of view, a 0.06 m near limit and must not clip through a nearby wall. Arms
 and survivor bodies use 128 px/m. The 23 clips and their lengths are listed below.
-
-The presentation code that plays the kit (`arms_view.gd`, the `ARMS` lane of
-`check_first_person.gd`) is a later piece; nothing in the game on this branch reads these files
-yet.
 
 ## Rebuild and check
 
@@ -161,3 +162,36 @@ How the contract's wording is read, where it needed a number:
   carrying half, as the clips key it; the sleeve's section 1.2 cm and 3 cm above the wrist.
 - **Wrist girth** (`body-match`) is measured 2 mm above the cuff edge, where both surfaces are the
   sleeve's; forearm girth 15.4 cm above the wrist.
+
+## In the game
+
+`godot/presentation/first_person/arms_view.gd` plays these files; the `ARMS` lane of
+`godot/check_first_person.gd` holds it. It reads only what this README promises, so a new round
+that keeps the names, the frame and the clip table needs no code change.
+
+- **Where it hangs.** The view is a child of the camera, `Eye`, with an identity transform, and
+  the GLB sits under a sway pivot under it. A BoneAttachment3D named `grip_r` follows the
+  `grip_r` bone, and the held weapon (`held_weapon.gd`, assembled from the sim's installed parts)
+  is parented under it with an identity transform. `grip_l` has an attachment too, unused so far.
+- **The hold class** is read from the sim. Bare hands (`SimMelee.is_unarmed`) are `unarmed`. A
+  firearm whose base equips to the sidearm slot is `pistol` and any other firearm `long` (bows and
+  crossbows included, for now). A melee base that is a polearm, two grid cells wide or four long
+  is `melee2`; a shorter one is `melee1`.
+- **The clips.** Loops (`idle_*`, `aim_*`) are set to `LOOP_LINEAR` on load, the rest to none,
+  and the player is advanced by the scene's frame (manual process mode). `draw_<class>` brings the
+  hands up and hands over to `idle_<class>`. A change of the item in hand plays `lower_<class>`
+  with a copy of the old model still in the hand, then draws the new class. A screen over the
+  view plays `lower_<class>` and hides the arms until it closes; the third-person view hides them
+  at once. `inspect_<class>` plays while L is held and goes round while it stays held; letting go
+  blends back to idle over 0.2 s. `raise_*` and `aim_*` have no reader yet: the sim has no
+  aim-down-sights state.
+- **Sway** is code: a lag behind a turn of the head, a bob from the body's speed and a breath
+  scaled by the sim's `SimRanged.cone_half`, all a few millimetres and a fraction of a degree.
+- **The lens.** Every surface in the view model (the arms, the weapon and its parts) draws through
+  a copy of its material with `use_fov_override` at 75 degrees, the vertical field of view the
+  checks above pose the arms at, and `use_z_clip_scale` at 0.05, which pulls the view model's
+  depth toward the near plane so a wall never cuts through it. The copies are cached per source
+  material; the world's shared atlases are not changed. View-model meshes cast no shadow.
+- **Not yet.** The `gloves` and `torso` layers have no reader: the hands are always bare and the
+  sleeve is the base top's. There is no long-gun model in the weapon kit, so `long` holds the
+  placeholder box.

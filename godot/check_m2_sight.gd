@@ -49,6 +49,7 @@ func _run() -> void:
 	ok = _a_zombie_sees_what_is_lit_at_night() and ok
 	ok = _a_survivor_sees_three_and_a_half_metres_in_the_dark() and ok
 	ok = _sight_works_by_height() and ok
+	ok = _a_crawler_hides_below_low_cover() and ok
 	ok = _the_consumers_read_the_height() and ok
 	# The EYE lane's planar rule, run with SIGHT_BY_HEIGHT pinned false (docs/40 replaces it with
 	# HEIGHT above; the switch must still give it back).
@@ -59,7 +60,7 @@ func _run() -> void:
 	ok = _kinds_are_recorded_and_only_hostiles_are_a_threat() and ok
 	ok = _the_remembered_map_marks_the_cast_and_survives_a_save() and ok
 	if ok:
-		print("M2_SIGHT_OK sight memory prose recall, a zombie sees what is lit at night, and sight works by height")
+		print("M2_SIGHT_OK sight memory prose recall, a zombie sees what is lit at night, sight works by height, and a crawler hides below Low cover")
 		quit(0)
 	else:
 		push_error("M2_SIGHT_FAIL")
@@ -1045,6 +1046,58 @@ func _sight_works_by_height() -> bool:
 	lines.append("table: SIGHT_PARTIAL = PROFILE's partial keys")
 
 	print("HEIGHT OK " + "; ".join(lines))
+	return true
+
+
+# CRAWLER: a crawler is a zombie whose legs are gone (`SimHealth.is_crawling`), and its body is 450 mm
+# tall with its eye at 300 (`SimSpace._volume`). Behind Low cover (top 1100) a standing survivor sees
+# a shambler at the same spot and does not see the crawler; a crawling survivor does not see it
+# either. The true negative is the same crawler with its legs restored, which must be seen.
+func _a_crawler_hides_below_low_cover() -> bool:
+	var walk: int = SimStancesRes.Stance.Walk
+	var crawl: int = SimStancesRes.Stance.Crawl
+	var lines: Array[String] = []
+
+	var standing: Variant = _height_world([[13, ROW, SimTileMap.Tile.Low]])
+	var sp: int = _person(standing, 8.5, 12.5, walk, 0.0, true)
+	var cr: int = _zombie_at(standing, 14.5, 12.5, PI, "zombie.crawler")
+	standing.step()
+	if not SimHealth.is_crawling(standing.components.get_component(cr, "body") as Dictionary):
+		return _height_fail("a spawned zombie.crawler is not crawling on its first tick -- its legs did not go")
+	if _seen(standing, sp, cr):
+		return _height_fail("a standing survivor saw a crawler behind a Low tile")
+	lines.append("crawler: standing-behind-low=hidden")
+
+	var control: Variant = _height_world([[13, ROW, SimTileMap.Tile.Low]])
+	var csp: int = _person(control, 8.5, 12.5, walk, 0.0, true)
+	var sham: int = _zombie_at(control, 14.5, 12.5, PI)
+	control.step()
+	if not _seen(control, csp, sham):
+		return _height_fail("a standing survivor did not see a shambler behind a Low tile -- the crawler's hiding proves nothing")
+	lines.append("shambler-same-spot=seen")
+
+	var crawling: Variant = _height_world([[13, ROW, SimTileMap.Tile.Low]])
+	var kp: int = _person(crawling, 8.5, 12.5, crawl, 0.0, true)
+	var kc: int = _zombie_at(crawling, 14.5, 12.5, PI, "zombie.crawler")
+	crawling.step()
+	if _seen(crawling, kp, kc):
+		return _height_fail("a crawling survivor (eye 300 mm) saw a crawler behind a Low tile")
+	lines.append("crawling-survivor=hidden")
+
+	# The true negative: restore the legs, and the same crawler stands 1650 mm tall and is seen.
+	var restored: Variant = _height_world([[13, ROW, SimTileMap.Tile.Low]])
+	var rp: int = _person(restored, 8.5, 12.5, walk, 0.0, true)
+	var rc: int = _zombie_at(restored, 14.5, 12.5, PI, "zombie.crawler")
+	var body: Dictionary = (restored.components.get_component(rc, "bodyMax") as Dictionary).duplicate()
+	restored.components.set_component(rc, "body", body)
+	restored.step()
+	if SimHealth.is_crawling(body):
+		return _height_fail("restoring the crawler's legs did not stop it crawling")
+	if not _seen(restored, rp, rc):
+		return _height_fail("a standing survivor did not see the crawler once its legs were restored")
+	lines.append("legs-restored=seen")
+
+	print("CRAWLER OK " + "; ".join(lines))
 	return true
 
 

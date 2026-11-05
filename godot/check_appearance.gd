@@ -595,6 +595,9 @@ const ROSTER: Array[Dictionary] = [
 	{"id": "zombie.armored", "kind": "zombie", "probe": {"ztype": "zombie.armored"}, "tinted": false},
 	{"id": "zombie.heavy", "kind": "zombie", "probe": {"ztype": "zombie.heavy"}, "tinted": false},
 	{"id": "zombie.bloodhound", "kind": "zombie", "probe": {"ztype": "zombie.bloodhound"}, "tinted": false},
+	# The crawler wears the shambler's workwear picture, as the bloodhound does: a kind whose
+	# difference is its legs, not its clothes, so no new picture is drawn for it (docs/23, the crawler).
+	{"id": "zombie.crawler", "kind": "zombie", "probe": {"ztype": "zombie.crawler"}, "tinted": false},
 	{"id": "raider.scav", "kind": "raider", "probe": {"raider": true, "cid": "raider.scav"}, "tinted": true},
 	{"id": "raider.gunhand", "kind": "raider", "probe": {"raider": true, "cid": "raider.gunhand"}, "tinted": true},
 	# The two role archetypes (the roles slice). Same body as the other two, and that is the
