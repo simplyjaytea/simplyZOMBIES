@@ -3,6 +3,10 @@
 Each entry is the handoff a session wrote when it stopped, moved here from PLAYBOOK.md so the
 playbook stays current. Read the newest entry first. Links are relative to this folder.
 
+## Roster change (2026-11-05 afternoon)
+
+The owner's call: Fable orchestrates and plans, Sonnet is the lead engineer (reviews every worker change, runs the merge train), the rest unchanged; the playbook's team table says so.
+
 ## Where we left off (2026-11-04 evening, paused by the owner, usage)
 
 The second session on the Linux machine, the first with the new roster: Claude Fable coordinates,
