@@ -375,13 +375,21 @@ func _the_night_band_follows_home_into_its_cell() -> bool:
 		push_error("BAND: the region booted with an empty spawn band")
 		return false
 
-	# A camp in the diagonally opposite cell.
+	# A camp in the diagonally opposite cell. The annex is not always in the origin cell: the region's
+	# cell order decides which cell the colony site lands in (R2 put it at (85, 286), cell (0, 1)). So
+	# find the annex's own cell, take the diagonal one, and keep the annex's offset inside its cell.
 	var annex: Rect2i = SimTileMap.annex_rect(map)
+	var annex_cell := Vector2i(annex.position.x / stride, annex.position.y / stride)
+	if annex_cell.x > 1 or annex_cell.y > 1:
+		push_error("BAND: the annex sits in cell %s, outside the 2x2 region this lane assumes" % str(annex_cell))
+		return false
+	var opposite_cell := Vector2i(1 - annex_cell.x, 1 - annex_cell.y)
+	var local: Vector2i = annex.position - annex_cell * stride
 	var far := Vector2i(-1, -1)
 	for radius in range(0, 40):
 		for dy in range(-radius, radius + 1):
 			for dx in range(-radius, radius + 1):
-				var t := Vector2i(annex.position.x + stride + dx, annex.position.y + stride + dy)
+				var t := Vector2i(opposite_cell.x * stride + local.x + dx, opposite_cell.y * stride + local.y + dy)
 				if SimCamp.can_establish(world, t.x, t.y):
 					far = t
 					break

@@ -174,7 +174,16 @@ extends RefCounted
 # is not promised: `save.gd` refuses any version but its own, and pre-1.0 saves are not migrated.
 # Bumping would refuse every v33 save to guard a downgrade (docs/30, "A pitch with no yaw").
 # No version bump.
-const SAVE_VERSION: int = 33
+#
+# v34: the region runs up-valley. `region.main_area`'s four cells are re-placed so that x runs
+# up-valley (docs/42 section 3): the lower-valley cells at x=0, the upper-valley cells at x=1. A region's
+# map is regenerated from its seed and its cell order, so a region built on the old order lays its
+# districts on other ground -- the same case as v28's water. A save carries only the seed, not which
+# region or which cell order it was rolled on, so the refusal cannot be narrowed: every v33 save is
+# refused, district saves included. That is an over-refusal, since a district's own map is unchanged,
+# and it is the price of the seed-only save. Refused, same rule. docs/30, "The region runs up-valley,
+# and a region save from before it is refused, 2026-11-04".
+const SAVE_VERSION: int = 34
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:

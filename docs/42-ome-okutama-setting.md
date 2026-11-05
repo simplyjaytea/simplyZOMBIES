@@ -470,34 +470,44 @@ Each with one recommended default. The default is built unless the owner picks o
 1. **The valley's name.** Default: **Kagase** (valley, river, line, region). Alternatives:
    Kurose, Minase. The towns' names in section 3 follow whichever is chosen only for the terminus
    (Oku-Kagase).
+   Decided 2026-11-04: the default (docs/30).
 2. **The premise line and the one real name.** Default: keep "The last stop on the line out of
    Tokyo" verbatim as the title screen's line, and allow **Tokyo** as the one real place name in
    game text; everything up the line is fictional. Alternative: name no real place at all and say
    "out of the city".
+   Decided 2026-11-04: the default (docs/30).
 3. **Is the city expedition a new district?** Default: **no**. The first expedition goes down the
    valley to Umezaki Ekimae, the existing town centre; the city stays off the map. A city-fringe
    district is docs/41's P5 when the frame and tick budgets hold.
+   Decided 2026-11-04: the default (docs/30).
 4. **Where the colony starts.** Default: the walled **timber yard** on the Kawahara flat near the
    terminus, keeping `map.district.alpha`'s anchors. Alternatives: the school wing (walls, water,
    a kitchen) or the shrine precinct (a wall, a basin, high ground).
+   Decided 2026-11-04: the default (docs/30).
 5. **Rename ids too?** Default: **no**; names change, ids stay (saves, kits, loot tables, parity
    fixtures and gates all key on them). If yes, the new ids are in section 5's first table and
    the save version bumps (`godot/sim/kernel/serialize.gd`'s `SAVE_VERSION`).
+   Decided 2026-11-04: the default (docs/30).
 6. **Firearms.** Already docs/33's card, default rare. This brief adds only the source table in
    section 5 and the raider kit change that follows the default. Nothing new to decide.
+   Decided 2026-11-04: the default (docs/30).
 7. **Language.** Default: game text is English; a Japanese word appears only where English has
    none; names are given-name first; signage art carries invented Japanese script and no real
    brand.
+   Decided 2026-11-04: the default (docs/30).
 8. **A shrine water basin as a water source.** A new water source is a mechanic (the playbook's
    examples under "Who decides what" include one). Default: **no**; the basin is decoration, and
    the river and the yard's well remain the water.
+   Decided 2026-11-04: the default (docs/30).
 9. **Two-storey exteriors with one floor.** Default: **yes**. Houses and shop-houses read as two
    storeys outside; the interior is the ground floor; the stair is a blocked tile with a drawn
    stair. This keeps docs/23's z-level deferral intact and the street honest.
+   Decided 2026-11-04: the default (docs/30).
 10. **The climate's words.** Default: keep `climate.temperate`'s numbers and the seven weather
     kinds; rename nothing in their ids; rewrite their descriptions for the valley (the rainy
     season's mist, typhoon rain in autumn, clear cold winters, snow on the ridges). A start season
     other than the current `spring` is a rule change and is not proposed.
+    Decided 2026-11-04: the default (docs/30).
 
 ## 8. Sources
 
