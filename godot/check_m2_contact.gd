@@ -31,6 +31,8 @@ const SimStances = preload("res://sim/stances.gd")
 const SimTreatment = preload("res://sim/modules/treatment.gd")
 const SimLocomotion = preload("res://sim/locomotion.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
+const SimRoster = preload("res://sim/modules/roster.gd")
+const SimLightVision = preload("res://sim/vision/light.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -49,6 +51,7 @@ func _run() -> void:
 	ok = _every_bite_records_one_located_wound() and ok
 	ok = _a_held_bite_aims_where_the_hands_are() and ok
 	ok = _a_bite_scales_to_the_part_it_lands_on() and ok
+	ok = _a_crawler_bites_the_legs() and ok
 	ok = _struggling_frees_sometimes_and_never_while_spent() and ok
 	ok = _instinct_answers_a_grab_nobody_else_will() and ok
 	ok = _somebody_else_can_pull_you_out() and ok
@@ -68,7 +71,7 @@ func _run() -> void:
 	ok = _deterministic_replay() and ok
 	ok = _the_flag_actually_gates_acquisition() and ok
 	if ok:
-		print("M2_CONTACT_OK grabs form, bite on cadence, wounds land, struggle is a contest and an instinct, rescue is another and a held body gets its breath back")
+		print("M2_CONTACT_OK grabs form, bite on cadence, wounds land, struggle is a contest and an instinct, rescue is another and a held body gets its breath back, and a crawler bites the legs")
 		quit(0)
 	else:
 		push_error("M2_CONTACT_FAIL")
@@ -535,6 +538,94 @@ func _a_bite_scales_to_the_part_it_lands_on() -> bool:
 		return false
 	print("BITE-SCALE OK head %.2f torso %.2f arm %.2f (Laceration, flat 8 was a DeepWound) hand %.2f; %d live bites matched, %d off-torso" % [head, torso, arm, hand, seen, off_torso])
 	return true
+
+
+# CRAWLER: a crawler's held bites land on its victim's legs and feet at the content share, 80 in 100,
+# and a shambler's do not. A bite is rolled over the VICTIM's survivor parts, so the share is the
+# biter's `grab.bites` table (SimShambler.bite_weights_of) and not anything in its own body. Measured
+# over HELD_ROLLS through the same roller the bite uses, then live off real holds. The negative is a
+# planted table with the legs taken out, which must measure nothing on the legs.
+const CRAWLER_TYPE: String = "zombie.crawler"
+const CRAWLER_LEG_SHARE: float = 0.80
+const CRAWLER_SHARE_TOLERANCE: float = 0.03
+const CRAWLER_LEG_PARTS: Array = ["leg_left", "leg_right", "foot_left", "foot_right"]
+const CRAWLER_LIVE_BITES: int = 12
+
+func _a_crawler_bites_the_legs() -> bool:
+	var w: Variant = _world(4011)
+	var body: Variant = w.components.get_component(w.player, "body")
+	var table: Dictionary = SimShambler.bite_weights_of(w, CRAWLER_TYPE)
+	if table.is_empty():
+		push_error("CRAWLER: %s names no grab.bites table, so its bites would take the shared table" % CRAWLER_TYPE)
+		return false
+	var total: float = 0.0
+	for part in table.keys():
+		if not SimCombat.SURVIVOR_BODY_PARTS.has(String(part)):
+			push_error("CRAWLER: grab.bites names '%s', which is not a survivor body part" % String(part))
+			return false
+		total += float(table[part])
+	if absf(total - 1.0) > 0.0001:
+		push_error("CRAWLER: grab.bites sums to %f, not 1.0" % total)
+		return false
+	if not SimShambler.bite_weights_of(w, SimRoster.TYPE_SHAMBLER).is_empty():
+		push_error("CRAWLER: a shambler names a grab.bites table of its own, so its bites are no longer the shared held table")
+		return false
+
+	var crawler_roll: Dictionary = _roll_share(w, body, table, "crawler-bite")
+	var crawler_legs: float = _share_of(crawler_roll, CRAWLER_LEG_PARTS)
+	if absf(crawler_legs - CRAWLER_LEG_SHARE) > CRAWLER_SHARE_TOLERANCE:
+		push_error("CRAWLER: a crawler's held bites landed on the legs and feet %.3f of the time, content asks %.3f" % [crawler_legs, CRAWLER_LEG_SHARE])
+		return false
+	var shambler_roll: Dictionary = _roll_share(w, body, SimCombat.HELD_HIT_LOCATION_WEIGHTS, "shambler-bite")
+	var shambler_legs: float = _share_of(shambler_roll, CRAWLER_LEG_PARTS)
+	if shambler_legs >= CRAWLER_LEG_SHARE - CRAWLER_SHARE_TOLERANCE:
+		push_error("CRAWLER: a shambler's held bites landed on the legs %.3f of the time, the crawler's share is not special" % shambler_legs)
+		return false
+	# True negative: a planted table with the legs taken out must measure nothing on them, so the
+	# share test above would fail it.
+	var planted: Dictionary = {"head": 0.05, "torso": 0.95}
+	var planted_roll: Dictionary = _roll_share(w, body, planted, "planted-bite")
+	var planted_legs: float = _share_of(planted_roll, CRAWLER_LEG_PARTS)
+	if absf(planted_legs - CRAWLER_LEG_SHARE) <= CRAWLER_SHARE_TOLERANCE:
+		push_error("CRAWLER: negative control failed: a table with no legs still measures %.3f on them" % planted_legs)
+		return false
+
+	# Live: real holds by a spawned crawler, its bite events counted by source.
+	var bites: int = 0
+	var on_legs: int = 0
+	for s in 8:
+		var live: Variant = _world(4720 + s)
+		# A spawned zombie carries an observer, and its think pass leans toward light through
+		# `world.light`, which only SimBoot attaches. The fixture has no light, so give it an empty one.
+		live.light = SimLightVision.new()
+		_no_struggling(live)
+		var zed: int = _spawn_crawler(live, 17.2, 16.5)
+		if _step_until_held(live, 40) < 0:
+			continue
+		for _i in (SimShambler.FIRST_BITE_TICKS + SimShambler.REPEAT_BITE_TICKS * 5 + 5):
+			live.step()
+			for e in live.events.drained:
+				var ev: Dictionary = e as Dictionary
+				if String(ev.get("type", "")) != "bite.landed" or int(ev.get("source", -1)) != zed:
+					continue
+				bites += 1
+				if CRAWLER_LEG_PARTS.has(String(ev.get("bodyPart", ""))):
+					on_legs += 1
+	if bites < CRAWLER_LIVE_BITES:
+		push_error("CRAWLER: only %d live crawler bites in the sample, the live wiring was never judged" % bites)
+		return false
+	var live_share: float = float(on_legs) / float(bites)
+	if live_share < CRAWLER_LEG_SHARE - 0.15:
+		push_error("CRAWLER: %d of %d live crawler bites landed on the legs (%.2f), expected about %.2f" % [on_legs, bites, live_share, CRAWLER_LEG_SHARE])
+		return false
+	print("CRAWLER OK legs and feet %.3f of %d held crawler bites (%d live of %d on the legs %.2f); a shambler's held bites %.3f on them; a planted table with no legs measures %.3f" % [crawler_legs, HELD_ROLLS, on_legs, bites, live_share, shambler_legs, planted_legs])
+	return true
+
+
+func _spawn_crawler(w: Variant, x: float, y: float) -> int:
+	var ent: int = SimRoster.spawn_zombie(w, x, y, CRAWLER_TYPE, w.rng.stream("shambler"))
+	w.components.set_component(ent, "facing", {"radians": 0.0})
+	return ent
 
 
 # Escape is an opposed contest (SimAptitudes.escape_chance), not a coin flip and not a
