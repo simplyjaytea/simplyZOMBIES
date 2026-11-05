@@ -187,6 +187,9 @@ The source baseline is archived on GitHub at
   save/reload, die and succeed; measured performance, regression proof, campaign
   balance and human play. The default switch landed 2026-11-01 (docs/30, "First person
   is the default boot"), so the boot is first person and the top-down game is the testing build.
+- **Worn items on the first-person bodies, first cut.** [docs/44](44-clothing-layers.md)'s first
+  piece: the outfit resolver, a picture or an explicit none for all 63 worn items, five layer
+  families, gloves on the arms, and their gates. Waits on the organic survivor and the arms kit.
 - **Starter-kit polish (#275 round 2).** In `tools/blender/first_person_kit/build_kit.py`: plaster
   cloud noise reads as camouflage blocks up close; oak grain steps every 8 texels, like brickwork;
   paint chips follow atlas cells, not mesh edges; barricade planks float 6 mm off the brace; wall
