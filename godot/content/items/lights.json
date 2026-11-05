@@ -76,7 +76,7 @@
   {
     "id": "item.flare.road",
     "name": "Road Flare",
-    "description": "A highway flare, red and furious. It lights the whole street for a little while and tells the whole street about it.",
+    "description": "A roadside flare, red and furious. It lights the whole street for a little while and tells the whole street about it.",
     "class": "tool",
     "size": { "w": 1, "h": 2 },
     "massKg": 0.2,
