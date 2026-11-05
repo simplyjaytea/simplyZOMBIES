@@ -654,6 +654,7 @@ wider world by rail (a design note, docs/30 "The setting cards").
 |---|---|
 | First-person conversion: approved direction, phases, spatial contracts and archive | [docs/39](docs/39-first-person-pivot.md) |
 | The setting: the fictional valley, the building types, the renames and their order | [docs/42](docs/42-ome-okutama-setting.md) |
+| The wider world by rail: other districts and cities, the train the colony repairs, the transition between maps | [docs/45](docs/45-wider-world-by-rail.md) |
 | What is open, what landed, with evidence | [docs/23, the roadmap](docs/23-roadmap.md) |
 | What each session did and left, newest first | [docs/43, the session log](docs/43-session-log.md) |
 | Which release stage a piece belongs to, and the four content arcs | [The release plan](#the-release-plan), [The content arcs](#the-content-arcs) |

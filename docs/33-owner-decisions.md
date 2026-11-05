@@ -498,3 +498,19 @@ would be police revolvers, hunting shotguns, and rifles from hunting clubs, and 
 the main way to fight. This changes the modular firearms plan (docs/41 W2). Default: firearms
 are rare and come from these sources, and the weapon work already built stays in the game. The
 default is not built yet.
+
+28. **How many destinations in the first rail cut?** Default: **one**, Asahigaoka, the next town down the
+    line past Umezaki ([docs/45](45-wider-world-by-rail.md), section 7). Recommended: one until the
+    transition works in play.
+29. **Does the train run on a timetable or on demand?** Default: **on demand**: the player calls it from
+    the platform once the car is repaired, fuelled and crewed. A timetable waits on the district tier.
+30. **Can raiders use the line?** Default: **no** in the first cut. A raider on the line would reach a
+    destination's resident map without the player, and no rule covers that yet.
+31. **Is Tokyo a destination or a horizon?** Default: **a horizon**. It is on the line's map and at the far
+    end of the premise; no shipped piece makes it resident.
+32. **What happens to the colony while the player is away?** Default: **frozen**. Home is not simulated
+    while the player is elsewhere, and the days away are not replayed on return.
+33. **Does the car need a second crew member?** Default: **no**. One driver, as a vehicle has one driver
+    seat.
+34. **Which tier of parts is the hardest?** Default: **Tier III**, the fuel system and electrics, found only
+    at the Hikage Works warehouse, the valley's one industrial site.
