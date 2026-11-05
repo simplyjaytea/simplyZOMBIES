@@ -123,6 +123,11 @@ never share a worktree at the same time, and nobody switches branches in the mai
   it goes green. The next merges `main` in (never rebase, never force-push), waits for CI on its new head,
   and merges in turn. Conflicts in the tails of docs/23 and docs/30 are settled by keeping both entries.
   A piece that waits on another names it in its body.
+  - **A merge of `origin/main` into an art PR keeps the art QA's verdict** when `git diff <reviewed-head> <new-head>`
+    over the paths the review covered (for the arms, `tools/blender/first_person_arms` and
+    `godot/assets/first_person/arms`) is empty; the merge note names both SHAs and says the diff is empty. Any
+    non-empty diff on those paths voids the verdict and goes back to the art QA (the coordinator's engineering
+    call, 2026-11-06).
 - After each merge the coordinator tells the open workers the new `main`. A worker keeps the queue
   current: it merges `main` into the next PR, reruns the touched gates, and reports a table (number,
   head, CI, local gates, preconditions, risk).
@@ -577,65 +582,63 @@ train and merges. Kimi does all 3D and art; a standing Claude Opus terminal besi
 rounds and signs every art batch off before its PR. Two Claude Code Haiku workers do everything else.
 On 2026-11-04 Fable coordinated and Opus was a subagent; the OpenCode workers were retired that day.
 
-**Merged this session (evening of 2026-11-04):** #318, #319, #320, #323 (docs/42), #324, #325 (this
-trimmed playbook), #326 (the organic survivor). Their branches and worktrees are gone.
+**Merged this session (2026-11-05 to 06):** #338 (arms art), #348 (this roster), #329 (crawler), #331 (arms
+view in the game, retargeted to `main` before `claude/fp-arms` was deleted), #336 (bloodhound's scent-led
+Seek), #327 (purifier refill), #328 (clothing layers note, docs/44). #346 (the renames R1 to R11) and #347
+merged just before. #322 was closed as a no-op by the owner. Fourteen merged remote branches were deleted by
+the owner; the rest of the merged `claude/*` branches are still on the remote. R4 was never built.
 
-**The merge train.** A PR merges only when its head contains `origin/main` and CI is green on that
-head; after each merge the next PR merges `main` in and waits for CI again. CI is the bottleneck
-(nine runs queued at once this session), so the eleven renames go in as one integration PR. Order:
-#346, the renames integration (closes #332, #333, #334, #335, #337, #339, #340, #341, #342, #343, #344),
-then #338 (arms art), then #331 (arms view, retargeted to `main` **before** the arms branch is
-deleted: GitHub closes a PR whose base branch goes), then #327 (purifier refill), #329 (crawler),
-#336 (bloodhound), #328 (clothing note). #322 is a no-op (its rule is already on `main`): close it.
-The merge-train spec is `sz-shared/merge-train/task-opencode.md`; its rows are in `REPORT.md` there.
+**The merge train.** A PR merges only when its head contains `origin/main` and CI is green on that head; each
+merge voids every head behind it, so the next merges `main` in and waits for CI again. After a merge, check
+`gh pr view N --json state,mergeCommit`: a GitHub error once made a "merged" report false, and a PR's head
+view lagged a pushed branch until an empty commit push refreshed it. Docs-only merges wait until the code
+queue drains (one early docs merge voided every queued head). Two docs PRs that append `docs/33` cards collide
+on numbers: number against the queue, not `main`. State of the train: `sz-shared/merge-train-2026-11-05/TRAIN.md`.
 
-**Open pull requests, all with local gates green at hand-off** (CI state moves: `gh pr checks <n>`):
+**Open pull requests at the pause (the train, in order; heads and CI in TRAIN.md):** #349 the trip alarm and
+noisemaker priced (owner kept (a): E lays the alarm only where a wall cannot go up); #350 the lurker (a dormant
+kind, 20% of declared dormant slots, wakes on indoor noise); #351 the sedan is a Kei Car; #352 the bloater's gas
+decays (the owner changed card 2: a survivor in the cloud is rolled again every 10 s; re-review the reworked
+head); #353 the feigner (reads as a corpse in the sight memory until a living body comes within 2.5 m; every
+settled corpse is now a memory record); #354 docs/45, the wider world by rail (the owner changed card 37: home
+is simulated at a coarse tier while away; re-review the reworked head); #355 arms polish (the key bar clears
+the hands, a HANDS lane, the pistol inspect axis; the art QA cleared it on `67492b7a`, see the ruling under the
+merge train). The owner answered all 18 cards on #349, #350, #352, #353, #354 (16 kept, two changed;
+`sz-shared/owner-calls-2026-11-06/DECISIONS.md`); one docs PR after the train marks them decided in docs/33.
 
-- The renames R1 to R11 (`claude/rename-r*`, one PR each) and the setting calls (#332): names change,
-  ids stay; R2 bumped `SAVE_VERSION` to 34 (every v33 save refused, docs/30). The integration branch
-  `claude/renames-integration` was being built by a Haiku worker when the owner paused; read
-  `sz-shared/renames-integration/REPORT.md` or `HANDOFF.md`. R4 (the kawara and siding look retag)
-  waits on Kimi's materials.
-- #338 the arms art (`claude/fp-arms`, review round 2 FIX-THEN-MERGE, its one major fixed on the view,
-  confirmation pass CLEAR; `sz-shared/reviews/fp-arms/`), #331 the arms in the game
-  (`claude/fp-arms-view`, contains #338; six owner defaults built, docs/30).
-- #327 the purifier refill, #329 the crawler, #336 the bloodhound's scent-led Seek (all touch shared
-  sim modules; each ran the full chain locally), #328 the clothing layers design note (docs/44, five
-  owner cards 28 to 32 in docs/33).
+**Art line.** Japanese buildings batch A: the art QA signed off round 4 at `db64d031`, the owner saw it
+(`sz-shared/reviews/fp-buildings-jp/round-4/OWNER_SHEET.png`) and sent it back for a fifth, full character
+round before any PR (deeper eaves, amado, aluminium sashes, genkan, pent roof, balcony, kiso). Round 5 was in
+progress at the pause: `sz-shared/fp-buildings-jp/task-kimi-round5.md`, checkpoint `HANDOFF_round5.md` there
+(not yet written when this was). The art QA reviews it as a full round, the owner sees it, then the PR. R4
+(kawara and siding retag) and batch B (`task-kimi-batchB.md`, drafted, six templates) wait on batch A. The
+hunting rifle's round 2 is done on `kimi/fp-rifle` (`sz-shared/fp-rifle/REPORT_round2.md`) and waits for its
+independent review. Arms: the skin tone at the UV seams (n1) stays open. The art QA's method is
+`sz-shared/reviews/fp-buildings-jp/METHOD.md`; its handoff is `sz-shared/art-qa/HANDOFF.md`.
 
-**Art line.** The hunting rifle (`kimi/fp-rifle`, `c77c938a`) is BLOCKED by its independent review
-(`sz-shared/reviews/fp-rifle/review_round-1.md`: the receiver reads as a scope, its pieces float, no
-bolt handle, the barrel tapers backwards, the stock's comb is 91 mm low, a dropped rifle draws as a
-pipe); Kimi's round 2 spec is `sz-shared/fp-rifle/task-kimi-round2.md`, to send after the buildings.
-Japanese buildings batch A (`kimi/fp-buildings-jp`: kawara and siding materials, the small wooden house
-and the tiled-roof house) was in progress at the pause: read `sz-shared/fp-buildings-jp/HANDOFF.md` or
-`REPORT.md`. Batch B (shotengai fronts, sawmill shed, station, konbini, kōban, shrine) and prop kit A
-follow its review.
+**Code in flight.** The juggernaut (`claude/juggernaut`, `sz-shared/juggernaut/HANDOFF.md`) waits behind #349
+(both touch `fortify.gd`).
 
-**In flight at the pause, with a checkpoint each:** the alarm and noisemaker priced
-(`claude/alarm-priced`, `sz-shared/alarm-priced/`) and the buildings batch.
-
-**Waiting on the owner:** the six arms-view defaults (#331); docs/33's firearms card (default rare);
-docs/44's five clothing cards; the survivor concept image for `/home/jtf/sz-shared/concept/`; whether
-the alarm's wire and the noisemaker's scrap metal are the right prices (the piece measures before and
-after). Every one has a default built.
+**Waiting on the owner:** docs/33's firearms card (default rare); docs/44's five clothing cards (28 to 32);
+the survivor concept image for `/home/jtf/sz-shared/concept/`. Every one has a default built.
 
 **Next session, start here**, in order:
 
-1. `hc ls`; read every `HANDOFF.md` or `REPORT.md` under `sz-shared/` for the three in-flight pieces
-   and resume them (a Haiku for the alarm, Kimi for the buildings).
-2. `gh pr list` and CI; run the merge train in the order above. Retarget #331 to `main` before
-   deleting `claude/fp-arms`.
-3. After the integration merges: R4 waits on Kimi's materials; then the rifle round 2 to Kimi after
-   batch A's report, and an independent review of batch A by the art QA (the Opus terminal).
-4. Then from the to-do: zombie kinds on the organic base (sim kinds first: the gassed bloater, the
-   lurker, the juggernaut, the feigner; pictures a stage behind), the arms polish minors (docs/23),
-   the owed ten-seed re-baseline (stage 2) for the crawler and the bloodhound, the sedan's name
-   (`check_vehicles.gd` MOUNT pin), a crawler picture.
+1. `hc ls`; read `sz-shared/merge-train-2026-11-05/TRAIN.md` and every `HANDOFF.md` or `REPORT.md` it and the
+   art line name.
+2. Run the train: merge `main` into #349, CI, merge; then down the list. #352 and #354 only on their reworked
+   heads after the lead engineer's re-review; #355 only with the art QA's written verdict (or an empty diff
+   on the covered paths).
+3. Art: Kimi resumes round 5 from its handoff, the art QA reviews it as a full round, the owner sees it, then
+   the PR; then R4, batch B and the rifle round 2.
+4. The juggernaut once #349 is on `main`.
+5. After the train: the docs/33 decided-cards sweep, then the ten-seed re-baseline (stage 2) for the crawler,
+   lurker, bloater gas, feigner and juggernaut, on a quiet machine. The burner waits on fire; raiders'
+   archetypes follow the zombie kinds.
 
-**To do:** crossbow bolt, fuel, oil and canteen bottles (Kimi); the shambler and six zombie kinds on
-the organic base, with a lighter horde version; the clothing layers' first cut after the cards; the
-wider world by rail (a design note, docs/30 "The setting cards").
+**To do:** crossbow bolt, fuel, oil and canteen bottles (Kimi); the shambler and the remaining zombie kinds
+on the organic base, with a lighter horde version; the clothing layers' first cut after the cards; the wider
+world by rail's first cut after docs/45.
 
 **Known bugs**
 
