@@ -33,9 +33,9 @@ is not byte-reproducible.
 **`--check`** builds into a temporary folder and judges every file there. It prints
 `WEAPONS_CHECK_OK`, or `WEAPONS_CHECK_FAIL: <reason>` and exits 1. It checks:
 
-- **Bounds.** Each model's mesh bounds are within 1 cm of the `sizeM` the manifest declares. The
-  declared sizes are real-world sizes, written by hand in `MODELS`. They are not read back from
-  the geometry.
+- **Bounds.** Each model's mesh bounds are within 1 cm of the `sizeM` the manifest declares, tightened
+  to 2 mm for every rifle model. The declared sizes are real-world sizes, written by hand in `MODELS`.
+  They are not read back from the geometry.
 - **Sockets.** Every socket the manifest names exists in the GLB as an empty node, inside the
   model's bounds (1 mm of slack). The one exception is a receiver's fallback `socket_muzzle`,
   which may sit at its separate barrel's crown; the assembly chain still holds it to 1 mm. The
@@ -56,12 +56,13 @@ is not byte-reproducible.
   by both of its faces.
 - **No coplanar faces.** No two same-facing triangles lie within 0.2 mm of one plane with
   overlapping area. This is checked within each model, and also across every assembly: the
-  receiver plus each part placed at its socket.
+  receiver plus each part placed at its socket. Rifle cross-part faces also refuse near-coplanar
+  pairs within 1 degree and 0.5 mm.
 - **Texel density.** Every triangle is within 25% of its model's declared density. Every
   triangle samples exactly one atlas region, and every region is sampled by some model.
 - **Assembly.**
   - Each part placed at its socket touches a piece of the receiver (1 mm of slack). No part
-    floats.
+    floats. The rifle receiver's own sub-bodies form one connected group at 0.2 mm.
   - The barrel's own `socket_muzzle`, carried through `socket_barrel`, lands within 1 mm of the
     receiver's `socket_muzzle`.
 - **Shading.** Each triangle in the GLB is traced to the built face that holds its corners, and
@@ -78,8 +79,10 @@ is not byte-reproducible.
 **`--prove`** shows that each check can fail. It plants one error per build: a size 2 cm off, a
 misnamed socket, a slot with no socket, a misspelt part or receiver id, a part shifted off its
 origin, an optic lifted off the slide, a muzzle socket 3 mm out, the rifle's support grip 6 mm off,
-a second material, a double-sided material, linear filtering, one face wound backwards, a coplanar
-decal face, a flush extractor, a squashed unwrap, lathes exported with their face normals
+a receiver 1.5 times its barrel's breech width, a handle on the hidden action, a rear sight lifted
+2 mm, a trigger buried in its guard, a near-coplanar rifle part, a second material, a double-sided
+material, linear filtering, one face wound backwards, a coplanar decal face, a flush extractor,
+a squashed unwrap, lathes exported with their face normals
 (`flat_lathe`), the barrel's hood smoothed (`smooth_box`), and a flipped byte. It prints
 `PLANT <name> CAUGHT: <message>` for each, then
 `WEAPONS_PROVE_OK`. If any planted error passes, it prints `WEAPONS_CHECK_FAIL` instead.
@@ -170,14 +173,14 @@ fallbacks, while shared attachments such as the suppressor need no qualifier.
 | `pistol_suppressor` | `item.attach.suppressor` (muzzle) | 0.0324 x 0.0324 x 0.149 | |
 | `pistol_optic_red_dot` | `item.attach.optic.red_dot` (optic) | 0.022 x 0.0215 x 0.032 | |
 | `pistol_magazine_extended` | `item.attach.magazine.extended` (magazine) | 0.0256 x 0.1345 x 0.0375 | |
-| `rifle_hunting` | `item.rifle.hunting` | 0.044 x 0.162 x 0.285 | all ten slots, `grip_r`, `grip_l` |
-| `rifle_barrel_standard` | `item.part.barrel.standard` on the rifle | 0.018 x 0.040 x 0.570 | `socket_muzzle` |
-| `rifle_magazine_standard` | `item.part.magazine.standard` on the rifle | 0.030 x 0.049 x 0.072 | |
-| `rifle_action_standard` | `item.part.action.standard` on the rifle | 0.050 x 0.017 x 0.160 | |
-| `rifle_spring_standard` | `item.part.spring.standard` on the rifle | 0.012 x 0.012 x 0.100 | |
-| `rifle_sear_standard` | `item.part.sear.standard` on the rifle | 0.012 x 0.015 x 0.028 | |
-| `rifle_extractor_standard` | `item.part.extractor.standard` on the rifle | 0.006 x 0.012 x 0.046 | |
-| `rifle_stock_standard` | `item.part.stock.standard` on the rifle | 0.052 x 0.155 x 0.853 | |
+| `rifle_hunting` | `item.rifle.hunting` | 0.073 x 0.148 x 0.245 | all ten slots, `grip_r`, `grip_l` |
+| `rifle_barrel_standard` | `item.part.barrel.standard` on the rifle | 0.030 x 0.052 x 0.570 | `socket_muzzle` |
+| `rifle_magazine_standard` | `item.part.magazine.standard` on the rifle | 0.030 x 0.049 x 0.080 | |
+| `rifle_action_standard` | `item.part.action.standard` on the rifle | 0.016 x 0.016 x 0.160 | |
+| `rifle_spring_standard` | `item.part.spring.standard` on the rifle | 0.0104 x 0.0108 x 0.100 | |
+| `rifle_sear_standard` | `item.part.sear.standard` on the rifle | 0.012 x 0.0125 x 0.026 | |
+| `rifle_extractor_standard` | `item.part.extractor.standard` on the rifle | 0.0065 x 0.013 x 0.043 | |
+| `rifle_stock_standard` | `item.part.stock.standard` on the rifle | 0.052 x 0.1294 x 0.862 | |
 | `bat_wood` | `item.bat.wood` | 0.066 x 0.066 x 0.840 | stud, weight, wrap; `grip_r`, `grip_l` |
 | `knife_kitchen` | `item.knife.kitchen` | 0.019 x 0.046 x 0.322 | edge, wrap; `grip_r` |
 | `crowbar_steel` | `item.crowbar.steel` | 0.0275 x 0.102 x 0.600 | weight, wrap; `grip_r` |
@@ -197,26 +200,38 @@ fallbacks, while shared attachments such as the suppressor need no qualifier.
 
 **The hunting rifle.**
 
-- A bolt-action hunting rifle, 1.061 m long in its default assembly. The receiver is 285 mm
-  long; the separate barrel is 570 mm and the full walnut stock is 853 mm from fore-end to butt.
-- The receiver is the action housing, open trigger group, trigger and rear sight. The barrel
-  carries the front sight and muzzle socket. The stock includes the firing-hand wrist, fore-end
-  and butt plate; it touches the receiver at the furniture socket.
+- A bolt-action hunting rifle, 1.070 m long in its default assembly. The receiver is 245 mm
+  long; the separate barrel is 570 mm and the full walnut stock is 862 mm from fore-end to butt.
+- The receiver is 36 mm across at the breech, 1.20 times the barrel's 30 mm shank. It has a real
+  ejection-port opening, a rounded bolt shroud and a right-side handle whose knob reaches 37 mm
+  past the receiver. The handle belongs to the visible receiver, not the hidden internal action.
+  The lower action, rear sight, open guard and trigger all seat into one connected group.
+- The guard opening is 52 x 22 mm and ends 12 mm behind `grip_r`; the trigger is visible inside it.
+  The barrel tapers from 30 mm at the breech to 16 mm at the muzzle. The 80 mm magazine is longer
+  than the 71.1 mm round. The stock's comb is 40.1 mm below the sight line, its heel 55.5 mm and
+  lower, and its hooked wrist is 103.4 mm deep x 42.0 mm wide. The butt plate follows the end
+  section within 0.50 mm and 0.03 degrees, without an overrun.
 - `grip_r` is the origin at the small of the stock. The arms' long idle anchor places it at
   (0.10, -0.15, -0.24) m in camera space, rotated (2.695, 2.075, 0) degrees. `grip_l` is
   (0, 0.022, -0.250) m relative to `grip_r`, on the stock's fore-end. The exported receiver
   measures 0.0 mm from the long contract at both grips, within its 5 mm tolerance.
+- The receiver exports `sight` at (0, 0.092, -0.115) m, 37 mm over the bore, and the front and
+  rear sight tops are level. The arms' `long` aim pose must re-anchor its stand-in sight from
+  70 mm to this rifle's 37 mm; the idle grip anchors do not move.
 - Sockets in receiver coordinates: optic (0, 0.082, -0.055); barrel (0, 0.055, -0.180);
   muzzle (0, 0.055, -0.750); magazine (0, -0.005, -0.055); furniture (0, 0.025, -0.060);
   internal (0, 0.055, -0.035); spring (0, 0.055, 0.015); sear (0, -0.005, 0.020);
-  extractor (0.022, 0.058, -0.105); underbarrel (0, -0.020, -0.170).
+  extractor (0.016, 0.058, -0.105); underbarrel (0, -0.020, -0.170).
 - The seven defaults are `rifle_barrel_standard`, `rifle_magazine_standard`,
   `rifle_action_standard`, `rifle_spring_standard`, `rifle_sear_standard`,
   `rifle_extractor_standard` and `rifle_stock_standard`. Each manifest match carries the part
   id and `receiver: item.rifle.hunting`, so neither side of the pistol/rifle scale split leaks.
-- The default assembly is 1,450 triangles. The held view draws 796 in four meshes: receiver,
+- The default assembly is 1,672 triangles. The held view draws 1,122 in four meshes: receiver,
   barrel, magazine and stock. The action, spring, sear and extractor remain separate for a bench
   cutaway but are hidden in hand. No scope model is included.
+- The production loose view assembles the installed visible parts of long firearms through the
+  same receiver-qualified, weapon-kit-first resolution and lays them on their sides on the floor.
+  The pistol keeps its existing loose pose and frames this round.
 
 **The melee weapons.**
 
@@ -242,8 +257,8 @@ one mesh with one primitive, so each model is one draw.
   receiver: the recoil spring's 276 (212 in its coil), the action's 24 and the sear's 24.
 - The alternate assembly, with the suppressor, red dot and extended magazine, is 2,002
   triangles in 9 meshes.
-- A default rifle is 1,450 triangles in 8 meshes. The held view skips all four internal parts,
-  leaving 796 triangles in 4 meshes: receiver, barrel, magazine and stock.
+- A default rifle is 1,672 triangles in 8 meshes. The held view skips all four internal parts,
+  leaving 1,122 triangles in 4 meshes: receiver, barrel, magazine and stock.
 - The melee weapons are one mesh each: the bat 408 triangles, the knife 540, the crowbar 260 and
   the axe 420.
 

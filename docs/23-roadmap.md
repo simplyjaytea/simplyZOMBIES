@@ -3165,24 +3165,39 @@ not a to-do list:
     cutaway of the internals, and separate melee part models, are later.
   - **Record.** `docs/planning/first-person-held-weapon-report.md`.
 
-- **The hunting rifle and receiver-qualified parts, 2026-11-04.** Advances the weapon plan's
+- **The hunting rifle and receiver-qualified parts, 2026-11-06.** Advances the weapon plan's
   second receiver and gives the arms' `long` hold class a real model instead of the placeholder.
   - **The art.** `rifle_hunting` is a bolt-action receiver with all ten sockets and both hand
     grips. Seven separate default GLBs supply the barrel, magazine, action, spring, sear,
-    extractor and full walnut stock. The default assembly is 1.061 m long and 1,450 triangles;
-    the held view draws the receiver, barrel, magazine and stock (796 triangles, four meshes).
+    extractor and full walnut stock. The default assembly is 1.070 m long and 1,672 triangles;
+    the held view draws the receiver, barrel, magazine and stock (1,122 triangles, four meshes).
+    The 36 mm receiver is 1.20 times the barrel's 30 mm breech, with an ejection port, rounded
+    bolt shroud and visible right-side handle. Its lower action, sight, open guard and trigger
+    form one connected group. The barrel tapers to 16 mm; the 80 mm magazine clears the round.
+    The comb is 40.1 mm below the level sight line, the heel 55.5 mm and lower, and the hooked
+    wrist measures 103.4 x 42.0 mm. The butt plate matches its angled end section within 0.50 mm.
     `grip_r` is at the origin and `grip_l` is (0, 0.022, -0.250) m from it, exactly the arms'
     long anchor. Blued steel and dark wood use the shared weapons atlas at the kit's densities.
   - **The match rule.** A manifest part may match `id` plus `receiver`. The loader resolves that
     ahead of an unqualified id and then class, and the held assembler passes the host receiver,
     so shared content ids select the rifle's parts on the rifle and the pistol's on the pistol.
+  - **The loose production path.** `loose_view.gd` assembles a long firearm's installed visible
+    parts with weapon-kit-first resolution, lays it on its side and puts its lowest point on the
+    floor. The MODELS lane's dropped rifle is 1.0695 m long, 81 mm high and at 0.0 mm. The
+    pistol's isolated loose close-ups remain pixel-identical to `main` at threshold 8.
   - **Verified.** `build_weapons.py -- --check` and `-- --prove` cover every model, socket,
     origin, material, winding, coplanarity, density, assembly contact, shading and byte output;
-    the rifle-grip plant is refused. `godot:check:first_person` (MODELS and HELD) loads every
-    entry, resolves all seven rifle defaults and checks the equipped assembly. Blender turnaround
-    sheets and 1280x720 held/loose engine captures accompany the piece.
-  - **Not in this piece.** No scope model; the arms integration remains its own branch. The loose
-    capture driver assembles the dropped item's installed visible parts for the review image.
+    all 25 plants are refused, including receiver width, hidden handle, floating sight, buried
+    trigger and near-coplanar part. The receiver's breech ratio and contact group, guard opening,
+    stock line, butt fit and sight point are printed measurements. `godot:check:first_person`
+    (ARMS, MODELS and HELD) loads every entry and checks the equipped and loose assemblies.
+    Blender turnaround sheets and 1280x720 held/loose engine captures accompany the piece.
+  - **Sight hand-off.** The receiver exports `sight` 37 mm over the bore, level with the front
+    post. The arms' `long` aim pose must re-anchor from its 70 mm stand-in to 37 mm; the rifle's
+    idle grip anchors stay unchanged.
+  - **Minors left.** The shared blued-steel paint still has pale noise patches (the pistol is
+    unchanged); both hidden springs retain anisotropic UV axes; and a loose part off a receiver
+    still has no receiver id with which to choose between rifle and pistol models. No scope model.
 
 - **The first-person loot-item kit, 2026-11-01.** Advances "First-person scavenging and personal
   equipment": the things a player picks up now have world-pose models. Only the art lands here: no

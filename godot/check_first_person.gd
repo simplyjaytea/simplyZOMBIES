@@ -117,7 +117,8 @@ extends SceneTree
 #             receiver-qualified id beats an unqualified id, which beats a class, and a qualified
 #             part never leaks to another receiver; an unknown id resolves to null; two GLBs that
 #             embed the atlas share one mipmapped texture; a loose bat the sim drops is drawn with
-#             its model at its resting position, and an item with no model has no node.
+#             its model at its resting position, and an item with no model has no node. A loose rifle
+#             draws its installed visible parts, lies on its side at least 1 m long and rests on the floor.
 
 
 const SCENE_PATH: String = "res://presentation/first_person/first_person.tscn"
@@ -1419,8 +1420,8 @@ func _held(scene: Node) -> bool:
 	var rifle_stock: Node3D = held.call("part_node", "furniture") as Node3D
 	if rifle_barrel == null or absf(Models.bounds(rifle_barrel).size.z - 0.570) > 0.001:
 		ok = _fail("HELD", "the rifle barrel is not the 570 mm rifle model")
-	if rifle_stock == null or absf(Models.bounds(rifle_stock).size.z - 0.853) > 0.001:
-		ok = _fail("HELD", "the rifle stock is not the full-length rifle model")
+	if rifle_stock == null or absf(Models.bounds(rifle_stock).size.z - 0.862) > 0.001:
+		ok = _fail("HELD", "the rifle stock is not the full-length 862 mm rifle model")
 	if not bool(held.call("verify", world)):
 		ok = _fail("HELD", "the rifle view does not match the sim's installed parts")
 	SimInventory.unequip(world, player, "primary")
@@ -4073,6 +4074,26 @@ func _models(scene: Node) -> bool:
 		var bat_size: Array = (real_bat as Dictionary)["sizeM"] as Array
 		if absf(box.size.y - float(bat_size[1])) > MODEL_TOLERANCE_M:
 			ok = _fail("MODELS", "the loose bat's drawn height %.4f m is not its model's %.4f m" % [box.size.y, float(bat_size[1])])
+
+	# A dropped rifle carries its installed visible parts and lies on its side, on the floor.
+	var rifle: int = SimItems.spawn_item(world, "item.rifle.hunting")
+	SimInventory.drop_at_feet(world, player, rifle)
+	scene.call("_process", TICK_SECONDS)
+	var rifle_node: Node3D = scene.call("loose_node_for", rifle) as Node3D
+	if rifle_node == null:
+		ok = _fail("MODELS", "a loose rifle has no node")
+	else:
+		var rifle_box: AABB = _world_aabb(rifle_node)
+		var rifle_length: float = maxf(rifle_box.size.x, rifle_box.size.z)
+		print("LOOSE_RIFLE world AABB size=%s lowest=%.4f m" % [str(rifle_box.size), rifle_box.position.y])
+		if rifle_length < 1.0:
+			ok = _fail("MODELS", "the loose rifle is only %.4f m long" % rifle_length)
+		if rifle_box.size.y > 0.25:
+			ok = _fail("MODELS", "the loose rifle is upright, with height %.4f m" % rifle_box.size.y)
+		if absf(rifle_box.position.y) > 0.005:
+			ok = _fail("MODELS", "the loose rifle's lowest point is %.4f m, not on the floor" % rifle_box.position.y)
+	world.despawn(rifle)
+	scene.call("_process", TICK_SECONDS)
 	# True negative: an item the merged manifests do not name is drawn with no node, so it keeps the
 	# scene's placeholder. The item is found in the merged content, not assumed: the loot-item kit
 	# draws canned food now, so a hard-coded id would stop being a no-model case.
