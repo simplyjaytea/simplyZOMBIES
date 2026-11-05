@@ -8107,3 +8107,19 @@ roll reads the level.
 - **Gates.** `godot:m2:filter` LINGER pins the three ticks and a planted field that never decays; the
   CLOUD, PINNED and BLOOM lanes are unchanged. The plant (`decayPerTick` 0 in the content) turns LINGER
   red.
+
+## The gas hurts every ten seconds, the owner's call, 2026-11-06
+
+The owner chose repeated rolls: a survivor who stands in a bloater's cloud is rolled again every ten
+seconds, not once per cloud. The owner was told this moves balance and chose it anyway.
+
+- **The arithmetic.** The simulation runs at 20 ticks a second (`TICK_HZ`), so ten seconds is
+  `hurtEvery` 200. A cloud lives `lingerTicks` 1800, ninety seconds, so a survivor standing in it the
+  whole time is rolled in nine windows, windows 0 to 8. The window logic was already there (a
+  `contaminationRolls` row carries its `window`), so the change is one content number.
+- **Measured.** `godot:m2:filter` LINGER STAY: nine rolls, one per 200-tick window, and the same lane
+  with `hurtEvery` at 1800 fails with `rolled 1 times, want 9`. `godot:m2:balance` FAST prints the same
+  lines on `origin/main` and on this branch; the tier does not move. The ten-seed re-baseline is still
+  owed and names the gas.
+- **Why it stays a content number.** The other lanes stand inside one window (the CLOUD fixture stands
+  forty ticks), so their one-roll pins hold without a change to their fixtures.
