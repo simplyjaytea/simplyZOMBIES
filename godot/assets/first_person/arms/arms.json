@@ -1,0 +1,319 @@
+{
+  "atlas": "res://assets/first_person/arms/arms_atlas.png",
+  "atlas_used": 0.3262,
+  "bones": [
+    "view",
+    "shoulder.R",
+    "upper_arm.R",
+    "forearm.R",
+    "forearm_twist.R",
+    "hand.R",
+    "thumb_01.R",
+    "thumb_02.R",
+    "thumb_03.R",
+    "index_01.R",
+    "index_02.R",
+    "index_03.R",
+    "middle_01.R",
+    "middle_02.R",
+    "middle_03.R",
+    "ring_01.R",
+    "ring_02.R",
+    "ring_03.R",
+    "pinky_01.R",
+    "pinky_02.R",
+    "pinky_03.R",
+    "shoulder.L",
+    "upper_arm.L",
+    "forearm.L",
+    "forearm_twist.L",
+    "hand.L",
+    "thumb_01.L",
+    "thumb_02.L",
+    "thumb_03.L",
+    "index_01.L",
+    "index_02.L",
+    "index_03.L",
+    "middle_01.L",
+    "middle_02.L",
+    "middle_03.L",
+    "ring_01.L",
+    "ring_02.L",
+    "ring_03.L",
+    "pinky_01.L",
+    "pinky_02.L",
+    "pinky_03.L",
+    "grip_r",
+    "grip_l"
+  ],
+  "classes": {
+    "long": {
+      "anchor": {
+        "position": [
+          0.1,
+          -0.15,
+          -0.24
+        ],
+        "rotation_degrees": [
+          2.695,
+          2.075,
+          -0.0
+        ]
+      },
+      "clips": [
+        "idle_long",
+        "aim_long",
+        "raise_long",
+        "lower_long",
+        "draw_long",
+        "inspect_long"
+      ],
+      "reference": "jig_long",
+      "support": "grip_l"
+    },
+    "melee1": {
+      "anchor": {
+        "position": [
+          0.22,
+          -0.2,
+          -0.45
+        ],
+        "rotation_degrees": [
+          -6.0,
+          14.0,
+          0.0
+        ]
+      },
+      "clips": [
+        "idle_melee1",
+        "lower_melee1",
+        "draw_melee1",
+        "inspect_melee1"
+      ],
+      "reference": "knife_kitchen",
+      "support": "drops below the frame"
+    },
+    "melee2": {
+      "anchor": {
+        "position": [
+          0.14,
+          -0.13,
+          -0.36
+        ],
+        "rotation_degrees": [
+          46.135,
+          37.367,
+          -133.354
+        ]
+      },
+      "clips": [
+        "idle_melee2",
+        "lower_melee2",
+        "draw_melee2",
+        "inspect_melee2"
+      ],
+      "reference": "bat_wood",
+      "support": "grip_l"
+    },
+    "pistol": {
+      "anchor": {
+        "position": [
+          0.22,
+          -0.2,
+          -0.45
+        ],
+        "rotation_degrees": [
+          -6.0,
+          14.0,
+          -0.0
+        ]
+      },
+      "clips": [
+        "idle_pistol",
+        "aim_pistol",
+        "raise_pistol",
+        "lower_pistol",
+        "draw_pistol",
+        "inspect_pistol"
+      ],
+      "cup_hand_L_from_hand_R": [
+        [
+          -0.96182,
+          0.08175,
+          -0.2612,
+          0.00789
+        ],
+        [
+          0.26027,
+          -0.02212,
+          -0.96528,
+          0.15038
+        ],
+        [
+          -0.08469,
+          -0.99641,
+          0.0,
+          0.12874
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "reference": "pistol_service",
+      "support": "cup"
+    },
+    "unarmed": {
+      "anchor": {
+        "position": [
+          0.1567,
+          -0.247,
+          -0.3732
+        ],
+        "rotation_degrees": [
+          18.901,
+          39.645,
+          60.045
+        ]
+      },
+      "clips": [
+        "idle_unarmed",
+        "lower_unarmed",
+        "draw_unarmed"
+      ],
+      "reference": null,
+      "support": "low corner"
+    }
+  },
+  "clips": {
+    "aim_long": {
+      "length": 4.0,
+      "loop": true
+    },
+    "aim_pistol": {
+      "length": 4.0,
+      "loop": true
+    },
+    "draw_long": {
+      "length": 0.5,
+      "loop": false
+    },
+    "draw_melee1": {
+      "length": 0.5,
+      "loop": false
+    },
+    "draw_melee2": {
+      "length": 0.5,
+      "loop": false
+    },
+    "draw_pistol": {
+      "length": 0.5,
+      "loop": false
+    },
+    "draw_unarmed": {
+      "length": 0.5,
+      "loop": false
+    },
+    "idle_long": {
+      "length": 4.0,
+      "loop": true
+    },
+    "idle_melee1": {
+      "length": 4.0,
+      "loop": true
+    },
+    "idle_melee2": {
+      "length": 4.0,
+      "loop": true
+    },
+    "idle_pistol": {
+      "length": 4.0,
+      "loop": true
+    },
+    "idle_unarmed": {
+      "length": 4.0,
+      "loop": true
+    },
+    "inspect_long": {
+      "length": 3.0,
+      "loop": false
+    },
+    "inspect_melee1": {
+      "length": 3.0,
+      "loop": false
+    },
+    "inspect_melee2": {
+      "length": 3.0,
+      "loop": false
+    },
+    "inspect_pistol": {
+      "length": 3.0,
+      "loop": false
+    },
+    "lower_long": {
+      "length": 0.3,
+      "loop": false
+    },
+    "lower_melee1": {
+      "length": 0.3,
+      "loop": false
+    },
+    "lower_melee2": {
+      "length": 0.3,
+      "loop": false
+    },
+    "lower_pistol": {
+      "length": 0.3,
+      "loop": false
+    },
+    "lower_unarmed": {
+      "length": 0.3,
+      "loop": false
+    },
+    "raise_long": {
+      "length": 0.4,
+      "loop": false
+    },
+    "raise_pistol": {
+      "length": 0.4,
+      "loop": false
+    }
+  },
+  "fps": 60,
+  "frame": "camera space: the origin is the eye, +Y up, -Z forward; parent under Eye with an identity transform",
+  "glb": "res://assets/first_person/arms/arms_base.glb",
+  "jig_long": {
+    "butt": [
+      0.0,
+      0.035,
+      0.3
+    ],
+    "grip_l": [
+      0.0,
+      0.022,
+      -0.25
+    ],
+    "grip_r": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "sight": [
+      0.0,
+      0.125,
+      -0.12
+    ]
+  },
+  "layers": {
+    "gloves": {},
+    "torso": {}
+  },
+  "meshes": {
+    "arms_skin": "the hands and wrists",
+    "arms_sleeve": "the base top's sleeve, cuff to upper arm; a torso layer that reaches the cuff hides it"
+  },
+  "texels_per_metre": 128,
+  "version": 1
+}
