@@ -702,6 +702,35 @@
       "description": "How many units of untreated water this makes safe before it is spent, and the whole of docs/04-survival-needs.md's \"purification needs fuel (boiling -> heat, light, smoke) or filters or chemicals\" that boiling did not already cover. What the key asserts is exactly one thing: **no campfire is required**. SimNeeds.boil wants a lit fire in reach and SimNeeds.purify wants only this in the pack, so the three routes docs/12-resources.md lists under Purified water -- fuel, filters, tablets -- are three content numbers through one verb rather than three code paths. Uses are counted on the instance as a `purifier` component and default to this number, so a part-used filter is part-used when it is picked up again; when the last use goes the unit is spent through SimNeeds._consume_item, which is the one place `empties` is decided, so a purifier leaves whatever its base says it leaves. A flat top-level integer for the reason `filter` is a flat top-level number: the validator is shallow, and a bounded integer up here is actually enforced. Absent means this treats no water, which is everything but five bases.",
       "$comment": "Deliberately not a key inside `filter`: `filter` is a 0..1 fraction of a contamination cloud kept out of a wearer's lungs and is composed by max over worn gear, and a count of bottles has nothing to do with it. Two uncorrelated numbers, two keys, as the caliber and armour slices both settled."
     },
+    "refill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "uses"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "metal",
+            "wood",
+            "plank",
+            "stone",
+            "fiber",
+            "cordage",
+            "fixings",
+            "ingot",
+            "charcoal",
+            "clay",
+            "wire",
+            "circuit"
+          ]
+        },
+        "uses": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "description": "A purifier that runs out can be repacked: one unit of build material `kind`, carried, restores `uses` units, up to the tool's `purifies`. Absent means a spent purifier is spent for good. The kind is the same vocabulary `buildMaterial` names, and a gate holds the two lists equal.",
+      "$comment": "A nested object. The Godot content validator checks top-level types only and cannot see this shape; the oracle's Ajv recurses. `check_m2_transform.gd`'s REFILL lane holds the enum equal to `buildMaterial`'s, so the two lists cannot drift apart."
+    },
     "scent": {
       "type": "number",
       "minimum": 0,
