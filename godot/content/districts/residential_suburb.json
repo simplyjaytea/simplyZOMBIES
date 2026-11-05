@@ -1,6 +1,6 @@
 {
   "id": "district.residential_suburb",
-  "name": "Fairfield Rise",
+  "name": "Hinatadai",
   "type": "residential_suburb",
   "streets": { "blockMin": 24, "blockMax": 40, "streetWidth": 7 },
   "connectionPoints": { "north": 2, "south": 1, "east": 1, "west": 2 },
