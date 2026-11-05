@@ -2464,18 +2464,23 @@ not a to-do list:
 - **The Ome–Okutama re-theme: buildings batch A, 2026-11-05.** The first art batch of
   [docs/42](42-ome-okutama-setting.md) adds two finishes and two whole houses without moving a
   footprint, door, window, pool or weight.
-  - **Materials.** Kawara is a cool grey glazed-clay roof tile; siding is vertical weathered
-    cedar-grey boards. Both join the shared atlas and manifest's look tables, ready for the later
+  - **Materials.** Kawara is a cool grey glazed-clay roof tile whose straight, unoffset rolls have
+    bright crowns and dark troughs down the slope. Siding is vertical weathered darkened cedar in a
+    warm grey-brown ramp of its own, with two close board-body tones rather than the timber look's
+    higher-contrast sage. Both join the shared atlas and manifest's look tables, ready for the later
     schema/`street.json` retag. Their regular courses and restrained wear use no cloud noise or
     atlas-cell paint patches.
   - **Houses.** `house_small` is the 9 x 7 m timber house with kawara, a deep eave and genkan
     step. `house_gable` is the 11 x 8 m siding house with kawara, deep eaves, genkan steps and a
-    decorative upper sash façade. Its lifted roof does not create an upper sim floor. Existing
-    interiors, open window apertures and all 22 template resolutions remain.
+    decorative upper sash façade backed by dark curtains. Pitched roofs have down-facing eave and
+    rake soffits; gables have two barge boards and continuous triangular end faces meeting the roof
+    planes. Genkan steps follow each door's outside neighbour. The lifted roof does not create an
+    upper sim floor. Existing interiors, open window apertures and all 22 template resolutions remain.
   - **Verified.** `build_finishes.py -- --check` prints `BUILDINGS_CHECK_OK`; all eight plants are
-    refused. `godot:check:fp_geometry` proves the real-district walls, windows and ceilings;
-    `godot:smoke` and `check:routing` pass. Blender turnarounds, material swatches and matched
-    1280x720 main/head street and interior captures accompany the piece.
+    refused. `godot:check:fp_geometry` proves the real-district walls, windows and ceilings, and
+    refuses finish volumes that overlap indoor/open footprint tiles, exceed 0.20 m or fail to abut
+    a door's exterior side. `godot:smoke` and `check:routing` pass. Material swatches and matched
+    1280x720 main/head street, corner, oblique, eave, aerial and interior captures accompany the piece.
 
 - **Item kit polish (#299 round 3 minors), 2026-11-04.** Three mapping fixes in the first-person
   item kit's builder, `tools/blender/first_person_items/build_items.py`, and one new model.

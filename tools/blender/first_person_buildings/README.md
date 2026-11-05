@@ -20,9 +20,10 @@ atlas materials and filtering, every wall/roof look, and every template resoluti
 written with LF; a checkout that holds it with CRLF (`core.autocrlf`) is folded back before the compare.
 The editable blend is arranged as a contact sheet of the 22 source shells and is not byte-compared.
 
-Two checks judge what Godot will draw. Every roof face must be wound to face up, and every eave,
-fascia, parapet and gable end to face away from the building: the material is back-face culled, so a
-face wound the other way vanishes from the street. And every per-tile piece (below) is assembled in
+Two checks judge what Godot will draw. Every roof face must be wound to face up, every soffit to
+face down, and every eave, fascia, parapet, barge board and gable end to face away from the building:
+the material is back-face culled, so a face wound the other way vanishes from the street. And every
+per-tile piece (below) is assembled in
 three states, every openable wall standing, every one opened, and alternating, and each drawn window
 is crossed by rays from each open face: at 1.25 and 1.85 m they must pass every opaque face, at 0.5 and
 2.3 m they must hit the sill or lintel.
@@ -74,7 +75,10 @@ boarded windows keep the dynamic boxes from `district_view.gd`; door casings sit
 The `godot:check:fp_geometry` FINISHES lane loads every model and proves wall caps (each wall capped
 exactly once, by `spatial_bands` or its own wall piece), the manifest's piece counts against the nodes
 the view parses, 0–2.55 m wall bands, solid-host attachment within 25 mm, transparent glazing, nearest
-filtering, and real stamped placement. Its WORLDGEN lane builds all four districts through
+filtering, and real stamped placement. Every declared `finishVolumes` box must have positive bounds,
+stay at or below 0.20 m, avoid every indoor or open footprint tile, and share a nonzero-length contact
+with the exterior side of a door tile. Planted indoor, 0.21 m-high and detached boxes are refused, as
+is an undeclared step. Its WORLDGEN lane builds all four districts through
 `SimBoot.bare` and casts the same window rays through every sim window of every finished building,
 holds every sim wall to a drawn wall, and counts band boxes left under drawn tiles. A wall planted over
 a window worldgen opened, and a baseline that keeps its band boxes, are both refused.
@@ -110,23 +114,30 @@ to keep its lifted roof legible from the street.
 
 ### Batch A: materials and houses
 
-- **Kawara** uses cool grey glazed-clay courses (`#262a2b` through `#505653`), with alternating
-  tile offsets, a curved-tile highlight and sparse chips. Its atlas styles are `kawara` and
-  `kawara_alt`.
-- **Siding** uses vertical, weathered boards in a restrained cedar-grey ramp. Its atlas styles are
-  `siding_vertical` and `siding_vertical_alt`. The regular board and tile structure never uses cloud
-  noise or chooses a colour patch from an atlas cell.
+- **Kawara** uses cool grey glazed-clay courses (`#262a2b` through `#505653`). Straight rolls run
+  down the slope without a half-row offset; each roll has a bright crown and dark trough, crossed by
+  shallow course lines and sparse chips. Its atlas styles are `kawara` and `kawara_alt`.
+- **Siding** uses vertical, weathered boards in its own darkened-cedar, warm grey-brown ramp
+  (`#514b43` through `#696156`), not the timber look's sage ramp. Only two close body tones alternate
+  between boards, with narrow seams and sparse wear. Its atlas styles are `siding_vertical` and
+  `siding_vertical_alt`. The regular board and tile structure never uses cloud noise or chooses a
+  colour patch from an atlas cell.
+- Every pitched roof has down-facing soffits from the wall lines to its eave and rake edges. Gables
+  have barge boards on both rakes and one continuous triangular face at each end, meeting the roof
+  plane without stepped strips or sky gaps.
 - `house_small` keeps its 9 × 7 m footprint, timber walls, door and windows, with a kawara roof,
-  0.45 m eaves and a 0.12 m-high genkan step outside the south door.
+  0.45 m eaves and a 0.12 m-high genkan step outside its door.
 - `house_gable` keeps its 11 × 8 m footprint, both doors and every window. It uses siding and
   kawara, 0.45 m eaves and genkan steps. A decorative upper façade carries regular sash stations;
-  its roof is lifted 1.90 m and has a 2.00 m rise above the eave. The interior remains the sim's
-  ground floor, with no new collision, sight or walkable level.
+  opaque dark curtains back every upper pane so no siding shows through the glass. Its roof is lifted
+  1.90 m and has a 2.00 m rise above the eave. The interior remains the sim's ground floor, with no
+  new collision, sight or walkable level.
 - These two overrides live in the builder and their manifest entries. The template JSON, schema enum
   and `street.json` do not change here; R4 can retag the content after the materials have landed.
-- Each genkan step's exact bounds are declared as a `finishVolumes` entry. `check_fp_geometry.gd`
-  accepts a finish vertex inside that declared exterior attachment, but rejects the same point when
-  the declaration is absent; its open-tile negative remains in force.
+- Each genkan step is placed against the door's actual outside neighbour, on any edge, and its exact
+  bounds are declared as a `finishVolumes` entry. `check_fp_geometry.gd` accepts only a vertex inside
+  a volume that satisfies the low exterior door-step contract above; an invalid or absent declaration
+  is refused.
 
 The templates have no room-tag field, so interiors resolve by the first recognised building tag:
 
@@ -156,8 +167,8 @@ builder measures every polygon edge and requires 48–80 texels/m; the generated
 request nearest magnification and Godot applies nearest-with-mipmaps filtering for distance.
 
 The opaque `BuildingsAtlas` and transparent `WindowGlass` materials reference the same atlas. The palette
-is faded sage timber, warm grey render, brown brick, charcoal roofs, cool grey kawara, cedar-grey
-siding, aged cream trim, and subdued floor tones. Wear is sparse and surface-specific, with no
-camouflage-like cloud noise or copied texture pixels. Siding and floor boards are 0.125 m wide;
+is faded sage timber, warm grey render, brown brick, charcoal roofs, cool grey kawara, darkened
+warm grey-brown cedar siding, aged cream trim, and subdued floor tones. Wear is sparse and
+surface-specific, with no camouflage-like cloud noise or copied texture pixels. Siding and floor boards are 0.125 m wide;
 brick courses are 0.125 m and block courses 0.25 m.
 All meshes and textures are original procedural work from fixed integer hashes.

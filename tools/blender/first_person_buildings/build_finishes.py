@@ -69,6 +69,7 @@ PALETTES = {
     "floor": ["#504234", "#62503c", "#725d44", "#806a4e", "#8b7457"],
     "roof": ["#2d2f2e", "#383937", "#43423e", "#4e4a43", "#575148"],
     "kawara": ["#262a2b", "#303536", "#3a4040", "#444a49", "#505653"],
+    "cedar": ["#514b43", "#575148", "#5d564c", "#635c51", "#696156"],
     "stone": ["#484943", "#53544d", "#5f6056", "#69695d", "#737264"],
     "brick": ["#4c4038", "#5c493d", "#6b5243", "#755d4b", "#806652"],
     "cloth": ["#4c5150", "#585d59", "#646862", "#70736a", "#7a7c70"],
@@ -239,11 +240,9 @@ def atlas_pixel(style, x, y):
     if style == "curtain":
         return tone("cloth", 2 + ((x // 4) % 2))
     if style.startswith("kawara"):
-        row = y // 8
-        offset = 8 if row % 2 else 0
-        tile_x = (x + offset) % 16
+        tile_x = x % 16
         variant = 1 if style == "kawara_alt" else 0
-        index = 2 + (((x + offset) // 16 + row * 3 + variant) % 3) - 1
+        index = 2 + ((x // 16 + variant) % 2)
         if y % 8 == 0 or tile_x == 0:
             index = 0
         elif tile_x in (7, 8):
@@ -257,17 +256,17 @@ def atlas_pixel(style, x, y):
         board = x // 8
         within = x % 8
         variant = 1 if style == "siding_vertical_alt" else 0
-        index = 2 + ((board * 5 + variant) % 3) - 1
+        index = 2 + ((board + variant) % 2)
         if within == 0:
             index = 1
         elif within == 1:
             index = 3
         grain = (y + noise(board, 0, 733) % 7) % 37
         if grain in (3, 4) and within > 2:
-            index = max(1, index - 1)
+            index = max(2, index - 1)
         if n % 191 == 0:
             index = 1
-        return tone("siding", index)
+        return tone("cedar", index)
     if style == "glass":
         edge = min(x, y, 63 - x, 63 - y)
         return tone("glass", 1 if edge < 5 and n % 3 == 0 else 3)
@@ -762,7 +761,17 @@ def genkan_volumes(template):
         return volumes
     for door in template.get("doors", []):
         x, y = int(door["x"]), int(door["y"])
-        volumes.append({"min": [x + 0.08, 0.0, y + 1.0], "max": [x + 0.92, 0.12, y + 1.32]})
+        for dx, dy in (offset for offset, _ in SIDES):
+            if inside(template, x + dx, y + dy) and (indoors_at(template, x + dx, y + dy) or tile_at(template, x + dx, y + dy) != 0):
+                continue
+            if dx:
+                low = [x + (1.0 if dx > 0 else -0.32), 0.0, y + 0.08]
+                high = [x + (1.32 if dx > 0 else 0.0), 0.12, y + 0.92]
+            else:
+                low = [x + 0.08, 0.0, y + (1.0 if dy > 0 else -0.32)]
+                high = [x + 0.92, 0.12, y + (1.32 if dy > 0 else 0.0)]
+            volumes.append({"min": low, "max": high})
+            break
     return volumes
 
 
@@ -790,6 +799,7 @@ def build_house_details(finish, template):
                 side_quad(finish, x, y, side_index, 0.12, 0.88, 4.02, 4.10, "trim", offset=0.014)
                 side_quad(finish, x, y, side_index, 0.12, 0.18, 2.98, 4.02, "trim", offset=0.014)
                 side_quad(finish, x, y, side_index, 0.82, 0.88, 2.98, 4.02, "trim", offset=0.014)
+                side_quad(finish, x, y, side_index, 0.18, 0.82, 2.98, 4.02, "curtain", offset=0.005)
                 side_quad(finish, x, y, side_index, 0.18, 0.495, 2.98, 4.02, "glass", offset=0.010)
                 side_quad(finish, x, y, side_index, 0.505, 0.82, 2.98, 4.02, "glass", offset=0.010)
                 side_quad(finish, x, y, side_index, 0.495, 0.505, 2.98, 4.02, "trim", offset=0.018)
@@ -906,9 +916,9 @@ def build_roof(mesh, template):
     roof_style = finish_looks(template)["roof"]
     variants = ROOF_VARIANTS[roof_style]
     exterior = exterior_style(template)
-    EAVE = eave_for(template)
-    # Roles let `validate_roof` judge the winding: a "roof" face must face up, a "roof_side" face
-    # away from the building. Boxes (ridge, chimney) face away from their own centre and are left out.
+    eave = eave_for(template)
+    # Roles let `validate_roof` judge the winding: a "roof" face must face up, a "roof_down" face
+    # down, and a "roof_side" face away from the building. Boxes are left out.
     mesh.role = "roof"
     if form == "flat":
         e = 0.18
@@ -929,31 +939,49 @@ def build_roof(mesh, template):
     peak = roof_peak(template)
     rise = peak - 2.62
     if form == "gable":
-        mesh.face((-EAVE, 2.62, -EAVE), (w + 2 * EAVE, 0, 0), (0, rise, h * 0.5 + EAVE), variants[0], variants, (0, 1, -0.4))
-        mesh.face((-EAVE, peak, h * 0.5), (w + 2 * EAVE, 0, 0), (0, -rise, h * 0.5 + EAVE), variants[0], variants, (0, 1, 0.4))
+        mesh.face((-eave, 2.62, -eave), (w + 2 * eave, 0, 0), (0, rise, h * 0.5 + eave), variants[0], variants, (0, 1, -0.4))
+        mesh.face((-eave, peak, h * 0.5), (w + 2 * eave, 0, 0), (0, -rise, h * 0.5 + eave), variants[0], variants, (0, 1, 0.4))
         mesh.role = "roof_side"
         for x, normal in ((-0.005, (-1, 0, 0)), (w + 0.005, (1, 0, 0))):
-            for strip in range(h * 2):
-                z0, z1 = strip * 0.5, strip * 0.5 + 0.5
-                centre = (z0 + z1) * 0.5
-                top = 2.62 + rise * (1.0 - abs(centre - h * 0.5) / (h * 0.5))
-                mesh.face((x, WALL_TOP, z0), (0, 0, 0.5), (0, top - WALL_TOP, 0), exterior[0], exterior, normal)
+            mesh.polygon([(x, WALL_TOP, 0), (x, WALL_TOP, h), (x, peak, h * 0.5)], exterior[0], normal)
         mesh.role = ""
-        mesh.box((-EAVE, peak - 0.04, h * 0.5 - 0.07), (w + 2 * EAVE, 0.04, 0.14), variants[0])
+        mesh.box((-eave, peak - 0.04, h * 0.5 - 0.07), (w + 2 * eave, 0.04, 0.14), variants[0])
     else:
         ridge0, ridge1 = h * 0.5, w - h * 0.5
-        a, b, c, d = (-EAVE, 2.62, -EAVE), (w + EAVE, 2.62, -EAVE), (w + EAVE, 2.62, h + EAVE), (-EAVE, 2.62, h + EAVE)
+        a, b, c, d = (-eave, 2.62, -eave), (w + eave, 2.62, -eave), (w + eave, 2.62, h + eave), (-eave, 2.62, h + eave)
         r0, r1 = (ridge0, peak, h * 0.5), (ridge1, peak, h * 0.5)
         mesh.polygon([a, b, r1, r0], variants[0], (0, 1, -0.4))
         mesh.polygon([d, r0, r1, c], variants[0], (0, 1, 0.4))
         # The hip ends are roof slopes too, so they wear the roof, not the wall.
         mesh.polygon([a, r0, d], variants[0], (-1, 0.3, 0))
         mesh.polygon([b, c, r1], variants[0], (1, 0.3, 0))
+    mesh.role = "roof_down"
+    for z in (-eave, h):
+        mesh.face((-eave, 2.53, z), (w + 2 * eave, 0, 0), (0, 0, eave), "dark_wood", normal=(0, -1, 0))
+    if form == "hip":
+        for x in (-eave, w):
+            mesh.face((x, 2.53, 0), (eave, 0, 0), (0, 0, h), "dark_wood", normal=(0, -1, 0))
+    else:
+        for x0, x1 in ((-eave, 0.0), (w, w + eave)):
+            mesh.polygon([(x0, 2.53, -eave), (x1, 2.53, -eave), (x1, peak - 0.09, h * 0.5), (x0, peak - 0.09, h * 0.5)], "dark_wood", (0, -1, 0))
+            mesh.polygon([(x0, peak - 0.09, h * 0.5), (x1, peak - 0.09, h * 0.5), (x1, 2.53, h + eave), (x0, 2.53, h + eave)], "dark_wood", (0, -1, 0))
+        mesh.role = "roof_side"
+        for x, normal in ((-eave - 0.005, (-1, 0, 0)), (w + eave + 0.005, (1, 0, 0))):
+            mesh.polygon([(x, 2.62, -eave), (x, peak, h * 0.5), (x, peak - 0.14, h * 0.5), (x, 2.51, -eave)], "trim", normal)
+            mesh.polygon([(x, peak, h * 0.5), (x, 2.62, h + eave), (x, 2.51, h + eave), (x, peak - 0.14, h * 0.5)], "trim", normal)
     mesh.role = "roof_side"
-    for side_index in (0, 2):
-        origin, u_axis, normal = side_frame(0, 0, side_index)
-        origin = Vector((-EAVE, 0, -EAVE - 0.005 if side_index == 0 else h + EAVE + 0.005))
-        mesh.face(origin + Vector((0, 2.53, 0)), u_axis * (w + 2 * EAVE), Vector((0, 0.14, 0)), "trim", normal=normal)
+    edges = [
+        (Vector((-eave, 0, -eave - 0.005)), Vector((1, 0, 0)), w + 2 * eave, 0),
+        (Vector((-eave, 0, h + eave + 0.005)), Vector((1, 0, 0)), w + 2 * eave, 2),
+    ]
+    if form == "hip":
+        edges += [
+            (Vector((w + eave + 0.005, 0, -eave)), Vector((0, 0, 1)), h + 2 * eave, 1),
+            (Vector((-eave - 0.005, 0, -eave)), Vector((0, 0, 1)), h + 2 * eave, 3),
+        ]
+    for origin, u_axis, length, side_index in edges:
+        normal = Vector((SIDES[side_index][0][0], 0, SIDES[side_index][0][1]))
+        mesh.face(origin + Vector((0, 2.53, 0)), u_axis * length, Vector((0, 0.14, 0)), "trim", normal=normal)
     mesh.role = ""
     if "residential" in template.get("tags", []) and roof_style == "shingle":
         cx, cz = w * 0.72, h * 0.28
@@ -1069,9 +1097,9 @@ def validate_spatial(mesh, template, plant, kind):
 
 
 def validate_roof(mesh, template):
-    # The winding is what Godot draws: a roof face wound downward is culled from the street, which
-    # is how the three hip roofs vanished. Every roof face must face up, and every eave, fascia,
-    # parapet and gable end must face away from the building.
+    # The winding is what Godot draws: a roof face wound downward is culled from above, and a
+    # soffit wound upward is culled from the street. Every roof face must face up, every soffit
+    # down, and every eave, fascia, parapet, barge board and gable end away from the building.
     w, h = template["size"]["w"], template["size"]["h"]
     centre = Vector((w * 0.5, 2.0, h * 0.5))
     count = 0
@@ -1083,6 +1111,8 @@ def validate_roof(mesh, template):
         centroid = sum(points, Vector()) / len(points)
         if role == "roof" and normal.y <= 0.0:
             raise ValueError(f"{template['id']} roof face {index} at {tuple(round(v, 3) for v in centroid)} faces down")
+        if role == "roof_down" and normal.y >= 0.0:
+            raise ValueError(f"{template['id']} soffit face {index} at {tuple(round(v, 3) for v in centroid)} faces up")
         if role == "roof_side":
             outward = centroid - centre
             outward.y = 0.0

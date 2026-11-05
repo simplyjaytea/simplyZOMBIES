@@ -24,7 +24,9 @@ extends SceneTree
 #             exactly once: by the always-drawn mesh, or by its own per-tile wall piece when worldgen
 #             may open it. Every per-tile piece the manifest counts is a node the view parses. Finish
 #             vertices below the roof stay in solid template tiles, except floor overlays; glazing is
-#             transparent and nearest-filtered. Planted open-tile and high-wall vertices are refused,
+#             transparent and nearest-filtered. Declared finish volumes must be at most 0.20 m high,
+#             stay off indoor and open footprint tiles, and abut a door's exterior side. Planted
+#             open-tile, high-wall, indoor-volume, tall-volume and detached-volume cases are refused,
 #             and a stamped house really draws its finish instance.
 #   WORLDGEN  the four districts generated for real (`SimBoot.bare`, occluder pass included): every
 #             sim wall in a finished building is drawn as a wall, and every sim window is drawn as
@@ -74,7 +76,7 @@ func _run() -> void:
 
 func _finish(ok: bool) -> void:
 	if ok:
-		print("FP_GEOMETRY_OK every tile and all 22 building finishes keep their profile bands, every body keeps its cylinder, finish skins stay within 25 mm of a solid host, every sim window in four generated districts is drawn open and every indoor tile there has a ceiling, and planted wall-over-window, stripped-ceiling, band-box, window, Low-tile, module, open-tile and high-wall errors are refused")
+		print("FP_GEOMETRY_OK every tile and all 22 building finishes keep their profile bands, every body keeps its cylinder, finish skins stay within 25 mm of a solid host, finish volumes are low exterior door steps, every sim window in four generated districts is drawn open and every indoor tile there has a ceiling, and planted wall-over-window, stripped-ceiling, band-box, window, Low-tile, module, open-tile, high-wall, indoor-volume, tall-volume and detached-volume errors are refused")
 		quit(0)
 		return
 	for failure in _failures:
@@ -422,6 +424,9 @@ func _finishes() -> bool:
 		if entry.is_empty():
 			ok = _fail("FINISHES", "%s does not resolve to a model" % id)
 			continue
+		for volume_v in entry.get("finishVolumes", []) as Array:
+			if not _finish_volume_allowed(template, volume_v):
+				ok = _fail("FINISHES", "%s declares a finish volume outside the low exterior door-step contract" % id)
 		var loaded: Dictionary = Assets.load_model(String(entry.get("glb", "")))
 		var node: Node3D = loaded["node"] as Node3D
 		if node == null:
@@ -501,6 +506,17 @@ func _finishes() -> bool:
 			ok = _fail("FINISHES", "the declared genkan step was refused")
 		if _finish_vertex_allowed(house, step):
 			ok = _fail("FINISHES", "an undeclared exterior step was accepted")
+		var indoor_volume: Dictionary = {"min": [1.0, 0.0, 1.0], "max": [2.0, 0.12, 2.0]}
+		if _finish_vertex_allowed(house, Vector3(1.5, 0.06, 1.5), [indoor_volume]):
+			ok = _fail("FINISHES", "a planted finish volume over an indoor tile was accepted")
+		var tall_volume: Dictionary = ((house_entry.get("finishVolumes", []) as Array)[0] as Dictionary).duplicate(true)
+		var tall_max: Array = tall_volume["max"] as Array
+		tall_max[1] = 0.21
+		if _finish_vertex_allowed(house, step, [tall_volume]):
+			ok = _fail("FINISHES", "a planted finish volume above 0.20 m was accepted")
+		var detached_volume: Dictionary = {"min": [0.08, 0.0, 7.0], "max": [0.92, 0.12, 7.32]}
+		if _finish_vertex_allowed(house, Vector3(0.5, 0.06, 7.16), [detached_volume]):
+			ok = _fail("FINISHES", "a planted finish volume not abutting a door was accepted")
 		ok = _finish_placement(house) and ok
 	ok = _finish_worldgen(templates) and ok
 	return ok
@@ -573,6 +589,8 @@ func _spatial_vertex_allowed(template: Dictionary, point: Vector3) -> bool:
 
 func _finish_vertex_allowed(template: Dictionary, point: Vector3, finish_volumes: Array = []) -> bool:
 	for volume_v in finish_volumes:
+		if not _finish_volume_allowed(template, volume_v):
+			continue
 		var volume: Dictionary = volume_v as Dictionary
 		var low: Array = volume.get("min", []) as Array
 		var high: Array = volume.get("max", []) as Array
@@ -600,6 +618,49 @@ func _finish_vertex_allowed(template: Dictionary, point: Vector3, finish_volumes
 				continue
 			var nearest: Vector2 = Vector2(clampf(point.x, tile.x, tile.x + 1), clampf(point.z, tile.y, tile.y + 1))
 			if nearest.distance_to(Vector2(point.x, point.z)) <= 0.025:
+				return true
+	return false
+
+
+func _finish_volume_allowed(template: Dictionary, volume_v: Variant) -> bool:
+	if not volume_v is Dictionary:
+		return false
+	var volume: Dictionary = volume_v as Dictionary
+	var low: Array = volume.get("min", []) as Array
+	var high: Array = volume.get("max", []) as Array
+	if low.size() != 3 or high.size() != 3:
+		return false
+	var minimum := Vector3(float(low[0]), float(low[1]), float(low[2]))
+	var maximum := Vector3(float(high[0]), float(high[1]), float(high[2]))
+	if minimum.x >= maximum.x or minimum.y >= maximum.y or minimum.z >= maximum.z:
+		return false
+	if minimum.y < -EPSILON_M or maximum.y > 0.20 + EPSILON_M:
+		return false
+	var size: Dictionary = template["size"] as Dictionary
+	for y in range(int(size["h"])):
+		for x in range(int(size["w"])):
+			if not _template_indoors(template, x, y) and _template_tile(template, x, y) == 1:
+				continue
+			var overlap_x: float = minf(maximum.x, x + 1.0) - maxf(minimum.x, float(x))
+			var overlap_z: float = minf(maximum.z, y + 1.0) - maxf(minimum.z, float(y))
+			if overlap_x > EPSILON_M and overlap_z > EPSILON_M:
+				return false
+	for door_v in template.get("doors", []) as Array:
+		var door: Dictionary = door_v as Dictionary
+		var x: int = int(door["x"])
+		var y: int = int(door["y"])
+		var overlap_x: float = minf(maximum.x, x + 1.0) - maxf(minimum.x, float(x))
+		var overlap_z: float = minf(maximum.z, y + 1.0) - maxf(minimum.z, float(y))
+		for offset in SIDE_OFFSETS:
+			if _template_indoors(template, x + offset.x, y + offset.y) or _template_tile(template, x + offset.x, y + offset.y) != 0:
+				continue
+			if offset == Vector2i(0, -1) and absf(maximum.z - y) <= EPSILON_M and minimum.z < y and overlap_x > EPSILON_M:
+				return true
+			if offset == Vector2i(0, 1) and absf(minimum.z - y - 1.0) <= EPSILON_M and maximum.z > y + 1.0 and overlap_x > EPSILON_M:
+				return true
+			if offset == Vector2i(-1, 0) and absf(maximum.x - x) <= EPSILON_M and minimum.x < x and overlap_z > EPSILON_M:
+				return true
+			if offset == Vector2i(1, 0) and absf(minimum.x - x - 1.0) <= EPSILON_M and maximum.x > x + 1.0 and overlap_z > EPSILON_M:
 				return true
 	return false
 
