@@ -86,8 +86,9 @@ func _run() -> void:
 	ok = _a_cloth_mask_helps_and_is_not_safe() and ok
 	ok = _a_plume_gets_in_through_any_open_wound() and ok
 	ok = _a_bare_survivor_is_priced_exactly_as_before() and ok
+	ok = _linger() and ok
 	if ok:
-		print("M2_FILTER_OK content worn max bloom cloud notsafe open pinned")
+		print("M2_FILTER_OK content worn max bloom cloud notsafe open pinned linger")
 		quit(0)
 	else:
 		push_error("M2_FILTER_FAIL")
@@ -567,4 +568,116 @@ func _a_bare_survivor_is_priced_exactly_as_before() -> bool:
 		push_error("PINNED: halving the chance changed nothing on any of %d seeds, so this lane cannot tell one chance from another" % PINNED_COUNT)
 		return false
 	print("  PINNED: over %d seeds a bare survivor is rolled at exactly %.2f, agreeing with the pre-filter expression every time (%d transmitted); half that chance disagrees on %d" % [agreed, SimBloater.EXTRA_CHANCE, hits, disagreements])
+	return true
+
+
+# --- LINGER -----------------------------------------------------------------------------------
+#
+# The cloud is a field that decays, and a survivor takes the roll while the field is above its
+# threshold and not after. One real bloom over an empty tile, a bitten survivor standing outside its
+# disc, walked in at a tick of the cloud's life. Each measurement is a world of its own:
+#   IN     walks in at tick 600 of the cloud's life, when the level is 2/3: the roll is taken.
+#   LAST   walks in on the last tick the cloud is alive, born + 1799: the roll is taken.
+#   GONE   walks in on born + 1800, the tick the level reaches zero: no roll, and the cloud is gone.
+#   PLANT  a field held at level 1.0 each tick -- a field that never decays -- walked in at tick 1900,
+#          long past the real cloud's end. GONE's judgement must see a roll there, or the decay is
+#          unproved; the lane fails if the planted field does not roll.
+const LINGER_IN_TICK: int = 600
+const LINGER_LAST_TICK: int = 1799
+const LINGER_GONE_TICK: int = 1800
+const LINGER_PLANT_TICK: int = 1900
+const CLOUD_CENTRE: Vector2 = Vector2(8.5, 12.5)
+const OUTSIDE: Vector2 = Vector2(20.5, 12.5)
+
+
+# A bloater bursts over CLOUD_CENTRE and the cloud it writes is returned with its birth tick, after
+# one step: the handler runs at the drain, so the cloud exists from the step after the death.
+func _bloom_cloud(w: Variant) -> Dictionary:
+	w.components.set_component(w.player, "position", {"x": OUTSIDE.x, "y": OUTSIDE.y})
+	w.events.publish({"type": "entity.killed", "entity": int(w.entities.spawn()), "zombieType": BLOATER_TYPE, "x": CLOUD_CENTRE.x, "y": CLOUD_CENTRE.y})
+	w.step()
+	for e in w.components.query(["contamination", "position"]):
+		var c: Dictionary = w.components.get_component(int(e), "contamination") as Dictionary
+		return {"entity": int(e), "born": int(c["bornAtTick"])}
+	return {}
+
+
+# Walks the survivor into the disc on the step whose system tick is the cloud's birth plus `age`:
+# the infection phase reads the tick the step has reached, so the step that starts one tick short
+# of it is the one that runs the roll. `hold` pins the field's level at 1.0 after every step: the
+# planted field that never decays. Returns the rolls taken on the walk-in and whether the cloud was
+# still there once the walk-in step had run.
+func _walk_in(w: Variant, cloud: Dictionary, age: int, hold: bool) -> Dictionary:
+	var born: int = int(cloud["born"])
+	while int(w.tick) < born + age - 1:
+		w.step()
+		if hold:
+			_hold_level(w, int(cloud["entity"]))
+	w.components.set_component(w.player, "position", {"x": CLOUD_CENTRE.x, "y": CLOUD_CENTRE.y})
+	var before: int = _exposures(w).size()
+	w.step()
+	if hold:
+		_hold_level(w, int(cloud["entity"]))
+	var there: bool = w.components.get_component(int(cloud["entity"]), "contamination") != null
+	return {"rolls": _exposures(w).size() - before, "there": there}
+
+
+func _hold_level(w: Variant, entity: int) -> void:
+	var c: Variant = w.components.get_component(entity, "contamination")
+	if c is Dictionary and (c as Dictionary).has("level"):
+		(c as Dictionary)["level"] = 1.0
+
+
+func _fresh_bloom() -> Dictionary:
+	var w: Variant = _world(7300)
+	var cloud: Dictionary = _bloom_cloud(w)
+	if cloud.is_empty():
+		push_error("LINGER: the bloom wrote no cloud, so there is nothing to walk into")
+		return {}
+	return {"world": w, "cloud": cloud}
+
+
+func _linger() -> bool:
+	var lane: String = "LINGER"
+	var a: Dictionary = _fresh_bloom()
+	if a.is_empty():
+		return false
+	var nominal: int = int((a["world"].components.get_component(int(a["cloud"]["entity"]), "contamination") as Dictionary)["expiresAtTick"])
+	if nominal - int(a["cloud"]["born"]) != SimBloater.FLAG_TICKS:
+		push_error("%s: the cloud's nominal end is %d ticks after its birth, want %d -- the lane is not measuring today's lifetime" % [lane, nominal - int(a["cloud"]["born"]), SimBloater.FLAG_TICKS])
+		return false
+
+	var inside: Dictionary = _walk_in(a["world"], a["cloud"], LINGER_IN_TICK, false)
+	if int(inside["rolls"]) != 1 or not bool(inside["there"]):
+		push_error("%s: a survivor who walked in at tick %d, the level at 2/3, was rolled %d times with the cloud present %s" % [lane, LINGER_IN_TICK, int(inside["rolls"]), str(inside["there"])])
+		return false
+
+	var b: Dictionary = _fresh_bloom()
+	if b.is_empty():
+		return false
+	var last: Dictionary = _walk_in(b["world"], b["cloud"], LINGER_LAST_TICK, false)
+	if int(last["rolls"]) != 1 or not bool(last["there"]):
+		push_error("%s: a survivor who walked in on the cloud's last live tick, %d, was rolled %d times with the cloud present %s" % [lane, LINGER_LAST_TICK, int(last["rolls"]), str(last["there"])])
+		return false
+
+	var c: Dictionary = _fresh_bloom()
+	if c.is_empty():
+		return false
+	var gone: Dictionary = _walk_in(c["world"], c["cloud"], LINGER_GONE_TICK, false)
+	if int(gone["rolls"]) != 0 or bool(gone["there"]):
+		push_error("%s: a survivor who walked in at tick %d, the level at zero, was rolled %d times with the cloud present %s" % [lane, LINGER_GONE_TICK, int(gone["rolls"]), str(gone["there"])])
+		return false
+
+	# The plant. A field held at 1.0 is still in the world at tick 1900; the walk-in must roll.
+	var d: Dictionary = _fresh_bloom()
+	if d.is_empty():
+		return false
+	var held: Dictionary = _walk_in(d["world"], d["cloud"], LINGER_PLANT_TICK, true)
+	if int(held["rolls"]) < 1:
+		push_error("%s: the planted field that never decays did not roll a survivor at tick %d, so GONE could not see a leak" % [lane, LINGER_PLANT_TICK])
+		return false
+
+	print("  LINGER: a bitten survivor walked into a bloom's cloud at tick %d (level 2/3) and was rolled %d time; at %d, the last live tick, rolled %d with the cloud there; at %d, its level at zero, rolled %d with the cloud gone; a field held at 1.0 was still rolling at %d (%d rolls)" % [
+		LINGER_IN_TICK, int(inside["rolls"]), LINGER_LAST_TICK, int(last["rolls"]), LINGER_GONE_TICK, int(gone["rolls"]), LINGER_PLANT_TICK, int(held["rolls"]),
+	])
 	return true

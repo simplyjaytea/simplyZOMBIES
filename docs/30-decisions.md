@@ -8068,3 +8068,27 @@ opt-in", one resident map), streaming (Milestone 3B, Risk 7), district-tier simu
 decisions (docs/25 and the district `vehicles` block). A train that needs repair is a new mechanic,
 and it is designed with the region.
 
+## The bloater's gas is a tile field, 2026-11-06
+
+The bloater's cloud was a disc with an expiry: a contamination flag that was in force until its end
+tick, and a roll for any survivor standing in the disc. It is now a gas level that decays, and the
+roll reads the level.
+
+- **The field is per cloud.** The burst writes a `level` of 1.0 into the cloud's component, and the
+  system decays it once a tick by `decayPerTick`. The cloud is gone when the level reaches `threshold`.
+  A tile grid was considered and not built: the burst's footprint is one disc at one level, nothing
+  spreads or diffuses, so a grid would store the same number in every cell and save all of them.
+  The reader is the same either way, so a per-tile field is a change of storage, not of meaning, if a
+  plume ever needs one.
+- **Saves.** `level`, `bornAtTick` and the decay parameters ride the cloud's `contamination`
+  component, which already saves. A cloud written before the field has no level and reads its level
+  off its nominal end, which is the same linear law, so a save from before this restores as it was.
+  `contaminationRolls` rows gain a `window`; a row without one is window 0. No `SAVE_VERSION` bump.
+- **Numbers.** The shipped `gas` block is today's numbers written out: a 6 m disc, 1800 ticks of life,
+  a decay of 1/1800 a tick, a threshold a millionth above zero (so the cloud is alive on its 1799th
+  tick and gone on its 1800th, as the expiry was), and a roll window the length of the life.
+- **Windows.** `hurtEvery` is the content knob for "a survivor is hurt again while the gas is still
+  there". Its shipped default is the cloud's whole life, one roll, so nothing moves.
+- **Gates.** `godot:m2:filter` LINGER pins the three ticks and a planted field that never decays; the
+  CLOUD, PINNED and BLOOM lanes are unchanged. The plant (`decayPerTick` 0 in the content) turns LINGER
+  red.
