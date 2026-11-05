@@ -45,14 +45,14 @@ Then read, in order:
 ## The team
 
 **Linux, since 2026-11-04; this roster since 2026-11-05.** The owner's machine runs six terminals in
-herdr, not Orca, in two workspaces: "simplyZOMBIES / Main Code" (the coordinator, the advisor, the two
+herdr, not Orca, in two workspaces: "simplyZOMBIES / Main Code" (the orchestrator, the lead engineer, the two
 workers) and "simplyZOMBIES / Modeling and Art" (the art lead and its QA). The owner decides and gives
-tasks to the coordinator directly. Agents do the rest, each on its own model.
+tasks to the orchestrator directly. Agents do the rest, each on its own model.
 
 | Role | Agent | Does | Does not |
 |---|---|---|---|
-| Coordinator | Claude Code, Sonnet 5.5 | The lead: everything routes through it. Reads the state, plans, writes every spec, dispatches to the workers and the art lead, verifies every report against the diff, renders and gates, opens PRs, runs the merge train, merges | Write the work itself, beyond small fixes to docs and records |
-| Advisor | Claude Code, Fable 5.1 | Advises the coordinator: a second opinion, a harder judgement call, a plan or design review, and the questions the coordinator cannot settle. Talks to the art QA for anything that crosses the two workspaces | Dispatch, merge, or write the work; relay the owner's tasks (the owner talks to the coordinator) |
+| Orchestrator | Claude Code, Fable 5.1 | Plans and orchestrates: reads the state, writes the specs, dispatches the lead engineer, the workers and the art lead, makes the harder judgement calls, and talks to the art QA for anything that crosses the two workspaces. The owner gives it tasks directly | Write the work, merge, or run the merge train |
+| Lead engineer | Claude Code, Sonnet 5.5 | Reviews every worker change against the diff before the orchestrator sees it; runs the merge train and merges; opens PRs; small fixes to docs and records | Plan the rounds; touch art |
 | Art lead | Kimi Code, K3.1 Pro, thinking high, in "Never Ask" mode | Every 3D model, rig, clip, UV layout and painted texture | Edit another worker's worktree |
 | Art QA | Claude Code, Opus 5.5, a standing terminal beside Kimi | Plans Kimi's rounds, reviews every art batch independently and writes the verdict to `sz-shared/reviews/<piece>/`; the strong tier for a piece that needs higher thinking (a new gate, a shared sim module, the save format) when the coordinator asks | Merge; routine work, which stays with the workers |
 | Workers (two) | Claude Code, Haiku 5.5 | Every piece of work that is not art: code, gates, docs, keeping pull requests current with main, and independent reviews of code they did not make | Merge |
@@ -571,11 +571,11 @@ Ome–Okutama (brief docs/42, on `main`; the owner took every card's default on 
 For what is open, `gh pr list`; for the last session's handoff, the newest entry in
 [docs/43](docs/43-session-log.md).
 
-**Team** (the owner's call, 2026-11-05). Claude Sonnet is the lead: it plans, dispatches, verifies and
-merges, and the owner gives it tasks directly. Claude Fable advises Sonnet and talks to the art QA. Kimi
-does all 3D and art; a standing Claude Opus terminal beside it plans Kimi's rounds and signs every art
-batch off before its PR. Two Claude Code Haiku workers do everything else. On 2026-11-04 Fable
-coordinated and Opus was a subagent; the OpenCode workers were retired that day.
+**Team** (the owner's call, 2026-11-05). Claude Fable orchestrates and plans, and the owner gives it
+tasks directly. Claude Sonnet is the lead engineer: it reviews every worker change, runs the merge
+train and merges. Kimi does all 3D and art; a standing Claude Opus terminal beside it plans Kimi's
+rounds and signs every art batch off before its PR. Two Claude Code Haiku workers do everything else.
+On 2026-11-04 Fable coordinated and Opus was a subagent; the OpenCode workers were retired that day.
 
 **Merged this session (evening of 2026-11-04):** #318, #319, #320, #323 (docs/42), #324, #325 (this
 trimmed playbook), #326 (the organic survivor). Their branches and worktrees are gone.
