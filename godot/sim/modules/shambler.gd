@@ -456,6 +456,19 @@ static func _locomotion_of(world: Variant, type_id: String) -> Dictionary:
 	}
 
 
+# The kind's own held-bite table, `grab.bites`, or {} when it names none. The weights are per
+# survivor part and sum to 1 (the schema says so and check_m2_contact.gd's CRAWLER lane asserts it).
+static func bite_weights_of(world: Variant, type_id: String) -> Dictionary:
+	var entry: Variant = resolved_entry(world, type_id)
+	if not entry is Dictionary:
+		return {}
+	var grab: Variant = (entry as Dictionary).get("grab")
+	if not grab is Dictionary:
+		return {}
+	var bites: Variant = (grab as Dictionary).get("bites")
+	return (bites as Dictionary).duplicate() if bites is Dictionary else {}
+
+
 static func _grab_of(world: Variant, type_id: String) -> Dictionary:
 	var entry: Variant = resolved_entry(world, type_id)
 	if entry == null:
@@ -1567,7 +1580,15 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			# the reasoning for why the head share collapses inside a grapple. A zombie body
 			# ignores the override (melee.gd); zombies do not grab each other today, but the
 			# roll should not have to care.
-			var bitten: String = SimMeleeRes._roll_body_part(grab_rng, victim_body, SimCombatRes.HELD_HIT_LOCATION_WEIGHTS)
+			# A kind may name its own held-bite table (`grab.bites`, the crawler's ankles); a kind
+			# that names none, and every body with no zombieType at all, takes the shared table.
+			var bite_table: Dictionary = {}
+			var biter_type: Variant = w.components.get_component(int(source3), "zombieType")
+			if biter_type is Dictionary:
+				bite_table = bite_weights_of(w, String((biter_type as Dictionary).get("id", "")))
+			if bite_table.is_empty():
+				bite_table = SimCombatRes.HELD_HIT_LOCATION_WEIGHTS
+			var bitten: String = SimMeleeRes._roll_body_part(grab_rng, victim_body, bite_table)
 			w.events.publish({
 				"type": "bite.landed",
 				"victim": bite_victim,
