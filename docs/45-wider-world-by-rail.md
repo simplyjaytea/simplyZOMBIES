@@ -77,6 +77,13 @@ station in the first batch of art) is where the platform's transition trigger si
 avoids the district tier, so the tier that docs/24 describes stays unbuilt. It avoids the road seams
 between districts, because the rail line takes that role.
 
+**Home while away (owner's call, 2026-11-06, card 37).** While the player is elsewhere, home is simulated
+at a coarse tier, not frozen: the six-number home that docs/24 describes, advanced on return. That is
+the district-tier simulation docs/23 keeps for Milestone 3B, so **the rail piece now depends on it**: the
+transition in section 6 cannot close until a coarse home runs while the player is away. The alpha's
+one resident map and its no-district-tier decision stand for the map the player is in; the coarse tier
+is for the home they left.
+
 **What it needs, and this is new.** A transition between resident maps: leave one map, load another,
 and carry the colony across. Today a save carries only its seed (PLAYBOOK, "Known bugs": a save bump
 refuses every v33 save, district saves included, because a save carries only its seed). A colony
@@ -151,7 +158,8 @@ at home.
 - **Return.** The same ride back. The destination is generated from its seed again, so a destination
   the player did not change needs no save. A change made there does, and that is the save question in
   section 3.
-- **Home while away.** Not decided. Card 37.
+- **Home while away.** Decided 2026-11-06: a coarse home tier while the player is away (card 37, and
+  section 3). The colony is not frozen.
 
 ## 6. The order of work
 
@@ -168,7 +176,11 @@ As docs/42 section 6 lays out its order, each step with its gate, none sized:
    reached by a train that is not yet a transition. Gate: `godot:m2:region` and `godot:check:worldgen`.
 5. **The transition.** Leave one resident map, load another, carry the colony across, and the save
    design that makes it possible. Gate: `godot:m2:save` with a cross-map round trip, and a true
-   negative that loses a survivor on the way, which must fail the gate.
+   negative that loses a survivor on the way, which must fail the gate. **Depends on the coarse home
+   tier** (section 3, card 37): the home the player leaves runs at that tier, which is docs/23's
+   district-tier simulation for Milestone 3B. The coarse tier lands before step 5 closes, so the order
+   is: the station and the scenery (steps 1 and 2), the ledger (3), the first region (4), the coarse
+   home tier (Milestone 3B), then the transition (5).
 6. **More destinations.** Content only, once step 5 holds. A city waits for Milestone 3B streaming.
    Tokyo waits for the city.
 
@@ -188,10 +200,11 @@ are numbered after the last card in [docs/33](33-owner-decisions.md#waiting-on-t
 36. **Is Tokyo a destination or a horizon?** Default: **a horizon**. Tokyo appears on the line's map and
     at the far end of the premise, and no shipped piece makes it resident. The owner's "maybe even
     Tokyo" stays open for the city arc.
-37. **What happens to the colony while the player is away?** Default: **frozen**. Home is not
-    simulated while the player is elsewhere. On return, the days away are not replayed; the colony
-    resumes where it stopped. Recommended: frozen. A later card can change it to a six-number home,
-    which docs/24's district tier describes and the alpha does not build.
+37. **What happens to the colony while the player is away?** Decided by the owner on 2026-11-06:
+    **a coarse home tier**, not frozen. While the player is elsewhere, home is simulated at the
+    six-number tier docs/24 describes, and it resumes on return at that coarse state. (The default
+    this note had built was frozen; the owner chose the coarse tier.) The coarse tier is docs/23's
+    district-tier simulation for Milestone 3B, so the rail piece depends on it (section 3, section 6).
 38. **Does the car need a second crew member?** Default: **no**. One driver, as a vehicle has one
     driver seat. A second colonist for signalling is a balance question, and it is open.
 39. **Which tier of parts is the hardest?** Default: **Tier III**, the fuel system and electrics, found

@@ -508,8 +508,10 @@ default is not built yet.
     destination's resident map without the player, and no rule covers that yet.
 36. **Is Tokyo a destination or a horizon?** Default: **a horizon**. It is on the line's map and at the far
     end of the premise; no shipped piece makes it resident.
-37. **What happens to the colony while the player is away?** Default: **frozen**. Home is not simulated
-    while the player is elsewhere, and the days away are not replayed on return.
+37. **What happens to the colony while the player is away?** Decided by the owner on 2026-11-06: **a
+    coarse home tier**, not frozen. While the player is elsewhere, home runs at docs/24's six-number
+    tier and resumes on return at that state. It is docs/23's district-tier simulation for Milestone 3B,
+    so the rail piece (docs/45) depends on it.
 38. **Does the car need a second crew member?** Default: **no**. One driver, as a vehicle has one driver
     seat.
 39. **Which tier of parts is the hardest?** Default: **Tier III**, the fuel system and electrics, found only
