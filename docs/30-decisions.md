@@ -7994,3 +7994,26 @@ opt-in", one resident map), streaming (Milestone 3B, Risk 7), district-tier simu
 decisions (docs/25 and the district `vehicles` block). A train that needs repair is a new mechanic,
 and it is designed with the region.
 
+## The lurker is a dormant kind, 2026-11-05
+
+The lurker is a zombie kind that is placed only by the dormant manifest, and wakes on a noise
+anywhere in the indoor floor of its building. It is a kind, not a state: its content is
+`godot/content/zombies/lurker.json`, and the one new thing it asks of the sim is a content flag.
+
+- **Placement.** `dormantShare` 0.2 of the manifest's existing slots. It adds no density: the records
+  and their order are the worldgen pass's, and a lurker takes a slot a shambler would have taken. Its
+  share is drawn on the `dormantKind` stream at boot, so no existing stream moves. A kind that
+  declares `dormantShare` is silenced from the wandering mix (`weight_of` reads 0).
+- **The wake rule is a flag, not a tag.** `wakesIndoors: true` on the kind. A behaviour tag was tried
+  first and the oracle refused it: `src/` lists the tags it implements, and the oracle is frozen. A
+  boolean in the schema is validated the way `dormantShare` is, and the oracle's suite passes.
+- **What it hears.** A lurker keeps the indoor floor of its building as `lair` on the `shambler`
+  component, written at boot from `SimWorldgen.indoor_tiles_of`. Its Dormant arm wakes on the field at
+  or above its hearing threshold on any lair tile. A kind without the flag keeps the shambler's rule.
+- **Save.** `lair` and `wakesIndoors` ride the `shambler` component, which already round-trips. No
+  `SAVE_VERSION` bump: a save that has no lair restores as a shambler does, and the `dormantKind`
+  stream appears in a save only once a campaign has drawn one.
+- **Owner cards** (report only): the share of 0.2, and whether a loud noise outdoors reaches a lurker
+  through its walls. The shipped default lets a noise above the threshold on any floor tile wake it,
+  which is the brief's "unless it is loud enough to be heard at its tile".
+- **Balance.** The boot's dormant bodies change, and the ten-seed re-baseline is owed in stage 2.
