@@ -37,7 +37,7 @@ const RenderInterp = preload("res://presentation/interp.gd")
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
 const OwnBody = preload("res://presentation/first_person/own_body.gd")
-const HeldWeapon = preload("res://presentation/first_person/held_weapon.gd")
+const ArmsView = preload("res://presentation/first_person/arms_view.gd")
 const PropView = preload("res://presentation/first_person/prop_view.gd")
 const ContainerView = preload("res://presentation/first_person/container_view.gd")
 const LooseView = preload("res://presentation/first_person/loose_view.gd")
@@ -84,7 +84,8 @@ const LEDGER_AIM_DOT: float = 0.866
 # Where the eye aims on a container box: its middle, not its top or its foot.
 const CONTAINER_AIM_HEIGHT_M: float = 0.92
 # Interim combat feedback: a short view kick on a swing or shot. No reticle and no centre dot --
-# docs/40 owner question 6's default. The view model itself is `held_weapon.gd`.
+# docs/40 owner question 6's default. The view model itself is `arms_view.gd`: the player's arms,
+# holding the weapon `held_weapon.gd` assembles.
 const KICK_RADIANS: float = 0.022
 const KICK_DECAY_PER_SECOND: float = 0.15
 # How finely the look ray is walked through the tile grid when it looks for a door or window (metres).
@@ -172,10 +173,14 @@ var _run_over_open: bool = false
 var _news: String = ""
 var _news_until_ms: int = 0
 var _epitaph: Array[String] = []
-# The equipped weapon in the lower right: the equipped item's model, assembled from the sim's parts,
-# or the interim placeholder for an item with no model. It also answers the kick, which it inherits
-# from the camera.
+# The view model: the player's arms under the eye (`arms_view.gd`), and in the right hand the equipped
+# item's model, assembled from the sim's parts, or the interim placeholder for an item with no model.
+# Both answer the kick, which they inherit from the camera.
+var _arms: Node3D = null
 var _held_weapon: Node3D = null
+# The inspect key is down. Cleared with the walking keys, so a screen that swallows the release
+# cannot leave the arms inspecting.
+var _inspect_held: bool = false
 var _kick: float = 0.0
 # The camera's eye height in metres, eased toward the sim's posture eye. Presentation only.
 var _eye_m: float = 1.62
@@ -461,7 +466,7 @@ func _process(delta: float) -> void:
 	_sync_bench_panel()
 	var alpha: float = clampf(_accumulator / TICK_SECONDS, 0.0, 1.0)
 	_kick = move_toward(_kick, 0.0, delta * KICK_DECAY_PER_SECOND)
-	_update_held_weapon()
+	_update_held_weapon(delta)
 	_update_render(alpha)
 	_update_hud()
 
@@ -705,6 +710,11 @@ func _input(event: InputEvent) -> void:
 		reload_weapon()
 		get_viewport().set_input_as_handled()
 		return
+	if code == KEY_L:
+		# Inspect is held, not toggled: the arms turn the thing in hand over while the key is down.
+		_inspect_held = ke.pressed
+		get_viewport().set_input_as_handled()
+		return
 	# The clock's keys, the top-down game's own (`input_map.gd`'s "slower" and "faster"). Refused under the
 	# ledger, the sheet and the end panel, which consume every key before this point, as main.gd refuses them.
 	var step: int = _speed_step_of(ke)
@@ -883,6 +893,7 @@ func _push_zero_move() -> void:
 
 func _clear_held() -> void:
 	_held.clear()
+	_inspect_held = false
 
 
 # --- interim combat input --------------------------------------------------------------------
@@ -946,26 +957,48 @@ func _kick_camera() -> void:
 	_kick = -KICK_RADIANS
 
 
-# The equipped weapon view: the item's own model assembled from the sim's installed parts, or the
-# placeholder box for an item this kit has no model for. `held_weapon.gd` owns both; this scene
-# only hands it the world each frame. No collision, and it never moves on its own.
+# The view model: the arms under the eye with an identity transform, holding the item's own model
+# assembled from the sim's installed parts, or the placeholder box for an item this kit has no model
+# for. `arms_view.gd` owns the arms and their clips and `held_weapon.gd` the weapon; this scene only
+# hands them the world, the view and the keys each frame. No collision, and nothing moves on its own.
 func _build_held_weapon() -> void:
-	_held_weapon = HeldWeapon.new()
-	_held_weapon.name = "HeldWeapon"
-	camera.add_child(_held_weapon)
+	_arms = ArmsView.new()
+	_arms.name = "Arms"
+	camera.add_child(_arms)
+	_arms.call("build")
+	_held_weapon = _arms.call("held_weapon") as Node3D
 
 
-func _update_held_weapon() -> void:
-	if _held_weapon == null or world == null:
+func _update_held_weapon(delta: float = 0.0) -> void:
+	if _arms == null or world == null:
 		return
-	var hide: bool = _run_over_open or bench_open or inventory_open or _reports_open or talk_open or third_person
-	_held_weapon.call("update", world, Time.get_ticks_msec() / 1000.0, _run_over_open)
-	if hide:
-		_held_weapon.call("set_view_visible", false)
+	var speed: float = _prev_player.distance_to(_curr_player) / TICK_SECONDS
+	_arms.call("update", world, delta, view_covered(), third_person, _inspect_held, Vector2(yaw, pitch), speed, _run_over_open)
+
+
+## A screen is over the view: the ledger, the reports page, the sheet, a conversation, the bench, the key reference or
+## the end panel. The arms lower out of the frame while one is up.
+func view_covered() -> bool:
+	return menu_open or _reports_open or inventory_open or talk_open or bench_open or _legend_open or _run_over_open or _waiting_for_heir()
+
+
+## The arms view, for the gate.
+func arms_node() -> Node3D:
+	return _arms
+
+
+func inspect_held() -> bool:
+	return _inspect_held
 
 
 func held_weapon_visible() -> bool:
-	return _held_weapon != null and bool(_held_weapon.call("visible_any"))
+	return _held_weapon != null and bool(_held_weapon.call("visible_any")) and _held_weapon.is_visible_in_tree()
+
+
+## The held weapon is drawn for the view: held_weapon_visible() and the arms are shown. The arms
+## being down (lowered under a screen, or the third-person view) hides it.
+func held_weapon_drawn() -> bool:
+	return held_weapon_visible() and _arms != null and bool(_arms.call("arms_shown"))
 
 
 ## The held-weapon view for the gate: the assembled model, its drawn set and its sockets.
@@ -2210,6 +2243,7 @@ const KEY_REFERENCE: Array = [
 		["F", "swing, or struggle out of a grab", [KEY_F]],
 		["G", "fire", [KEY_G]],
 		["R", "reload; in the sheet, turns the item you lift", [KEY_R]],
+		["L", "hold to turn over what is in your hands", [KEY_L]],
 		["E", "use the ledger, a cupboard, a bench or a door you face; the prompt at the bottom says which", [KEY_E]],
 	]],
 	["Run", [
