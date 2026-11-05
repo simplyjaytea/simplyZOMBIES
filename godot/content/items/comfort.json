@@ -29,7 +29,7 @@
   },
   {
     "id": "item.cards.deck",
-    "name": "Deck of Playing Cards",
+    "name": "Hanafuda Deck",
     "description": "Worn soft at the corners and short of a card or two, which everybody agrees to pretend they have not noticed.",
     "class": "tool",
     "size": { "w": 1, "h": 1 },
@@ -92,7 +92,7 @@
   },
   {
     "id": "item.chess.travel",
-    "name": "Travelling Chess Set",
+    "name": "Travelling Shogi Set",
     "description": "A folding board with pegged pieces, so a game can sit half finished on a crate for days without anybody knocking it over.",
     "class": "tool",
     "size": { "w": 2, "h": 1 },
@@ -101,7 +101,7 @@
   },
   {
     "id": "item.rosary.wooden",
-    "name": "Wooden Rosary",
+    "name": "Prayer Beads",
     "description": "Beads rubbed pale where a thumb has gone over them, on a cord that has been knotted back together more than once.",
     "class": "tool",
     "size": { "w": 1, "h": 1 },

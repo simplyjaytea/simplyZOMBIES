@@ -43,8 +43,14 @@ func _run() -> void:
 		quit(1)
 
 func _version() -> bool:
-	if int(SimSerialize.SAVE_VERSION) != 33:
-		push_error("SAVE_VERSION %d want 33 -- bump it here AND in check_m2_fortify.gd's _version(), which pins the same number" % int(SimSerialize.SAVE_VERSION))
+	if int(SimSerialize.SAVE_VERSION) != 34:
+		push_error("SAVE_VERSION %d want 34 -- bump it here AND in check_m2_fortify.gd's _version(), which pins the same number" % int(SimSerialize.SAVE_VERSION))
+		return false
+	# v33 is stale too: the region runs up-valley at v34, so a v33 save is refused, district saves included
+	# (the save carries only the seed), and a bump that did not refuse the version before it would prove nothing.
+	var before: Dictionary = SimSave.decode_save("{\"snapshot\":{\"version\":33},\"meta\":{}}")
+	if String(before.get("__error", "")) != "StaleSaveError":
+		push_error("v33 not rejected by the v34 build: %s" % str(before))
 		return false
 	# 13 is stale -- it predates posture's target/ticks_left and float stamina. 15 is current
 	# (Slice 2 Part A's bloodLoss/wound-severity shape change), so 13 is two versions behind
