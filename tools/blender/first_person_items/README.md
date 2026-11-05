@@ -2,7 +2,7 @@
 
 The everyday things a player picks up, as world-pose GLBs that share one pixel atlas.
 
-- **Hand-chosen models.** 26 models are particular things, and they carry 87 hand-chosen item
+- **Hand-chosen models.** 27 models are particular things, and they carry 87 hand-chosen item
   ids.
 - **Neutral models.** 15 models are neutral shapes: a tin, a jar, a bottle, a wrapped parcel, a
   sack, two crates, a long wrapped bar, a parts case, a tool roll, a pouch, a plain bag, a knit
@@ -31,7 +31,7 @@ blender --background --factory-startup --python tools/blender/first_person_items
 
 A rebuild writes these files:
 
-- `godot/assets/first_person/items/*.glb`: 41 models.
+- `godot/assets/first_person/items/*.glb`: 42 models.
 - `godot/assets/first_person/items/items_atlas.png`: the shared atlas.
 - `godot/assets/first_person/items.manifest.json`: the manifest.
 - `items.blend`: the convenience scene.
@@ -56,6 +56,7 @@ starter kit's.
 | `coverage` | A class with no class entry, or an item of those six classes that resolves to no model. |
 | `scale` | An item drawn by a model whose largest dimension is outside 2x of the item's expected size (below), or outside 4x for a hand-chosen shared model such as a penlight drawn as the torch. |
 | `rung` | A laddered item drawn by a hand-chosen item's own model: a jar of honey drawn as the ration pouch, or binoculars as scrap metal. No hand-chosen model may stand on a ladder rung. |
+| `length` | An item with a `LENGTH_HINTS` entry drawn by a model whose longest axis, measured on the exported GLB, is more than 25% off the hint; or a hint that matches no drawn item. `scale` allows a hand-chosen model 4x, so it passes a 40 cm bolt drawn as the 71 cm arrows. |
 | `material` | More than one material, any image other than `items_atlas`, a primitive off the sole material, or a sampler that is not nearest with nearest mipmaps. |
 | `single_sided` | A double-sided material, a triangle wound against its normal, or a mesh that is not closed (an unmatched edge). |
 | `coplanar` | Two same-facing triangles within 0.5 mm of one plane whose projections overlap. These are the z-fighting faces from the starter kit's review. The message gives their location. |
@@ -73,6 +74,7 @@ mutation during the temporary rebuild:
 | `id` | `item.food.canned` misspelt as `item.food.caned`. | ids, bytes |
 | `scale` | The sack of flour drawn as the 8 cm tin (the first review's finding). | scale, bytes |
 | `rung` | The ration pouch put on the consumable ladder (the second review's finding). | rung, bytes |
+| `length` | The broadhead bolt drawn as the arrows. | length, bytes |
 | `material` | A second material on one medkit face. | material, bytes |
 | `doublesided` | Back-face culling off on the material. | single_sided, bytes |
 | `winding` | One battery face reversed. | single_sided, bytes |
@@ -137,7 +139,8 @@ uses. Close variants share a model.
 | `jerrycan` | `item.jerrycan.fuel`, `item.jerrycan.empty` | Fuel. |
 | `storm_lantern` | `item.lantern.storm`, `item.lantern.oil`, `item.lantern.camping` | Oil and gas light. |
 | `duffel` | `item.duffel.canvas` | The duffel, resting on its own slumped bottom with the shoulder strap draped on the floor. |
-| `arrows` | `item.ammo.arrow`, `.broadhead`, `.target`, `item.ammo.bolt`, `.broadhead` | Three fletched arrows lying side by side. An arrow is one grid cell and 72 cm long. |
+| `arrows` | `item.ammo.arrow`, `.broadhead`, `.target` | Three fletched arrows lying side by side. An arrow is one grid cell and 72 cm long. |
+| `bolt` | `item.ammo.bolt`, `.broadhead` | The arrows scaled to 40 cm, the length of a crossbow bolt. |
 
 ## The size ladder
 
@@ -147,7 +150,10 @@ two things for the item:
 - **Its kind.**
   - Hard headgear (helmet, hard hat, gas mask, respirator) and eyewear (glasses, goggles),
     from the id.
-  - Drinks and jarred food (a name with bottle, jar, carton, canteen, flask or drink).
+  - Liquids: a name with the whole word bottle, jar, carton, canteen, flask, drink or oil, in any
+    class (so lamp oil and gun oil count, and an oil-filter suppressor's name does too). Armor and
+    attachments have no liquid ladder and take their default one. The Jar of Preserves is routed
+    to the jar by id.
   - Long things: a footprint one side three times the other, or an id in `LENGTH_HINTS`.
   - Everything else.
 - **Its expected largest dimension.** This is the larger of two estimates. From the grid: 7.5 cm
@@ -161,7 +167,7 @@ log scale:
 | Class | Kind | Ladder (smallest first) |
 |---|---|---|
 | consumable | default | squat tin `fallback_consumable` (8 cm), wrapped parcel `bundle` (22 cm), sack `fallback_material` (35 cm) |
-| consumable | liquid | plain `jar` (13 cm), plain `bottle` (26 cm) |
+| consumable, material, tool, container | liquid | plain `jar` (13 cm), plain `bottle` (26 cm) |
 | material | default | parts case `fallback_attachment` (12 cm), `crate_small` (26 cm), sack (35 cm), `crate_large` (52 cm) |
 | material | long | `long_bundle`, a canvas-wrapped bar (75 cm) |
 | tool | default | parts case (12 cm), tool roll `fallback_tool` (32 cm), `crate_large` (52 cm) |
@@ -214,7 +220,7 @@ deliberate offsets of at least 1 mm.
 The atlas is one 1024 × 512 PNG, with islands shelf-packed and a 1-texel gutter. The kit uses two
 densities, chosen per model by its largest dimension:
 
-- **128 texels per metre** for every model up to 0.40 m (32 of 41). At 64 texels per metre a 7.5 cm
+- **128 texels per metre** for every model up to 0.40 m (33 of 42). At 64 texels per metre a 7.5 cm
   can is 5 texels across and its label is 6 texels tall. At 0.5 m (about 1400 screen pixels per
   metre at 1080p and 75° FOV) that gives a smear rather than a label. At 128 the can is about 30
   texels round, the label has a panel, a print row and a torn edge, and a book's title label reads.

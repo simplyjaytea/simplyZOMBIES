@@ -8002,3 +8002,51 @@ has the measurement table and the gate. This entry is the design and the reason 
   owed in stage 2 with the zombie arc's re-baseline. `trail` 20 is the first cut, above the
   measured self by the smallest whole margin; it is content, so retuning it is a JSON edit and
   this lane's 20 m positive (a rise of 21.7) says so the moment it is raised past it.
+## The region runs up-valley, and a region save from before it is refused, 2026-11-04
+
+The region `region.main_area` is re-ordered so that x runs up-valley (docs/42 section 3): the
+lower-valley cells, Umezaki Ekimae and Hinatadai, at x=0, and the upper-valley cells, Kawahara Yards
+and Kaminose Shore, at x=1. The cell count, the cell size and every district id are unchanged.
+
+The reason for the save bump is the one `serialize.gd` already records for water (v28). A region's map
+is regenerated from its seed and its cell order, so a save made on the old order would load its
+districts onto ground that has moved under its doors, containers and survivors. A save carries only the
+seed, not which region or which cell order it was rolled on, so the refusal cannot be narrowed to region
+saves. Every v33 save is therefore refused, district saves included. A district's own map is unchanged,
+so that refusal is an over-refusal, and the price of a seed-only save.
+
+- **The bump.** `SAVE_VERSION` goes from 33 to 34, with a note in `godot/sim/kernel/serialize.gd`.
+- **The pins.** `check_m2_save.gd` and `check_m2_fortify.gd` pin the number and move with it. The save
+  gate now also refuses a v33 save, so the refusal is asserted rather than assumed.
+- **Why now.** The save format is not frozen until stage 4 of the release plan, and the owner's
+  coordinator decided the bump (`rename-r2`), so it is taken before a player holds a region save.
+## The setting cards: the defaults, and the valley is the first of several (2026-11-04)
+
+The owner's words, 2026-11-04:
+
+> defaults, send Kimi the Japanese buildings after the rifle. The end goal is to have other
+> districts, and cities. Maybe even tokyo! To travel between them the user will have to take a
+> train, they will have to repair the train, etc. That's just the plan.
+
+Every one of docs/42 section 7's ten cards is decided as its default:
+
+1. The valley's name is Kagase (alternatives Kurose, Minase); the terminus is Oku-Kagase.
+2. The premise line stays verbatim as the title line; Tokyo is the one real place name in game text.
+3. The city expedition is not a new district: the first expedition goes down the valley to Umezaki Ekimae.
+4. The colony starts at the walled timber yard on the Kawahara flat, on `map.district.alpha`'s anchors.
+5. Names change, ids stay; the save version does not bump.
+6. Firearms: docs/33's card, default rare; this entry adds nothing to it.
+7. Game text is English; a Japanese word appears only where English has none; given-name first; no real brand on signage.
+8. The shrine basin is decoration, not a water source; the river and the yard's well remain the water.
+9. Two-storey exteriors read as two storeys; the interior is the ground floor; the stair is a blocked tile with a drawn stair.
+10. `climate.temperate`'s numbers and the seven weather kinds keep; their descriptions are rewritten for the valley.
+
+The valley is the first of several places. Other districts and cities follow, and Tokyo is a
+possibility. Travel between them is by rail, and the colony must repair the train before it runs.
+This is a plan, not a piece: nothing is scheduled by this entry. The region (docs/24), streaming and
+district tiers (the release plan's stage 5) are where it will be designed.
+
+It supersedes nothing. The rail plan does not change the recorded region decisions ("The region is
+opt-in", one resident map), streaming (Milestone 3B, Risk 7), district-tier simulation, or the vehicle
+decisions (docs/25 and the district `vehicles` block). A train that needs repair is a new mechanic,
+and it is designed with the region.

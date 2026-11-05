@@ -173,7 +173,7 @@
   {
     "id": "item.charcoal.sack",
     "name": "Sack of Charcoal",
-    "description": "A paper sack of barbecue charcoal, gone soft at the corners.",
+    "description": "A paper sack of charcoal, gone soft at the corners.",
     "class": "material",
     "size": { "w": 2, "h": 2 },
     "massKg": 5.0,
@@ -304,7 +304,7 @@
   },
   {
     "id": "item.brass.9mm",
-    "name": "9x19mm Brass",
+    "name": "9mm Brass",
     "description": "A spent pistol case, dull and dented at the mouth. A hand-loader can use it again.",
     "class": "material",
     "size": { "w": 1, "h": 1 },

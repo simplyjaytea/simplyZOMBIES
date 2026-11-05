@@ -14,6 +14,7 @@ import argparse
 import hashlib
 import json
 import math
+import re
 from pathlib import Path
 import struct
 import sys
@@ -1796,6 +1797,14 @@ def m_headgear(m):
     m.painter = paint
 
 
+def m_bolt(m):
+    m_arrows(m)
+    factor = 0.40 / 0.7051
+    for shell in m.shells:
+        for group in shell:
+            group[2] = [tuple(p * factor for p in poly) for poly in group[2]]
+
+
 def m_arrows(m):
     # Three arrows lying side by side (arrows and crossbow bolts share them).
     frames = []
@@ -1871,7 +1880,8 @@ MODELS = [
     ("fallback_attachment", m_fallback_attachment, 46, [], ["attachment"]),
     ("pouch", m_pouch, 47, [], ["container"]),
     ("armor_small", m_armor_small, 48, [], []),
-    ("arrows", m_arrows, 49, ["item.ammo.arrow", "item.ammo.arrow.broadhead", "item.ammo.arrow.target", "item.ammo.bolt", "item.ammo.bolt.broadhead"], []),
+    ("arrows", m_arrows, 49, ["item.ammo.arrow", "item.ammo.arrow.broadhead", "item.ammo.arrow.target"], []),
+    ("bolt", m_bolt, 50, ["item.ammo.bolt", "item.ammo.bolt.broadhead"], []),
     ("jar", m_jar, 50, [], []),
     ("bottle", m_bottle, 51, [], []),
     ("bundle", m_bundle, 52, [], []),
@@ -1889,9 +1899,9 @@ MODELS = [
 # Each class has a default ladder and, where its items differ in kind, a family ladder.
 LADDER = {
     "consumable": {"default": ["fallback_consumable", "bundle", "fallback_material"], "liquid": ["jar", "bottle"]},
-    "material": {"default": ["fallback_attachment", "crate_small", "fallback_material", "crate_large"], "long": ["long_bundle"]},
-    "tool": {"default": ["fallback_attachment", "fallback_tool", "crate_large"], "long": ["long_bundle"]},
-    "container": {"default": ["pouch", "bag"]},
+    "material": {"default": ["fallback_attachment", "crate_small", "fallback_material", "crate_large"], "long": ["long_bundle"], "liquid": ["jar", "bottle"]},
+    "tool": {"default": ["fallback_attachment", "fallback_tool", "crate_large"], "long": ["long_bundle"], "liquid": ["jar", "bottle"]},
+    "container": {"default": ["pouch", "bag"], "liquid": ["jar", "bottle"]},
     "armor": {"default": ["armor_small", "fallback_armor"], "headgear": ["headgear"], "eyewear": ["fallback_attachment"]},
     "attachment": {"default": ["fallback_attachment", "fallback_tool"]},
 }
@@ -1899,13 +1909,16 @@ LADDER = {
 # Eyewear draws as the small hard case it is carried in.
 HEADGEAR_WORDS = ("helmet", "hardhat", "mask.gas", "respirator")
 EYEWEAR_WORDS = ("goggles", "glasses")
-LIQUID_WORDS = ("bottle", "jar", "carton", "canteen", "flask", "drink")
+LIQUID_WORDS = ("bottle", "jar", "carton", "canteen", "flask", "drink", "oil")
 # Items whose one-cell grid footprint hides their length. Matched on the id and its variants.
 LENGTH_HINTS = {"item.ammo.arrow": 0.72, "item.ammo.bolt": 0.40}
 # The scale check: a laddered or class-fallback model must be within 2x of the item's expected
 # size; a hand-chosen shared model (a penlight drawn as the torch) within 4x.
 SCALE_LADDER = 2.0
 SCALE_HAND = 4.0
+# The length check: an item with a LENGTH_HINTS entry is drawn by a model whose longest axis, as
+# exported, is within 25% of the hint (a crossbow bolt drawn as the 71 cm arrows fails).
+LENGTH_TOL = 0.25
 
 
 def length_hint(item_id):
@@ -1925,7 +1938,8 @@ def family(item):
         return "headgear"
     if item["class"] == "armor" and any(word in item["id"] for word in EYEWEAR_WORDS):
         return "eyewear"
-    if item["class"] == "consumable" and any(word in item["name"].lower() for word in LIQUID_WORDS):
+    words = set(re.split(r"[^a-z]+", item["name"].lower()))
+    if any(word in words for word in LIQUID_WORDS):
         return "liquid"
     if item["class"] in ("material", "tool") and is_long(item):
         return "long"
@@ -1983,6 +1997,7 @@ SIZES = {
     "pouch": (0.154, 0.133, 0.072),
     "armor_small": (0.1415, 0.0575, 0.1026),
     "arrows": (0.7051, 0.011, 0.0852),
+    "bolt": (0.40, 0.0062, 0.0483),
     "jar": (0.090, 0.130, 0.090),
     "bottle": (0.080, 0.260, 0.080),
     "bundle": (0.220, 0.089, 0.150),
@@ -2014,6 +2029,9 @@ def build_models(plant):
             lift = Vector((0.0, 0.0, 0.018))
             model.shells[0] = [[k, t, [tuple(p + lift for p in poly) for poly in polys]] for k, t, polys in model.shells[0]]
         model.finish()
+        if model.name == "bolt":
+            for island in model.islands:
+                island.polys = [(list(pts), [(u * 2.0, v * 2.0) for u, v in uvs]) for pts, uvs in island.polys]
         models.append(model)
     return models
 
@@ -2280,8 +2298,10 @@ def hand_ids():
 
 
 def ladder_route(item, plant=None):
+    if item["id"] == "item.food.preserves.jar":
+        return "jar"
     target = expected_size(item)
-    rungs = list(LADDER[item["class"]][family(item)])
+    rungs = list(LADDER[item["class"]].get(family(item), LADDER[item["class"]]["default"]))
     if plant == "rung" and item["class"] == "consumable" and family(item) == "default":
         rungs.append("ration_pack")
     return min(rungs, key=lambda name: (abs(math.log(max(SIZES[name]) / target)), name))
@@ -2300,6 +2320,9 @@ def manifest_document(plant, repo):
         for item_id in ids:
             if plant == "id" and item_id == "item.food.canned":
                 item_id = "item.food.caned"
+            if plant == "length" and item_id == "item.ammo.bolt.broadhead":
+                models.append(entry({"id": item_id}, "arrows"))
+                continue
             models.append(entry({"id": item_id}, name))
     for item_id in sorted(records):
         item = records[item_id]
@@ -2514,7 +2537,7 @@ def item_catalogue(repo):
 
 def validate(asset_root, repo, floors=None):
     """Every check, against the files under asset_root. Returns {check: [failures]}."""
-    failures = {name: [] for name in ("bounds", "origin", "floor", "ids", "coverage", "scale", "rung", "material", "single_sided", "coplanar", "density", "manifest")}
+    failures = {name: [] for name in ("bounds", "origin", "floor", "ids", "coverage", "scale", "rung", "length", "material", "single_sided", "coplanar", "density", "manifest")}
     manifest_path = asset_root / (KIT + ".manifest.json")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     ids, classes = item_catalogue(repo)
@@ -2627,6 +2650,24 @@ def validate(asset_root, repo, floors=None):
             high = max(b[1] for b in bad)
             failures["density"].append(f"{filename}: {len(bad)} triangles outside {target} texels/m +/-25% (range {low:.0f}..{high:.0f})")
         report[filename] = (measured, len(tris), target, path.stat().st_size)
+    # The longest axis is measured on the exported GLB; the manifest's sizeM stands in only for a
+    # GLB that failed to load (already a manifest failure).
+    hinted = {prefix: 0 for prefix in LENGTH_HINTS}
+    for item_id in sorted(records):
+        hint = length_hint(item_id)
+        chosen = resolved.get(item_id) or by_class.get(records[item_id]["class"])
+        if hint is None or chosen is None:
+            continue
+        for prefix in hinted:
+            if item_id == prefix or item_id.startswith(prefix + "."):
+                hinted[prefix] += 1
+        filename = chosen["glb"].rsplit("/", 1)[-1]
+        longest = max(report[filename][0]) if filename in report else max(chosen["sizeM"])
+        if abs(longest / hint - 1.0) > LENGTH_TOL:
+            failures["length"].append(f"{item_id} ({records[item_id]['name']}) is drawn by {filename}, {longest:.3f} m long against its {hint:.2f} m hint (limit +/-{LENGTH_TOL:.0%})")
+    for prefix, count in sorted(hinted.items()):
+        if count == 0:
+            failures["length"].append(f"LENGTH_HINTS entry {prefix} matches no drawn item")
     return failures, report
 
 
@@ -2671,7 +2712,7 @@ def main():
     arguments = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--plant", choices=("bounds", "float", "id", "scale", "rung", "material", "doublesided", "winding", "coplanar", "density", "bytes"))
+    parser.add_argument("--plant", choices=("bounds", "float", "id", "scale", "rung", "length", "material", "doublesided", "winding", "coplanar", "density", "bytes"))
     args = parser.parse_args(arguments)
     repo = Path(__file__).resolve().parents[3]
     try:

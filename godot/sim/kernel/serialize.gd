@@ -176,11 +176,20 @@ extends RefCounted
 # No version bump.
 # The bloodhound's nose (docs/30, "The bloodhound's nose is a gradient, not a level, 2026-11-04")
 # adds a seventh shambler state, Track (6), and an optional `scentTrail` key on the `shambler`
-# component of a kind whose content names `sensory.trail`. A v33 save's bloodhounds have no
-# `scentTrail` and restore as bodies that do not track, which is how they were before; every other
-# kind's component is the shape it always was.
-# No version bump.
-const SAVE_VERSION: int = 33
+# component of a kind whose content names `sensory.trail`. A save with no `scentTrail` restores its
+# bloodhounds as bodies that do not track, which is how they were before; every other kind's
+# component is the shape it always was.
+# The bloodhound adds no version bump of its own; v34 below is the region's.
+#
+# v34: the region runs up-valley. `region.main_area`'s four cells are re-placed so that x runs
+# up-valley (docs/42 section 3): the lower-valley cells at x=0, the upper-valley cells at x=1. A region's
+# map is regenerated from its seed and its cell order, so a region built on the old order lays its
+# districts on other ground -- the same case as v28's water. A save carries only the seed, not which
+# region or which cell order it was rolled on, so the refusal cannot be narrowed: every v33 save is
+# refused, district saves included. That is an over-refusal, since a district's own map is unchanged,
+# and it is the price of the seed-only save. Refused, same rule. docs/30, "The region runs up-valley,
+# and a region save from before it is refused, 2026-11-04".
+const SAVE_VERSION: int = 34
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:

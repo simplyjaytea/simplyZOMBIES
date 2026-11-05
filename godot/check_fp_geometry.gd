@@ -733,14 +733,12 @@ func _judge_windows(view: Node3D, map: Variant, templates: Dictionary) -> Dictio
 	return {"failures": failures, "windows": windows, "opened": opened, "opened_tile": opened_tile}
 
 
+# Two buckets are enough: a ray runs 5 cm outside the face to 0.6 m inside, crossing only this tile
+# and the neighbour on that side, and `_opaque_buckets` files a triangle under every tile it touches.
 # Rays across one window tile from each face that meets open ground: from 5 cm outside to past the
 # centre, at two points along the face. The aperture heights must pass, the sill and lintel must not.
 func _window_rays(map: Variant, tile: Vector2i, buckets: Dictionary) -> Array:
 	var failures: Array = []
-	var near: Array = []
-	for dy in range(-1, 2):
-		for dx in range(-1, 2):
-			near.append_array(buckets.get(tile + Vector2i(dx, dy), []) as Array)
 	var sides: int = 0
 	for side in 4:
 		var offset: Vector2i = SIDE_OFFSETS[side]
@@ -748,6 +746,9 @@ func _window_rays(map: Variant, tile: Vector2i, buckets: Dictionary) -> Array:
 		if neighbour in [SimTileMap.Tile.Wall, SimTileMap.Tile.Window, SimTileMap.Tile.Tree, SimTileMap.Tile.Water]:
 			continue
 		sides += 1
+		var near: Array = []
+		near.append_array(buckets.get(tile, []) as Array)
+		near.append_array(buckets.get(tile + offset, []) as Array)
 		var normal: Vector3 = Vector3(float(offset.x), 0.0, float(offset.y))
 		var origin: Vector3 = Vector3(float(tile.x + (1 if side == 1 else 0)), 0.0, float(tile.y + (1 if side == 2 else 0)))
 		var along_axis: Vector3 = Vector3(1, 0, 0) if side in [0, 2] else Vector3(0, 0, 1)
