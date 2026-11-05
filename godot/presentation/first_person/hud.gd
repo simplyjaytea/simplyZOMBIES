@@ -156,8 +156,9 @@ func _draw() -> void:
 	# No reticle and no centre dot: docs/40 owner question 6's default, and docs/09 bans a reticle
 	# that reports certainty. The placeholder weapon in the hand is the only aiming furniture.
 
-	var help_at: Vector2 = Vector2(MARGIN, view_size.y - MARGIN - 26.0)
-	draw_rect(Rect2(MARGIN - 12.0, help_at.y - 24.0, view_size.x - (MARGIN - 12.0) * 2.0, 44.0), Color(0.04, 0.05, 0.05, 0.58))
+	var keys: Rect2 = help_rect(view_size)
+	var help_at: Vector2 = Vector2(MARGIN, keys.position.y + 24.0)
+	draw_rect(keys, Color(0.04, 0.05, 0.05, 0.58))
 	draw_string(font, help_at, HELP, HORIZONTAL_ALIGNMENT_LEFT, -1, HELP_SIZE, Color(0.86, 0.86, 0.80))
 
 	var said: String = prompt
@@ -197,6 +198,18 @@ func _draw_run_over(font: Font) -> void:
 
 
 ## True when `text` contains a decimal digit, the same test the top-down HUD gate makes.
+# The key bar: the strip that names the keys, full width. It sits above the bare hands' rest frame
+# rather than under it: the hands reach to about 0.78 of the view's height at idle (the first-person
+# gate's HANDS lane measures it at 1280x720 and 960x720, the same height at both), so the bar's top is
+# 0.69 of the height. One rectangle, shared by the draw above and that lane.
+const KEY_BAR_TOP_FRACTION: float = 0.69
+const KEY_BAR_HEIGHT: float = 44.0
+
+
+static func help_rect(view_size: Vector2) -> Rect2:
+	return Rect2(MARGIN - 12.0, view_size.y * KEY_BAR_TOP_FRACTION, view_size.x - (MARGIN - 12.0) * 2.0, KEY_BAR_HEIGHT)
+
+
 static func has_digit(text: String) -> bool:
 	for i in text.length():
 		if text[i].is_valid_int():

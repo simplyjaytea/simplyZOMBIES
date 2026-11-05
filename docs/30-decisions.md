@@ -8083,3 +8083,10 @@ opt-in", one resident map), streaming (Milestone 3B, Risk 7), district-tier simu
 decisions (docs/25 and the district `vehicles` block). A train that needs repair is a new mechanic,
 and it is designed with the region.
 
+\n
+## The key bar sits above the bare hands, 2026-11-06
+
+The first-person key bar, the strip that names the keys along the bottom of the view, moved up to 0.69
+of the view's height so the bare hands at idle no longer sit under it. The hands are where they were; the
+bar is the thing that moved. It is one rectangle (`hud.gd`'s `help_rect`), and `godot:check:first_person`
+HANDS holds it clear at 1280x720 and 960x720.
