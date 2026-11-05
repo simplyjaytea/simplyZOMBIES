@@ -136,6 +136,23 @@
         "strength": {
           "type": "number",
           "minimum": 0
+        },
+        "bites": {
+          "type": "object",
+          "description": "Where this kind's held bites land: a weight per survivor body part, summing to 1. A bite is rolled over the VICTIM's survivor parts (SimShambler's bite loop), so this table is what the biter's kind asks for, not the biter's own `body`. Absent, a bite takes the shared held table (SimCombat.HELD_HIT_LOCATION_WEIGHTS). The crawler's is what makes it grab ankles: 80 of 100 on the legs and feet.",
+          "additionalProperties": false,
+          "properties": {
+            "head": { "type": "number", "minimum": 0, "maximum": 1 },
+            "torso": { "type": "number", "minimum": 0, "maximum": 1 },
+            "arm_left": { "type": "number", "minimum": 0, "maximum": 1 },
+            "arm_right": { "type": "number", "minimum": 0, "maximum": 1 },
+            "hand_left": { "type": "number", "minimum": 0, "maximum": 1 },
+            "hand_right": { "type": "number", "minimum": 0, "maximum": 1 },
+            "leg_left": { "type": "number", "minimum": 0, "maximum": 1 },
+            "leg_right": { "type": "number", "minimum": 0, "maximum": 1 },
+            "foot_left": { "type": "number", "minimum": 0, "maximum": 1 },
+            "foot_right": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
         }
       }
     },

@@ -360,8 +360,6 @@ owes is pictures, a stage behind: the art group's "Pictures for the melee arc".
 
 *Zombies, seven to fourteen (stage 2 for the first four, stage 4 for the rest):*
 
-- **The crawler.** Legless, slow, below sightline height, grabs ankles. Reader: a prone-height
-  check in `sightings.gd`. Gate: `godot:m2:sight` LOW and `godot:m2:contact`.
 - **The bloodhound's nose as a seek.** The bloodhound shipped as content (the record, 2026-10-27),
   and content can only widen its nose: `scentSense` moves the smell threshold, the turn toward
   scent is the constant `SCENT_BIAS` in `shambler.gd`, and it acts only in Wander, at wander
@@ -1450,6 +1448,10 @@ tables and day lines are report-noise.md in the project's planning/balance folde
 
 **Proof — what closes the milestone, in this order:**
 
+- **The ten-seed re-baseline after the zombie kinds.** The crawler (2026-11-04) joins the day-5 pool,
+  so every campaign's spawns from day 5 on move, and its piece did not re-run the ten-seed table.
+  The re-baseline is owed in stage 2: ten seeds and a median wipe day, on `main` and on each
+  candidate, as the balance wall above says. Each later zombie kind owes the same run.
 - **Distribution assertions.** Quiet nights, sieges, deaths and run lengths asserted as
   distributions in the balance harness, not as single-seed anecdotes.
 - **The melee-vs-ranged parity measurement.** Risk 6's checkpoint: melee-only against ranged-only
@@ -4080,6 +4082,23 @@ not a to-do list:
   scent 1.0 widens the nose a tenth over the shambler's and nothing more, because the turn toward
   scent is a constant and runs only in Wander, so it never Seeks; that is the open bullet "The
   bloodhound's nose as a seek" under what's left, and docs/30's entry has the arithmetic.
+- **The crawler, 2026-11-04.** Zombie kind nine: `godot/content/zombies/crawler.json`, wave 2,
+  weight 3, speed 0.8 with `crawl` 0.45, `sensory` noise 0.5, light 0.2, scent 0.9, and
+  `variance.crawlers` 1.0, so every spawn is born legless (`roster.gd`'s `bool_chance(1.0)` is
+  always true, so nothing in the roll changed). It spawns with its legs at 0 and `bodyMax` at the
+  content's 80, which is what `SimHealth.is_crawling` reads. Its bites are the new part:
+  `grab.bites` (schema and `SimShambler.bite_weights_of`) puts 0.80 of a held bite on the victim's
+  legs and feet, rolled over the victim's survivor parts, and a kind with no table takes the shared
+  held table, which every shipped kind still does. Appearance is the shambler's workwear picture
+  with its variants, as the bloodhound's is: a gap, not a decision, until a crawler picture is drawn.
+  Gates: `godot:m2:sight` CRAWLER (behind a Low tile a standing survivor sees a shambler at the same
+  spot and not the crawler, a crawling survivor does not see it, and with its legs restored the
+  crawler is seen); `godot:m2:contact` CRAWLER (0.797 of 4000 held rolls on the legs and feet, a
+  shambler 0.186, a planted table with no legs 0.000, and 38 of 48 live held bites on the legs);
+  `godot:m2:roster` MIX, re-pinned for the day-7 pool over nine kinds, KINDS, and CRAWLERS (800 of 800
+  spawns over four seeds legless from the first tick, 36 of 800 shamblers crawling at the base's
+  0.05); `godot:check:appearance` ROSTER. The ten-seed table was not re-run; see "The ten-seed
+  re-baseline after the zombie kinds" under Proof.
 - **Colony screen follow-ups, 2026-10-26.** Three nits the Colony and HUD bullets named, one piece.
   - **Reopen scrolls to the pick.** `work_panel.gd` clears `_scrolled_for` on
     `NOTIFICATION_VISIBILITY_CHANGED`, so a reopened screen scrolls to the game's pick afresh.
