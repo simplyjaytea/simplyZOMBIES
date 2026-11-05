@@ -174,6 +174,10 @@ The source baseline is archived on GitHub at
   draw on, a fictional map of the valley, building types, and the item and district renames. After
   the brief: Japanese building templates and props by the art lead, then content renames. See
   [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
+  The brief is [docs/42](42-ome-okutama-setting.md); its section 6 is the order of the work.
+- **The wider world by rail.** Other districts and cities reached by a train the colony repairs
+  first. Design first, as a note like docs/42, under the region and streaming work; nothing is
+  sized yet. See [docs/30](30-decisions.md#the-setting-cards-the-defaults-and-the-valley-is-the-first-of-several-2026-11-04).
 - **First-person spatial combat and perception.** One coherent obstruction and
   hit contract across visible geometry, sim movement, combat and NPC sight.
 - **First-person people and settlement operation.** Ledger animations, reports,
@@ -194,10 +198,7 @@ The source baseline is archived on GitHub at
     heel-and-toe roll, so the builder should measure the sole's height as well as its slide;
   - the held death pose's hands hover above the floor: the survivor's by 2.3 and 5.7 cm, and the
     shambler's right hand by 16.2 cm, because the elbows bend up while the upper arms lie flat at
-    3 mm;
-  - under 1 m the survivor's jacket mottling, in 2 to 4 pixel tonal clumps, still reads faintly as
-    camouflage; it reads as worn fabric from 2 m;
-  - under 1 m the survivor's brown face blotches read as skin marks rather than dirt.
+    3 mm.
 - **Weapon kit polish (#298 round 1 minors).** In `tools/blender/first_person_weapons/build_weapons.py`,
   whose outputs are `godot/assets/first_person/weapons.manifest.json` and the GLBs beside it:
   - the polymer grip's stipple is single 7.8 mm texels, which read as dice dots or dirt; a moulded
@@ -211,21 +212,17 @@ The source baseline is archived on GitHub at
   - the crowbar's claw is a flattened tip with no nail slot.
 - **Item kit polish (#299 round 3 minors).** In `tools/blender/first_person_items/build_items.py`, whose
   outputs are `godot/assets/first_person/items.manifest.json` and the GLBs in `items/`:
-  - the neutral bottle is a dark-green wine bottle with a blank label, and canteens and the Jar of
-    Preserves draw as it, while the hip flask and sports drink take the 13 cm jar; a canteen or flask
-    rung, or routing preserves to the jar, would read better;
-  - the fuel bottle and lamp oil draw as crates, because the `liquid` family in `family()` only applies
-    to consumables (`LIQUID_WORDS`);
+  - the neutral bottle is a dark-green wine bottle with a blank label, and canteens, the Fuel Bottle
+    and Lamp Oil draw as it, while the hip flask and sports drink take the 13 cm jar; a canteen or
+    flask rung would read better;
+  - the bolt is the arrows scaled to 57%, so its shaft is 4.5 mm across where a real bolt is as
+    thick as an arrow or thicker, and it reads as a short thin arrow; the fletching on both barely
+    clears the shaft (on the arrows the vanes reach 4.0 mm from the axis of a shaft of 4.0 mm
+    radius), so neither shows its vanes;
   - `headgear` draws a military steel helmet, which is right for hard hats and bike helmets but a
     stretch for gas masks and half-mask respirators, which need their own rung;
   - the gun case draws as a soft roll-top bag, and the crossbow bolt draws the 71 cm arrow, where a
     bolt is about 40 cm (`LENGTH_HINTS`); a long-case rung and a bolt length hint would tighten both.
-- **Zombie target by distance alone (#282 review).** `SimShambler._contact_target`
-  (`godot/sim/modules/shambler.gd`) takes the nearest survivor with no reach test, unlike the player's
-  nearest-reachable swing in `melee.gd`. A shared sim module; needs a READS lane in `godot:m2:space`.
-- **Colonist swings it cannot land (#282 record).** `npc_combat.gd` `_engage` and
-  `npc.instinct-defense` start a swing on distance alone, and `_resolve_strike` then refuses it at a
-  window. Ask `SimSpace.reach_clear` before starting, as `can_strike` does.
 
 ##### UI overhaul
 
@@ -2481,6 +2478,218 @@ not a to-do list:
   - **The plant.** Commenting out the material consume in `refill` turns the gate red:
     `REFILL: the charcoal is still in the pack after the repack spent it`.
   - **Measured.** Nothing measured. The entry makes no balance claim.
+- **The organic survivor, 2026-11-04.** The first-person survivor body is replaced: the box-segment
+  `survivor.glb` gives way to an organic, smooth-skinned woman built by `organic_survivor.py` in the
+  Blender character kit (`tools/blender/first_person_kit/build_characters.py`). She has 7,810 triangles,
+  a modelled face (nose, brow, lips and eye sockets), a high bun, and painted pixel textures from a new
+  `survivor_atlas.png`: 256 px/m on the head and neck, 128 px/m on the body. This entry closes the
+  survivor's jacket-mottling and face-blotch bullets in "Character kit polish" under what's left; its
+  two shambler bullets stay open.
+  - **The gate.** `blender --background --factory-startup --python tools/blender/first_person_kit/build_characters.py -- --check`
+    prints `VALID survivor: 7810 triangles, height 1.830 m, radius 0.268 m, all 21 non-hair islands at
+    nominal body 128/head 256 px/m +/-10% (area-weighted p50)`. The density check measures the exported
+    GLB against the nominal bands, not against an island's own shrunk scale: each non-hair island's
+    area-weighted p50 must sit within 10% of its band, and the arm medians must match within 2% of
+    128 px/m. The `survivor-density` plant is refused: the arm p50 falls to 47.4 px/m against a band of
+    115.2 to 140.8 (`CHARACTER_PLANT_REFUSED survivor-density`), and the other plants stay refused too.
+  - **Measured.** Exported area-weighted p50 densities: arms 135.5 and 135.3 px/m; hand backs 122.0 and
+    121.0; hand fronts 123.1 and 123.5; boot uppers 116.4 and 116.6; boot soles 128.0 and 128.0; head
+    back and front 234.0 and 257.8; neck 232.8 px/m. All 21 non-hair islands pass their nominal band.
+  - **The byte-identity step.** The check's last line, `CHARACTER_CHECK_FAIL: rebuilt outputs differ:
+    shambler.glb, characters_atlas.png`, is the cross-machine difference, not a survivor fault. This
+    Linux Blender links zlib-ng, so the unchanged shambler GLB and the shared atlas differ from the
+    Windows files in bytes. The atlas's decoded pixels are identical (`ATLAS_PIXELS_IDENTICAL
+    characters_atlas.png: True`).
+  - **Not judged.** Likeness to the owner's concept image is unjudged: the image was not on this machine,
+    so the review sheet carries a `concept unavailable` placeholder. The review's non-blocking items stay
+    open: flat mitten hands, conical bust forms, the nape silhouette, slab-like side hair.
+- **Rename R1: the districts and the region are the Kagase valley's, 2026-11-04.** The Ome–Okutama
+  brief's first rename (docs/42 section 6). Four districts and the region take new names, ids
+  unchanged (card 5): `district.town_center` is Umezaki Ekimae, `district.residential_suburb` is
+  Hinatadai, `district.industrial_park` is Kawahara Yards, `district.forest_edge` is Kaminose Shore,
+  and `region.main_area` is Kagase. The names live in `godot/content/districts/*.json` and
+  `godot/content/regions/main_area.json`. The old region name is still a raider surname in
+  `godot/content/colony/raider_looks.json`; that is a person name, for R9.
+  - **The gate.** `npm run godot:m2:district` prints `M2_DISTRICT_OK`, and `npm run godot:m2:region`
+    prints `M2_REGION_OK`, both with the new names in the content they boot. `npm run godot:check:hud`
+    prints `HUD_OK`, so the district name the HUD speaks stays digit-free prose.
+- **Rename R2: the region runs up-valley, 2026-11-04.** The Ome–Okutama brief's second rename
+  (docs/42 section 3 and section 6). The four cells of `region.main_area` are re-placed so that x runs
+  up-valley: the lower-valley cells sit at x=0 and the upper-valley cells at x=1. Old cell order: (0,0)
+  town_center, (1,0) forest_edge, (0,1) industrial_park, (1,1) residential_suburb. New: (0,0)
+  town_center, (1,0) industrial_park, (0,1) residential_suburb, (1,1) forest_edge. Cell count, cell
+  size, district ids and every other value are unchanged. The colony's region-wide site moves from
+  (76, 78) to (85, 286); it is printed by the gate and asserted by none, so no assertion moved.
+  - **The save bump.** The map is regenerated from the seed and content, so a saved region world would
+    load onto different ground. The rule in serialize.gd (the v28 water case) is a save bump, so
+    `SAVE_VERSION` goes from 33 to 34 in the same commit, and a v33 save is refused. docs/30 records why.
+  - **The gate.** `npm run godot:m2:region` prints `M2_REGION_OK`, `npm run godot:m2:district` prints
+    `M2_DISTRICT_OK`, `npm run godot:check:worldgen` prints `WORLDGEN_OK` in 24 s, `npm run godot:check:fp_geometry`
+    prints `FP_GEOMETRY_OK` in 16 s, and `npm run godot:m2:save` prints `M2_SAVE_OK`.
+  - **Measured.** Nothing measured. A cell order is not a balance claim.
+- **Rename R3: the building templates are the Kagase valley's, 2026-11-04.** The Ome–Okutama brief's
+  third rename (docs/42 sections 4 and 5). The 22 templates in `godot/content/buildings/` take the
+  names docs/42 section 4 gives them, ids unchanged (card 5). The look retags (`kawara`, `siding`,
+  dropping `brick`) are R4's and are not in this entry. Examples: `building.house.gable` is Tiled-roof
+  house, `building.shed.lockup` is Kura storehouse, `building.store.grocery` is Supermarket.
+  - **The gate.** `npm run godot:check:buildings` prints `BUILDINGS_OK`, with every template placeable
+    and the stamp byte-identical at 64 and 256. `npm run godot:check:roof` prints `ROOF_LOOK_OK`.
+    `npm run godot:check:worldgen` prints `WORLDGEN_OK` on the renamed templates, and
+    `npm run godot:check:fp_geometry` prints `FP_GEOMETRY_OK`, so the finishes matched by id still hold.
+- **Rename R5: food and drink are the valley's, 2026-11-04.** The Ome–Okutama brief's fifth rename
+  (docs/42 section 5, the food and drink rows). Twelve items take the names docs/42 proposes, ids
+  unchanged: `item.food.jerky` is Dried Squid, `item.food.crackers` is Rice Crackers,
+  `item.food.soup.tin` is Retort Curry Pouch, `item.food.fish.tin` is Tin of Mackerel,
+  `item.food.pickles.jar` is Jar of Pickled Plums, `item.food.pasta.dry` is Dried Noodles,
+  `item.food.oats` is Pressed Barley, `item.food.apples` is Persimmons, `item.drink.tea` is Box of
+  Green Tea, `item.drink.cordial` is Bottle of Plum Syrup, `item.spirits.bottle` is Bottle of Shochu,
+  and `item.pot.camp` (the billy can) is Camp Pot. Eleven descriptions name the valley's foods or
+  drop a Western word. Two items stay named as they are because `godot/check_m2_stockpile.gd` pins
+  their names: Tin of Beans and Tin of Peaches.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`, and `npm run godot:check:inventory`,
+    `npm run godot:check:hud`, `npm run godot:check:loot`, `npm run godot:m2:transform` and
+    `npm run godot:m2:needs` all hold on the renamed content. `npm run godot:m2:stockpile` still
+    holds the two pinned names.
+- **Rename R6: the cartridges are the valley's, 2026-11-04.** The Ome–Okutama brief's sixth rename
+  (docs/42 section 5, the cartridge and brass table). Twelve items take docs/42's names, ids unchanged:
+  the .308 family becomes .308 Rifle Round, .308 Match, .308 Surplus and .308 Hand-load; the 9mm family
+  becomes 9mm Pistol Round, 9mm Hollow Point, 9mm Subsonic and 9mm Hand-load; the .45 family becomes
+  .45 Auto, .45 Auto Hollow Point and .45 Auto Hand-load; and `item.brass.9mm` becomes 9mm Brass. The
+  brand words (Winchester, Parabellum, ACP) go. The .38, .22 and 12-gauge families keep their names, as
+  docs/42 says. No description changes, since none names a brand or carries a digit. The stockpile's
+  ammunition-row pin in `godot/check_play.gd` (the STOCKPILE lane) moved from ".308 Winchester Match" to
+  ".308 Match" in the same commit.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:check:inventory`
+    (the STRIP and INSPECT lanes read names through `name_is_allowed`), `npm run godot:check:hud`,
+    `npm run godot:check:loot`, `npm run godot:m2:ammo`, `npm run godot:m2:bench`,
+    `npm run godot:m2:ranged`, `npm run godot:check:play` (the moved pin) and `npm run godot:smoke` hold.
+- **Rename R7: tools, comfort and melee are the valley's, 2026-11-04.** The Ome–Okutama brief's seventh
+  rename (docs/42 section 5, the tools, comfort and melee rows). Seven items take the names docs/42
+  proposes, ids unchanged: `item.machete.rusted` is Rusted Nata, `item.sabre.cavalry` is Old Army Sword,
+  `item.pitchfork.barn` is Hay Fork, `item.rosary.wooden` is Prayer Beads, `item.chess.travel` is
+  Travelling Shogi Set, `item.cards.deck` is Hanafuda Deck, and `item.bell.wind` is Wind Chime. Four
+  descriptions change: the nata, the army sword, the chime, and the road flare ("highway" becomes
+  "roadside"). Items the inventory flags with no docs/42 proposal keep their names (the bats, the road
+  flare, the torches, the bushcraft handbook, The Long Walk, the soap flakes) and are listed in the
+  report. The deer rifle, the blasting cap and the siren keep their names, as docs/42 says.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:check:inventory`,
+    `npm run godot:check:hud`, `npm run godot:m2:comfort`, `npm run godot:m2:noise`,
+    `npm run godot:m2:teach`, `npm run godot:m2:light_burn`, `npm run godot:check:mods` and
+    `npm run godot:m2:bench` hold on the renamed content, and so does `npm run godot:smoke`.
+- **Rename R8: the vehicles are the valley's, 2026-11-04.** The Ome–Okutama brief's eighth rename
+  (docs/42 section 5, the vehicle rows). One vehicle takes its proposed name, id unchanged:
+  `vehicle.truck` is Kei Truck (was "Flatbed truck"). `vehicle.sedan` stays "Sedan" for now: the
+  `MOUNT` lane of `godot/check_vehicles.gd` asserts the HUD clause "a sedan beside you", and that clause
+  is built from the name, so the rename waits for that pin to move. The other vehicles keep their names,
+  as docs/42 says. The vehicle files carry no description field.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:check:wrecks`,
+    `npm run godot:m2:vehicles` (`M2_VEHICLES_OK`) and `npm run godot:m2:light_burn` hold on the renamed
+    content, and so does `npm run godot:smoke`.
+- **Rename R9: the people are the valley's, 2026-11-04.** The Ome–Okutama brief's ninth rename
+  (docs/42 section 5, "People"). The generator's survivor given names and surnames (12 each) take
+  docs/42's names, ten Japanese and two non-Japanese each, so the lists keep their length. The raider
+  given names and surnames (16 each) take the same treatment, fourteen and two, which removes the
+  surname "Ashgrove". The eight survivor backstories and the eight raider occupation lines take valley
+  jobs (a shrine caretaker, a clinic nurse, a Kagase Line driver, a minshuku cook, a mountain courier, a
+  works hand, a forestry hand, a door man at a bar in Umezaki). Ids and kits are unchanged, and each new
+  label keeps a word the skill web's `focusHistory` reads, so the focus link is kept. The boot colony's
+  two named survivors, Mara Sato and Ellis Okafor, keep their names, which docs/42 says; the owner
+  should confirm that. Raider roles (Gunhand, Watcher, Bagman, Scavenger) keep their names.
+  - **The pin.** `godot/check_m2_people.gd` pins the canonical seed's first two rolls and a second
+    seed's roll as strings, and those draws carry names. They are re-pinned to the renamed lists in the
+    same commit, which is the one exception the brief allows. The draw order is unchanged.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:m2:people`
+    prints `M2_PEOPLE_OK` on the re-pinned strings, and `npm run godot:m2:settlers`,
+    `npm run godot:m2:roster`, `npm run godot:m2:recruits`, `npm run godot:m2:raiders`,
+    `npm run godot:check:speech` (bubbles still show no name), `npm run godot:check:hud` and
+    `npm run godot:smoke` hold.
+  - **Measured.** Nothing measured. A name change is not a balance claim.
+- **Rename R10: the descriptions are the valley's, 2026-11-04.** The Ome–Okutama brief's tenth rename
+  (docs/42 section 5, and the inventory's western-thing and brand rows the earlier renames did not take).
+  Two items take docs/42's names, ids unchanged: `item.food.beans.tin` is Tin of Corn and
+  `item.food.fruit.tin` is Tin of Mandarins, which R5 left pinned. The pin in
+  `godot/check_m2_stockpile.gd` (the summary lane) moved to the new names in the same commit, in the
+  same order. Three descriptions change: the corn tin ("a tin of sweet corn in brine"), the mandarin tin
+  ("halved mandarins in syrup"), the superglue ("a tube of quick-set glue"), and the charcoal sack ("a
+  paper sack of charcoal", without "barbecue"). The superglue and the canvas work pants keep their names,
+  which docs/42 does not propose. The container rows carry only a kind string, and docs/42 keeps those
+  kinds, so no container changed and no district file moved.
+  - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`, and `npm run godot:m2:stockpile`
+    (the moved pin, its summary lane) holds. `npm run godot:check:inventory`, `npm run godot:check:hud`,
+    `npm run godot:check:loot`, `npm run godot:m2:district` and `npm run godot:smoke` hold too.
+- **Rename R11: the playbook and README name the Kagase valley, 2026-11-04.** The Ome–Okutama brief's
+  last rename (docs/42 section 6). The playbook's setting paragraph names the Kagase valley, points at
+  docs/42, and lists the rename pull requests (R1 #333, R3 #334, R5 #335, R6 #341, R7 #337, R8 #339,
+  R9 #342, R10 #340; R2 is #344, which bumps the save format to v34). The README's opening places the game in
+  the Kagase valley in the mountains west of Tokyo, with fictional names. No mechanic is described
+  differently.
+  - **The gate.** `npm run check:routing` prints `ROUTING_OK`.
+  - **Measured.** Nothing measured.
+- **Item kit polish (#299 round 3 minors), 2026-11-04.** Three mapping fixes in the first-person
+  item kit's builder, `tools/blender/first_person_items/build_items.py`, and one new model.
+  - **The record.** `family()` now matches `LIQUID_WORDS` against the whole words of an item's
+    name, in every class, and the list gains `oil`. Material, tool and container gain the liquid
+    ladder (jar, bottle); armor and attachments have none and keep their default ladder, so the
+    Oil-Filter Can muzzle device stays the parts case. The Jar of Preserves is routed to the jar by
+    id. The crossbow bolts get their own model, `bolt.glb` (`m_bolt`: the arrows scaled to 0.40 m,
+    which `LENGTH_HINTS` already asked for). Against `origin/main` the manifest changes for exactly
+    seven items: the Fuel Bottle (`item.can.fuel`) and Lamp Oil (`item.oil.lamp`) go from
+    `crate_small` to `bottle`; the Jar of Preserves goes from `bottle` to `jar`; Gun Oil and Machine
+    Oil (`item.oil.gun`, `item.oil.machine`) go from `fallback_attachment` to `jar`; and the
+    Crossbow Bolt and Broadhead Bolt (`item.ammo.bolt`, `.broadhead`) go from `arrows` (0.705 m) to
+    `bolt` (0.40 m). The other 41 models sample the same atlas texels as before at 15 interior
+    points of every triangle (the atlas was repacked around the bolt's islands, by whole texels).
+  - **The gate.** `build_items.py -- --check` prints `ITEMS_CHECK_OK`, with a new `length` check:
+    every item with a `LENGTH_HINTS` entry is drawn by a model whose longest axis, measured on the
+    exported GLB, is within 25% of the hint, and every hint matches a drawn item. Its plant,
+    `--plant=length`, draws the Broadhead Bolt as the arrows and is refused with
+    `ITEMS_CHECK_FAIL: length, bytes`; `scale` alone passed that (a hand-chosen model is allowed
+    4x, and 0.705 m is 1.76x). No check would refuse an attachment drawn as the jar: the jar is
+    0.80x the Oil-Filter Can's expected size, inside `scale`'s 2x, and the jar is not a hand-chosen
+    model, so `rung` passes it. `godot:check:first_person`, `godot:smoke` and `check:routing` pass.
+- **Reach chooses whom a zombie touches, and whether a colonist swings, 2026-11-04.** The two
+  #282 follow-ups from the first-person group: a shambler's contact target by distance alone, and
+  a colonist's swing it cannot land. Both make the sim keep docs/40's promise that reach stops at
+  walls; the calls are in docs/30, "A reach test chooses whom, not whether".
+  - **The record.** `SimShambler._contact_target` (`godot/sim/modules/shambler.gd`) takes the
+    world and the reacher from five callers (the Pursue chase, the Seek and Wander catch, the swipe
+    and the grab) and returns the nearest survivor inside the radius that `_clear_contact` says
+    the reacher can arrive at, the order `SimMelee._resolve_strike` already used for the player's
+    swing. When nobody inside the radius is reachable it returns the nearest by distance, as it
+    did before, so whether anybody is in contact never changes: a shambler pressed to a window at
+    somebody it cannot touch stays in Pursue, and the swipe and the grab refuse that survivor
+    through `_clear_contact` as they always did. The Dormant wake asks only whether anybody is in
+    contact and is not traced. One survivor in the radius is never traced; with several the
+    nearest is traced first. `SimNpcCombat._in_reach` (`godot/sim/modules/npc_combat.gd`, new) is
+    the melee half of `can_strike`: inside `_melee_reach` and `SimSpace.reach_clear`. `can_strike`,
+    `_engage` (both its ordinary and its defending branch) and `npc.instinct-defense` ask it, so
+    no colonist and no idle player winds up a swing `_resolve_strike` will refuse. In `_engage`'s
+    ordinary branch an unreachable threat falls through to the shot, the order `can_strike`
+    already had. Instinct asks before it turns, so it no longer turns towards a claw it cannot
+    answer. No number is drawn, no save field moves.
+  - **The gate.** `godot:m2:space` READS gains two lanes. READS `_contact_target` runs the live
+    shambler loop with two walls meeting diagonally: a pursuing shambler that cannot move has the
+    player 0.64 m off across the corner and a second survivor 0.86 m off in the clear. It asserts
+    the geometry first (the corner refuses the nearer, the farther is clear). Every swipe and grab
+    lands on the farther survivor. With the farther one gone nothing lands and the shambler is still
+    in Pursue. With the walls gone the nearer one is taken. READS npc swing runs a colonist's engage
+    and the unattended player's instinct, each 1.70 m from a pursuing shambler with the bat, and
+    counts swings started (`stamina.spent`) and landed: a wall and a wire fence between start none,
+    an open window and open ground start swings that land. Both lanes were run against the previous
+    modules: the contact lane failed ("reached nobody"), and the swing lane failed on all four
+    refusing rows (5 or 6 swings started, none landed).
+  - **Measured.** `npm run godot:playtest` (seed 20260805, ten days asked), base `5a14791a` in a
+    snapshot against this branch, side by side: both wipe on day 7 (`day_reached=7`, three deaths,
+    six kills, 79 bites, 3,076 player swings, 87 colonist swings and 45 hits), every day line equal
+    but for tick timing; 2,207 s and 2,199 s of wall clock. The case never arises on that seed.
+    `godot:m2:balance`'s fast tier prints the same lines on base and branch, byte for byte, all four
+    seeds and both armour arms. `godot:bench:runtime` over two alternating rounds: the shipped tick
+    4.58 and 4.80 ms before, 4.67 and 4.80 after; the colony tick 5.29 and 5.49 before, 5.38 and
+    5.48 after, flat inside the noise.
+  - **Verified.** The full `godot:m2` chain as its four CI shards, all green (shard 2 under
+    `xvfb-run`: on the desktop display `godot:check:grade` fails on base and branch alike, with no
+    HUD chrome in its capture). Also `godot:m2:space`, `godot:check:first_person`,
+    `godot:check:fp_expedition`, `godot:smoke`, `godot:test` and `check:routing`.
 - **Weapon kit lathes smoothed, and what horde use costs, 2026-11-04.** Two of #298's round 1
   minors in the weapon kit (`tools/blender/first_person_weapons/build_weapons.py`).
   - **The record.** `lathe()` now gives each of its faces smoothed corner normals: a corner takes

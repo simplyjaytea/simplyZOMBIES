@@ -1,6 +1,6 @@
 {
   "id": "district.industrial_park",
-  "name": "Ordnance Way",
+  "name": "Kawahara Yards",
   "type": "industrial_park",
   "streets": {
     "blockMin": 16,

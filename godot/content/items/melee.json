@@ -14,8 +14,8 @@
   },
   {
     "id": "item.machete.rusted",
-    "name": "Rusted Machete",
-    "description": "A machete gone orange along the spine. The edge still parts what it meets.",
+    "name": "Rusted Nata",
+    "description": "A nata gone orange along the spine. The edge still parts what it meets.",
     "class": "weapon.melee",
     "family": "blade",
     "size": { "w": 1, "h": 3 },
@@ -228,8 +228,8 @@
   },
   {
     "id": "item.sabre.cavalry",
-    "name": "Cavalry Sabre",
-    "description": "A curved cavalry sword off a wall mount. It opens things at arm's length and it does not knock them down.",
+    "name": "Old Army Sword",
+    "description": "A curved army sword off a wall mount. It opens things at arm's length and it does not knock them down.",
     "class": "weapon.melee",
     "family": "blade",
     "size": {"w": 1, "h": 4},
@@ -240,7 +240,7 @@
   },
   {
     "id": "item.pitchfork.barn",
-    "name": "Pitchfork",
+    "name": "Hay Fork",
     "description": "Four long tines on an ash shaft. It keeps things at a distance, which is most of what anyone wants.",
     "class": "weapon.melee",
     "family": "polearm",

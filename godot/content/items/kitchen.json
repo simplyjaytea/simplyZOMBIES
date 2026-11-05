@@ -195,7 +195,7 @@
   },
   {
     "id": "item.pot.camp",
-    "name": "Billy Can",
+    "name": "Camp Pot",
     "description": "A dented steel pot with a wire handle. Set it over any flame and what comes out is safe to drink.",
     "class": "material",
     "size": { "w": 2, "h": 2 },

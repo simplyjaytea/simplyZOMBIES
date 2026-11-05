@@ -1,6 +1,6 @@
 {
   "id": "district.town_center",
-  "name": "Market Cross",
+  "name": "Umezaki Ekimae",
   "type": "town_center",
   "streets": { "blockMin": 12, "blockMax": 20, "streetWidth": 3 },
   "connectionPoints": { "north": 2, "south": 2, "east": 2, "west": 2 },

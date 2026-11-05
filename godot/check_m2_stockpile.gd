@@ -921,8 +921,8 @@ func _the_summary_reads_the_pile_in_words() -> bool:
 		push_error("SUMMARY: the rows stand %s, not the groups' order" % str(order))
 		return false
 	var food: Dictionary = rows["food"] as Dictionary
-	if String(food["words"]) != "some" or (food["names"] as Array) != ["Tin of Beans", "Tin of Peaches"]:
-		push_error("SUMMARY: three tins and two read food %s %s, not some, Tin of Beans then Tin of Peaches" % [String(food["words"]), str(food["names"])])
+	if String(food["words"]) != "some" or (food["names"] as Array) != ["Tin of Corn", "Tin of Mandarins"]:
+		push_error("SUMMARY: three tins and two read food %s %s, not some, Tin of Corn then Tin of Mandarins" % [String(food["words"]), str(food["names"])])
 		return false
 	var med: Dictionary = rows["medicine"] as Dictionary
 	if String(med["words"]) != "one" or (med["names"] as Array) != ["Cloth Bandage"]:

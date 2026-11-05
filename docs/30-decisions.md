@@ -7910,3 +7910,84 @@ economy spends it.
 - **E offers it above the free placements.** An empty floor offers a trip alarm whether or not one is
   carried, so a rung below them is never reached on open ground. The repack takes E over a placement
   while a spent filter and its charcoal are carried.
+## A reach test chooses whom, not whether, 2026-11-04
+
+The two #282 follow-ups (docs/23's first-person group: a zombie's contact target by distance
+alone, and a colonist's swing it cannot land) took these engineering calls. Both make the sim keep
+the promise docs/40 already makes, that reach stops at walls; neither is a new mechanic.
+
+- **A shambler's contact target is the nearest survivor it can reach, and still the nearest one
+  when it can reach nobody.** `SimShambler._contact_target` names one survivor for five callers:
+  the Pursue chase, the Seek and Wander arms' "caught" (which moves a body into Pursue), the swipe
+  and the grab. Asking `_clear_contact` and returning null when nobody is reachable would have
+  turned a shambler pressed against a window at somebody inside back to Wander, and a dormant one
+  would stop waking for somebody touching it through a wall; both are changes a player would see.
+  So the reach test only reorders: among the survivors inside the radius, the nearest reachable one
+  wins, and with none reachable the nearest by distance comes back as before, where the swipe and
+  the grab ask `_clear_contact` of it and refuse it as they always did. The Dormant arm asks only
+  whether anybody is in contact, so it passes no world and is never traced. With one survivor in the
+  radius the answer is the same either way, so nothing is traced; with several, the nearest is
+  traced first. `godot:m2:space` READS `_contact_target` holds all three cases.
+- **A colonist's engage, its defence and the player's instinct ask one melee question,
+  `SimNpcCombat._in_reach`**: inside `_melee_reach`, and `SimSpace.reach_clear` from here to the
+  threat. `can_strike` asks the same function, so the attack walk and the swing cannot disagree.
+  This supersedes the 2026-11-01 entry's "`npc_combat._engage` still starts a swing on distance".
+- **A threat out of reach falls through to the shot.** In `_engage`'s ordinary branch the melee
+  test was already followed by the ranged one (it fell through when `try_begin_swing` refused, on
+  stamina for instance), and `can_strike` falls through the same way for the attack walk. So a
+  colonist carrying both, facing a shambler across a wire fence or a window it cannot swing over,
+  now fires if the shot is in range and in sight, where it used to wind up a swing that hit
+  nothing. A colonist with only a melee weapon does nothing there, and a critically injured one
+  (the defending branch, melee only) does nothing there either.
+- **The instinct defence does not turn to face a claw it cannot answer.** It used to turn and then
+  swing; the reach test now comes before the turn, so an idle player is not spun towards a shambler
+  on the far side of a wire fence it can see and not touch.
+
+## The region runs up-valley, and a region save from before it is refused, 2026-11-04
+
+The region `region.main_area` is re-ordered so that x runs up-valley (docs/42 section 3): the
+lower-valley cells, Umezaki Ekimae and Hinatadai, at x=0, and the upper-valley cells, Kawahara Yards
+and Kaminose Shore, at x=1. The cell count, the cell size and every district id are unchanged.
+
+The reason for the save bump is the one `serialize.gd` already records for water (v28). A region's map
+is regenerated from its seed and its cell order, so a save made on the old order would load its
+districts onto ground that has moved under its doors, containers and survivors. A save carries only the
+seed, not which region or which cell order it was rolled on, so the refusal cannot be narrowed to region
+saves. Every v33 save is therefore refused, district saves included. A district's own map is unchanged,
+so that refusal is an over-refusal, and the price of a seed-only save.
+
+- **The bump.** `SAVE_VERSION` goes from 33 to 34, with a note in `godot/sim/kernel/serialize.gd`.
+- **The pins.** `check_m2_save.gd` and `check_m2_fortify.gd` pin the number and move with it. The save
+  gate now also refuses a v33 save, so the refusal is asserted rather than assumed.
+- **Why now.** The save format is not frozen until stage 4 of the release plan, and the owner's
+  coordinator decided the bump (`rename-r2`), so it is taken before a player holds a region save.
+## The setting cards: the defaults, and the valley is the first of several (2026-11-04)
+
+The owner's words, 2026-11-04:
+
+> defaults, send Kimi the Japanese buildings after the rifle. The end goal is to have other
+> districts, and cities. Maybe even tokyo! To travel between them the user will have to take a
+> train, they will have to repair the train, etc. That's just the plan.
+
+Every one of docs/42 section 7's ten cards is decided as its default:
+
+1. The valley's name is Kagase (alternatives Kurose, Minase); the terminus is Oku-Kagase.
+2. The premise line stays verbatim as the title line; Tokyo is the one real place name in game text.
+3. The city expedition is not a new district: the first expedition goes down the valley to Umezaki Ekimae.
+4. The colony starts at the walled timber yard on the Kawahara flat, on `map.district.alpha`'s anchors.
+5. Names change, ids stay; the save version does not bump.
+6. Firearms: docs/33's card, default rare; this entry adds nothing to it.
+7. Game text is English; a Japanese word appears only where English has none; given-name first; no real brand on signage.
+8. The shrine basin is decoration, not a water source; the river and the yard's well remain the water.
+9. Two-storey exteriors read as two storeys; the interior is the ground floor; the stair is a blocked tile with a drawn stair.
+10. `climate.temperate`'s numbers and the seven weather kinds keep; their descriptions are rewritten for the valley.
+
+The valley is the first of several places. Other districts and cities follow, and Tokyo is a
+possibility. Travel between them is by rail, and the colony must repair the train before it runs.
+This is a plan, not a piece: nothing is scheduled by this entry. The region (docs/24), streaming and
+district tiers (the release plan's stage 5) are where it will be designed.
+
+It supersedes nothing. The rail plan does not change the recorded region decisions ("The region is
+opt-in", one resident map), streaming (Milestone 3B, Risk 7), district-tier simulation, or the vehicle
+decisions (docs/25 and the district `vehicles` block). A train that needs repair is a new mechanic,
+and it is designed with the region.
