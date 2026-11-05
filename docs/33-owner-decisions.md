@@ -516,3 +516,44 @@ Default: **(a)**. The trade-off: under (a) the trip alarm is effectively unbuild
 player, because no other UI route lays one (the `trap.alarm.*` intake rows are sent only by tests).
 (b) moves the rung order and (c) moves the `RECIPES` row in `fortify.gd`; either moves `E-LADDER`
 with it.
+
+The next five cards come from [docs/44](44-clothing-layers.md), the design note on clothing layers
+on the first-person bodies (2026-11-04). Each default is what gets built if the owner says nothing.
+
+28. **What hides armour?** (2026-11-04, docs/44's "The layering model".) The sim has one item per
+    slot and no layer order, so whether a vest draws over a coat or under it is a picture rule,
+    and it decides what a stranger's armour tells you. Default: the rain gear and the blanket draw
+    over the vest and hide it, plate and all; every other torso garment draws under it. A carrier
+    that is the outermost layer shows whether its plate pockets are filled, and goes flat on the
+    tick a worn-out plate falls away. The alternatives are a carrier that never shows its plate,
+    or a vest always drawn outermost. The answer is one field per torso item in the clothing
+    manifest, and the OUTFIT lane's hidden-information assertions change with it.
+
+29. **What does a body wear with nothing in a slot?** (2026-11-04, docs/44's "The layering
+    model".) The organic survivor is modelled in a fitted base layer (a long-sleeve top, work
+    trousers and boots), and colonists start with no clothes, so an empty feet slot currently
+    draws boots. Default: the top and trousers stay as the clothes everyone has, worth no warmth
+    and no armour, and the base boots are repainted as plain soft shoes, so boots in the feet slot
+    read as boots. The alternative keeps the boots and gives the feet items their own paint over
+    them; boots on and boots off would then be hard to tell apart.
+
+30. **How does a raider read as a raider in first person?** (2026-11-04, docs/44's "Zombies and
+    raiders".) Every person is the same body, and a raider wears the same items a colonist does.
+    Default: one shared raider paint on the base layer, the same for every archetype. That carries
+    over the owner's one-raider-tint call of 2026-09-25, and `check_m2_raiders`' NO-TELL lane
+    stays true. The alternative is no mark: you tell a raider by what they do and by their not
+    being one of your people.
+
+31. **Does a turned colonist keep wearing their clothes?** (2026-11-04, docs/44's "Zombies and
+    raiders".) Today `SimRecruits._turn_with_kit` stows what they wore in the new shambler's pack,
+    so they would draw as a default shambler in rags. Default: yes, once zombie kinds are on the
+    shared rig (docs/41 C3). What fits goes back on the body, the rest stays in the pack, and what
+    the body drops is unchanged. So you know who it was, and what you see on a zombie is still
+    what you can take off it. Until C3, nothing changes.
+
+32. **Does the first cut ship with the named gap?** (2026-11-04, docs/44's "Phasing".) Default:
+    yes. Five layer families (a pack, a carrier, a hard helmet, a soft cap and a padded coat) and
+    the gloves on the view-model arms ship first. Every other worn item is an explicit "none" that
+    shows nothing until the art pass, and the inventory and inspect text still say it is worn, as
+    with the gap the owner accepted on 2026-09-25. The alternative is to hold the whole system
+    until every family has art.
