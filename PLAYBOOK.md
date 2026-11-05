@@ -553,53 +553,83 @@ you push.
 
 ## Where we are
 
-First person is the game; top-down is legacy (docs/30). Setting: Japan, the Ome–Okutama valley
-(brief docs/42, PR #323). For what is open, `gh pr list`; for the last session, [docs/43](docs/43-session-log.md).
+First person is the game; top-down is legacy (docs/30). Setting: the Kagase valley, inspired by
+Ome–Okutama (brief docs/42, on `main`; the owner took every card's default on 2026-11-04, PR #332).
+For what is open, `gh pr list`; for the last session's handoff, the newest entry in
+[docs/43](docs/43-session-log.md).
 
 **Team** (the owner's call, 2026-11-04). Claude Fable coordinates, plans and merges. Kimi does all 3D
 and art. Two Claude Code Haiku workers do everything else; an Opus subagent is started only for a
-piece that needs higher thinking. The OpenCode workers were retired on 2026-11-04.
+piece that needs higher thinking (independent art reviews, a design note, a shared-module piece with
+a measurement trap). The OpenCode workers were retired on 2026-11-04.
 
-**Merged:** #321, #316 (held weapon hides behind screens and in third person), #317 (indoor ceilings),
-#318 (the weapon kit's smoothed lathes).
-Branches deleted; the owner approved deleting each PR's branch once it merges.
+**Merged this session (evening of 2026-11-04):** #318, #319, #320, #323 (docs/42), #324, #325 (this
+trimmed playbook), #326 (the organic survivor). Their branches and worktrees are gone.
 
-**Merge train, in order:** #319, #320, #322, #324, #323, then this playbook's PR. A worker merges `main` in (spec: `merge-train/task-opencode.md`); the coordinator
-checks diff and CI, merges with `--match-head-commit`, deletes the branch. #319 asks the owner: a
-colonist with a melee weapon and a gun shoots across a fence.
+**The merge train.** A PR merges only when its head contains `origin/main` and CI is green on that
+head; after each merge the next PR merges `main` in and waits for CI again. CI is the bottleneck
+(nine runs queued at once this session), so the eleven renames go in as one integration PR. Order:
+#346, the renames integration (closes #332, #333, #334, #335, #337, #339, #340, #341, #342, #343, #344),
+then #338 (arms art), then #331 (arms view, retargeted to `main` **before** the arms branch is
+deleted: GitHub closes a PR whose base branch goes), then #327 (purifier refill), #329 (crawler),
+#336 (bloodhound), #328 (clothing note). #322 is a no-op (its rule is already on `main`): close it.
+The merge-train spec is `sz-shared/merge-train/task-opencode.md`; its rows are in `REPORT.md` there.
 
-**Art line, stacked:** `kimi/fp-survivor-base` (`ff835d90`, confirmation review CLEAR per the
-coordinator); `claude/fp-arms` (FIX-THEN-MERGE, `reviews/fp-arms/review_round-1.md`; round 3 in
-progress, WIP `64d81aec`, checkpoint `fp-arms/HANDOFF.md`); `claude/fp-arms-view` (`d83bedce`, main
-merged in). Its HIDE lane is red, with three causes; the held-weapon body needs a coordinator decision
-(`fp-arms-view/REPORT-hide.md`). PRs open in that order, each after `main` is merged in.
+**Open pull requests, all with local gates green at hand-off** (CI state moves: `gh pr checks <n>`):
 
-**Waiting on the owner:** the survivor PR with flat paint (the coordinator recommends yes); #319's
-shooting default; the six arms-view defaults; docs/33's firearms card (default rare); the survivor
-concept image, for `/home/jtf/sz-shared/concept/` (not there yet); docs/42's ten cards.
+- The renames R1 to R11 (`claude/rename-r*`, one PR each) and the setting calls (#332): names change,
+  ids stay; R2 bumped `SAVE_VERSION` to 34 (every v33 save refused, docs/30). The integration branch
+  `claude/renames-integration` was being built by a Haiku worker when the owner paused; read
+  `sz-shared/renames-integration/REPORT.md` or `HANDOFF.md`. R4 (the kawara and siding look retag)
+  waits on Kimi's materials.
+- #338 the arms art (`claude/fp-arms`, review round 2 FIX-THEN-MERGE, its one major fixed on the view,
+  confirmation pass CLEAR; `sz-shared/reviews/fp-arms/`), #331 the arms in the game
+  (`claude/fp-arms-view`, contains #338; six owner defaults built, docs/30).
+- #327 the purifier refill, #329 the crawler, #336 the bloodhound's scent-led Seek (all touch shared
+  sim modules; each ran the full chain locally), #328 the clothing layers design note (docs/44, five
+  owner cards 28 to 32 in docs/33).
+
+**Art line.** The hunting rifle (`kimi/fp-rifle`, `c77c938a`) is BLOCKED by its independent review
+(`sz-shared/reviews/fp-rifle/review_round-1.md`: the receiver reads as a scope, its pieces float, no
+bolt handle, the barrel tapers backwards, the stock's comb is 91 mm low, a dropped rifle draws as a
+pipe); Kimi's round 2 spec is `sz-shared/fp-rifle/task-kimi-round2.md`, to send after the buildings.
+Japanese buildings batch A (`kimi/fp-buildings-jp`: kawara and siding materials, the small wooden house
+and the tiled-roof house) was in progress at the pause: read `sz-shared/fp-buildings-jp/HANDOFF.md` or
+`REPORT.md`. Batch B (shotengai fronts, sawmill shed, station, konbini, kōban, shrine) and prop kit A
+follow its review.
+
+**In flight at the pause, with a checkpoint each:** the alarm and noisemaker priced
+(`claude/alarm-priced`, `sz-shared/alarm-priced/`) and the buildings batch.
+
+**Waiting on the owner:** the six arms-view defaults (#331); docs/33's firearms card (default rare);
+docs/44's five clothing cards; the survivor concept image for `/home/jtf/sz-shared/concept/`; whether
+the alarm's wire and the noisemaker's scrap metal are the right prices (the piece measures before and
+after). Every one has a default built.
 
 **Next session, start here**, in order:
 
-1. `gh pr list` and CI; continue the train from where it stopped.
-2. Kimi resumes arms round 3 (`fp-arms/HANDOFF.md`); a Haiku worker, not Kimi, then reviews it.
-3. Ask the owner the open questions; open the survivor PR on a yes.
-4. Decide the HIDE question, then merge `claude/fp-arms` into `claude/fp-arms-view` and open the PRs.
-5. After #323 merges and its cards are answered: Kimi's first Japanese buildings (docs/42 section 6);
-   renames R1 to R11 to the Haiku workers, against `setting-brief/INVENTORY.md` (118 rows).
-6. Then a rifle for the `long` class, the zombie kinds, the clothing note; next gate speed-up is caching
-   the four worldgen districts (`translation-ignore/REPORT.md`).
+1. `hc ls`; read every `HANDOFF.md` or `REPORT.md` under `sz-shared/` for the three in-flight pieces
+   and resume them (a Haiku for the alarm, Kimi for the buildings).
+2. `gh pr list` and CI; run the merge train in the order above. Retarget #331 to `main` before
+   deleting `claude/fp-arms`.
+3. After the integration merges: R4 waits on Kimi's materials; then the rifle round 2 to Kimi after
+   batch A's report, and an independent review (Opus subagent) of batch A.
+4. Then from the to-do: zombie kinds on the organic base (sim kinds first: the gassed bloater, the
+   lurker, the juggernaut, the feigner; pictures a stage behind), the arms polish minors (docs/23),
+   the owed ten-seed re-baseline (stage 2) for the crawler and the bloodhound, the sedan's name
+   (`check_vehicles.gd` MOUNT pin), a crawler picture.
 
-**To do:** crossbow bolt, fuel, oil and canteen bottles, and the `long` rifle (Kimi); the shambler and
-six zombie kinds on the organic base, with a lighter horde version; the clothing layer system, with a
-design note for the owner first.
+**To do:** crossbow bolt, fuel, oil and canteen bottles (Kimi); the shambler and six zombie kinds on
+the organic base, with a lighter horde version; the clothing layers' first cut after the cards; the
+wider world by rail (a design note, docs/30 "The setting cards").
 
 **Known bugs**
 
-- `godot:check:fp_geometry` takes about 13 s (12.69–13.01 s of engine time, 15.8–16.1 s wall), and
-  its real-worldgen lane is most of it: four districts generated for real, with the window rays and
-  the ceilings check over them, measured at about 10.6 s of the 11.5 s the script itself spends.
+- `godot:check:fp_geometry` takes about 13 s; its real-worldgen lane is most of it. The next speed-up
+  is caching the four worldgen districts.
 - The survivor review scene's light is flat grey, so colour judgements there run dark.
 - No presentation code draws a lowered weapon yet (`SimAim.holds`, `FireState` have no reader).
+- R2's save bump refuses every v33 save, district saves included, because a save carries only its seed.
 
 ## The docs map
 
