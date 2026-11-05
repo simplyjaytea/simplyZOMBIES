@@ -84,7 +84,7 @@ const RECIPES: Dictionary = {
 	# rubble, a wire fence off wire. One substance each -- a recipe that wanted a *pair* (fixings
 	# to hand, cordage to lash) would be a shape change to this table, not a row.
 	"timber": "plank", "stone": "stone", "fence": "wire",
-	# The trip alarm and the noisemaker, priced 2026-11-04 (docs/30, "The alarm and the noisemaker
+	# The trip alarm and the noisemaker, priced 2026-11-05 (docs/30, "The alarm and the noisemaker
 	# are priced"): a trip line is wire, and the bait is a rattling device off scrap metal, the same
 	# substance the scrap barricade and the bench spend.
 	"alarm": "wire", "noisemaker": "metal",
