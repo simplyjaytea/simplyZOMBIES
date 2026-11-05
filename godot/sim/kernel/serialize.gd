@@ -174,6 +174,12 @@ extends RefCounted
 # is not promised: `save.gd` refuses any version but its own, and pre-1.0 saves are not migrated.
 # Bumping would refuse every v33 save to guard a downgrade (docs/30, "A pitch with no yaw").
 # No version bump.
+# The bloodhound's nose (docs/30, "The bloodhound's nose is a gradient, not a level, 2026-11-04")
+# adds a seventh shambler state, Track (6), and an optional `scentTrail` key on the `shambler`
+# component of a kind whose content names `sensory.trail`. A save with no `scentTrail` restores its
+# bloodhounds as bodies that do not track, which is how they were before; every other kind's
+# component is the shape it always was.
+# The bloodhound adds no version bump of its own; v34 below is the region's.
 #
 # v34: the region runs up-valley. `region.main_area`'s four cells are re-placed so that x runs
 # up-valley (docs/42 section 3): the lower-valley cells at x=0, the upper-valley cells at x=1. A region's
