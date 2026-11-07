@@ -2530,6 +2530,22 @@ not a to-do list:
     were deleted. `godot:bench:frame` draws the top-down scene and is not moved by this.
   - **Verified.** `godot:check:first_person`, `godot:check:fp_expedition`,
     `godot:check:fp_geometry`, `godot:smoke` and `check:routing`.
+- **The arms raise and aim with the fire state, 2026-11-07.** The dead socket is closed: the arms kit's
+  `raise_pistol`, `raise_long`, `aim_pistol` and `aim_long` had no reader, and the sim's `FireState` had none
+  in presentation. `ArmsView.fire_of` (beside `hold_class_of`) reads the sim's `rangedWeapon` state and gives
+  `{phase: idle|raise|aim|recover|reload, t}`: Raise is `raise` with `t` = 1 - ticksLeft / the weapon's own
+  raise ticks; Steady is `aim`; Recover and Clearing are `recover`; Reload is `reload`. The view's phase machine
+  plays `raise_<class>` held at that `t` (so a heavier gun's longer raise stretches the 0.40 s clip), `aim_<class>`
+  while steady, and returns to `idle_<class>` on recover or reload. Draw, lower, inspect and covered still win;
+  a melee class and bare hands ignore the state. The sim is not changed. Gate: `godot:check:first_person` ARMS,
+  the AIM case: rifle then pistol, each shot checked tick by tick (the clip is `raise_<class>` at the sim's `t`
+  across at least two distinct positions, then `aim_<class>` while steady, a sheet opened in the aim lowers the
+  arms and closing it brings the aim back, then `idle_<class>` after the shot); a stubbed read model that says
+  idle leaves the arms on idle through the whole shot; a knife under a stubbed raise and aim stays on
+  `idle_melee1`. The plant (`fire_of` returns aim for every state) turns ARMS red, with `in Raise the long arms
+  play 'aim_long', not raise_long`. Reload has no clip, so its idle is the conservative default (docs/30). The
+  PLAYBOOK "Known bugs" line on the lowered weapon is removed. `SimAim.holds` still has its reader only in the
+  top-down `main.gd`, not in the first-person arms.
 - **The organic survivor, 2026-11-04.** The first-person survivor body is replaced: the box-segment
   `survivor.glb` gives way to an organic, smooth-skinned woman built by `organic_survivor.py` in the
   Blender character kit (`tools/blender/first_person_kit/build_characters.py`). She has 7,810 triangles,
