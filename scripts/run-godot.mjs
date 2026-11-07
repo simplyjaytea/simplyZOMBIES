@@ -729,11 +729,21 @@ switch (mode) {
       "--script",
       "res://review/shots.gd",
       "--",
+      "--topdown",
       ...process.argv.slice(3),
     ];
     break;
   case "--shots-check":
-    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_shots.gd"];
+    // The review scenes boot the top-down street and start it with Enter on the title (docs/30, 2026-11-07).
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_shots.gd",
+      "--",
+      "--topdown",
+    ];
     break;
   case "--shots-survivor":
     // The survivor review: a candidate GLB photographed under the first-person scene's own sky and lens.
