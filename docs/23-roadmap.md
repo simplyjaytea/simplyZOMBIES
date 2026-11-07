@@ -368,14 +368,10 @@ owes is pictures, a stage behind: the art group's "Pictures for the melee arc".
 
 *Zombies, seven to fourteen (stage 2 for the first four, stage 4 for the rest):*
 
-- **The gassed bloater.** Its burst leaves a tile cloud that lingers and hurts. Reader: a tile
-  status field with a decay. Gate: `godot:m2:filter` (the mask already reads it) and a CLOUD lane.
 - **The lurker.** Dormant indoors, wakes on indoor noise. Reuses the dormant placement seam from
   the population plan. Gate: `godot:m2:district` DORMANT.
 - **The burner.** Carries fire and spreads it to timber. Waits on fire as a sim fact (owner's
   card, docs/33). Gate: named with the fire piece.
-- **The feigner.** Lies among settled corpses, rises on approach. Reader: the corpse memory.
-  Gate: `godot:m2:sight` FEIGN.
 
 *Raiders, doctrine and archetypes (doctrine stage 2, archetypes stage 4):*
 
@@ -1444,7 +1440,13 @@ tables and day lines are report-noise.md in the project's planning/balance folde
 
 - **The ten-seed re-baseline after the zombie kinds.** The crawler (2026-11-04) joins the day-5 pool,
   so every campaign's spawns from day 5 on move, and its piece did not re-run the ten-seed table.
-  The re-baseline is owed in stage 2: ten seeds and a median wipe day, on `main` and on each
+  The feigner (2026-11-06) joins the day roll from wave 3 at weight 1, so every campaign's day-3-and-
+  later mix moves by about one draw in 138, and it did not re-run the table. The re-baseline is owed in
+  stage 2: ten seeds and a median wipe day, on `main` and on each candidate, as the balance wall above
+  says. Each later zombie kind owes the same run.
+  The gassed bloater (2026-11-06) keeps today's cloud numbers, so it moves no spawn, but it changes
+  what a cloud is (a decaying level, read per window), and it did not re-run the table either. The
+  re-baseline is owed in stage 2: ten seeds and a median wipe day, on `main` and on each
   candidate, as the balance wall above says. Each later zombie kind owes the same run.
 - **Distribution assertions.** Quiet nights, sieges, deaths and run lengths asserted as
   distributions in the balance harness, not as single-seed anecdotes.
@@ -2631,7 +2633,7 @@ not a to-do list:
   `vehicle.truck` is Kei Truck (was "Flatbed truck"). `vehicle.sedan` stays "Sedan" for now: the
   `MOUNT` lane of `godot/check_vehicles.gd` asserts the HUD clause "a sedan beside you", and that clause
   is built from the name, so the rename waits for that pin to move. The other vehicles keep their names,
-  as docs/42 says. The vehicle files carry no description field.
+  as docs/42 says. The vehicle files carry no description field. The sedan now takes its name too (Kei Car), and the `MOUNT` pin reads the car's name from content, so the "stays Sedan" clause above no longer holds.
   - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:check:wrecks`,
     `npm run godot:m2:vehicles` (`M2_VEHICLES_OK`) and `npm run godot:m2:light_burn` hold on the renamed
     content, and so does `npm run godot:smoke`.
@@ -4262,6 +4264,26 @@ not a to-do list:
   content with the shoves block, weight 1 from wave 4, carries its shove as a component, has eyes; a heavy carries
   none). `godot:check:appearance` shares the heavy's rig and the group `["zombie.heavy", "zombie.juggernaut"]`. The
   ten-seed table was not re-run; it is owed with the other zombie kinds under Proof.
+- **The feigner, 2026-11-06.** Zombie kind eleven: `godot/content/zombies/feigner.json`, wave 3, weight
+  1, shambler stats and workwear picture, and a `feigns` block (`riseRadius` 2.5 m, `lieWithin` 1.0 m,
+  `lieSearch` 12 m). A feigner is born in the new `Feign` state (`shambler.gd`, state 7, from
+  `make_shambler`, and only a kind that declares `feigns` gets the keys). It walks to within `lieWithin`
+  of the nearest corpse within `lieSearch`, or lies where it stands, and reads no sight, scent or hearing
+  while it lies. It rises to Seek when a living body comes within `riseRadius`, or when a blow lands on
+  it (`attack.connected`), and then it is an ordinary shambler. Its picture is its own corpse frame while
+  it lies (`SimShambler.is_lying` read by the first-person anim state and the top-down body flag). The
+  memory reader: a dead body that was never seen alive is now remembered as a `corpse` record (kind
+  `corpse`, `sightings.gd`), where it was dropped before; a body watched going down is still erased, as
+  it was. A feigner is recorded as a corpse while it lies (`_kind_of`) and flips to a zombie on the first
+  sight after it rises. The clause, the freshest-hostile read and the hostile-only onboarding read leave
+  corpses out; the memory marks and the afterimages skip them (`main.gd`). Gates: `godot:m2:sight` FEIGN
+  (three corpses in a colonist's memory at 12.9 m and nothing hostile; a body at 1.5 times the radius
+  leaves it lying; a body inside the radius rises it within 30 ticks and the record flips; a planted
+  radius of twice the real one rises it at 1.5 times, which the STAYS judgement must see; a blow rises
+  it); `godot:m2:roster` FEIGNER (resolves, has a `feigns` block, has a weight, is born feigning, has
+  eyes) and MIX, re-pinned for the day-7 pool over ten kinds (the feigner draws `g`, not yet in the
+  fifty). The ten-seed table was not re-run; see "The ten-seed re-baseline after the zombie kinds"
+  under Proof.
 - **Colony screen follow-ups, 2026-10-26.** Three nits the Colony and HUD bullets named, one piece.
   - **Reopen scrolls to the pick.** `work_panel.gd` clears `_scrolled_for` on
     `NOTIFICATION_VISIBILITY_CHANGED`, so a reopened screen scrolls to the game's pick afresh.
@@ -16135,6 +16157,28 @@ not a to-do list:
   once-per-survivor contamination bug **was already fixed and its entry was stale**, and
   `_has_open_wound` matches `kind == "bite"` alone, so a deep laceration or a burn is no way in for
   a plume.
+- **Zombies — the gassed bloater, 2026-11-06.** The burst's cloud is a gas level that decays, not a
+  flag that waits for its expiry. `godot/content/zombies/bloater.json` carries a `gas` block (`radius`
+  6.0, `lingerTicks` 1800, `decayPerTick` 1/1800, `threshold` 0.000001, `hurtEvery` 200), and
+  `bloater.gd`'s `gas_of` reads it, with the module's constants as the fallback for a kind with no
+  block. The burst writes `level` 1.0 and `bornAtTick` into the cloud's `contamination` component; the
+  system decays the level once a tick and despawns the cloud when it reaches the threshold. A cloud
+  with no level (a fixture, or a save from before the field) reads its level off its nominal end. The
+  disc and the roll are unchanged: the roll reads the cloud's level, not the burst event, and a survivor
+  in the disc with an open wound rolls once per `hurtEvery` window, `contaminationRolls` rows carrying a
+  `window` (a row without one is window 0). The owner's call of 2026-11-06 set the window to ten seconds (`hurtEvery`
+  200 at 20 ticks a second): a survivor who stands in the cloud is rolled again every window, nine times
+  over a cloud's 90 s life. The field is per cloud, not per tile: the footprint is one disc at
+  one level, so a grid would store the same level in every cell. Gates: `godot:m2:filter` LINGER (a
+  bitten survivor outside the disc, walked in on tick 600, rolled once with the cloud there; walked in
+  on the cloud's last live tick, 1799, rolled once; walked in on 1800, the tick the level reaches zero,
+  not rolled and the cloud gone; a planted field held at level 1.0, walked in on 1900, rolled, so the
+  GONE judgement could see a leak), and LINGER STAY (a survivor who stands in the cloud from its birth to
+  its end is rolled nine times, one per 200-tick window; with `hurtEvery` back at 1800 it is rolled once,
+  and the lane goes red). The CLOUD, PINNED and BLOOM lanes of the same gate, the roster's BLOOM and
+  BLOOM-TWICE, and the chain's medicine lane are unchanged, since their fixtures stand inside one window.
+  The FAST balance tier does not move: `godot:m2:balance` prints the same FAST lines on `origin/main`
+  and on this branch (`M2_BALANCE_OK` on both). The ten-seed re-baseline is owed (see Proof).
 - **Items** — ~~food, drink, and the medical quality tiers~~ **landed** 2026-09-12
   (`npm run godot:m2:medicine` → **`M2_MEDICINE_OK`**, a new gate whose eight lanes were each run
   red *and* green before they were trusted; `godot:m2:treatment`, `godot:m2:wounds`,

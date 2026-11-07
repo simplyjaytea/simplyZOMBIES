@@ -44,6 +44,29 @@
         "cooldownTicks": { "type": "integer", "minimum": 1 }
       }
     },
+    "feigns": {
+      "type": "object",
+      "description": "A kind that lies among settled corpses and rises on approach (docs/23, \"The feigner\"). Its bodies are born in the Feign state (shambler.gd make_shambler): a feigner walks to within `lieWithin` of the nearest corpse within `lieSearch` metres, or lies where it stands, and reads no sight, scent or hearing while it lies there. It rises to Seek when a living body comes within `riseRadius` metres, or is struck. `lieNear` names what it lies near; `corpse` is the only shipped value.",
+      "additionalProperties": false,
+      "properties": {
+        "riseRadius": { "type": "number", "minimum": 0 },
+        "lieWithin": { "type": "number", "minimum": 0 },
+        "lieSearch": { "type": "number", "minimum": 0 },
+        "lieNear": { "type": "string", "enum": ["corpse"] }
+      }
+    },
+    "gas": {
+      "type": "object",
+      "description": "A blooming kind's gas cloud (docs/23, \"The gassed bloater\"). The burst writes a gas level of 1.0 into the cloud, which decays by `decayPerTick` each tick and is gone when it reaches `threshold`; `radius` is the disc it covers at that level. A survivor in the disc, with an open wound, rolls once per `hurtEvery` ticks of the cloud's life. Omitted keys keep bloater.gd's constants, which are today's numbers; the shipped bloater writes them out so the content says what the cloud is.",
+      "additionalProperties": false,
+      "properties": {
+        "radius": { "type": "number", "minimum": 0 },
+        "lingerTicks": { "type": "integer", "minimum": 1 },
+        "decayPerTick": { "type": "number", "minimum": 0 },
+        "threshold": { "type": "number", "minimum": 0 },
+        "hurtEvery": { "type": "integer", "minimum": 1 }
+      }
+    },
     "variance": {
       "type": "object",
       "description": "How much one body of this kind differs from the next. Drawn per body at spawn on SimRoster's own `zombieLook` stream -- never on the stream that placed it, so adding or retuning any of this leaves every existing campaign's placement and director draws byte-identical (check_m2_variance.gd STREAM). Omit the block entirely and the kind spawns uniform, which is what every kind did before this existed.",
