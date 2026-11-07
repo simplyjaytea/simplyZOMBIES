@@ -22,6 +22,7 @@ const SimMelee = preload("res://sim/modules/melee.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimAllegiance = preload("res://sim/modules/allegiance.gd")
+const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
 
 const SEED: int = SimBoot.DISTRICT_SEED
 const DISTRICT_TILES: int = 64
@@ -46,6 +47,7 @@ func _run() -> void:
 	_noin()
 	_resume()
 	_once()
+	_switch_off()
 	print("FP_AID_RESULT gate %s: %d FAIL" % ["green" if _fails == 0 else "red", _fails])
 	quit(0 if _fails == 0 else 1)
 
@@ -425,6 +427,33 @@ func _resume() -> void:
 			job_at = k + 1
 			break
 	_ok(lane, "the order ended %d ticks after the zombie was gone; a job after %s" % [ended, ("%d ticks" % job_at) if job_at >= 0 else "none in 600 ticks"])
+
+
+# --- SWITCH: NPC_AID_ENABLED = false gives no order (the switch the armour lane pins) -------------
+
+func _switch_off() -> void:
+	var lane: String = "SWITCH"
+	var was: bool = SimNpcCombat.NPC_AID_ENABLED
+	SimNpcCombat.NPC_AID_ENABLED = false
+	var s: Dictionary = _held_scene_with_ellis(5)
+	if s.is_empty():
+		SimNpcCombat.NPC_AID_ENABLED = was
+		_fail(lane, "no 5 m spot for the check")
+		return
+	var world: Variant = s["world"]
+	var zed: int = int(s["zed"])
+	var who: int = int(s["who"])
+	var ordered: bool = false
+	for _t in range(120):
+		world.step()
+		if _has_aid_order(world, who, zed):
+			ordered = true
+			break
+	SimNpcCombat.NPC_AID_ENABLED = was
+	if ordered:
+		_fail(lane, "NPC_AID_ENABLED = false, and Ellis was still given an order on the holder")
+		return
+	_ok(lane, "NPC_AID_ENABLED = false: Ellis 5 m from the holder, no order in 120 ticks; the switch restored to %s" % str(was))
 
 
 # --- ONCE ------------------------------------------------------------------------------------------

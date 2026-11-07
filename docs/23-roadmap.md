@@ -3259,7 +3259,9 @@ not a to-do list:
   NOIN, RESUME, ONCE) is green with one FINDING: at 12 m Ellis is ordered at once but the player's instinct breaks
   the hold at +55, before she arrives; at 5 m her blow staggers the holder and breaks the hold at +44. The aid's
   effect on the balance harness is none: no controlled body exists there, so `m2:balance` is identical by
-  construction. Measured on a fresh boot with no input (5 minutes): Ellis 4.1 m from the player from ~30 s and still
+  construction. `NPC_AID_ENABLED` (static, shipped on) is the switch the armour lane REACHED pins off: the lane tests
+  what a blow wears, and a colonist's swings in the same fight changed its blow count. Cost: the aid scan adds 0.43 ms
+  per tick (4.56 to 4.99 ms mean, a 256 district with a controlled body, 3000 ticks, aid off and on, interleaved). Measured on a fresh boot with no input (5 minutes): Ellis 4.1 m from the player from ~30 s and still
   there at 5 min; Mara 13.5 m; settlers 78 to 83 m. Not done: #361 (orders in conversation) is not on main yet,
   so the RESUME lane is to be re-run when it lands.
 - **The first-person key reference, 2026-11-01.** F1 opens the top-down legend, shown with the

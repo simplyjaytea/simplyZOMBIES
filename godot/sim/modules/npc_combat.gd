@@ -42,6 +42,10 @@ const ENGAGE_METRES: float = 20.0
 const AID_METRES: float = 24.0
 const AID_PURSUE_METRES: float = 4.0
 const AID_RETRY_TICKS: int = 60
+# The switch the armour lane pins off: a gate that tests what a blow wears (check_m2_armor.gd REACHED) would otherwise see
+# a colonist's swings in the same fight. A static var so a gate can drive it both ways, as SIGHT_ENABLED is; any lane that
+# pins it restores the previous value on every exit path. Shipped on.
+static var NPC_AID_ENABLED: bool = true
 
 # How long the controlled survivor goes without a single command before instinct answers a claw
 # for them -- SimShambler.STRUGGLE_INSTINCT_TICKS' number and its exact reasoning: two seconds is
@@ -150,6 +154,8 @@ static func _orders() -> GDScript:
 
 
 static func _aid_colonists(world: Variant) -> void:
+	if not NPC_AID_ENABLED:
+		return
 	var holders: Array[int] = []
 	for c in world.components.query(["controlled", "position"]):
 		holders.append(int(c))
