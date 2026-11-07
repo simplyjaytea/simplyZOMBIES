@@ -601,6 +601,9 @@ const ROSTER: Array[Dictionary] = [
 	# The crawler wears the shambler's workwear picture, as the bloodhound does: a kind whose
 	# difference is its legs, not its clothes, so no new picture is drawn for it (docs/23, the crawler).
 	{"id": "zombie.crawler", "kind": "zombie", "probe": {"ztype": "zombie.crawler"}, "tinted": false},
+	# The lurker wears the shambler's workwear picture too: a kind whose difference is where it lies
+	# (indoors, asleep), not what it wears, so it shares the shambler's file (docs/23, the lurker).
+	{"id": "zombie.lurker", "kind": "zombie", "probe": {"ztype": "zombie.lurker"}, "tinted": false},
 	# The feigner wears the shambler's workwear picture, and lies in its own corpse frame: a kind whose
 	# difference is that it lies among the dead, not what it wears (docs/23, the feigner).
 	{"id": "zombie.feigner", "kind": "zombie", "probe": {"ztype": "zombie.feigner"}, "tinted": false},
@@ -649,6 +652,7 @@ const ROSTER_SHARED: Array = [
 	# file until a bloodhound body is drawn.
 	["zombie.shambler", "zombie.bloodhound"],
 	["zombie.heavy", "zombie.juggernaut"],
+	["zombie.shambler", "zombie.lurker"],
 	["zombie.shambler", "zombie.feigner"],
 	[
 		"player.body", "survivor.unique.mara", "survivor.unique.ellis",
