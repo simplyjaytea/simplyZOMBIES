@@ -818,7 +818,10 @@ static func sight_reach(world: Variant, entity: int, shambler_data: Dictionary, 
 	if fog < 0.0:
 		fog = SimWeatherRes.sight_mul(world)
 	var light_sense: float = float(shambler_data.get("lightSense", LIGHT_SENSITIVITY))
-	return float((obs as Dictionary).get("range_metres", 0.0)) * sqrt(maxf(light_sense, 0.0)) * fog
+	if light_sense <= 0.0:
+		return 0.0
+	var own: float = float((obs as Dictionary).get("range_metres", 0.0)) * sqrt(light_sense)
+	return maxf(own, SIGHT_REACH_FLOOR_METRES) * fog
 
 
 # Sight as a stimulus, the way grabs were landed (GRABS_ENABLED above: built, gated, shipped
@@ -834,6 +837,14 @@ static func sight_reach(world: Variant, entity: int, shambler_data: Dictionary, 
 # static: `check_m2_roster.gd` EYES pins it both ways and restores it, one gate process sharing
 # it across every world it boots.
 static var SIGHT_ENABLED: bool = true
+# The shambler's daylight reach floor, in metres. A shambler's sight reach is its observer range (12 m,
+# docs/28's eyes) times sqrt(lightSense), which is 3.8 m for the shambler (lightSense 0.1). That made a
+# shambler blind at 4 m by day, and the first-person alpha sheet showed one stopping at 3 to 5 m. 8 m is
+# the owner-card default (t1n, 2026-11-07): a shambler notices a person at a room's width by day, and the
+# night rule in visibility.gd still limits what it sees after dark. The floor is the reach, not a second
+# sense: the fog multiplier and the occlusion in visibility.gd still apply, and a kind with no light
+# sense (the bloodhound) keeps no reach at all. A static so a lane can pin it, as SIGHT_ENABLED is.
+static var SIGHT_REACH_FLOOR_METRES: float = 8.0
 
 # A wandering or dormant body with no person within FAR_THINK_METRES thinks on one tick in
 # FAR_THINK_EVERY, its phase set by its id so a quarter of them think on any tick (A3's ninth

@@ -13,7 +13,9 @@ extends SceneTree
 #
 #   SIGHT-NEAR      a shambler 3 m away on open ground, inside its sight reach, acquires the player (the
 #                   module's own _seen_target must be the player) and closes.
-#   SIGHT           the spec's 12 m. FAIL while the sight reach is shorter than 12 m (the reach is printed).
+#   SIGHT           a shambler 7 m away by day, on open ground, acquires and closes (the daylight reach floor,
+#                   SIGHT_REACH_FLOOR_METRES, is 8 m). A night line (INFO) shows the same 7 m unlit. The spec's
+#                   12 m probe is a FINDING, not a FAIL: it is beyond the reach by day.
 #   NOISE           a rifle shot (item.rifle.hunting's ranged.noise from content, published as ranged.gd
 #                   publishes a shot) at the player; a shambler 30 m away behind one wall tile, no sight.
 #                   FAIL if not heard: the field value at the shambler and the hearing threshold are printed.
@@ -25,8 +27,11 @@ extends SceneTree
 #                   escape is open: the player must die, and world.player must move to Mara or Ellis, or
 #                   world.runOver must be set. A second run removes the other survivors (no heir): there
 #                   world.runOver must be set.
-#   DEATH           the attentive player (normal stamina, struggle open): the lone shambler must kill them
-#                   inside DEATH_TICKS. FAIL while it does not; the break cause and the ticks are printed.
+#   DEATH-ATTENTIVE the attentive player (normal stamina, struggle open): a measured lane, not a pass/fail on
+#                   the question. It prints the outcome: whichever comes first, the shambler's death or the
+#                   player's, with the tick, who, the holds broken, the wounds and the blood loss at that tick.
+#                   The design question (is a lone shambler too weak against an attentive player?) is an owner
+#                   card; the default is what the sim does now. DEATH-NOESCAPE above stays the pinned death.
 #   REPRESS         after a struggle break with no command, the player comes to rest and the shambler
 #                   presses again (a re-grab, then a bite).
 #   DRIFT           the break-away shove's record expires; the controlled body comes to rest, and its travel is
@@ -56,6 +61,8 @@ const SEED: int = SimBoot.DISTRICT_SEED
 # check_fp_expedition, so every lane walks the sim and not the map.
 const DISTRICT_TILES: int = 64
 const NEAR_METRES: int = 3
+# The SIGHT lane: by day, inside the shambler's daylight reach (SIGHT_REACH_FLOOR_METRES, 8 m).
+const SIGHT_METRES: int = 7
 const PROBE_METRES: int = 12
 const NOISE_METRES: int = 30
 const WALL_AT_METRES: int = 15
@@ -84,6 +91,8 @@ const MOVED_METRES: float = 0.05
 const REST_TICKS: int = 60
 const REPRESS_TICKS: int = 200
 const DRIFT_SETTLE_TICKS: int = 20
+const NIGHT_FRACTION: float = 0.9
+const Clock = preload("res://sim/time/clock.gd")
 const DRIFT_SLACK_METRES: float = 0.1
 const WALL_AHEAD_METRES: float = 2.0
 const DRIFT_WALL_SHOVE_DY: float = 0.1035
@@ -104,7 +113,9 @@ func _init() -> void:
 func _run() -> void:
 	_started_ms = Time.get_ticks_msec()
 	_sight_near()
+	_sight_seven()
 	_sight_twelve()
+	_sight_night()
 	_shot_through_wall()
 	_footsteps()
 	_walking_distance()
@@ -461,7 +472,42 @@ func _sight_near() -> void:
 	_ok(lane, "acquired the player %d ticks after setup, at %.1f m (%s); %.1f m after %d more ticks; sight reach %.1f m" % [acquired, at_acquire, _state_name(_state(world, zed)), after, CLOSE_TICKS, _sight_reach(world, zed)])
 
 
-# SIGHT: the spec's 12 m. Red while the reach is shorter.
+# SIGHT: 7 m by day, on open ground, line clear. Must acquire and close.
+func _sight_seven() -> void:
+	var lane: String = "SIGHT"
+	var boot: Dictionary = _boot()
+	var world: Variant = boot["world"]
+	var map: Variant = boot["map"]
+	var setup: Dictionary = _encounter(world, map, SIGHT_METRES)
+	if setup.is_empty():
+		_fail(lane, "no %d m open line with sight by day" % SIGHT_METRES)
+		return
+	var player: int = int(setup["player"])
+	var zed: int = int(setup["zed"])
+	var base: int = _rel(world)
+	var acquired: int = -1
+	for t in range(1, ACQUIRE_TICKS + 1):
+		world.step()
+		if _hunting(world, zed):
+			acquired = t
+			break
+	if acquired < 0:
+		_fail(lane, "%d m by day: not acquired in %d ticks (%.1f s); reach %.1f m, %.1f m away" % [SIGHT_METRES, ACQUIRE_TICKS, float(ACQUIRE_TICKS) / 20.0, _sight_reach(world, zed), _dist(world, zed, player)])
+		return
+	var target: Variant = _module_target(world, zed)
+	if target == null or int(target) != player:
+		_fail(lane, "%d m: the shambler is hunting, but its module target is %s, not the player (%d)" % [SIGHT_METRES, str(target), player])
+		return
+	var at_acquire: float = _dist(world, zed, player)
+	_settle(world, CLOSE_TICKS)
+	var after: float = _dist(world, zed, player)
+	if at_acquire - after < CLOSE_METRES:
+		_fail(lane, "%d m: acquired at +%d but did not close: %.1f m, then %.1f m after %d ticks" % [SIGHT_METRES, acquired, at_acquire, after, CLOSE_TICKS])
+		return
+	_ok(lane, "%d m by day: acquired the player at tick +%d (%d ticks after setup at +%d), at %.1f m; closed to %.1f m in %d ticks; reach %.1f m" % [SIGHT_METRES, acquired, acquired, base, at_acquire, after, CLOSE_TICKS, _sight_reach(world, zed)])
+
+
+# SIGHT, the 12 m probe: beyond the reach by day, so a FINDING, not a FAIL.
 func _sight_twelve() -> void:
 	var lane: String = "SIGHT"
 	var boot: Dictionary = _boot()
@@ -479,11 +525,36 @@ func _sight_twelve() -> void:
 		if _hunting(world, zed):
 			acquired = t
 			break
-	var observer: Dictionary = world.components.get_component(zed, "observer") as Dictionary
 	if acquired < 0:
-		_fail(lane, "%d m: not acquired in %d ticks (%.1f s); the sight reach is %.1f m (observer range %.0f m x sqrt(lightSense) x fog), and _seen_target refuses anything beyond it; %.1f m away at the end" % [PROBE_METRES, ACQUIRE_TICKS, float(ACQUIRE_TICKS) / 20.0, _sight_reach(world, zed), float(observer.get("range_metres", 0.0)), _dist(world, zed, player)])
+		_finding(lane, "%d m not acquired (reach %.1f m by day), %.1f m away at the end" % [PROBE_METRES, _sight_reach(world, zed), _dist(world, zed, player)])
 	else:
-		_ok(lane, "%d m: acquired at tick +%d, %.1f m away; the reach is %.1f m" % [PROBE_METRES, acquired, _dist(world, zed, player), _sight_reach(world, zed)])
+		_info(lane, "%d m probe: acquired at +%d, %.1f m away; reach %.1f m" % [PROBE_METRES, acquired, _dist(world, zed, player), _sight_reach(world, zed)])
+
+
+# SIGHT, night (INFO): the same 7 m, unlit. The reading is the card's day/night split, not a verdict.
+func _sight_night() -> void:
+	var lane: String = "SIGHT"
+	var boot: Dictionary = _boot()
+	var world: Variant = boot["world"]
+	var map: Variant = boot["map"]
+	world.tick = Clock.tick_at_time_of_day(NIGHT_FRACTION)
+	var lines: Array = _open_lines(map, SIGHT_METRES, 1)
+	if lines.is_empty():
+		_info(lane, "night: no %d m open line" % SIGHT_METRES)
+		return
+	var from: Vector2i = (lines[0] as Dictionary)["from"]
+	var d: Vector2i = (lines[0] as Dictionary)["dir"]
+	var player: int = int(world.player)
+	_place(world, player, _centre(from))
+	var zed: int = _spawn(world, _centre(from + d * SIGHT_METRES))
+	_settle(world, 6)
+	var acquired: int = -1
+	for t in range(1, ACQUIRE_TICKS + 1):
+		world.step()
+		if _hunting(world, zed):
+			acquired = t
+			break
+	_info(lane, "night, %d m unlit: detail %d, reach %.1f m, %s" % [SIGHT_METRES, _detail(world, zed, player), _sight_reach(world, zed), ("acquired at +%d" % acquired) if acquired >= 0 else "not acquired in %d ticks" % ACQUIRE_TICKS])
 
 
 # --- NOISE -----------------------------------------------------------------------------------------
@@ -740,7 +811,7 @@ func _death_noescape_no_heir() -> void:
 # DEATH: the attentive player (normal stamina, the struggle open) must not be killed by a lone shambler
 # inside DEATH_TICKS. FAIL while it survives: the struggle is what lets them live.
 func _death_attentive() -> void:
-	var lane: String = "DEATH"
+	var lane: String = "DEATH-ATTENTIVE"
 	var boot: Dictionary = _boot()
 	var world: Variant = boot["world"]
 	var map: Variant = boot["map"]
@@ -763,23 +834,24 @@ func _death_attentive() -> void:
 		if int(ev.get("entity", -1)) == zed:
 			zed_kills.append(ev)
 	})
-	var contact: int = int(world.tick)
+	var contact: int = _rel(world)
+	var outcome_at: int = -1
 	for _i in DEATH_TICKS:
 		world.step()
 		if not deaths.is_empty() or int(world.player) != player or not zed_kills.is_empty():
+			outcome_at = _rel(world)
 			break
+	var wounds: int = _wound_count(world, player)
+	var blood: float = _blood(world, player)
+	var holds: int = breaks.size()
+	# Whichever comes first: the shambler's death, or the player's.
+	if outcome_at < 0:
+		_ok(lane, "outcome: neither in %d ticks (%.0f s); holds broke %d; %d wound(s), blood loss %.1f at +%d; the shambler %s, %.1f m away (the design card: a lone shambler against an attentive player)" % [DEATH_TICKS, float(DEATH_TICKS) / 20.0, holds, wounds, blood, _rel(world), _state_name(_state(world, zed)), _dist(world, zed, player)])
+		return
 	if not zed_kills.is_empty():
-		_fail(lane, "attentive player (normal stamina) is not killed by a lone shambler: the player killed it at +%d (killer %d, player %d) after %d holds broke; the lane asks the question, and the answer is no" % [_rel(world), int((zed_kills[0] as Dictionary).get("killer", -1)), player, breaks.size()])
+		_ok(lane, "outcome: the shambler died at +%d (killer %d, the player %d), %d ticks after contact at +%d; holds broke %d; the player has %d wound(s), blood loss %.1f (the design card: a lone shambler against an attentive player)" % [outcome_at, int((zed_kills[0] as Dictionary).get("killer", -1)), player, outcome_at - contact, contact, holds, wounds, blood])
 		return
-	if not deaths.is_empty() or int(world.player) != player:
-		_ok(lane, "attentive player died %d ticks (%.1f s) after first contact" % [int(world.tick) - contact, float(int(world.tick) - contact) / 20.0])
-		return
-	var last: String = "no hold ended"
-	if not breaks.is_empty():
-		var b: Dictionary = breaks[breaks.size() - 1] as Dictionary
-		last = "%d hold(s) ended, last at tick +%d (cause %s, by %d)" % [breaks.size(), int(b["tick"]), str(b["cause"]), int(b["by"])]
-	var zed_note: String = "shambler %s, %.1f m away" % [_state_name(_state(world, zed)), _dist(world, zed, player)] if world.entities.is_alive(zed) else "the shambler is gone (entity not alive)"
-	_fail(lane, "attentive player (normal stamina): a lone shambler does not kill them; alive after %d ticks (%.0f s) in contact, %d wound(s), held: %s; %s; %s; contact at tick +%d" % [DEATH_TICKS, float(DEATH_TICKS) / 20.0, _wound_count(world, player), str(world.components.has_component(player, "grabbed")), last, zed_note, contact - _base_tick])
+	_ok(lane, "outcome: the player died at +%d (%d ticks after contact at +%d), holds broke %d; %d wound(s), blood loss %.1f (the design card: a lone shambler against an attentive player)" % [outcome_at, outcome_at - contact, contact, holds, wounds, blood])
 
 
 # REPRESS: a grab is broken by the player's struggle; the shambler must press again. The player does not

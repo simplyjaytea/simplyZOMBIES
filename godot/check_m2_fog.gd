@@ -454,9 +454,14 @@ func _the_fog_closes_the_range_and_not_the_eyes() -> bool:
 # including the failing ones, which is why the body is a separate function.
 func _the_dead_are_blinded_by_exactly_as_much() -> bool:
 	var was: bool = SimShambler.SIGHT_ENABLED
+	# This lane pins the content reach (12 m x sqrt(0.1) = 3.79 m), so the daylight floor is pinned to 0 for it and
+	# restored on the same exit paths as SIGHT_ENABLED.
+	var floor_was: float = SimShambler.SIGHT_REACH_FLOOR_METRES
 	SimShambler.SIGHT_ENABLED = true
+	SimShambler.SIGHT_REACH_FLOOR_METRES = 0.0
 	var ok: bool = _eyes_body()
 	SimShambler.SIGHT_ENABLED = was
+	SimShambler.SIGHT_REACH_FLOOR_METRES = floor_was
 	if not ok:
 		return false
 	print("EYES OK SIGHT_ENABLED restored to %s" % str(was))

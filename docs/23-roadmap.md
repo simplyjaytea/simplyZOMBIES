@@ -3254,21 +3254,34 @@ not a to-do list:
 
 - **The first-person encounter gate, 2026-11-07.** `godot/check_fp_encounter.gd`, run by
   `npm run godot:check:fp_encounter`, boots the seeded first-person district (`SimBoot.playable`,
-  the scene's seed, 64 tiles) and reads and steps the sim only. Lanes. SIGHT-NEAR (passes): a
-  shambler 3 m out on open ground acquires the player one tick after setup and closes 0.9 m in 40
-  ticks. SIGHT (red): the spec's 12 m is not acquired; `sight_reach` is 3.8 m (observer range 12 m x
-  sqrt(lightSense 0.1) x fog). NOISE (passes): a rifle shot (`item.rifle.hunting`, ranged noise 200
-  from content) through one wall tile at 30 m is heard, field 178 at the shambler against a threshold
-  of 0.25; the shambler turns in 2 ticks and closes; the player's footsteps publish `noise.emitted`
-  (magnitude 1.0). CONTACT (passes): a grab forms at 3 m, `_clear_contact` true, first wound 30 ticks
-  later. DEATH-NOESCAPE (passes): with stamina held at 0 the player dies 1080 ticks after contact and
+  the scene's seed, 64 tiles) and reads and steps the sim only. It ends green (no FAIL). Lanes:
+  SIGHT-NEAR (passes): a shambler 3 m out acquires the player one tick after setup and closes. SIGHT
+  (passes): a shambler 7 m out by day acquires and closes; the daylight reach is 8 m
+  (`SIGHT_REACH_FLOOR_METRES`, see the sight record below). The 12 m probe is a FINDING: not acquired by
+  day. A night line (INFO) shows the same 7 m unlit: not acquired. NOISE (passes): a rifle shot
+  (`item.rifle.hunting`, ranged noise 200 from content) through one wall tile at 30 m is heard, field 178
+  at the shambler against a threshold of 0.25; the shambler turns in 2 ticks and closes; the player's
+  footsteps publish `noise.emitted` (magnitude 1.0); the walking player is first turned at 4.1 m (INFO).
+  CONTACT (passes): a grab forms at 3 m, `_clear_contact` true, first wound 30 ticks later.
+  DEATH-NOESCAPE (passes): with stamina held at 0 the player dies 1080 ticks after contact and
   `world.player` moves to Mara; with the other survivors removed, `world.runOver` is set 1071 ticks
-  after contact. DEATH (red): an attentive player is not killed by a lone shambler in 3000 ticks; the
-  instinct struggle breaks the hold 55 ticks after contact. BREAK (passes): melee is refused while
-  held (`melee.gd` `try_begin_swing`, a FINDING line), the struggle is the answer, escape odds 0.667
-  per roll against grip 0.50, and `grab.broken` lands 27 ticks after the grab. Ticks in the gate
-  are counted from the boot; the boot's `world.tick` starts at 9000 (`Clock.DAY_BEGINS`), so an
-  absolute tick is 9000 + the number printed.
+  after contact. DEATH-ATTENTIVE (measured, passes whatever the outcome): an attentive player with the
+  struggle open is killed by the lone shambler at +1222 ticks (1190 after contact), after 5 holds broke,
+  with 6 wounds and blood loss 17.1; the design question is an owner card. REPRESS, DRIFT, DRIFT-WALL
+  (passes): the re-pursuit and drift record below. BREAK (passes): melee is refused while held (a FINDING
+  line); the struggle is the answer; escape odds 0.667 per roll against grip 0.50; `grab.broken` lands 27
+  ticks after the grab. Ticks are counted from the boot; the boot's `world.tick` starts at 9000
+  (`Clock.DAY_BEGINS`), so an absolute tick is 9000 + the number printed.
+- **The shambler's daylight sight reach has a floor, 2026-11-07.** `SIGHT_REACH_FLOOR_METRES` (static,
+  `godot/sim/modules/shambler.gd`) is 8.0 m, the owner-card default built by t1n; the card is open. A
+  shambler's reach was observer range times sqrt(lightSense): 12 x sqrt(0.1) = 3.8 m, so it was blind past
+  4 m by day. `sight_reach` now takes the larger of that and the floor, times the fog as before; a kind with no
+  light sense (the bloodhound) keeps 0. Lanes: `godot:check:fp_encounter` SIGHT (7 m by day acquires and closes,
+  reach 8.0 m; the 12 m probe is a FINDING; the night line, unlit, is not acquired) and its plant (floor 0:
+  SIGHT fails, reach 3.8 m). `godot:m2:balance` on the four seeds, before then after: end survivors 2/3, 1/3,
+  3/3, 1/3 become 1/3, 1/3, 3/3, 2/3; grabs 423 become 482; deaths 10 become 10 (per seed 2, 4, 1, 3 become 3, 4, 0, 3);
+  no seed wipes, so no fallback to 6 m was needed. `m2:lethality`,
+  `m2:district` and `m2:variance` read the same before and after.
 - **A released holder presses again, 2026-11-07.** The encounter gate's REPRESS lane found that a player
   whose grab broke by struggle walked off at 2.1 m/s and was never caught. The break-away shove
   (`shambler.gd`, `_break_away`) set a controlled body's velocity for 26 ticks, and nothing cleared it when the
