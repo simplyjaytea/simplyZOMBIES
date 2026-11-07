@@ -8199,3 +8199,12 @@ the noise entry.
   pack places neither device and one unit is spent. The plant (both RECIPES rows removed) turns it
   red with `M2_MATERIALS_FAIL`. `godot:check:grade` stows one wire before the scene is set up, since
   the E keycap that the grade lane counts is the free alarm rung.
+
+## The first-person encounter gate is a measurement, not a green gate, 2026-11-07
+
+`godot:check:fp_encounter` measures one zombie against the first-person player in five lanes (SIGHT,
+NOISE, CONTACT, DEATH, BREAK). It is red on purpose: SIGHT (12 m acquisition is beyond the shambler's
+sight reach of about 3.8 m), NOISE (a 4.0 shot through a wall at 30 m is below the hearing threshold)
+and DEATH (the player's instinct struggle frees them and the shambler does not resume pursuit) are
+findings, not loosened assertions. Its FAIL lines name the numbers. The chain includes it, so `godot:m2:chain`
+is red until those gaps are settled by the owner or an engineering call.

@@ -546,6 +546,15 @@ switch (mode) {
       "res://check_fp_expedition.gd",
     ];
     break;
+  case "--check-fp-encounter":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_fp_encounter.gd",
+    ];
+    break;
   case "--context":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_context.gd"];
     break;
