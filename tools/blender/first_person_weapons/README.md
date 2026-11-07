@@ -84,11 +84,11 @@ origin, an optic lifted off the slide, a muzzle socket 3 mm out, the rifle's sup
 a receiver 1.5 times its barrel's breech width, a handle on the hidden action, a rear sight lifted
 2 mm, a trigger buried in its guard, the old fore-end in the left hand, an open ejection port, a
 floating guard, a floating butt plate, a 37 mm sight, a tang-supported stock, a notched stock, a
-raised/wide fore-end, a proud port plate, a near-coplanar rifle part, a second material, a double-sided
-material, linear filtering, one face wound backwards, a coplanar decal face, a flush extractor, a
-squashed unwrap, lathes exported with their face normals (`flat_lathe`), the barrel's hood smoothed
-(`smooth_box`), and a flipped byte. It prints `PLANT <name> CAUGHT: <message>` for each, then
-`WEAPONS_PROVE_OK 33 plants`. If any planted error passes, it prints
+raised/wide fore-end, a proud port plate, a fore-end burying the port, a near-coplanar rifle part,
+a second material, a double-sided material, linear filtering, one face wound backwards, a coplanar
+decal face, a flush extractor, a squashed unwrap, lathes exported with their face normals
+(`flat_lathe`), the barrel's hood smoothed (`smooth_box`), and a flipped byte. It prints
+`PLANT <name> CAUGHT: <message>` for each, then `WEAPONS_PROVE_OK 34 plants`. If any planted error passes, it prints
 `WEAPONS_CHECK_FAIL` instead.
 
 CI has no Blender, so these checks run by hand, as the starter kit's do.
@@ -210,9 +210,10 @@ fallbacks, while shared attachments such as the suppressor need no qualifier.
   comb; there is no hidden tang and no notch in its top line.
 - The receiver is 36 mm across at the breech, 1.20 times the barrel's 30 mm shank. Its 60 x 18 mm
   ejection port is cut into the tube, with side walls, a visible bolt and a floor 5.5 mm below
-  the tube's surface. The stepped bolt shroud is 26 mm across, and the lower action extends
-  29.25 mm below the tube with a measured 0.03 mm seat. The right-side handle's knob reaches
-  37 mm past the receiver and belongs to the visible receiver, not the hidden internal action.
+  the tube's surface. All 40 rays in the port's outward-view grid are clear within 60 mm. The
+  stepped bolt shroud is 26 mm across, and the lower action extends 29.25 mm below the tube with
+  a measured 0.03 mm seat. The right-side handle's knob reaches 37 mm past the receiver and belongs
+  to the visible receiver, not the hidden internal action.
 - Every held model is closed and its sub-bodies form one mesh-connected group at 0.2 mm. Sub-bodies
   more than 90% inside another held body are excluded; the stock's fore-end and rear body also join
   through their visible receiver seats. The largest joining gaps are 0.10 mm for the receiver,
@@ -226,9 +227,10 @@ fallbacks, while shared attachments such as the suppressor need no qualifier.
   to the comb at z 220 mm, with a largest pre-comb dip of 0.7 mm.
 - The hooked pistol grip is 26 x 40 mm square to its axis, raked 19.9 degrees. The U-channel
   fore-end's underside is y 22 mm at z -250 mm, its top never exceeds 67 mm and its width never
-  exceeds 47 mm. `grip_r` is the origin and `grip_l` is (0, 0.022, -0.250) m relative to it; both
-  exported grips measure 0.0 mm from the long contract. At the first, middle and last frames of
-  `idle_long`, `aim_long` and `raise_long`, neither hand has a skin vertex inside the rifle.
+  exceeds 47 mm. Over the action its top drops to 43.3 mm at z -150 mm and 43.0 mm farther back,
+  below the port's bottom edge. `grip_r` is the origin and `grip_l` is (0, 0.022, -0.250) m relative
+  to it; both exported grips measure 0.0 mm from the long contract. At the first, middle and last
+  frames of `idle_long`, `aim_long` and `raise_long`, neither hand has a skin vertex inside the rifle.
 - The receiver exports `sight` at (0, 0.079, -0.120) m, 24.0 mm over the bore. Front and rear
   sight tops are level to 0.00 degrees; the rear leaf is 6.0 mm and the front bead stands 14.3 mm
   proud. The arms' `long` aim pose must re-anchor to this height; the idle grip anchors do not move.
@@ -236,7 +238,7 @@ fallbacks, while shared attachments such as the suppressor need no qualifier.
   `rifle_action_standard`, `rifle_spring_standard`, `rifle_sear_standard`,
   `rifle_extractor_standard` and `rifle_stock_standard`. Each manifest match carries the part
   id and `receiver: item.rifle.hunting`, so neither side of the pistol/rifle scale split leaks.
-- The default assembly is 2,102 triangles. The held view draws 1,552 in four meshes: receiver,
+- The default assembly is 2,118 triangles. The held view draws 1,568 in four meshes: receiver,
   barrel, magazine and stock. The action, spring, sear and extractor remain separate for a bench
   cutaway but are hidden in hand. No scope model is included.
 - The production loose view assembles the installed visible parts of long firearms through the
@@ -267,8 +269,8 @@ one mesh with one primitive, so each model is one draw.
   receiver: the recoil spring's 276 (212 in its coil), the action's 24 and the sear's 24.
 - The alternate assembly, with the suppressor, red dot and extended magazine, is 2,002
   triangles in 9 meshes.
-- A default rifle is 2,102 triangles in 8 meshes. The held view skips all four internal parts,
-  leaving 1,552 triangles in 4 meshes: receiver, barrel, magazine and stock.
+- A default rifle is 2,118 triangles in 8 meshes. The held view skips all four internal parts,
+  leaving 1,568 triangles in 4 meshes: receiver, barrel, magazine and stock.
 - The melee weapons are one mesh each: the bat 408 triangles, the knife 540, the crowbar 260 and
   the axe 420.
 

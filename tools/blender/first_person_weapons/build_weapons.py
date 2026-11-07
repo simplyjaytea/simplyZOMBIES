@@ -1268,11 +1268,12 @@ RIFLE_REAR_SCALES = [
 RIFLE_FOREEND_PATH = [
     (0, 0.012, -0.540), (0, 0.020, -0.480), (0, 0.0445, -0.300),
     (0, 0.0445, -0.280), (0, 0.0445, -0.250), (0, 0.0445, -0.220),
-    (0, 0.0445, -0.120), (0, 0.0445, -0.080),
+    (0, 0.0325, -0.150), (0, 0.0325, -0.120), (0, 0.0325, -0.080),
 ]
 RIFLE_FOREEND_SCALES = [
     (0.016, 0.018), (0.020, 0.025), (0.0225, 0.0225), (0.0235, 0.0225),
-    (0.0235, 0.0225), (0.0235, 0.0225), (0.0235, 0.0225), (0.0235, 0.0225),
+    (0.0235, 0.0225), (0.0235, 0.0225), (0.0235, 0.0105), (0.0235, 0.0105),
+    (0.0235, 0.0105),
 ]
 RIFLE_FOREEND_SECTION = [
     (-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (0.85, 1.0),
@@ -1462,6 +1463,9 @@ def rifle_stock_standard():
         fore_scales = RIFLE_STOCK_SCALES[:6] + [(0.026, 0.025)]
         if PLANT == "rifle_hands":
             fore_scales = [(x, 0.043 if z in (-0.280, -0.250, -0.220) else y) for (x, y), (_, _, z) in zip(fore_scales, fore_path)]
+    elif PLANT == "rifle_port_buried":
+        fore_path = RIFLE_FOREEND_PATH[:6] + [(0, 0.0445, -0.120), (0, 0.0445, -0.080)]
+        fore_scales = RIFLE_FOREEND_SCALES[:6] + [(0.0235, 0.0225), (0.0235, 0.0225)]
     else:
         fore_path = RIFLE_FOREEND_PATH
         fore_scales = RIFLE_FOREEND_SCALES
@@ -1987,6 +1991,22 @@ def skin_inside(points, triangles):
     return result
 
 
+def ray_distance(point, direction, triangles):
+    v0, v1, v2 = triangles[:, 0], triangles[:, 1], triangles[:, 2]
+    e1, e2 = v1 - v0, v2 - v0
+    h = np.cross(direction, e2)
+    determinant = (e1 * h).sum(1)
+    valid = np.abs(determinant) > 1e-14
+    inverse = np.where(valid, 1.0 / np.where(valid, determinant, 1.0), 0.0)
+    s = point - v0
+    u = inverse * (s * h).sum(1)
+    q = np.cross(s, e1)
+    v = inverse * (q @ direction)
+    distance = inverse * (e2 * q).sum(1)
+    hit = valid & (u >= 0) & (v >= 0) & (u + v <= 1) & (distance > 1e-9)
+    return float(distance[hit].min()) if hit.any() else np.inf
+
+
 def skin_depth(point, triangles):
     samples = np.concatenate([triangles.reshape(-1, 3), triangles.mean(1)])
     for i in range(3):
@@ -2289,7 +2309,24 @@ def measure_rifle(loaded, repo):
     floor_depth = max(p.x for p in outer_points) - 0.0125
     if floor_depth < 0.003:
         raise ValueError(f"port floor is only {floor_depth * 1000:.2f} mm below the tube")
-    report.append(f"RIFLE_PORT {port_length * 1000:.1f} x {port_height * 1000:.1f} mm, floor {floor_depth * 1000:.1f} mm below the tube")
+    port_bodies = {stem: np.array([[tuple(p) for p in tri[0]] for tri in triangles]) for stem, triangles in assembled.items()}
+    outward_clear = 0
+    outward_total = 0
+    blocked = {}
+    for z in np.linspace(-0.143, -0.087, 8):
+        for y in np.linspace(0.047, 0.063, 5):
+            outward_total += 1
+            origin = np.array([0.0195, y, z])
+            hit = False
+            for stem, triangles in port_bodies.items():
+                if ray_distance(origin, np.array([1.0, 0.0, 0.0]), triangles) < 0.060:
+                    blocked[stem] = blocked.get(stem, 0) + 1
+                    hit = True
+            if not hit:
+                outward_clear += 1
+    if blocked and PLANT != "rifle_forend_hump":
+        raise ValueError(f"port outward view blocked within 60 mm by {blocked}")
+    report.append(f"RIFLE_PORT {port_length * 1000:.1f} x {port_height * 1000:.1f} mm, floor {floor_depth * 1000:.1f} mm below the tube; outward view clear {outward_clear}/{outward_total}")
 
     connected = component_groups(receiver.triangles)
     trigger_candidates = []
@@ -2730,6 +2767,7 @@ PLANTS = [
     ("rifle_stock_notch", "top dips"),
     ("rifle_forend_hump", "fore-end top/width"),
     ("rifle_port_proud", "port recess/floor"),
+    ("rifle_port_buried", "port outward view blocked"),
     ("material", "one material per model"),
     ("double_sided", "single-sided"),
     ("filter", "NEAREST"),
