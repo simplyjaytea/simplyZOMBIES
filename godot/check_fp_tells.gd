@@ -199,6 +199,14 @@ func _hud_for(world: Variant, player: int) -> Control:
 	return h
 
 
+# Every read of the HUD's lines goes through here, so the DIGITS lane scans what the lanes drew, and nothing else.
+func _lines_of(h: Control) -> Array:
+	var lines: Array = h.call("lines")
+	for l in lines:
+		_all_lines.append(String(l))
+	return lines
+
+
 func _tell_lines(lines: Array) -> Array[String]:
 	var out: Array[String] = []
 	var known: Array = []
@@ -258,13 +266,29 @@ func _quiet() -> void:
 	var seen: Array[String] = []
 	for _t in range(60):
 		world.step()
-		for l in _tell_lines(h.call("lines")):
+		for l in _tell_lines(_lines_of(h)):
 			seen.append(l)
-	_all_lines.append_array([])
 	if not seen.is_empty():
 		_fail(lane, "a sleeping shambler at 3 m and a wandering one at 30 m drew a tell over 60 ticks: %s" % str(seen))
 		return
 	_ok(lane, "a sleeping shambler at 3 m and a %s one %s m away drew no tell over 60 ticks" % ["wandering" if wanderer >= 0 else "(no far tile; only the sleeper)", "40+" if wanderer >= 0 else "-"])
+	# A Wandering shambler 3 m away whose noticedAt is 1000 ticks old: a stale notice draws no tell.
+	var stale_from: Vector2i = Vector2i(-1, -1)
+	for d in [Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(0, -1)]:
+		if stale_from.x < 0 and _line_from(map, line["from"], d, 3):
+			stale_from = d
+	if stale_from.x < 0:
+		_fail(lane, "no 3 m open line from the player's tile for the stale-notice check")
+		return
+	var stale: int = _spawn(world, _centre((line["from"] as Vector2i) + stale_from * 3), SimRoster.TYPE_SHAMBLER)
+	var sd: Dictionary = world.components.get_component(stale, "shambler") as Dictionary
+	sd["state"] = SimShambler.ShamblerState["Wander"]
+	sd["noticedAt"] = int(world.tick) - 1000
+	var stale_tells: Array[String] = _tell_lines(_lines_of(h))
+	if stale_tells.size() != 0:
+		_fail(lane, "a Wandering shambler with a stale noticedAt draws a tell: %s" % str(stale_tells))
+		return
+	_ok(lane, "a Wandering shambler 3 m away with noticedAt 1000 ticks old draws no tell")
 
 
 # --- NOTICED ---------------------------------------------------------------------------------------
@@ -285,17 +309,17 @@ func _noticed() -> void:
 	if noticed_at < 0:
 		_fail(lane, "the shambler %d m ahead did not notice the player in %d ticks" % [AHEAD_METRES, WAIT_TICKS])
 		return
-	var line: String = _notice_of(h.call("lines"))
+	var line: String = _notice_of(_lines_of(h))
 	if line != Hud.NOTICE_LINES["ahead"]:
 		_fail(lane, "the notice is not drawn as ahead; drawn: \"%s\"" % line)
 		return
 	while int(world.tick) - noticed_at < NOTICE_WINDOW - 1:
 		world.step()
-	if _notice_of(h.call("lines")) == "":
+	if _notice_of(_lines_of(h)) == "":
 		_fail(lane, "the notice line left at +%d, before the 3 s window closed" % (int(world.tick) - noticed_at))
 		return
 	world.step()
-	if _notice_of(h.call("lines")) != "":
+	if _notice_of(_lines_of(h)) != "":
 		_fail(lane, "the notice line is still drawn at +%d, past the 3 s window" % (int(world.tick) - noticed_at))
 		return
 	_ok(lane, "noticed at tick +%d, %d m ahead: \"%s\" drawn; still at +%d, gone at +%d (the 3 s window)" % [noticed_at - setup["base"] if false else noticed_at, AHEAD_METRES, Hud.NOTICE_LINES["ahead"], NOTICE_WINDOW - 1, NOTICE_WINDOW])
@@ -326,7 +350,7 @@ func _side() -> void:
 		if _until_noticed(world, zed) < 0:
 			_fail(lane, "no notice from the %s side in %d ticks" % [String(c["sector"]), WAIT_TICKS])
 			return
-		var line: String = _notice_of(h.call("lines"))
+		var line: String = _notice_of(_lines_of(h))
 		var want: String = String(Hud.NOTICE_LINES[String(c["sector"])])
 		if line != want:
 			_fail(lane, "the %s notice is drawn as \"%s\", wanted \"%s\"" % [String(c["sector"]), line, want])
@@ -351,7 +375,7 @@ func _close() -> void:
 	var zed: int = int(behind["zed"])
 	(world.components.get_component(zed, "shambler") as Dictionary)["state"] = SimShambler.ShamblerState["Pursue"]
 	var h: Control = _hud_for(world, player)
-	var tells: Array[String] = _tell_lines(h.call("lines"))
+	var tells: Array[String] = _tell_lines(_lines_of(h))
 	if not tells.has(Hud.CLOSE_LINES["behind"]):
 		_fail(lane, "a Pursuing shambler 4 m behind draws no close line; drawn: %s" % str(tells))
 		return
@@ -363,7 +387,7 @@ func _close() -> void:
 		return
 	var zed2: int = int(front["zed"])
 	(world.components.get_component(zed2, "shambler") as Dictionary)["state"] = SimShambler.ShamblerState["Pursue"]
-	tells = _tell_lines(h.call("lines"))
+	tells = _tell_lines(_lines_of(h))
 	for t in tells:
 		if Hud.CLOSE_LINES.values().has(String(t)):
 			_fail(lane, "a Pursuing shambler 4 m ahead, inside the look, draws a close line: %s" % str(tells))
@@ -421,11 +445,11 @@ func _several() -> void:
 	# field shambler.gd's _notice writes. A fixture write, stated in the lane's line.
 	for z in zeds:
 		(world.components.get_component(int(z), "shambler") as Dictionary)["noticedAt"] = int(world.tick)
-	var tells: Array[String] = _tell_lines(h.call("lines"))
+	var tells: Array[String] = _tell_lines(_lines_of(h))
 	if not tells.has(Hud.SEVERAL_STIR_LINE):
 		_fail(lane, "three noticers draw no several line; drawn: %s" % str(tells))
 		return
-	if _notice_of(h.call("lines")) != "":
+	if _notice_of(_lines_of(h)) != "":
 		_fail(lane, "three noticers draw a single-direction notice as well: %s" % str(tells))
 		return
 	_ok(lane, "three shamblers %d m away (ahead, left, right) in one notice window (noticedAt set to now): \"%s\" drawn, no single-direction line" % [AHEAD_METRES, Hud.SEVERAL_STIR_LINE])
@@ -460,11 +484,11 @@ func _scream() -> void:
 	# The scream happens in the tick it is logged: step to the window's edge from there.
 	while int(world.tick) - at < SCREAM_WINDOW:
 		world.step()
-	if not _tell_lines(h.call("lines")).has(Hud.SCREAM_LINE):
+	if not _tell_lines(_lines_of(h)).has(Hud.SCREAM_LINE):
 		_fail(lane, "the scream line is gone at +%d, inside its window" % (int(world.tick) - at))
 		return
 	world.step()
-	if _tell_lines(h.call("lines")).has(Hud.SCREAM_LINE):
+	if _tell_lines(_lines_of(h)).has(Hud.SCREAM_LINE):
 		_fail(lane, "the scream line is still drawn at +%d, past its window" % (int(world.tick) - at))
 		return
 	_ok(lane, "screamed at tick %d, %d m away: \"%s\" drawn to +%d, gone at +%d" % [at, SCREAM_METRES, Hud.SCREAM_LINE, SCREAM_WINDOW, SCREAM_WINDOW + 1])
@@ -473,12 +497,11 @@ func _scream() -> void:
 # --- DIGITS ----------------------------------------------------------------------------------------
 
 func _digits() -> void:
-	var bad: String = ""
+	if _all_lines.is_empty():
+		_fail("DIGITS", "scanned nothing: no lane read the HUD's lines")
+		return
 	for line in _all_lines:
 		if Hud.has_digit(line):
-			bad = line
-			break
-	if bad != "":
-		_fail("DIGITS", "a drawn line has a digit: %s" % bad)
-		return
+			_fail("DIGITS", "a drawn line has a digit: %s" % line)
+			return
 	_ok("DIGITS", "%d drawn lines across every lane, none with a digit" % _all_lines.size())
