@@ -18,7 +18,7 @@ committed bytes, and prints `BUILDINGS_CHECK_OK`. It checks export bounds agains
 manifest, wall-band heights and tile ownership, floor contact, coplanar overlap, measured UV density,
 atlas materials and filtering, every wall/roof look, and every template resolution. The manifest is
 written with LF; a checkout that holds it with CRLF (`core.autocrlf`) is folded back before the compare.
-The editable blend is arranged as a contact sheet of the 22 source shells and is not byte-compared.
+The editable blend holds no objects: each template's objects and mesh datablocks are removed after its export, so merged meshes keep the names `spatial_bands` and `finish`. It is a build artefact and is not byte-compared.
 
 Two checks judge what Godot will draw. Every roof face must be wound to face up, every soffit to
 face down, and every eave, fascia, parapet, barge board and gable end to face away from the building:
