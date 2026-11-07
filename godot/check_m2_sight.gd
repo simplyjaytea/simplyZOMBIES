@@ -22,6 +22,7 @@ const SimRoster = preload("res://sim/modules/roster.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
+const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimLight = preload("res://sim/modules/light.gd")
@@ -59,8 +60,9 @@ func _run() -> void:
 	ok = _observe_one_reads_detail_not_line_of_sight() and ok
 	ok = _kinds_are_recorded_and_only_hostiles_are_a_threat() and ok
 	ok = _the_remembered_map_marks_the_cast_and_survives_a_save() and ok
+	ok = _a_feigner_lies_among_the_dead_and_rises_on_approach() and ok
 	if ok:
-		print("M2_SIGHT_OK sight memory prose recall, a zombie sees what is lit at night, sight works by height, and a crawler hides below Low cover")
+		print("M2_SIGHT_OK sight memory prose recall, a zombie sees what is lit at night, sight works by height, a crawler hides below Low cover, and a feigner lies among the dead until it rises")
 		quit(0)
 	else:
 		push_error("M2_SIGHT_FAIL")
@@ -820,7 +822,6 @@ func _the_remembered_map_marks_the_cast_and_survives_a_save() -> bool:
 # reason for an answer.
 
 const SimSpace = preload("res://sim/space/space.gd")
-const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimScreamer = preload("res://sim/modules/screamer.gd")
 
 const ROW: int = 12
@@ -1209,4 +1210,174 @@ func _the_switch_gives_back_planar_sight() -> bool:
 	if not eye_ok:
 		return _height_fail("OFF: the EYE lane's planar rule did not come back with SIGHT_BY_HEIGHT false")
 	print("HEIGHT-OFF OK SIGHT_BY_HEIGHT false: car and sill hide nobody by height, and the EYE lane's planar rule holds")
+	return true
+
+
+# --- FEIGN ------------------------------------------------------------------------------------
+#
+# A feigner is born lying among the dead (`shambler.gd`'s Feign state): it walks to within
+# `lieWithin` of the nearest settled corpse, reads no sight, scent or hearing while it lies there,
+# and is remembered as a corpse, the same record a settled corpse gets. It rises to Seek when a
+# living body comes within `riseRadius`, or when it is struck, and the record flips to a zombie
+# when it does.
+#   SEE     a colonist 12 m off remembers three corpses (two settled, one feigning) and nothing hostile.
+#   STAYS   a body at 1.5 times `riseRadius` leaves it lying for FEIGN_TICKS.
+#   RISES   a body within `riseRadius` rises it to Seek within FEIGN_TICKS, and the record flips.
+#   PLANT   a feigner whose `riseRadius` is planted at twice the real one rises to a body at 1.5 times
+#           the real radius. STAYS must see that, or it could not see a leak; the lane fails if the
+#           planted rise does not happen.
+#   STRUCK  a struck feigner rises (the blow's own stagger then applies to it as to any shambler).
+const FEIGN_SETTLE_TICKS: int = 60
+const FEIGN_TICKS: int = 30
+const FEIGN_RISE_SETUP: float = 2.5
+const FEIGN_CORPSE_PLAYER_M: float = 12.0
+
+
+func _feigner_world() -> Dictionary:
+	var w: Variant = _height_world([])
+	SimShambler.register_module(w, null)
+	w.components.set_component(w.player, "position", {"x": 8.5, "y": 12.5})
+	w.components.set_component(w.player, "facing", {"radians": 0.0})
+	SimSurvivors.give_eyes(w, w.player)
+	var c1: int = _corpse(w, 19.5, 12.5)
+	var c2: int = _corpse(w, 20.5, 11.5)
+	var f: int = _zombie_at(w, 23.5, 12.5, 0.0, "zombie.feigner")
+	return {"w": w, "f": f, "corpses": [c1, c2]}
+
+
+# A dead shambler on the ground: head at zero, the `corpse` component, and nothing left to think.
+func _corpse(w: Variant, x: float, y: float) -> int:
+	var z: int = _zombie_at(w, x, y)
+	(w.components.get_component(z, "body") as Dictionary)["head"] = 0.0
+	w.components.set_component(z, "corpse", {"sinceTick": int(w.tick)})
+	return z
+
+
+func _feign_state(w: Variant, f: int) -> Dictionary:
+	return w.components.get_component(f, "shambler") as Dictionary
+
+
+func _at(w: Variant, e: int) -> Vector2:
+	var p: Dictionary = w.components.get_component(e, "position") as Dictionary
+	return Vector2(float(p["x"]), float(p["y"]))
+
+
+func _move_player(w: Variant, to: Vector2) -> void:
+	w.components.set_component(w.player, "position", {"x": to.x, "y": to.y})
+
+
+func _settled(w: Variant, f: int) -> bool:
+	for i in FEIGN_SETTLE_TICKS:
+		w.step()
+		if bool(_feign_state(w, f).get("feignLying", false)):
+			return true
+	return bool(_feign_state(w, f).get("feignLying", false))
+
+
+func _corpse_rows(w: Variant, observer: int) -> int:
+	var n: int = 0
+	for row in SimSightings.remembered(w, observer):
+		if String((row as Dictionary).get("kind", "")) == SimSightings.CORPSE_KIND:
+			n += 1
+	return n
+
+
+func _feign_fail(msg: String) -> bool:
+	push_error("FEIGN: " + msg)
+	return false
+
+
+func _a_feigner_lies_among_the_dead_and_rises_on_approach() -> bool:
+	var a: Dictionary = _feigner_world()
+	var w: Variant = a["w"]
+	var f: int = int(a["f"])
+	if int(_feign_state(w, f)["state"]) != SimShambler.ShamblerState["Feign"]:
+		return _feign_fail("a feigner was not born in the Feign state (%d)" % int(_feign_state(w, f)["state"]))
+	if not _settled(w, f):
+		var dbg: Dictionary = _feign_state(w, f)
+		return _feign_fail("the feigner did not lie down within %d ticks (state %d, target %s, at %s, corpse %s)" % [FEIGN_SETTLE_TICKS, int(dbg["state"]), str(dbg.get("feignTarget")), str(_at(w, f)), str(_at(w, int(a["corpses"][0])))])
+	var lie_within: float = float((_feign_state(w, f)["feigns"] as Dictionary)["lieWithin"])
+	var nearest: float = INF
+	for c in a["corpses"]:
+		nearest = minf(nearest, _at(w, f).distance_to(_at(w, int(c))))
+	if nearest > lie_within + 0.01:
+		return _feign_fail("lying %.2f m from the nearest corpse, want within %.2f" % [nearest, lie_within])
+
+	# SEE: a colonist 12 m off remembers three corpses, and nothing about them is hostile.
+	var observer_gap: float = _at(w, w.player).distance_to(_at(w, f))
+	if absf(observer_gap - FEIGN_CORPSE_PLAYER_M) > 1.0:
+		return _feign_fail("the observer stands %.2f m from the feigner, want about %.1f" % [observer_gap, FEIGN_CORPSE_PLAYER_M])
+	w.step()
+	var corpses: int = _corpse_rows(w, w.player)
+	if corpses != 3:
+		return _feign_fail("a colonist at %.1f m remembers %d corpses, want 3 (two settled, one feigning)" % [observer_gap, corpses])
+	if SimSightings.clause(w, w.player) != "":
+		return _feign_fail("the prose says something hostile about a lying feigner: '%s'" % SimSightings.clause(w, w.player))
+	var feign_row: Variant = SimSightings.recall(w, w.player, f)
+	if not (feign_row is Dictionary) or String((feign_row as Dictionary).get("kind", "")) != SimSightings.CORPSE_KIND:
+		return _feign_fail("the feigner is not remembered as a corpse: %s" % str(feign_row))
+
+	# STAYS: a body at 1.5 times the rise radius leaves it lying.
+	var rise: float = float((_feign_state(w, f)["feigns"] as Dictionary)["riseRadius"])
+	var b: Dictionary = _feigner_world()
+	var bw: Variant = b["w"]
+	var bf: int = int(b["f"])
+	_settled(bw, bf)
+	_move_player(bw, _at(bw, bf) + Vector2(-1.5 * rise, 0.0))
+	for i in FEIGN_TICKS:
+		bw.step()
+	if int(_feign_state(bw, bf)["state"]) != SimShambler.ShamblerState["Feign"]:
+		return _feign_fail("a body at %.2f m rose a feigner whose radius is %.2f -- it rose at 1.5 times its radius" % [1.5 * rise, rise])
+
+	# RISES: a body within the radius rises it, and its record flips from corpse to zombie.
+	var c: Dictionary = _feigner_world()
+	var cw: Variant = c["w"]
+	var cf: int = int(c["f"])
+	_settled(cw, cf)
+	_move_player(cw, _at(cw, cf) + Vector2(-0.5 * rise, 0.0))
+	var risen: bool = false
+	for i in FEIGN_TICKS:
+		cw.step()
+		if int(_feign_state(cw, cf)["state"]) == SimShambler.ShamblerState["Seek"]:
+			risen = true
+			break
+	if not risen:
+		return _feign_fail("a body at %.2f m, inside the radius %.2f, did not rise the feigner within %d ticks" % [0.5 * rise, rise, FEIGN_TICKS])
+	cw.step()
+	var after: Variant = SimSightings.recall(cw, cw.player, cf)
+	if not (after is Dictionary) or String((after as Dictionary).get("kind", "")) != "zombie":
+		return _feign_fail("the feigner's record did not flip to a zombie after it rose: %s" % str(after))
+
+	# PLANT: the real radius is doubled in the component. STAYS must catch the early rise.
+	var d: Dictionary = _feigner_world()
+	var dw: Variant = d["w"]
+	var df: int = int(d["f"])
+	_settled(dw, df)
+	(_feign_state(dw, df)["feigns"] as Dictionary)["riseRadius"] = 2.0 * rise
+	_move_player(dw, _at(dw, df) + Vector2(-1.5 * rise, 0.0))
+	var planted_rose: bool = false
+	for i in FEIGN_TICKS:
+		dw.step()
+		if int(_feign_state(dw, df)["state"]) == SimShambler.ShamblerState["Seek"]:
+			planted_rose = true
+			break
+	if not planted_rose:
+		return _feign_fail("a feigner planted at twice its radius did not rise to a body at 1.5 times the real one, so STAYS could not see a leak")
+
+	# STRUCK: a blow rises a lying feigner, even with the player far off.
+	var e: Dictionary = _feigner_world()
+	var ew: Variant = e["w"]
+	var ef: int = int(e["f"])
+	_settled(ew, ef)
+	ew.events.publish({"type": "attack.connected", "attacker": ew.player, "target": ef, "bodyPart": "torso", "damage": 1.0})
+	ew.step()
+	# Risen, not lying: the blow's own stagger then takes it as it takes any shambler, so the state
+	# is Seek or Staggered. It is never still Feign.
+	var struck_state: int = int(_feign_state(ew, ef)["state"])
+	if struck_state == SimShambler.ShamblerState["Feign"] or bool(_feign_state(ew, ef).get("feignLying", false)):
+		return _feign_fail("a struck feigner did not rise (state %d, lying %s)" % [struck_state, str(_feign_state(ew, ef).get("feignLying", false))])
+
+	print("FEIGN OK lay within %.2f m of two corpses; a colonist at %.1f m remembers %d corpses and nothing hostile; a body at %.2f m (1.5 times the %.1f m radius) left it lying; at %.2f m it rose and its record became a zombie; a planted radius of %.1f m rose it at 1.5 times the real one; a struck feigner rose" % [
+		lie_within, observer_gap, corpses, 1.5 * rise, rise, 0.5 * rise, 2.0 * rise,
+	])
 	return true
