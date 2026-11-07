@@ -105,9 +105,24 @@ def holstered(state, cls):
     return state.map(lambda f: moved(f, drop=0.40, back=0.22, right=-0.06, pitch=-0.9), keep_left=state.keep_left)
 
 
-def inspected(build, cls, state):
+# The pistol's inspect turns about the view's up axis (Blender Z), a yaw, with a little pitch so the
+# top of the slide and the ejection port come round too. The old turn rolled about the bore, and the
+# bore points along the view, so the slide's flank showed only at the clip's rear and the sleeve
+# crossed in front of it at the peak (review round 2, m1). `pistol-roll` keeps that turn for the plant.
+# Positive yaw swings the muzzle to the left, which shows the right flank. The negative sign, the
+# same size, fails the support arm's reach and smoothness checks (the sweep, in the record).
+PISTOL_YAW_DEG = 72.0
+PISTOL_PITCH_DEG = 8.0
+PISTOL_RIGHT = -0.12
+PISTOL_BACK = 0.04
+
+
+def inspected(build, cls, state, plant=None):
     # Show the outer side rather than rolling the hands over the slide or receiver.
     W = state.W
+    if cls == "pistol" and plant != "pistol-roll":
+        turned = moved(W, right=PISTOL_RIGHT, drop=-0.10, back=PISTOL_BACK, pitch=math.radians(PISTOL_PITCH_DEG), yaw=math.radians(PISTOL_YAW_DEG))
+        return State(turned, None, state.L, state.keep_left)
     angle = {"pistol": 75, "long": 30, "melee1": -65, "melee2": -60}[cls]
     turned = spin_about_bore(W, math.radians(angle))
     offset = {
@@ -178,7 +193,7 @@ def frames(build, plant=None):
                 elif kind == "draw":
                     state = holstered(base, cls).lerp(base, ease(x))
                 else:
-                    peak = inspected(build, cls, base)
+                    peak = inspected(build, cls, base, plant)
                     amount = ease(x / 0.3) if x < 0.3 else (1.0 if x <= 0.7 else ease((1 - x) / 0.3))
                     state = base.lerp(peak, amount)
                     state = state.map(lambda f: moved(f, right=0.002 * amount * math.sin(2 * math.pi * x), drop=-0.0015 * amount * math.sin(4 * math.pi * x), roll=0.004 * amount * math.sin(2 * math.pi * x)))

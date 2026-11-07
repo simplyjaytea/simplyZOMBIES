@@ -401,6 +401,8 @@ def paint(skin, skin_labels, sleeve, sleeve_labels, rest, survivor_paint, plant=
         side = sleeve_labels[ids[0]].split(":")[0]
         image[y, x] = sleeve_colour(rest, side, point, normal, sleeve_ramp)
         owner[y, x] = 1
+        if plant == "sleeve-tone":
+            image[y, x] = sleeve_ramp[-1]
     skin_points = np.array([tuple(v.co) for v in skin.data.vertices])
     normals = np.array([tuple(v.normal) for v in skin.data.vertices])
     ramp = [hex_rgb(c) for c in SKIN_RAMP]
