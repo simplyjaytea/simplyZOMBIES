@@ -647,7 +647,6 @@ world by rail's first cut after docs/45.
 - `godot:check:fp_geometry` takes about 13 s; its real-worldgen lane is most of it. The next speed-up
   is caching the four worldgen districts.
 - The survivor review scene's light is flat grey, so colour judgements there run dark.
-- No presentation code draws a lowered weapon yet (`SimAim.holds`, `FireState` have no reader).
 - R2's save bump refuses every v33 save, district saves included, because a save carries only its seed.
 
 ## The docs map

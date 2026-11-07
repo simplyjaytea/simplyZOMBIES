@@ -233,7 +233,7 @@ func _run() -> void:
 		ok = _lane("LIGHT", _light(scene), "noon is bright and midnight dark, and a carried torch lights the eye") and ok
 		ok = _lane("SUCCESSION", _succession(scene), "a death hands the camera to an heir and the dead body is drawn") and ok
 		ok = _lane("LEGEND", _legend(scene), "F1 lists every key the scene handles and the scene handles every key it lists") and ok
-		ok = _lane("ARMS", _arms(scene), "the view-model arms are the scene's own under the Eye, lower for screens and third person, follow the sim's equipped hold class, hold the weapon on grip_r at the anchor, inspect only while L is held and never cut into a wall") and ok
+		ok = _lane("ARMS", _arms(scene), "the view-model arms are the scene's own under the Eye, lower for screens and third person, follow the sim's equipped hold class, hold the weapon on grip_r at the anchor, inspect only while L is held, never cut into a wall, and raise and aim a firearm on the sim's fire state (AIM: raise at the sim's t, aim while steady, idle after the shot, a sheet lowers the aim, a stub that says idle holds idle, a melee class ignores the state)") and ok
 		ok = _lane("THIRD", _third_person(scene), "F2 steps the camera behind the eye and back, the own body is drawn and plays the sim's clip only in third person, and a wall pulls the camera in while an open line does not") and ok
 		ok = _lane("HIDE", _held_visibility(scene), "the held weapon hides while the bench, inventory, ledger, talk and third-person screens are open and shows otherwise") and ok
 		ok = _lane("TALK", _talk(scene), "a colonist in reach talks in the read models' own words") and ok
@@ -3251,12 +3251,167 @@ func _arms_body(scene: Node, world: Variant, player: int, camera: Camera3D) -> b
 	_arms_settle(scene, 1.5)
 	ok = _arms_shows(arms, "long", "the hunting rifle") and ok
 
+	# AIM: the raise and aim clips follow the sim's fire state for a firearm, and a melee class ignores it.
+	# The rifle is held now; then the service pistol; then the knife under the same stubbed fire state.
+	ok = _arms_aim_firearm(scene, world, player, arms, "long", "item.ammo.rifle") and ok
+	_arms_unequip_all(scene, world, player)
+	if _arms_equip(scene, world, player, "item.pistol.service") < 0:
+		return _fail("ARMS", "the service pistol would not equip again for the AIM case")
+	_arms_settle(scene, 1.5)
+	ok = _arms_aim_firearm(scene, world, player, arms, "pistol", "item.ammo.9mm") and ok
+	_arms_unequip_all(scene, world, player)
+	if _arms_equip(scene, world, player, "item.knife.kitchen") < 0:
+		return _fail("ARMS", "the kitchen knife would not equip for the AIM case")
+	_arms_settle(scene, 1.5)
+	ok = _arms_aim_melee_ignores(scene, arms) and ok
+
 	# Back to bare hands for the lanes after this one.
 	_arms_unequip_all(scene, world, player)
 	_arms_settle(scene, 1.5)
 	ok = _arms_shows(arms, "unarmed", "bare hands again") and ok
 	ok = _arms_clip_order(arms) and ok
 	return ok
+
+
+# AIM, a firearm: the raise and aim clips follow the sim's fire state. Each tick the sim steps and then
+# the frame runs, and the view's clip must be what the sim's state says: Raise plays raise_<class> at
+# the sim's own progress t through the weapon's raise; Steady plays aim_<class>; Recover, Clearing,
+# Reload and Idle play idle_<class>. The first shot runs with the read model stubbed to idle, and the
+# arms must never leave idle (the true negative). The second shot runs with the real read model; a
+# sheet opened in the aim lowers the arms, and closing it brings them back to aim.
+func _arms_aim_firearm(scene: Node, world: Variant, player: int, arms: Node3D, hold_class: String, round_id: String) -> bool:
+	var ok: bool = true
+	var idle_clip: String = "idle_" + hold_class
+	var raise_clip: String = "raise_" + hold_class
+	var aim_clip: String = "aim_" + hold_class
+	var lower_clip: String = "lower_" + hold_class
+	var clips: AnimationPlayer = _arms_first(arms, "AnimationPlayer") as AnimationPlayer
+	if clips == null or not clips.has_animation(raise_clip) or not clips.has_animation(aim_clip):
+		return _fail("ARMS", "the %s has no %s or %s clip for the AIM case" % [hold_class, raise_clip, aim_clip])
+	# A fed gun fires only from rounds it holds: two shots' worth in the pocket, loaded the way a raider arrives.
+	if not _arms_load_rounds(world, player, round_id, 4):
+		return _fail("ARMS", "the %s would not take %s into its magazine for the AIM case" % [hold_class, round_id])
+	var raise_len: float = clips.get_animation(raise_clip).length
+	if String(arms.call("clip_playing")) != idle_clip:
+		ok = _fail("ARMS", "before the AIM shot the %s arms play '%s', not %s" % [hold_class, String(arms.call("clip_playing")), idle_clip])
+
+	# The true negative: the read model stubbed to idle, the whole shot, the arms never leave idle.
+	arms.set("fire_stub", {"phase": "idle", "t": 0.0})
+	world.commands.push({"type": "fire"})
+	scene.call("step_sim_once")
+	if _sim_fire_state(world, player) != int(SimRanged.FireState.Raise):
+		arms.set("fire_stub", {})
+		return _fail("ARMS", "the fire command did not put the %s into Raise (state %d)" % [hold_class, _sim_fire_state(world, player)])
+	for _i in 400:
+		scene.call("_process", ARMS_FRAME_S)
+		if String(arms.call("clip_playing")) != idle_clip:
+			ok = _fail("ARMS", "with the read model stubbed to idle the %s arms play '%s'" % [hold_class, String(arms.call("clip_playing"))])
+			break
+		if _sim_fire_state(world, player) == int(SimRanged.FireState.Idle):
+			break
+		scene.call("step_sim_once")
+	arms.set("fire_stub", {})
+	if _sim_fire_state(world, player) != int(SimRanged.FireState.Idle):
+		return _fail("ARMS", "the %s shot did not resolve back to Idle in 400 ticks" % hold_class)
+
+	# The real read model: one shot, with the sim's state checked against the clip every tick.
+	_arms_settle(scene, 1.0)
+	if String(arms.call("clip_playing")) != idle_clip:
+		ok = _fail("ARMS", "after the stubbed shot the %s arms play '%s', not %s" % [hold_class, String(arms.call("clip_playing")), idle_clip])
+	world.commands.push({"type": "fire"})
+	scene.call("step_sim_once")
+	if _sim_fire_state(world, player) != int(SimRanged.FireState.Raise):
+		return _fail("ARMS", "the second %s shot did not enter Raise (state %d)" % [hold_class, _sim_fire_state(world, player)])
+	var positions: Array[float] = []
+	var raise_frames: int = 0
+	var aim_seen: bool = false
+	var sheet_checked: bool = false
+	var resolved: bool = false
+	for _i in 400:
+		scene.call("_process", ARMS_FRAME_S)
+		var state_now: int = _sim_fire_state(world, player)
+		var clip_now: String = String(arms.call("clip_playing"))
+		if state_now == int(SimRanged.FireState.Raise):
+			var r: Dictionary = _sim_ranged(world, player)
+			var t: float = clampf(1.0 - float(r.get("ticksLeft", 0)) / float(maxi(1, SimRanged._raise_of(r))), 0.0, 1.0)
+			if clip_now != raise_clip:
+				ok = _fail("ARMS", "in Raise the %s arms play '%s', not %s" % [hold_class, clip_now, raise_clip])
+				break
+			var at: float = float(arms.call("clip_seconds"))
+			if absf(at - t * raise_len) > 0.005:
+				ok = _fail("ARMS", "the %s raise clip is at %.3f s, not the sim's t %.3f of %.3f s" % [hold_class, at, t, raise_len])
+				break
+			raise_frames += 1
+			if positions.is_empty() or absf(at - positions[positions.size() - 1]) > 0.0005:
+				positions.append(at)
+		elif state_now == int(SimRanged.FireState.Steady):
+			if clip_now != aim_clip:
+				ok = _fail("ARMS", "in Steady the %s arms play '%s', not %s" % [hold_class, clip_now, aim_clip])
+				break
+			aim_seen = true
+			if not sheet_checked:
+				sheet_checked = true
+				scene.call("open_inventory")
+				scene.call("_process", ARMS_FRAME_S)
+				if String(arms.call("clip_playing")) != lower_clip:
+					ok = _fail("ARMS", "a sheet opened in the %s aim plays '%s', not %s" % [hold_class, String(arms.call("clip_playing")), lower_clip])
+				_arms_settle(scene, 0.5)
+				if bool(arms.call("arms_shown")):
+					ok = _fail("ARMS", "the %s arms are drawn behind the sheet during the aim" % hold_class)
+				scene.call("close_inventory")
+				_arms_settle(scene, 1.5)
+				if String(arms.call("clip_playing")) != aim_clip:
+					ok = _fail("ARMS", "after the sheet closed the %s aim plays '%s', not %s" % [hold_class, String(arms.call("clip_playing")), aim_clip])
+		else:
+			# Recover, Clearing, Reload, Idle: the shot is over and the arms are back on idle.
+			if clip_now != idle_clip:
+				ok = _fail("ARMS", "after the shot (sim state %d) the %s arms play '%s', not %s" % [state_now, hold_class, clip_now, idle_clip])
+				break
+			if state_now == int(SimRanged.FireState.Idle):
+				resolved = true
+				break
+		scene.call("step_sim_once")
+	if not aim_seen:
+		ok = _fail("ARMS", "the %s arms never reached the aim clip during the shot" % hold_class)
+	if positions.size() < 2:
+		ok = _fail("ARMS", "the %s raise clip held at %d distinct positions over %d raise ticks, not following the sim's t" % [hold_class, positions.size(), raise_frames])
+	if not resolved:
+		ok = _fail("ARMS", "the %s shot did not resolve back to Idle in 400 ticks" % hold_class)
+	return ok
+
+
+# AIM, a melee class: the fire state is not read for it, so the stubbed raise and aim leave its idle.
+func _arms_aim_melee_ignores(scene: Node, arms: Node3D) -> bool:
+	var ok: bool = true
+	var hold_class: String = String(arms.call("shown_class"))
+	var idle_clip: String = "idle_" + hold_class
+	for fire in [{"phase": "raise", "t": 0.5}, {"phase": "aim", "t": 0.0}]:
+		arms.set("fire_stub", fire)
+		_arms_settle(scene, 1.0)
+		if String(arms.call("clip_playing")) != idle_clip:
+			ok = _fail("ARMS", "a %s under the %s fire state plays '%s', not %s" % [hold_class, String((fire as Dictionary)["phase"]), String(arms.call("clip_playing")), idle_clip])
+	arms.set("fire_stub", {})
+	return ok
+
+
+# Rounds put in the player's pocket, and the held firearm's magazine loaded from them: the sim's own load.
+func _arms_load_rounds(world: Variant, player: int, round_id: String, count: int) -> bool:
+	var stack: int = int(SimItems.spawn_item(world, round_id, {"tier": "scavenged", "count": count}))
+	if stack < 0 or not SimInventory.store_anywhere(world, stack, player):
+		return false
+	SimRanged.load_held(world, player)
+	return true
+
+
+func _sim_ranged(world: Variant, player: int) -> Dictionary:
+	var rw: Variant = world.components.get_component(player, "rangedWeapon")
+	if rw is Dictionary:
+		return rw as Dictionary
+	return {}
+
+
+func _sim_fire_state(world: Variant, player: int) -> int:
+	return int(_sim_ranged(world, player).get("state", int(SimRanged.FireState.Idle)))
 
 
 # Review N1: a clip's pose must not depend on the clip before it. GLTFDocument drops every track equal to
