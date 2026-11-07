@@ -8118,3 +8118,18 @@ The what's-left dead socket "the raise and aim clips have no reader" is closed. 
   separate settle clip. A settle clip would be a new picture, and none is drawn.
 - **A melee class ignores the fire state.** A bat or a knife has no raise or aim clip, and its
   idle is the whole picture.
+
+## The held weapon on a body is turned a half turn from the hand, 2026-11-07
+
+The bodies in the first-person world now carry what they hold (docs/23, "Held items on the first-person
+bodies, 2026-11-07"). The weapon is mounted on the rig's `hand.R`, and one constant turns it from the hand's
+rest frame to the grip's: a half turn about the hand's X, the body's right side.
+
+- **Why a turn.** The hand bone's Y runs down the arm, and its -Z points the bore backwards: a weapon mounted
+  with identity points into the body's back. The half turn sends the bore forward (dot with the body's forward
+  +0.960) and the weapon's top up.
+- **What is left.** The grip's top sits 16 degrees above the body's up (dot 0.960). That is the hand bone's own
+  rest roll. It is left as it is: a pistol held a little high at rest reads as a body's hand, and correcting it
+  would be a per-weapon or per-pose table, which the spec rules out.
+- **Where it is judged.** `godot:check:first_person` BODIES, HELD: the bore and top are asserted above 0.9 each
+  (`HELD_FORWARD_DOT`), and the model is asserted within 0.15 m of `hand.R`, read by name from the skeleton.

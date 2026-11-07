@@ -248,7 +248,7 @@ func _run() -> void:
 	root.add_child(bodies_scene)
 	bodies_scene.set_process(false)
 	await process_frame
-	ok = _lane("BODIES", _character_bodies(bodies_scene), "a walking colonist plays walk at the sim's phase, a lunging shambler plays lunge, a corpse holds death, loops loop and one-shots hold, a body the sim cannot see is hidden, and a missing model falls back to the capsule") and ok
+	ok = _lane("BODIES", _character_bodies(bodies_scene), "a walking colonist plays walk at the sim's phase, a lunging shambler plays lunge, a corpse holds death, loops loop and one-shots hold, a body the sim cannot see is hidden, a missing model falls back to the capsule, and HELD: a colonist's pistol sits in its right hand within 0.15 m, a bat swaps it, an unarmed colonist draws nothing, and the player's own body in third person carries the pistol") and ok
 	bodies_scene.queue_free()
 	await process_frame
 	_finish(old_size, ok)
@@ -4368,9 +4368,161 @@ func _character_bodies(scene: Node) -> bool:
 		ok = _fail("BODIES", "a missing model still gave the body an animation player")
 	fallback.queue_free()
 
+	ok = _held_on_bodies(scene, world, bodies, colonist) and ok
+
 	world.despawn(dead)
 	scene.call("_process", TICK_SECONDS)
 	return ok
+
+
+# HELD: the bodies in the first-person world carry what the sim says they hold. A colonist given a pistol shows
+# the pistol's model under its right hand, within 0.15 m of the hand bone; a bat swaps it; an unarmed colonist
+# draws nothing under the hand; the player's own body carries the pistol the arms hold in third person. The
+# negative is a body with nothing in hand (the grip stays under the hand, hidden, with no model in it), and the
+# plant is the attachment on the left hand, which must fail the distance check.
+func _held_on_bodies(scene: Node, world: Variant, bodies: Node3D, colonist: int) -> bool:
+	var ok: bool = true
+	# A colonist boots holding what it carries: the case empties its hands and puts the same items back at the end.
+	var kept: Array[int] = []
+	for item in SimInventory.equipped_items(world, colonist):
+		kept.append(int(item))
+		SimInventory.unequip_item(world, int(item))
+	scene.call("step_sim_once")
+	var held: Node3D = bodies.call("held_for", colonist) as Node3D
+	var hand: BoneAttachment3D = bodies.call("hand_for", colonist) as BoneAttachment3D
+	if held == null or hand == null:
+		return _fail("HELD", "the colonist's model has no held-weapon mount under its right hand")
+
+	# Unarmed: nothing drawn in the hand.
+	bodies.call("apply", world, 1.0)
+	if not _held_receiver(held).is_empty() or held.call("visible_any"):
+		ok = _fail("HELD", "an unarmed colonist draws a weapon")
+	if hand.find_child("WeaponModel", true, false) != null:
+		ok = _fail("HELD", "an unarmed colonist has a weapon model under its hand")
+
+	# A pistol: its model, under the right hand, on the hand.
+	var pistol: int = _held_spawn_equip(scene, world, colonist, "item.pistol.service")
+	if pistol < 0:
+		return _fail("HELD", "the pistol would not equip on the colonist")
+	bodies.call("apply", world, 1.0)
+	var pistol_model: Node3D = held.call("receiver_node") as Node3D
+	if _held_receiver(held) != "item.pistol.service" or pistol_model == null:
+		ok = _fail("HELD", "a colonist holding the pistol draws '%s', not the pistol" % _held_receiver(held))
+	elif not hand.is_ancestor_of(pistol_model):
+		ok = _fail("HELD", "the pistol's model is not under the colonist's right hand")
+	else:
+		var gap: float = pistol_model.global_position.distance_to(_hand_r_at(hand))
+		print("HELD gap: pistol model to hand.R %.3f m" % gap)
+		if gap > HELD_HAND_M:
+			ok = _fail("HELD", "the pistol sits %.3f m from the hand bone, not within %.2f m" % [gap, HELD_HAND_M])
+		ok = _held_measure(bodies, colonist, hand, held) and ok
+
+	# A swap: the pistol goes, the bat comes, and only the bat is drawn.
+	SimInventory.unequip_item(world, pistol)
+	scene.call("step_sim_once")
+	var bat: int = _held_spawn_equip(scene, world, colonist, "item.bat.wood")
+	if bat < 0:
+		return _fail("HELD", "the bat would not equip on the colonist")
+	bodies.call("apply", world, 1.0)
+	var bat_model: Node3D = held.call("receiver_node") as Node3D
+	if bat_model != null:
+		print("HELD gap: bat model to hand.R %.3f m" % bat_model.global_position.distance_to(_hand_r_at(hand)))
+	if _held_receiver(held) != "item.bat.wood" or bat_model == null:
+		ok = _fail("HELD", "after the swap the colonist draws '%s', not the bat" % _held_receiver(held))
+	elif not hand.is_ancestor_of(bat_model) or bat_model.global_position.distance_to(_hand_r_at(hand)) > HELD_HAND_M:
+		ok = _fail("HELD", "the bat is not in the colonist's right hand")
+	SimInventory.unequip_item(world, bat)
+	scene.call("step_sim_once")
+	if not _held_receiver(held).is_empty():
+		ok = _fail("HELD", "the bat is still drawn after it was put away")
+	world.despawn(pistol)
+	world.despawn(bat)
+
+	# The player's own body in third person: the pistol the arms hold is drawn in the hand there.
+	var own: Node3D = scene.get("own_body") as Node3D
+	if own == null or own.call("held_node") == null or own.call("hand_node") == null:
+		return _fail("HELD", "the player's own body has no held-weapon mount")
+	var was_third: bool = bool(scene.get("third_person"))
+	if not was_third:
+		scene.call("toggle_view")
+	var mine: int = _held_spawn_equip(scene, world, int(world.player), "item.pistol.service")
+	if mine < 0:
+		return _fail("HELD", "the pistol would not equip on the player for the own-body case")
+	scene.call("_process", ARMS_FRAME_S)
+	var own_held: Node3D = own.call("held_node") as Node3D
+	var own_hand: BoneAttachment3D = own.call("hand_node") as BoneAttachment3D
+	var own_receiver: Node3D = own_held.call("receiver_node") as Node3D
+	if own_receiver != null:
+		print("HELD gap: own-body pistol model to hand.R %.3f m" % own_receiver.global_position.distance_to(_hand_r_at(own_hand)))
+	if _held_receiver(own_held) != "item.pistol.service" or own_receiver == null:
+		ok = _fail("HELD", "the player's own body in third person draws '%s', not the pistol the arms hold" % _held_receiver(own_held))
+	elif not own_hand.is_ancestor_of(own_receiver) or own_receiver.global_position.distance_to(_hand_r_at(own_hand)) > HELD_HAND_M:
+		ok = _fail("HELD", "the pistol is not in the player's right hand in third person")
+	SimInventory.unequip_item(world, mine)
+	scene.call("step_sim_once")
+	if not was_third:
+		scene.call("toggle_view")
+	world.despawn(mine)
+	for item in kept:
+		if not SimInventory.equip(world, colonist, item):
+			ok = _fail("HELD", "the colonist's %s would not go back in its hand after the case" % String(SimItems.item_base_of(world, item).get("id", "")))
+	scene.call("step_sim_once")
+	return ok
+
+
+const HELD_HAND_M: float = 0.15
+
+
+# The drawn receiver's base id, or "" when nothing is drawn.
+func _held_receiver(held: Node3D) -> String:
+	var drawn: Dictionary = held.call("drawn") as Dictionary
+	return String(drawn.get("receiver", ""))
+
+
+# The right hand bone's world position, read from the skeleton by name, not from the attachment: the attachment is
+# the thing under test, so a check against it would pass for any bone it sits on.
+func _hand_r_at(attachment: BoneAttachment3D) -> Vector3:
+	var skeleton: Skeleton3D = attachment.get_parent() as Skeleton3D
+	if skeleton == null or skeleton.find_bone("hand.R") < 0:
+		return Vector3(1.0e9, 1.0e9, 1.0e9)
+	skeleton.force_update_all_bone_transforms()
+	var index: int = skeleton.find_bone("hand.R")
+	return skeleton.global_transform * skeleton.get_bone_global_pose(index).origin
+
+
+# Spawns `base_id` and equips it on `actor`, then steps the tick so the sim's equip event reaches the weapon's
+# state; returns the item, or -1 when it would not equip.
+func _held_spawn_equip(scene: Node, world: Variant, actor: int, base_id: String) -> int:
+	var item: int = int(SimItems.spawn_item(world, base_id, {"tier": "scavenged"}))
+	if item < 0:
+		return -1
+	if not SimInventory.equip(world, actor, item):
+		world.despawn(item)
+		return -1
+	scene.call("step_sim_once")
+	return item
+
+
+# Measures the weapon's bore and the hand bone against the body, for the orientation call: the grip's -Z (the bore)
+# against the body's own forward (-Z of its root), and the hand's basis in the body's frame. Printed, not judged.
+func _held_measure(bodies: Node3D, colonist: int, hand: BoneAttachment3D, held: Node3D) -> bool:
+	var root: Node3D = bodies.call("node_for", colonist) as Node3D
+	var grip: Node3D = held.call("grip_node") as Node3D
+	var bore: Vector3 = (-grip.global_transform.basis.z).normalized()
+	var top: Vector3 = grip.global_transform.basis.y.normalized()
+	var forward: Vector3 = (-root.global_transform.basis.z).normalized()
+	var up: Vector3 = Vector3.UP
+	var rel: Basis = root.global_transform.basis.inverse() * hand.global_transform.basis
+	print("HELD measure: bore %s, body forward %s, dot %.3f; grip top %s, dot up %.3f; hand.R in body frame x %s y %s z %s" % [str(bore), str(forward), bore.dot(forward), str(top), top.dot(up), str(rel.x), str(rel.y), str(rel.z)])
+	var ok: bool = true
+	if bore.dot(forward) < HELD_FORWARD_DOT:
+		ok = _fail("HELD", "the pistol's bore points %.3f along the body's forward, not forward (%.2f)" % [bore.dot(forward), HELD_FORWARD_DOT])
+	if top.dot(up) < HELD_FORWARD_DOT:
+		ok = _fail("HELD", "the pistol's top points %.3f up, not up" % top.dot(up))
+	return ok
+
+
+const HELD_FORWARD_DOT: float = 0.9
 
 
 # Puts a component back the way the lane found it: a value that was there is written back, and one that was

@@ -641,9 +641,6 @@ world by rail's first cut after docs/45.
 
 **Known bugs**
 
-- In the third-person testing view the held weapon is not drawn in the body's hand. The view
-  model hides there (`claude/fp-arms-view`), which ends it floating beside the body (#313's
-  capture), but nothing draws it on the body yet.
 - `godot:check:fp_geometry` takes about 13 s; its real-worldgen lane is most of it. The next speed-up
   is caching the four worldgen districts.
 - The survivor review scene's light is flat grey, so colour judgements there run dark.
