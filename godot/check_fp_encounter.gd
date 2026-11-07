@@ -27,6 +27,12 @@ extends SceneTree
 #                   world.runOver must be set.
 #   DEATH           the attentive player (normal stamina, struggle open): the lone shambler must kill them
 #                   inside DEATH_TICKS. FAIL while it does not; the break cause and the ticks are printed.
+#   REPRESS         after a struggle break with no command, the player comes to rest and the shambler
+#                   presses again (a re-grab, then a bite).
+#   DRIFT           the break-away shove's record expires; the controlled body comes to rest, and its travel is
+#                   no more than the shove. A held move command must survive the expiry (the guard).
+#   DRIFT-WALL      the shove runs into a wall: the wall zeroes the axis it hits, the other axis keeps its value,
+#                   and after expiry both axes are zero and the body does not move.
 #   BREAK           a contact in which the player presses F (swing) while held. One melee attempt is made
 #                   first: its refusal is a FINDING line. The struggle is the answer; the escape odds are the
 #                   sim's own roll (SimAptitudes.escape_chance). OK when the grab breaks or the zombie is hit.
@@ -79,6 +85,8 @@ const REST_TICKS: int = 60
 const REPRESS_TICKS: int = 200
 const DRIFT_SETTLE_TICKS: int = 20
 const DRIFT_SLACK_METRES: float = 0.1
+const WALL_AHEAD_METRES: float = 2.0
+const DRIFT_WALL_SHOVE_DY: float = 0.1035
 const TIME_BUDGET_SECONDS: float = 60.0
 
 var _fails: int = 0
@@ -106,6 +114,7 @@ func _run() -> void:
 	_death_attentive()
 	_repress_lane()
 	_drift_lane()
+	_drift_wall()
 	_break_lane()
 	var seconds: float = float(Time.get_ticks_msec() - _started_ms) / 1000.0
 	if seconds > TIME_BUDGET_SECONDS:
@@ -935,6 +944,87 @@ func _drift_guard() -> void:
 		_fail(lane, "guard: a held move command (%.2f m/s) was overridden at the shove's expiry; the velocity is now %.2f" % [steer.x, v.x])
 		return
 	_ok(lane, "guard: a held move command (%.2f m/s) survives the shove's expiry at +%d ticks; the body is still steered" % [steer.x, expire])
+
+# DRIFT-WALL: the break-away shove runs into a wall tile WALL_AHEAD_METRES along its own direction. The collision
+# zeroes the axis it hits and the other axis keeps the shove's value (DRIFT.md step 7). Both axes must be zero,
+# and the body must not move, after the record expires. The wall is a fixture: one map tile set to Wall once the
+# shove exists.
+func _drift_wall() -> void:
+	var lane: String = "DRIFT-WALL"
+	var boot: Dictionary = _boot()
+	var world: Variant = boot["world"]
+	var map: Variant = boot["map"]
+	var setup: Dictionary = _encounter(world, map, NEAR_METRES)
+	if setup.is_empty():
+		_fail(lane, "no %d m open line with sight in the %d m district" % [NEAR_METRES, DISTRICT_TILES])
+		return
+	var player: int = int(setup["player"])
+	var zed: int = int(setup["zed"])
+	if not _step_until_held(world, zed, player):
+		_fail(lane, "no grab within %d ticks, so no break to drift from" % GRAB_TICKS)
+		return
+	var breaks: Array = []
+	_listen_breaks(world, player, breaks)
+	var broke: bool = false
+	for _t in range(1, DEATH_TICKS + 1):
+		world.step()
+		if not breaks.is_empty():
+			broke = true
+			break
+	if not broke:
+		_fail(lane, "the grab did not break within %d ticks" % DEATH_TICKS)
+		return
+	var rec: Variant = world.components.get_component(player, "breakAway")
+	if not (rec is Dictionary):
+		_fail(lane, "no break-away record on the player at the break")
+		return
+	# The sim's shove here is a pure x shove (the straight-away heading was blocked, so the fan took east), which
+	# leaves no second axis to keep. The record's y component is set to DRIFT.md's measured value (0.1035 at 2.1 m/s),
+	# so the shove has the stale axis the lane is about. The dx is the sim's own.
+	(rec as Dictionary)["dy"] = DRIFT_WALL_SHOVE_DY
+	var sx: float = float((rec as Dictionary)["dx"])
+	var sy: float = float((rec as Dictionary)["dy"])
+	var n: float = sqrt(sx * sx + sy * sy)
+	if n == 0.0:
+		_fail(lane, "the break-away record has no direction")
+		return
+	var p0: Vector2 = _entity_pos(world, player)
+	var ahead: Vector2 = p0 + Vector2(sx, sy) / n * WALL_AHEAD_METRES
+	var wall: Vector2i = Vector2i(floori(ahead.x), floori(ahead.y))
+	# The wall is both the tile and the movement cell (world.map_cells is what the integrator reads, as
+	# fortify.gd and check_vehicles.gd write it).
+	map.tiles[wall.y * int(map.w) + wall.x] = SimTileMap.Tile.Wall
+	world.map_cells[wall.y * int(world.map_width) + wall.x] = 1
+	world.invalidateMap()
+	var collided: int = -1
+	var kept_dy: float = 0.0
+	var expire: int = -1
+	for k in range(1, 3 * SimShambler.BREAK_AWAY_TICKS + 1):
+		world.step()
+		var v: Vector2 = _velocity(world, player)
+		if collided < 0 and absf(v.x) < 0.0001 and absf(v.y) > MOVED_METRES:
+			collided = k
+			kept_dy = v.y
+		if not world.components.has_component(player, "breakAway"):
+			expire = k
+			break
+	if collided < 0:
+		_fail(lane, "the shove never hit the wall at %s (%.1f m ahead); the fixture did not produce the one-axis collision" % [str(wall), WALL_AHEAD_METRES])
+		return
+	if expire < 0:
+		_fail(lane, "the break-away record never expired within %d ticks" % (3 * SimShambler.BREAK_AWAY_TICKS))
+		return
+	var rest_from: Vector2 = _entity_pos(world, player)
+	_settle(world, DRIFT_SETTLE_TICKS)
+	var v_end: Vector2 = _velocity(world, player)
+	var drift: float = _entity_pos(world, player).distance_to(rest_from)
+	if absf(v_end.x) > 0.0001 or absf(v_end.y) > 0.0001:
+		_fail(lane, "after the wall at +%d and expiry at +%d the velocity is (%.4f, %.4f), not zero: the stale axis is still on the body" % [collided, expire, v_end.x, v_end.y])
+		return
+	if drift > 0.01:
+		_fail(lane, "the body drifted %.4f m in the %d ticks after expiry" % [drift, DRIFT_SETTLE_TICKS])
+		return
+	_ok(lane, "shove into a wall %.1f m ahead: the wall zeroed x at +%d (y kept %.4f); expiry at +%d; both axes zero after, drift %.4f m over %d ticks" % [WALL_AHEAD_METRES, collided, kept_dy, expire, drift, DRIFT_SETTLE_TICKS])
 
 # --- BREAK -----------------------------------------------------------------------------------------
 

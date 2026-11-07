@@ -1843,16 +1843,18 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			var run: Dictionary = w.components.get_component(int(freed), "breakAway") as Dictionary
 			run["ticksLeft"] = int(run["ticksLeft"]) - 1
 			if int(run["ticksLeft"]) <= 0 or w.components.has_component(int(freed), "grabbed"):
-				# The shove ends here (or the body is grabbed again). A controlled body whose velocity is
-				# still the shove's own comes to rest: the shove would otherwise stay on it, and a player
-				# with no move command walks off with it at BREAK_AWAY_SPEED for as long as nothing else
-				# writes it. A velocity that differs from the shove is a move command that steered over it,
-				# and is left alone. NPCs are not touched: a walking NPC keeps opening the gap by its own
-				# errand (the escape lane in check_m2_contact.gd).
+				# The shove ends here (or the body is grabbed again). Each axis of a controlled body that is
+				# still the shove's own comes to rest: the shove would otherwise stay on it, and a player with
+				# no move command walks off with it at BREAK_AWAY_SPEED for as long as nothing else writes it.
+				# An axis that differs from the shove is either a move command that steered over it, or a
+				# collision that already zeroed it (a shove into a wall zeroes one axis and leaves the other);
+				# either way it is left alone. NPCs are not touched: a walking NPC keeps opening the gap by its
+				# own errand (the escape lane in check_m2_contact.gd).
 				if w.components.has_component(int(freed), "controlled"):
 					var end_vel: Dictionary = w.components.get_component(int(freed), "velocity") as Dictionary
-					if float(end_vel["dx"]) == float(run["dx"]) and float(end_vel["dy"]) == float(run["dy"]):
+					if float(end_vel["dx"]) == float(run["dx"]):
 						end_vel["dx"] = 0.0
+					if float(end_vel["dy"]) == float(run["dy"]):
 						end_vel["dy"] = 0.0
 				w.components.remove(int(freed), "breakAway")
 				continue
