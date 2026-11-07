@@ -4339,6 +4339,22 @@ not a to-do list:
     ramp check passes) is refused by `paint-match` at 27.3 levels.
   - **Not done.** The round-2 review's N1 (the trigger finger carried over from the previous clip) is a view
     branch fix (`deterministic` on the arms' player), not in this piece.
+- **View-model arms: the long hold on the hunting rifle, 2026-11-07.** The `long` reference changes
+  from `jig_long` to the committed `rifle_hunting`, assembled with its barrel, magazine and stock on
+  their exported sockets. `grip_r`, `grip_l` and `sight` come from the rifle's nodes; the jig remains a
+  fallback and a plant. The rifle's rig, skin, paint and weapon GLBs do not change.
+  - **Pose and contact.** `aim_long` and the end of `raise_long` use the rifle's 24.0 mm sight at
+    z -120 mm; the aim anchor moves 46.0 mm from the jig, with the sight 0.0 mm off the camera axis
+    and the bore 0.06 degrees from -Z. Both hands re-close on the assembled mesh. At idle, aim and
+    raise's first/middle/last frames, `LONG_HANDS` measures zero penetration, left palm/proximal maxima
+    2.2/3.2 mm, right palm 0.8 mm and right index-to-trigger 0.6 mm. `RIFLE_HANDS` on the weapon kit
+    still measures 0.0 mm in both hands.
+  - **Verified.** `build_arms.py -- --check` prints `ARMS_CHECK_OK`; all 30 plants are refused,
+    including the jig sight, an open left hand, a right palm pushed into the grip and a changed pistol
+    key. `OTHER_HOLDS_IDENTICAL 17 clips` compares every non-long animation track with `cbb1fb00`.
+    `godot:check:first_person` prints `FIRST_PERSON_OK`. Production idle/aim/raise captures, hand
+    close-ups and before/after frames accompany the piece.
+
 - **The lurker, 2026-11-05.** Zombie kind ten, a dormant kind: `godot/content/zombies/lurker.json`,
   extends `zombie.base`, with the shambler's body, sensory, locomotion and workwear picture (no
   picture of its own, as the crawler and bloodhound). It takes `dormantShare` 0.2 of the dormant

@@ -74,7 +74,7 @@ never mistakes the arms for a loot model.
 |---|---|---|---|
 | `unarmed` | none | both low in the bottom corners, relaxed, a little open | frozen in `anchors.json` |
 | `pistol` | `pistol_service.glb` | right hand high on the raked grip, index along the frame; left hand cupping the right | (0.22, -0.20, -0.45), (-6, 14, 0) deg, the contract's |
-| `long` | `jig_long` (below) | right hand on the raked grip; left hand under the handguard at `grip_l` | frozen in `anchors.json` |
+| `long` | `rifle_hunting.glb`, assembled with its barrel, magazine and stock | right hand on the raked grip, index on the trigger; left hand under the fore-end at `grip_l` | frozen in `anchors.json` |
 | `melee1` | `knife_kitchen.glb` | right fist on the handle, blade forward; the left hand below the frame | as the pistol, the contract's |
 | `melee2` | `bat_wood.glb` | both fists on the haft at `grip_r` and `grip_l`, carried diagonally, striking end up and left | frozen in `anchors.json` |
 
@@ -83,10 +83,11 @@ backed off along its normal until it clears by 0.8 mm, then each finger closes j
 until it meets the surface. The pistol's support wrist and wrapping-finger offsets are measured
 against the right hand and grip, with its index and thumb closed against those obstacles. The arm
 reaches the wrist with a two-bone solve whose elbow hangs down and out, the shoulder swinging
-forward for two-handed holds. `jig_long` is the authoring-only long gun the contract asks for: grip to
-foregrip 0.25 m, grip to butt 0.30 m, sight 0.07 m over the bore, with `grip_r`, `grip_l` and
-`sight` points. It is never shipped; every long-gun check reruns on the real receivers when they
-land. The pistol's sight is its rear sight, the highest rear point of the slide.
+forward for two-handed holds. The long reference is the committed hunting rifle assembled on its
+exported sockets, with `grip_r`, `grip_l` and `sight` read from its nodes. Its sight is 24.0 mm over
+the bore at z -120 mm; the aim anchor moves 46.0 mm from the old jig and puts that sight on the camera
+axis. `jig_long` remains only as a named fallback for missing GLBs and as the `long-jig-sight` plant.
+The pistol's sight is its rear sight, the highest rear point of the slide.
 
 ### Clips (60 fps, one AnimationPlayer)
 
@@ -132,7 +133,9 @@ Measured on the exported GLB, frame by frame at 60 fps, against the committed we
 | `bone-length` | upper-arm and forearm joint distances within 0.5 mm of rest on every frame; no disconnected wrist from an unreachable target | `stretch-arm` |
 | `grip-land` | `grip_l` within 5 mm of the reference weapon's `grip_l` at every key pose of melee2 and long; the pistol's support hand within 5 mm of its cup pose relative to `hand.R` | `grip-off` |
 | `wrap` | no hand vertex over 2 mm inside the weapon; gripping middle, ring and pinky pads within 4 mm of the grip, the pistol's right index within 4 mm of the frame, and its support pads within 4 mm of the right fingers or grip | `finger-through`, `support-wrap` |
-| `sight-line` | at the end of `raise_*` and on every `aim_*` frame, the sight within 3 mm of the camera axis, the bore within 1 deg of -Z | `sight-off` |
+| `long-hands` | on the real rifle at idle, aim and raise: no skin over 2 mm inside; measured palm, proximal, distal, thumb and trigger-finger contact on the required surfaces | `long-open-hand`, `long-into-wood` |
+| `sight-line` | at the end of `raise_*` and on every `aim_*` frame, the sight within 3 mm of the camera axis, the bore within 1 deg of -Z; the long sight is the rifle's 24.0 mm sight | `sight-off`, `long-jig-sight` |
+| `other-holds` | all 17 non-long clips' exported animation tracks are identical to `main` at `cbb1fb00` | `other-holds` |
 | `near-plane` | every visible vertex (vertical 75 deg, up to 21:9) at least 0.06 m deep, every frame | `near-clip` |
 | `stump` | the sleeve's open end out of view at 21:9, every frame | `short-arm` |
 | `in-frame` | at idle and aim, 80% of the right hand in the 4:3 frame (both hands for melee2, long, unarmed); at `draw` frame 0 and the end of `lower`, both hands below the bottom edge | `hand-out` |
@@ -194,5 +197,4 @@ that keeps the names, the frame and the clip table needs no code change.
   depth toward the near plane so a wall never cuts through it. The copies are cached per source
   material; the world's shared atlases are not changed. View-model meshes cast no shadow.
 - **Not yet.** The `gloves` and `torso` layers have no reader: the hands are always bare and the
-  sleeve is the base top's. There is no long-gun model in the weapon kit, so `long` holds the
-  placeholder box.
+  sleeve is the base top's.
