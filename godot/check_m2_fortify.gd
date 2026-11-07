@@ -16,6 +16,7 @@ const SimPath = preload("res://sim/path.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
 const SimShadowcast = preload("res://sim/vision/shadowcast.gd")
+const SimRoster = preload("res://sim/modules/roster.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -33,8 +34,9 @@ func _run() -> void:
 	ok = _a_crowd_gets_through() and ok
 	ok = _raised_walls() and ok
 	ok = _e_orders_the_walls_above_the_free_placements() and ok
+	ok = _shove() and ok
 	if ok:
-		print("M2_FORTIFY_OK board scrap alarm bait v18, doors that open, close and break, a crowd that presses through, the three raised walls, and the E ladder that puts them above the alarm")
+		print("M2_FORTIFY_OK board scrap alarm bait v18, doors that open, close and break, a crowd that presses through, the three raised walls, the E ladder that puts them above the alarm, the alarm and noisemaker priced, and a juggernaut that shoves a timber wall down")
 		quit(0)
 	else:
 		push_error("M2_FORTIFY_FAIL")
@@ -61,6 +63,14 @@ func _channel(w: Variant, cmd: Dictionary) -> void:
 	w.commands.push(cmd)
 	for _i in SimFortify.CHANNEL_TICKS + 2:
 		w.step()
+
+# One unit of a shipped base in the pack: the price the alarm (wire) and the noisemaker (scrap
+# metal) now ask for. Stowed the way the materials gate's `_give` stows, so the scan finds it.
+func _carry(w: Variant, id: String) -> void:
+	var item: int = SimItems.spawn_item(w, id, {"tier": "scavenged", "count": 1})
+	if not SimInventory.stow(w, w.player, item):
+		push_error("could not stow %s" % id)
+	w.events.drain()
 
 func _set_tile(w: Variant, tx: int, ty: int, tile: int) -> void:
 	w.tilemap.tiles[ty * int(w.tilemap.w) + tx] = tile
@@ -168,6 +178,7 @@ func _scrap_choke() -> bool:
 
 func _alarm_no_dps() -> bool:
 	var w: Variant = _world(8.5, 13.5)
+	_carry(w, "item.wire.steel")
 	_channel(w, {"type": "trap.alarm.place", "tx": 8, "ty": 12})
 	var alarm: Variant = w.components.query(["alarmLine"])
 	if alarm.is_empty():
@@ -204,6 +215,7 @@ func _alarm_no_dps() -> bool:
 
 func _noisemaker_field() -> bool:
 	var w: Variant = _world(12.5, 13.5)
+	_carry(w, "item.scrap.metal")
 	_channel(w, {"type": "bait.noisemaker.place", "tx": 12, "ty": 12})
 	var found: Array[int] = w.components.query(["noisemaker"])
 	if found.is_empty():
@@ -647,35 +659,63 @@ func _raised_walls() -> bool:
 
 
 # The ladder's order, pinned: the raised walls sit above the alarm and the noisemaker, by design
-# (docs/30, "Three walls"), so E on open floor with a plank in the pack raises a timber wall, and
-# with nothing to build from falls through to the free alarm. Both the read (`rung_of`) and the key
+# (docs/30, "Three walls"), and the alarm and the noisemaker are priced (2026-11-04), so each is
+# offered only while its unit is carried. Wire builds the wire fence as well as the trip line, and
+# the fence sits above the alarm, so a lone wire on open ground strings a fence; the alarm is laid
+# with wire only where a wall cannot go up, which is indoors. Both the read (`rung_of`) and the key
 # (`use.context`) are asked, because they are two functions that must name the same rung.
 func _e_orders_the_walls_above_the_free_placements() -> bool:
 	var lane: String = "E-LADDER"
 	var bare: Variant = _world()
-	var bare_rung: Dictionary = SimFortify.rung_of(bare, bare.player)
-	if String(bare_rung.get("verb", "")) != "alarm":
-		push_error("%s: E on open floor with no material names '%s', not the alarm" % [lane, str(bare_rung.get("verb", ""))])
+	if not SimFortify.rung_of(bare, bare.player).is_empty():
+		push_error("%s: E on open floor with an empty pack names '%s', not nothing" % [lane, str(SimFortify.rung_of(bare, bare.player).get("verb", ""))])
 		return false
 	_channel(bare, {"type": "use.context"})
-	if (bare.components.query(["alarmLine"]) as Array).is_empty() or not (bare.components.query(["timberWall"]) as Array).is_empty():
-		push_error("%s: E with no material did not lay the alarm" % lane)
+	if not (bare.components.query(["alarmLine"]) as Array).is_empty() or not (bare.components.query(["timberWall"]) as Array).is_empty():
+		push_error("%s: E with an empty pack laid something" % lane)
 		return false
 
-	var armed: Variant = _world()
-	var plank: int = SimItems.spawn_item(armed, "item.plank.sawn", {"tier": "scavenged", "count": 1})
-	if not SimInventory.stow(armed, armed.player, plank):
-		push_error("%s: could not stow a plank" % lane)
+	# Outdoors, wire is a fence: the wall rung is above the alarm, so the alarm is not offered.
+	var fenced: Variant = _world()
+	_carry(fenced, "item.wire.steel")
+	var fence_rung: Dictionary = SimFortify.rung_of(fenced, fenced.player)
+	if String(fence_rung.get("verb", "")) != "fence":
+		push_error("%s: E on open ground with wire names '%s', not the wire fence the wall rung puts above the alarm" % [lane, str(fence_rung.get("verb", ""))])
 		return false
+	_channel_build(fenced, {"type": "use.context"}, "fence")
+	if (fenced.components.query(["wireFence"]) as Array).size() != 1 or not (fenced.components.query(["alarmLine"]) as Array).is_empty():
+		push_error("%s: E with wire on open ground did not string the fence in place of the alarm" % lane)
+		return false
+
+	# Indoors, no wall goes up, so the one unit of wire lays the alarm and is spent.
+	var indoor: Variant = _world()
+	indoor.tilemap.indoors[12 * int(indoor.tilemap.w) + 10] = 1
+	_carry(indoor, "item.wire.steel")
+	var alarm_rung: Dictionary = SimFortify.rung_of(indoor, indoor.player)
+	if String(alarm_rung.get("verb", "")) != "alarm":
+		push_error("%s: E indoors with wire names '%s', not the trip alarm" % [lane, str(alarm_rung.get("verb", ""))])
+		return false
+	_channel(indoor, {"type": "use.context"})
+	if (indoor.components.query(["alarmLine"]) as Array).is_empty():
+		push_error("%s: E indoors with wire did not lay the alarm" % lane)
+		return false
+	if SimFortify.material_count(indoor, indoor.player, "wire") != 0:
+		push_error("%s: the alarm laid by E did not spend its wire" % lane)
+		return false
+
+	# Outdoors with a plank and wire both, the timber wall is the rung, not the alarm.
+	var armed: Variant = _world()
+	_carry(armed, "item.plank.sawn")
+	_carry(armed, "item.wire.steel")
 	var rung: Dictionary = SimFortify.rung_of(armed, armed.player)
 	if String(rung.get("verb", "")) != "timber":
 		push_error("%s: E on open floor with a plank names '%s', not the timber wall" % [lane, str(rung.get("verb", ""))])
 		return false
 	_channel_build(armed, {"type": "use.context"}, "timber")
 	if (armed.components.query(["timberWall"]) as Array).size() != 1 or not (armed.components.query(["alarmLine"]) as Array).is_empty():
-		push_error("%s: E with a plank did not raise the wall in place of the alarm" % lane)
+		push_error("%s: E with a plank and wire did not raise the wall in place of the alarm" % lane)
 		return false
-	print("  E-LADDER: E on open floor lays the alarm with no material and raises a timber wall, not the alarm, with a plank in the pack")
+	print("  E-LADDER: an empty pack offers nothing; outdoors a lone wire strings the fence above the alarm; indoors it lays the alarm and spends the wire; a plank raises the timber wall")
 	return true
 
 
@@ -683,3 +723,149 @@ func _channel_build(w: Variant, cmd: Dictionary, verb: String) -> void:
 	w.commands.push(cmd)
 	for _i in int(SimFortify.BUILD_TICKS[verb]) + 2:
 		w.step()
+
+
+# --- SHOVE --------------------------------------------------------------------------------------
+#
+# A juggernaut (`zombie.juggernaut`'s `shoves` block, read into a `shove` component by the roster)
+# pressed against a timber wall, with a living body behind it, takes the wall down in
+# ceil(condition / perHit) shoves, one every cooldownTicks. A shambler in the same fixture shoves
+# nothing, and a juggernaut with nobody behind the wall shoves nothing. The wall's condition round-trips
+# a save. The plant gives a shambler a `shove` component: the shambler must then be caught shoving.
+const SHOVE_TICKS: int = 900
+const SHOVE_AFTER_BREACH_TICKS: int = 60
+
+
+func _shove_world(type_id: String, dead_behind: bool = false) -> Dictionary:
+	var w: Variant = _world(10.5, 13.5)
+	if dead_behind:
+		(w.components.get_component(w.player, "body") as Dictionary)["head"] = 0.0
+	var wall: int = int(w.entities.spawn())
+	w.components.set_component(wall, "position", {"x": 10.5, "y": 12.5})
+	w.components.set_component(wall, "timberWall", {"kind": "timber", "stage": 0, "contactTicks": 0, "condition": SimFortify.BARRICADE_CONDITION["timber"]})
+	SimFortify.sync_map(w, true)
+	var zed: int = SimRoster.spawn_zombie(w, 10.5, 11.5, type_id, w.rng.stream("shambler"))
+	return {"world": w, "zed": zed, "wall": wall}
+
+
+# Pushes the body south into the wall for `ticks` ticks, recording each shove and the breach.
+func _press_south(built: Dictionary, ticks: int) -> Dictionary:
+	var w: Variant = built["world"]
+	var zed: int = int(built["zed"])
+	var shoves: Array[int] = []
+	var breached: Array = []
+	var zkey: String = "check.shove.%d" % zed
+	w.events.subscribe({"id": zkey, "type": "fortify.shove", "handler": func(e: Dictionary) -> void:
+		if int(e.get("entity", -1)) == zed:
+			shoves.append(int(w.tick))
+	})
+	w.events.subscribe({"id": zkey + ".breach", "type": "fortify.breached", "handler": func(e: Dictionary) -> void:
+		if int(e.get("tx", -1)) == 10 and int(e.get("ty", -1)) == 12:
+			breached.append(String(e.get("kind", "")))
+	})
+	var breach_tick: int = -1
+	for t in ticks:
+		(w.components.get_component(zed, "velocity") as Dictionary)["dy"] = 2.0
+		w.step()
+		if breach_tick < 0 and not breached.is_empty():
+			breach_tick = t + 1
+	return {"shoves": shoves, "breached": breached, "breach_tick": breach_tick}
+
+
+func _shove() -> bool:
+	var lane: String = "SHOVE"
+	var jug: Dictionary = _shove_world("zombie.juggernaut")
+	var jw: Variant = jug["world"]
+	var jzed: int = int(jug["zed"])
+	var shove_block: Variant = jw.components.get_component(jzed, "shove")
+	if not (shove_block is Dictionary):
+		push_error("%s: a spawned juggernaut has no shove component -- its shoves block is not read" % lane)
+		return false
+	var per_hit: float = float((shove_block as Dictionary)["perHit"])
+	var cooldown: int = int((shove_block as Dictionary)["cooldownTicks"])
+	var want_hits: int = int(ceil(SimFortify.BARRICADE_CONDITION["timber"] / per_hit))
+	var run: Dictionary = _press_south(jug, SHOVE_TICKS)
+	var shoves: Array = run["shoves"]
+	if run["breach_tick"] < 0:
+		push_error("%s: a juggernaut pressed against a timber wall with a living body behind it did not bring it down in %d ticks (%d shoves)" % [lane, SHOVE_TICKS, shoves.size()])
+		return false
+	if shoves.size() != want_hits:
+		push_error("%s: the wall came down in %d shoves, want ceil(%d / %.0f) = %d" % [lane, shoves.size(), int(SimFortify.BARRICADE_CONDITION["timber"]), per_hit, want_hits])
+		return false
+	if String(run["breached"][0]) != "timber":
+		push_error("%s: the breach said kind '%s', not timber" % [lane, str(run["breached"][0])])
+		return false
+	for i in range(1, shoves.size()):
+		if int(shoves[i]) - int(shoves[i - 1]) != cooldown:
+			push_error("%s: shoves %d and %d are %d ticks apart, want the cooldown %d" % [lane, i - 1, i, int(shoves[i]) - int(shoves[i - 1]), cooldown])
+			return false
+	if (jw.components.query(["timberWall"]) as Array).size() != 0:
+		push_error("%s: the breached wall is still standing" % lane)
+		return false
+	if SimTileMap.is_solid(jw.tilemap, 10, 12):
+		push_error("%s: the tile is still solid after the wall came down" % lane)
+		return false
+	# It walks through: the same press that broke the wall carries it on past the tile (the wall was at
+	# y 12..13), and it ends south of it. The shove loop above keeps pressing until the breach tick, so
+	# the body has been moving since.
+	for i in SHOVE_AFTER_BREACH_TICKS:
+		(jw.components.get_component(jzed, "velocity") as Dictionary)["dy"] = 2.0
+		jw.step()
+	if float((jw.components.get_component(jzed, "position") as Dictionary)["y"]) <= 13.5:
+		push_error("%s: the juggernaut did not walk through the gap (ended at y %.2f)" % [lane, float((jw.components.get_component(jzed, "position") as Dictionary)["y"])])
+		return false
+
+	# The negatives, on the same wall and the same ticks: a shambler shoves nothing, and so does a
+	# juggernaut with nobody living behind the wall.
+	var sham: Dictionary = _shove_world("zombie.shambler")
+	var sham_run: Dictionary = _press_south(sham, int(run["breach_tick"]) + SHOVE_AFTER_BREACH_TICKS)
+	if (sham_run["shoves"] as Array).size() != 0:
+		push_error("%s: a shambler shoved a barricade %d times" % [lane, (sham_run["shoves"] as Array).size()])
+		return false
+	var sham_wall: Variant = sham["world"].components.get_component(int(sham["wall"]), "timberWall")
+	if not (sham_wall is Dictionary) or SimFortify.condition_of(sham_wall as Dictionary, "timber") != SimFortify.BARRICADE_CONDITION["timber"]:
+		push_error("%s: a shambler changed the wall's condition" % lane)
+		return false
+	var lone: Dictionary = _shove_world("zombie.juggernaut", true)
+	var lone_run: Dictionary = _press_south(lone, int(run["breach_tick"]) + SHOVE_AFTER_BREACH_TICKS)
+	if (lone_run["shoves"] as Array).size() != 0:
+		push_error("%s: a juggernaut with a dead body behind the wall shoved %d times" % [lane, (lone_run["shoves"] as Array).size()])
+		return false
+
+	# The plant: a shambler given a shove component must be caught shoving, or the negative above is
+	# a claim about nothing.
+	var plant: Dictionary = _shove_world("zombie.shambler")
+	plant["world"].components.set_component(int(plant["zed"]), "shove", {"perHit": per_hit, "cooldownTicks": cooldown, "cooldown": 0})
+	var plant_run: Dictionary = _press_south(plant, int(run["breach_tick"]) + SHOVE_AFTER_BREACH_TICKS)
+	if (plant_run["shoves"] as Array).is_empty():
+		push_error("%s: a shambler given a shove component did not shove, so the shambler's zero proves nothing" % lane)
+		return false
+
+	# The condition round-trips a save: a wall struck once, saved, and loaded into a fresh world.
+	var part: Dictionary = _shove_world("zombie.juggernaut")
+	var pw: Variant = part["world"]
+	var pzed: int = int(part["zed"])
+	for i in 45:
+		(pw.components.get_component(pzed, "velocity") as Dictionary)["dy"] = 2.0
+		pw.step()
+	var before: float = SimFortify.condition_of(pw.components.get_component(int(part["wall"]), "timberWall") as Dictionary, "timber")
+	var text: String = SimSave.encode_save(SimSave.create_save(pw))
+	var parsed: Variant = JSON.parse_string(text)
+	if not (parsed is Dictionary) or not ((parsed as Dictionary)["snapshot"] is Dictionary):
+		push_error("%s: the save did not come back as an object" % lane)
+		return false
+	var fresh: Variant = _world()
+	fresh.restore((parsed as Dictionary)["snapshot"] as Dictionary)
+	var walls: Array = fresh.components.query(["timberWall"]) as Array
+	if walls.size() != 1:
+		push_error("%s: the struck wall did not come back from the save (%d walls)" % [lane, walls.size()])
+		return false
+	var after: float = SimFortify.condition_of(fresh.components.get_component(int(walls[0]), "timberWall") as Dictionary, "timber")
+	if absf(after - before) > 0.0001 or before >= SimFortify.BARRICADE_CONDITION["timber"]:
+		push_error("%s: the wall's condition came back %.1f, want %.1f (struck)" % [lane, after, before])
+		return false
+
+	print("%s OK a juggernaut brought a timber wall down in %d shoves of %.0f, %d ticks apart, and walked through; a shambler in the same fixture shoved nothing and left the wall at %.0f; a juggernaut with nobody behind shoved nothing; a shambler given a shove component shoved %d times (the plant); the wall's %.0f condition came back from a save" % [
+		lane, shoves.size(), per_hit, cooldown, SimFortify.BARRICADE_CONDITION["timber"], (plant_run["shoves"] as Array).size(), after,
+	])
+	return true

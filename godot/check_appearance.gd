@@ -594,10 +594,19 @@ const ROSTER: Array[Dictionary] = [
 	{"id": "zombie.runner", "kind": "zombie", "probe": {"ztype": "zombie.runner"}, "tinted": false},
 	{"id": "zombie.armored", "kind": "zombie", "probe": {"ztype": "zombie.armored"}, "tinted": false},
 	{"id": "zombie.heavy", "kind": "zombie", "probe": {"ztype": "zombie.heavy"}, "tinted": false},
+	# The juggernaut wears the heavy's picture: a kind whose difference is that it shoves barricades,
+	# not what it looks like (docs/23, the juggernaut).
+	{"id": "zombie.juggernaut", "kind": "zombie", "probe": {"ztype": "zombie.juggernaut"}, "tinted": false},
 	{"id": "zombie.bloodhound", "kind": "zombie", "probe": {"ztype": "zombie.bloodhound"}, "tinted": false},
 	# The crawler wears the shambler's workwear picture, as the bloodhound does: a kind whose
 	# difference is its legs, not its clothes, so no new picture is drawn for it (docs/23, the crawler).
 	{"id": "zombie.crawler", "kind": "zombie", "probe": {"ztype": "zombie.crawler"}, "tinted": false},
+	# The lurker wears the shambler's workwear picture too: a kind whose difference is where it lies
+	# (indoors, asleep), not what it wears, so it shares the shambler's file (docs/23, the lurker).
+	{"id": "zombie.lurker", "kind": "zombie", "probe": {"ztype": "zombie.lurker"}, "tinted": false},
+	# The feigner wears the shambler's workwear picture, and lies in its own corpse frame: a kind whose
+	# difference is that it lies among the dead, not what it wears (docs/23, the feigner).
+	{"id": "zombie.feigner", "kind": "zombie", "probe": {"ztype": "zombie.feigner"}, "tinted": false},
 	{"id": "raider.scav", "kind": "raider", "probe": {"raider": true, "cid": "raider.scav"}, "tinted": true},
 	{"id": "raider.gunhand", "kind": "raider", "probe": {"raider": true, "cid": "raider.gunhand"}, "tinted": true},
 	# The two role archetypes (the roles slice). Same body as the other two, and that is the
@@ -642,6 +651,9 @@ const ROSTER_SHARED: Array = [
 	# decision: the art is a stage behind the content arc (docs/38), so it shares the shambler's
 	# file until a bloodhound body is drawn.
 	["zombie.shambler", "zombie.bloodhound"],
+	["zombie.heavy", "zombie.juggernaut"],
+	["zombie.shambler", "zombie.lurker"],
+	["zombie.shambler", "zombie.feigner"],
 	[
 		"player.body", "survivor.unique.mara", "survivor.unique.ellis",
 		"colony.look.01", "colony.look.02", "colony.look.03", "colony.look.04", "colony.look.05", "colony.look.06",

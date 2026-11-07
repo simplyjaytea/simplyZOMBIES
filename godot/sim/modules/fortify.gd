@@ -72,9 +72,10 @@ static func material_words(kinds: Array) -> String:
 # which is SimJobs' Repair job rather than a channel here, and which was the second home of the
 # deleted weld. One table, so a recipe's substance is written down once.
 #
-# A verb absent from this table is free and stays free: boarding a window, laying an alarm line,
-# setting a noisemaker, winding it and establishing a camp all cost nothing today, and this slice
-# is additive, so they cost nothing after it. How *much* a recipe costs is not here either -- one
+# A verb absent from this table is free and stays free: boarding a window, winding a noisemaker and
+# establishing a camp cost nothing. The trip alarm and the noisemaker were free until 2026-11-04 and
+# now spend one unit each -- wire for the line, scrap metal for the device -- so a survivor with an
+# empty pack cannot lay one. The price is one unit, not a quantity the table holds (docs/30). How *much* a recipe costs is not here either -- one
 # unit a stage, and the owner kept per-recipe quantity closed; the bench's standing three is
 # still SimGunsmith.BENCH_SCRAP, exactly where it already was.
 const RECIPES: Dictionary = {
@@ -83,6 +84,10 @@ const RECIPES: Dictionary = {
 	# rubble, a wire fence off wire. One substance each -- a recipe that wanted a *pair* (fixings
 	# to hand, cordage to lash) would be a shape change to this table, not a row.
 	"timber": "plank", "stone": "stone", "fence": "wire",
+	# The trip alarm and the noisemaker, priced 2026-11-05 (docs/30, "The alarm and the noisemaker
+	# are priced"): a trip line is wire, and the bait is a rattling device off scrap metal, the same
+	# substance the scrap barricade and the bench spend.
+	"alarm": "wire", "noisemaker": "metal",
 }
 
 # Channel length in ticks for the three raised buildables. Verbs not named here keep CHANNEL_TICKS
@@ -625,12 +630,19 @@ static func rung_of(world: Variant, actor: int) -> Dictionary:
 		return {"verb": "stone", "target": face, "prose": "raise a stone course"}
 	if _buildable_rung(world, actor, "fence"):
 		return {"verb": "fence", "target": face, "prose": "string a wire fence"}
+	# Repacking sits above the free placements: an empty floor offers a trip alarm whether or not one
+	# is carried, so a rung below them is never reached on open ground. Nothing above it is taken from:
+	# the window, trip line, noisemaker, scrap and the raised buildables have all been asked already.
+	if _would_refill(world, actor):
+		return {"verb": "refill", "target": -1, "prose": "repack the filter"}
+	# The two free placements are priced: each is offered only while its unit is carried, the way the
+	# raised walls are, so an empty pack on open floor offers nothing here at all.
 	if _empty_floor(world, face.x, face.y):
-		if alarm == null:
+		if alarm == null and carried_material(world, actor, recipe_kind("alarm")) >= 0:
 			return {"verb": "alarm", "target": face, "prose": "lay a trip alarm"}
-		elif bait == null:
+		if bait == null and carried_material(world, actor, recipe_kind("noisemaker")) >= 0:
 			return {"verb": "noisemaker", "target": face, "prose": "set a noisemaker"}
-		elif int(Gunsmith.call("bench_in_reach", world, actor)) < 0 and material_count(world, actor, recipe_kind("bench")) >= int(Gunsmith.get("BENCH_SCRAP")):
+		if int(Gunsmith.call("bench_in_reach", world, actor)) < 0 and material_count(world, actor, recipe_kind("bench")) >= int(Gunsmith.get("BENCH_SCRAP")):
 			return {"verb": "bench", "target": face, "prose": "build a bench"}
 	return {}
 
@@ -691,6 +703,19 @@ static func _would_purify(world: Variant, actor: int) -> bool:
 	if not (found is Dictionary) or int((found as Dictionary).get("item", -1)) < 0:
 		return false
 	return int(Needs.call("_carried_purifier", world, actor)) >= 0
+
+
+# Whether `SimNeeds.refill` would take: a carried purifier that takes a refill and is not full, and a
+# unit of its material in the same pack.
+static func _would_refill(world: Variant, actor: int) -> bool:
+	var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
+	if Needs == null or not Needs.has_method("_carried_refillable") or not Needs.has_method("refill_of"):
+		return false
+	var tool: int = int(Needs.call("_carried_refillable", world, actor))
+	if tool < 0:
+		return false
+	var block: Dictionary = Needs.call("refill_of", world, tool) as Dictionary
+	return carried_material(world, actor, String(block.get("kind", ""))) >= 0
 
 
 # Whether `Gunsmith.open_bench` would take: the reach and the empty focus are already this
@@ -807,6 +832,9 @@ static func _use_context(world: Variant, actor: int) -> void:
 		"purify":
 			if Needs != null:
 				Needs.call("purify", world, actor)
+		"refill":
+			if Needs != null:
+				Needs.call("refill", world, actor)
 		"well":
 			if Needs != null:
 				Needs.call("use_well", world, actor, int(rung.get("target", -1)))
@@ -876,7 +904,7 @@ static func _intake_verb(world: Variant, actor: int, c: Dictionary) -> void:
 			if carried_material(world, actor, recipe_kind("fence")) >= 0 and can_build(world, tx, ty):
 				_start(world, actor, "fence", tx, ty)
 		"trap.alarm.place":
-			if _first(world, "alarmLine") == null and _empty_floor(world, tx, ty):
+			if _first(world, "alarmLine") == null and _empty_floor(world, tx, ty) and carried_material(world, actor, recipe_kind("alarm")) >= 0:
 				_start(world, actor, "alarm", tx, ty)
 		"trap.alarm.reset":
 			var alarm: Variant = _first(world, "alarmLine")
@@ -885,7 +913,7 @@ static func _intake_verb(world: Variant, actor: int, c: Dictionary) -> void:
 				if line is Dictionary:
 					(line as Dictionary)["armed"] = true
 		"bait.noisemaker.place":
-			if _first(world, "noisemaker") == null and _empty_floor(world, tx, ty):
+			if _first(world, "noisemaker") == null and _empty_floor(world, tx, ty) and carried_material(world, actor, recipe_kind("noisemaker")) >= 0:
 				_start(world, actor, "noisemaker", tx, ty)
 		"bench.build":
 			if _empty_floor(world, tx, ty) and material_count(world, actor, recipe_kind("bench")) >= int(_Gunsmith().get("BENCH_SCRAP")):
@@ -968,10 +996,15 @@ static func _complete(world: Variant, _actor: int, verb: String, tx: int, ty: in
 			_place_scrap(world, _actor, tx, ty)
 		"timber", "stone", "fence":
 			_place_wall(world, _actor, verb, tx, ty)
+		# Priced, and spent here at the moment of placement, the way the raised walls spend theirs: a
+		# tile that is no longer free, or a pack with no unit left, ends the channel with nothing
+		# placed and nothing spent. The checks come before the spend so a refusal costs nothing.
 		"alarm":
-			_place_alarm(world, tx, ty)
+			if _first(world, "alarmLine") == null and _empty_floor(world, tx, ty) and consume_material(world, _actor, recipe_kind("alarm")):
+				_place_alarm(world, tx, ty)
 		"noisemaker":
-			_place_noisemaker(world, tx, ty)
+			if _first(world, "noisemaker") == null and _empty_floor(world, tx, ty) and consume_material(world, _actor, recipe_kind("noisemaker")):
+				_place_noisemaker(world, tx, ty)
 		"wind":
 			_wind_noisemaker(world)
 		"bench":
@@ -1023,7 +1056,7 @@ static func _place_scrap(world: Variant, actor: int, tx: int, ty: int) -> void:
 		return
 	var ent: int = int(world.entities.spawn())
 	world.components.set_component(ent, "position", {"x": float(tx) + 0.5, "y": float(ty) + 0.5})
-	world.components.set_component(ent, "scrapBarricade", {})
+	world.components.set_component(ent, "scrapBarricade", {"condition": BARRICADE_CONDITION["scrap"]})
 	sync_map(world, false)
 
 
@@ -1039,7 +1072,10 @@ static func _place_wall(world: Variant, actor: int, verb: String, tx: int, ty: i
 		return
 	var ent: int = int(world.entities.spawn())
 	world.components.set_component(ent, "position", {"x": float(tx) + 0.5, "y": float(ty) + 0.5})
-	world.components.set_component(ent, String(BLOCKERS[verb]), {"kind": verb, "stage": 0, "contactTicks": 0})
+	var wall: Dictionary = {"kind": verb, "stage": 0, "contactTicks": 0}
+	if BARRICADE_CONDITION.has(verb):
+		wall["condition"] = BARRICADE_CONDITION[verb]
+	world.components.set_component(ent, String(BLOCKERS[verb]), wall)
 	sync_map(world, false)
 
 
@@ -1263,7 +1299,93 @@ static func _presses(world: Variant) -> Dictionary:
 	return out
 
 
+# The juggernaut's shove (docs/23, "The juggernaut"). A scrap barricade and a timber wall carry a
+# `condition` the sim owns: full at the value here, and a shove takes its body's `perHit` off it. At
+# zero the barrier is gone, the way a breached one is -- there is no dismantle verb for them, so
+# nothing drops. A component with no condition (a barrier from before the field) reads as full.
+# Window boards, wire fences and doors are not shoved: they keep the contact pressure alone.
+const BARRICADE_CONDITION: Dictionary = {"scrap": 60.0, "timber": 150.0}
+const SHOVE_BARRIERS: Array[String] = ["scrap", "timber"]
+const SHOVE_REACH_METRES: float = 2.5
+
+
+static func condition_of(component: Dictionary, kind: String) -> float:
+	return float(component.get("condition", BARRICADE_CONDITION.get(kind, 0.0)))
+
+
+# The barrier standing on tile (tx, ty) that a shove can reach: its entity, kind and component, or {}.
+static func _barricade_at(world: Variant, tx: int, ty: int) -> Dictionary:
+	for entity in world.components.query(["scrapBarricade", "position"]):
+		var at: Variant = world.components.get_component(int(entity), "position")
+		if at is Dictionary and floori(float((at as Dictionary)["x"])) == tx and floori(float((at as Dictionary)["y"])) == ty:
+			return {"entity": int(entity), "kind": "scrap", "component": world.components.get_component(int(entity), "scrapBarricade")}
+	for entity in world.components.query(["timberWall", "position"]):
+		var at2: Variant = world.components.get_component(int(entity), "position")
+		if at2 is Dictionary and floori(float((at2 as Dictionary)["x"])) == tx and floori(float((at2 as Dictionary)["y"])) == ty:
+			return {"entity": int(entity), "kind": "timber", "component": world.components.get_component(int(entity), "timberWall")}
+	return {}
+
+
+# A living body on the far side of the barrier from the juggernaut, within reach of it: the shove
+# needs somebody behind the barricade to be a shove at all.
+static func _living_behind(world: Variant, zed: int, tx: int, ty: int) -> bool:
+	var zpos: Variant = world.components.get_component(zed, "position")
+	if not (zpos is Dictionary):
+		return false
+	var bx: float = float(tx) + 0.5
+	var by: float = float(ty) + 0.5
+	var dx: float = bx - float((zpos as Dictionary)["x"])
+	var dy: float = by - float((zpos as Dictionary)["y"])
+	for body_entity in world.components.query(["body", "position"]):
+		if int(body_entity) == zed or world.components.has_component(int(body_entity), "shambler") or world.components.has_component(int(body_entity), "corpse"):
+			continue
+		var body: Variant = world.components.get_component(int(body_entity), "body")
+		if not (body is Dictionary) or int((body as Dictionary).get("head", 0)) <= 0:
+			continue
+		var at: Variant = world.components.get_component(int(body_entity), "position")
+		if not (at is Dictionary):
+			continue
+		var ex: float = float((at as Dictionary)["x"]) - bx
+		var ey: float = float((at as Dictionary)["y"]) - by
+		if sqrt(ex * ex + ey * ey) <= SHOVE_REACH_METRES and ex * dx + ey * dy > 0.0:
+			return true
+	return false
+
+
+# Every body that shoves, pressed against a barrier it can reach with a living body behind it: its
+# barrier loses `perHit` and its cooldown restarts. The contact pressure is separate, and unchanged.
+static func _tick_shoves(world: Variant) -> void:
+	for zed in world.components.query(["shambler", "velocity", "shove"]):
+		var shove: Dictionary = world.components.get_component(int(zed), "shove") as Dictionary
+		if int(shove.get("cooldown", 0)) > 0:
+			shove["cooldown"] = int(shove["cooldown"]) - 1
+			continue
+		var vel: Variant = world.components.get_component(int(zed), "velocity")
+		if not (vel is Dictionary):
+			continue
+		var px: int = int((vel as Dictionary).get("pressX", -1))
+		var py: int = int((vel as Dictionary).get("pressY", -1))
+		if px < 0 or py < 0:
+			continue
+		var hit: Dictionary = _barricade_at(world, px, py)
+		if hit.is_empty() or not _living_behind(world, int(zed), px, py):
+			continue
+		var kind: String = String(hit["kind"])
+		var comp: Dictionary = hit["component"] as Dictionary
+		var condition: float = condition_of(comp, kind) - float(shove.get("perHit", 0.0))
+		comp["condition"] = condition
+		# Set to one less than the cooldown: the decrement above spends the tick it is read on, so a
+		# shove lands every `cooldownTicks` ticks exactly.
+		shove["cooldown"] = maxi(0, int(shove.get("cooldownTicks", 1)) - 1)
+		world.events.publish({"type": "fortify.shove", "entity": int(zed), "tx": px, "ty": py, "kind": kind, "condition": condition})
+		if condition <= 0.0:
+			world.despawn(int(hit["entity"]))
+			sync_map(world, false)
+			world.events.publish({"type": "fortify.breached", "tx": px, "ty": py, "kind": kind})
+
+
 static func _tick_contact(world: Variant) -> void:
+	_tick_shoves(world)
 	var presses: Dictionary = _presses(world)
 	if presses.is_empty():
 		return

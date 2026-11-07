@@ -176,8 +176,8 @@ The source baseline is archived on GitHub at
   The brief is [docs/42](42-ome-okutama-setting.md); its section 6 is the order of the work.
   Building batch A has landed; the remaining art batches, templates, props and renames stay planned.
 - **The wider world by rail.** Other districts and cities reached by a train the colony repairs
-  first. Design first, as a note like docs/42, under the region and streaming work; nothing is
-  sized yet. See [docs/30](30-decisions.md#the-setting-cards-the-defaults-and-the-valley-is-the-first-of-several-2026-11-04).
+  first. The design exists as [docs/45](45-wider-world-by-rail.md), a note like docs/42, under the
+  region and streaming work; the sizing does not. See [docs/30](30-decisions.md#the-setting-cards-the-defaults-and-the-valley-is-the-first-of-several-2026-11-04).
 - **First-person spatial combat and perception.** One coherent obstruction and
   hit contract across visible geometry, sim movement, combat and NPC sight.
 - **First-person people and settlement operation.** Ledger animations, reports,
@@ -187,6 +187,9 @@ The source baseline is archived on GitHub at
   save/reload, die and succeed; measured performance, regression proof, campaign
   balance and human play. The default switch landed 2026-11-01 (docs/30, "First person
   is the default boot"), so the boot is first person and the top-down game is the testing build.
+- **Worn items on the first-person bodies, first cut.** [docs/44](44-clothing-layers.md)'s first
+  piece: the outfit resolver, a picture or an explicit none for all 63 worn items, five layer
+  families, gloves on the arms, and their gates. Waits on the organic survivor and the arms kit.
 - **Starter-kit polish (#275 round 2).** In `tools/blender/first_person_kit/build_kit.py`: plaster
   cloud noise reads as camouflage blocks up close; oak grain steps every 8 texels, like brickwork;
   paint chips follow atlas cells, not mesh edges; barricade planks float 6 mm off the brace; wall
@@ -223,11 +226,10 @@ The source baseline is archived on GitHub at
     stretch for gas masks and half-mask respirators, which need their own rung;
   - the gun case draws as a soft roll-top bag, and the crossbow bolt draws the 71 cm arrow, where a
     bolt is about 40 cm (`LENGTH_HINTS`); a long-case rung and a bolt length hint would tighten both.
-- **Arms polish (round 2 minors).** The open items of the arms review's round 2 (`claude/fp-arms`), each
-  still to do: the pistol inspect shows the back of the slide, a roll about the view axis; the hands sit
-  under the HUD key bar (presentation); skin tone changes at UV seams more than across the surface, with
-  144 islands in the GLB against the 44 charts the build prints; `paint-match` checks the sleeve against
-  the builder's constant rather than the survivor's atlas.
+- **Arms polish (round 2 minors), n1 only.** The round-2 review's skin tone at UV seams: small notches
+  and shards at the knuckles, with 144 islands in the GLB against the 44 charts the build prints. This is
+  art, for the art lead. The pistol inspect (m1), the key bar over the bare hands (m5) and the sleeve
+  check (n2) landed with the arms-polish piece; their record is under the record, by system.
 
 ##### UI overhaul
 
@@ -369,12 +371,8 @@ owes is pictures, a stage behind: the art group's "Pictures for the melee arc".
   status field with a decay. Gate: `godot:m2:filter` (the mask already reads it) and a CLOUD lane.
 - **The lurker.** Dormant indoors, wakes on indoor noise. Reuses the dormant placement seam from
   the population plan. Gate: `godot:m2:district` DORMANT.
-- **The juggernaut.** A heavy that shoves barricades, not only windows. Reader: fortify damage
-  from a zombie. Gate: `godot:m2:fortify` SHOVE.
 - **The burner.** Carries fire and spreads it to timber. Waits on fire as a sim fact (owner's
   card, docs/33). Gate: named with the fire piece.
-- **The feigner.** Lies among settled corpses, rises on approach. Reader: the corpse memory.
-  Gate: `godot:m2:sight` FEIGN.
 
 *Raiders, doctrine and archetypes (doctrine stage 2, archetypes stage 4):*
 
@@ -584,19 +582,8 @@ system.
   before-and-after run that a rebalance owes.
 - ~~**Light that burns down, and what feeds it**~~ — **landed** 2026-09-12, see the record.
 - ~~**Noise that is an item**~~ — **landed** 2026-09-12, see the record. Half of it: the eight new
-  devices are real, and the alarm and the noisemaker are **still free world singletons**, by the
-  owner's decision of 2026-09-12. Repricing them is below.
-- **The alarm and the noisemaker still cost nothing to place.** They are `fortify.gd` world
-  singletons that consume no item, and the noise slice deliberately left them that way: the owner
-  chose new items only, and `check_m2_materials.gd`'s PINNED lane asserts both by name, so
-  repricing them is a rebalance that would turn a shipped gate red rather than a content addition.
-  What closes it is giving each an item to spend and moving that PINNED assertion with it, in one
-  commit, with the before-and-after run that a rebalance owes.
-- **A purifier is spent but never refilled.** The transform slice gives the pump filter forty uses
-  and the billy can six, and when a purifier runs out it is simply a thing with nothing left in it.
-  There is no cartridge to replace and no way to boil the filter clean, so the best purifier in the
-  game is strictly a countdown. A refill recipe is the obvious close, and it wants the buildables
-  economy above rather than a key of its own.
+  devices are real, and the alarm and the noisemaker were **free world singletons** until
+  2026-11-05, by the owner's decision of 2026-09-12. They are priced now; see the record.
 - ~~**Comfort that is not food**~~ — **landed** 2026-09-12, see the record.
 - ~~**The mask that filters**~~ — **landed** 2026-09-12, see the record.
 - **The explosives docs/09 says already exist.** docs/09's cut list asserted *"they exist as rare
@@ -1454,7 +1441,16 @@ tables and day lines are report-noise.md in the project's planning/balance folde
 
 - **The ten-seed re-baseline after the zombie kinds.** The crawler (2026-11-04) joins the day-5 pool,
   so every campaign's spawns from day 5 on move, and its piece did not re-run the ten-seed table.
-  The re-baseline is owed in stage 2: ten seeds and a median wipe day, on `main` and on each
+  The lurker (2026-11-05) changes the boot's dormant bodies, a share of the existing slots, and did
+  not re-run it either. The re-baseline is owed in stage 2: ten seeds and a median wipe day, on `main`
+  and on each candidate, as the balance wall above says. Each later zombie kind owes the same run.
+  The feigner (2026-11-06) joins the day roll from wave 3 at weight 1, so every campaign's day-3-and-
+  later mix moves by about one draw in 138, and it did not re-run the table. The re-baseline is owed in
+  stage 2: ten seeds and a median wipe day, on `main` and on each candidate, as the balance wall above
+  says. Each later zombie kind owes the same run.
+  The gassed bloater (2026-11-06) keeps today's cloud numbers, so it moves no spawn, but it changes
+  what a cloud is (a decaying level, read per window), and it did not re-run the table either. The
+  re-baseline is owed in stage 2: ten seeds and a median wipe day, on `main` and on each
   candidate, as the balance wall above says. Each later zombie kind owes the same run.
 - **Distribution assertions.** Quiet nights, sieges, deaths and run lengths asserted as
   distributions in the balance harness, not as single-seed anecdotes.
@@ -2487,6 +2483,28 @@ not a to-do list:
     swatches, Blender clay/textured turnarounds and matched 1280x720 before/after, real-sky, repeat
     and magenta captures accompany the piece; repeat-run pixel noise is zero.
 
+- **The purifier refill: a carried material repacks a spent filter, 2026-11-04.** The pump filter
+  (`item.filter.pump`) has a `refill` block in `godot/content/items/kitchen.json`: one lump of
+  `charcoal` restores forty uses, up to its `purifies` of forty. The block is in
+  `godot/content/schemas/item.schema.json`, its `kind` enum held equal to `buildMaterial`'s. The sim
+  is `SimNeeds.refill` in `godot/sim/modules/needs.gd`, beside `purify`: it picks the carried purifier
+  that takes a refill, is not full and has the fewest uses left, spends one unit through
+  `SimFortify.consume_material` (the build path's consumer), and publishes `need.refilled`. A
+  `purify` that spends the last use of a refillable purifier now leaves it at zero instead of
+  despawning it. The stove is unchanged: `MATERIAL_KINDS` has no fuel kind. The billy can and the
+  tablets take no refill. The verb is the E ladder's `repack the filter` in `fortify.gd`'s `rung_of`,
+  placed above the free placements, and a `purifier.refill` command in `need.intake` reaches the same
+  function.
+  - **The gate.** `npm run godot:m2:transform` prints `M2_TRANSFORM_OK pinned content cook order boil
+    purify rank reach refill`. Its REFILL lane runs a filter down by forty real bottles, then repacks
+    it from one lump of charcoal to forty and checks the lump is spent and `need.refilled` published;
+    a part-used filter at ten tops up to forty, not past it; no charcoal and a full filter refuse
+    with nothing spent; tablets and a billy can refuse even with charcoal carried; the E ladder offers
+    `refill` and pressing E repacks; the command does the same. The schema lane refuses a refill whose
+    kind is not in `MATERIAL_KINDS` or whose count is below one, with a planted `unobtainium` block.
+  - **The plant.** Commenting out the material consume in `refill` turns the gate red:
+    `REFILL: the charcoal is still in the pack after the repack spent it`.
+  - **Measured.** Nothing measured. The entry makes no balance claim.
 - **First-person arms in the view, 2026-11-04.** docs/41 item W1, the held weapon: the player's
   own arms under the eye, holding the item the sim says is in hand; bare hands show the arms alone.
   It plays the arms kit (`tools/blender/first_person_arms/README.md`, round 1) through its README's
@@ -2645,7 +2663,7 @@ not a to-do list:
   `vehicle.truck` is Kei Truck (was "Flatbed truck"). `vehicle.sedan` stays "Sedan" for now: the
   `MOUNT` lane of `godot/check_vehicles.gd` asserts the HUD clause "a sedan beside you", and that clause
   is built from the name, so the rename waits for that pin to move. The other vehicles keep their names,
-  as docs/42 says. The vehicle files carry no description field.
+  as docs/42 says. The vehicle files carry no description field. The sedan now takes its name too (Kei Car), and the `MOUNT` pin reads the car's name from content, so the "stays Sedan" clause above no longer holds.
   - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:check:wrecks`,
     `npm run godot:m2:vehicles` (`M2_VEHICLES_OK`) and `npm run godot:m2:light_burn` hold on the renamed
     content, and so does `npm run godot:smoke`.
@@ -4256,6 +4274,93 @@ not a to-do list:
   spawns over four seeds legless from the first tick, 36 of 800 shamblers crawling at the base's
   0.05); `godot:check:appearance` ROSTER. The ten-seed table was not re-run; see "The ten-seed
   re-baseline after the zombie kinds" under Proof.
+- **The juggernaut, 2026-11-06.** A zombie kind, content plus one reader: `godot/content/zombies/juggernaut.json`
+  extends `zombie.base` with the heavy's appearance, body, sensory, locomotion and variance, `introducedInWave` 4,
+  `weight` 1, and `shoves: {barricades: true, perHit: 30, cooldownTicks: 40}` (schema: `zombie.schema.json`).
+  `roster.gd`'s `shove_of` reads the block, and `spawn_zombie` gives a shoving body a `shove` component. The heavy
+  still shoves windows as before; contact pressure (`_press`, the stages) is unchanged. The reader is
+  `fortify.gd`'s `_tick_shoves`: a shoving body pressed on a barricade tile, with a living body within 2.5 m on the
+  far side, takes `perHit` off the barricade's condition every `cooldownTicks`. The condition is sim-owned:
+  `BARRICADE_CONDITION` is scrap 60 and timber 150, full by default, and `condition_of` reads a missing key as full,
+  so nothing changes for a barricade without a shove. At zero the barricade is removed like a breach (no material
+  drop, since there is no dismantle verb for barricades) and `fortify.breached` is published. Window boards, wire
+  fences and doors are not shoved. The repair job reads its own metal recipe, not barricade condition, so it is
+  untouched: a barricade is whole or gone, and a damaged one is not a repair target (the conservative default).
+  Owner cards (defaults built): scrap falls in 2 hits, timber in 5, 30 per hit, 40 ticks (2 s) apart; no fences or
+  doors; wave 4, weight 1. Gate: `godot:m2:fortify` SHOVE (a juggernaut brings a timber wall down in 5 shoves of 30,
+  40 ticks apart, and walks through; a shambler in the same fixture shoves nothing and leaves the wall at 150; a
+  juggernaut with nobody behind shoves nothing; the plant, a shambler given a `shove` component, shoves 5 times and
+  turns the lane red; the wall's 90 condition comes back from a save). `godot:m2:roster` JUGGERNAUT (resolves as
+  content with the shoves block, weight 1 from wave 4, carries its shove as a component, has eyes; a heavy carries
+  none). `godot:check:appearance` shares the heavy's rig and the group `["zombie.heavy", "zombie.juggernaut"]`. The
+  ten-seed table was not re-run; it is owed with the other zombie kinds under Proof.
+- **Arms polish, m1, m5 and n2, 2026-11-06.** Round 2's three code minors, one piece on
+  `claude/fp-arms-polish`.
+  - **The pistol inspect turns about view-up (m1).** `arms_clips.py`'s `inspected` turns the pistol with a
+    yaw of 72 degrees about Blender Z and a pitch of 8 degrees, and keeps the offset. The old turn rolled
+    about the bore, which points along the view, so the slide showed only at its rear and the right
+    sleeve crossed in front of it at the peak. Measured on the weapon frame (`grip_r`) between
+    `idle_pistol` and the inspect peak at frame 90: before, 75.2 degrees with the axis 82.9 degrees off
+    up; after, 72.4 degrees with the axis 6.8 degrees off up. `arms_checks.py` `pistol-turn` asserts the
+    axis within 30 degrees of up and the angle at least 60 degrees. A negative yaw of the same size fails
+    the support arm's reach (`bone-length`, 264.8 mm against 262.4) and smoothness checks; a positive one
+    passes. Plant `pistol-roll` (the old turn) is refused by `pistol-turn`. The evidence renders are under
+    `/home/jtf/sz-shared/fp-arms-polish/evidence/`, before and after at 0.5, 1.0 and 1.5 s, 3x crops.
+  - **The key bar clears the bare hands (m5).** `hud.gd`'s key bar moved to 0.69 of the view height
+    (`help_rect`, the one rectangle the draw and the gate share). At idle the hands project from 559 px
+    down at both 1280x720 and 960x720 (the padded rectangle, a 5 cm hand radius); the bar was at 642 to
+    686 and now sits at 497 to 541. `godot:check:first_person` HANDS asserts no overlap at both sizes, and
+    a bar placed on the hands must read as overlapping (the plant).
+  - **The sleeve is checked against the survivor's own arm islands (n2).** `check_paint_match` samples the
+    survivor's arm rectangles from `survivor_atlas.png` at check time. The sleeve's mean is 7.29 levels from
+    the survivor's arm mean (sleeve 41.0, 39.8, 37.0; survivor 46.0, 44.1, 40.0), and the limit is 12, the
+    gap with a margin. Plant `sleeve-tone` (the sleeve repainted to the lightest in-ramp colour, which the
+    ramp check passes) is refused by `paint-match` at 27.3 levels.
+  - **Not done.** The round-2 review's N1 (the trigger finger carried over from the previous clip) is a view
+    branch fix (`deterministic` on the arms' player), not in this piece.
+- **The lurker, 2026-11-05.** Zombie kind ten, a dormant kind: `godot/content/zombies/lurker.json`,
+  extends `zombie.base`, with the shambler's body, sensory, locomotion and workwear picture (no
+  picture of its own, as the crawler and bloodhound). It takes `dormantShare` 0.2 of the dormant
+  manifest's existing slots, drawn on its own `dormantKind` stream at boot (`roster.gd`
+  `spawn_dormant_from_manifest`), and `weight_of` reads it as 0, so the day's roll never draws it.
+  Records, their order and each record's `pick_type` draw are unchanged. Readers used: the dormant
+  manifest and its `make_dormant`; the indoor floor of a placed building, `SimWorldgen.indoor_tiles_of`
+  (reached through `load` because roster, worldgen, director and roster form a preload cycle); the
+  field's `noise_at` and the shambler's hearing threshold. The wake rule is one content flag,
+  `wakesIndoors`, read at spawn: a lurker keeps its building's indoor floor as `lair` (flat `x, y`
+  pairs on the `shambler` component), and the Dormant arm wakes it on a noise at or above its hearing
+  threshold on any lair tile, as well as on its own tile. A kind without the flag keeps the
+  shambler's rule exactly. Gates: `godot:m2:dormant` LURKER (a real booted district at seed 20260805
+  holds one with a 32-tile indoor floor; a noise under its threshold outdoors leaves it asleep and
+  still for 120 ticks; a noise on another floor tile, with its own tile judged below threshold the
+  whole window, wakes it on tick 1 and it walks; a planted body whose floor is one outdoor tile must
+  wake on loud outdoor noise, so the QUIET judgement could see a leak; the floor and dormant state
+  survive a save); `godot:m2:roster` LURKER (resolves as content, `dormantShare` and `wakesIndoors`
+  set, weight 0, never drawn in 500 rolls at day 12, a spawned body has eyes). The MIX pin and the
+  day-1 stream are unchanged; the BOOT lane now allows a slot to be a dormant kind as well as a
+  shambler. The oracle (`npm test`) refused the first draft, a `wake_indoors` behaviour tag, because
+  its registry lists the implemented tags; the flag is the content-side answer, and the oracle is
+  untouched. The ten-seed re-baseline is owed; see "The ten-seed re-baseline after the zombie kinds"
+- **The feigner, 2026-11-06.** Zombie kind eleven: `godot/content/zombies/feigner.json`, wave 3, weight
+  1, shambler stats and workwear picture, and a `feigns` block (`riseRadius` 2.5 m, `lieWithin` 1.0 m,
+  `lieSearch` 12 m). A feigner is born in the new `Feign` state (`shambler.gd`, state 7, from
+  `make_shambler`, and only a kind that declares `feigns` gets the keys). It walks to within `lieWithin`
+  of the nearest corpse within `lieSearch`, or lies where it stands, and reads no sight, scent or hearing
+  while it lies. It rises to Seek when a living body comes within `riseRadius`, or when a blow lands on
+  it (`attack.connected`), and then it is an ordinary shambler. Its picture is its own corpse frame while
+  it lies (`SimShambler.is_lying` read by the first-person anim state and the top-down body flag). The
+  memory reader: a dead body that was never seen alive is now remembered as a `corpse` record (kind
+  `corpse`, `sightings.gd`), where it was dropped before; a body watched going down is still erased, as
+  it was. A feigner is recorded as a corpse while it lies (`_kind_of`) and flips to a zombie on the first
+  sight after it rises. The clause, the freshest-hostile read and the hostile-only onboarding read leave
+  corpses out; the memory marks and the afterimages skip them (`main.gd`). Gates: `godot:m2:sight` FEIGN
+  (three corpses in a colonist's memory at 12.9 m and nothing hostile; a body at 1.5 times the radius
+  leaves it lying; a body inside the radius rises it within 30 ticks and the record flips; a planted
+  radius of twice the real one rises it at 1.5 times, which the STAYS judgement must see; a blow rises
+  it); `godot:m2:roster` FEIGNER (resolves, has a `feigns` block, has a weight, is born feigning, has
+  eyes) and MIX, re-pinned for the day-7 pool over ten kinds (the feigner draws `g`, not yet in the
+  fifty). The ten-seed table was not re-run; see "The ten-seed re-baseline after the zombie kinds"
+  under Proof.
 - **Colony screen follow-ups, 2026-10-26.** Three nits the Colony and HUD bullets named, one piece.
   - **Reopen scrolls to the pick.** `work_panel.gd` clears `_scrolled_for` on
     `NOTIFICATION_VISIBILITY_CHANGED`, so a reopened screen scrolls to the game's pick afresh.
@@ -15915,18 +16020,45 @@ not a to-do list:
   floodlight is a one-way trip and is recorded as such — two placeable items, two opposite answers,
   both by the owner's decision of 2026-09-12 rather than by whichever was written first.
 
-  **Half of it did not ship, on purpose.** The what's-left entry wanted the alarm and the noisemaker
-  turned into things you had to have carried there first. They are still free world singletons,
-  because `check_m2_materials.gd`'s PINNED lane asserts both of them by name and by cost — so
-  repricing them is a rebalance that turns a shipped gate red, not a content addition riding along
-  beside one. The owner chose new items only. The repricing is named in what's left with the
-  before-and-after run it owes.
+  **Half of it did not ship, on purpose, until 2026-11-05.** The what's-left entry wanted the alarm and
+  the noisemaker turned into things you had to have carried there first. They stayed free world
+  singletons, because `check_m2_materials.gd`'s PINNED lane asserts both of them by name and by cost,
+  so repricing them was a rebalance that would turn a shipped gate red. The owner chose new items
+  only. The repricing landed 2026-11-05; see the next paragraph.
 
   **HORDE is the lane worth naming**, because it measures the thing the slice is for rather than
   the field it writes into: twelve bodies at a mean 18.0 m held 18.6 m through a 400-tick fuse and
   then closed to 3.0 m over 3600 ticks of siren, while an identical siren that never went off left
   its ring at 20.9 m. The control is what makes it an assertion — the crowd came for the sound, and
   a crowd that did not hear one stayed where it was.
+
+  **The alarm and the noisemaker are priced, 2026-11-05.** The alarm costs one wire and the noisemaker
+  one metal (`fortify.gd` RECIPES: `"alarm": "wire", "noisemaker": "metal"`). Both are spent in
+  `_complete`, only after the placement checks pass, so a refused placement spends nothing. The alarm
+  rung needs a carried wire and the noisemaker rung a carried metal (`rung_of`); the intake rows
+  `trap.alarm.place` and `bait.noisemaker.place` also require the unit carried. The E ladder keeps its
+  default: a lone wire on open ground strings a fence, because the fence rung sits above the alarm, so E
+  lays the alarm only where a wall cannot go up (indoors). The owner card is docs/33's "The trip alarm".
+  PINNED asserts both costs by name, and PRICED (in `godot:m2:materials`) asserts that an empty pack
+  places neither device and one unit spent is one unit gone. Removing both RECIPES rows turns PINNED red
+  with `M2_MATERIALS_FAIL`. The grade gate's chrome lane needed a fixture change: the amber E keycap is
+  the free alarm rung, so an empty pack hid it; `check_grade_look.gd` stows one wire before the scene
+  is set up, and the count is back at 21 pixels.
+
+  Before and after, `godot:playtest` (the scripted survivor, ten days, seeds 1, 2, 3; base is
+  `origin/main` `3b274730`, after is the merge `80887746`). The log has no placement field, so the
+  alarms and noisemakers the colony lays are not counted.
+
+  | Seed | Base | After |
+  |---|---|---|
+  | 1 | wiped, day 9, 0 survivors, 3 deaths, wall 3454 s | wiped, day 9, 0 survivors, 3 deaths, wall 2975 s |
+  | 2 | wiped, day 8, 0 survivors, 4 deaths, wall 2205 s | wiped, day 8, 0 survivors, 4 deaths, wall 2046 s |
+  | 3 | alive, day 11, 2 survivors, not over, wall 3823 s | alive, day 11, 2 survivors, not over, 1 death, wall 3249 s |
+
+  Wall times are not quiet-machine numbers: the three base runs and the three after runs each ran three
+  at once. `M2_BALANCE_OK` holds on both trees (base 384 s, after 295 s in the handoff's concurrent
+  runs; 217 s on the final chain, run beside the seed 3 playtest). The seed outcomes are the same on
+  both trees; the measurement does not show a shift in the wipe day.
 - **Items** — ~~build materials: the substance that is not scrap~~ **landed** 2026-09-12
   (`npm run godot:m2:materials` → **`M2_MATERIALS_OK pinned kind kinds findable reach recipes`**, a
   new gate whose six lanes were each broken and watched go red; `godot:m2:fortify`, `godot:m2:jobs`,
@@ -16102,6 +16234,28 @@ not a to-do list:
   once-per-survivor contamination bug **was already fixed and its entry was stale**, and
   `_has_open_wound` matches `kind == "bite"` alone, so a deep laceration or a burn is no way in for
   a plume.
+- **Zombies — the gassed bloater, 2026-11-06.** The burst's cloud is a gas level that decays, not a
+  flag that waits for its expiry. `godot/content/zombies/bloater.json` carries a `gas` block (`radius`
+  6.0, `lingerTicks` 1800, `decayPerTick` 1/1800, `threshold` 0.000001, `hurtEvery` 200), and
+  `bloater.gd`'s `gas_of` reads it, with the module's constants as the fallback for a kind with no
+  block. The burst writes `level` 1.0 and `bornAtTick` into the cloud's `contamination` component; the
+  system decays the level once a tick and despawns the cloud when it reaches the threshold. A cloud
+  with no level (a fixture, or a save from before the field) reads its level off its nominal end. The
+  disc and the roll are unchanged: the roll reads the cloud's level, not the burst event, and a survivor
+  in the disc with an open wound rolls once per `hurtEvery` window, `contaminationRolls` rows carrying a
+  `window` (a row without one is window 0). The owner's call of 2026-11-06 set the window to ten seconds (`hurtEvery`
+  200 at 20 ticks a second): a survivor who stands in the cloud is rolled again every window, nine times
+  over a cloud's 90 s life. The field is per cloud, not per tile: the footprint is one disc at
+  one level, so a grid would store the same level in every cell. Gates: `godot:m2:filter` LINGER (a
+  bitten survivor outside the disc, walked in on tick 600, rolled once with the cloud there; walked in
+  on the cloud's last live tick, 1799, rolled once; walked in on 1800, the tick the level reaches zero,
+  not rolled and the cloud gone; a planted field held at level 1.0, walked in on 1900, rolled, so the
+  GONE judgement could see a leak), and LINGER STAY (a survivor who stands in the cloud from its birth to
+  its end is rolled nine times, one per 200-tick window; with `hurtEvery` back at 1800 it is rolled once,
+  and the lane goes red). The CLOUD, PINNED and BLOOM lanes of the same gate, the roster's BLOOM and
+  BLOOM-TWICE, and the chain's medicine lane are unchanged, since their fixtures stand inside one window.
+  The FAST balance tier does not move: `godot:m2:balance` prints the same FAST lines on `origin/main`
+  and on this branch (`M2_BALANCE_OK` on both). The ten-seed re-baseline is owed (see Proof).
 - **Items** — ~~food, drink, and the medical quality tiers~~ **landed** 2026-09-12
   (`npm run godot:m2:medicine` → **`M2_MEDICINE_OK`**, a new gate whose eight lanes were each run
   red *and* green before they were trusted; `godot:m2:treatment`, `godot:m2:wounds`,

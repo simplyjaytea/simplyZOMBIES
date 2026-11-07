@@ -19,6 +19,7 @@ const SimItemsRes = preload("res://sim/modules/items.gd")
 const Clock = preload("res://sim/time/clock.gd")
 
 const TYPE_BASE: String = "zombie.base"
+const WORLDGEN_PATH: String = "res://sim/map/worldgen.gd"
 const TYPE_SHAMBLER: String = "zombie.shambler"
 const TYPE_SCREAMER: String = "zombie.screamer"
 const TYPE_BLOATER: String = "zombie.bloater"
@@ -113,8 +114,39 @@ static func types(world: Variant) -> Array[Dictionary]:
 static func weight_of(world: Variant, type_id: String) -> int:
 	var entry: Variant = content_entry(world, type_id)
 	if entry is Dictionary:
+		# A kind that declares `dormantShare` is placed only by the dormant manifest, never drawn
+		# by the day's roll, so it is silenced here -- the same zero a fixture uses to take a kind
+		# off the table. Read from content, so no kind id is named in this file.
+		if dormant_share_of(world, type_id) > 0.0:
+			return 0
 		return maxi(0, int((entry as Dictionary).get("weight", DEFAULT_WEIGHT)))
 	return DEFAULT_WEIGHT
+
+
+# Whether a kind's dormant bodies hear the whole indoor floor of their building (`wakesIndoors`).
+static func wakes_indoors_of(world: Variant, type_id: String) -> bool:
+	var entry: Variant = content_entry(world, type_id)
+	return entry is Dictionary and bool((entry as Dictionary).get("wakesIndoors", false))
+
+
+# A kind's `dormantShare`: the fraction of the manifest's existing dormant slots it takes. 0 when
+# the kind declares none.
+static func dormant_share_of(world: Variant, type_id: String) -> float:
+	var entry: Variant = content_entry(world, type_id)
+	if entry is Dictionary:
+		return clampf(float((entry as Dictionary).get("dormantShare", 0.0)), 0.0, 1.0)
+	return 0.0
+
+
+# Every kind that takes a share of the dormant slots, as `{id, share}`, in `types()` order.
+static func dormant_kinds(world: Variant) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for entry in types(world):
+		var type_id: String = String(entry.get("id", ""))
+		var share: float = dormant_share_of(world, type_id)
+		if share > 0.0:
+			out.append({"id": type_id, "share": share})
+	return out
 
 
 static func pick_type(world: Variant, rng: Variant, at_tick: int = -1) -> String:
@@ -292,8 +324,28 @@ static func spawn_zombie(world: Variant, x: float, y: float, type_id: String, rn
 			alarm = {"magnitude": 300, "relay": true, "cooldownTicks": 600}
 		alarm["ticksUntilReady"] = 0
 		world.components.set_component(ent, "alarm", alarm)
+	var shove: Dictionary = shove_of(world, type_id)
+	if not shove.is_empty():
+		world.components.set_component(ent, "shove", shove)
 	_wear_the_kit(world, ent, type_id, x, y)
 	return ent
+
+
+# A kind's barricade shove, from its `shoves` block: the per-hit damage and the cooldown, with the
+# cooldown itself starting ready. Empty for a kind that shoves nothing or shoves no barricades, so the
+# component is only on the bodies that have it (fortify.gd's `_tick_shoves` reads it).
+static func shove_of(world: Variant, type_id: String) -> Dictionary:
+	var entry: Variant = content_entry(world, type_id)
+	if not (entry is Dictionary) or not ((entry as Dictionary).get("shoves") is Dictionary):
+		return {}
+	var block: Dictionary = (entry as Dictionary)["shoves"] as Dictionary
+	if not bool(block.get("barricades", false)):
+		return {}
+	return {
+		"perHit": float(block.get("perHit", 0.0)),
+		"cooldownTicks": maxi(1, int(block.get("cooldownTicks", 1))),
+		"cooldown": 0,
+	}
 
 
 # What a body of this kind is wearing, from the resolved entry's `worn` list. A kind that
@@ -372,15 +424,52 @@ static func spawn_dormant_from_manifest(world: Variant, map: Variant) -> Array[i
 		return spawned
 	var rng: Variant = world.rng.stream("dormant")
 	var day_one: int = Clock.tick_on_day(1, Clock.DAY_BEGINS)
+	# The dormant kinds (`dormantShare`) draw on their own stream, and only when the content has
+	# one: a campaign whose tree declares none draws nothing here and is byte-identical to before.
+	# The manifest's records and their order are untouched, and each record still costs the same
+	# `pick_type` draw it always did, so a record that is not a dormant kind spawns exactly as it did.
+	var kinds: Array[Dictionary] = dormant_kinds(world)
+	var kind_rng: Variant = world.rng.stream("dormantKind") if not kinds.is_empty() else null
+	var worldgen: Script = load(WORLDGEN_PATH) as Script
 	for rec in records as Array:
 		if not (rec is Dictionary):
 			continue
 		var r: Dictionary = rec as Dictionary
 		var type_id: String = pick_type(world, rng, day_one)
+		var dormant_kind: String = _dormant_kind_roll(kinds, kind_rng)
+		if dormant_kind != "":
+			type_id = dormant_kind
 		if not (r.has("x") and r.has("y")):
 			push_error("dormant: record %s names no tile, so nothing was put to sleep in it" % str(r))
 			continue
 		var ent: int = spawn_zombie(world, float(r["x"]) + 0.5, float(r["y"]) + 0.5, type_id, rng)
-		SimShamblerRes.make_dormant(world, ent)
+		# A kind that declares `wakesIndoors` keeps the indoor floor of its building, so the
+		# Dormant arm can hear a noise anywhere inside it rather than only at its own tile. The floor
+		# is worldgen's `indoor_tiles_of`, reached through `load` because worldgen preloads this
+		# module's neighbour director, which preloads this file.
+		var lair: Array = []
+		if wakes_indoors_of(world, type_id) and r.has("building") and worldgen != null:
+			var index: int = int(r["building"])
+			var buildings: Array = map.buildings as Array
+			if index >= 0 and index < buildings.size():
+				var tiles: Array = worldgen.call("indoor_tiles_of", map, buildings[index]) as Array
+				for tile in tiles:
+					lair.append(int((tile as Vector2i).x))
+					lair.append(int((tile as Vector2i).y))
+		SimShamblerRes.make_dormant(world, ent, lair)
 		spawned.append(ent)
 	return spawned
+
+
+# One draw over the dormant kinds' shares, in `dormant_kinds` order: a kind wins its share of the
+# unit interval and anything left over is "not a dormant kind" (""). No kinds, no draw.
+static func _dormant_kind_roll(kinds: Array[Dictionary], rng: Variant) -> String:
+	if kinds.is_empty() or rng == null:
+		return ""
+	var roll: float = float(rng.call("next"))
+	for record in kinds:
+		var share: float = float(record["share"])
+		if roll < share:
+			return String(record["id"])
+		roll -= share
+	return ""
