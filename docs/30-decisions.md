@@ -8090,6 +8090,46 @@ The first-person key bar, the strip that names the keys along the bottom of the 
 of the view's height so the bare hands at idle no longer sit under it. The hands are where they were; the
 bar is the thing that moved. It is one rectangle (`hud.gd`'s `help_rect`), and `godot:check:first_person`
 HANDS holds it clear at 1280x720 and 960x720.
+## The bloater's gas is a tile field, 2026-11-06
+
+The bloater's cloud was a disc with an expiry: a contamination flag that was in force until its end
+tick, and a roll for any survivor standing in the disc. It is now a gas level that decays, and the
+roll reads the level.
+
+- **The field is per cloud.** The burst writes a `level` of 1.0 into the cloud's component, and the
+  system decays it once a tick by `decayPerTick`. The cloud is gone when the level reaches `threshold`.
+  A tile grid was considered and not built: the burst's footprint is one disc at one level, nothing
+  spreads or diffuses, so a grid would store the same number in every cell and save all of them.
+  The reader is the same either way, so a per-tile field is a change of storage, not of meaning, if a
+  plume ever needs one.
+- **Saves.** `level`, `bornAtTick` and the decay parameters ride the cloud's `contamination`
+  component, which already saves. A cloud written before the field has no level and reads its level
+  off its nominal end, which is the same linear law, so a save from before this restores as it was.
+  `contaminationRolls` rows gain a `window`; a row without one is window 0. No `SAVE_VERSION` bump.
+- **Numbers.** The shipped `gas` block is today's numbers written out: a 6 m disc, 1800 ticks of life,
+  a decay of 1/1800 a tick, a threshold a millionth above zero (so the cloud is alive on its 1799th
+  tick and gone on its 1800th, as the expiry was), and a roll window the length of the life.
+- **Windows.** `hurtEvery` is the content knob for "a survivor is hurt again while the gas is still
+  there". Its shipped default is the cloud's whole life, one roll, so nothing moves.
+- **Gates.** `godot:m2:filter` LINGER pins the three ticks and a planted field that never decays; the
+  CLOUD, PINNED and BLOOM lanes are unchanged. The plant (`decayPerTick` 0 in the content) turns LINGER
+  red.
+
+## The gas hurts every ten seconds, the owner's call, 2026-11-06
+
+The owner chose repeated rolls: a survivor who stands in a bloater's cloud is rolled again every ten
+seconds, not once per cloud. The owner was told this moves balance and chose it anyway.
+
+- **The arithmetic.** The simulation runs at 20 ticks a second (`TICK_HZ`), so ten seconds is
+  `hurtEvery` 200. A cloud lives `lingerTicks` 1800, ninety seconds, so a survivor standing in it the
+  whole time is rolled in nine windows, windows 0 to 8. The window logic was already there (a
+  `contaminationRolls` row carries its `window`), so the change is one content number.
+- **Measured.** `godot:m2:filter` LINGER STAY: nine rolls, one per 200-tick window, and the same lane
+  with `hurtEvery` at 1800 fails with `rolled 1 times, want 9`. `godot:m2:balance` FAST prints the same
+  lines on `origin/main` and on this branch; the tier does not move. The ten-seed re-baseline is still
+  owed and names the gas.
+- **Why it stays a content number.** The other lanes stand inside one window (the CLOUD fixture stands
+  forty ticks), so their one-roll pins hold without a change to their fixtures.
 
 ## The alarm and the noisemaker are priced (2026-11-05)
 
