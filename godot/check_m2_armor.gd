@@ -36,6 +36,7 @@ const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimCondition = preload("res://sim/condition.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
+const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
 
 # Fixtures, not welds. The sim names none of these -- it asks content for a number -- but a gate
 # has to hold something concrete, and these are the rungs the catalogue ships: a vest that covers
@@ -751,6 +752,16 @@ func _only_what_covered_the_blow_wears() -> bool:
 # its share. If `damage_part` stopped calling the wear, or the wear stopped reaching the plate, the
 # plate would still read full here with torso blows on the record.
 func _a_shambler_in_the_district_wears_the_plate() -> bool:
+	# This lane tests what a blow wears, not who strikes: the colonists' aid (npc_combat.gd NPC_AID_ENABLED) is pinned
+	# off for it and restored on every exit path.
+	var aid_was: bool = SimNpcCombat.NPC_AID_ENABLED
+	SimNpcCombat.NPC_AID_ENABLED = false
+	var ok: bool = _reached_body()
+	SimNpcCombat.NPC_AID_ENABLED = aid_was
+	return ok
+
+
+func _reached_body() -> bool:
 	var lane: String = "REACHED"
 	var w: Variant = SimBoot.playable(20260805, 64)["world"]
 	var carrier: int = SimItems.spawn_item(w, CARRIER, {"tier": "scavenged"})
