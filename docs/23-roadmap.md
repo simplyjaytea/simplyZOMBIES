@@ -176,8 +176,8 @@ The source baseline is archived on GitHub at
   [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
   The brief is [docs/42](42-ome-okutama-setting.md); its section 6 is the order of the work.
 - **The wider world by rail.** Other districts and cities reached by a train the colony repairs
-  first. Design first, as a note like docs/42, under the region and streaming work; nothing is
-  sized yet. See [docs/30](30-decisions.md#the-setting-cards-the-defaults-and-the-valley-is-the-first-of-several-2026-11-04).
+  first. The design exists as [docs/45](45-wider-world-by-rail.md), a note like docs/42, under the
+  region and streaming work; the sizing does not. See [docs/30](30-decisions.md#the-setting-cards-the-defaults-and-the-valley-is-the-first-of-several-2026-11-04).
 - **First-person spatial combat and perception.** One coherent obstruction and
   hit contract across visible geometry, sim movement, combat and NPC sight.
 - **First-person people and settlement operation.** Ledger animations, reports,
@@ -371,8 +371,6 @@ owes is pictures, a stage behind: the art group's "Pictures for the melee arc".
   status field with a decay. Gate: `godot:m2:filter` (the mask already reads it) and a CLOUD lane.
 - **The lurker.** Dormant indoors, wakes on indoor noise. Reuses the dormant placement seam from
   the population plan. Gate: `godot:m2:district` DORMANT.
-- **The juggernaut.** A heavy that shoves barricades, not only windows. Reader: fortify damage
-  from a zombie. Gate: `godot:m2:fortify` SHOVE.
 - **The burner.** Carries fire and spreads it to timber. Waits on fire as a sim fact (owner's
   card, docs/33). Gate: named with the fire piece.
 
@@ -4288,6 +4286,26 @@ not a to-do list:
   spawns over four seeds legless from the first tick, 36 of 800 shamblers crawling at the base's
   0.05); `godot:check:appearance` ROSTER. The ten-seed table was not re-run; see "The ten-seed
   re-baseline after the zombie kinds" under Proof.
+- **The juggernaut, 2026-11-06.** A zombie kind, content plus one reader: `godot/content/zombies/juggernaut.json`
+  extends `zombie.base` with the heavy's appearance, body, sensory, locomotion and variance, `introducedInWave` 4,
+  `weight` 1, and `shoves: {barricades: true, perHit: 30, cooldownTicks: 40}` (schema: `zombie.schema.json`).
+  `roster.gd`'s `shove_of` reads the block, and `spawn_zombie` gives a shoving body a `shove` component. The heavy
+  still shoves windows as before; contact pressure (`_press`, the stages) is unchanged. The reader is
+  `fortify.gd`'s `_tick_shoves`: a shoving body pressed on a barricade tile, with a living body within 2.5 m on the
+  far side, takes `perHit` off the barricade's condition every `cooldownTicks`. The condition is sim-owned:
+  `BARRICADE_CONDITION` is scrap 60 and timber 150, full by default, and `condition_of` reads a missing key as full,
+  so nothing changes for a barricade without a shove. At zero the barricade is removed like a breach (no material
+  drop, since there is no dismantle verb for barricades) and `fortify.breached` is published. Window boards, wire
+  fences and doors are not shoved. The repair job reads its own metal recipe, not barricade condition, so it is
+  untouched: a barricade is whole or gone, and a damaged one is not a repair target (the conservative default).
+  Owner cards (defaults built): scrap falls in 2 hits, timber in 5, 30 per hit, 40 ticks (2 s) apart; no fences or
+  doors; wave 4, weight 1. Gate: `godot:m2:fortify` SHOVE (a juggernaut brings a timber wall down in 5 shoves of 30,
+  40 ticks apart, and walks through; a shambler in the same fixture shoves nothing and leaves the wall at 150; a
+  juggernaut with nobody behind shoves nothing; the plant, a shambler given a `shove` component, shoves 5 times and
+  turns the lane red; the wall's 90 condition comes back from a save). `godot:m2:roster` JUGGERNAUT (resolves as
+  content with the shoves block, weight 1 from wave 4, carries its shove as a component, has eyes; a heavy carries
+  none). `godot:check:appearance` shares the heavy's rig and the group `["zombie.heavy", "zombie.juggernaut"]`. The
+  ten-seed table was not re-run; it is owed with the other zombie kinds under Proof.
 - **Arms polish, m1, m5 and n2, 2026-11-06.** Round 2's three code minors, one piece on
   `claude/fp-arms-polish`.
   - **The pistol inspect turns about view-up (m1).** `arms_clips.py`'s `inspected` turns the pistol with a
