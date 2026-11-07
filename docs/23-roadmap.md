@@ -2633,7 +2633,7 @@ not a to-do list:
   `vehicle.truck` is Kei Truck (was "Flatbed truck"). `vehicle.sedan` stays "Sedan" for now: the
   `MOUNT` lane of `godot/check_vehicles.gd` asserts the HUD clause "a sedan beside you", and that clause
   is built from the name, so the rename waits for that pin to move. The other vehicles keep their names,
-  as docs/42 says. The vehicle files carry no description field.
+  as docs/42 says. The vehicle files carry no description field. The sedan now takes its name too (Kei Car), and the `MOUNT` pin reads the car's name from content, so the "stays Sedan" clause above no longer holds.
   - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:check:wrecks`,
     `npm run godot:m2:vehicles` (`M2_VEHICLES_OK`) and `npm run godot:m2:light_burn` hold on the renamed
     content, and so does `npm run godot:smoke`.
