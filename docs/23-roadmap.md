@@ -226,11 +226,10 @@ The source baseline is archived on GitHub at
     stretch for gas masks and half-mask respirators, which need their own rung;
   - the gun case draws as a soft roll-top bag, and the crossbow bolt draws the 71 cm arrow, where a
     bolt is about 40 cm (`LENGTH_HINTS`); a long-case rung and a bolt length hint would tighten both.
-- **Arms polish (round 2 minors).** The open items of the arms review's round 2 (`claude/fp-arms`), each
-  still to do: the pistol inspect shows the back of the slide, a roll about the view axis; the hands sit
-  under the HUD key bar (presentation); skin tone changes at UV seams more than across the surface, with
-  144 islands in the GLB against the 44 charts the build prints; `paint-match` checks the sleeve against
-  the builder's constant rather than the survivor's atlas.
+- **Arms polish (round 2 minors), n1 only.** The round-2 review's skin tone at UV seams: small notches
+  and shards at the knuckles, with 144 islands in the GLB against the 44 charts the build prints. This is
+  art, for the art lead. The pistol inspect (m1), the key bar over the bare hands (m5) and the sleeve
+  check (n2) landed with the arms-polish piece; their record is under the record, by system.
 
 ##### UI overhaul
 
@@ -376,8 +375,6 @@ owes is pictures, a stage behind: the art group's "Pictures for the melee arc".
   from a zombie. Gate: `godot:m2:fortify` SHOVE.
 - **The burner.** Carries fire and spreads it to timber. Waits on fire as a sim fact (owner's
   card, docs/33). Gate: named with the fire piece.
-- **The feigner.** Lies among settled corpses, rises on approach. Reader: the corpse memory.
-  Gate: `godot:m2:sight` FEIGN.
 
 *Raiders, doctrine and archetypes (doctrine stage 2, archetypes stage 4):*
 
@@ -1446,7 +1443,16 @@ tables and day lines are report-noise.md in the project's planning/balance folde
 
 - **The ten-seed re-baseline after the zombie kinds.** The crawler (2026-11-04) joins the day-5 pool,
   so every campaign's spawns from day 5 on move, and its piece did not re-run the ten-seed table.
-  The re-baseline is owed in stage 2: ten seeds and a median wipe day, on `main` and on each
+  The lurker (2026-11-05) changes the boot's dormant bodies, a share of the existing slots, and did
+  not re-run it either. The re-baseline is owed in stage 2: ten seeds and a median wipe day, on `main`
+  and on each candidate, as the balance wall above says. Each later zombie kind owes the same run.
+  The feigner (2026-11-06) joins the day roll from wave 3 at weight 1, so every campaign's day-3-and-
+  later mix moves by about one draw in 138, and it did not re-run the table. The re-baseline is owed in
+  stage 2: ten seeds and a median wipe day, on `main` and on each candidate, as the balance wall above
+  says. Each later zombie kind owes the same run.
+  The gassed bloater (2026-11-06) keeps today's cloud numbers, so it moves no spawn, but it changes
+  what a cloud is (a decaying level, read per window), and it did not re-run the table either. The
+  re-baseline is owed in stage 2: ten seeds and a median wipe day, on `main` and on each
   candidate, as the balance wall above says. Each later zombie kind owes the same run.
 - **Distribution assertions.** Quiet nights, sieges, deaths and run lengths asserted as
   distributions in the balance harness, not as single-seed anecdotes.
@@ -4330,6 +4336,73 @@ not a to-do list:
   spawns over four seeds legless from the first tick, 36 of 800 shamblers crawling at the base's
   0.05); `godot:check:appearance` ROSTER. The ten-seed table was not re-run; see "The ten-seed
   re-baseline after the zombie kinds" under Proof.
+- **Arms polish, m1, m5 and n2, 2026-11-06.** Round 2's three code minors, one piece on
+  `claude/fp-arms-polish`.
+  - **The pistol inspect turns about view-up (m1).** `arms_clips.py`'s `inspected` turns the pistol with a
+    yaw of 72 degrees about Blender Z and a pitch of 8 degrees, and keeps the offset. The old turn rolled
+    about the bore, which points along the view, so the slide showed only at its rear and the right
+    sleeve crossed in front of it at the peak. Measured on the weapon frame (`grip_r`) between
+    `idle_pistol` and the inspect peak at frame 90: before, 75.2 degrees with the axis 82.9 degrees off
+    up; after, 72.4 degrees with the axis 6.8 degrees off up. `arms_checks.py` `pistol-turn` asserts the
+    axis within 30 degrees of up and the angle at least 60 degrees. A negative yaw of the same size fails
+    the support arm's reach (`bone-length`, 264.8 mm against 262.4) and smoothness checks; a positive one
+    passes. Plant `pistol-roll` (the old turn) is refused by `pistol-turn`. The evidence renders are under
+    `/home/jtf/sz-shared/fp-arms-polish/evidence/`, before and after at 0.5, 1.0 and 1.5 s, 3x crops.
+  - **The key bar clears the bare hands (m5).** `hud.gd`'s key bar moved to 0.69 of the view height
+    (`help_rect`, the one rectangle the draw and the gate share). At idle the hands project from 559 px
+    down at both 1280x720 and 960x720 (the padded rectangle, a 5 cm hand radius); the bar was at 642 to
+    686 and now sits at 497 to 541. `godot:check:first_person` HANDS asserts no overlap at both sizes, and
+    a bar placed on the hands must read as overlapping (the plant).
+  - **The sleeve is checked against the survivor's own arm islands (n2).** `check_paint_match` samples the
+    survivor's arm rectangles from `survivor_atlas.png` at check time. The sleeve's mean is 7.29 levels from
+    the survivor's arm mean (sleeve 41.0, 39.8, 37.0; survivor 46.0, 44.1, 40.0), and the limit is 12, the
+    gap with a margin. Plant `sleeve-tone` (the sleeve repainted to the lightest in-ramp colour, which the
+    ramp check passes) is refused by `paint-match` at 27.3 levels.
+  - **Not done.** The round-2 review's N1 (the trigger finger carried over from the previous clip) is a view
+    branch fix (`deterministic` on the arms' player), not in this piece.
+- **The lurker, 2026-11-05.** Zombie kind ten, a dormant kind: `godot/content/zombies/lurker.json`,
+  extends `zombie.base`, with the shambler's body, sensory, locomotion and workwear picture (no
+  picture of its own, as the crawler and bloodhound). It takes `dormantShare` 0.2 of the dormant
+  manifest's existing slots, drawn on its own `dormantKind` stream at boot (`roster.gd`
+  `spawn_dormant_from_manifest`), and `weight_of` reads it as 0, so the day's roll never draws it.
+  Records, their order and each record's `pick_type` draw are unchanged. Readers used: the dormant
+  manifest and its `make_dormant`; the indoor floor of a placed building, `SimWorldgen.indoor_tiles_of`
+  (reached through `load` because roster, worldgen, director and roster form a preload cycle); the
+  field's `noise_at` and the shambler's hearing threshold. The wake rule is one content flag,
+  `wakesIndoors`, read at spawn: a lurker keeps its building's indoor floor as `lair` (flat `x, y`
+  pairs on the `shambler` component), and the Dormant arm wakes it on a noise at or above its hearing
+  threshold on any lair tile, as well as on its own tile. A kind without the flag keeps the
+  shambler's rule exactly. Gates: `godot:m2:dormant` LURKER (a real booted district at seed 20260805
+  holds one with a 32-tile indoor floor; a noise under its threshold outdoors leaves it asleep and
+  still for 120 ticks; a noise on another floor tile, with its own tile judged below threshold the
+  whole window, wakes it on tick 1 and it walks; a planted body whose floor is one outdoor tile must
+  wake on loud outdoor noise, so the QUIET judgement could see a leak; the floor and dormant state
+  survive a save); `godot:m2:roster` LURKER (resolves as content, `dormantShare` and `wakesIndoors`
+  set, weight 0, never drawn in 500 rolls at day 12, a spawned body has eyes). The MIX pin and the
+  day-1 stream are unchanged; the BOOT lane now allows a slot to be a dormant kind as well as a
+  shambler. The oracle (`npm test`) refused the first draft, a `wake_indoors` behaviour tag, because
+  its registry lists the implemented tags; the flag is the content-side answer, and the oracle is
+  untouched. The ten-seed re-baseline is owed; see "The ten-seed re-baseline after the zombie kinds"
+- **The feigner, 2026-11-06.** Zombie kind eleven: `godot/content/zombies/feigner.json`, wave 3, weight
+  1, shambler stats and workwear picture, and a `feigns` block (`riseRadius` 2.5 m, `lieWithin` 1.0 m,
+  `lieSearch` 12 m). A feigner is born in the new `Feign` state (`shambler.gd`, state 7, from
+  `make_shambler`, and only a kind that declares `feigns` gets the keys). It walks to within `lieWithin`
+  of the nearest corpse within `lieSearch`, or lies where it stands, and reads no sight, scent or hearing
+  while it lies. It rises to Seek when a living body comes within `riseRadius`, or when a blow lands on
+  it (`attack.connected`), and then it is an ordinary shambler. Its picture is its own corpse frame while
+  it lies (`SimShambler.is_lying` read by the first-person anim state and the top-down body flag). The
+  memory reader: a dead body that was never seen alive is now remembered as a `corpse` record (kind
+  `corpse`, `sightings.gd`), where it was dropped before; a body watched going down is still erased, as
+  it was. A feigner is recorded as a corpse while it lies (`_kind_of`) and flips to a zombie on the first
+  sight after it rises. The clause, the freshest-hostile read and the hostile-only onboarding read leave
+  corpses out; the memory marks and the afterimages skip them (`main.gd`). Gates: `godot:m2:sight` FEIGN
+  (three corpses in a colonist's memory at 12.9 m and nothing hostile; a body at 1.5 times the radius
+  leaves it lying; a body inside the radius rises it within 30 ticks and the record flips; a planted
+  radius of twice the real one rises it at 1.5 times, which the STAYS judgement must see; a blow rises
+  it); `godot:m2:roster` FEIGNER (resolves, has a `feigns` block, has a weight, is born feigning, has
+  eyes) and MIX, re-pinned for the day-7 pool over ten kinds (the feigner draws `g`, not yet in the
+  fifty). The ten-seed table was not re-run; see "The ten-seed re-baseline after the zombie kinds"
+  under Proof.
 - **Colony screen follow-ups, 2026-10-26.** Three nits the Colony and HUD bullets named, one piece.
   - **Reopen scrolls to the pick.** `work_panel.gd` clears `_scrolled_for` on
     `NOTIFICATION_VISIBILITY_CHANGED`, so a reopened screen scrolls to the game's pick afresh.
@@ -16203,6 +16276,28 @@ not a to-do list:
   once-per-survivor contamination bug **was already fixed and its entry was stale**, and
   `_has_open_wound` matches `kind == "bite"` alone, so a deep laceration or a burn is no way in for
   a plume.
+- **Zombies — the gassed bloater, 2026-11-06.** The burst's cloud is a gas level that decays, not a
+  flag that waits for its expiry. `godot/content/zombies/bloater.json` carries a `gas` block (`radius`
+  6.0, `lingerTicks` 1800, `decayPerTick` 1/1800, `threshold` 0.000001, `hurtEvery` 200), and
+  `bloater.gd`'s `gas_of` reads it, with the module's constants as the fallback for a kind with no
+  block. The burst writes `level` 1.0 and `bornAtTick` into the cloud's `contamination` component; the
+  system decays the level once a tick and despawns the cloud when it reaches the threshold. A cloud
+  with no level (a fixture, or a save from before the field) reads its level off its nominal end. The
+  disc and the roll are unchanged: the roll reads the cloud's level, not the burst event, and a survivor
+  in the disc with an open wound rolls once per `hurtEvery` window, `contaminationRolls` rows carrying a
+  `window` (a row without one is window 0). The owner's call of 2026-11-06 set the window to ten seconds (`hurtEvery`
+  200 at 20 ticks a second): a survivor who stands in the cloud is rolled again every window, nine times
+  over a cloud's 90 s life. The field is per cloud, not per tile: the footprint is one disc at
+  one level, so a grid would store the same level in every cell. Gates: `godot:m2:filter` LINGER (a
+  bitten survivor outside the disc, walked in on tick 600, rolled once with the cloud there; walked in
+  on the cloud's last live tick, 1799, rolled once; walked in on 1800, the tick the level reaches zero,
+  not rolled and the cloud gone; a planted field held at level 1.0, walked in on 1900, rolled, so the
+  GONE judgement could see a leak), and LINGER STAY (a survivor who stands in the cloud from its birth to
+  its end is rolled nine times, one per 200-tick window; with `hurtEvery` back at 1800 it is rolled once,
+  and the lane goes red). The CLOUD, PINNED and BLOOM lanes of the same gate, the roster's BLOOM and
+  BLOOM-TWICE, and the chain's medicine lane are unchanged, since their fixtures stand inside one window.
+  The FAST balance tier does not move: `godot:m2:balance` prints the same FAST lines on `origin/main`
+  and on this branch (`M2_BALANCE_OK` on both). The ten-seed re-baseline is owed (see Proof).
 - **Items** — ~~food, drink, and the medical quality tiers~~ **landed** 2026-09-12
   (`npm run godot:m2:medicine` → **`M2_MEDICINE_OK`**, a new gate whose eight lanes were each run
   red *and* green before they were trusted; `godot:m2:treatment`, `godot:m2:wounds`,

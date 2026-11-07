@@ -8083,6 +8083,103 @@ opt-in", one resident map), streaming (Milestone 3B, Risk 7), district-tier simu
 decisions (docs/25 and the district `vehicles` block). A train that needs repair is a new mechanic,
 and it is designed with the region.
 
+\n
+## The key bar sits above the bare hands, 2026-11-06
+
+The first-person key bar, the strip that names the keys along the bottom of the view, moved up to 0.69
+of the view's height so the bare hands at idle no longer sit under it. The hands are where they were; the
+bar is the thing that moved. It is one rectangle (`hud.gd`'s `help_rect`), and `godot:check:first_person`
+HANDS holds it clear at 1280x720 and 960x720.
+## The lurker is a dormant kind, 2026-11-05
+
+The lurker is a zombie kind that is placed only by the dormant manifest, and wakes on a noise
+anywhere in the indoor floor of its building. It is a kind, not a state: its content is
+`godot/content/zombies/lurker.json`, and the one new thing it asks of the sim is a content flag.
+
+- **Placement.** `dormantShare` 0.2 of the manifest's existing slots. It adds no density: the records
+  and their order are the worldgen pass's, and a lurker takes a slot a shambler would have taken. Its
+  share is drawn on the `dormantKind` stream at boot, so no existing stream moves. A kind that
+  declares `dormantShare` is silenced from the wandering mix (`weight_of` reads 0).
+- **The wake rule is a flag, not a tag.** `wakesIndoors: true` on the kind. A behaviour tag was tried
+  first and the oracle refused it: `src/` lists the tags it implements, and the oracle is frozen. A
+  boolean in the schema is validated the way `dormantShare` is, and the oracle's suite passes.
+- **What it hears.** A lurker keeps the indoor floor of its building as `lair` on the `shambler`
+  component, written at boot from `SimWorldgen.indoor_tiles_of`. Its Dormant arm wakes on the field at
+  or above its hearing threshold on any lair tile. A kind without the flag keeps the shambler's rule.
+- **Save.** `lair` and `wakesIndoors` ride the `shambler` component, which already round-trips. No
+  `SAVE_VERSION` bump: a save that has no lair restores as a shambler does, and the `dormantKind`
+  stream appears in a save only once a campaign has drawn one.
+- **Owner cards** (report only): the share of 0.2, and whether a loud noise outdoors reaches a lurker
+  through its walls. The shipped default lets a noise above the threshold on any floor tile wake it,
+  which is the brief's "unless it is loud enough to be heard at its tile".
+- **Balance.** The boot's dormant bodies change, and the ten-seed re-baseline is owed in stage 2.
+## The feigner is a kind that reads as a corpse until it rises, 2026-11-06
+
+A feigner lies among the dead. It is a zombie kind, not a special object: its content is
+`godot/content/zombies/feigner.json`, and what the sim asks of it is a `feigns` block and one state.
+
+- **The state.** `Feign` (7) is entered from content by `make_shambler`, and only by a kind that
+  declares `feigns`. The keys on a shambler's component are written for it alone, so every other body's
+  component keeps its shape.
+- **What it reads.** Corpses, by distance within `lieSearch` (the sight check the brief named is the
+  nearest-corpse read; a lying feigner has no sight drive, so the walk to its corpse is not a sight
+  question). Living bodies, by `riseRadius`. Blows, through `attack.connected`. It reads no sight, scent
+  or hearing while it lies.
+- **The memory.** A corpse was never remembered: a dead body was dropped the first time it was seen,
+  because the record was for a threat and a settled corpse is not one. A dead body that was never seen
+  alive now gets a `corpse` record. A body watched going down still loses its record, as it did. A
+  feigner is recorded as a corpse while it lies, and its record flips to a zombie on the first sight
+  after it rises. Nothing hostile reads the corpse kind (the prose and the freshest-hostile read leave it
+  out), and the player's memory marks and afterimages skip it.
+- **The picture.** No new picture: a lying feigner plays its own death clip, which is the corpse frame.
+- **Saves.** The `Feign` state and its three keys ride the shambler component, which already round-trips.
+  No `SAVE_VERSION` bump: state 7 is a new value of an existing field, and no save before this change
+  holds one.
+- **The day roll.** Weight 1 from wave 3, the least share a kind can take, so a campaign's later mix
+  moves by about one draw in 138. The MIX lane's day-7 pin moved with it and was re-pinned; the day-1
+  stream is untouched because the pool still answers without a draw on day 1.
+- **Defaults** (owner cards in the report): the rise radius 2.5 m, the lie-within 1.0 m, the lie search
+  12 m, and the weight and wave.
+## The bloater's gas is a tile field, 2026-11-06
+
+The bloater's cloud was a disc with an expiry: a contamination flag that was in force until its end
+tick, and a roll for any survivor standing in the disc. It is now a gas level that decays, and the
+roll reads the level.
+
+- **The field is per cloud.** The burst writes a `level` of 1.0 into the cloud's component, and the
+  system decays it once a tick by `decayPerTick`. The cloud is gone when the level reaches `threshold`.
+  A tile grid was considered and not built: the burst's footprint is one disc at one level, nothing
+  spreads or diffuses, so a grid would store the same number in every cell and save all of them.
+  The reader is the same either way, so a per-tile field is a change of storage, not of meaning, if a
+  plume ever needs one.
+- **Saves.** `level`, `bornAtTick` and the decay parameters ride the cloud's `contamination`
+  component, which already saves. A cloud written before the field has no level and reads its level
+  off its nominal end, which is the same linear law, so a save from before this restores as it was.
+  `contaminationRolls` rows gain a `window`; a row without one is window 0. No `SAVE_VERSION` bump.
+- **Numbers.** The shipped `gas` block is today's numbers written out: a 6 m disc, 1800 ticks of life,
+  a decay of 1/1800 a tick, a threshold a millionth above zero (so the cloud is alive on its 1799th
+  tick and gone on its 1800th, as the expiry was), and a roll window the length of the life.
+- **Windows.** `hurtEvery` is the content knob for "a survivor is hurt again while the gas is still
+  there". Its shipped default is the cloud's whole life, one roll, so nothing moves.
+- **Gates.** `godot:m2:filter` LINGER pins the three ticks and a planted field that never decays; the
+  CLOUD, PINNED and BLOOM lanes are unchanged. The plant (`decayPerTick` 0 in the content) turns LINGER
+  red.
+
+## The gas hurts every ten seconds, the owner's call, 2026-11-06
+
+The owner chose repeated rolls: a survivor who stands in a bloater's cloud is rolled again every ten
+seconds, not once per cloud. The owner was told this moves balance and chose it anyway.
+
+- **The arithmetic.** The simulation runs at 20 ticks a second (`TICK_HZ`), so ten seconds is
+  `hurtEvery` 200. A cloud lives `lingerTicks` 1800, ninety seconds, so a survivor standing in it the
+  whole time is rolled in nine windows, windows 0 to 8. The window logic was already there (a
+  `contaminationRolls` row carries its `window`), so the change is one content number.
+- **Measured.** `godot:m2:filter` LINGER STAY: nine rolls, one per 200-tick window, and the same lane
+  with `hurtEvery` at 1800 fails with `rolled 1 times, want 9`. `godot:m2:balance` FAST prints the same
+  lines on `origin/main` and on this branch; the tier does not move. The ten-seed re-baseline is still
+  owed and names the gas.
+- **Why it stays a content number.** The other lanes stand inside one window (the CLOUD fixture stands
+  forty ticks), so their one-roll pins hold without a change to their fixtures.
 
 ## The alarm and the noisemaker are priced (2026-11-05)
 

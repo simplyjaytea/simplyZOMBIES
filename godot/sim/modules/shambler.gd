@@ -38,7 +38,17 @@ const ShamblerState: Dictionary = {
 	"Pursue": 4,
 	"Dormant": 5,
 	"Track": 6,
+	"Feign": 7,
 }
+# **Feign** is entered from content, not by the state machine: a kind that declares `feigns` is
+# born into it by `make_shambler`. It lies among the dead -- it walks to within `lieWithin` of the
+# nearest settled corpse within `lieSearch`, or lies where it stands -- and it reads no sight, scent
+# or hearing while it does. It rises to Seek the moment a living body comes within `riseRadius`, or
+# is struck, and from then on it is an ordinary shambler.
+# A feigner's numbers when its kind's `feigns` block omits a key.
+const FEIGN_RISE_METRES: float = 2.5
+const FEIGN_LIE_WITHIN_METRES: float = 1.0
+const FEIGN_LIE_SEARCH_METRES: float = 12.0
 
 const DEFAULT_LOCOMOTION: Dictionary = {"speed": 0.8, "wander": 0.35, "mill": 0.25, "crawl": 0.25}
 const DEFAULT_GRAB_STRENGTH: float = 0.5
@@ -328,6 +338,14 @@ static func make_shambler(world: Variant, entity: int, rng: Variant, type_id: St
 	# shambler's component is the shape it always was and a save of one is byte for byte the same.
 	if float(senses["trail"]) > 0.0:
 		comp["scentTrail"] = float(senses["trail"])
+	# A kind that feigns is born lying among the dead. Its keys are written for it alone, so a
+	# shambler's component stays the shape it was.
+	var feign: Dictionary = _feigns_of(world, type_id)
+	if not feign.is_empty():
+		comp["state"] = ShamblerState["Feign"]
+		comp["feigns"] = feign
+		comp["feignTarget"] = -1
+		comp["feignLying"] = false
 	world.components.set_component(entity, "shambler", comp)
 
 
@@ -338,19 +356,84 @@ static func make_shambler(world: Variant, entity: int, rng: Variant, type_id: St
 #
 # No RNG, deliberately: `spawn_dormant_from_manifest` draws for the body through `make_shambler`
 # and this must not add a draw between two records.
-static func make_dormant(world: Variant, entity: int) -> void:
+static func make_dormant(world: Variant, entity: int, lair: Array = []) -> void:
 	var comp: Variant = world.components.get_component(entity, "shambler")
 	if not (comp is Dictionary):
 		push_error("dormant: entity %d has no shambler component to put to sleep" % entity)
 		return
 	(comp as Dictionary)["state"] = ShamblerState["Dormant"]
 	(comp as Dictionary)["ticksToTurn"] = 0
+	# A `wakesIndoors` kind (a lurker) is handed the indoor floor of its building as flat `x, y`
+	# pairs, and the Dormant arm hears any noise on it. A body given no lair keeps the shambler's
+	# rule exactly: its own tile is the only place it can hear.
+	if not lair.is_empty():
+		(comp as Dictionary)["lair"] = lair.duplicate()
 	var vel: Variant = world.components.get_component(entity, "velocity")
 	if vel is Dictionary:
 		# `dx`/`dy`, never `x`/`y` -- CLAUDE.md's standing trap: a velocity written with the
 		# position's key names is a pin that pins nothing and raises nothing.
 		(vel as Dictionary)["dx"] = 0.0
 		(vel as Dictionary)["dy"] = 0.0
+
+
+# Whether a body is feigning, and whether it is lying down doing it (the one the picture shows dead).
+static func is_feigning(world: Variant, entity: int) -> bool:
+	var sd: Variant = world.components.get_component(entity, "shambler")
+	return sd is Dictionary and int((sd as Dictionary).get("state", -1)) == ShamblerState["Feign"]
+
+
+static func is_lying(world: Variant, entity: int) -> bool:
+	return is_feigning(world, entity) and bool((world.components.get_component(entity, "shambler") as Dictionary).get("feignLying", false))
+
+
+# A feigner's numbers, from its kind's `feigns` block, or {} for a kind that does not feign.
+static func _feigns_of(world: Variant, type_id: String) -> Dictionary:
+	var entry: Variant = resolved_entry(world, type_id)
+	if not (entry is Dictionary) or not ((entry as Dictionary).get("feigns") is Dictionary):
+		return {}
+	var block: Dictionary = (entry as Dictionary)["feigns"] as Dictionary
+	return {
+		"riseRadius": float(block.get("riseRadius", FEIGN_RISE_METRES)),
+		"lieWithin": float(block.get("lieWithin", FEIGN_LIE_WITHIN_METRES)),
+		"lieSearch": float(block.get("lieSearch", FEIGN_LIE_SEARCH_METRES)),
+	}
+
+
+# The nearest settled corpse within `radius` of `pos`, or -1.
+static func _nearest_corpse(world: Variant, pos: Dictionary, radius: float) -> int:
+	var best: int = -1
+	var best_d2: float = radius * radius
+	for e in world.components.query(["corpse", "position"]):
+		var at: Variant = world.components.get_component(int(e), "position")
+		if not (at is Dictionary):
+			continue
+		var dx: float = float((at as Dictionary)["x"]) - float(pos["x"])
+		var dy: float = float((at as Dictionary)["y"]) - float(pos["y"])
+		var d2: float = dx * dx + dy * dy
+		if d2 <= radius * radius and (best < 0 or d2 < best_d2):
+			best = int(e)
+			best_d2 = d2
+	return best
+
+
+# Up out of the lie: a feigner that rises is an ordinary shambler from this tick on.
+static func _rise(sd: Dictionary) -> void:
+	sd["state"] = ShamblerState["Seek"]
+	sd["ticksToTurn"] = 0
+	sd["ticksCommitted"] = 0
+	sd["feignLying"] = false
+	sd["feignTarget"] = -1
+
+
+# Whether the field reads at or above `threshold` on any tile of a lair: flat `x, y` pairs, read at
+# each tile's centre. The same threshold the body's own `heard` is judged against.
+static func _heard_in_lair(field: Variant, lair: Array, threshold: float) -> bool:
+	var i: int = 0
+	while i + 1 < lair.size():
+		if field.noise_at(float(int(lair[i])) + 0.5, float(int(lair[i + 1])) + 0.5) >= threshold:
+			return true
+		i += 2
+	return false
 
 
 static func _get_content_entry(world: Variant, type_id: String, id: String) -> Variant:
@@ -1281,9 +1364,43 @@ static func register_module(world: Variant, _map: Variant) -> void:
 					# says so. docs/30, 2026-09-14.
 					vd["dx"] = 0.0
 					vd["dy"] = 0.0
-					if heard or _contact_target(survivors, pd, CONTACT_METRES) != null:
+					# A lurker's lair (see make_dormant) hears a noise on any of its building's
+					# indoor tiles, not just its own. Only read for a body that has one, and only
+					# asleep: the awake arms keep the one reader they have always used.
+					var heard_in_lair: bool = false
+					if not heard and sd.has("lair") and noise_sense > 0.0:
+						heard_in_lair = _heard_in_lair(field, sd["lair"] as Array, own_noise + noise_floor / noise_sense)
+					if heard or heard_in_lair or _contact_target(survivors, pd, CONTACT_METRES) != null:
 						sd["state"] = ShamblerState["Wander"]
 						sd["ticksToTurn"] = 0
+				ShamblerState["Feign"]:
+					# Lying among the dead, or walking to lie among them. This arm reads no sight and
+					# no scent: `heard` and `smelled` are resolved above and not consulted here, and
+					# nothing in it asks `_seen_target`. A living body within `riseRadius` is the only
+					# thing that moves it, and `shambler.feign-struck` is the other.
+					var feign: Dictionary = sd["feigns"] as Dictionary
+					if _contact_target(survivors, pd, float(feign["riseRadius"])) != null:
+						_rise(sd)
+					else:
+						if not bool(sd["feignLying"]) and int(sd["feignTarget"]) < 0:
+							sd["feignTarget"] = _nearest_corpse(w, pd, float(feign["lieSearch"]))
+							if int(sd["feignTarget"]) < 0:
+								sd["feignLying"] = true
+						if not bool(sd["feignLying"]):
+							var lie_at: Variant = positions.get(int(sd["feignTarget"]))
+							if not (lie_at is Dictionary):
+								sd["feignLying"] = true
+							else:
+								var lx: float = float((lie_at as Dictionary)["x"]) - float(pd["x"])
+								var ly: float = float((lie_at as Dictionary)["y"]) - float(pd["y"])
+								if sqrt(lx * lx + ly * ly) <= float(feign["lieWithin"]):
+									sd["feignLying"] = true
+								else:
+									seek = _speed_of(w, int(entity), sd, "seekSpeed", sky)
+									_chase(w, int(sd["feignTarget"]), pd, vd, sd, seek)
+						if bool(sd["feignLying"]):
+							vd["dx"] = 0.0
+							vd["dy"] = 0.0
 				ShamblerState["Staggered"]:
 					vd["dx"] = 0.0
 					vd["dy"] = 0.0
@@ -1770,6 +1887,11 @@ static func register_module(world: Variant, _map: Variant) -> void:
 	# so a second hit during a stagger extends it rather than cutting it short. Melee's own
 	# staggerTicks comes off the weapon (melee.gd), which is where "blunt weapons stagger better"
 	# lives; nothing about that is decided here.
+	world.events.subscribe({"id": "shambler.feign-struck", "type": "attack.connected", "handler": func(event: Dictionary) -> void:
+		var struck: Variant = world.components.get_component(int(event.get("target", -1)), "shambler")
+		if struck is Dictionary and int((struck as Dictionary)["state"]) == ShamblerState["Feign"]:
+			_rise(struck as Dictionary)
+	})
 	world.events.subscribe({"id": "shambler.stagger", "type": "entity.staggered", "handler": func(event: Dictionary) -> void:
 		var entity: int = int(event.get("entity", -1))
 		var shambler_data: Variant = world.components.get_component(entity, "shambler")
@@ -1777,6 +1899,9 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			return
 		_release_grab(world, entity, "staggered", entity)
 		var sd: Dictionary = shambler_data as Dictionary
+		if int(sd["state"]) == ShamblerState["Feign"]:
+			_rise(sd)
+			return
 		sd["state"] = ShamblerState["Staggered"]
 		sd["ticksStaggered"] = maxi(int(sd.get("ticksStaggered", 0)), int(event.get("ticks", 0)))
 	})

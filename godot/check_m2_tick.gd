@@ -1817,7 +1817,7 @@ func _reference_observe_one(w: Variant, observer: int, candidates: Array) -> voi
 		if int(w.vision.call("detail", observer, x, y)) == 0:
 			continue
 		var body: Variant = w.components.get_component(int(other), "body")
-		if not body is Dictionary or not SimHealth.is_alive(body as Dictionary):
+		if not body is Dictionary:
 			SimSightings._erase(seen, int(other))
 			continue
 		var kind: String = "person"
@@ -1825,6 +1825,22 @@ func _reference_observe_one(w: Variant, observer: int, candidates: Array) -> voi
 			kind = "zombie"
 		elif w.components.has_component(int(other), "raider"):
 			kind = "raider"
+		# The shipped rule: a dead body seen for the first time is a corpse, a body watched dying
+		# loses its record, and a shambler lying as a feigner is a corpse too (state 7 is Feign).
+		if not SimHealth.is_alive(body as Dictionary):
+			var prior: Variant = null
+			for row in seen:
+				if int((row as Dictionary)["e"]) == int(other):
+					prior = row
+					break
+			if prior != null and String((prior as Dictionary).get("kind", "")) != "corpse":
+				SimSightings._erase(seen, int(other))
+				continue
+			kind = "corpse"
+		elif w.components.has_component(int(other), "shambler"):
+			var sd: Variant = w.components.get_component(int(other), "shambler")
+			if sd is Dictionary and int((sd as Dictionary).get("state", -1)) == 7:
+				kind = "corpse"
 		var found: bool = false
 		for row in seen:
 			if int((row as Dictionary)["e"]) == int(other):

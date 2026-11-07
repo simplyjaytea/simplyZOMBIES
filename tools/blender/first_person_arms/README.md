@@ -142,7 +142,8 @@ Measured on the exported GLB, frame by frame at 60 fps, against the committed we
 | `cuff` | the sleeve overlaps the skin by 3 mm at every frame, and the inner lip has a measured, non-empty skin band with no gap over 3.5 mm | `cuff-gap` |
 | `density` | every triangle has a finite UV Jacobian at 128 px/m +/- 25% on both axes, in Blender and in the GLB; degenerates fail | `squash-uv` |
 | `background` | no skin or sleeve triangle's complete UV footprint touches an atlas-background texel | `subtexel-island` |
-| `paint-match` | sleeves use only the survivor's charcoal front/sleeve ramp; skin uses only the survivor's skin ramp; no dark atlas-cell checker; every island has 4 px of non-background padding | `repaint`, `paint-cells`, `short-padding` |
+| `paint-match` | sleeves use only the survivor's charcoal front/sleeve ramp; skin uses only the survivor's skin ramp; no dark atlas-cell checker; every island has 4 px of non-background padding; the sleeve's mean is within 12 levels of the survivor's arm island, sampled from `survivor_atlas.png` at check time | `repaint`, `paint-cells`, `short-padding` |
+| `pistol-turn` | the pistol's inspect turns about the view's up axis: at its peak (frame 90) the turn's axis is within 30 degrees of up and the turn is at least 60 degrees, measured on the weapon frame against idle |
 | `body-match` | hand length, wrist and forearm girth and shoulder-to-wrist within 3 mm of `survivor.glb` in rest | `fat-wrist` |
 | `budget` | at most 4,000 triangles, 1,100 a hand; one single-sided, nearest-filtered material | `second-material`, `linear` |
 

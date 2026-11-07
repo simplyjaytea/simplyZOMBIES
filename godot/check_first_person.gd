@@ -157,6 +157,7 @@ const SaveSlot = preload("res://presentation/first_person/save_slot.gd")
 const Models = preload("res://presentation/first_person/models.gd")
 const Appearance = preload("res://presentation/appearance.gd")
 const ArmsView = preload("res://presentation/first_person/arms_view.gd")
+const Hud = preload("res://presentation/first_person/hud.gd")
 
 # The district the gate boots. Small on purpose: every lane walks the sim, and the shipped 256 district
 # is for the player, not for a gate. DISTRICT proves this is really smaller than the shipped default.
@@ -236,6 +237,7 @@ func _run() -> void:
 		ok = _lane("SUCCESSION", _succession(scene), "a death hands the camera to an heir and the dead body is drawn") and ok
 		ok = _lane("LEGEND", _legend(scene), "F1 lists every key the scene handles and the scene handles every key it lists") and ok
 		ok = _lane("ARMS", _arms(scene), "the view-model arms are the scene's own under the Eye, lower for screens and third person, follow the sim's equipped hold class, hold the weapon on grip_r at the anchor, inspect only while L is held, never cut into a wall, and raise and aim a firearm on the sim's fire state (AIM: raise at the sim's t, aim while steady, idle after the shot, a sheet lowers the aim, a stub that says idle holds idle, a melee class ignores the state)") and ok
+		ok = _lane("HANDS", await _hands(scene), "the bare hands at 16:9 and 4:3 do not reach the key bar, and the overlap test sees a bar placed on them") and ok
 		ok = _lane("THIRD", _third_person(scene), "F2 steps the camera behind the eye and back, the own body is drawn and plays the sim's clip only in third person, and a wall pulls the camera in while an open line does not") and ok
 		ok = _lane("HIDE", _held_visibility(scene), "the held weapon hides while the bench, inventory, ledger, talk and third-person screens are open and shows otherwise") and ok
 		ok = _lane("TALK", _talk(scene), "a colonist in reach talks in the read models' own words, and ORDERS: the conversation offers the sim's own order rows for the aim (go, haul, attack, stand down, a refused colonist none), digit-free, and choosing one pushes the sim's command") and ok
@@ -3676,6 +3678,95 @@ func _is_arms_view(node: Node) -> bool:
 
 
 # The arms are up and idle in `want`, and the sim agrees that is the class in hand.
+# HANDS. The key bar is the strip along the bottom of the view (`Hud.help_rect`, the same rectangle
+# the HUD draws). The bare hands are the arms' hand and finger bones, projected through the Eye at the
+# view-model lens, each padded by a hand's radius. At 1280x720 and 960x720 the two rectangles must not
+# meet. The plant is the detector: a bar placed on the hands must read as overlapping.
+const HANDS_SIZES: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(960, 720)]
+const HAND_RADIUS_M: float = 0.05
+const HAND_BONE_PREFIXES: Array[String] = ["hand.", "thumb_", "index_", "middle_", "ring_", "pinky_"]
+
+
+func _hands(scene: Node) -> bool:
+	var world: Variant = scene.get("world")
+	var player: int = int(world.player)
+	var camera: Camera3D = scene.get("camera") as Camera3D
+	var arms: Node3D = scene.call("arms_node") as Node3D
+	var hud: Control = scene.get("_hud") as Control
+	if arms == null or camera == null or hud == null:
+		return _fail("HANDS", "the scene has no arms, camera or HUD to measure")
+	_place_player(scene, _find_open_area((scene.get("map") as Variant), 2))
+	scene.call("set_look", 0.0, 0.0)
+	_arms_unequip_all(scene, world, player)
+	_arms_settle(scene, 1.5)
+	if not _arms_shows(arms, "unarmed", "bare hands"):
+		return false
+	var ok: bool = true
+	var report: Array[String] = []
+	var hands_1280: Rect2 = Rect2()
+	for size in HANDS_SIZES:
+		root.size = size
+		await process_frame
+		await process_frame
+		var view: Vector2 = Vector2(size)
+		var hands: Rect2 = _hands_rect(arms, camera, view)
+		var bar: Rect2 = Hud.help_rect(view)
+		if hands.size == Vector2.ZERO:
+			ok = _fail("HANDS", "no hand bone projects in front of the Eye at %dx%d" % [size.x, size.y]) and ok
+			continue
+		if hands.intersects(bar):
+			ok = _fail("HANDS", "the bare hands at %dx%d (%s) reach the key bar (%s)" % [size.x, size.y, str(hands), str(bar)]) and ok
+		report.append("%dx%d hands y %.0f..%.0f, key bar y %.0f..%.0f" % [size.x, size.y, hands.position.y, hands.end.y, bar.position.y, bar.end.y])
+		if size == Vector2i(1280, 720):
+			hands_1280 = hands
+	if hands_1280.size == Vector2.ZERO:
+		return false
+	# The plant: a bar sitting on the hands must read as overlapping, or the test above proves nothing.
+	var on_hands: Rect2 = Rect2(hands_1280.position, Hud.help_rect(Vector2(1280, 720)).size)
+	if not on_hands.intersects(hands_1280):
+		ok = _fail("HANDS", "a key bar placed on the hands does not read as overlapping them") and ok
+	root.size = Vector2i(1280, 720)
+	await process_frame
+	if ok:
+		print("HANDS OK " + "; ".join(report) + "; a bar placed on the hands reads as overlapping")
+	return ok
+
+
+# The hands' drawn rectangle on screen at `view`: every hand and finger bone projected through the
+# camera, padded by HAND_RADIUS_M at its own depth, and the bounds of all of them. Empty when no
+# hand bone is in front of the camera.
+func _hands_rect(arms: Node3D, camera: Camera3D, view: Vector2) -> Rect2:
+	var skeleton: Skeleton3D = arms.get("_skeleton") as Skeleton3D
+	if skeleton == null:
+		return Rect2()
+	var focal: float = (view.y * 0.5) / tan(deg_to_rad(ArmsView.VIEW_MODEL_FOV_DEG) * 0.5)
+	var lo: Vector2 = Vector2(INF, INF)
+	var hi: Vector2 = Vector2(-INF, -INF)
+	var any: bool = false
+	var to_local: Transform3D = camera.global_transform.affine_inverse()
+	for index in skeleton.get_bone_count():
+		var bone: String = skeleton.get_bone_name(index)
+		var is_hand: bool = false
+		for prefix in HAND_BONE_PREFIXES:
+			if bone.begins_with(prefix):
+				is_hand = true
+				break
+		if not is_hand:
+			continue
+		var at: Vector3 = skeleton.global_transform * skeleton.get_bone_global_pose(index).origin
+		if camera.is_position_behind(at):
+			continue
+		var depth: float = maxf(-(to_local * at).z, 0.01)
+		var pad: float = HAND_RADIUS_M * focal / depth
+		var point: Vector2 = camera.unproject_position(at)
+		lo = Vector2(minf(lo.x, point.x - pad), minf(lo.y, point.y - pad))
+		hi = Vector2(maxf(hi.x, point.x + pad), maxf(hi.y, point.y + pad))
+		any = true
+	if not any:
+		return Rect2()
+	return Rect2(lo, hi - lo)
+
+
 func _arms_shows(arms: Node3D, want: String, what: String) -> bool:
 	var ok: bool = true
 	if String(arms.call("shown_class")) != want:
