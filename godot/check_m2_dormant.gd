@@ -33,6 +33,12 @@ extends SceneTree
 #                proves the isolator on the *Seek* arm, which must contain the call.
 #   SAVE         Dormant round-trips through real save text; a Wandering body beside it comes back
 #                Wandering, so the assertion is not "everything reads 5".
+#   LURKER       a dormant kind that wakes on a noise anywhere in its own building's indoor floor
+#                and not on a noise outside it that is beyond hearing. PLACED: a real booted district
+#                holds one, its floor is indoors. QUIET: an outdoor noise beyond hearing leaves it
+#                asleep and where it lay. INDOOR: a noise on another tile of its floor wakes it. PLANT:
+#                a sabotaged lurker whose floor is one outdoor tile must wake on loud outdoor noise,
+#                which proves QUIET could see a leak. SAVE: the floor and the dormant state survive.
 
 const World = preload("res://sim/world.gd")
 const SimBoot = preload("res://sim/boot.gd")
@@ -70,8 +76,9 @@ func _run() -> void:
 	ok = _wake() and ok
 	ok = _no_sight() and ok
 	ok = _save() and ok
+	ok = _lurker() and ok
 	if ok:
-		print("M2_DORMANT_OK content manifest boot asleep wake no-sight save")
+		print("M2_DORMANT_OK content manifest boot asleep wake no-sight save lurker")
 		quit(0)
 	else:
 		push_error("M2_DORMANT_FAIL")
@@ -257,6 +264,13 @@ func _dormant_ids(w: Variant) -> Array[int]:
 			out.append(int(e))
 	return out
 
+func _is_dormant_kind(w: Variant, id: String) -> bool:
+	for record in SimRoster.dormant_kinds(w):
+		if String(record["id"]) == id:
+			return true
+	return false
+
+
 func _boot() -> bool:
 	var lane: String = "BOOT"
 	var judged: int = 0
@@ -287,8 +301,10 @@ func _boot() -> bool:
 				return false
 			var zt: Variant = w.components.get_component(int(at_tile[key]), "zombieType")
 			var id: String = String((zt as Dictionary).get("id", "")) if zt is Dictionary else ""
-			if id != SimRoster.TYPE_SHAMBLER:
-				push_error("%s: the body at %s is a %s -- the day-1 pick must be a shambler" % [lane, key, id])
+			# A slot is a shambler, or one of the dormant kinds the content declares (`dormantShare`):
+			# the day-1 wandering pick is still a shambler, and only the manifest chooses these.
+			if id != SimRoster.TYPE_SHAMBLER and not _is_dormant_kind(w, id):
+				push_error("%s: the body at %s is a %s -- a slot is a shambler or a dormant kind" % [lane, key, id])
 				return false
 		var total: int = w.components.query(["shambler"]).size()
 		var want: int = SimBoot.wanderers_for(size) + records.size()
@@ -528,3 +544,198 @@ func _save() -> bool:
 		return false
 	print("%s OK Dormant survived a save; the awake body beside it came back in state %d" % [lane, int((other as Dictionary)["state"])])
 	return true
+
+
+# --- LURKER -------------------------------------------------------------------------------------
+#
+# The lurker is a dormant kind: placed only by the manifest (`dormantShare`), and given the indoor
+# floor of its own building as its `lair`. Its wake rule reads that floor, not just its own tile.
+const LURKER_TICKS: int = 120
+const LURKER_QUIET_FRACTION: float = 0.5
+
+# The threshold a body hears at, the same one `shambler.think` judges `heard` against.
+func _hearing_threshold(w: Variant, e: int, sd: Dictionary) -> float:
+	var own: float = 0.0
+	var em: Variant = w.components.get_component(e, "attention_emitter")
+	if em is Dictionary:
+		own = maxf(float((em as Dictionary).get("ambient", 0.0)), float((em as Dictionary).get("walking", 0.0)))
+	return own + float(w.field.calibration["floor"]) / float(sd["noiseSense"])
+
+
+func _lurker_at_boot() -> Dictionary:
+	for pair in [[31337, GATE_TILES], [FAST_SEEDS[0], SHIPPED_TILES], [404, GATE_TILES], [90210, GATE_TILES], [20260805, GATE_TILES]]:
+		var seed_value: int = int((pair as Array)[0])
+		var size: int = int((pair as Array)[1])
+		var boot: Dictionary = SimBoot.playable(seed_value, size)
+		var w: Variant = boot["world"]
+		var map: Variant = boot["map"]
+		for e in w.components.query(["shambler"]):
+			var sd: Variant = w.components.get_component(int(e), "shambler")
+			if sd is Dictionary and (sd as Dictionary).has("lair") and int((sd as Dictionary)["state"]) == SimShambler.ShamblerState["Dormant"]:
+				if ((sd as Dictionary)["lair"] as Array).size() >= 4:
+					return {"world": w, "map": map, "zed": int(e), "seed": seed_value, "size": size}
+	return {}
+
+
+func _lurker() -> bool:
+	var lane: String = "LURKER"
+	var boot: Dictionary = _lurker_at_boot()
+	if boot.is_empty():
+		push_error("%s: no seed in the harness's set placed a lurker with a floor of two tiles or more, so nothing here was judged" % lane)
+		return false
+	var w: Variant = boot["world"]
+	var map: Variant = boot["map"]
+	var e: int = int(boot["zed"])
+	var sd: Dictionary = w.components.get_component(e, "shambler") as Dictionary
+	var zt: Variant = w.components.get_component(e, "zombieType")
+	var id: String = String((zt as Dictionary).get("id", "")) if zt is Dictionary else ""
+	if not _is_dormant_kind(w, id) or not SimRoster.wakes_indoors_of(w, id):
+		push_error("%s: seed %d at %d carries a floor on a %s, which is not a dormant kind that wakes indoors" % [lane, int(boot["seed"]), int(boot["size"]), id])
+		return false
+
+	# PLACED: every tile of the floor is indoors, and the body lies on it.
+	var lair: Array = sd["lair"] as Array
+	var own: Vector2i = Vector2i(floori(float(w.components.get_component(e, "position")["x"])), floori(float(w.components.get_component(e, "position")["y"])))
+	var own_in: bool = false
+	var i: int = 0
+	while i + 1 < lair.size():
+		var tx: int = int(lair[i])
+		var ty: int = int(lair[i + 1])
+		if not SimTileMap.is_indoors(map, tx, ty):
+			push_error("%s: the floor of the %s at %s holds an outdoor tile (%d, %d)" % [lane, id, str(own), tx, ty])
+			return false
+		if tx == own.x and ty == own.y:
+			own_in = true
+		i += 2
+	if not own_in:
+		push_error("%s: the %s at %s is not standing on its own floor" % [lane, id, str(own)])
+		return false
+
+	# QUIET: a noise outdoors, beyond hearing at the body, leaves it asleep and where it lay.
+	var outdoor: Vector2i = _an_outdoor_tile(map, own)
+	if outdoor.x < 0:
+		push_error("%s: the district has no outdoor tile near the lurker, so there is no noise to judge it with" % lane)
+		return false
+	var threshold: float = _hearing_threshold(w, e, sd)
+	var quiet_value: float = threshold * LURKER_QUIET_FRACTION
+	if quiet_value >= threshold:
+		push_error("%s: the quiet noise %.5f is not below the hearing threshold %.5f" % [lane, quiet_value, threshold])
+		return false
+	var start: Dictionary = (w.components.get_component(e, "position") as Dictionary).duplicate()
+	for t in LURKER_TICKS:
+		w.field.emit_noise(float(outdoor.x) + 0.5, float(outdoor.y) + 0.5, quiet_value)
+		w.step()
+	if int(sd["state"]) != SimShambler.ShamblerState["Dormant"]:
+		push_error("%s: an outdoor noise beyond hearing woke the %s in state %d" % [lane, id, int(sd["state"])])
+		return false
+	var now: Dictionary = w.components.get_component(e, "position") as Dictionary
+	if Vector2(float(now["x"]), float(now["y"])).distance_to(Vector2(float(start["x"]), float(start["y"]))) > 0.001:
+		push_error("%s: the %s moved while asleep" % [lane, id])
+		return false
+
+	# INDOOR: a noise on the floor's tile farthest from its own tile wakes it, and it walks.
+	var far_tile: Vector2i = own
+	var far_d: float = -1.0
+	i = 0
+	while i + 1 < lair.size():
+		var cand: Vector2i = Vector2i(int(lair[i]), int(lair[i + 1]))
+		var d: float = Vector2(cand).distance_to(Vector2(own))
+		if d > far_d:
+			far_d = d
+			far_tile = cand
+		i += 2
+	if far_tile == own:
+		push_error("%s: the floor is one tile, so an indoor noise cannot be told from the body's own tile" % lane)
+		return false
+	# The own tile must stay below the threshold the whole window, read after the emission and after
+	# each step, or the wake could be the body hearing its own tile and the floor proves nothing.
+	var woke_at: int = -1
+	for t in WAKE_TICKS:
+		w.field.emit_noise(float(far_tile.x) + 0.5, float(far_tile.y) + 0.5, float(w.field.calibration["floor"]) * WAKE_NOISE_MULTIPLE)
+		if woke_at < 0 and float(w.field.noise_at(float(own.x) + 0.5, float(own.y) + 0.5)) >= threshold:
+			push_error("%s: the noise reached the own tile at %.5f against %.5f on tick %d, so the floor is not what woke it" % [lane, float(w.field.noise_at(float(own.x) + 0.5, float(own.y) + 0.5)), threshold, t])
+			return false
+		w.step()
+		if woke_at < 0 and int(sd["state"]) != SimShambler.ShamblerState["Dormant"]:
+			woke_at = t
+		elif woke_at < 0 and float(w.field.noise_at(float(own.x) + 0.5, float(own.y) + 0.5)) >= threshold:
+			push_error("%s: the own tile heard the noise after the step on tick %d, so the floor is not what woke it" % [lane, t])
+			return false
+	if woke_at < 0:
+		push_error("%s: a noise %.1f m from the %s's own tile, inside its building, left it asleep for %d ticks" % [lane, far_d, id, WAKE_TICKS])
+		return false
+	var moved: Dictionary = w.components.get_component(e, "position") as Dictionary
+	if Vector2(float(moved["x"]), float(moved["y"])).distance_to(Vector2(float(start["x"]), float(start["y"]))) < 0.01:
+		push_error("%s: the %s woke and did not move" % [lane, id])
+		return false
+
+	# PLANT: a body whose floor is one outdoor tile must wake on loud outdoor noise. If it does not,
+	# the quiet check above could not have seen a lurker waking outdoors, and proves nothing.
+	var plant: Dictionary = _sleeper_with_floor(9090, [2, 2])
+	var pw: Variant = plant["world"]
+	var pe: int = int(plant["zed"])
+	var psd: Dictionary = pw.components.get_component(pe, "shambler") as Dictionary
+	var plant_woke: bool = false
+	for t in WAKE_TICKS:
+		pw.field.emit_noise(2.5, 2.5, float(pw.field.calibration["floor"]) * WAKE_NOISE_MULTIPLE)
+		pw.step()
+		if int(psd["state"]) != SimShambler.ShamblerState["Dormant"]:
+			plant_woke = true
+			break
+	if not plant_woke:
+		push_error("%s: the planted body with an outdoor floor did not wake on loud outdoor noise, so QUIET cannot see a leak" % lane)
+		return false
+
+	# SAVE: the floor and the dormant state come back through real save text.
+	var text: String = SimSave.encode_save(SimSave.create_save(plant["world"]))
+	var parsed: Variant = JSON.parse_string(text)
+	if not (parsed is Dictionary) or not ((parsed as Dictionary)["snapshot"] is Dictionary):
+		push_error("%s: the save did not come back as an object" % lane)
+		return false
+	var w2: Variant = World.new(_fixture(9090))
+	var map2: Variant = SimTileMap.blank_map(24, 24)
+	SimBoot.attach_kernel(w2, map2)
+	SimShambler.register_module(w2, map2)
+	w2.restore((parsed as Dictionary)["snapshot"] as Dictionary)
+	var back: Variant = w2.components.get_component(pe, "shambler")
+	if not (back is Dictionary) or not (back as Dictionary).has("lair"):
+		push_error("%s: the planted lurker lost its floor in the save" % lane)
+		return false
+	var back_lair: Array = (back as Dictionary)["lair"] as Array
+	if back_lair.size() != 2 or int(back_lair[0]) != 2 or int(back_lair[1]) != 2:
+		push_error("%s: the floor came back as %s, want [2, 2]" % [lane, str(back_lair)])
+		return false
+
+	print("%s OK seed %d at %d places a %s with a %d-tile indoor floor; quiet outdoor noise (%.5f, under %.5f) left it asleep and still for %d ticks; a noise %.1f m away on its floor woke it on tick %d and it walked; a planted outdoor floor woke on loud outdoor noise; the floor and the dormant state survived a save" % [
+		lane, int(boot["seed"]), int(boot["size"]), id, lair.size() / 2, quiet_value, threshold, LURKER_TICKS, far_d, woke_at,
+	])
+	return true
+
+
+# A nearby tile outside every building, scanned in rings out from `from`, or (-1, -1).
+func _an_outdoor_tile(map: Variant, from: Vector2i) -> Vector2i:
+	for r in range(4, 30):
+		for dy in range(-r, r + 1):
+			for dx in range(-r, r + 1):
+				if maxi(absi(dx), absi(dy)) != r:
+					continue
+				var tx: int = from.x + dx
+				var ty: int = from.y + dy
+				if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
+					continue
+				if SimTileMap.is_indoors(map, tx, ty) or SimTileMap.is_solid(map, tx, ty):
+					continue
+				return Vector2i(tx, ty)
+	return Vector2i(-1, -1)
+
+
+# A blank 24 x 24 world with one lurker lying on the given floor: flat `x, y` pairs.
+func _sleeper_with_floor(seed_val: int, floor_tiles: Array) -> Dictionary:
+	var world: Variant = World.new(_fixture(seed_val))
+	var map: Variant = SimTileMap.blank_map(24, 24)
+	SimBoot.attach_kernel(world, map)
+	SimShambler.register_module(world, map)
+	var rng: Variant = world.rng.stream("shambler")
+	var zed: int = SimRoster.spawn_zombie(world, 12.5, 12.5, SimRoster.TYPE_SHAMBLER, rng)
+	SimShambler.make_dormant(world, zed, floor_tiles)
+	return {"world": world, "zed": zed}
