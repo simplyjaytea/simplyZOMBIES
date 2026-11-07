@@ -8102,3 +8102,21 @@ the noise entry.
   pack places neither device and one unit is spent. The plant (both RECIPES rows removed) turns it
   red with `M2_MATERIALS_FAIL`. `godot:check:grade` stows one wire before the scene is set up, since
   the E keycap that the grade lane counts is the free alarm rung.
+
+## The juggernaut shoves barricades, 2026-11-06
+
+The what's-left entry "The juggernaut" is closed. Its record, with the numbers, is in
+[docs/23](23-roadmap.md#the-record-by-system) under the zombie kinds.
+
+- **A barricade is a condition the sim owns.** Scrap takes 60 and timber 150, full by default.
+  `condition_of` reads a missing key as full, so a barricade with no shove is unchanged.
+- **The shove is its own channel.** It does not touch `_press` or STAGE_COST. The siege and walls
+  lanes depend on those stage numbers, so the juggernaut still advances stages as every body does.
+- **Default cards (built, for the owner to change):** scrap falls in 2 hits and timber in 5, 30
+  per hit, 40 ticks apart. The juggernaut is wave 4 at weight 1, the heavy's wave plus two.
+- **No fences or doors in this piece.** Window boards, wire fences and doors are not shoved.
+- **Repair is untouched.** The repair job reads its own metal recipe, not the barricade condition,
+  so a barricade is whole or gone; a damaged one is not a repair target.
+- **Ten-seed re-baseline owed.** The juggernaut joins the crawler, the lurker, the bloater's gas and
+  the feigner in the stage 2 run: ten seeds and a median wipe day, on `main` and on the candidate,
+  on a quiet machine. No number from this piece is a balance claim until then.
