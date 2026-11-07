@@ -44,6 +44,8 @@ const Palette = preload("res://presentation/palette.gd")
 const Chrome = preload("res://ui/chrome.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const MainScript = preload("res://presentation/main.gd")
+const SimItems = preload("res://sim/modules/items.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
 
 const MAIN_GD: String = "res://presentation/main.gd"
 const SHADER: String = "res://presentation/day_grade.gdshader"
@@ -421,6 +423,16 @@ func _pixels() -> void:
 	if main == null:
 		_fail("PIXELS: main.tscn did not boot")
 		return
+	var world: Variant = main.get("world")
+	# The street's HUD names the rung E would fire, and that clause is the chrome this lane judges. An
+	# empty pack offers no rung now that the trip alarm and the noisemaker are priced (2026-11-04), so
+	# the survivor carries the one unit of wire a rung asks for: on open street that is the wire fence,
+	# above the alarm on the ladder. The assertion is unchanged; only the pack it is shot with is.
+	var wire: int = SimItems.spawn_item(world, "item.wire.steel", {"tier": "scavenged", "count": 1})
+	if not SimInventory.stow(world, int(world.player), wire):
+		_fail("PIXELS: could not stow the wire the street's HUD names its rung with")
+		await _discard(main)
+		return
 	var err: String = await Scenes.setup(self, main, "day_street")
 	if err.is_empty():
 		err = Scenes.verify(main, "day_street")
@@ -428,7 +440,6 @@ func _pixels() -> void:
 		_fail("PIXELS: the day street: %s" % err)
 		await _discard(main)
 		return
-	var world: Variant = main.get("world")
 	world.components.set_component(int(world.player), "saying", {"text": "keep moving", "until": int(world.tick) + 2000})
 	main.call("queue_redraw")
 	await process_frame

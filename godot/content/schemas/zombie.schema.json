@@ -96,6 +96,12 @@
           "type": "number",
           "minimum": 0,
           "maximum": 1
+        },
+        "trail": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5000,
+          "description": "How much more scent the uphill neighbour cell must carry than the body's own cell before it takes the trail: Track, a seek up the scent field at the type's seek speed (SimShambler._trail_of). A rise, never a level, and set above the 16.6 a lone body's own trail shows it, so a body never tracks itself. It keeps the trail on half this rise. Absent or 0, the type never tracks; only the bloodhound names one. docs/30, \"The bloodhound's nose is a gradient, not a level, 2026-11-04\"."
         }
       }
     },
