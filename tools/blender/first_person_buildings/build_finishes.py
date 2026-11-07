@@ -813,10 +813,10 @@ def house_sash(mesh, template, x, y, side_index, outside, faces_out):
         (0.0, 0.04, 1.0, 2.10), (0.96, 1.0, 1.0, 2.10),
         (0.04, 0.96, 2.06, 2.10), (0.04, 0.96, 1.00, 1.04),
     ):
-        side_quad(mesh, x, y, side_index, u0, u1, y0, y1, alu, offset=0.045)
-    side_quad(mesh, x, y, side_index, 0.04, 0.52, 1.04, 2.06, "glass", offset=0.015)
-    side_quad(mesh, x, y, side_index, 0.48, 0.96, 1.04, 2.06, "glass", offset=0.040)
-    for u0, u1, offset in ((0.48, 0.52, 0.017), (0.48, 0.52, 0.042)):
+        side_quad(mesh, x, y, side_index, u0, u1, y0, y1, alu, offset=0.024)
+    side_quad(mesh, x, y, side_index, 0.04, 0.52, 1.04, 2.06, "glass", offset=-0.005)
+    side_quad(mesh, x, y, side_index, 0.48, 0.96, 1.04, 2.06, "glass", offset=0.020)
+    for u0, u1, offset in ((0.48, 0.52, -0.003), (0.48, 0.52, 0.022)):
         side_quad(mesh, x, y, side_index, u0, u1, 1.04, 2.06, alu, offset=offset)
     curtained = stable_int("%s:%d:%d:%d" % (template["id"], x, y, side_index)) % 3 != 0
     if faces_out and not outside and curtained:
@@ -846,6 +846,7 @@ def build_window_tile(pieces, template, x, y):
         styles = finish_for_neighbour(template, x, y, side_index)
         outside = not indoors_at(template, nx, ny)
         if template["id"] in HOUSE_FINISHES:
+            outside = outside and tile_at(template, nx, ny) == 0
             wall_quad(spatial, template, x, y, side_index, 0, 1, 0, WINDOW_SILL, styles)
             wall_quad(spatial, template, x, y, side_index, 0, 1, WINDOW_TOP, WALL_TOP, styles)
             house_sash(finish, template, x, y, side_index, outside, faces_out)
@@ -915,7 +916,9 @@ def build_tile_trim(finish, template, x, y):
                 side_quad(finish, x, y, side_index, 0, 1, 0, 0.24, "foundation", offset=0.007)
                 side_quad(finish, x, y, side_index, 0, 1, 2.43, 2.55, "trim", offset=0.007)
         else:
+            finish.role = "interior"
             side_quad(finish, x, y, side_index, 0, 1, 0.02, 0.12, "trim", offset=0.007)
+            finish.role = ""
         if tile != 6:
             continue
         low, high = 0.0, DOOR_TOP
@@ -980,14 +983,15 @@ def canopy_specs(template):
                     continue
                 for side in (1, 3):
                     dx, dy = SIDES[side][0]
-                    if tile_at(template, x + dx, y + dy) in (1, 2) or indoors_at(template, x + dx, y + dy):
+                    if tile_at(template, x + dx, y + dy) != 0 or indoors_at(template, x + dx, y + dy):
                         continue
                     specs.append({"tile": (x, y), "side": side, "u0": 0.0, "u1": 1.0, "depth": 0.40, "wall_y": 2.30, "outer_y": 2.18, "kind": "hood"})
     return specs
 
 
 def canopy_volume(spec):
-    low, high = side_bounds(spec["tile"][0], spec["tile"][1], spec["side"], spec["u0"], spec["u1"], spec["outer_y"] - 0.06, spec["wall_y"], spec["depth"])
+    depth = spec["depth"] + (0.0 if spec["kind"] == "balcony" else 0.04)
+    low, high = side_bounds(spec["tile"][0], spec["tile"][1], spec["side"], spec["u0"], spec["u1"], spec["outer_y"] - 0.06, spec["wall_y"], depth)
     high[1] = max(high[1], spec.get("volume_top", high[1]))
     return {"kind": "canopy", "min": low, "max": high, "tile": list(spec["tile"]), "side": spec["side"]}
 
@@ -1024,10 +1028,10 @@ def add_balcony(mesh, spec):
         x = 3.5 + 4.0 * i / count
         mesh.box((x - 0.0125, 2.749, z - 0.0125), (0.025, 1.102, 0.025), alu)
     for x in (3.5, 7.5):
-        mesh.box((x - 0.02, 3.799, h), (0.04, 0.05, 0.89), alu)
+        mesh.box((x - 0.02, 3.799, h - 0.001), (0.04, 0.05, 0.891), alu)
         side_count = round(0.89 / 0.11)
         for i in range(side_count + 1):
-            pz = h + 0.0125 + 0.865 * i / side_count
+            pz = h + 0.0105 + 0.865 * i / side_count
             mesh.box((x - 0.0125, 2.749, pz - 0.0125), (0.025, 1.102, 0.025), alu)
 
 
@@ -1072,8 +1076,8 @@ def add_downpipes(mesh, template):
     for x in (0, w - 1):
         if tile_at(template, x, h - 1) != 1 or openable(template, x, h - 1):
             continue
-        side_box(mesh, x, h - 1, 2, 0.04, 0.10, 0.40, 2.43, 0.060, "dark_wood", offset=0.001)
-        tube_between(mesh, side_frame(x, h - 1, 2)[0] + Vector((0.07, 2.40, 0.06)), side_frame(x, h - 1, 2)[0] + Vector((0.07, 2.58, 0.55)), 0.030, "dark_wood")
+        side_box(mesh, x, h - 1, 2, 0.04, 0.10, 0.40, 2.53, 0.060, "dark_wood", offset=0.001)
+        tube_between(mesh, side_frame(x, h - 1, 2)[0] + Vector((0.07, 2.53, 0.06)), side_frame(x, h - 1, 2)[0] + Vector((0.07, 2.58, 0.78)), 0.030, "dark_wood")
 
 
 def wall_volume(out, tile, side, u0, u1, y0, y1, depth):
@@ -1091,13 +1095,17 @@ def wall_attachment_volumes(template):
             if not openable(template, x, y):
                 continue
             for side, ((dx, dy), _) in enumerate(SIDES):
-                if tile_at(template, x + dx, y + dy) in (1, 2) or indoors_at(template, x + dx, y + dy):
+                if tile_at(template, x + dx, y + dy) != 0 or indoors_at(template, x + dx, y + dy):
                     continue
                 attachment = amado_attachment(template, x, y, side)
                 if attachment["kind"] == "side":
                     wall_volume(out, attachment["host"], side, 0.075, 0.925, 0.96, 2.14, 0.090)
+                    for y0, y1 in ((0.98, 1.02), (2.06, 2.10)):
+                        low, high = side_bounds(x, y, side, -0.05, 1.05, y0, y1, 0.090)
+                        out.append({"kind": "wall_attach", "min": low, "max": high, "tile": list(attachment["host"]), "side": side})
                 else:
-                    wall_volume(out, attachment["host"], side, 0.0, 1.0, 2.18, 2.48, 0.090)
+                    low, high = side_bounds(x, y, side, 0.0, 1.0, 2.18, 2.48, 0.090)
+                    out.append({"kind": "wall_attach", "min": low, "max": high, "tile": list(attachment["host"]), "side": side})
     if template["id"] == "building.house.gable":
         for y in range(h):
             for x in range(w):
@@ -1118,7 +1126,8 @@ def wall_attachment_volumes(template):
                     if attachment["kind"] == "side":
                         wall_volume(out, attachment["host"], side, 0.075, 0.925, 2.90, 4.16, 0.090)
                     else:
-                        wall_volume(out, attachment["host"], side, 0.0, 1.0, 4.12, 4.32, 0.090)
+                        low, high = side_bounds(x, y, side, 0.0, 1.0, 4.12, 4.32, 0.090)
+                        out.append({"kind": "wall_attach", "min": low, "max": high, "tile": list(attachment["host"]), "side": side})
     door = template.get("doors", [])[0]
     x, y = int(door["x"]), int(door["y"])
     for side, ((dx, dy), _) in enumerate(SIDES):
@@ -1223,17 +1232,19 @@ def character_report(template, pieces):
     measured_eave = -min(v.z for v in eave_points)
     measured_rake = -min(v.x for v in eave_points)
     roof_surface = max(v.y for v in roof_points if abs(v.z - h * 0.5) <= 0.001)
-    ridge_points = [v for v in vertices if -eave + 0.005 <= v.x <= w + eave - 0.005 and abs(v.z - h * 0.5) <= 0.12 and v.y >= roof_surface]
+    ridge_points = [v for v in vertices if -eave + 0.025 <= v.x <= w + eave - 0.025 and abs(v.z - h * 0.5) <= 0.12 and v.y >= roof_surface]
     ridge_height = max(v.y for v in ridge_points) - roof_surface
     onigawara = []
     for side in (-1, 1):
         points = [v for v in vertices if (v.x < -eave - 0.01 if side < 0 else v.x > w + eave + 0.01) and v.y > roof_surface + 0.15]
         if points:
             onigawara.append(max(v.y for v in points) - min(v.y for v in points))
-    sode_points = [v for v in vertices if abs(v.x + eave) <= 0.001 and abs(v.z + eave) <= 0.001]
+    sode_vertices = [Vector(pieces.finish.vertices[i]) for face, role in zip(pieces.finish.faces, pieces.finish.roles) if role == "sode" for i in face]
+    sode_centre = Vector((-eave, 2.64 + lift, -eave))
+    sode_points = [v for v in sode_vertices if (v - sode_centre).length <= 0.05001]
     sode_height = max(v.y for v in sode_points) - 2.62 - lift
     sode_overlap = 2.62 + lift - min(v.y for v in sode_points)
-    cream_trim = sum(style == "trim" for style in pieces.finish.styles)
+    cream_trim = sum(style == "trim" and role != "interior" for style, role in zip(pieces.finish.styles, pieces.finish.roles))
     if extent > 0.900001 or abs(measured_eave - 0.75) > 0.0001 or abs(measured_rake - 0.75) > 0.0001:
         raise ValueError(f"{template['id']} house extent/eave/rake {extent:.3f}/{measured_eave:.3f}/{measured_rake:.3f} m")
     if not 0.25 <= ridge_height <= 0.35 or len(onigawara) != 2 or any(not 0.30 <= height <= 0.45 for height in onigawara):
@@ -1257,14 +1268,17 @@ def character_report(template, pieces):
             if style == "glass" and height > 0.8:
                 if hi.z - lo.z < 0.001:
                     glass_planes.append((0, lo.z))
-                    glass_ranges.append((1, lo.x, hi.x))
+                    glass_ranges.append((0, lo.x, hi.x, lo.z))
                 elif hi.x - lo.x < 0.001:
                     glass_planes.append((1, lo.x))
-                    glass_ranges.append((1, lo.z, hi.z))
+                    glass_ranges.append((1, lo.z, hi.z, lo.x))
     frame_width = min(alu_widths)
-    plane_values = sorted({round(value, 5) for _, value in glass_planes})
-    pane_offset = min(b - a for a, b in zip(plane_values, plane_values[1:]) if b - a > 0.001)
-    stile_overlap = max(max(0.0, min(a[2], b[2]) - max(a[1], b[1])) for a in glass_ranges for b in glass_ranges)
+    pane_offsets = []
+    for axis in (0, 1):
+        plane_values = sorted({round(value, 5) for face_axis, value in glass_planes if face_axis == axis})
+        pane_offsets.extend(b - a for a, b in zip(plane_values, plane_values[1:]) if 0.019999 <= b - a <= 0.030001)
+    pane_offset = min(pane_offsets)
+    stile_overlap = max(max(0.0, min(a[2], b[2]) - max(a[1], b[1])) for a in glass_ranges for b in glass_ranges if a[0] == b[0] and 0.02 <= abs(a[3] - b[3]) <= 0.03)
     if not 0.03 <= frame_width <= 0.05 or not 0.02 <= pane_offset <= 0.03 or not 0.03 <= stile_overlap <= 0.04:
         raise ValueError(f"{template['id']} sash {frame_width:.3f}/{pane_offset:.3f}/{stile_overlap:.3f}")
 
@@ -1308,6 +1322,8 @@ def character_report(template, pieces):
 
 
 def build_house_details(finish, template):
+    if template["id"] not in HOUSE_FINISHES:
+        return
     for volume in genkan_volumes(template):
         low = volume["min"]
         high = volume["max"]
@@ -1458,19 +1474,30 @@ def add_house_roof_character(mesh, template, eave, peak):
     for layer in range(3):
         width = 0.20 - layer * 0.04
         inset = layer * 0.001
-        mesh.box((-eave + inset, peak + layer * 0.10 - 0.005, h * 0.5 - width * 0.5), (w + 2 * eave - 2 * inset, 0.105, width), "kawara")
+        bottom = peak + layer * 0.10 - (0.06 if layer == 0 else 0.005)
+        height = 0.160 if layer == 0 else 0.105
+        mesh.box((-eave + inset, bottom, h * 0.5 - width * 0.5), (w + 2 * eave - 2 * inset, height, width), "kawara")
     for x in (-eave - 0.06, w + eave - 0.02):
         base = peak + 0.181
         for level, (height, width) in enumerate(((0.12, 0.32), (0.12, 0.24), (0.14, 0.14))):
             inset = level * 0.001
             mesh.box((x + inset, base, h * 0.5 - width * 0.5), (0.08 - 2 * inset, height, width), "kawara")
             base += height
+    wall_roof = 2.62 + (peak - 2.62) * eave / (h * 0.5 + eave)
+    mesh.role = "roof_side"
+    for x, normal in ((-0.006, (-1, 0, 0)), (w + 0.006, (1, 0, 0))):
+        bx = -0.004 if x < 0 else w + 0.004
+        mesh.polygon([(bx, WALL_TOP - 0.01, 0.001), (bx, WALL_TOP - 0.01, h + 0.001), (bx, wall_roof, h + 0.001), (bx, peak, h * 0.5 + 0.001), (bx, wall_roof, 0.001)], "dark_wood", normal)
+        mesh.polygon([(x, wall_roof - 0.06, 0), (x, peak - 0.06, h * 0.5), (x, peak + 0.012, h * 0.5), (x, wall_roof + 0.012, 0)], "dark_wood", normal)
+        mesh.polygon([(x, peak - 0.06, h * 0.5), (x, wall_roof - 0.06, h), (x, wall_roof + 0.012, h), (x, peak + 0.012, h * 0.5)], "dark_wood", normal)
+    mesh.role = "sode"
     for x in (-eave, w + eave):
-        tube_path(mesh, [(x, 2.65, -eave), (x, peak + 0.03, h * 0.5), (x, 2.65, h + eave)], 0.05, "kawara")
+        tube_path(mesh, [(x, 2.64, -eave), (x, peak + 0.02, h * 0.5), (x, 2.64, h + eave)], 0.05, "kawara")
+    mesh.role = ""
     for z in (-eave, h + eave):
         tube_between(mesh, (-eave + 0.002, 2.60, z), (w + eave - 0.002, 2.60, z), 0.035, "kawara")
         gutter_z = z + (-0.04 if z < 0 else 0.04)
-        tube_between(mesh, (-eave + 0.004, 2.53, gutter_z), (w + eave - 0.004, 2.53, gutter_z), 0.055, "dark_wood")
+        tube_between(mesh, (-eave + 0.004, 2.56, gutter_z), (w + eave - 0.004, 2.56, gutter_z), 0.055, "dark_wood")
 
 
 def build_roof(mesh, template):
@@ -1532,15 +1559,15 @@ def build_roof(mesh, template):
         for x in (-eave, w):
             mesh.face((x, 2.53, 0), (eave, 0, 0), (0, 0, h), "dark_wood", normal=(0, -1, 0))
     else:
-        for x0, x1 in ((-eave, -0.005), (w + 0.005, w + eave)):
+        inner = 0.005 if template["id"] in HOUSE_FINISHES else -0.005
+        for x0, x1 in ((-eave, inner), (w - inner, w + eave)):
             mesh.polygon([(x0, 2.53, -eave), (x1, 2.53, -eave), (x1, peak - 0.09, h * 0.5), (x0, peak - 0.09, h * 0.5)], "dark_wood", (0, -1, 0))
             mesh.polygon([(x0, peak - 0.09, h * 0.5), (x1, peak - 0.09, h * 0.5), (x1, 2.53, h + eave), (x0, 2.53, h + eave)], "dark_wood", (0, -1, 0))
         mesh.role = "roof_side"
         for x, normal in ((-eave - 0.005, (-1, 0, 0)), (w + eave + 0.005, (1, 0, 0))):
-            if template["id"] in HOUSE_FINISHES:
-                continue
-            mesh.polygon([(x, 2.62, -eave), (x, peak, h * 0.5), (x, peak - 0.14, h * 0.5), (x, 2.51, -eave)], "trim", normal)
-            mesh.polygon([(x, peak, h * 0.5), (x, 2.62, h + eave), (x, 2.51, h + eave), (x, peak - 0.14, h * 0.5)], "trim", normal)
+            style = "kawara" if template["id"] in HOUSE_FINISHES else "trim"
+            mesh.polygon([(x, 2.62, -eave), (x, peak, h * 0.5), (x, peak - 0.14, h * 0.5), (x, 2.51, -eave)], style, normal)
+            mesh.polygon([(x, peak, h * 0.5), (x, 2.62, h + eave), (x, 2.51, h + eave), (x, peak - 0.14, h * 0.5)], style, normal)
     mesh.role = "roof_side"
     edges = [
         (Vector((-eave, 0, -eave - 0.005)), Vector((1, 0, 0)), w + 2 * eave, 0),

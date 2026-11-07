@@ -39,9 +39,16 @@ blender --background --factory-startup --python tools/blender/first_person_build
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=template
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=winding
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=aperture
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=canopy_low
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=canopy_deep
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=canopy_detached
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=wall_proud
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=wall_open
 ```
 
-`winding` reverses one hip-roof face; `aperture` draws a wall across house_small's first window.
+`winding` reverses one hip-roof face; `aperture` draws a wall across house_small's first window. The
+canopy plants put it at 1.90 m, make it 1.40 m deep, or detach it; the wall plants make an attachment
+0.15 m proud or put it on an openable tile.
 
 ## Data and runtime
 
@@ -75,10 +82,14 @@ boarded windows keep the dynamic boxes from `district_view.gd`; door casings sit
 The `godot:check:fp_geometry` FINISHES lane loads every model and proves wall caps (each wall capped
 exactly once, by `spatial_bands` or its own wall piece), the manifest's piece counts against the nodes
 the view parses, 0–2.55 m wall bands, solid-host attachment within 25 mm, transparent glazing, nearest
-filtering, and real stamped placement. Every declared `finishVolumes` box must have positive bounds,
-stay at or below 0.20 m, avoid every indoor or open footprint tile, and share a nonzero-length contact
-with the exterior side of a door tile. Planted indoor, 0.21 m-high and detached boxes are refused, as
-is an undeclared step. Its WORLDGEN lane builds all four districts through
+filtering, and real stamped placement. Every declared `finishVolumes` box has positive bounds and a
+`kind`. The default `doorstep` stays at or below 0.20 m, avoids every indoor or open footprint tile,
+and shares a nonzero-length contact with the exterior side of a door tile. A `canopy` has no vertex
+below 2.10 m, extends at most 1.20 m from the wall, and shares a nonzero-length contact with an
+exterior wall, window or door face. A `wall_attach` stands at most 0.10 m proud of a permanent wall
+tile, never a template window or `window_candidate`. Planted indoor, tall and detached steps are
+refused, as are low, deep and detached canopies, proud wall attachments and attachments on openable
+tiles. Its WORLDGEN lane builds all four districts through
 `SimBoot.bare` and casts the same window rays through every sim window of every finished building,
 holds every sim wall to a drawn wall, and counts band boxes left under drawn tiles. A wall planted over
 a window worldgen opened, and a baseline that keeps its band boxes, are both refused.
@@ -94,7 +105,7 @@ The runtime adds the building record's `x/y` as Godot `x/z`. All export transfor
 - Interior floor finish: 0.004 m above the floor to avoid z-fighting.
 - Ceiling finish: 2.545 m, immediately below the wall top, over every indoor tile, counters,
   shelves and partitions included.
-- Eaves: 0.30 m on pitched roofs, deepened to 0.45 m for batch A's two houses; flat roof
+- Eaves: 0.30 m on pitched roofs, deepened to 0.75 m for batch A's two houses; flat roof
   overhang: 0.18 m. The gabled house's decorative upper façade and lifted roof are finish geometry,
   not another sim floor.
 
@@ -127,13 +138,27 @@ to keep its lifted roof legible from the street.
   plane and overlapping the façade by 10 mm without stepped strips or sky gaps. Dark-wood triangles
   close the eave corners outside the wall lines. The lifted house's upper corners have narrow trim
   boards closing the façade-to-gable seam.
-- `house_small` keeps its 9 × 7 m footprint, timber walls, door and windows, with a kawara roof,
-  0.45 m eaves and a 0.12 m-high genkan step outside its door.
-- `house_gable` keeps its 11 × 8 m footprint, both doors and every window. It uses siding and
-  kawara, 0.45 m eaves and genkan steps. A decorative upper façade carries regular sash stations;
-  opaque dark curtains back every upper pane so no siding shows through the glass. Its roof is lifted
-  1.90 m and has a 2.00 m rise above the eave. The interior remains the sim's ground floor, with no
-  new collision, sight or walkable level.
+- Both batch-A houses have 0.75 m eaves and rakes, a 0.30 m stacked ridge, two 0.38 m stepped
+  onigawara, and continuous round rake and eave rolls. Kawara barge strips, backed gable closures and
+  overlapping soffits close the rake and ridge joints. Two 0.11 m gutters and two 0.06 m downpipes
+  finish each house. Neither extends more than 0.90 m outside its footprint.
+- Both houses use 40 mm aluminium sash frames, two tracks 25 mm apart, 40 mm meeting-stile overlap
+  and no centre muntin. Where a permanent side wall exists, an 0.85 m-wide tobukuro stands 90 mm proud;
+  otherwise a lintel shutter box stays over the opening. The main genkan is 1.50 x 0.90 x 0.16 m,
+  granite over a darker riser, with a nameplate, lamp and dark aluminium casing. The door leaf stays
+  in the sim renderer.
+- `house_small` keeps its 9 x 7 m footprint, doors and windows. Dark koshiita boards stand below
+  0.90 m under cream-grey mortar; its sashes are silver. Ten gable-end window hoods are 0.40 m deep,
+  with their outer edges at 2.18 m.
+- `house_gable` keeps its 11 x 8 m footprint, both doors and every window. It uses cedar siding and
+  bronze sashes. A decorative upper façade carries regular sash stations; opaque dark curtains back
+  every upper pane. Four pent-roof runs are 0.70 m deep from 2.95 m at the wall to 2.65 m outside,
+  stopping at the balcony. The balcony slab is 4.0 x 0.89 m at 2.75 m, with a 1.10 m rail and 0.111 m
+  baluster spacing. The kitchen hood is 0.45 m deep at 2.20 to 2.35 m. Its roof is lifted 1.90 m and
+  has a 2.00 m rise above the eave. The interior remains the sim's ground floor, with no new collision,
+  sight or walkable level.
+- Each house has a 0.40 m concrete plinth, a moss line on its north face and 0.30 x 0.12 m vent
+  grilles at no more than four-metre stations.
 - These two overrides live in the builder and their manifest entries. The template JSON, schema enum
   and `street.json` do not change here; R4 can retag the content after the materials have landed.
 - Each genkan step is placed against the door's actual outside neighbour, on any edge, and its exact
@@ -156,7 +181,8 @@ If room tags are added to content later, the manifest is the place to refine thi
 
 Windows remain open for sim sight and shots. The glass is a 20%-alpha dark tint with 34%-alpha grime at
 its edges, low roughness, and a slight metallic response; it is not an opaque blue panel. Two sashes and
-a thin centre muntin make the glazing legible. Residential and cabin casings leave about 0.72 m of the
+a thin centre muntin make the generic glazing legible; the two batch-A houses instead use overlapping
+meeting stiles with no muntin. Residential and cabin casings leave about 0.72 m of the
 1 m tile glazed, industrial/shed casings about 0.80 m, and commercial shopfronts keep the broad opening.
 Some interior residential windows have side curtains, selected by a fixed template/tile/side hash. The
 curtains do not cover the central aperture. Template window counts are unchanged.
@@ -170,7 +196,8 @@ request nearest magnification and Godot applies nearest-with-mipmaps filtering f
 
 The opaque `BuildingsAtlas` and transparent `WindowGlass` materials reference the same atlas. The palette
 is faded sage timber, warm grey render, brown brick, charcoal roofs, cool grey kawara, darkened
-warm grey-brown cedar siding, aged cream trim, and subdued floor tones. Wear is sparse and
-surface-specific, with no camouflage-like cloud noise or copied texture pixels. Siding and floor boards are 0.125 m wide;
-brick courses are 0.125 m and block courses 0.25 m.
+warm grey-brown cedar siding, aged cream trim, and subdued floor tones. Batch A adds cream-grey
+mortar, dark koshiita, silver and bronze aluminium, pale concrete and granite. Wear is sparse and
+surface-specific, with no camouflage-like cloud noise or copied texture pixels. Siding and floor
+boards are 0.125 m wide; brick courses are 0.125 m and block courses 0.25 m.
 All meshes and textures are original procedural work from fixed integer hashes.

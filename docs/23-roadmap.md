@@ -2470,18 +2470,22 @@ not a to-do list:
     higher-contrast sage. Both join the shared atlas and manifest's look tables, ready for the later
     schema/`street.json` retag. Their regular courses and restrained wear use no cloud noise or
     atlas-cell paint patches.
-  - **Houses.** `house_small` is the 9 x 7 m timber house with kawara, a deep eave and genkan
-    step. `house_gable` is the 11 x 8 m siding house with kawara, deep eaves, genkan steps and a
-    decorative upper sash façade backed by dark curtains. Pitched roofs have down-facing eave and
-    rake soffits; gables have two barge boards and continuous pentagonal end faces meeting the roof
-    planes and overlapping the façade seams, with dark-wood triangles closing the eave corners.
-    Genkan steps follow each door's outside neighbour. The lifted roof does not create an upper sim
-    floor. Existing interiors, open window apertures and all 22 template resolutions remain.
-  - **Verified.** `build_finishes.py -- --check` prints `BUILDINGS_CHECK_OK`; all eight plants are
-    refused. `godot:check:fp_geometry` proves the real-district walls, windows and ceilings, and
-    refuses finish volumes that overlap indoor/open footprint tiles, exceed 0.20 m or fail to abut
-    a door's exterior side. `godot:smoke` and `check:routing` pass. Material swatches and matched
-    1280x720 main/head street, corner, oblique, eave, aerial and interior captures accompany the piece.
+  - **Houses.** Both have 0.75 m eaves/rakes, a 0.30 m stacked ridge, two 0.38 m onigawara,
+    overlapping kawara rake rolls and barge strips, two gutters and two downpipes. Aluminium sashes
+    measure 40 mm at the frame and meeting-stile overlap, with 25 mm between tracks. Side tobukuro or
+    lintel shutter boxes belong to the window pieces. Each main genkan is 1.50 x 0.90 x 0.16 m.
+    `house_small` has koshiita below 0.90 m, mortar above, silver sashes and ten 0.40 m gable-end
+    hoods. `house_gable` keeps cedar siding, uses bronze sashes, and has four 0.70 m pent-roof runs,
+    a 4.0 x 0.89 m balcony at 2.75 m with a 1.10 m rail, and a 0.45 m kitchen hood. Both have 0.40 m
+    concrete plinths and vent stations at most 4 m apart. The lifted roof does not create an upper
+    sim floor. Existing interiors, open apertures, all 22 template resolutions and the other 20
+    templates' geometry remain.
+  - **Verified.** `build_finishes.py -- --check` prints `BUILDINGS_CHECK_OK` and two measured
+    `CHARACTER` lines; all 13 plants are refused. `godot:check:fp_geometry` proves real-district
+    walls, windows and ceilings, and refuses invalid doorsteps plus low, deep or detached canopies
+    and proud or openable-host wall attachments. `godot:smoke` and `check:routing` pass. Material
+    swatches, Blender clay/textured turnarounds and matched 1280x720 before/after, real-sky, repeat
+    and magenta captures accompany the piece; repeat-run pixel noise is zero.
 
 - **First-person arms in the view, 2026-11-04.** docs/41 item W1, the held weapon: the player's
   own arms under the eye, holding the item the sim says is in hand; bare hands show the arms alone.

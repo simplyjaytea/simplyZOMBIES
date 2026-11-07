@@ -518,6 +518,7 @@ func _finishes() -> bool:
 		if _finish_vertex_allowed(house, Vector3(0.5, 0.06, 7.16), [detached_volume]):
 			ok = _fail("FINISHES", "a planted finish volume not abutting a door was accepted")
 
+		var character: Dictionary = templates.get("building.house.gable", {}) as Dictionary
 		var character_entry: Dictionary = BuildingView.entry_for("building.house.gable")
 		var canopy := {}
 		var wall := {}
@@ -530,11 +531,11 @@ func _finishes() -> bool:
 		if canopy.is_empty() or wall.is_empty():
 			ok = _fail("FINISHES", "the canopy/wall_attach planted cases have no valid control")
 		else:
-			if not _finish_volume_allowed(house, canopy):
+			if not _finish_volume_allowed(character, canopy):
 				ok = _fail("FINISHES", "the valid canopy was refused")
 			var low_canopy: Dictionary = canopy.duplicate(true)
 			(low_canopy["min"] as Array)[1] = 1.90
-			if _finish_volume_allowed(house, low_canopy):
+			if _finish_volume_allowed(character, low_canopy):
 				ok = _fail("FINISHES", "a canopy at 1.90 m was accepted")
 			var deep_canopy: Dictionary = canopy.duplicate(true)
 			var deep_axis: int = 2 if int(deep_canopy["side"]) % 2 == 0 else 0
@@ -542,14 +543,14 @@ func _finishes() -> bool:
 				(deep_canopy["min"] as Array)[deep_axis] = float((deep_canopy["max"] as Array)[deep_axis]) - 1.40
 			else:
 				(deep_canopy["max"] as Array)[deep_axis] = float((deep_canopy["min"] as Array)[deep_axis]) + 1.40
-			if _finish_volume_allowed(house, deep_canopy):
+			if _finish_volume_allowed(character, deep_canopy):
 				ok = _fail("FINISHES", "a canopy 1.40 m deep was accepted")
 			var detached_canopy: Dictionary = canopy.duplicate(true)
 			(detached_canopy["min"] as Array)[0] = float((detached_canopy["min"] as Array)[0]) + 2.0
 			(detached_canopy["max"] as Array)[0] = float((detached_canopy["max"] as Array)[0]) + 2.0
-			if _finish_volume_allowed(house, detached_canopy):
+			if _finish_volume_allowed(character, detached_canopy):
 				ok = _fail("FINISHES", "a detached canopy was accepted")
-			if not _finish_volume_allowed(house, wall):
+			if not _finish_volume_allowed(character, wall):
 				ok = _fail("FINISHES", "the valid wall attachment was refused")
 			var proud_wall: Dictionary = wall.duplicate(true)
 			var proud_axis: int = 2 if int(proud_wall["side"]) % 2 == 0 else 0
@@ -557,13 +558,13 @@ func _finishes() -> bool:
 				(proud_wall["min"] as Array)[proud_axis] = float((proud_wall["min"] as Array)[proud_axis]) - 0.06
 			else:
 				(proud_wall["max"] as Array)[proud_axis] = float((proud_wall["max"] as Array)[proud_axis]) + 0.06
-			if _finish_volume_allowed(house, proud_wall):
+			if _finish_volume_allowed(character, proud_wall):
 				ok = _fail("FINISHES", "a wall attachment 0.15 m proud was accepted")
 			var open_wall: Dictionary = wall.duplicate(true)
 			var planted_tile := Vector2i(-1, -1)
-			for y in range(int((house["size"] as Dictionary)["h"])):
-				for x in range(int((house["size"] as Dictionary)["w"])):
-					if _window_candidate(house, x, y):
+			for y in range(int((character["size"] as Dictionary)["h"])):
+				for x in range(int((character["size"] as Dictionary)["w"])):
+					if _window_candidate(character, x, y):
 						planted_tile = Vector2i(x, y)
 						break
 				if planted_tile.x >= 0:
@@ -572,7 +573,7 @@ func _finishes() -> bool:
 				ok = _fail("FINISHES", "no openable tile exists for the wall_attach negative")
 			else:
 				open_wall["tile"] = [planted_tile.x, planted_tile.y]
-				if _finish_volume_allowed(house, open_wall):
+				if _finish_volume_allowed(character, open_wall):
 					ok = _fail("FINISHES", "a wall attachment on an openable tile was accepted")
 		ok = _finish_placement(house) and ok
 	ok = _finish_worldgen(templates) and ok
@@ -747,7 +748,7 @@ func _canopy_volume_allowed(template: Dictionary, volume: Dictionary, minimum: V
 		return false
 	var x: int = int(tile[0])
 	var y: int = int(tile[1])
-	if _template_tile(template, x, y) != 1:
+	if _template_tile(template, x, y) not in [1, 2, 6]:
 		return false
 	var offset: Vector2i = SIDE_OFFSETS[side]
 	if _template_indoors(template, x + offset.x, y + offset.y) or _template_tile(template, x + offset.x, y + offset.y) != 0:
