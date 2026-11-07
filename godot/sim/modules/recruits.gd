@@ -35,6 +35,9 @@ const CORPSE_OLD_TICKS: int = 4 * Clock.DAY_TICKS
 # A zombie that dies lies where it fell for this long, then goes (the owner's card, docs/33; five minutes at
 # 20 Hz). Not buried, no scent, no loot on it: those are cards of their own.
 const ZOMBIE_CORPSE_TICKS: int = 6000
+# The most zombie bodies the world keeps at once (owner card, docs/33, 2026-11-07): a body past it takes the
+# oldest body's place, the way decals bound their marks. Measured in docs/30 (the tick cost at the cap).
+const ZOMBIE_CORPSE_CAP: int = 60
 # What a zombie sheds when it dies. `shambler` holds every kind's AI (dormant, feigning, crawling, grabbing:
 # all keys of that one component), so removing it is what stops a body acting or counting as a zombie. The rest
 # are the components a zombie is given beside it at spawn (roster.gd `spawn_zombie`): `velocity` (it does not
@@ -382,6 +385,24 @@ static func _make_zombie_corpse(world: Variant, entity: int) -> void:
 	for shed in ZOMBIE_CORPSE_SHEDS:
 		world.components.remove(entity, shed)
 	world.events.publish({"type": "corpse.formed", "entity": entity, "zombie": true})
+	_bound_zombie_corpses(world)
+
+
+# Over ZOMBIE_CORPSE_CAP, the oldest zombie bodies go first. Ties on the tick go to the lower entity id, so the
+# same run always takes the same body. Collected first, then despawned, so the query is not walked while it changes.
+static func _bound_zombie_corpses(world: Variant) -> void:
+	var bodies: Array = []
+	for e in world.components.query(["corpse"]):
+		var c: Variant = world.components.get_component(int(e), "corpse")
+		if c is Dictionary and bool((c as Dictionary).get("zombie", false)):
+			bodies.append([int((c as Dictionary).get("sinceTick", 0)), int(e)])
+	var excess: int = bodies.size() - ZOMBIE_CORPSE_CAP
+	if excess <= 0:
+		return
+	bodies.sort_custom(func(a: Array, b: Array) -> bool:
+		return int(a[0]) < int(b[0]) or (int(a[0]) == int(b[0]) and int(a[1]) < int(b[1])))
+	for i in excess:
+		world.despawn(int((bodies[i] as Array)[1]))
 
 
 # True for the body a zombie left, as opposed to a colonist, raider or settler's. Bury and the human corpse

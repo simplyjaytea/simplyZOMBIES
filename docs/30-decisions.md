@@ -8210,3 +8210,10 @@ the body you just put down disappears mid-fall. A zombie's body now stays where 
 - **Two places the spec named that are not components here.** The dormant, lurker, feigner, gas, shove and
   crawler states are not components of their own: they live in the `shambler` component (a feigner's keys,
   a dormant body's state) or in the content. Removing `shambler` is what covers them.
+- **The cap (2026-11-07, the owner's budget card).** `ZOMBIE_CORPSE_CAP` = 60 bodies at once. A death that
+  would make 61 takes the oldest body first, the way decals bound their marks; ties on the tick go to the
+  lower entity id. The gate is `godot:m2:roster`'s ZOMBIE CORPSE CAP lane (61 deaths, 60 stand, the oldest
+  taken, the newest kept); its plant (the bound call removed) stands 61 and turns the lane red. The tick cost
+  of the cap is measured in the PR body and REPORT.md: a throwaway driver, 100 kills and 600 ticks, three
+  process runs of three worlds each, on origin/main (which despawns them) and on this head.
+

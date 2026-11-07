@@ -46,6 +46,7 @@ func _run() -> void:
 	ok = _the_lurker_is_content() and ok
 	ok = _the_feigner_is_content() and ok
 	ok = _zombie_corpse_lies_there() and ok
+	ok = _zombie_corpse_cap_holds() and ok
 	if ok:
 		print("M2_ROSTER_OK mix alarm bloom exhausted, every zombie has eyes, extends resolved, senses and waves are content, the screamer sees what is lit at night, the dead write to the field from content, residue in every state, one roll a cloud, four wave kinds are JSON entries a body reads, crawlers are born legless, and the lurker is content, silenced from the mix and has eyes")
 		quit(0)
@@ -1312,4 +1313,37 @@ func _zombie_corpse_lies_there() -> bool:
 		push_error("ZOMBIE CORPSE: Haul took the zombie body: %s" % str(haul))
 		return false
 	print("ZOMBIE CORPSE OK the body lies where it fell for %d ticks and no more, keeps its kind, sheds what acts or counts, stays put, survives a save, is not counted as a zombie, and Bury and Haul pass it by while the human body beside it is still Bury's target" % SimRecruits.ZOMBIE_CORPSE_TICKS)
+	return true
+
+
+# --- ZOMBIE CORPSE CAP: the world keeps at most ZOMBIE_CORPSE_CAP zombie bodies ---------------------------------
+#
+# The owner card (docs/33, 2026-11-07): a body past the cap takes the oldest body's place. 61 zombies are killed
+# one tick apart, so the 61st death must despawn the first body and leave the newest. The plant is the bound call
+# removed from `_make_zombie_corpse`: 61 bodies stand, and this lane goes red.
+func _zombie_corpse_cap_holds() -> bool:
+	var world: Variant = World.new(_fixture(11))
+	world.tick = Clock.tick_at_time_of_day(Clock.DAY_BEGINS)
+	var map: Variant = SimTileMap.blank_map(24, 24)
+	SimBoot.attach_kernel(world, map)
+	SimRecruits.register_module(world)
+	var rng: Variant = world.rng.stream("shambler")
+	var made: Array[int] = []
+	var count: int = SimRecruits.ZOMBIE_CORPSE_CAP + 1
+	for i in count:
+		var zed: int = SimRoster.spawn_zombie(world, 2.5 + float(i % 8), 2.5 + float(i / 8), SimRoster.TYPE_SHAMBLER, rng)
+		made.append(zed)
+		SimHealth.finish_death(world, zed)
+		world.step()
+	var standing: int = world.components.query(["corpse"]).size()
+	if standing != SimRecruits.ZOMBIE_CORPSE_CAP:
+		push_error("ZOMBIE CORPSE CAP: %d bodies stand after %d deaths, want the cap %d" % [standing, count, SimRecruits.ZOMBIE_CORPSE_CAP])
+		return false
+	if world.entities.is_alive(made[0]):
+		push_error("ZOMBIE CORPSE CAP: the oldest body is still in the world past the cap")
+		return false
+	if not world.entities.is_alive(made[count - 1]):
+		push_error("ZOMBIE CORPSE CAP: the newest body was taken instead of the oldest")
+		return false
+	print("ZOMBIE CORPSE CAP OK %d deaths leave %d bodies: the oldest is taken, the newest stands" % [count, standing])
 	return true

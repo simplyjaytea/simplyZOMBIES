@@ -4324,6 +4324,8 @@ not a to-do list:
   - **Owner cards (built as stated).** Lie time: 6000 ticks (five minutes). Burial: not built, zombie bodies
     are never buried. Scent: none. Loot: the kit still drops as before, and nothing is looted from the body.
   - **Not in this piece.** No loot on the body, no infection from it, no burial, no smell.
+  - **The cap.** `ZOMBIE_CORPSE_CAP` = 60: a death past it takes the oldest body first (`recruits.gd`
+    `_bound_zombie_corpses`). Gate: `godot:m2:roster`'s ZOMBIE CORPSE CAP lane, with its plant.
 
 - **Colony screen follow-ups, 2026-10-26.** Three nits the Colony and HUD bullets named, one piece.
   - **Reopen scrolls to the pick.** `work_panel.gd` clears `_scrolled_for` on
