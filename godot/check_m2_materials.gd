@@ -54,8 +54,14 @@ const WHETSTONE: String = "item.whetstone"
 
 # The verbs that cost nothing before this slice and must cost nothing after it. Named rather than
 # counted, because the point is not "there are three recipes" -- a fourth is the intended future --
-# it is "the slice did not quietly start charging for the alarm line".
-const FREE_VERBS: Array[String] = ["window", "alarm", "noisemaker", "wind", "camp"]
+# it is "the slice did not quietly start charging for the window board".
+const FREE_VERBS: Array[String] = ["window", "wind", "camp"]
+
+# The two verbs priced on 2026-11-04 (docs/30, "The alarm and the noisemaker are priced"), each with
+# the substance it spends. The alarm and the noisemaker were free until then; the PINNED lane asserts
+# the new prices, and the lane after it asserts what a price does at the placement.
+const PRICED_VERBS: Dictionary = {"alarm": "wire", "noisemaker": "metal"}
+const WIRE: String = "item.wire.steel"
 
 # A kind and a verb that do not exist, for the true negatives. Nothing in content or code may
 # answer to either.
@@ -85,8 +91,9 @@ func _run() -> void:
 	ok = _the_scan_reaches_every_kind_and_only_the_one_asked_for() and ok
 	ok = _every_recipe_names_something_a_survivor_could_hold() and ok
 	ok = _the_raised_buildables_spend_their_own_material() and ok
+	ok = _the_alarm_and_the_noisemaker_cost_one_unit() and ok
 	if ok:
-		print("M2_MATERIALS_OK pinned kind kinds findable reach recipes builds")
+		print("M2_MATERIALS_OK pinned kind kinds findable reach recipes builds priced")
 		quit(0)
 	else:
 		push_error("M2_MATERIALS_FAIL")
@@ -203,6 +210,17 @@ func _the_retrofit_builds_exactly_what_it_always_built() -> bool:
 		if SimFortify.RECIPES.has(free_verb):
 			push_error("%s: '%s' cost nothing before this slice and now wants '%s' -- that is a rebalance, not a retrofit" % [lane, String(free_verb), String(SimFortify.RECIPES[free_verb])])
 			return false
+	# The two priced verbs: the alarm is wire and the noisemaker is scrap metal. The negative control
+	# is the same test on a table with both rows removed, which must answer no, or this measures nothing.
+	if not _prices_both(SimFortify.RECIPES):
+		push_error("%s: the alarm and the noisemaker do not cost one unit each of their own substance (%s)" % [lane, str(SimFortify.RECIPES)])
+		return false
+	var planted: Dictionary = SimFortify.RECIPES.duplicate()
+	planted.erase("alarm")
+	planted.erase("noisemaker")
+	if _prices_both(planted):
+		push_error("%s: negative control failed: a table with no alarm or noisemaker row still reads as priced" % lane)
+		return false
 	if int(SimGunsmith.BENCH_SCRAP) != 3:
 		push_error("%s: a bench costs %d units and it has always cost 3 -- if that is deliberate, move this pin, and check_m2_bench.gd reads the same constant" % [lane, int(SimGunsmith.BENCH_SCRAP)])
 		return false
@@ -266,7 +284,60 @@ func _the_retrofit_builds_exactly_what_it_always_built() -> bool:
 	if SimJobs._material_for(w3, w3.player, "") >= 0:
 		push_error("%s: an empty kind matched something -- '' is what material_of answers for an ordinary item, so this would mend a rifle with a tin of beans" % lane)
 		return false
-	print("  PINNED: one barricade off one unit, one bench off %d, the Repair job still reaches for metal, and %d verbs that were free are still free" % [int(SimGunsmith.BENCH_SCRAP), FREE_VERBS.size()])
+	print("  PINNED: one barricade off one unit, one bench off %d, the Repair job still reaches for metal, %d verbs still free, and the alarm (wire) and noisemaker (metal) priced" % [int(SimGunsmith.BENCH_SCRAP), FREE_VERBS.size()])
+	return true
+
+
+# Whether a recipe table prices both priced verbs at one unit of their own substance. A pure read of
+# the table, so the planted negative in PINNED can ask it about a table it built.
+func _prices_both(table: Dictionary) -> bool:
+	for verb in PRICED_VERBS.keys():
+		if String(table.get(verb, "")) != String(PRICED_VERBS[verb]):
+			return false
+	return true
+
+
+# The behaviour half of the price. An empty pack places neither device; a pack with one unit places
+# it and spends exactly that unit. Two units go in so "one was spent" is distinguishable from "the
+# pack is empty", the same reason the barricade lane gives two.
+func _the_alarm_and_the_noisemaker_cost_one_unit() -> bool:
+	var lane: String = "PRICED"
+	# The alarm: wire.
+	var bare: Variant = _world(80)
+	_channel(bare, {"type": "trap.alarm.place", "tx": 10, "ty": 12})
+	if bare.components.query(["alarmLine"]).size() != 0:
+		push_error("%s: an alarm line was laid out of an empty pack" % lane)
+		return false
+	var w: Variant = _world(81)
+	if _give(w, WIRE, 2) < 0:
+		return false
+	if SimFortify.material_count(w, w.player, "wire") != 2:
+		push_error("%s: two wire in the pack count as %d" % [lane, SimFortify.material_count(w, w.player, "wire")])
+		return false
+	_channel(w, {"type": "trap.alarm.place", "tx": 10, "ty": 12})
+	if w.components.query(["alarmLine"]).size() != 1:
+		push_error("%s: %d alarm lines after a full channel with wire in hand" % [lane, w.components.query(["alarmLine"]).size()])
+		return false
+	if SimFortify.material_count(w, w.player, "wire") != 1:
+		push_error("%s: the alarm cost %d units of wire, not one" % [lane, 2 - SimFortify.material_count(w, w.player, "wire")])
+		return false
+	# The noisemaker: scrap metal.
+	var bare2: Variant = _world(82)
+	_channel(bare2, {"type": "bait.noisemaker.place", "tx": 10, "ty": 12})
+	if bare2.components.query(["noisemaker"]).size() != 0:
+		push_error("%s: a noisemaker went down out of an empty pack" % lane)
+		return false
+	var w2: Variant = _world(83)
+	if _give(w2, SCRAP, 2) < 0:
+		return false
+	_channel(w2, {"type": "bait.noisemaker.place", "tx": 10, "ty": 12})
+	if w2.components.query(["noisemaker"]).size() != 1:
+		push_error("%s: %d noisemakers after a full channel with metal in hand" % [lane, w2.components.query(["noisemaker"]).size()])
+		return false
+	if SimFortify.material_count(w2, w2.player, "metal") != 1:
+		push_error("%s: the noisemaker cost %d units of metal, not one" % [lane, 2 - SimFortify.material_count(w2, w2.player, "metal")])
+		return false
+	print("  PRICED: an empty pack places neither device; one wire lays the alarm and spends one, one scrap metal sets the noisemaker and spends one")
 	return true
 
 

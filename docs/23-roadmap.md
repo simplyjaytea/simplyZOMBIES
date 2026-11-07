@@ -187,6 +187,9 @@ The source baseline is archived on GitHub at
   save/reload, die and succeed; measured performance, regression proof, campaign
   balance and human play. The default switch landed 2026-11-01 (docs/30, "First person
   is the default boot"), so the boot is first person and the top-down game is the testing build.
+- **Worn items on the first-person bodies, first cut.** [docs/44](44-clothing-layers.md)'s first
+  piece: the outfit resolver, a picture or an explicit none for all 63 worn items, five layer
+  families, gloves on the arms, and their gates. Waits on the organic survivor and the arms kit.
 - **Starter-kit polish (#275 round 2).** In `tools/blender/first_person_kit/build_kit.py`: plaster
   cloud noise reads as camouflage blocks up close; oak grain steps every 8 texels, like brickwork;
   paint chips follow atlas cells, not mesh edges; barricade planks float 6 mm off the brace; wall
@@ -584,14 +587,8 @@ system.
   before-and-after run that a rebalance owes.
 - ~~**Light that burns down, and what feeds it**~~ — **landed** 2026-09-12, see the record.
 - ~~**Noise that is an item**~~ — **landed** 2026-09-12, see the record. Half of it: the eight new
-  devices are real, and the alarm and the noisemaker are **still free world singletons**, by the
-  owner's decision of 2026-09-12. Repricing them is below.
-- **The alarm and the noisemaker still cost nothing to place.** They are `fortify.gd` world
-  singletons that consume no item, and the noise slice deliberately left them that way: the owner
-  chose new items only, and `check_m2_materials.gd`'s PINNED lane asserts both by name, so
-  repricing them is a rebalance that would turn a shipped gate red rather than a content addition.
-  What closes it is giving each an item to spend and moving that PINNED assertion with it, in one
-  commit, with the before-and-after run that a rebalance owes.
+  devices are real, and the alarm and the noisemaker were **free world singletons** until
+  2026-11-05, by the owner's decision of 2026-09-12. They are priced now; see the record.
 - ~~**Comfort that is not food**~~ — **landed** 2026-09-12, see the record.
 - ~~**The mask that filters**~~ — **landed** 2026-09-12, see the record.
 - **The explosives docs/09 says already exist.** docs/09's cut list asserted *"they exist as rare
@@ -2636,7 +2633,7 @@ not a to-do list:
   `vehicle.truck` is Kei Truck (was "Flatbed truck"). `vehicle.sedan` stays "Sedan" for now: the
   `MOUNT` lane of `godot/check_vehicles.gd` asserts the HUD clause "a sedan beside you", and that clause
   is built from the name, so the rename waits for that pin to move. The other vehicles keep their names,
-  as docs/42 says. The vehicle files carry no description field.
+  as docs/42 says. The vehicle files carry no description field. The sedan now takes its name too (Kei Car), and the `MOUNT` pin reads the car's name from content, so the "stays Sedan" clause above no longer holds.
   - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:check:wrecks`,
     `npm run godot:m2:vehicles` (`M2_VEHICLES_OK`) and `npm run godot:m2:light_burn` hold on the renamed
     content, and so does `npm run godot:smoke`.
@@ -15906,18 +15903,45 @@ not a to-do list:
   floodlight is a one-way trip and is recorded as such — two placeable items, two opposite answers,
   both by the owner's decision of 2026-09-12 rather than by whichever was written first.
 
-  **Half of it did not ship, on purpose.** The what's-left entry wanted the alarm and the noisemaker
-  turned into things you had to have carried there first. They are still free world singletons,
-  because `check_m2_materials.gd`'s PINNED lane asserts both of them by name and by cost — so
-  repricing them is a rebalance that turns a shipped gate red, not a content addition riding along
-  beside one. The owner chose new items only. The repricing is named in what's left with the
-  before-and-after run it owes.
+  **Half of it did not ship, on purpose, until 2026-11-05.** The what's-left entry wanted the alarm and
+  the noisemaker turned into things you had to have carried there first. They stayed free world
+  singletons, because `check_m2_materials.gd`'s PINNED lane asserts both of them by name and by cost,
+  so repricing them was a rebalance that would turn a shipped gate red. The owner chose new items
+  only. The repricing landed 2026-11-05; see the next paragraph.
 
   **HORDE is the lane worth naming**, because it measures the thing the slice is for rather than
   the field it writes into: twelve bodies at a mean 18.0 m held 18.6 m through a 400-tick fuse and
   then closed to 3.0 m over 3600 ticks of siren, while an identical siren that never went off left
   its ring at 20.9 m. The control is what makes it an assertion — the crowd came for the sound, and
   a crowd that did not hear one stayed where it was.
+
+  **The alarm and the noisemaker are priced, 2026-11-05.** The alarm costs one wire and the noisemaker
+  one metal (`fortify.gd` RECIPES: `"alarm": "wire", "noisemaker": "metal"`). Both are spent in
+  `_complete`, only after the placement checks pass, so a refused placement spends nothing. The alarm
+  rung needs a carried wire and the noisemaker rung a carried metal (`rung_of`); the intake rows
+  `trap.alarm.place` and `bait.noisemaker.place` also require the unit carried. The E ladder keeps its
+  default: a lone wire on open ground strings a fence, because the fence rung sits above the alarm, so E
+  lays the alarm only where a wall cannot go up (indoors). The owner card is docs/33's "The trip alarm".
+  PINNED asserts both costs by name, and PRICED (in `godot:m2:materials`) asserts that an empty pack
+  places neither device and one unit spent is one unit gone. Removing both RECIPES rows turns PINNED red
+  with `M2_MATERIALS_FAIL`. The grade gate's chrome lane needed a fixture change: the amber E keycap is
+  the free alarm rung, so an empty pack hid it; `check_grade_look.gd` stows one wire before the scene
+  is set up, and the count is back at 21 pixels.
+
+  Before and after, `godot:playtest` (the scripted survivor, ten days, seeds 1, 2, 3; base is
+  `origin/main` `3b274730`, after is the merge `80887746`). The log has no placement field, so the
+  alarms and noisemakers the colony lays are not counted.
+
+  | Seed | Base | After |
+  |---|---|---|
+  | 1 | wiped, day 9, 0 survivors, 3 deaths, wall 3454 s | wiped, day 9, 0 survivors, 3 deaths, wall 2975 s |
+  | 2 | wiped, day 8, 0 survivors, 4 deaths, wall 2205 s | wiped, day 8, 0 survivors, 4 deaths, wall 2046 s |
+  | 3 | alive, day 11, 2 survivors, not over, wall 3823 s | alive, day 11, 2 survivors, not over, 1 death, wall 3249 s |
+
+  Wall times are not quiet-machine numbers: the three base runs and the three after runs each ran three
+  at once. `M2_BALANCE_OK` holds on both trees (base 384 s, after 295 s in the handoff's concurrent
+  runs; 217 s on the final chain, run beside the seed 3 playtest). The seed outcomes are the same on
+  both trees; the measurement does not show a shift in the wipe day.
 - **Items** — ~~build materials: the substance that is not scrap~~ **landed** 2026-09-12
   (`npm run godot:m2:materials` → **`M2_MATERIALS_OK pinned kind kinds findable reach recipes`**, a
   new gate whose six lanes were each broken and watched go red; `godot:m2:fortify`, `godot:m2:jobs`,
