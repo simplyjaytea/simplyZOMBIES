@@ -8217,3 +8217,9 @@ The what's-left entry "The juggernaut" is closed. Its record, with the numbers, 
 - **Ten-seed re-baseline owed.** The juggernaut joins the crawler, the lurker, the bloater's gas and
   the feigner in the stage 2 run: ten seeds and a median wipe day, on `main` and on the candidate,
   on a quiet machine. No number from this piece is a balance claim until then.
+
+## Outdoor boot wanderers are judged ahead, shipped at lead 1, 2026-11-07
+
+Card open (owner): how early do the boot wanderers take the other kinds? Lead 2 admits the wave-1 kinds at boot and wiped
+seed 20260805 in `m2:balance`; the shipped default is lead 1, which is inert on day 1 (no kind admitted before day 3). The
+lead is the owner's to set; 0 is the old behaviour.

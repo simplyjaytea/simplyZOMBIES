@@ -3251,6 +3251,13 @@ not a to-do list:
   take is a press on its own plate and pane, and the shambler's approach is the sim's seek from a
   quiet body, so a sound-making body or another district could change it. The rest of docs/39's proof
   (the convert-and-switch default and the measured budgets) is still open.
+- **Outdoor boot wanderers judged ahead, 2026-11-07.** `boot.gd` judges an outdoor boot wanderer's kind at the boot
+  tick plus `BOOT_WAVE_LEAD_DAYS` (a static var, shipped at 1: the fallback). At 2 the boot's wave-1 kinds (stalker,
+  screamer, bloater) appear, but `godot:m2:balance` wiped seed 20260805 (survivors 0/3, over=true, grabs 252). At 1 the
+  boot is unchanged (day 2 admits no kind before day 3), so the shipped change is inert until the owner picks the lead.
+  Indoor wanderers keep the boot tick's kind. The lane BOOTKINDS (`godot/check_m2_district.gd`) tests lead 2 explicitly
+  (three seeds, 17 non-shambler bodies), a lead-0 control, and the dormant lurkers unchanged; the day-1 pin lane pins
+  lead 0 inside itself. Balance at 1 is identical to main on four seeds; at 2 the table is in the boot-kinds REPORT.
 - **The first-person key reference, 2026-11-01.** F1 opens the top-down legend, shown with the
   first-person scene's own rows; Escape or F1 again puts it down, and walking keys do nothing while it
   is up. The rows come from one table, `KEY_REFERENCE` in `godot/presentation/first_person/first_person.gd`,
