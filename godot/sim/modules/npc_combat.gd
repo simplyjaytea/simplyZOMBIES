@@ -46,6 +46,9 @@ const AID_RETRY_TICKS: int = 60
 # a colonist's swings in the same fight. A static var so a gate can drive it both ways, as SIGHT_ENABLED is; any lane that
 # pins it restores the previous value on every exit path. Shipped on.
 static var NPC_AID_ENABLED: bool = true
+# While nobody is grabbed, the aid scan runs every AID_SCAN_TICKS ticks rather than every tick: a Pursuing zombie is still
+# found within 0.2 s, and the scan is the one cost the system adds to an idle run. While anybody is held, it runs every tick.
+const AID_SCAN_TICKS: int = 4
 
 # How long the controlled survivor goes without a single command before instinct answers a claw
 # for them -- SimShambler.STRUGGLE_INSTINCT_TICKS' number and its exact reasoning: two seconds is
@@ -156,10 +159,17 @@ static func _orders() -> GDScript:
 static func _aid_colonists(world: Variant) -> void:
 	if not NPC_AID_ENABLED:
 		return
+	if world.components.count("grabbed") == 0 and int(world.tick) % AID_SCAN_TICKS != 0:
+		return
 	var holders: Array[int] = []
 	for c in world.components.query(["controlled", "position"]):
 		holders.append(int(c))
 	if holders.is_empty():
+		return
+	# The zombies worth an aid this tick, read once: a shambler holding a controlled body, or Pursuing one within
+	# AID_PURSUE_METRES. The common case is an empty list, and then nothing else is read.
+	var candidates: Array = _aid_candidates(world, holders)
+	if candidates.is_empty():
 		return
 	var orders: GDScript = _orders()
 	for ent in _combatants(world):
@@ -176,37 +186,47 @@ static func _aid_colonists(world: Variant) -> void:
 		var issued: Variant = world.components.get_component(e, "aidIssued")
 		if issued is Dictionary and int(world.tick) - int((issued as Dictionary).get("tick", -100000)) < AID_RETRY_TICKS:
 			continue
-		var target: int = _aid_target(world, e, holders)
+		var target: int = _aid_target(world, e, candidates)
 		if target < 0:
 			continue
 		if bool(orders.call("issue", world, {"type": "colonist.order", "entity": e, "kind": "attack", "target": target})):
 			world.components.set_component(e, "aidIssued", {"tick": int(world.tick)})
 
 
-# The zombie this colonist goes to: the nearest that it can see, that holds a holder or is Pursuing one within reach
-# of it, and that no other colonist already has an order on.
-static func _aid_target(world: Variant, ent: int, holders: Array[int]) -> int:
-	var best: int = -1
-	var best_d: float = INF
+# The zombies that hold a controlled body, or are Pursuing one within AID_PURSUE_METRES of it: {zed, at} records, in
+# the shamblers' own order. Read once per tick, by `_aid_colonists`.
+static func _aid_candidates(world: Variant, holders: Array[int]) -> Array:
+	var out: Array = []
+	var holder_at: Array = []
+	for h in holders:
+		holder_at.append(world.components.get_component(h, "position") as Dictionary)
 	for z in world.components.query(["shambler", "position"]):
 		var zed: int = int(z)
 		if not world.entities.is_alive(zed) or world.components.has_component(zed, "corpse"):
 			continue
 		var zp: Dictionary = world.components.get_component(zed, "position") as Dictionary
 		var zv := Vector2(float(zp["x"]), float(zp["y"]))
-		var holds_one: bool = false
 		var hold: Variant = world.components.get_component(zed, "grabState")
-		if hold is Dictionary and holders.has(int((hold as Dictionary)["victim"])):
-			holds_one = true
+		var holds_one: bool = hold is Dictionary and holders.has(int((hold as Dictionary)["victim"]))
 		var pursuing: bool = false
 		if not holds_one and int((world.components.get_component(zed, "shambler") as Dictionary).get("state", -1)) == SimShamblerRes.ShamblerState["Pursue"]:
-			for h in holders:
-				var hp: Dictionary = world.components.get_component(h, "position") as Dictionary
-				if zv.distance_to(Vector2(float(hp["x"]), float(hp["y"]))) <= AID_PURSUE_METRES:
+			for hp in holder_at:
+				if zv.distance_to(Vector2(float((hp as Dictionary)["x"]), float((hp as Dictionary)["y"]))) <= AID_PURSUE_METRES:
 					pursuing = true
 					break
-		if not holds_one and not pursuing:
-			continue
+		if holds_one or pursuing:
+			out.append({"zed": zed, "at": zv})
+	return out
+
+
+# The zombie this colonist goes to: the nearest candidate that it can see and that no other colonist already has an order
+# on. Within AID_METRES of the colonist.
+static func _aid_target(world: Variant, ent: int, candidates: Array) -> int:
+	var best: int = -1
+	var best_d: float = INF
+	for c in candidates:
+		var zed: int = int((c as Dictionary)["zed"])
+		var zv: Vector2 = (c as Dictionary)["at"] as Vector2
 		var d: float = _distance(world, ent, zed)
 		if d > AID_METRES:
 			continue
