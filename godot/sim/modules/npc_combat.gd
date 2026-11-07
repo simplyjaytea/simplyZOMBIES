@@ -150,6 +150,20 @@ static func register_module(world: Variant) -> void:
 # everybody, colonists included. Asking for the third faction **by name** changes the roster by
 # exactly the bodies it names and nothing else, which is how the raiders were added to this same
 # function and is the only one of the three that can be read at a glance.
+static func _combatants(world: Variant) -> Array[int]:
+	var out: Array[int] = world.components.query(["needs", "position", "facing"])
+	for ent in world.components.query(["raider", "position", "facing"]):
+		if not out.has(int(ent)):
+			out.append(int(ent))
+	for ent in world.components.query(["allegiance", "position", "facing"]):
+		if SimAllegiance.faction_of(world, int(ent)) != SimAllegiance.SETTLERS:
+			continue
+		if not out.has(int(ent)):
+			out.append(int(ent))
+	out.sort()
+	return out
+
+
 # The order seam is loaded at run time: orders.gd preloads jobs.gd, which preloads this file, so a preload here
 # would be a ring.
 static func _orders() -> GDScript:
@@ -247,20 +261,6 @@ static func _aided(world: Variant, zed: int) -> bool:
 		if String(order.get("kind", "")) == "attack" and int(order.get("target", -1)) == zed:
 			return true
 	return false
-
-
-static func _combatants(world: Variant) -> Array[int]:
-	var out: Array[int] = world.components.query(["needs", "position", "facing"])
-	for ent in world.components.query(["raider", "position", "facing"]):
-		if not out.has(int(ent)):
-			out.append(int(ent))
-	for ent in world.components.query(["allegiance", "position", "facing"]):
-		if SimAllegiance.faction_of(world, int(ent)) != SimAllegiance.SETTLERS:
-			continue
-		if not out.has(int(ent)):
-			out.append(int(ent))
-	out.sort()
-	return out
 
 
 # The roster of people this module is allowed to act for: survivors who are not the one the
