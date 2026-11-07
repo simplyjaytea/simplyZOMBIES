@@ -18,7 +18,7 @@ committed bytes, and prints `BUILDINGS_CHECK_OK`. It checks export bounds agains
 manifest, wall-band heights and tile ownership, floor contact, coplanar overlap, measured UV density,
 atlas materials and filtering, every wall/roof look, and every template resolution. The manifest is
 written with LF; a checkout that holds it with CRLF (`core.autocrlf`) is folded back before the compare.
-The editable blend is arranged as a contact sheet of the 22 source shells and is not byte-compared.
+The editable blend holds no objects: each template's objects and mesh datablocks are removed after its export, so merged meshes keep the names `spatial_bands` and `finish`. It is a build artefact and is not byte-compared.
 
 Two checks judge what Godot will draw. Every roof face must be wound to face up, every soffit to
 face down, and every eave, fascia, parapet, barge board and gable end to face away from the building:
@@ -165,7 +165,7 @@ to keep its lifted roof legible from the street.
   ground floor, with no new collision, sight or walkable level.
 - Each house has a 0.400 m plinth in the separate `kiso` atlas cell (`#8f918c` to `#b0b1aa`), a moss
   line on its north face and vent grilles whose measured neighbour gaps are at most 4.000 m. The old
-  `concrete` cell and every other template's mesh and touched atlas pixels match `db64d031`.
+  `concrete` cell and every other template's mesh and touched atlas pixels match `6ed10b19`. The proof compares each primitive's positions, normals, UVs and indices, with node and mesh names ignored, and the atlas cells its UVs touch; materials are not compared per primitive. It refuses to run if the base commit or any base GLB is missing, or if the template count does not match the templates added since the base.
 - No finish face crosses a house door opening below its head; only the door's declared porch volume
   is exempt up to its height. The other 20 templates retain their legacy foundation band.
 - These two overrides live in the builder and their manifest entries. The template JSON, schema enum
