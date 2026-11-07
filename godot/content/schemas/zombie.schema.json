@@ -45,6 +45,16 @@
         "lieNear": { "type": "string", "enum": ["corpse"] }
       }
     },
+    "dormantShare": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Share of the dormant manifest's existing slots this kind takes, drawn on its own `dormantKind` stream at boot (roster.gd spawn_dormant_from_manifest). A kind that declares it is silenced from the wandering mix: weight_of reads it as 0, so the day's roll never draws it. The manifest places no new bodies; it only chooses which of the slots the templates already declare are this kind. 0 or absent is no dormant placement."
+    },
+    "wakesIndoors": {
+      "type": "boolean",
+      "description": "A dormant body (`dormantShare`) hears a noise anywhere on the indoor floor of the building it was placed in, not only on its own tile. The floor is handed to the body at boot as its `lair` (roster.gd spawn_dormant_from_manifest, shambler.gd make_dormant), and the Dormant arm reads it. A kind without it keeps the shambler's rule: its own tile alone."
+    },
     "gas": {
       "type": "object",
       "description": "A blooming kind's gas cloud (docs/23, \"The gassed bloater\"). The burst writes a gas level of 1.0 into the cloud, which decays by `decayPerTick` each tick and is gone when it reaches `threshold`; `radius` is the disc it covers at that level. A survivor in the disc, with an open wound, rolls once per `hurtEvery` ticks of the cloud's life. Omitted keys keep bloater.gd's constants, which are today's numbers; the shipped bloater writes them out so the content says what the cloud is.",

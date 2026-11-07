@@ -43,10 +43,11 @@ func _run() -> void:
 	ok = _the_new_kinds_are_content() and ok
 	ok = _the_new_senses_are_read() and ok
 	ok = _crawlers_are_born_legless() and ok
+	ok = _the_lurker_is_content() and ok
 	ok = _the_feigner_is_content() and ok
 	ok = _zombie_corpse_lies_there() and ok
 	if ok:
-		print("M2_ROSTER_OK mix alarm bloom exhausted, every zombie has eyes, extends resolved, senses and waves are content, the screamer sees what is lit at night, the dead write to the field from content, residue in every state, one roll a cloud, four wave kinds are JSON entries a body reads, and crawlers are born legless")
+		print("M2_ROSTER_OK mix alarm bloom exhausted, every zombie has eyes, extends resolved, senses and waves are content, the screamer sees what is lit at night, the dead write to the field from content, residue in every state, one roll a cloud, four wave kinds are JSON entries a body reads, crawlers are born legless, and the lurker is content, silenced from the mix and has eyes")
 		quit(0)
 	else:
 		push_error("M2_ROSTER_FAIL")
@@ -1132,6 +1133,46 @@ func _crawlers_are_born_legless() -> bool:
 		push_error("CRAWLERS: %d of %d shamblers crawled -- the shambler's legless share is not the base's few percent, so the crawler's answer proves nothing" % [crawling_sham, sham_total])
 		return false
 	print("CRAWLERS OK %d of %d crawler spawns over %d seeds are legless from the first tick; %d of %d shamblers crawl at the base's share" % [CRAWLER_SPAWNS * CRAWLER_SEEDS.size(), CRAWLER_SPAWNS * CRAWLER_SEEDS.size(), CRAWLER_SEEDS.size(), crawling_sham, sham_total])
+	return true
+
+
+# The lurker is a dormant kind: it resolves as content, declares `dormantShare` and `wakesIndoors`,
+# is silenced from the wandering mix (its weight reads 0 and no roll over many draws returns it),
+# and every body of it has eyes and a shambler component read from its own content.
+func _the_lurker_is_content() -> bool:
+	var lane: String = "LURKER"
+	var type_id: String = "zombie.lurker"
+	var probe: Variant = _daylight_world(73)
+	var entry: Variant = SimRoster.content_entry(probe, type_id)
+	if not entry is Dictionary:
+		push_error("%s: %s does not resolve -- its content file is not in the tree" % [lane, type_id])
+		return false
+	if SimRoster.dormant_share_of(probe, type_id) <= 0.0:
+		push_error("%s: %s declares no dormantShare, so the manifest never places one" % [lane, type_id])
+		return false
+	if not SimRoster.wakes_indoors_of(probe, type_id):
+		push_error("%s: %s does not declare wakesIndoors, so its floor is never read" % [lane, type_id])
+		return false
+	if SimRoster.weight_of(probe, type_id) != 0:
+		push_error("%s: %s has weight %d in the wandering mix, want 0 -- a dormant kind is silenced there" % [lane, type_id, SimRoster.weight_of(probe, type_id)])
+		return false
+	var rng: Variant = probe.rng.stream("lurker_mix")
+	for draw in 500:
+		var picked: String = SimRoster.pick_type(probe, rng, Clock.tick_on_day(12, Clock.DAY_BEGINS))
+		if picked == type_id:
+			push_error("%s: the wandering roll drew %s on draw %d" % [lane, type_id, draw])
+			return false
+	var zed: int = SimRoster.spawn_zombie(probe, 12.5, 12.5, type_id, probe.rng.stream("shambler"))
+	if not probe.components.get_component(zed, "observer") is Dictionary:
+		push_error("%s: a spawned %s has no observer, so it is blind" % [lane, type_id])
+		return false
+	var sd: Variant = probe.components.get_component(zed, "shambler")
+	if not sd is Dictionary:
+		push_error("%s: a spawned %s has no shambler component" % [lane, type_id])
+		return false
+	print("%s OK %s resolves as content with dormantShare %.2f and wakesIndoors, weight 0, never drawn in 500 rolls at day 12, and a spawned body has eyes" % [
+		lane, type_id, SimRoster.dormant_share_of(probe, type_id),
+	])
 	return true
 
 
