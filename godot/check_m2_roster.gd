@@ -41,6 +41,7 @@ func _run() -> void:
 	ok = _the_new_kinds_are_content() and ok
 	ok = _the_new_senses_are_read() and ok
 	ok = _crawlers_are_born_legless() and ok
+	ok = _the_feigner_is_content() and ok
 	if ok:
 		print("M2_ROSTER_OK mix alarm bloom exhausted, every zombie has eyes, extends resolved, senses and waves are content, the screamer sees what is lit at night, the dead write to the field from content, residue in every state, one roll a cloud, four wave kinds are JSON entries a body reads, and crawlers are born legless")
 		quit(0)
@@ -108,12 +109,13 @@ const TYPE_ARMORED: String = "zombie.armored"
 const TYPE_HEAVY: String = "zombie.heavy"
 const TYPE_BLOODHOUND: String = "zombie.bloodhound"
 const TYPE_CRAWLER: String = "zombie.crawler"
+const TYPE_FEIGNER: String = "zombie.feigner"
 
 const PINNED_SEED: int = 20260805
 const PINNED_STREAM: String = "mixProbe"
-# h shambler, c screamer, b bloater, t stalker, r runner, a armored, y heavy, d bloodhound, w crawler
-# -- the first fifty draws on day 7, where all nine kinds are due.
-const PINNED_DRAWS: String = "hhhthaabchbrwchhahyhhhthhaadhhthhhhchchthcyhhhhhhh"
+# h shambler, c screamer, b bloater, t stalker, r runner, a armored, y heavy, d bloodhound, w crawler,
+# g feigner -- the first fifty draws on day 7, where all ten kinds are due.
+const PINNED_DRAWS: String = "hhhthaabchbrwchhahyhhhthhaadhhthhhhchchthcyhhchhhh"
 # The share each kind's 2000-draw count may stray from its content weight, either way.
 const SHARE_TOLERANCE: float = 0.25
 const SHARE_DRAWS: int = 2000
@@ -122,7 +124,7 @@ const SHARE_DRAWS: int = 2000
 func _mix() -> bool:
 	var day7: int = Clock.tick_on_day(7, 0.5)
 	var day1: int = Clock.tick_on_day(1, 0.5)
-	var code: Dictionary = {SimRoster.TYPE_SHAMBLER: "h", SimRoster.TYPE_SCREAMER: "c", SimRoster.TYPE_BLOATER: "b", TYPE_STALKER: "t", TYPE_RUNNER: "r", TYPE_ARMORED: "a", TYPE_HEAVY: "y", TYPE_CRAWLER: "w", TYPE_BLOODHOUND: "d"}
+	var code: Dictionary = {SimRoster.TYPE_SHAMBLER: "h", SimRoster.TYPE_SCREAMER: "c", SimRoster.TYPE_BLOATER: "b", TYPE_STALKER: "t", TYPE_RUNNER: "r", TYPE_ARMORED: "a", TYPE_HEAVY: "y", TYPE_CRAWLER: "w", TYPE_FEIGNER: "g", TYPE_BLOODHOUND: "d"}
 
 	# PINNED.
 	var world: Variant = World.new(_fixture(PINNED_SEED))
@@ -1127,4 +1129,38 @@ func _crawlers_are_born_legless() -> bool:
 		push_error("CRAWLERS: %d of %d shamblers crawled -- the shambler's legless share is not the base's few percent, so the crawler's answer proves nothing" % [crawling_sham, sham_total])
 		return false
 	print("CRAWLERS OK %d of %d crawler spawns over %d seeds are legless from the first tick; %d of %d shamblers crawl at the base's share" % [CRAWLER_SPAWNS * CRAWLER_SEEDS.size(), CRAWLER_SPAWNS * CRAWLER_SEEDS.size(), CRAWLER_SEEDS.size(), crawling_sham, sham_total])
+	return true
+
+
+# The feigner is a zombie kind that lies among the dead: it resolves as content, declares a `feigns`
+# block, takes its share of the day roll at the weight and wave the content names, is born feigning,
+# and has eyes. Its picture is the shambler's, so it is not in the picture lanes' tables by accident.
+func _the_feigner_is_content() -> bool:
+	var lane: String = "FEIGNER"
+	var probe: Variant = _daylight_world(73)
+	var entry: Variant = SimRoster.content_entry(probe, TYPE_FEIGNER)
+	if not entry is Dictionary:
+		push_error("%s: %s does not resolve -- its content file is not in the tree" % [lane, TYPE_FEIGNER])
+		return false
+	var block: Variant = (entry as Dictionary).get("feigns")
+	if not block is Dictionary or not (block as Dictionary).has("riseRadius"):
+		push_error("%s: %s declares no feigns block with a riseRadius, so it never lies down" % [lane, TYPE_FEIGNER])
+		return false
+	if SimRoster.weight_of(probe, TYPE_FEIGNER) < 1:
+		push_error("%s: %s has weight %d, so the day roll never draws it" % [lane, TYPE_FEIGNER, SimRoster.weight_of(probe, TYPE_FEIGNER)])
+		return false
+	var zed: int = SimRoster.spawn_zombie(probe, 12.5, 12.5, TYPE_FEIGNER, probe.rng.stream("shambler"))
+	var sd: Variant = probe.components.get_component(zed, "shambler")
+	if not sd is Dictionary:
+		push_error("%s: a spawned %s has no shambler component" % [lane, TYPE_FEIGNER])
+		return false
+	if int((sd as Dictionary)["state"]) != SimShambler.ShamblerState["Feign"]:
+		push_error("%s: a spawned %s was not born feigning (state %d)" % [lane, TYPE_FEIGNER, int((sd as Dictionary)["state"])])
+		return false
+	if not probe.components.get_component(zed, "observer") is Dictionary:
+		push_error("%s: a spawned %s has no observer, so it is blind" % [lane, TYPE_FEIGNER])
+		return false
+	print("%s OK %s resolves as content with a feigns block (riseRadius %.1f m), weight %d from wave %d, and a spawned body is born feigning with eyes" % [
+		lane, TYPE_FEIGNER, float((block as Dictionary)["riseRadius"]), SimRoster.weight_of(probe, TYPE_FEIGNER), int((entry as Dictionary).get("introducedInWave", 0)),
+	])
 	return true
