@@ -8200,14 +8200,14 @@ the noise entry.
   red with `M2_MATERIALS_FAIL`. `godot:check:grade` stows one wire before the scene is set up, since
   the E keycap that the grade lane counts is the free alarm rung.
 
-## The first-person encounter gate is a measurement, not a green gate, 2026-11-07
+## The first-person encounter gate is a measurement, 2026-11-07
 
-`godot:check:fp_encounter` measures one zombie against the first-person player in five lanes (SIGHT,
-NOISE, CONTACT, DEATH, BREAK). It is red on purpose: SIGHT (12 m acquisition is beyond the shambler's
-sight reach of about 3.8 m), NOISE (a 4.0 shot through a wall at 30 m is below the hearing threshold)
-and DEATH (the player's instinct struggle frees them and the shambler does not resume pursuit) are
-findings, not loosened assertions. Its FAIL lines name the numbers. The chain includes it, so `godot:m2:chain`
-is red until those gaps are settled by the owner or an engineering call.
+`godot:check:fp_encounter` measures one zombie against the first-person player in lanes (SIGHT-NEAR,
+SIGHT, NOISE, CONTACT, DEATH-NOESCAPE, DEATH, BREAK). Two lanes are red on purpose and go to the owner
+(the owner's call on the sight distance and on whether an attentive player can be killed by a lone
+shambler): SIGHT (the spec's 12 m is beyond the shambler's sight reach of 3.8 m) and DEATH (the
+instinct struggle lets an attentive player live). Their FAIL lines name the numbers; they are not
+loosened. The chain includes the gate, so `godot:m2:chain` is red until the owner settles those two.
 
 ## The juggernaut shoves barricades, 2026-11-06
 

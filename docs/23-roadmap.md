@@ -3254,16 +3254,21 @@ not a to-do list:
 
 - **The first-person encounter gate, 2026-11-07.** `godot/check_fp_encounter.gd`, run by
   `npm run godot:check:fp_encounter`, boots the seeded first-person district (`SimBoot.playable`,
-  the scene's seed, 64 tiles) and reads and steps the sim only. Five lanes. SIGHT: a shambler 12 m
-  out on open ground does not acquire the player; `sight_reach` is about 3.8 m (observer range 12 m
-  x sqrt(lightSense 0.1) x fog), so the 12 m acquisition is not in the sim. NOISE: a shot
-  (`noise.emitted`, magnitude 4) through one wall tile at 30 m is not heard; field noise there reads
-  0.0000 against a hearing threshold of 0.25. CONTACT: a grab forms at tick 20 (`_clear_contact`
-  true) and the first wound lands at tick 30. DEATH: the bites do not kill; the player's own instinct
-  struggle breaks the hold at tick 9087, the shambler then stops at 61 m and the player lives for
-  3000 ticks. BREAK: melee is refused while held (`melee.gd` `try_begin_swing`), the struggle is the
-  only answer, escape odds 0.667 per roll against grip 0.50, and `grab.broken` lands 27 ticks after
-  the grab. The gate is red by design on SIGHT, NOISE and DEATH; its FAIL lines are the findings.
+  the scene's seed, 64 tiles) and reads and steps the sim only. Lanes. SIGHT-NEAR (passes): a
+  shambler 3 m out on open ground acquires the player one tick after setup and closes 0.9 m in 40
+  ticks. SIGHT (red): the spec's 12 m is not acquired; `sight_reach` is 3.8 m (observer range 12 m x
+  sqrt(lightSense 0.1) x fog). NOISE (passes): a rifle shot (`item.rifle.hunting`, ranged noise 200
+  from content) through one wall tile at 30 m is heard, field 178 at the shambler against a threshold
+  of 0.25; the shambler turns in 2 ticks and closes; the player's footsteps publish `noise.emitted`
+  (magnitude 1.0). CONTACT (passes): a grab forms at 3 m, `_clear_contact` true, first wound 30 ticks
+  later. DEATH-NOESCAPE (passes): with stamina held at 0 the player dies 1080 ticks after contact and
+  `world.player` moves to Mara; with the other survivors removed, `world.runOver` is set 1071 ticks
+  after contact. DEATH (red): an attentive player is not killed by a lone shambler in 3000 ticks; the
+  instinct struggle breaks the hold 55 ticks after contact. BREAK (passes): melee is refused while
+  held (`melee.gd` `try_begin_swing`, a FINDING line), the struggle is the answer, escape odds 0.667
+  per roll against grip 0.50, and `grab.broken` lands 27 ticks after the grab. Ticks in the gate
+  are counted from the boot; the boot's `world.tick` starts at 9000 (`Clock.DAY_BEGINS`), so an
+  absolute tick is 9000 + the number printed.
 - **The first-person key reference, 2026-11-01.** F1 opens the top-down legend, shown with the
   first-person scene's own rows; Escape or F1 again puts it down, and walking keys do nothing while it
   is up. The rows come from one table, `KEY_REFERENCE` in `godot/presentation/first_person/first_person.gd`,
