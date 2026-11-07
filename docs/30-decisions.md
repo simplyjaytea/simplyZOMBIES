@@ -8083,6 +8083,33 @@ opt-in", one resident map), streaming (Milestone 3B, Risk 7), district-tier simu
 decisions (docs/25 and the district `vehicles` block). A train that needs repair is a new mechanic,
 and it is designed with the region.
 
+## The feigner is a kind that reads as a corpse until it rises, 2026-11-06
+
+A feigner lies among the dead. It is a zombie kind, not a special object: its content is
+`godot/content/zombies/feigner.json`, and what the sim asks of it is a `feigns` block and one state.
+
+- **The state.** `Feign` (7) is entered from content by `make_shambler`, and only by a kind that
+  declares `feigns`. The keys on a shambler's component are written for it alone, so every other body's
+  component keeps its shape.
+- **What it reads.** Corpses, by distance within `lieSearch` (the sight check the brief named is the
+  nearest-corpse read; a lying feigner has no sight drive, so the walk to its corpse is not a sight
+  question). Living bodies, by `riseRadius`. Blows, through `attack.connected`. It reads no sight, scent
+  or hearing while it lies.
+- **The memory.** A corpse was never remembered: a dead body was dropped the first time it was seen,
+  because the record was for a threat and a settled corpse is not one. A dead body that was never seen
+  alive now gets a `corpse` record. A body watched going down still loses its record, as it did. A
+  feigner is recorded as a corpse while it lies, and its record flips to a zombie on the first sight
+  after it rises. Nothing hostile reads the corpse kind (the prose and the freshest-hostile read leave it
+  out), and the player's memory marks and afterimages skip it.
+- **The picture.** No new picture: a lying feigner plays its own death clip, which is the corpse frame.
+- **Saves.** The `Feign` state and its three keys ride the shambler component, which already round-trips.
+  No `SAVE_VERSION` bump: state 7 is a new value of an existing field, and no save before this change
+  holds one.
+- **The day roll.** Weight 1 from wave 3, the least share a kind can take, so a campaign's later mix
+  moves by about one draw in 138. The MIX lane's day-7 pin moved with it and was re-pinned; the day-1
+  stream is untouched because the pool still answers without a draw on day 1.
+- **Defaults** (owner cards in the report): the rise radius 2.5 m, the lie-within 1.0 m, the lie search
+  12 m, and the weight and wave.
 ## The bloater's gas is a tile field, 2026-11-06
 
 The bloater's cloud was a disc with an expiry: a contamination flag that was in force until its end

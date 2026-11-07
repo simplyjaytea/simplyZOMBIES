@@ -112,6 +112,9 @@ static func state_of(world: Variant, entity: int) -> String:
 		return IDLE
 	if world.components.has_component(entity, "corpse"):
 		return DEATH
+	# A feigner lying among the dead has the death clip: the rig's own corpse frame, no new picture.
+	if SimShambler.is_lying(world, entity):
+		return DEATH
 	if world.components.has_component(entity, "grabbed"):
 		return GRAB
 	if is_zombie(world, entity):
