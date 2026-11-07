@@ -6,6 +6,7 @@ Each check returns a list of failure strings; the caller tags them `[<check>]`.
 
 import json
 import math
+import sys
 from pathlib import Path
 
 import bpy
@@ -598,6 +599,44 @@ def check_density(ex, blender_objects=None):
     return fails
 
 
+# The pistol's inspect turns about the view's up axis. Measured on the weapon's frame (`grip_r`, the
+# frame the sight check reads, whose -Z is the bore) between idle and the inspect's peak: the turn's
+# axis lies within PISTOL_TURN_AXIS_DEG of glTF up (+Y, the view's up), and the turn is at least
+# PISTOL_TURN_MIN_DEG. A roll about the bore has its axis along the view (the review's m1 measure).
+PISTOL_TURN_AXIS_DEG = 30.0
+PISTOL_TURN_MIN_DEG = 60.0
+PISTOL_TURN_PEAK_FRAME = 90
+
+
+def rotation_axis_angle(rotation):
+    angle = math.acos(max(-1.0, min(1.0, (float(np.trace(rotation)) - 1) / 2)))
+    axis = np.array([rotation[2, 1] - rotation[1, 2], rotation[0, 2] - rotation[2, 0], rotation[1, 0] - rotation[0, 1]])
+    length = float(np.linalg.norm(axis))
+    if length < 1e-9:
+        return np.array([0.0, 0.0, 0.0]), math.degrees(angle)
+    return axis / length, math.degrees(angle)
+
+
+def pistol_turn(ex):
+    gi, _, _ = ex.state("idle_pistol", 0)
+    gp, _, _ = ex.state("inspect_pistol", PISTOL_TURN_PEAK_FRAME)
+    before = ex.node(gi, "grip_r")
+    peak = ex.node(gp, "grip_r")
+    axis, angle = rotation_axis_angle(peak[:3, :3] @ before[:3, :3].T)
+    off_up = math.degrees(math.acos(min(1.0, abs(float(axis @ np.array([0.0, 1.0, 0.0]))))))
+    return axis, angle, off_up
+
+
+def check_pistol_turn(ex):
+    fails = []
+    axis, angle, off_up = pistol_turn(ex)
+    if off_up > PISTOL_TURN_AXIS_DEG:
+        fails.append(f"inspect_pistol f{PISTOL_TURN_PEAK_FRAME}: the turn's axis is {off_up:.1f} deg off up (limit {PISTOL_TURN_AXIS_DEG:.0f})")
+    if angle < PISTOL_TURN_MIN_DEG:
+        fails.append(f"inspect_pistol f{PISTOL_TURN_PEAK_FRAME}: the turn is {angle:.1f} deg (want at least {PISTOL_TURN_MIN_DEG:.0f})")
+    return fails
+
+
 def check_paint_match(ex, survivor_paint):
     fails = []
     image = bpy.data.images.load(str(ex.folder / "arms_atlas.png"), check_existing=False)
@@ -646,7 +685,44 @@ def check_paint_match(ex, survivor_paint):
             break
     if unpadded:
         fails.append(f"{unpadded} island texels have atlas background within 4 px")
+    # The sleeve against the survivor's own arm islands, sampled from survivor_atlas.png at check
+    # time (review round 2, n2). The builder's ramp is not the reference: a survivor repaint would
+    # pass the ramp and this must not.
+    survivor = sleeve_against_survivor(atlas, sleeve_texels, survivor_paint)
+    if survivor["distance"] > SLEEVE_SURVIVOR_MAX:
+        fails.append(f"the sleeve's mean {survivor['sleeve']} is {survivor['distance']:.1f} levels from the survivor's arm island {survivor['survivor']} (limit {SLEEVE_SURVIVOR_MAX:.0f})")
     return fails
+
+
+# The survivor's arm islands are the atlas rectangles `SurvivorPaint` reads (FROZEN's arm.L and arm.R),
+# in its row-0-is-bottom convention. Measured on the head: the sleeve's mean is about 7.8 levels from
+# the survivor's arm island's mean. The limit is that gap with a margin, not a visual judgement, so a
+# repaint to a colour the builder never named still fails, and the current sleeve passes.
+SLEEVE_SURVIVOR_MAX: float = 12.0
+
+
+def survivor_arm_pixels(survivor_paint):
+    # The survivor's atlas layout, read from the kit the way arms_paint reads it.
+    sys.path.insert(0, str(body.REPO / "tools" / "blender" / "first_person_kit"))
+    from organic_survivor import FROZEN
+
+    pixels = []
+    for side in ("L", "R"):
+        x, y, w, h = FROZEN["arm." + side][:4]
+        pixels.append(survivor_paint.pixels[int(y):int(y + h), int(x):int(x + w), :3].reshape(-1, 3))
+    return np.concatenate(pixels)
+
+
+def sleeve_against_survivor(atlas, sleeve_texels, survivor_paint):
+    sleeve = np.array([atlas[y, x] for x, y in sleeve_texels], dtype=float)
+    island = survivor_arm_pixels(survivor_paint).astype(float)
+    sleeve_mean = sleeve.mean(axis=0)
+    survivor_mean = island.mean(axis=0)
+    return {
+        "sleeve": tuple(round(float(v), 1) for v in sleeve_mean),
+        "survivor": tuple(round(float(v), 1) for v in survivor_mean),
+        "distance": float(np.linalg.norm(sleeve_mean - survivor_mean)),
+    }
 
 
 def check_background(ex):
@@ -723,7 +799,7 @@ def check_budget(ex):
     return fails
 
 
-CHECKS = ["names", "anchor", "bone-length", "grip-land", "wrap", "sight-line", "near-plane", "stump", "in-frame", "chain", "smooth", "weights", "cuff", "density", "background", "paint-match", "body-match", "budget"]
+CHECKS = ["names", "anchor", "bone-length", "grip-land", "wrap", "sight-line", "pistol-turn", "near-plane", "stump", "in-frame", "chain", "smooth", "weights", "cuff", "density", "background", "paint-match", "body-match", "budget"]
 
 
 def run(folder, survivor, survivor_paint, blender_objects=None):
