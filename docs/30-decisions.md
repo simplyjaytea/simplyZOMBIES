@@ -8090,3 +8090,22 @@ The first-person key bar, the strip that names the keys along the bottom of the 
 of the view's height so the bare hands at idle no longer sit under it. The hands are where they were; the
 bar is the thing that moved. It is one rectangle (`hud.gd`'s `help_rect`), and `godot:check:first_person`
 HANDS holds it clear at 1280x720 and 960x720.
+
+## The alarm and the noisemaker are priced (2026-11-05)
+
+The what's-left entry "The alarm and the noisemaker still cost nothing to place" is closed. Its
+record, with the before-and-after table, is in [docs/23](23-roadmap.md#the-record-by-system) under
+the noise entry.
+
+- **The costs.** The trip alarm takes one wire and the noisemaker one metal (`fortify.gd` RECIPES).
+  Both are spent in `_complete` after the placement checks pass, so a refused placement spends nothing.
+  The rungs need the unit carried, and so do the intake rows `trap.alarm.place` and
+  `bait.noisemaker.place`.
+- **The E ladder keeps its default.** A lone wire on open ground strings a fence, since the fence
+  rung sits above the alarm. E lays the alarm only where a wall cannot go up, which is indoors. The
+  owner's choice among keep, an alarm above the fence, or another substance is docs/33's "The trip
+  alarm: where does E lay it when the pack holds wire?", with keep as the built default.
+- **The gates.** PINNED (`godot:m2:materials`) asserts both costs by name; PRICED asserts an empty
+  pack places neither device and one unit is spent. The plant (both RECIPES rows removed) turns it
+  red with `M2_MATERIALS_FAIL`. `godot:check:grade` stows one wire before the scene is set up, since
+  the E keycap that the grade lane counts is the free alarm rung.
