@@ -44,11 +44,14 @@ blender --background --factory-startup --python tools/blender/first_person_build
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=canopy_detached
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=wall_proud
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=wall_open
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=shop_canopy_low
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=shutter
 ```
 
 `winding` reverses one hip-roof face; `aperture` draws a wall across house_small's first window. The
 canopy plants put it at 1.90 m, make it 1.40 m deep, or detach it; the wall plants make an attachment
-0.15 m proud or put it on an openable tile.
+0.15 m proud or put it on an openable tile. `shop_canopy_low` puts the shotengai canopy's underside
+at 2.20 m, and `shutter` draws a shutter down over an openable shop window.
 
 ## Data and runtime
 
@@ -164,10 +167,10 @@ to keep its lifted roof legible from the street.
   0.485 m deep, with its soffit at 2.150 m and wall top at 2.350 m. The interior remains the sim's
   ground floor, with no new collision, sight or walkable level.
 - Each house has a 0.400 m plinth in the separate `kiso` atlas cell (`#8f918c` to `#b0b1aa`), a moss
-  line on its north face and vent grilles whose measured neighbour gaps are at most 4.000 m. The old
-  `concrete` cell and every other template's mesh and touched atlas pixels match `db64d031`.
+  line on its north face and vent grilles whose measured neighbour gaps are at most 4.000 m. Batch B's
+  other-template proof compares every template except the round's own with `6ed10b19`.
 - No finish face crosses a house door opening below its head; only the door's declared porch volume
-  is exempt up to its height. The other 20 templates retain their legacy foundation band.
+  is exempt up to its height. The other templates retain their legacy foundation band.
 - These two overrides live in the builder and their manifest entries. The template JSON, schema enum
   and `street.json` do not change here; R4 can retag the content after the materials have landed.
 - Each genkan step is placed against the door's actual outside neighbour, on any edge, and its exact
@@ -185,6 +188,25 @@ The templates have no room-tag field, so interiors resolve by the first recognis
 - `shed`: panelling and concrete.
 
 If room tags are added to content later, the manifest is the place to refine this mapping.
+
+### Batch B: the shotengai row
+
+- `TEMPLATE_FINISHES` now holds template overrides rather than only houses. `building.arcade.retail`
+  resolves to a tin gable and siding walls while its JSON keeps `tar` / `brick` for the later R4 retag.
+- Four 4.5 m bays have closed signboard false fronts up to 4.00 m, with back faces and tin top caps.
+  Their faded blue and orange fields use new cells (0..3, 6); no existing cell is repainted. Original
+  geometric glyphs are the generic Japanese shop characters 酒, 米, 本 and 薬, with no brand or Latin text.
+- The south row has 15 lowered shutters on wall-state tiles, 13 raised shutters over openable-window
+  variants and three raised over the doors. Permanent-wall boxes are `wall_attach`; window boxes are
+  `window_attach` in the lintel band. An openable tile's wall-state shutter is a 24 mm skin, within the
+  undeclared finish allowance. Every door is clear through 2.20 m. The `shutter` plant lowers a window
+  shutter and is refused by the aperture check.
+- One existing-kind `canopy` runs the full 18.00 m frontage. Its exported underside and wall top measure
+  2.60 and 2.90 m, its outer fascia reaches 1.085 m, and no vertex is below 2.30 m. The general canopy
+  kind still allows 2.10 m and 1.20 m elsewhere; `shop_canopy_low` proves the shop's stricter floor.
+- `CHARACTER building.arcade.retail` reads all of those counts and dimensions from the exported GLB.
+  `OTHER_TEMPLATES_PIXELS_IDENTICAL 21/21` compares every other template, both houses included, with
+  `OTHER_TEMPLATES_BASE = 6ed10b19` for mesh arrays and every atlas cell those meshes touch.
 
 ## Windows
 
