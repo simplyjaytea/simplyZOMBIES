@@ -581,6 +581,10 @@ static func _bury_work(world: Variant, x: float, y: float) -> Dictionary:
 	var best: int = -1
 	var best_d: float = 1e12
 	for c in world.components.query(["corpse", "position"]):
+		# A zombie's body lies where it fell (docs/30, 2026-11-07): nobody buries it. `SimRecruits.is_zombie_corpse`
+		# says the same thing; jobs.gd cannot preload recruits.gd, which preloads this file.
+		if _zombie_corpse(world, int(c)):
+			continue
 		var p: Variant = world.components.get_component(int(c), "position")
 		if not p is Dictionary:
 			continue
@@ -803,6 +807,8 @@ static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 		if dump.x < 0:
 			return {}
 		for c in world.components.query(["corpse", "position"]):
+			if _zombie_corpse(world, int(c)):
+				continue
 			var p2: Variant = world.components.get_component(int(c), "position")
 			if not p2 is Dictionary:
 				continue
@@ -1621,6 +1627,12 @@ const HANDS_FULL: String = "handsFull"
 const RETREAT_WALK_TICKS: int = 200
 # How many of the nearest interior tiles a re-plan tries. Each is a full path search.
 const RETREAT_INSIDE_TRIES: int = 4
+
+
+# The body a zombie left (recruits.gd `_make_zombie_corpse`): a corpse marked `zombie`.
+static func _zombie_corpse(world: Variant, entity: int) -> bool:
+	var c: Variant = world.components.get_component(entity, "corpse")
+	return c is Dictionary and bool((c as Dictionary).get("zombie", false))
 
 
 static func _danger_at(world: Variant, x: float, y: float, metres: float) -> bool:

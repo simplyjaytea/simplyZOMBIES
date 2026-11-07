@@ -16,6 +16,8 @@ const SimCombat = preload("res://sim/combat.gd")
 const SimLight = preload("res://sim/modules/light.gd")
 const SimAttentionEmitter = preload("res://sim/modules/attention_emitter.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
+const SimJobs = preload("res://sim/modules/jobs.gd")
+const SimSave = preload("res://sim/save.gd")
 # `zombie_speed` -- so the KINDS lane compares the component against the same conversion
 # `make_shambler` used rather than against a multiplier copied into this file.
 const SimLocomotion = preload("res://sim/locomotion.gd")
@@ -43,6 +45,8 @@ func _run() -> void:
 	ok = _crawlers_are_born_legless() and ok
 	ok = _the_lurker_is_content() and ok
 	ok = _the_feigner_is_content() and ok
+	ok = _zombie_corpse_lies_there() and ok
+	ok = _zombie_corpse_cap_holds() and ok
 	if ok:
 		print("M2_ROSTER_OK mix alarm bloom exhausted, every zombie has eyes, extends resolved, senses and waves are content, the screamer sees what is lit at night, the dead write to the field from content, residue in every state, one roll a cloud, four wave kinds are JSON entries a body reads, crawlers are born legless, and the lurker is content, silenced from the mix and has eyes")
 		quit(0)
@@ -1204,4 +1208,142 @@ func _the_feigner_is_content() -> bool:
 	print("%s OK %s resolves as content with a feigns block (riseRadius %.1f m), weight %d from wave %d, and a spawned body is born feigning with eyes" % [
 		lane, TYPE_FEIGNER, float((block as Dictionary)["riseRadius"]), SimRoster.weight_of(probe, TYPE_FEIGNER), int((entry as Dictionary).get("introducedInWave", 0)),
 	])
+	return true
+
+
+# --- ZOMBIE CORPSE: a zombie that dies lies where it fell -----------------------------------------
+#
+# The owner's card, 2026-11-07 (docs/30): a zombie that dies stays as a body for ZOMBIE_CORPSE_TICKS and then goes.
+# Asserted through the real death path (`SimHealth.finish_death`, which routes to `SimRecruits.handle_death`), first
+# on a blank world: it keeps its place and its kind, sheds what makes it act or count, stays put, survives a save,
+# is not counted as a zombie, and goes at the tick the constant names. Then on the booted district, against Bury and
+# Haul: a zombie body is never a target, and a human body beside it still is (the true negative for the skip). The
+# plant is `shambler` removed from the shed list's keep set (recruits.gd ZOMBIE_CORPSE_SHEDS): the body then acts
+# and counts, and this lane goes red.
+func _zombie_corpse_lies_there() -> bool:
+	var world: Variant = World.new(_fixture(11))
+	world.tick = Clock.tick_at_time_of_day(Clock.DAY_BEGINS)
+	var map: Variant = SimTileMap.blank_map(24, 24)
+	SimBoot.attach_kernel(world, map)
+	SimRecruits.register_module(world)
+	var rng: Variant = world.rng.stream("shambler")
+	var zed: int = SimRoster.spawn_zombie(world, 8.0, 12.0, SimRoster.TYPE_SHAMBLER, rng)
+	world.components.set_component(zed, "facing", {"radians": 0.0})
+	SimHealth.finish_death(world, zed)
+	if not world.entities.is_alive(zed):
+		push_error("ZOMBIE CORPSE: the body was despawned at once, not left where it fell")
+		return false
+	var corpse: Variant = world.components.get_component(zed, "corpse")
+	if not (corpse is Dictionary) or not bool((corpse as Dictionary).get("zombie", false)):
+		push_error("ZOMBIE CORPSE: the body has no corpse marked zombie: %s" % str(corpse))
+		return false
+	if String((corpse as Dictionary).get("kind", "")) != SimRoster.TYPE_SHAMBLER:
+		push_error("ZOMBIE CORPSE: the corpse carries kind %s, not %s" % [str((corpse as Dictionary).get("kind", "")), SimRoster.TYPE_SHAMBLER])
+		return false
+	for shed in ["shambler", "velocity", "attention_emitter", "observer"]:
+		if world.components.has_component(zed, shed):
+			push_error("ZOMBIE CORPSE: the body still has %s, so it acts or counts" % shed)
+			return false
+	if not world.components.has_component(zed, "position") or not world.components.has_component(zed, "body") or not world.components.has_component(zed, "zombieType"):
+		push_error("ZOMBIE CORPSE: the body lost the place, the body or the kind it is drawn with")
+		return false
+	# Lies still: the sim gives it no tick of its own.
+	var at_before: Dictionary = (world.components.get_component(zed, "position") as Dictionary).duplicate()
+	for _i in 100:
+		world.step()
+	var at_after: Variant = world.components.get_component(zed, "position")
+	if not (at_after is Dictionary) or absf(float((at_after as Dictionary)["x"]) - float(at_before["x"])) > 0.0001 or absf(float((at_after as Dictionary)["y"]) - float(at_before["y"])) > 0.0001:
+		push_error("ZOMBIE CORPSE: the body moved over 100 ticks: %s -> %s" % [str(at_before), str(at_after)])
+		return false
+	# Not counted as a zombie: the director's live count is `query(["shambler"])` (director.gd).
+	if world.components.query(["shambler"]).size() != 0:
+		push_error("ZOMBIE CORPSE: the director's live count still finds %d zombies" % world.components.query(["shambler"]).size())
+		return false
+	# A save keeps the body, its marks and its place.
+	var saved: Dictionary = SimSave.decode_save_or_throw(SimSave.encode_save(SimSave.create_save(world)))
+	var back: Variant = World.new(_fixture(11))
+	back.restore(saved["snapshot"] as Dictionary)
+	var back_corpse: Variant = back.components.get_component(zed, "corpse")
+	if not (back_corpse is Dictionary) or not bool((back_corpse as Dictionary).get("zombie", false)) or back.components.has_component(zed, "shambler"):
+		push_error("ZOMBIE CORPSE: the body did not come back from the save as a zombie corpse: %s" % str(back_corpse))
+		return false
+	# Goes at the tick the constant names, and not before.
+	var since: int = int((corpse as Dictionary).get("sinceTick", 0))
+	var last_tick: int = since + SimRecruits.ZOMBIE_CORPSE_TICKS
+	while int(world.tick) < last_tick - 2:
+		world.step()
+	if not world.entities.is_alive(zed):
+		push_error("ZOMBIE CORPSE: the body went before its last two ticks of lying")
+		return false
+	while int(world.tick) <= last_tick + 1:
+		world.step()
+	if world.entities.is_alive(zed):
+		push_error("ZOMBIE CORPSE: the body is still there %d ticks after it died" % (SimRecruits.ZOMBIE_CORPSE_TICKS))
+		return false
+	# Bury and Haul, on the booted district. A zombie body beside a human body: Bury takes the human, never the zombie.
+	var district: Variant = SimBoot.playable(20260805, 64)["world"]
+	var start: Vector2i = SimTileMap.player_start(district.tilemap)
+	var dump: Vector2i = SimJobs._corpse_dump(district)
+	if dump.x < 0:
+		push_error("ZOMBIE CORPSE: the district has no dump, so Bury is not judged")
+		return false
+	var mara: int = -1
+	for e in district.components.query(["identity"]):
+		var ident: Variant = district.components.get_component(int(e), "identity")
+		if ident is Dictionary and String((ident as Dictionary).get("id", "")) == "survivor.unique.mara":
+			mara = int(e)
+	if mara < 0:
+		push_error("ZOMBIE CORPSE: no Mara on the booted district")
+		return false
+	var lying: int = SimRoster.spawn_zombie(district, float(start.x) + 0.5, float(start.y) + 0.5, SimRoster.TYPE_SHAMBLER, district.rng.stream("shambler"))
+	SimHealth.finish_death(district, lying)
+	var only: Dictionary = SimJobs._bury_work(district, float(start.x), float(start.y))
+	if not only.is_empty() and int(only.get("target", -1)) == lying:
+		push_error("ZOMBIE CORPSE: Bury took the zombie body: %s" % str(only))
+		return false
+	var mp: Variant = district.components.get_component(mara, "position")
+	var human_at: Vector2 = Vector2(float((mp as Dictionary)["x"]), float((mp as Dictionary)["y"]))
+	SimHealth.finish_death(district, mara)
+	var bury: Dictionary = SimJobs._bury_work(district, float(start.x), float(start.y))
+	if bury.is_empty() or int(bury.get("target", -1)) != mara:
+		push_error("ZOMBIE CORPSE: Bury did not take the human body beside it (%s, human at %s)" % [str(bury), str(human_at)])
+		return false
+	var haul: Dictionary = SimJobs._haul_work(district, float(start.x), float(start.y))
+	if int(haul.get("target", -1)) == lying:
+		push_error("ZOMBIE CORPSE: Haul took the zombie body: %s" % str(haul))
+		return false
+	print("ZOMBIE CORPSE OK the body lies where it fell for %d ticks and no more, keeps its kind, sheds what acts or counts, stays put, survives a save, is not counted as a zombie, and Bury and Haul pass it by while the human body beside it is still Bury's target" % SimRecruits.ZOMBIE_CORPSE_TICKS)
+	return true
+
+
+# --- ZOMBIE CORPSE CAP: the world keeps at most ZOMBIE_CORPSE_CAP zombie bodies ---------------------------------
+#
+# The owner card (docs/33, 2026-11-07): a body past the cap takes the oldest body's place. 61 zombies are killed
+# one tick apart, so the 61st death must despawn the first body and leave the newest. The plant is the bound call
+# removed from `_make_zombie_corpse`: 61 bodies stand, and this lane goes red.
+func _zombie_corpse_cap_holds() -> bool:
+	var world: Variant = World.new(_fixture(11))
+	world.tick = Clock.tick_at_time_of_day(Clock.DAY_BEGINS)
+	var map: Variant = SimTileMap.blank_map(24, 24)
+	SimBoot.attach_kernel(world, map)
+	SimRecruits.register_module(world)
+	var rng: Variant = world.rng.stream("shambler")
+	var made: Array[int] = []
+	var count: int = SimRecruits.ZOMBIE_CORPSE_CAP + 1
+	for i in count:
+		var zed: int = SimRoster.spawn_zombie(world, 2.5 + float(i % 8), 2.5 + float(i / 8), SimRoster.TYPE_SHAMBLER, rng)
+		made.append(zed)
+		SimHealth.finish_death(world, zed)
+		world.step()
+	var standing: int = world.components.query(["corpse"]).size()
+	if standing != SimRecruits.ZOMBIE_CORPSE_CAP:
+		push_error("ZOMBIE CORPSE CAP: %d bodies stand after %d deaths, want the cap %d" % [standing, count, SimRecruits.ZOMBIE_CORPSE_CAP])
+		return false
+	if world.entities.is_alive(made[0]):
+		push_error("ZOMBIE CORPSE CAP: the oldest body is still in the world past the cap")
+		return false
+	if not world.entities.is_alive(made[count - 1]):
+		push_error("ZOMBIE CORPSE CAP: the newest body was taken instead of the oldest")
+		return false
+	print("ZOMBIE CORPSE CAP OK %d deaths leave %d bodies: the oldest is taken, the newest stands" % [count, standing])
 	return true
