@@ -171,10 +171,10 @@ The source baseline is archived on GitHub at
 - **First-person scavenging and personal equipment.** Real world containers,
   search/take/stow/equip through a revised grid UI; skill and condition access.
 - **The Ome–Okutama re-theme.** A setting brief first, as a new doc. It covers the real places to
-  draw on, a fictional map of the valley, building types, and the item and district renames. After
-  the brief: Japanese building templates and props by the art lead, then content renames. See
+  draw on, a fictional map of the valley, building types, and the item and district renames. See
   [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
   The brief is [docs/42](42-ome-okutama-setting.md); its section 6 is the order of the work.
+  Building batch A has landed; the remaining art batches, templates, props and renames stay planned.
 - **The wider world by rail.** Other districts and cities reached by a train the colony repairs
   first. The design exists as [docs/45](45-wider-world-by-rail.md), a note like docs/42, under the
   region and streaming work; the sizing does not. See [docs/30](30-decisions.md#the-setting-cards-the-defaults-and-the-valley-is-the-first-of-several-2026-11-04).
@@ -2456,6 +2456,36 @@ What landed and what proved it, system by system (condensed from the retired bac
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **The Ome–Okutama re-theme: buildings batch A, 2026-11-05.** The first art batch of
+  [docs/42](42-ome-okutama-setting.md) adds two finishes and two whole houses without moving a
+  footprint, door, window, pool or weight.
+  - **Materials.** Kawara is a cool grey glazed-clay roof tile whose straight, unoffset rolls have
+    bright crowns and dark troughs down the slope. Siding is vertical weathered darkened cedar in a
+    warm grey-brown ramp of its own, with two close board-body tones rather than the timber look's
+    higher-contrast sage. Both join the shared atlas and manifest's look tables, ready for the later
+    schema/`street.json` retag. Their regular courses and restrained wear use no cloud noise or
+    atlas-cell paint patches.
+  - **Houses.** Both have 0.75 m eaves/rakes, a 0.300 m stacked ridge, two seated 0.440 m arched
+    onigawara plaques, two gutters and four downpipes with a worst 0.06 mm outlet gap. Aluminium
+    sashes measure 40 mm at the frame and meeting-stile overlap, with 25 mm between tracks; adjacent
+    template windows share one outer stile. Side tobukuro or lintel shutter boxes belong to the window
+    pieces and declare their real tiles. Each main genkan is 1.50 x 0.90 x 0.16 m, and no finish face
+    crosses a house door opening. `house_small` has koshiita below 0.90 m, mortar above and in the
+    gable, silver sashes and two real-window hoods measuring 0.435 m deep. `house_gable` keeps cedar
+    siding and bronze sashes, with four closed-corner pent runs measuring 0.735 m deep, a balcony
+    slab at 2.750 m with a 1.101 m rail and 0.111 m baluster spacing, and a kitchen hood whose soffit
+    is 2.150 m. Both have 0.400 m kiso plinths and vent neighbour gaps at most 4.000 m. The lifted
+    roof does not create an upper sim floor. Existing interiors, open apertures and all 22 template
+    resolutions remain; the other 20 templates' mesh arrays and touched atlas pixels match
+    `db64d031`.
+  - **Verified.** `build_finishes.py -- --check` prints `BUILDINGS_CHECK_OK`, two exported-GLB
+    `CHARACTER` lines and `OTHER_TEMPLATES_PIXELS_IDENTICAL 20/20`; all 23 plants are refused,
+    including door crossings, off-tile attachments, a short pipe, low rail/hood and the old spire.
+    `godot:check:fp_geometry` proves real-district walls, windows and ceilings, and refuses invalid
+    doorsteps, canopy errors, proud or openable-host attachments, off-tile boxes and window boxes in
+    the opening. `godot:smoke` and `check:routing` pass. Matched 1280x720 before/after, real-sky,
+    repeat and magenta captures accompany the piece; repeat-run pixel noise is zero.
 
 - **The purifier refill: a carried material repacks a spent filter, 2026-11-04.** The pump filter
   (`item.filter.pump`) has a `refill` block in `godot/content/items/kitchen.json`: one lump of
