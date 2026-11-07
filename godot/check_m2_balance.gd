@@ -29,7 +29,6 @@ extends SceneTree
 # check_m2_harness.gd is left alone: it is the soft tuning harness, this is the gate.
 
 const SimBoot = preload("res://sim/boot.gd")
-const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")

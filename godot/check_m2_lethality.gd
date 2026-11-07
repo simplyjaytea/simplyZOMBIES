@@ -1,7 +1,6 @@
 extends SceneTree
 # M2 lethality: progression determinism, armor reduces transmission, amputation window, turning
 const World = preload("res://sim/world.gd")
-const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
