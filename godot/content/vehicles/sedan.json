@@ -1,6 +1,6 @@
 {
   "id": "vehicle.sedan",
-  "name": "Sedan",
+  "name": "Kei Car",
   "drive": {
     "power": "engine",
     "speed": 10,

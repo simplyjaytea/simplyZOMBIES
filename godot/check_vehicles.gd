@@ -568,8 +568,14 @@ func _a_body_gets_in_and_out(stash: Dictionary) -> bool:
 	# Beside it: in.
 	p["x"] = door_x
 	var near_clause: String = SimVehicles.hud_clause(w, w.player)
-	if not near_clause.contains("beside you") or not near_clause.contains("sedan") or _has_digit(near_clause):
-		push_error("MOUNT: the clause beside a sedan reads '%s'" % near_clause)
+	# The name is the car's own, read from its content class and lowercased as the clause builds it,
+	# so a rename in content moves this pin with it.
+	var car_name: String = String(SimVehicles.class_of(w, String(_v(w, car).get("class", ""))).get("name", "")).to_lower()
+	if car_name.is_empty():
+		push_error("MOUNT: content names no vehicle class for the hand car")
+		return false
+	if not near_clause.contains("beside you") or not near_clause.contains(car_name) or _has_digit(near_clause):
+		push_error("MOUNT: the clause beside the %s reads '%s'" % [car_name, near_clause])
 		return false
 	_toggle(w)
 	if not w.components.has_component(w.player, "mounted"):
