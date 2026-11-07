@@ -196,6 +196,11 @@ func _ready() -> void:
 	_build_views()
 	_build_rig()
 	_build_hud()
+	# The default title's continue (docs/30, 2026-11-07): the slot is loaded here, before the first frame,
+	# the way F9 loads it. The flag is one-shot, so a plain boot after it starts a fresh run.
+	if SaveSlot.load_on_boot:
+		SaveSlot.load_on_boot = false
+		load_game()
 	# A web build refuses pointer lock without a user gesture (the export smoke's page error), so there the
 	# pointer starts released and the first click takes it, as it does after an Escape. Desktop captures now.
 	if OS.has_feature("web"):
