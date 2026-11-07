@@ -50,6 +50,18 @@
       "type": "boolean",
       "description": "A dormant body (`dormantShare`) hears a noise anywhere on the indoor floor of the building it was placed in, not only on its own tile. The floor is handed to the body at boot as its `lair` (roster.gd spawn_dormant_from_manifest, shambler.gd make_dormant), and the Dormant arm reads it. A kind without it keeps the shambler's rule: its own tile alone."
     },
+    "gas": {
+      "type": "object",
+      "description": "A blooming kind's gas cloud (docs/23, \"The gassed bloater\"). The burst writes a gas level of 1.0 into the cloud, which decays by `decayPerTick` each tick and is gone when it reaches `threshold`; `radius` is the disc it covers at that level. A survivor in the disc, with an open wound, rolls once per `hurtEvery` ticks of the cloud's life. Omitted keys keep bloater.gd's constants, which are today's numbers; the shipped bloater writes them out so the content says what the cloud is.",
+      "additionalProperties": false,
+      "properties": {
+        "radius": { "type": "number", "minimum": 0 },
+        "lingerTicks": { "type": "integer", "minimum": 1 },
+        "decayPerTick": { "type": "number", "minimum": 0 },
+        "threshold": { "type": "number", "minimum": 0 },
+        "hurtEvery": { "type": "integer", "minimum": 1 }
+      }
+    },
     "variance": {
       "type": "object",
       "description": "How much one body of this kind differs from the next. Drawn per body at spawn on SimRoster's own `zombieLook` stream -- never on the stream that placed it, so adding or retuning any of this leaves every existing campaign's placement and director draws byte-identical (check_m2_variance.gd STREAM). Omit the block entirely and the kind spawns uniform, which is what every kind did before this existed.",
