@@ -71,6 +71,9 @@ const VAGUE_MANY: String = "several of them"
 # Kinds a record can carry. A record with no `kind` at all (a save from before this slice) reads
 # as this default -- the only kind that ever existed then.
 const DEFAULT_KIND: String = "zombie"
+# A settled corpse, and a feigner lying as one. Remembered, never hostile: `clause` and
+# `freshest_within` leave it out, and so does every read that asks for hostile kinds.
+const CORPSE_KIND: String = "corpse"
 # What the prose and the recall-fire job are willing to act on. A remembered colonist is not a
 # threat, so "person" never reaches either.
 const HOSTILE_KINDS: Array[String] = ["zombie", "raider"]
@@ -236,6 +239,13 @@ static func _in_square(tiles: Variant, x: float, y: float) -> bool:
 # A remembered body's kind, from the shambler and raider tables the observe loop already holds.
 static func _kind_of(shamblers: Dictionary, raiders: Dictionary, entity: int) -> String:
 	if shamblers.has(entity):
+		# A feigner lying as a corpse reads as one: state 7 is `SimShambler.ShamblerState["Feign"]`,
+		# written here as the literal because this module does not preload the shambler (the same
+		# reason `Detail.Unseen` is written as 0 below). Rising changes the state, and the record
+		# flips to "zombie" the next time it is seen.
+		var sd: Variant = shamblers.get(entity)
+		if sd is Dictionary and int((sd as Dictionary).get("state", -1)) == 7:
+			return CORPSE_KIND
 		return "zombie"
 	if raiders.has(entity):
 		return "raider"
@@ -336,9 +346,19 @@ static func _observe_one(world: Variant, observer: int, candidates: Array) -> vo
 		# Watched it fall. A body you saw go down is not a body you are still wary of, so the
 		# record goes rather than ageing out -- and a kill out of sight leaves its record
 		# standing, which is the same asymmetry as everything else here.
+		# A settled corpse is remembered as one, and a body that was never seen alive is one the
+		# first time it is seen dead. A body that was seen alive, and is dead now, is the kill, and
+		# its record goes as it always did.
 		var body: Variant = bodies.get(int(other))
-		if not body is Dictionary or not SimHealth.is_alive(body as Dictionary):
+		if not body is Dictionary:
 			_erase(seen, int(other))
+			continue
+		if not SimHealth.is_alive(body as Dictionary):
+			var prior: Variant = rows.get(int(other))
+			if prior != null and String((prior as Dictionary).get("kind", DEFAULT_KIND)) != CORPSE_KIND:
+				_erase(seen, int(other))
+				continue
+			_record_in(seen, rows, int(other), x, y, tick, CORPSE_KIND)
 			continue
 		_record_in(seen, rows, int(other), x, y, tick, _kind_of(shamblers, raiders, int(other)))
 	_prune(seen, tick)

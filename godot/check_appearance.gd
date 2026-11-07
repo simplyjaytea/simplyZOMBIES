@@ -601,6 +601,9 @@ const ROSTER: Array[Dictionary] = [
 	# The lurker wears the shambler's workwear picture too: a kind whose difference is where it lies
 	# (indoors, asleep), not what it wears, so it shares the shambler's file (docs/23, the lurker).
 	{"id": "zombie.lurker", "kind": "zombie", "probe": {"ztype": "zombie.lurker"}, "tinted": false},
+	# The feigner wears the shambler's workwear picture, and lies in its own corpse frame: a kind whose
+	# difference is that it lies among the dead, not what it wears (docs/23, the feigner).
+	{"id": "zombie.feigner", "kind": "zombie", "probe": {"ztype": "zombie.feigner"}, "tinted": false},
 	{"id": "raider.scav", "kind": "raider", "probe": {"raider": true, "cid": "raider.scav"}, "tinted": true},
 	{"id": "raider.gunhand", "kind": "raider", "probe": {"raider": true, "cid": "raider.gunhand"}, "tinted": true},
 	# The two role archetypes (the roles slice). Same body as the other two, and that is the
@@ -646,6 +649,7 @@ const ROSTER_SHARED: Array = [
 	# file until a bloodhound body is drawn.
 	["zombie.shambler", "zombie.bloodhound"],
 	["zombie.shambler", "zombie.lurker"],
+	["zombie.shambler", "zombie.feigner"],
 	[
 		"player.body", "survivor.unique.mara", "survivor.unique.ellis",
 		"colony.look.01", "colony.look.02", "colony.look.03", "colony.look.04", "colony.look.05", "colony.look.06",
