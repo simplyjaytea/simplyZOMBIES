@@ -3710,8 +3710,29 @@ not a to-do list:
     mutation (no read mark, no prompt, Escape to the street, an invented line) turns the lane red.
   - **Not in this piece.** Paging beyond the 12 newest lines. A page for the run's epitaph. Save and
     load of the read mark. The gate does not run the death itself: it publishes the event health.gd
-    publishes, and the body stays alive.
+    publishes, and the body stays alive. (Amended 2026-11-07: the three gaps before the read mark and the
+    epitaph are closed; see "The Reports page turns pages, 2026-11-07".)
 
+
+- **The Reports page turns pages, 2026-11-07.** Closes the three gaps the 2026-11-01 entry named. `reports_panel.gd`
+  pages the record twelve lines to a page, newest first: "older" and "newer" are kit buttons (words, no digits), the
+  page opens on the newest twelve, and a record of twelve or fewer shows no paging rows. `ReportsPanel.rows(world,
+  read, page)` stays pure and `entries` is its full list. The "new" tags follow each entry wherever its page is, and
+  the "since you last looked" banner shows while the record holds unread entries.
+  - **The read mark survives a save.** The mark stays presentation state; the sim is never written. It is stored
+    beside the first-person slot under a sibling key, `<slot>.reads` (`save_slot.gd`'s `write_reads`, `read_reads`),
+    written before the sim's save and read back on F9. A slot with no sibling key (an older save) loads as 0. The save
+    text and `SAVE_VERSION` are unchanged, so `godot:m2:save` is not affected.
+  - **The epitaph page.** Once the run is over, the page offers an "epitaph" button (only then), and it shows every
+    line of `SimChronicle.epitaph` with no cap, paged the same way; a "record" button returns to the record. The
+    sim writes nothing new.
+  - **The gate.** `godot:check:first_person` REPORTS, the PAGES case: thirty entries written through the chronicle's
+    writer; the page opens on the newest twelve; "older" by a real click shows the next twelve, then the last six, and
+    stops; "newer" returns; a twelve-line record shows no paging; every paged line is one the chronicle holds, and a
+    line it never wrote is refused by the same check; the read mark comes back after a save and a load with the record
+    changed in between, and old entries are not new; a slot with no mark loads as 0; the epitaph is offered only when
+    `world.runOver` is true, and then holds every epitaph line. The plant (`older()` skips a page) turns the lane red:
+    `'older' did not show the next twelve lines (page 2)`.
 - **First-person stance and gait, 2026-11-01.** Advances "First-person simulation and ledger
   foundation": the scene's movement and camera now follow the body's posture.
   - **The keys.** `first_person.gd` reads the stance rows of `input_map.gd`'s `BINDINGS`: Ctrl+Z
