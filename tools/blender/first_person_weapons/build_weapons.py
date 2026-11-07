@@ -1235,26 +1235,26 @@ RIFLE_GRIP_L = Vector((0.0, 0.022, -0.250))
 RIFLE_GRIP_TOLERANCE_M = 0.005
 
 
-RIFLE_SIGHT_Y = 0.092
+RIFLE_SIGHT_Y = 0.079
 RIFLE_GUARD_PROFILE = [
-    (-0.052, -0.028), (-0.046, -0.028), (-0.046, -0.045), (-0.040, -0.050),
-    (0.000, -0.050), (0.006, -0.045), (0.006, -0.028), (0.012, -0.028),
-    (0.012, -0.048), (0.006, -0.056), (-0.046, -0.056), (-0.052, -0.048),
+    (-0.117, 0.00825), (-0.111, 0.00825), (-0.111, -0.020), (-0.105, -0.050),
+    (-0.065, -0.050), (-0.059, -0.020), (-0.059, 0.00825), (-0.045, 0.00825),
+    (-0.045, -0.048), (-0.059, -0.056), (-0.111, -0.056), (-0.117, -0.048),
 ]
 RIFLE_TRIGGER_PROFILE = [
-    (-0.024, -0.0275), (-0.014, -0.0275), (-0.012, -0.032), (-0.015, -0.044),
-    (-0.020, -0.048), (-0.024, -0.046), (-0.021, -0.038),
+    (-0.057, 0.0080), (-0.047, 0.0080), (-0.047, -0.020), (-0.050, -0.044),
+    (-0.055, -0.048), (-0.057, -0.046), (-0.056, -0.026),
 ]
 RIFLE_STOCK_PATH = [
-    (0, 0.012, -0.540), (0, 0.020, -0.480), (0, 0.022, -0.250),
-    (0, 0.010, -0.120), (0, 0.005, -0.020), (0, -0.010, 0.055),
-    (0, -0.020, 0.125), (0, -0.005, 0.165), (0, 0.000, 0.215),
-    (0, -0.020, 0.300),
+    (0, 0.012, -0.540), (0, 0.020, -0.480), (0, 0.050, -0.280),
+    (0, 0.050, -0.250), (0, 0.050, -0.220), (0, 0.010, -0.120),
+    (0, 0.005, -0.020), (0, -0.010, 0.055), (0, -0.020, 0.125),
+    (0, -0.005, 0.165), (0, 0.000, 0.215), (0, -0.020, 0.300),
 ]
 RIFLE_STOCK_SCALES = [
-    (0.016, 0.018), (0.020, 0.025), (0.024, 0.028), (0.026, 0.030),
-    (0.022, 0.035), (0.022, 0.045), (0.021, 0.052), (0.023, 0.052),
-    (0.025, 0.052), (0.026, 0.058),
+    (0.016, 0.018), (0.020, 0.025), (0.023, 0.028), (0.023, 0.028),
+    (0.023, 0.028), (0.026, 0.030), (0.022, 0.035), (0.022, 0.045),
+    (0.020, 0.034), (0.023, 0.052), (0.025, 0.052), (0.026, 0.058),
 ]
 
 
@@ -1268,23 +1268,31 @@ def rifle_hunting():
         (radius, -0.070), (radius, -0.120), (radius, -0.130),
         (radius, -0.170), (radius, -0.180), (0.0, -0.180),
     ]
-    lathe(m, profile, 12, "action", lambda i: E if i in (0, 1, 2, 9, 10) else B, frame, skip=lambda i, k: i == 7 and k in (0, 11))
-    cbox(m, (0, 0.005, -0.060), (0.032, 0.065, 0.170), B, "lower_action", 0.0030, E)
-    xbox(m, RIFLE_GUARD_PROFILE, -0.004, 0.004, B, "trigger_guard", 0.0005, E)
+    port_skip = (lambda i, k: i == 7 and k in (0, 11)) if PLANT == "rifle_port_open" else None
+    lathe(m, profile, 12, "action", lambda i: E if i in (0, 1, 2, 9, 10) else B, frame, skip=port_skip)
+    lathe(m, [(0.0, 0.050), (0.013, 0.050), (0.013, 0.061), (0.011, 0.061), (0.011, 0.073), (0.0, 0.073)], 12, "bolt_shroud", lambda i: B, frame)
+    cbox(m, (0, 0.023, -0.0975), (0.032, 0.0305, 0.095), B, "lower_action", 0.0030, E)
+    guard = [(z, y - 0.001) for z, y in RIFLE_GUARD_PROFILE] if PLANT == "rifle_guard_gap" else RIFLE_GUARD_PROFILE
+    xbox(m, guard, -0.004, 0.004, B, "trigger_guard", 0.0005, E)
     trigger = [(z - 0.030, y) for z, y in RIFLE_TRIGGER_PROFILE] if PLANT == "rifle_trigger_buried" else RIFLE_TRIGGER_PROFILE
     xbox(m, trigger, -0.0025, 0.0025, B, "trigger", 0.0005, E)
     sight_lift = 0.002 if PLANT == "receiver_contact" else 0.0
-    cbox(m, (0, 0.08225 + sight_lift, -0.115), (0.012, 0.0195, 0.018), B, "rear_sight", 0.0010, E)
+    sight_y = 0.092 if PLANT == "rifle_sight_high" else RIFLE_SIGHT_Y
+    rear_centre = 0.08225 if PLANT == "rifle_sight_high" else 0.07575
+    rear_height = 0.0195 if PLANT == "rifle_sight_high" else 0.0065
+    cbox(m, (0, rear_centre + sight_lift, -0.120), (0.012, rear_height, 0.018), B, "rear_sight", 0.0010, E)
+    cbox(m, (0.0175, 0.055, -0.115), (0.003, 0.018, 0.060), B, "port_floor", 0.0004, E)
+    cbox(m, (0.0192, 0.055, -0.115), (0.0012, 0.010, 0.048), "steel_bare", "port_bolt", 0.0003, E)
     cbox(m, (0.030, 0.055, -0.005), (0.028, 0.008, 0.010), "steel_bare", "bolt_handle", 0.0015, E)
     cbox(m, (0.048, 0.052, -0.005), (0.014, 0.014, 0.014), B, "bolt_knob", 0.0040, E)
     m.sockets = {
         "grip_r": Matrix.Identity(4),
         "grip_l": Matrix.Translation(RIFLE_GRIP_L + Vector((0.006, 0, 0)) if PLANT == "rifle_grip" else RIFLE_GRIP_L),
-        "sight": Matrix.Translation((0, RIFLE_SIGHT_Y, -0.115)),
-        "socket_optic": Matrix.Translation((0, 0.082, -0.055)),
+        "sight": Matrix.Translation((0, sight_y, -0.120)),
+        "socket_optic": Matrix.Translation((0, 0.078, -0.055)),
         "socket_barrel": Matrix.Translation((0, 0.055, -0.180)),
         "socket_muzzle": Matrix.Translation((0, 0.055, -0.750)),
-        "socket_magazine": Matrix.Translation((0, -0.005, -0.055)),
+        "socket_magazine": Matrix.Translation((0, -0.005, -0.115)),
         "socket_furniture": Matrix.Translation((0, 0.025, -0.060)),
         "socket_internal": Matrix.Translation((0, 0.055, -0.035)),
         "socket_spring": Matrix.Translation((0, 0.055, 0.015)),
@@ -1304,7 +1312,9 @@ def rifle_barrel_standard():
     ]
     styles = [B, B, B, B, E, "bore", "bore"]
     lathe(m, profile, 12, "barrel", lambda i: styles[i])
-    cbox(m, (0, 0.020, -0.525), (0.004, 0.034, 0.012), B, "front_sight", 0.0008, E)
+    ramp = [(-0.468, 0.008), (-0.432, 0.008), (-0.432, 0.020), (-0.442, 0.0225), (-0.452, 0.0225), (-0.468, 0.012)]
+    xbox(m, ramp, -0.002, 0.002, B, "front_ramp", 0.0004, E)
+    cbox(m, (0, 0.0225, -0.442), (0.005, 0.003, 0.004), B, "front_bead", 0.0005, E)
     m.sockets = {"socket_muzzle": Matrix.Translation((0, 0, -0.570))}
     m.finish()
     return m
@@ -1366,12 +1376,20 @@ def rifle_extractor_standard():
 def rifle_stock_standard():
     m = Model("rifle_stock_standard", HELD_DENSITY)
     section = rect_profile(1.0, 1.0, 0.28)
-    rings = sweep(m, RIFLE_STOCK_PATH, RIFLE_STOCK_SCALES, section, "stock", lambda i: "hickory", ("endgrain_hickory", "endgrain_hickory"))
-    centre = Vector(RIFLE_STOCK_PATH[-1])
-    normal = (centre - Vector(RIFLE_STOCK_PATH[-2])).normalized()
-    inner = [centre + (p - centre).normalized() * ((p - centre).length - 0.0005) + normal * 0.0006 for p in rings[-1]]
+    path = RIFLE_STOCK_PATH
+    if PLANT == "rifle_hands":
+        path = [(x, 0.020 if z in (-0.280, -0.250, -0.220) else y, z) for x, y, z in path]
+    rings = sweep(m, path, RIFLE_STOCK_SCALES, section, "stock", lambda i: "hickory", ("endgrain_hickory", "endgrain_hickory"))
+    grip_path = [(0, 0.035, -0.0105), (0, -0.045, 0.0185)]
+    sweep(m, grip_path, [(0.013, 0.020), (0.013, 0.020)], section, "pistol_grip", lambda i: "hickory", ("endgrain_hickory", "endgrain_hickory"))
+    cbox(m, (0, -0.047, 0.020), (0.028, 0.008, 0.043), "hickory", "grip_hook", 0.0010, E)
+    centre = Vector(path[-1])
+    normal = (centre - Vector(path[-2])).normalized()
+    plate_offset = 0.0006 if PLANT == "rifle_butt_gap" else -0.0005
+    inner = [centre + (p - centre).normalized() * ((p - centre).length - 0.0005) + normal * plate_offset for p in rings[-1]]
     outer = [p + normal * 0.006 for p in inner]
     loft(m, [inner, outer], lambda i, k: "coat_dark", "butt_plate")
+    m.poly(inner, -normal, "coat_dark")
     m.poly(outer, normal, "coat_dark")
     if PLANT == "near_coplanar":
         m.poly([(0.0164, 0.0, -0.100), (0.0164, 0.020, -0.100), (0.0164, 0.020, -0.080), (0.0164, 0.0, -0.080)], (1, 0, 0), "hickory")
@@ -1397,14 +1415,14 @@ MODELS = [
     ("pistol_suppressor", pistol_suppressor, {"id": "item.attach.suppressor"}, "part", [0.0324, 0.0324, 0.149], {}),
     ("pistol_optic_red_dot", pistol_optic_red_dot, {"id": "item.attach.optic.red_dot"}, "part", [0.022, 0.0215, 0.032], {}),
     ("pistol_magazine_extended", lambda: magazine("pistol_magazine_extended", True), {"id": "item.attach.magazine.extended"}, "part", [0.0256, 0.1345, 0.0375], {}),
-    ("rifle_hunting", rifle_hunting, {"id": "item.rifle.hunting"}, "receiver", [0.073, 0.148, 0.245], {s: f"socket_{s}" for s in RECEIVER_SLOTS}),
-    ("rifle_barrel_standard", rifle_barrel_standard, {"id": "item.part.barrel.standard", "receiver": "item.rifle.hunting"}, "part", [0.030, 0.052, 0.570], {"muzzle": "socket_muzzle"}),
+    ("rifle_hunting", rifle_hunting, {"id": "item.rifle.hunting"}, "receiver", [0.073, 0.135, 0.253], {s: f"socket_{s}" for s in RECEIVER_SLOTS}),
+    ("rifle_barrel_standard", rifle_barrel_standard, {"id": "item.part.barrel.standard", "receiver": "item.rifle.hunting"}, "part", [0.030, 0.039, 0.570], {"muzzle": "socket_muzzle"}),
     ("rifle_magazine_standard", rifle_magazine_standard, {"id": "item.part.magazine.standard", "receiver": "item.rifle.hunting"}, "part", [0.030, 0.049, 0.080], {}),
     ("rifle_action_standard", rifle_action_standard, {"id": "item.part.action.standard", "receiver": "item.rifle.hunting"}, "part", [0.016, 0.016, 0.160], {}),
     ("rifle_spring_standard", rifle_spring_standard, {"id": "item.part.spring.standard", "receiver": "item.rifle.hunting"}, "part", [0.0104, 0.0108, 0.100], {}),
     ("rifle_sear_standard", rifle_sear_standard, {"id": "item.part.sear.standard", "receiver": "item.rifle.hunting"}, "part", [0.012, 0.0125, 0.026], {}),
     ("rifle_extractor_standard", rifle_extractor_standard, {"id": "item.part.extractor.standard", "receiver": "item.rifle.hunting"}, "part", [0.0065, 0.013, 0.043], {}),
-    ("rifle_stock_standard", rifle_stock_standard, {"id": "item.part.stock.standard", "receiver": "item.rifle.hunting"}, "part", [0.052, 0.1294, 0.862], {}),
+    ("rifle_stock_standard", rifle_stock_standard, {"id": "item.part.stock.standard", "receiver": "item.rifle.hunting"}, "part", [0.052, 0.1553, 0.8609], {}),
     ("bat_wood", bat_wood, {"id": "item.bat.wood"}, "melee", [0.066, 0.066, 0.840], {"stud": "socket_stud", "weight": "socket_weight", "wrap": "socket_wrap"}),
     ("knife_kitchen", knife_kitchen, {"id": "item.knife.kitchen"}, "melee", [0.019, 0.046, 0.322], {"edge": "socket_edge", "wrap": "socket_wrap"}),
     ("crowbar_steel", crowbar_steel, {"id": "item.crowbar.steel"}, "melee", [0.0275, 0.102, 0.600], {"weight": "socket_weight", "wrap": "socket_wrap"}),
@@ -1959,15 +1977,15 @@ def measure_rifle(loaded):
     report.append("RIFLE_CONTACT receiver sub-bodies form one connected group at 0.2 mm")
 
     connected = component_groups(receiver.triangles)
-    below = []
+    trigger_candidates = []
     lower_action = None
     for group in connected:
         lo, hi = points_bounds([p for tri in group for p in tri[0]])
-        if hi.y < -0.020:
-            below.append((group, hi - lo))
-        elif lo.y < -0.020 and hi.y > 0.030:
+        if lo.y < -0.040 and hi.y > -0.020 and 0.004 <= hi.x - lo.x <= 0.006:
+            trigger_candidates.append(group)
+        elif lo.y < 0.020 and hi.y > 0.030:
             lower_action = (lo, hi)
-    trigger_group = min(below, key=lambda item: item[1].x)[0]
+    trigger_group = min(trigger_candidates, key=lambda group: points_bounds([p for tri in group for p in tri[0]])[0].y)
     trigger_points = [p for tri in trigger_group for p in tri[0]]
     if any(point_in_polygon(RIFLE_GUARD_PROFILE, (p.z, p.y)) for p in trigger_points):
         raise ValueError("trigger profile intersects the guard's solid")
