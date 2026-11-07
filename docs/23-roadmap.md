@@ -226,11 +226,10 @@ The source baseline is archived on GitHub at
     stretch for gas masks and half-mask respirators, which need their own rung;
   - the gun case draws as a soft roll-top bag, and the crossbow bolt draws the 71 cm arrow, where a
     bolt is about 40 cm (`LENGTH_HINTS`); a long-case rung and a bolt length hint would tighten both.
-- **Arms polish (round 2 minors).** The open items of the arms review's round 2 (`claude/fp-arms`), each
-  still to do: the pistol inspect shows the back of the slide, a roll about the view axis; the hands sit
-  under the HUD key bar (presentation); skin tone changes at UV seams more than across the surface, with
-  144 islands in the GLB against the 44 charts the build prints; `paint-match` checks the sleeve against
-  the builder's constant rather than the survivor's atlas.
+- **Arms polish (round 2 minors), n1 only.** The round-2 review's skin tone at UV seams: small notches
+  and shards at the knuckles, with 144 islands in the GLB against the 44 charts the build prints. This is
+  art, for the art lead. The pistol inspect (m1), the key bar over the bare hands (m5) and the sleeve
+  check (n2) landed with the arms-polish piece; their record is under the record, by system.
 
 ##### UI overhaul
 
@@ -4251,6 +4250,30 @@ not a to-do list:
   spawns over four seeds legless from the first tick, 36 of 800 shamblers crawling at the base's
   0.05); `godot:check:appearance` ROSTER. The ten-seed table was not re-run; see "The ten-seed
   re-baseline after the zombie kinds" under Proof.
+- **Arms polish, m1, m5 and n2, 2026-11-06.** Round 2's three code minors, one piece on
+  `claude/fp-arms-polish`.
+  - **The pistol inspect turns about view-up (m1).** `arms_clips.py`'s `inspected` turns the pistol with a
+    yaw of 72 degrees about Blender Z and a pitch of 8 degrees, and keeps the offset. The old turn rolled
+    about the bore, which points along the view, so the slide showed only at its rear and the right
+    sleeve crossed in front of it at the peak. Measured on the weapon frame (`grip_r`) between
+    `idle_pistol` and the inspect peak at frame 90: before, 75.2 degrees with the axis 82.9 degrees off
+    up; after, 72.4 degrees with the axis 6.8 degrees off up. `arms_checks.py` `pistol-turn` asserts the
+    axis within 30 degrees of up and the angle at least 60 degrees. A negative yaw of the same size fails
+    the support arm's reach (`bone-length`, 264.8 mm against 262.4) and smoothness checks; a positive one
+    passes. Plant `pistol-roll` (the old turn) is refused by `pistol-turn`. The evidence renders are under
+    `/home/jtf/sz-shared/fp-arms-polish/evidence/`, before and after at 0.5, 1.0 and 1.5 s, 3x crops.
+  - **The key bar clears the bare hands (m5).** `hud.gd`'s key bar moved to 0.69 of the view height
+    (`help_rect`, the one rectangle the draw and the gate share). At idle the hands project from 559 px
+    down at both 1280x720 and 960x720 (the padded rectangle, a 5 cm hand radius); the bar was at 642 to
+    686 and now sits at 497 to 541. `godot:check:first_person` HANDS asserts no overlap at both sizes, and
+    a bar placed on the hands must read as overlapping (the plant).
+  - **The sleeve is checked against the survivor's own arm islands (n2).** `check_paint_match` samples the
+    survivor's arm rectangles from `survivor_atlas.png` at check time. The sleeve's mean is 7.29 levels from
+    the survivor's arm mean (sleeve 41.0, 39.8, 37.0; survivor 46.0, 44.1, 40.0), and the limit is 12, the
+    gap with a margin. Plant `sleeve-tone` (the sleeve repainted to the lightest in-ramp colour, which the
+    ramp check passes) is refused by `paint-match` at 27.3 levels.
+  - **Not done.** The round-2 review's N1 (the trigger finger carried over from the previous clip) is a view
+    branch fix (`deterministic` on the arms' player), not in this piece.
 - **The lurker, 2026-11-05.** Zombie kind ten, a dormant kind: `godot/content/zombies/lurker.json`,
   extends `zombie.base`, with the shambler's body, sensory, locomotion and workwear picture (no
   picture of its own, as the crawler and bloodhound). It takes `dormantShare` 0.2 of the dormant
