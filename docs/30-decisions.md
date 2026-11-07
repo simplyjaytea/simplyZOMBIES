@@ -8102,3 +8102,15 @@ the noise entry.
   pack places neither device and one unit is spent. The plant (both RECIPES rows removed) turns it
   red with `M2_MATERIALS_FAIL`. `godot:check:grade` stows one wire before the scene is set up, since
   the E keycap that the grade lane counts is the free alarm rung.
+
+## The Reports read mark rides beside the first-person slot, 2026-11-07
+
+The Reports page's read mark is presentation state, and the sim is never written for it. A load that
+restored the record but not the mark would mark every old report new, so the mark is saved with the slot.
+
+- **Where it lives.** Under a sibling key, `<slot>.reads`, beside the first-person save (`save_slot.gd`). The
+  sim's save text and `SAVE_VERSION` do not move, so the top-down slot and the sim's save gate are untouched.
+- **What an old save does.** A slot with no sibling key loads as mark 0: the same as before the mark was kept.
+- **What the page shows.** Entries are marked new by their own index against the mark, wherever their page is. The
+  "since you last looked" banner shows while the record holds unread entries, not only on the page showing.
+- **The epitaph.** Offered only once the run is over, and then every epitaph line, paged. The sim writes nothing.

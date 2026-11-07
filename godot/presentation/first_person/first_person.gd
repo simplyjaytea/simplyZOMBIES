@@ -2184,6 +2184,10 @@ func reports_chip_node() -> Control:
 func save_game() -> bool:
 	if world == null:
 		return false
+	# The Reports page's read mark goes beside the slot first, so a save that lands always has its mark.
+	if not SaveSlot.write_reads(_reports_read):
+		_set_alert("The save did not write.")
+		return false
 	if not SaveSlot.write(SimSave.encode_save(SimSave.create_save(world))):
 		_set_alert("The save did not write.")
 		return false
@@ -2205,6 +2209,9 @@ func load_game() -> bool:
 		_set_alert("That save will not load.")
 		return false
 	SimSave.apply_save(world, parsed)
+	# The read mark comes back with the slot, so loading does not mark every old report new. A slot with no mark
+	# (an older save) reads as 0.
+	_reports_read = SaveSlot.read_reads()
 	_after_load()
 	_set_alert("Loaded.")
 	return true
