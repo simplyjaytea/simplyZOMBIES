@@ -3024,6 +3024,28 @@ not a to-do list:
     made for survivors only (`recruits.gd`'s `_make_corpse`), so a zombie's death clip is set by the
     gate, not the sim. Horde cost beyond 40 is unmeasured, and so is a horde at the shipped district's
     density.
+- **Held items on the first-person bodies, 2026-11-07.** The bodies in the first-person world carry what the
+  sim says they hold. `held_weapon.gd` gains a `holder` (the entity whose hand it is; unset is the player, so the
+  arms are unchanged), and the same assembly the arms draw (receiver, sockets, parts) is mounted under the right
+  hand of each body with a model: `body_view.gd`'s `mount_held` puts a `BoneAttachment3D` on the rig's `hand.R`
+  (both `survivor.glb` and `shambler.glb` carry it) and parents the held view to it. `own_body.gd` does the same
+  for the player's body, so the weapon the arms hide in third person (`hide_weapon`) is drawn on the body there.
+  Unarmed bodies draw nothing under the hand. No sim change, no HUD words.
+  - **The orientation.** Measured on the shipped survivor rig before the turn: the grip's bore pointed backwards
+    (dot with the body's forward -0.960), because the hand bone's Y runs down the arm. One constant,
+    `HAND_TO_GRIP_RADIANS` (a half turn about the hand's X), sends the bore forward: dot +0.960. The grip's top
+    then points 16 degrees above the body's up (dot 0.960), which is the hand bone's own rest roll and is left
+    as it is.
+  - **The gate.** `godot:check:first_person` BODIES, the HELD case: a colonist given a pistol (its model under
+    `hand.R`, 0.000 m from the bone), then a bat (swapped; the pistol is gone); an unarmed colonist draws nothing
+    under the hand (the negative: the grip stays under the hand, hidden, with no model in it); the player's own body
+    in third person draws the pistol the arms hold, at 0.000 m from `hand.R`. The distance is read from the
+    skeleton by name, not from the attachment, so a plant on `hand.L` fails it: the pistol sits 0.478 m from the
+    hand bone. The plant is recorded in the REPORT.
+  - **Not in this piece.** A shambler's model gets the same mount (its skeleton has `hand.R`), but no zombie
+    carries a weapon in the sim, so nothing is drawn there. An unarmed body keeps its grip under the hand, hidden,
+    rather than leaving the hand with no child at all; nothing is drawn either way.
+
 - **Art — the survivor review driver, 2026-11-01.** `npm run godot:shots:survivor` photographs a
   candidate survivor GLB in the first-person scene's own sky, sun and lens: `SkyView` for the
   light, the first-person 75-degree lens at the 1.62 m eye, and `models.gd` for the loader. It
@@ -3638,7 +3660,8 @@ not a to-do list:
     `first_person.gd`'s `_ready` prints. The top-down scene still prints R1 and R4. CI's
     `godot-exports` job is the check that the exported default boot reaches it.
   - **Not in this piece.** The held weapon is drawn at the camera in third person; the body carries
-    no weapon yet. Third person is not a player-facing mode.
+    no weapon yet (amended 2026-11-07: the bodies now carry what they hold, see "Held items on the
+    first-person bodies, 2026-11-07"). Third person is not a player-facing mode.
   - **Captures.** Two in-engine captures (default boot, third-person survivor) are in
     `C:/Users/jtf/orca/sz-shared/fp-default/`. They were taken with a temporary driver that is not
     committed.
