@@ -3243,7 +3243,8 @@ not a to-do list:
   BLOODHOUND: a walking player never produces a scent rise of 20 over a neighbour cell (largest 0.00; the
   cells are 4 m), so Track never starts from a walker. A bloater-sized 30 burst does produce a rise (30)
   when it lies in a neighbour cell, and Track is entered, but the bloodhound does not reach it; in its own
-  cell the burst is a level and Track brings it to the burst by +184 ticks. CRAWLER: the crawler closes at
+  cell the burst is a level and Track brings it to the burst by +184 ticks. (Both BLOODHOUND findings are resolved on `claude/bloodhound-trail`, 2026-11-07: see "The bloodhound
+  follows a walker" below.) CRAWLER: the crawler closes at
   0.55 of the shambler's speed in the same lane; the sim applies the crawler's own content crawl (0.45: 0.76
   m/s measured, 0.8 x 2.1 x 0.45), and the 0.25 that `m2:variance` pins is the shambler default for a body
   with its legs gone. OK, measured: the runner closes at 2.94 m/s, is caught walking at +173 ticks and not
@@ -4252,6 +4253,15 @@ not a to-do list:
   drifted at 0.7. docs/30's "The bloodhound's nose is a gradient, not a level, 2026-11-04" has the
   design, the rejected one, and why.
   bloodhound's nose as a seek" under what's left, and docs/30's entry has the arithmetic.
+- **The bloodhound follows a walker, 2026-11-07.** Content only: `emits` empty (the bloodhound lays no scent
+  of its own) and `sensory.trail` 5.0. The kinds gate's two bloodhound findings are now OK lanes:
+  `godot:check:fp_kinds` walks a player 40 m from 2 m in front of the bloodhound and gets Track within 2 m at
+  +749 ticks after the walk (its seed), and a 30 burst 6 m away is reached within 3 m at +32 ticks, Track
+  entered; the own-cell burst keeps its 1 m test (+184). Eight seeds (docs/30): Track reaches a walker on six
+  (+1054 to +1543), not within 1200 ticks on two (404, 1); 6 m bursts reached on all eight; false Track
+  starts 0/8 on each seed over 2000 ticks. Balance lines identical in `godot:m2:balance`, `m2:lethality`,
+  `m2:variance`, `m2:director`, `m2:roster`, `m2:dormant`, `m2:contact`, `m2:noise`; `m2:district` OK with its
+  bloodhound numbers changed. Owner card: docs/33 item 33.
 - **The crawler, 2026-11-04.** Zombie kind nine: `godot/content/zombies/crawler.json`, wave 2,
   weight 3, speed 0.8 with `crawl` 0.45, `sensory` noise 0.5, light 0.2, scent 0.9, and
   `variance.crawlers` 1.0, so every spawn is born legless (`roster.gd`'s `bool_chance(1.0)` is

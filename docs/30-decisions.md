@@ -8220,6 +8220,8 @@ The what's-left entry "The juggernaut" is closed. Its record, with the numbers, 
 
 ## Every zombie kind is driven against the first-person player, 2026-11-07
 
+- **Resolved the same day.** The two bloodhound findings below are closed by "The bloodhound lays no scent of
+  its own, and its trail is 5.0", 2026-11-07.
 - **A measurement, with findings kept out of FAIL.** `godot/check_fp_kinds.gd` (`npm run godot:check:fp_kinds`)
   prints a line per kind. A mechanic the spec claims that does not hold is a FINDING with its numbers, and
   a claim the gate itself cannot judge is said so; the gate is green at 0 FAIL. The findings for the owner
@@ -8241,3 +8243,33 @@ The what's-left entry "The juggernaut" is closed. Its record, with the numbers, 
 - **Crawl speed.** The sim applies each kind's own content `crawl`: the crawler's 0.45 (measured 0.76 m/s).
   The 0.25 in `m2:variance` is the shambler default, for a shambler whose legs are gone. The two are
   different kinds, not one number.
+
+## The bloodhound lays no scent of its own, and its trail is 5.0, 2026-11-07
+
+Content only, `godot/content/zombies/bloodhound.json`: `"emits": []` (the bloodhound writes nothing to the
+scent field; every other kind keeps the `base.json` scent 1) and `sensory.trail` 5.0 (was 20). `shambler.gd`
+is untouched. The owner's card for this is docs/33 item 33.
+
+- **Why the own residue mattered.** A bloodhound lays scent on the cell it stands on, and its neighbours
+  are lower, so `uphill_scent` is null at its own cell: it sat on a summit of its own residue and could
+  not climb to a walker's trail. Measured with the emitter on: no `trail` from 0.1 to 20 reached a walking
+  player within 3 m. With it off, Track reaches at 0.1 to 5.
+- **Why 5.0.** Measured on 8 seeds (20260805, 404, 31337, 90210, 1, 2, 3, 4), 8 spawn points, 2000 ticks each:
+  Track false starts 0/8 on every seed, with no player emitter (a wandering bloodhound enters Track 8/8 at
+  trail 5 and below only while it emits its own residue, so the emitter is what makes trail 5 safe to set);
+  a 30 burst (the bloater's) at 6 m is reached within 3 m on all 8 seeds, with Track entered (+30 to +40
+  ticks); a 40 m walk from 2 m in front of the bloodhound reaches the player by Track on 6 of 8 seeds (+1054,
+  +1118, +1277, +1309, +1364, +1543 ticks from the walk start) and not within 1200 ticks on seeds 404 and 1.
+  Trail 20 is above the level a walker's field ever reaches, so it never tracks anyone; trail 5 is the
+  largest value in the sweep that keeps the false starts at zero with the emitter off.
+- **A limit kept as a limit.** On seeds 404 and 1 the bloodhound does not reach a walker within the 1200 ticks.
+  The gate's own seed (20260805) reaches at +749 ticks after the walk, inside its 800-tick window.
+- **Other kinds.** `godot:m2:balance`, `m2:lethality`, `m2:variance`, `m2:director`, `m2:roster`, `m2:dormant`,
+  `m2:contact` and `m2:noise` print the same lines before and after. `m2:district` keeps every line OK; its
+  TRAIL and SCENT-ONLY lanes print different numbers, because they read the content value and the bloodhound
+  now lays nothing.
+- **Plants.** Trail back to 20: the walker and the 2 m burst lanes go red. Emitter back on: the walker goes red,
+  and the deaf lane too, because the bloodhound's own residue makes it turn to a rifle shot 40 m away.
+- **Schema.** `emits` and `sensory.trail` are both existing keys in `zombie.schema.json`; `godot:validate` passes
+  with the empty `emits`, so nothing widened.
+

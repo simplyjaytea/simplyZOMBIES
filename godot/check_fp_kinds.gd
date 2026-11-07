@@ -650,6 +650,7 @@ func _bloodhound() -> void:
 	var from: Vector2i = line["from"]
 	var d: Vector2i = line["dir"]
 	var zed: int = _spawn(world, _centre(from), "zombie.bloodhound")
+	var trail_value: float = float(((world.components.get_component(zed, "shambler") as Dictionary).get("scentTrail", -1.0)))
 	_place(world, player, _centre(from + d * 2))
 	var emitter: Variant = world.components.get_component(player, "attention_emitter")
 	var scent_emit: float = float((emitter as Dictionary).get("scent", 0.0)) if emitter is Dictionary else 0.0
@@ -674,9 +675,9 @@ func _bloodhound() -> void:
 	var rise: float = _largest_rise(world, zed)
 	_info(lane, "walk: trail laid 2 m from it, walked 40 m in %d ticks; %s; its cell reads %.2f" % [walked, ", ".join(trail), _scent_here(world, zed)])
 	if reach < 0:
-		_finding(lane, "a walking player never produces a scent rise of 20 over a cell (largest rise to a neighbour cell within 8 m: %.2f; content scent emitter %.1f); Track never starts, so the bloodhound cannot find the player (%.1f m away at +800 ticks, state %d)" % [rise, scent_emit, _dist(world, zed, player), _state(world, zed)])
+		_fail(lane, "walk: Track did not bring it within 2 m of the player in 800 ticks after the walk (%.1f m away, state %d; largest rise to a neighbour cell %.2f against sensory.trail %.1f; content scent emitter %.1f)" % [_dist(world, zed, player), _state(world, zed), rise, trail_value, scent_emit])
 	else:
-		_ok(lane, "walk: Track reached within 2 m at +%d ticks" % reach)
+		_ok(lane, "walk: trail laid 2 m from it, walked 40 m in %d ticks; Track brings it within 2 m of the player at +%d ticks after the walk (sensory.trail %.1f, the bloodhound emits no scent)" % [walked, reach, trail_value])
 
 	# The bloater's burst is 30 at its corpse (bloater.gd SCENT_BURST). The same question for a big source, once in its
 	# own cell (2 m) and once in a neighbour cell (6 m), with the bloodhound standing still.
@@ -692,7 +693,8 @@ func _bloodhound() -> void:
 		bworld.step()
 		var here0: float = _scent_here(bworld, bz)
 		var brise: float = 0.0
-		var got: int = -1
+		var got1: int = -1
+		var got3: int = -1
 		var tracked: bool = false
 		for t in range(1, 401):
 			bworld.step()
@@ -700,13 +702,18 @@ func _bloodhound() -> void:
 				brise = maxf(brise, _largest_rise(bworld, bz))
 			if _state(bworld, bz) == _st("Track"):
 				tracked = true
-			if got < 0 and _pos(bworld, bz).distance_to(src) <= 1.0 and tracked:
-				got = t
-				break
+			if got1 < 0 and _pos(bworld, bz).distance_to(src) <= 1.0 and tracked:
+				got1 = t
+			if got3 < 0 and _pos(bworld, bz).distance_to(src) <= 3.0 and tracked:
+				got3 = t
+		# The field is laid in 4 m cells, so Track brings the body to the burst's cell: 3 m is the cell scale for
+		# the 6 m source. The own-cell source keeps its 1 m test.
+		var got: int = got1 if k == 2 else got3
 		if got >= 0:
-			_ok(lane, "a 30 scent burst (the bloater's) %d m from it: its cell reads %.2f after the burst, largest rise to a neighbour %.2f; Track brings it within 1 m of the burst at +%d ticks" % [k, here0, brise, got])
+			_ok(lane, "a 30 scent burst (the bloater's) %d m from it, sensory.trail %.1f: its cell reads %.2f after the burst, largest rise to a neighbour %.2f; Track brings it within %s m of the burst at +%d ticks" % [k, trail_value, here0, brise, "1" if k == 2 else "3", got])
 		else:
-			_finding(lane, "a 30 scent burst (the bloater's) %d m from it: its cell reads %.2f after the burst, largest rise to a neighbour cell in 60 ticks %.2f (sensory.trail 20); Track %s (state %d at +400)" % [k, here0, brise, "entered, but did not reach the burst" if tracked else "never entered", _state(bworld, bz)])
+			_fail(lane, "a 30 scent burst (the bloater's) %d m from it: its cell reads %.2f after the burst, largest rise to a neighbour cell in 60 ticks %.2f (sensory.trail %.1f); Track %s (state %d at +400)" % [k, here0, brise, trail_value, "entered, but did not reach the burst" if tracked else "never entered", _state(bworld, bz)])
+		_info(lane, "%d m burst: within 1 m at +%d ticks, within 3 m at +%d ticks" % [k, got1, got3])
 
 	# Deaf: a rifle shot 40 m away.
 	var dw: Dictionary = _boot(256)
