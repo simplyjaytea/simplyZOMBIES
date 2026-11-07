@@ -3273,8 +3273,9 @@ not a to-do list:
   whose grab broke by struggle walked off at 2.1 m/s and was never caught. The break-away shove
   (`shambler.gd`, `_break_away`) set a controlled body's velocity for 26 ticks, and nothing cleared it when the
   shove ended, so a player with no move command kept walking. The fix: a controlled body the shove leaves comes to
-  rest when its record expires (or the victim is grabbed again), unless a move command steered over it
-  (the velocity must still equal the shove's own). NPCs are untouched (the escape lane in
+  rest when its record expires (or the victim is grabbed again), axis by axis: an axis still equal to the
+  shove's own is zeroed, and an axis a wall hit or a move command changed is left alone. DRIFT-WALL pins the
+  wall case: the wall zeroes x, y is kept, and after expiry both are zero. NPCs are untouched (the escape lane in
   `check_m2_contact.gd` depends on a walking NPC's errand). REPRESS now passes: the player comes to rest 2.52 m
   from the break, the shambler presses again 4 ticks after the break, and the next bite lands 30 ticks after the
   re-grab. The DRIFT lane pins the fix: after a struggle break with no command, the record expires 25 ticks
