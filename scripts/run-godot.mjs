@@ -130,6 +130,8 @@ switch (mode) {
       "Dummy",
       "--script",
       "res://bench/runtime_frame.gd",
+      "--",
+      "--topdown",
     ];
     break;
   case "--r6-ticks":
@@ -644,6 +646,8 @@ switch (mode) {
       resolve(root, "godot"),
       "--script",
       "res://check_grade_look.gd",
+      "--",
+      "--topdown",
     ];
     break;
   case "--road":
@@ -659,7 +663,15 @@ switch (mode) {
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_roof_look.gd"];
     break;
   case "--trees":
-    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_trees.gd"];
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_trees.gd",
+      "--",
+      "--topdown",
+    ];
     break;
   case "--worn":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_worn.gd"];
