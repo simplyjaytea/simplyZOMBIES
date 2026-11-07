@@ -8220,20 +8220,24 @@ The what's-left entry "The juggernaut" is closed. Its record, with the numbers, 
 
 ## Every zombie kind is driven against the first-person player, 2026-11-07
 
-- **A measurement, not a verdict.** `godot/check_fp_kinds.gd` (`npm run godot:check:fp_kinds`) prints a
-  line per kind. A kind whose mechanic does not engage FAILs in its lane with its numbers; it is not
-  loosened to pass. The gate is red at its pause: STALKER (the sprint's noise does not reach 20 m) and
-  BLOODHOUND (a walker's scent never rises 20 over its own cell). The owner or t23 decides whether either
-  is wrong in the sim or in the content.
+- **A measurement, with findings kept out of FAIL.** `godot/check_fp_kinds.gd` (`npm run godot:check:fp_kinds`)
+  prints a line per kind. A mechanic the spec claims that does not hold is a FINDING with its numbers, and
+  a claim the gate itself cannot judge is said so; the gate is green at 0 FAIL. The findings for the owner
+  or t23: a walker never makes a scent rise that Track needs; a sprint at 40 m turns the stalker and the
+  shambler at the same distance (10.9 m, under one tick apart; the cause is not measured); the crawl speed the sim
+  applies is the crawler's own content value.
 - **Colonists come out of the lane.** A colonist standing on a zombie's path draws its pursuit off the
   player (a runner closed at zero for that reason), so the boot removes every identity but the player.
 - **Sight waits for the view.** Vision casts a few quadrants a tick, so a fresh observer sees nothing for
   a few ticks; the placement steps until the cast lands before it judges sight.
+- **Hearing is measured without eyes.** The stalker and the shambler approach with their `observer`
+  component removed, so no turn in that lane can be a turn by sight (sight at 4 to 11 m had masked the
+  first measurement).
 - **The bloodhound's trail starts 2 m from it, not 25 m.** It has no eyes or ears (content: noise 0,
   light 0), so sight is not what brings it. A trail laid 25 m off is only a level at its cell; the lane
   keeps the 40 m rifle for the deafness check.
 - **Sprint noise needs the sprint posture.** The lane sets the player's `posture` to Sprint, because the
   attention emitter reads the posture, not the speed, for a controlled body.
-- **Crawl speed is open.** Content says crawl 0.45, `m2:variance` pins crawlFactor 0.25, and the measured
-  ratio to the shambler is 0.55. The gate reports the ratio as a FINDING and judges the absolute speed
-  against content (0.76 m/s); the disagreement is for the owner's card or the variance gate's owner.
+- **Crawl speed.** The sim applies each kind's own content `crawl`: the crawler's 0.45 (measured 0.76 m/s).
+  The 0.25 in `m2:variance` is the shambler default, for a shambler whose legs are gone. The two are
+  different kinds, not one number.

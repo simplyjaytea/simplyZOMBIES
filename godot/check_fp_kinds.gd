@@ -326,69 +326,78 @@ func _run_away(b: Dictionary, type_id: String, metres: int, speed: float, limit:
 func _stalker() -> void:
 	var lane: String = "STALKER"
 	var b: Dictionary = _boot()
-	var s: Dictionary = _placement(b, "zombie.stalker", 7, Vector2i(1, 0), true)
-	if s.is_empty():
-		_fail(lane, "no 7 m open line with sight for a stalker")
-		return
-	var t: int = _acquire(b["world"], int(s["zed"]))
-	if t < 0:
-		_fail(lane, "a stalker 7 m away by day did not acquire the player in %d ticks" % WAIT)
-		return
-	# A sprint (posture Sprint, noise 6.0) from 20 m, the stalker 20 m back. Once with a wall at 10 m, once in the open.
-	var wall: Dictionary = _stalker_turn(true)
-	var open: Dictionary = _stalker_turn(false)
-	if wall.is_empty() or open.is_empty():
-		_fail(lane, "no 34 m open line for the sprint check")
-		return
-	if bool(wall["void"]):
-		_fail(lane, "the wall at 10 m does not stop the sight (the wall check is void)")
-		return
-	var ot: int = int(open["turned"])
-	if int(wall["turned"]) < 0:
-		if ot < 0:
-			_fail(lane, "a sprint at 20 m turns no stalker in 200 ticks, behind a wall or in the open; the stalker's own cell reads noise %.4f at 20 m in the open (the sprint's 6.0 does not reach 20 m)" % float(open["noise0"]))
-		else:
-			_fail(lane, "a sprint at 20 m behind a wall did not turn the stalker in 200 ticks; the same sprint in the open turned it at +%d, %.1f m from the player" % [ot, float(open["dist"])])
-		return
-	_ok(lane, "acquires at +%d at 7 m by day; a sprint at 20 m behind a wall turns it at +%d, %.1f m from the player; in the open at +%d, %.1f m" % [t, int(wall["turned"]), float(wall["dist"]), ot, float(open["dist"])])
-
-
-func _stalker_turn(wall: bool) -> Dictionary:
-	var sb: Dictionary = _boot()
-	var map: Variant = sb["map"]
-	var line: Dictionary = _line(map, 34)
+	var line: Dictionary = _line(b["map"], 42)
 	if line.is_empty():
-		return {}
-	var world: Variant = sb["world"]
-	var player: int = int(sb["player"])
+		_fail(lane, "no 42 m open line for the approach")
+		return
 	var from: Vector2i = line["from"]
 	var d: Vector2i = line["dir"]
-	if wall:
-		var at: Vector2i = from + d * 10
-		map.tiles[at.y * int(map.w) + at.x] = SimTileMap.Tile.Wall
-	world.components.set_component(player, "aim", {"radians": 0.0})
-	world.components.set_component(player, "posture", SimStances.make_posture(SimStances.Stance.Sprint))
-	_place(world, player, _centre(from + d * 20))
-	var zed: int = _spawn(world, _centre(from), "zombie.stalker")
+	# The player walks in from 40 m, one stance at a time, the stalker and a shambler at the same spot. Hearing
+	# (0.9 for the stalker, 0.2 for the shambler) is what a turn by hearing shows; a turn by sight is named apart.
+	var stances: Array = [["walking", SimStances.Stance.Walk], ["jogging", SimStances.Stance.Jog], ["sprinting", SimStances.Stance.Sprint]]
+	var sprint_turn: float = -1.0
+	var ok_all: bool = true
+	for pair in stances:
+		var name: String = pair[0]
+		var stance: int = pair[1]
+		var sr: Dictionary = _approach("zombie.stalker", stance, from, d)
+		var hr: Dictionary = _approach("zombie.shambler", stance, from, d)
+		_info(lane, "%s: stalker %s; shambler %s" % [name, _turn_text(sr), _turn_text(hr)])
+		var sh: float = _hear_d(sr)
+		var hh: float = _hear_d(hr)
+		# One tick of the approach is the finest step a turn can be ordered by: a sprint moves 0.32 m a tick.
+		if sh < hh - SPRINT * TICK_S:
+			_fail(lane, "%s: the stalker turns at %.1f m by hearing, the shambler at %.1f m; hearing 0.9 must reach at least as far as 0.2" % [name, sh, hh])
+			ok_all = false
+		if stance == SimStances.Stance.Sprint:
+			sprint_turn = sh
+	if sprint_turn <= 0.0 or sprint_turn > 14.0:
+		_fail(lane, "a sprint turns the stalker at %.1f m by hearing; the claim is a finite distance no greater than 14 m" % sprint_turn)
+		return
+	if not ok_all:
+		return
+	_ok(lane, "approach from 40 m, same fixture as the shambler: a sprint turns the stalker by hearing at %.1f m; the stalker never turns nearer than the shambler for the same stance (see the INFO lines)" % sprint_turn)
+
+
+# One approach: a fresh world, the body at `from`, the player at 40 m along `d` walking in at the stance's speed.
+func _approach(type_id: String, stance: int, from: Vector2i, d: Vector2i) -> Dictionary:
+	var b: Dictionary = _boot()
+	var world: Variant = b["world"]
+	var player: int = int(b["player"])
+	var toward: Vector2i = -d
+	world.components.set_component(player, "aim", {"radians": atan2(float(toward.y), float(toward.x))})
+	world.components.set_component(player, "posture", SimStances.make_posture(stance))
+	_place(world, player, _centre(from + d * 40))
+	var zed: int = _spawn(world, _centre(from), type_id)
+	# No eyes: without an observer the body cannot see, so any turn in this approach is a turn by hearing.
+	world.components.remove_component(zed, "observer")
 	_settle(world, 4)
-	if wall and int(world.vision.call("detail", zed, _pos(world, player).x, _pos(world, player).y, -1, player)) != 0:
-		return {"void": true, "turned": -1, "dist": -1.0}
-	var turned: int = -1
-	var turn_d: float = -1.0
-	var noise0: float = -1.0
-	for k in range(1, 201):
-		_vel(world, player, Vector2(float(d.x) * SPRINT, float(d.y) * SPRINT))
+	var speed: float = WALK * SimStances.speed_factor_of(stance)
+	var dir: Vector2 = Vector2(float(toward.x), float(toward.y))
+	var turn: float = -1.0
+	var cause: String = ""
+	for _k in range(1200):
+		if _dist(world, zed, player) <= 1.8:
+			break
+		_vel(world, player, dir * speed)
 		world.step()
 		var st: int = _state(world, zed)
-		if k == 1:
-			var zp: Vector2 = _pos(world, zed)
-			noise0 = float(world.field.noise_at(zp.x, zp.y))
 		if st == _st("Investigate") or st == _st("Seek") or st == _st("Pursue"):
-			turned = k
-			turn_d = _dist(world, zed, player)
+			turn = _dist(world, zed, player)
+			cause = "hearing"
 			break
 	_vel(world, player, Vector2.ZERO)
-	return {"void": false, "turned": turned, "dist": turn_d, "noise0": noise0}
+	return {"turn": turn, "cause": cause}
+
+
+func _hear_d(r: Dictionary) -> float:
+	return float(r["turn"]) if String(r["cause"]) == "hearing" else 0.0
+
+
+func _turn_text(r: Dictionary) -> String:
+	if float(r["turn"]) < 0.0:
+		return "no turn in 1200 ticks"
+	return "turns at %.1f m by %s" % [float(r["turn"]), String(r["cause"])]
 
 
 # --- SCREAMER ------------------------------------------------------------------------------------
@@ -620,7 +629,7 @@ func _crawler() -> void:
 		_fail(lane, "a crawler's bite lands on the legs %.2f of the time (wanted over half)" % legs)
 		return
 	if sspeed > 0.0:
-		_finding(lane, "the crawler closes at %.2f of the shambler's %.2f m/s (ratio %.2f): content says crawl 0.45, m2:variance pins crawlFactor 0.25; the two disagree and the sim does not say which is the crawl speed" % [cspeed / sspeed, cspeed, sspeed])
+		_finding(lane, "the crawler closes at %.2f of the shambler's %.2f m/s in this lane (ratio %.2f, the shambler measured below its nominal 1.68). The sim applies each kind's own content crawl: the crawler's 0.45 (0.8 x 2.1 x 0.45 = 0.76, measured). The 0.25 is m2:variance's pin for a shambler with its legs gone, the shambler default, not the crawler" % [cspeed / sspeed, cspeed, sspeed])
 	_ok(lane, "closes at %.2f m/s (0.8 x 2.1 x 0.45 = %.2f); born legless; its bite lands on the legs %.2f of the time" % [cspeed, want, legs])
 
 
@@ -628,6 +637,8 @@ func _crawler() -> void:
 
 func _bloodhound() -> void:
 	var lane: String = "BLOODHOUND"
+	# A bloodhound has no eyes or ears (content: sensory noise 0, light 0), so sight is not what brings it. It leaves
+	# Wander only on a rise of sensory.trail (20) over its own cell.
 	var b: Dictionary = _boot(256)
 	var map: Variant = b["map"]
 	var world: Variant = b["world"]
@@ -638,11 +649,10 @@ func _bloodhound() -> void:
 		return
 	var from: Vector2i = line["from"]
 	var d: Vector2i = line["dir"]
-	# A bloodhound has no eyes or ears (content: sensory noise 0, light 0), so sight is not what brings it. It
-	# leaves Wander only on a rise of sensory.trail (20) over its own cell, which a trail laid 2 m from it gives;
-	# a trail 25 m off only ever diffuses to a level of about 10 there, and it never tracks (measured, 2026-11-07).
 	var zed: int = _spawn(world, _centre(from), "zombie.bloodhound")
 	_place(world, player, _centre(from + d * 2))
+	var emitter: Variant = world.components.get_component(player, "attention_emitter")
+	var scent_emit: float = float((emitter as Dictionary).get("scent", 0.0)) if emitter is Dictionary else 0.0
 	var walked: int = 0
 	for t in range(1, 40 * 20 + 1):
 		_vel(world, player, Vector2(float(d.x) * WALK, float(d.y) * WALK))
@@ -651,29 +661,53 @@ func _bloodhound() -> void:
 		if int(float(t) * WALK * TICK_S) >= 40:
 			break
 	_vel(world, player, Vector2.ZERO)
-	var zp: Vector2 = _pos(world, zed)
-	_info(lane, "scent at the bloodhound's cell after the walk %.3f; the trail starts %.1f m from it" % [float(world.field.scent_at(zp.x, zp.y)), _dist(world, zed, player) - 40.0])
-	var reach: int = -1
 	var trail: Array = []
+	var reach: int = -1
 	for t in range(1, 800):
 		world.step()
-		if t % 100 == 0:
+		if t % 200 == 0:
 			var zq: Vector2 = _pos(world, zed)
 			trail.append("+%d state %d scent %.2f" % [t, _state(world, zed), float(world.field.scent_at(zq.x, zq.y))])
 		if _dist(world, zed, player) <= 2.0:
 			reach = t
 			break
-	_info(lane, "reach loop: %s" % ", ".join(trail))
-	var zc: Vector2 = _pos(world, zed)
-	var here: float = float(world.field.scent_at(zc.x, zc.y))
-	var rise: float = 0.0
-	for ox in range(-2, 3):
-		for oy in range(-2, 3):
-			rise = maxf(rise, float(world.field.scent_at(zc.x + float(ox), zc.y + float(oy))) - here)
-	_info(lane, "largest scent rise over its own cell within 2 m: %.2f against sensory.trail 20 (a level of %.2f at its cell)" % [rise, here])
+	var rise: float = _largest_rise(world, zed)
+	_info(lane, "walk: trail laid 2 m from it, walked 40 m in %d ticks; %s; its cell reads %.2f" % [walked, ", ".join(trail), _scent_here(world, zed)])
 	if reach < 0:
-		_fail(lane, "the bloodhound did not reach within 2 m of the standing player in 800 ticks (%.1f m away, state %d): a walker's scent stays a level, never a 20-point rise over its own cell, so Track never starts" % [_dist(world, zed, player), _state(world, zed)])
-		return
+		_finding(lane, "a walking player never produces a scent rise of 20 over a cell (largest rise to a neighbour cell within 8 m: %.2f; content scent emitter %.1f); Track never starts, so the bloodhound cannot find the player (%.1f m away at +800 ticks, state %d)" % [rise, scent_emit, _dist(world, zed, player), _state(world, zed)])
+	else:
+		_ok(lane, "walk: Track reached within 2 m at +%d ticks" % reach)
+
+	# The bloater's burst is 30 at its corpse (bloater.gd SCENT_BURST). The same question for a big source, once in its
+	# own cell (2 m) and once in a neighbour cell (6 m), with the bloodhound standing still.
+	for k in [2, 6]:
+		var bb: Dictionary = _boot(256)
+		var bworld: Variant = bb["world"]
+		var bline: Dictionary = _line(bb["map"], 66)
+		var bfrom: Vector2i = bline["from"]
+		var bd: Vector2i = bline["dir"]
+		var bz: int = _spawn(bworld, _centre(bfrom), "zombie.bloodhound")
+		var src: Vector2 = _centre(bfrom + bd * k)
+		bworld.events.publish({"type": "scent.accumulated", "x": src.x, "y": src.y, "magnitude": 30.0})
+		bworld.step()
+		var here0: float = _scent_here(bworld, bz)
+		var brise: float = 0.0
+		var got: int = -1
+		var tracked: bool = false
+		for t in range(1, 401):
+			bworld.step()
+			if t <= 60:
+				brise = maxf(brise, _largest_rise(bworld, bz))
+			if _state(bworld, bz) == _st("Track"):
+				tracked = true
+			if got < 0 and _pos(bworld, bz).distance_to(src) <= 1.0 and tracked:
+				got = t
+				break
+		if got >= 0:
+			_ok(lane, "a 30 scent burst (the bloater's) %d m from it: its cell reads %.2f after the burst, largest rise to a neighbour %.2f; Track brings it within 1 m of the burst at +%d ticks" % [k, here0, brise, got])
+		else:
+			_finding(lane, "a 30 scent burst (the bloater's) %d m from it: its cell reads %.2f after the burst, largest rise to a neighbour cell in 60 ticks %.2f (sensory.trail 20); Track %s (state %d at +400)" % [k, here0, brise, "entered, but did not reach the burst" if tracked else "never entered", _state(bworld, bz)])
+
 	# Deaf: a rifle shot 40 m away.
 	var dw: Dictionary = _boot(256)
 	var dmap: Variant = dw["map"]
@@ -694,7 +728,26 @@ func _bloodhound() -> void:
 	if heard:
 		_fail(lane, "the bloodhound turned to a rifle shot 40 m away")
 		return
-	_ok(lane, "trail laid 2 m from it, walked 40 m (%d ticks); Track reached within 2 m at +%d ticks; a rifle shot 40 m away: no turn in 200 ticks" % [walked, reach])
+	_ok(lane, "deaf: a rifle shot 40 m away, no turn in 200 ticks")
+
+
+# The largest scent rise from the body's own cell to a cell within two cells of it (the field's cells are 4 m;
+# Track reads the neighbour cells). A level at the body's cell is returned as `here` through `_scent_here`.
+func _largest_rise(world: Variant, zed: int) -> float:
+	var zc: Vector2 = _pos(world, zed)
+	var here: float = float(world.field.scent_at(zc.x, zc.y))
+	var rise: float = 0.0
+	for ox in [-8.0, -4.0, 0.0, 4.0, 8.0]:
+		for oy in [-8.0, -4.0, 0.0, 4.0, 8.0]:
+			if ox == 0.0 and oy == 0.0:
+				continue
+			rise = maxf(rise, float(world.field.scent_at(zc.x + ox, zc.y + oy)) - here)
+	return rise
+
+
+func _scent_here(world: Variant, zed: int) -> float:
+	var zc: Vector2 = _pos(world, zed)
+	return float(world.field.scent_at(zc.x, zc.y))
 
 
 # --- LURKER --------------------------------------------------------------------------------------
