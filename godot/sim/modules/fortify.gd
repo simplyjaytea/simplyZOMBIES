@@ -72,9 +72,10 @@ static func material_words(kinds: Array) -> String:
 # which is SimJobs' Repair job rather than a channel here, and which was the second home of the
 # deleted weld. One table, so a recipe's substance is written down once.
 #
-# A verb absent from this table is free and stays free: boarding a window, laying an alarm line,
-# setting a noisemaker, winding it and establishing a camp all cost nothing today, and this slice
-# is additive, so they cost nothing after it. How *much* a recipe costs is not here either -- one
+# A verb absent from this table is free and stays free: boarding a window, winding a noisemaker and
+# establishing a camp cost nothing. The trip alarm and the noisemaker were free until 2026-11-04 and
+# now spend one unit each -- wire for the line, scrap metal for the device -- so a survivor with an
+# empty pack cannot lay one. The price is one unit, not a quantity the table holds (docs/30). How *much* a recipe costs is not here either -- one
 # unit a stage, and the owner kept per-recipe quantity closed; the bench's standing three is
 # still SimGunsmith.BENCH_SCRAP, exactly where it already was.
 const RECIPES: Dictionary = {
@@ -83,6 +84,10 @@ const RECIPES: Dictionary = {
 	# rubble, a wire fence off wire. One substance each -- a recipe that wanted a *pair* (fixings
 	# to hand, cordage to lash) would be a shape change to this table, not a row.
 	"timber": "plank", "stone": "stone", "fence": "wire",
+	# The trip alarm and the noisemaker, priced 2026-11-05 (docs/30, "The alarm and the noisemaker
+	# are priced"): a trip line is wire, and the bait is a rattling device off scrap metal, the same
+	# substance the scrap barricade and the bench spend.
+	"alarm": "wire", "noisemaker": "metal",
 }
 
 # Channel length in ticks for the three raised buildables. Verbs not named here keep CHANNEL_TICKS
@@ -630,12 +635,14 @@ static func rung_of(world: Variant, actor: int) -> Dictionary:
 	# the window, trip line, noisemaker, scrap and the raised buildables have all been asked already.
 	if _would_refill(world, actor):
 		return {"verb": "refill", "target": -1, "prose": "repack the filter"}
+	# The two free placements are priced: each is offered only while its unit is carried, the way the
+	# raised walls are, so an empty pack on open floor offers nothing here at all.
 	if _empty_floor(world, face.x, face.y):
-		if alarm == null:
+		if alarm == null and carried_material(world, actor, recipe_kind("alarm")) >= 0:
 			return {"verb": "alarm", "target": face, "prose": "lay a trip alarm"}
-		elif bait == null:
+		if bait == null and carried_material(world, actor, recipe_kind("noisemaker")) >= 0:
 			return {"verb": "noisemaker", "target": face, "prose": "set a noisemaker"}
-		elif int(Gunsmith.call("bench_in_reach", world, actor)) < 0 and material_count(world, actor, recipe_kind("bench")) >= int(Gunsmith.get("BENCH_SCRAP")):
+		if int(Gunsmith.call("bench_in_reach", world, actor)) < 0 and material_count(world, actor, recipe_kind("bench")) >= int(Gunsmith.get("BENCH_SCRAP")):
 			return {"verb": "bench", "target": face, "prose": "build a bench"}
 	return {}
 
@@ -897,7 +904,7 @@ static func _intake_verb(world: Variant, actor: int, c: Dictionary) -> void:
 			if carried_material(world, actor, recipe_kind("fence")) >= 0 and can_build(world, tx, ty):
 				_start(world, actor, "fence", tx, ty)
 		"trap.alarm.place":
-			if _first(world, "alarmLine") == null and _empty_floor(world, tx, ty):
+			if _first(world, "alarmLine") == null and _empty_floor(world, tx, ty) and carried_material(world, actor, recipe_kind("alarm")) >= 0:
 				_start(world, actor, "alarm", tx, ty)
 		"trap.alarm.reset":
 			var alarm: Variant = _first(world, "alarmLine")
@@ -906,7 +913,7 @@ static func _intake_verb(world: Variant, actor: int, c: Dictionary) -> void:
 				if line is Dictionary:
 					(line as Dictionary)["armed"] = true
 		"bait.noisemaker.place":
-			if _first(world, "noisemaker") == null and _empty_floor(world, tx, ty):
+			if _first(world, "noisemaker") == null and _empty_floor(world, tx, ty) and carried_material(world, actor, recipe_kind("noisemaker")) >= 0:
 				_start(world, actor, "noisemaker", tx, ty)
 		"bench.build":
 			if _empty_floor(world, tx, ty) and material_count(world, actor, recipe_kind("bench")) >= int(_Gunsmith().get("BENCH_SCRAP")):
@@ -989,10 +996,15 @@ static func _complete(world: Variant, _actor: int, verb: String, tx: int, ty: in
 			_place_scrap(world, _actor, tx, ty)
 		"timber", "stone", "fence":
 			_place_wall(world, _actor, verb, tx, ty)
+		# Priced, and spent here at the moment of placement, the way the raised walls spend theirs: a
+		# tile that is no longer free, or a pack with no unit left, ends the channel with nothing
+		# placed and nothing spent. The checks come before the spend so a refusal costs nothing.
 		"alarm":
-			_place_alarm(world, tx, ty)
+			if _first(world, "alarmLine") == null and _empty_floor(world, tx, ty) and consume_material(world, _actor, recipe_kind("alarm")):
+				_place_alarm(world, tx, ty)
 		"noisemaker":
-			_place_noisemaker(world, tx, ty)
+			if _first(world, "noisemaker") == null and _empty_floor(world, tx, ty) and consume_material(world, _actor, recipe_kind("noisemaker")):
+				_place_noisemaker(world, tx, ty)
 		"wind":
 			_wind_noisemaker(world)
 		"bench":
