@@ -537,6 +537,9 @@ switch (mode) {
       "res://check_fp_geometry.gd",
     ];
     break;
+  case "--check-fp-harm":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_fp_harm.gd"];
+    break;
   case "--check-fp-expedition":
     args = [
       "--headless",
