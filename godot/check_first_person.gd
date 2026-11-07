@@ -136,6 +136,8 @@ const SimMelee = preload("res://sim/modules/melee.gd")
 const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimItems = preload("res://sim/modules/items.gd")
+const SimOrders = preload("res://sim/modules/orders.gd")
+const SimContext = preload("res://sim/context.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
@@ -236,7 +238,7 @@ func _run() -> void:
 		ok = _lane("ARMS", _arms(scene), "the view-model arms are the scene's own under the Eye, lower for screens and third person, follow the sim's equipped hold class, hold the weapon on grip_r at the anchor, inspect only while L is held, never cut into a wall, and raise and aim a firearm on the sim's fire state (AIM: raise at the sim's t, aim while steady, idle after the shot, a sheet lowers the aim, a stub that says idle holds idle, a melee class ignores the state)") and ok
 		ok = _lane("THIRD", _third_person(scene), "F2 steps the camera behind the eye and back, the own body is drawn and plays the sim's clip only in third person, and a wall pulls the camera in while an open line does not") and ok
 		ok = _lane("HIDE", _held_visibility(scene), "the held weapon hides while the bench, inventory, ledger, talk and third-person screens are open and shows otherwise") and ok
-		ok = _lane("TALK", _talk(scene), "a colonist in reach talks in the read models' own words") and ok
+		ok = _lane("TALK", _talk(scene), "a colonist in reach talks in the read models' own words, and ORDERS: the conversation offers the sim's own order rows for the aim (go, haul, attack, stand down, a refused colonist none), digit-free, and choosing one pushes the sim's command") and ok
 		ok = _lane("ANIM", _anim(scene), "every body names its animation state from the sim with a phase in 0..1") and ok
 		ok = _lane("RUN-OVER", _run_over(scene), "killing the colony opens the end panel and W sends nothing") and ok
 	scene.queue_free()
@@ -3182,7 +3184,7 @@ const KEY_NAMES: Dictionary = {
 	"KEY_F": KEY_F, "KEY_F1": KEY_F1, "KEY_F2": KEY_F2, "KEY_F5": KEY_F5, "KEY_F9": KEY_F9, "KEY_G": KEY_G,
 	"KEY_KP_ENTER": KEY_KP_ENTER, "KEY_P": KEY_P, "KEY_R": KEY_R, "KEY_S": KEY_S, "KEY_SHIFT": KEY_SHIFT,
 	"KEY_W": KEY_W, "KEY_MINUS": KEY_MINUS, "KEY_KP_SUBTRACT": KEY_KP_SUBTRACT, "KEY_EQUAL": KEY_EQUAL,
-	"KEY_KP_ADD": KEY_KP_ADD, "KEY_L": KEY_L,
+	"KEY_KP_ADD": KEY_KP_ADD, "KEY_L": KEY_L, "KEY_UP": KEY_UP, "KEY_DOWN": KEY_DOWN,
 }
 
 
@@ -3969,6 +3971,10 @@ func _talk(scene: Node) -> bool:
 				ok = _fail("TALK", "a hungry colonist says '%s', not one of the mutter lines %s" % [said, hungry])
 			_key(KEY_ESCAPE, true)
 
+	# ORDERS: the conversation offers the sim's own order rows for the aim it opened on, and choosing one pushes
+	# the sim's command.
+	ok = _talk_orders(scene, world, ent, area) and ok
+
 	# True negatives. Out of reach.
 	_place_talker(world, ent, area + Vector2(0.0, -3.0))
 	scene.call("look_toward", Vector3(area.x, _eye_of_m(world, ent), area.y - 3.0))
@@ -4038,6 +4044,210 @@ func _talk(scene: Node) -> bool:
 
 # A healthy, fed, rested, comfortable colonist: the steady case's fixture. The body is set to its own
 # maxima and the wounds are cleared; the caller restores both.
+# ORDERS, the conversation's orders. Open ground: E on the colonist with the aim on open ground past them lists go and
+# hold, and no haul or attack. Choosing "go" by a real click pushes the sim's `go` to the aimed tile. A loose item in
+# the aim lists haul; a shambler in the aim lists attack; once holding, "stand down" lists and `clear` lands; a colonist
+# that takes no orders lists none. Down and Enter choose, Escape is Goodbye. Every row is the sim's (`SimContext`),
+# digit-free, and the plant (a panel that pushes hold for go) turns the case red.
+func _talk_orders(scene: Node, world: Variant, ent: int, area: Vector2) -> bool:
+	var ok: bool = true
+	var who: String = TalkPanel.name_of(world, ent)
+	var go_text: String = "have %s go here" % who
+	var hold_text: String = "have %s hold here" % who
+	_steady(world, ent)
+	world.components.remove(ent, SimJobs.ORDER_COMPONENT)
+
+	# Open ground. The colonist stands off the aim, more than a reach beyond the aimed tile, so a `go` there is a walk
+	# and not an arrival (the sim ends a go within REACH at once). E opens the panel only with the aim on a colonist,
+	# so the panel is opened with `open_talk` here, and TALK above covers E.
+	_place_player(scene, area)
+	scene.call("set_look", 0.0, 0.0)
+	_settle_vision(scene, 6)
+	_place_talker(world, ent, area + Vector2(2.0, 0.0))
+	scene.call("look_toward", Vector3(area.x, _eye_of_m(world, ent), area.y - 10.0))
+	scene.call("open_talk", ent)
+	if not bool(scene.get("talk_open")):
+		return _fail("TALK", "the orders panel did not open on open ground")
+	var panel: Control = scene.call("talk_panel_node") as Control
+	var hit: Dictionary = scene.call("talk_aim_hit") as Dictionary
+	var p: Vector2 = _player_pos(world)
+	var ground: Vector2i = Vector2i(floori(p.x), floori(p.y - LEDGER_REACH_GATE))
+	if String(hit.get("kind", "")) != "ground" or int(hit.get("entity", 0)) != -1 or (hit.get("tile", Vector2i.ZERO) as Vector2i) != ground:
+		ok = _fail("TALK", "the aim on open ground reads %s, not the ground tile %s" % [str(hit), str(ground)])
+	var texts: Array[String] = _texts(panel.call("order_texts"))
+	if not texts.has(go_text) or not texts.has(hold_text):
+		ok = _fail("TALK", "open ground lists %s, not '%s' and '%s'" % [str(texts), go_text, hold_text])
+	for text in texts:
+		if text.contains("haul") or text.contains("attack") or text.begins_with("stand "):
+			ok = _fail("TALK", "open ground lists '%s', which needs an item, a zombie or a hold" % text)
+	var built: Array[String] = _texts(SimContext.orders_for(world, ent, "ground", -1, ground))
+	if not _same_list(texts, built):
+		ok = _fail("TALK", "the panel's rows %s are not the sim's rows %s" % [str(texts), str(built)])
+	if _built_by_sim(["have %s fly here" % who], built):
+		ok = _fail("TALK", "the row check accepts a row the sim never built")
+	for line in panel.call("lines") as Array:
+		if _has_digit(String(line)):
+			ok = _fail("TALK", "the orders panel drew a digit: %s" % String(line))
+
+	# A real click on "go" closes the panel, and the sim has the colonist walking to the aimed tile.
+	_click_order_row(panel, texts.find(go_text))
+	if bool(scene.get("talk_open")):
+		ok = _fail("TALK", "a click on the order row did not close the panel")
+	scene.call("step_sim_once")
+	var order: Variant = world.components.get_component(ent, SimJobs.ORDER_COMPONENT)
+	if not (order is Dictionary) or String((order as Dictionary).get("kind", "")) != "go":
+		ok = _fail("TALK", "choosing 'go' did not give the colonist a go order (%s)" % str(order))
+	elif SimOrders.destination(world, ent) != ground:
+		ok = _fail("TALK", "the go order's tile is %s, not the aimed %s" % [str(SimOrders.destination(world, ent)), str(ground)])
+	if not bool(scene.call("mouse_captured")):
+		ok = _fail("TALK", "closing the orders left the mouse free")
+
+	# Holding, the same ground: "stand down" lists, and choosing it lands `clear`.
+	scene.call("open_talk", ent)
+	var stand_panel: Control = scene.call("talk_panel_node") as Control
+	var stand_texts: Array[String] = _texts(stand_panel.call("order_texts"))
+	var stand_row: int = _index_containing(stand_texts, "stand ")
+	if stand_row < 0:
+		ok = _fail("TALK", "a colonist holding an order lists no 'stand down' row (%s)" % str(stand_texts))
+	else:
+		_click_order_row(stand_panel, stand_row)
+		scene.call("step_sim_once")
+		if SimOrders.holds(world, ent):
+			ok = _fail("TALK", "'stand down' did not clear the colonist's order")
+
+	# Down and Enter: the second row (hold) is chosen from the keys, and the panel closes.
+	scene.call("open_talk", ent)
+	var keyed: Control = scene.call("talk_panel_node") as Control
+	_key(KEY_DOWN, true)
+	if int(keyed.call("selected")) != 1:
+		ok = _fail("TALK", "Down moved the choice to %d, not 1" % int(keyed.call("selected")))
+	_key(KEY_ENTER, true)
+	if bool(scene.get("talk_open")):
+		ok = _fail("TALK", "Enter on a row did not close the orders panel")
+	scene.call("step_sim_once")
+	var held: Variant = world.components.get_component(ent, SimJobs.ORDER_COMPONENT)
+	if not (held is Dictionary) or String((held as Dictionary).get("kind", "")) != "hold":
+		ok = _fail("TALK", "Enter on the second row did not give a hold (%s)" % str(held))
+	world.components.remove(ent, SimJobs.ORDER_COMPONENT)
+
+	# A loose item in the aim: haul. The aim names the item it lists, and the order must be for that item.
+	var item: int = int(SimItems.spawn_item(world, "item.bat.wood", {"tier": "scavenged"}))
+	var at: Vector2 = p + Vector2(0.0, -0.7)
+	world.components.set_component(item, "position", {"x": at.x, "y": at.y})
+	scene.call("look_toward", Vector3(at.x, LOOSE_AIM_HEIGHT_M_GATE, at.y))
+	scene.call("open_talk", ent)
+	var haul_panel: Control = scene.call("talk_panel_node") as Control
+	var haul_hit: Dictionary = scene.call("talk_aim_hit") as Dictionary
+	var haul_texts: Array[String] = _texts(haul_panel.call("order_texts"))
+	var haul_row: int = _index_containing(haul_texts, "haul")
+	if String(haul_hit.get("kind", "")) != "item" or haul_row < 0:
+		ok = _fail("TALK", "a loose item in the aim is not listed to haul (hit %s, rows %s)" % [str(haul_hit), str(haul_texts)])
+	else:
+		var aimed: int = int(haul_hit["entity"])
+		_click_order_row(haul_panel, haul_row)
+		scene.call("step_sim_once")
+		var haul_order: Variant = world.components.get_component(ent, SimJobs.ORDER_COMPONENT)
+		if not (haul_order is Dictionary) or String((haul_order as Dictionary).get("kind", "")) != "haul" or int((haul_order as Dictionary).get("target", -1)) != aimed:
+			ok = _fail("TALK", "choosing haul did not give the colonist a haul order for the aimed item (%s)" % str(haul_order))
+		world.components.remove(ent, SimJobs.ORDER_COMPONENT)
+	world.despawn(item)
+
+	# A shambler in the aim: attack. The aim names the shambler, and the order must be on that shambler. The shambler
+	# stands beyond a grab's reach, and the grab state of both bodies is put back as it was once it is gone.
+	var rng: Variant = world.rng.stream("shambler")
+	var grab_before: Array = [
+		world.components.get_component(int(world.player), "grabbed"),
+		world.components.get_component(int(world.player), "grabState"),
+		world.components.get_component(ent, "grabbed"),
+		world.components.get_component(ent, "grabState"),
+	]
+	var zed_at: Vector2 = p + Vector2(0.0, -1.6)
+	var zed: int = int(SimRoster.spawn_zombie(world, zed_at.x, zed_at.y, SimRoster.TYPE_SHAMBLER, rng))
+	_zero_shambler(world, zed)
+	scene.call("look_toward", scene.call("_talk_point", zed) as Vector3)
+	scene.call("open_talk", ent)
+	var attack_panel: Control = scene.call("talk_panel_node") as Control
+	var attack_hit: Dictionary = scene.call("talk_aim_hit") as Dictionary
+	var attack_texts: Array[String] = _texts(attack_panel.call("order_texts"))
+	var attack_row: int = _index_containing(attack_texts, "attack")
+	if String(attack_hit.get("kind", "")) != "zombie" or int(attack_hit.get("entity", -1)) != zed or attack_row < 0:
+		ok = _fail("TALK", "a shambler in the aim is not listed to attack (hit %s, rows %s)" % [str(attack_hit), str(attack_texts)])
+	else:
+		_click_order_row(attack_panel, attack_row)
+		scene.call("step_sim_once")
+		var attack_order: Variant = world.components.get_component(ent, SimJobs.ORDER_COMPONENT)
+		if not (attack_order is Dictionary) or String((attack_order as Dictionary).get("kind", "")) != "attack" or int((attack_order as Dictionary).get("target", -1)) != zed:
+			ok = _fail("TALK", "choosing attack did not give the colonist an attack order on the shambler (%s)" % str(attack_order))
+	world.despawn(zed)
+	world.components.remove(ent, SimJobs.ORDER_COMPONENT)
+	_restore(world, int(world.player), "grabbed", grab_before[0])
+	_restore(world, int(world.player), "grabState", grab_before[1])
+	_restore(world, ent, "grabbed", grab_before[2])
+	_restore(world, ent, "grabState", grab_before[3])
+
+	# A colonist that takes no orders lists none: only Goodbye.
+	world.components.set_component(ent, "leaving", {"tick": int(world.tick)})
+	scene.call("open_talk", ent)
+	var refused: Control = scene.call("talk_panel_node") as Control
+	if not _texts(refused.call("order_texts")).is_empty():
+		ok = _fail("TALK", "a colonist that takes no orders lists rows: %s" % str(refused.call("order_texts")))
+	_key(KEY_ESCAPE, true)
+	world.components.remove(ent, "leaving")
+	if bool(scene.get("talk_open")):
+		ok = _fail("TALK", "Escape did not close the orders panel")
+	return ok
+
+
+const LEDGER_REACH_GATE: float = 1.8
+
+
+const LOOSE_AIM_HEIGHT_M_GATE: float = 0.25
+
+
+func _texts(value: Variant) -> Array[String]:
+	var out: Array[String] = []
+	for t in value as Array:
+		if t is Dictionary:
+			out.append(String((t as Dictionary)["text"]))
+		else:
+			out.append(String(t))
+	return out
+
+
+func _same_list(a: Array[String], b: Array) -> bool:
+	if a.size() != b.size():
+		return false
+	for i in a.size():
+		var right: String = String((b[i] as Dictionary)["text"]) if b[i] is Dictionary else String(b[i])
+		if a[i] != right:
+			return false
+	return true
+
+
+# Whether every text is one of the rows the sim built.
+func _built_by_sim(texts: Array, built: Array) -> bool:
+	var words: Array[String] = _texts(built)
+	for t in texts:
+		if not words.has(String(t)):
+			return false
+	return true
+
+
+func _index_containing(texts: Array[String], word: String) -> int:
+	for i in texts.size():
+		if texts[i].contains(word):
+			return i
+	return -1
+
+
+# A real click on an order row of the panel: its global rect's centre, through the viewport.
+func _click_order_row(panel: Control, index: int) -> void:
+	if index < 0:
+		return
+	var local: Rect2 = panel.call("order_rect", index) as Rect2
+	_click_at(panel.get_global_rect().position + local.get_center())
+
+
 func _steady(world: Variant, ent: int) -> void:
 	var needs: Dictionary = world.components.get_component(ent, "needs") as Dictionary
 	for key in ["thirst", "hunger", "rest", "relief"]:
