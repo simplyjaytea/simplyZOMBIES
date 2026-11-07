@@ -3293,6 +3293,35 @@ not a to-do list:
     clock, and a survivor's own conversations with the player are a later slice.
   - **Record.** `docs/planning/first-person-talk-report.md`.
 
+- **The shot as a ray, 2026-11-07.** docs/40's slice 5, behind `SimRanged.SHOT_AS_RAY` (true: the default; false:
+  the nearest living body in the cone, hit for certain, as before). docs/33 question 1 stays open; the switch is
+  its implementation.
+  - **The ray.** `SimSpace.ray_first_hit(world, from, dir, reach, shooter)`: the first contact along a ray out to
+    the reach, a tile whose bands stop a SHOT (walked by the same integer walk `segment_clear` uses, now `_scan`,
+    which `_walk` answers as before) or a living body's cylinder (`body_of`); the shooter is ignored. The first
+    contact wins, and a body the ray enters before a tile is the body.
+  - **The round.** `_shot_ray` takes the origin at `SimSpace.eye_of` and the direction from the aim deviated within a
+    disc of radius `cone × DISPERSION` (1.0), two uniform draws on the new `ranged.spread` stream (`SPREAD_STREAM`),
+    so no existing stream moves. A body contact applies the hit as before (same `attack.connected`, the same part and
+    recovery rolls on `ranged`); falloff takes the ray distance to contact. A tile contact or no contact hits nobody.
+  - **Events.** `weapon.fired` keeps its keys and, on the ray path only, adds `oz`, `pitch`, `ex`, `ey`, `ez` (the
+    contact, or the ray's end at reach). The switch-off path publishes today's keys exactly. `decals.gd` marks the tile
+    at `ex, ey` when the event carries a contact, by the tile's surface (no mark for a body contact); without a contact
+    key it walks the line as before.
+  - **Gates.** `godot:m2:space` RAY: a shot through a window's aperture hits the body behind; below the sill it strikes
+    the window's tile; over a Low tile a standing eye hits the body behind and a crouched eye is stopped; a crouched body
+    behind a Low tile is not hit by a standing shot; a body off the ray is not hit; the same seed gives the same contact;
+    a save between Steady and release fires the same round; the spread leaves the `ranged` stream where it was; and
+    `ray_first_hit` has one sim caller, in `ranged.gd`. The lanes that measure the cone's outcome pin the switch
+    false and restore it: `godot:m2:attach` (per process), and three lanes of `godot:m2:sight` (`_cone`).
+    `godot:m2:ranged`, `godot:m2:lethality` and `godot:m2:balance` pass with the ray on and are not pinned.
+  - **Bench (same machine, seed fixed by the bench, `godot:bench`).** Switch off, then on. quiet-night 0.536 / 0.530 ms,
+    after-a-shout 0.550 / 0.547 ms, crowded 3.296 / 3.311 ms, crowded-and-loud 3.378 / 3.240 ms (p95 within 0.08 ms).
+    The bench scenarios fire few or no rounds, so these numbers measure the switch's cost off the shot path, not the
+    shot's cost.
+  - **Not in this piece.** No tracer and no draw of the contact (slice 7). DISPERSION is 1.0 until slice 8 measures it.
+    The jam, part and recovery rolls keep their draws; owner question 2 (part by geometry) is not this slice.
+
 - **Animation state from the sim, 2026-11-01.** Advances "First-person people and settlement
   operation", the body art: every drawn body now names the animation it should play, read from the
   sim, before the character GLBs land.

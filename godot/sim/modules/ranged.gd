@@ -6,6 +6,7 @@ extends RefCounted
 
 const SimCombat = preload("res://sim/combat.gd")
 const SimAimRes = preload("res://sim/aim.gd")
+const SimSpace = preload("res://sim/space/space.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
@@ -49,6 +50,14 @@ const TIGHT_HALF: float = 0.18
 const TWIST_WIDEN: float = 0.35
 const TWIST_HALF: float = WIDE_HALF + TWIST_WIDEN
 const STREAM: String = "ranged"
+# docs/40, "The shot": a round is a ray behind this switch. True (the default, docs/33 question 1: the owner's card,
+# open) fires the round along the aim deviated within a disc on its own stream, and the first contact decides. False
+# is the nearest living body in the cone, hit for certain, as it was before the ray.
+static var SHOT_AS_RAY: bool = true
+# The stream the deviation is drawn on, so no existing stream moves for it.
+const SPREAD_STREAM: String = "ranged.spread"
+# The deviation disc's radius as a multiple of the cone half-angle. One named constant, set by a measured balance slice.
+const DISPERSION: float = 1.0
 
 
 # The three rungs of docs/09's ladder come from the weapon rather than from three constants here,
@@ -1285,6 +1294,28 @@ static func can_target(world: Variant, shooter: int, x: float, y: float) -> bool
 	return bool(vision.call("line_of_sight", shooter, x, y))
 
 
+# The round as a ray (docs/40, "The shot"): the origin is the shooter's eye at its own position, and the direction is the
+# aim deviated within the disc of radius `half` (the cone the weapon fires with, ammo already in it) times DISPERSION,
+# drawn as two uniform draws on `SPREAD_STREAM`. The first contact out to `reach` decides. The result is
+# SimSpace.ray_first_hit's contact, with "hit" (the body or -1), the shot's yaw and pitch, and the origin's eye height.
+static func _shot_ray(world: Variant, attacker: int, half: float, reach: float, facing: float, fx: float, fy: float) -> Dictionary:
+	var spread: Variant = world.rng.stream(SPREAD_STREAM)
+	var u: float = float(spread.call("next"))
+	var v: float = float(spread.call("next"))
+	var radius: float = half * DISPERSION * sqrt(u)
+	var theta: float = TAU * v
+	var yaw: float = facing + radius * cos(theta)
+	var pitch: float = SimAimRes.pitch_of(world.components, attacker) + radius * sin(theta)
+	var eye: int = SimSpace.eye_of(world, attacker)
+	var dir: Vector3 = Vector3(cos(yaw) * cos(pitch), sin(yaw) * cos(pitch), sin(pitch))
+	var contact: Dictionary = SimSpace.ray_first_hit(world, {"x": fx, "y": fy, "h": eye}, dir, reach, attacker)
+	contact["hit"] = int(contact["entity"]) if String(contact["kind"]) == "body" else -1
+	contact["yaw"] = yaw
+	contact["pitch"] = pitch
+	contact["eye"] = eye
+	return contact
+
+
 static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: Variant) -> void:
 	# The round is picked and spent before anything else can refuse, and the shot is scaled by the
 	# one that was actually spent -- not by the one the weapon prefers. A survivor down to their
@@ -1336,37 +1367,46 @@ static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: V
 	# After `_refresh_cone`, which recomputes `coneHalf` on the weapon -- fold here or the round
 	# scales a number that is about to be overwritten. Birdshot opens the cone; a slug tightens it.
 	var half: float = _cone_with_ammo(scale, float(weapon.get("coneHalf", TIGHT_HALF)), cone_cap(world, attacker))
-	var cos_half: float = cos(half)
 	var reach: float = _with_ammo(scale, "rangeMetres", float(weapon.get("rangeMetres", 30)))
 	var limit_sq: float = reach * reach
 	var best: Variant = null
 	var best_dist: float = 1e9
 	var impact_x: float = fx + facing_x * reach
 	var impact_y: float = fy + facing_y * reach
-	for entity in world.components.query(["body", "position"]):
-		if int(entity) == attacker:
-			continue
-		var body: Variant = world.components.get_component(int(entity), "body")
-		if body == null or not SimHealth.is_alive(body as Dictionary):
-			continue
-		var there: Variant = world.components.get_component(int(entity), "position")
-		if there == null:
-			continue
-		var dx: float = float((there as Dictionary)["x"]) - fx
-		var dy: float = float((there as Dictionary)["y"]) - fy
-		var dist_sq: float = dx * dx + dy * dy
-		if dist_sq > limit_sq or dist_sq <= 0.0:
-			continue
-		var cosine: float = (dx * facing_x + dy * facing_y) / sqrt(dist_sq)
-		if cosine < cos_half:
-			continue
-		if not can_target(world, attacker, float((there as Dictionary)["x"]), float((there as Dictionary)["y"])):
-			continue
-		if dist_sq < best_dist:
-			best_dist = dist_sq
-			best = int(entity)
-			impact_x = float((there as Dictionary)["x"])
-			impact_y = float((there as Dictionary)["y"])
+	var ray: Dictionary = {}
+	if SHOT_AS_RAY:
+		ray = _shot_ray(world, attacker, half, reach, facing, fx, fy)
+		if int(ray["hit"]) >= 0:
+			best = int(ray["hit"])
+			best_dist = float(ray["dist"]) * float(ray["dist"])
+		impact_x = float(ray["x"])
+		impact_y = float(ray["y"])
+	else:
+		var cos_half: float = cos(half)
+		for entity in world.components.query(["body", "position"]):
+			if int(entity) == attacker:
+				continue
+			var body: Variant = world.components.get_component(int(entity), "body")
+			if body == null or not SimHealth.is_alive(body as Dictionary):
+				continue
+			var there: Variant = world.components.get_component(int(entity), "position")
+			if there == null:
+				continue
+			var dx: float = float((there as Dictionary)["x"]) - fx
+			var dy: float = float((there as Dictionary)["y"]) - fy
+			var dist_sq: float = dx * dx + dy * dy
+			if dist_sq > limit_sq or dist_sq <= 0.0:
+				continue
+			var cosine: float = (dx * facing_x + dy * facing_y) / sqrt(dist_sq)
+			if cosine < cos_half:
+				continue
+			if not can_target(world, attacker, float((there as Dictionary)["x"]), float((there as Dictionary)["y"])):
+				continue
+			if dist_sq < best_dist:
+				best_dist = dist_sq
+				best = int(entity)
+				impact_x = float((there as Dictionary)["x"])
+				impact_y = float((there as Dictionary)["y"])
 	# The weapon's own `noise_emission` (the affix "of the Quiet Hand" and its kin) scales the shot
 	# that leaves it; `source` is the item this profile was built from, -1 for anything else.
 	var mag: float = _with_ammo(scale, "noise", float(weapon.get("noise", 4))) * SimItemsRes.noise_emission_of(world, int(weapon.get("source", -1)))
@@ -1377,8 +1417,19 @@ static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: V
 	# firing, whether or not the round found a body.
 	# Where the round went rides along -- the muzzle, the line, its reach and the body it found (-1
 	# for none) -- so decals.gd can mark the wall a miss struck without walking the cone again.
-	world.events.publish({"type": "weapon.fired", "entity": attacker, "item": int(weapon.get("source", -1)),
-		"x": fx, "y": fy, "dx": facing_x, "dy": facing_y, "reach": reach, "hit": int(best) if best != null else -1})
+	var fired: Dictionary = {"type": "weapon.fired", "entity": attacker, "item": int(weapon.get("source", -1)),
+		"x": fx, "y": fy, "dx": facing_x, "dy": facing_y, "reach": reach, "hit": int(best) if best != null else -1}
+	if SHOT_AS_RAY:
+		# The ray path adds where the round left and where it met something (docs/40): the origin height, the pitch,
+		# and the contact point (a body's, a tile's, or the ray's end at reach). decals.gd reads the contact.
+		fired["dx"] = cos(float(ray["yaw"]))
+		fired["dy"] = sin(float(ray["yaw"]))
+		fired["oz"] = int(ray["eye"])
+		fired["pitch"] = float(ray["pitch"])
+		fired["ex"] = float(ray["x"])
+		fired["ey"] = float(ray["y"])
+		fired["ez"] = int(ray["z"])
+	world.events.publish(fired)
 	var flash: float = _with_ammo(scale, "flash", float(weapon.get("flash", 0)))
 	if flash > 0.0:
 		weapon["flashTicks"] = FLASH_TICKS

@@ -8200,6 +8200,21 @@ the noise entry.
   red with `M2_MATERIALS_FAIL`. `godot:check:grade` stows one wire before the scene is set up, since
   the E keycap that the grade lane counts is the free alarm rung.
 
+## The shot is a ray behind `SHOT_AS_RAY`, 2026-11-07
+
+The shot is a ray behind `SimRanged.SHOT_AS_RAY`, true by default (docs/40, "The shot"; docs/33 question 1 stays open,
+and the switch is what the owner's pick would flip).
+
+- **The round.** The origin is the shooter's eye at its own position. The direction is the aim deviated within a disc
+  of radius `cone × DISPERSION`, drawn as two uniform draws on the new `ranged.spread` stream. The first contact out to
+  the weapon's reach decides: a living body's cylinder (`SimSpace.body_of`), or a tile whose bands stop a shot.
+- **Consequences.** A round can miss a body the old rule hit for certain, and can hit a body nobody saw in the line.
+  Falloff takes the ray's distance to contact. A body contact applies the hit exactly as before, on the same `ranged`
+  rolls. A tile contact or no contact hits nobody; a tile contact marks the tile it struck.
+- **Built defaults.** `DISPERSION` is 1.0 until the balance slice measures it. A round that hits nobody marks the tile at
+  its end only if that tile has a surface (the card's default: yes, at the ray's end within reach).
+- **The switch off** is today's cone rule, unchanged; the lanes that measure the cone's outcome pin it false.
+
 ## The juggernaut shoves barricades, 2026-11-06
 
 The what's-left entry "The juggernaut" is closed. Its record, with the numbers, is in
