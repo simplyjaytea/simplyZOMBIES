@@ -565,7 +565,16 @@ switch (mode) {
     ];
     break;
   case "--context":
-    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_context.gd"];
+    // The top-down street: its title's Enter starts the top-down run, so it asks for the top-down title (docs/30, 2026-11-07).
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_context.gd",
+      "--",
+      "--topdown",
+    ];
     break;
   case "--speech":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_speech.gd"];
@@ -622,6 +631,8 @@ switch (mode) {
       resolve(root, "godot"),
       "--script",
       "res://check_memory_look.gd",
+      "--",
+      "--topdown",
     ];
     break;
   case "--grade":
@@ -672,10 +683,26 @@ switch (mode) {
     ];
     break;
   case "--fx":
-    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_fx.gd"];
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_fx.gd",
+      "--",
+      "--topdown",
+    ];
     break;
   case "--decals":
-    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_decals.gd"];
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_decals.gd",
+      "--",
+      "--topdown",
+    ];
     break;
   case "--m2-vehicles":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_vehicles.gd"];
