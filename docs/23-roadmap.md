@@ -176,8 +176,8 @@ The source baseline is archived on GitHub at
   [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
   The brief is [docs/42](42-ome-okutama-setting.md); its section 6 is the order of the work.
 - **The wider world by rail.** Other districts and cities reached by a train the colony repairs
-  first. Design first, as a note like docs/42, under the region and streaming work; nothing is
-  sized yet. See [docs/30](30-decisions.md#the-setting-cards-the-defaults-and-the-valley-is-the-first-of-several-2026-11-04).
+  first. The design exists as [docs/45](45-wider-world-by-rail.md), a note like docs/42, under the
+  region and streaming work; the sizing does not. See [docs/30](30-decisions.md#the-setting-cards-the-defaults-and-the-valley-is-the-first-of-several-2026-11-04).
 - **First-person spatial combat and perception.** One coherent obstruction and
   hit contract across visible geometry, sim movement, combat and NPC sight.
 - **First-person people and settlement operation.** Ledger animations, reports,
