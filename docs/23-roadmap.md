@@ -3252,12 +3252,16 @@ not a to-do list:
   quiet body, so a sound-making body or another district could change it. The rest of docs/39's proof
   (the convert-and-switch default and the measured budgets) is still open.
 - **Outdoor boot wanderers judged ahead, 2026-11-07.** `boot.gd` judges an outdoor boot wanderer's kind at the boot
-  tick plus `BOOT_WAVE_LEAD_DAYS` (a static var, shipped at 1: the fallback). At 2 the boot's wave-1 kinds (stalker,
-  screamer, bloater) appear, but `godot:m2:balance` wiped seed 20260805 (survivors 0/3, over=true, grabs 252). At 1 the
-  boot is unchanged (day 2 admits no kind before day 3), so the shipped change is inert until the owner picks the lead.
-  Indoor wanderers keep the boot tick's kind. The lane BOOTKINDS (`godot/check_m2_district.gd`) tests lead 2 explicitly
-  (three seeds, 17 non-shambler bodies), a lead-0 control, and the dormant lurkers unchanged; the day-1 pin lane pins
-  lead 0 inside itself. Balance at 1 is identical to main on four seeds; at 2 the table is in the boot-kinds REPORT.
+  tick plus `BOOT_WAVE_LEAD_DAYS`, a static var that ships at 0 (the boot is unchanged; `m2:balance` is byte-identical).
+  At 2 (the recommended alpha default, to be set by the first-person scene once #361 is on main) the boot's wave-1 kinds
+  (two stalkers and a bloater outdoors on seed 20260805) appear, and seed 20260805, the first-person default district
+  seed, wipes the headless colony by day 10 (2/3 to 0/3 survivors in `m2:balance`). At 1 the boot is inert (day 2 admits no
+  kind before day 3). The owner can dial it. Wipe diagnosis (seed 20260805, lead 2 against lead 0, colony deaths by day):
+  the colony is 3 at boot, 2 by day 3, 1 by day 5, 0 by day 6. The deaths at lead 2 are two shamblers (day 3, day 5) and
+  one septic death (day 6). The lead-0 run loses one colonist to a shambler on day 8. No death is credited to a stalker or
+  the bloater: the early losses are shambler kills, and the difference is in the trajectory, not in a kind that kills
+  directly. BOOTKINDS (`godot/check_m2_district.gd`) pins lead 2 for its tallies (17 non-shambler bodies over three seeds),
+  checks the lead-0 control (shamblers alone) and that the dormant lurkers are unchanged; the day-1 pin lane pins lead 0.
 - **The first-person key reference, 2026-11-01.** F1 opens the top-down legend, shown with the
   first-person scene's own rows; Escape or F1 again puts it down, and walking keys do nothing while it
   is up. The rows come from one table, `KEY_REFERENCE` in `godot/presentation/first_person/first_person.gd`,

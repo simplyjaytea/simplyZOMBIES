@@ -64,14 +64,14 @@ const DEFAULT_DISTRICT: String = "district.residential_suburb"
 # check_worldgen.gd pin `wanderers_for` at the size they boot.
 const WANDERERS_PER_64: int = 20
 # How many days ahead of the boot tick an outdoor boot wanderer's kind is judged for its wave (roster.gd `pick_type`
-# at a later tick). A fresh first-person run is a short session that starts at day 1 (the boot tick is 9000, day 1 by
-# `Clock.day_number`), and the wave gate (day >= 1 + 2 x wave) gives it shamblers alone at boot. Two days on admits
-# the wave-1 kinds (stalker, screamer, bloater: day 3). The cost: a screamer's alarm (300 noise) rallies the district
-# sooner. Owner card: how early do the boot wanderers take the other kinds? 0 is the old behaviour. Indoor wanderers
-# keep the boot tick's kind. A static var so a lane can pin it. Shipped at 1, the fallback: lead 2 (day 3 on the boot
-# tick's day 1) admits the wave-1 kinds but wiped seed 20260805 in m2:balance; lead 1 (day 2) admits no kind before
-# day 3, so at 1 the boot is shamblers alone and the change is inert. The lead is the owner's call, not a retune.
-static var BOOT_WAVE_LEAD_DAYS: int = 1
+# at a later tick). Shipped at 0: the boot is unchanged, so every campaign gate and `m2:balance` are byte-identical. At
+# 2 (the recommended alpha default, set by the first-person scene: the boot tick is day 1 by `Clock.day_number`, and day
+# 3 admits the wave-1 kinds: stalker, screamer, bloater) seed 20260805, the first-person default district seed, wipes the
+# headless colony by day 10 (2/3 to 0/3 survivors, two stalkers and a bloater outdoors; the colony is down to 0 by day 6).
+# At 1 the boot tick's day 2 admits no kind before day 3, so 1 is inert. Indoor wanderers keep the boot tick's kind.
+# The screamer's alarm (noise 300) rallies the district sooner at 2. Owner card: how early do the boot wanderers take the
+# other kinds? A static var so a lane can pin it.
+static var BOOT_WAVE_LEAD_DAYS: int = 0
 # How many times a boot wanderer's tile is re-rolled to land outside the colony before it is placed
 # wherever it fell. See the scatter loop in `playable`.
 const SCATTER_TRIES: int = 8

@@ -8218,8 +8218,11 @@ The what's-left entry "The juggernaut" is closed. Its record, with the numbers, 
   the feigner in the stage 2 run: ten seeds and a median wipe day, on `main` and on the candidate,
   on a quiet machine. No number from this piece is a balance claim until then.
 
-## Outdoor boot wanderers are judged ahead, shipped at lead 1, 2026-11-07
+## Outdoor boot wanderers are judged ahead; the boot ships at lead 0, 2026-11-07
 
-Card open (owner): how early do the boot wanderers take the other kinds? Lead 2 admits the wave-1 kinds at boot and wiped
-seed 20260805 in `m2:balance`; the shipped default is lead 1, which is inert on day 1 (no kind admitted before day 3). The
-lead is the owner's to set; 0 is the old behaviour.
+Option B (t1n). `BOOT_WAVE_LEAD_DAYS` ships 0: the boot, and every balance gate, is unchanged. The recommended alpha default
+is 2, to be set by the first-person scene once #361 is on main. At 2, seed 20260805, the first-person default district seed,
+wipes the headless colony by day 10 (2/3 to 0/3) with two stalkers and a bloater outdoors; the colony is down to 0 by day 6
+in the diagnostic, and its early losses are two shamblers and one septic death, not a stalker or the bloater. At 1 the boot
+is inert (day 2 admits no kind before day 3). The owner can dial it. Card open: how early do the boot wanderers take the
+other kinds, and is the wipe on seed 20260805 acceptable for an alpha that starts with a day-1 packet? 0 is the old behaviour.
