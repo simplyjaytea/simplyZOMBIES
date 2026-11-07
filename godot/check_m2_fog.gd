@@ -454,12 +454,33 @@ func _the_fog_closes_the_range_and_not_the_eyes() -> bool:
 # including the failing ones, which is why the body is a separate function.
 func _the_dead_are_blinded_by_exactly_as_much() -> bool:
 	var was: bool = SimShambler.SIGHT_ENABLED
+	# This lane pins the content reach (12 m x sqrt(0.1) = 3.79 m), so the daylight floor is pinned to 0 for it and
+	# restored on the same exit paths as SIGHT_ENABLED.
+	var floor_was: float = SimShambler.SIGHT_REACH_FLOOR_METRES
 	SimShambler.SIGHT_ENABLED = true
+	SimShambler.SIGHT_REACH_FLOOR_METRES = 0.0
 	var ok: bool = _eyes_body()
 	SimShambler.SIGHT_ENABLED = was
+	SimShambler.SIGHT_REACH_FLOOR_METRES = floor_was
 	if not ok:
 		return false
 	print("EYES OK SIGHT_ENABLED restored to %s" % str(was))
+	# The default floor, unpinned: nothing above gates floor x fog, so this does. Clear it is the floor
+	# itself, and under fog it is the floor times the fog's own sight_mul (8 x 0.25 = 2.0 m at the
+	# shipped fog), which is outside the 1.6 m contact radius.
+	var floor_m: float = SimShambler.SIGHT_REACH_FLOOR_METRES
+	var clear_default: Dictionary = _zombie_reading("clear")
+	var fog_default: Dictionary = _zombie_reading("fog")
+	if clear_default.is_empty() or fog_default.is_empty():
+		return false
+	var fog_mul: float = SimWeather.sight_mul(_a_forced_world("fog"))
+	if absf(float(clear_default["reach"]) - floor_m) > 0.000001:
+		push_error("EYES: at the default floor a shambler's clear reach is %.4f m, wanted the floor %.4f" % [float(clear_default["reach"]), floor_m])
+		return false
+	if absf(float(fog_default["reach"]) - floor_m * fog_mul) > 0.000001:
+		push_error("EYES: at the default floor the fogged reach is %.4f m, wanted floor x fog = %.4f x %.4f = %.4f" % [float(fog_default["reach"]), floor_m, fog_mul, floor_m * fog_mul])
+		return false
+	print("EYES OK default floor %.1f m: clear reach %.2f m, fog x%.2f reach %.2f m" % [floor_m, float(clear_default["reach"]), fog_mul, float(fog_default["reach"])])
 	return true
 
 

@@ -8200,6 +8200,16 @@ the noise entry.
   red with `M2_MATERIALS_FAIL`. `godot:check:grade` stows one wire before the scene is set up, since
   the E keycap that the grade lane counts is the free alarm rung.
 
+## The first-person encounter gate is green, with owner cards, 2026-11-07
+
+`godot:check:fp_encounter` ends green: no FAIL, with FINDING and INFO lines for the facts it measures. Its
+lanes: SIGHT-NEAR, SIGHT (7 m by day, acquires and closes), NOISE, CONTACT, DEATH-NOESCAPE, DEATH-ATTENTIVE,
+REPRESS, DRIFT, DRIFT-WALL, BREAK. Two questions are owner cards, and the sim's current answer is the default:
+(a) the shambler's daylight sight reach, 8 m (`SIGHT_REACH_FLOOR_METRES`, its own decision); (b) whether a lone
+shambler is too weak against an attentive player: DEATH-ATTENTIVE measures it (the player kills it at +1222 ticks
+in the fixture, after 5 holds broke and with 6 wounds and blood loss 17.1), and the lane passes whatever the outcome.
+DEATH-NOESCAPE is the pinned death: stamina held at 0, the player must die and hand over or end the run.
+
 ## The juggernaut shoves barricades, 2026-11-06
 
 The what's-left entry "The juggernaut" is closed. Its record, with the numbers, is in
@@ -8217,3 +8227,23 @@ The what's-left entry "The juggernaut" is closed. Its record, with the numbers, 
 - **Ten-seed re-baseline owed.** The juggernaut joins the crawler, the lurker, the bloater's gas and
   the feigner in the stage 2 run: ten seeds and a median wipe day, on `main` and on the candidate,
   on a quiet machine. No number from this piece is a balance claim until then.
+
+## A released holder presses again, 2026-11-07
+
+A grab broken by the player's struggle leaves the holder in reach; the holder re-grabs. The encounter gate's
+REPRESS lane measured the one case that did not: the player walked off at BREAK_AWAY_SPEED (2.1 m/s) after the
+shove, because the shove's velocity stayed on the controlled body when the shove ended. Decision: a controlled body
+the shove leaves comes to rest when its record expires (or the victim is grabbed again), axis by axis (a wall hit zeroes one axis
+and leaves the other, so both-axes equality was the wrong test); t1v's DRIFT.md measured the same stale velocity from a pistol fight. NPCs keep the velocity their errand
+sets (the escape lane depends on it). The stagger-to-Pursue variant was tried and dropped: REPRESS passes without it.
+Balance on four seeds is unchanged by this decision. The attentive player now kills a lone shambler (about 1200 ticks),
+so the DEATH lane's question is answered, and that lane stays red on the answer.
+
+## The shambler's daylight sight reach has a floor, 2026-11-07
+
+Default built, owner card open: a shambler's daylight reach is 8 m, not 3.8 m. The reach was observer range
+times sqrt(lightSense), 12 x sqrt(0.1), so it was blind past 4 m by day. The floor is `SIGHT_REACH_FLOOR_METRES`
+in `shambler.gd`, applied as `max(own, floor) * fog`; the fog and the night rule in `visibility.gd` still limit what
+is seen, and a kind with no light sense keeps none. Measured on four seeds (`godot:m2:balance`, before and after):
+no seed wipes; grabs 423 to 482; end survivors change by one body on two seeds in opposite directions. The card is
+the owner's to change; the floor is one constant.
