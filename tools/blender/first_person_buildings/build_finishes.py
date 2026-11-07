@@ -2060,10 +2060,27 @@ def same_geometry(a, b):
     return True
 
 
+# Templates added after OTHER_TEMPLATES_BASE. They have no base GLB and are excluded from the proof, by name,
+# so a template missing from the base cannot shrink the proof silently.
+NEW_SINCE_BASE = {"building.konbini.road"}
+
+
 def validate_other_templates(repo, export_dir, templates, plant=None):
     # Name-blind and node-order-free: node and mesh names carry Blender's build-order suffixes, so only the
     # geometry of each primitive, and the atlas cells its UVs touch, are compared.
-    others = [template for template in templates if base_has(repo, f"godot/assets/first_person/buildings/{template['id'].removeprefix('building.').replace('.', '_')}.glb")]
+    if subprocess.run(["git", "-C", str(repo), "cat-file", "-e", f"{OTHER_TEMPLATES_BASE}^{{commit}}"], capture_output=True).returncode != 0:
+        raise ValueError(f"base commit {OTHER_TEMPLATES_BASE} is not in this clone: the other-template proof cannot run")
+    others = [template for template in templates if template["id"] not in NEW_SINCE_BASE]
+    for template in others:
+        relative = f"godot/assets/first_person/buildings/{template['id'].removeprefix('building.').replace('.', '_')}.glb"
+        if not base_has(repo, relative):
+            raise ValueError(f"other-template proof: {relative} is missing at {OTHER_TEMPLATES_BASE}")
+    # Every GLB at the base must be one of the templates proved here: a base building the list does not name
+    # would otherwise go unproved without a sound.
+    base_glbs = set(subprocess.run(["git", "-C", str(repo), "ls-tree", "--name-only", f"{OTHER_TEMPLATES_BASE}:godot/assets/first_person/buildings/"], capture_output=True, text=True, check=True).stdout.split())
+    proved = {f"{template['id'].removeprefix('building.').replace('.', '_')}.glb" for template in others}
+    if {name for name in base_glbs if name.endswith(".glb")} != proved:
+        raise ValueError("other-template proof: the base's building GLBs and the proved templates differ")
     with tempfile.TemporaryDirectory(prefix="building-base-pixels-") as temporary:
         old_path = Path(temporary) / "base-atlas.png"
         old_path.write_bytes(git_show_bytes(repo, OTHER_TEMPLATES_BASE, "godot/assets/first_person/buildings_atlas.png"))
