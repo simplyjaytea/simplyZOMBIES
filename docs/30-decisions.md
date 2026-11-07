@@ -8223,4 +8223,14 @@ the body you just put down disappears mid-fall. A zombie's body now stays where 
   taken, the newest kept); its plant (the bound call removed) stands 61 and turns the lane red. The tick cost
   of the cap is measured in the PR body and REPORT.md: a throwaway driver, 100 kills and 600 ticks, three
   process runs of three worlds each, on origin/main (which despawns them) and on this head.
+  **Measured (2026-11-07), 100 zombies killed, 600 ticks timed, world = `SimBoot.playable(20260805, 64)`.**
+  Three process runs of three worlds each, per tree, alternating so both see the same load drift (machine
+  load 6 to 9, other sessions' Godot runs on it).
+  - origin/main at 3190fc5a (the zombies despawn, 0 bodies): mean tick median 1.830 ms (range 1.798 to 1.836),
+    worst-tick median 13.27 ms.
+  - this head with the cap (60 bodies stand): mean tick median 2.740 ms (range 2.715 to 2.778), worst-tick
+    median 14.35 ms.
+  - Mean delta at 60 bodies: 0.91 ms, under the 1 ms line. The worst tick is noisy on both trees (13 to 15 ms)
+    and is not judged here. origin/main has moved since (3e4440c5, #355, no sim files), so the baseline is the
+    last sim-identical commit.
 
