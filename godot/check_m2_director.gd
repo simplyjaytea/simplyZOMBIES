@@ -26,6 +26,7 @@ func _run() -> void:
 	ok = _two_grace_nights_then_the_table() and ok
 	ok = _a_lull_opens_at_the_next_dawn_and_a_second_breach_extends_it() and ok
 	ok = _every_shipped_caliber_counts_as_ammunition() and ok
+	ok = _early_kinds() and ok
 	if ok:
 		print("M2_DIRECTOR_OK boot packet gate lull seed, nights vary within docs/17's bounds, the cap scales with the district, two grace nights then the table, a lull opens at dawn, and every shipped caliber counts")
 		quit(0)
@@ -504,6 +505,79 @@ func _a_lull_opens_at_the_next_dawn_and_a_second_breach_extends_it() -> bool:
 # this lane is the reader assertion for that: the question is not whether `_ammo_ids` returns a
 # nice set, it is whether the score actually changes when the player is carrying rounds it did not
 # used to know about.
+
+# --- a packet's kinds are judged PACKET_WAVE_LEAD_DAYS on (2026-11-07) -------------------------------
+#
+# A packet's zombies are drawn for the wave they belong to at now + the lead, so a fresh run is not shamblers
+# alone until day 3. This lane tallies the kinds of every packet on days 1 to 7 (one world, one night each),
+# asserts a non-shambler kind arrives at the shipped lead, asserts no wave-3 kind arrives before day 5, and
+# pins the lead to 0 for a negative control: day 1 is then shamblers alone.
+const EARLY_DAYS: Array = [1, 2, 3, 4, 5, 6, 7]
+const EARLY_PACKETS: int = 12
+
+
+# One packet's worth of bodies, fired the way the director fires one (`_emit_packet`), judged at a dusk of `day`.
+# Returns the kinds the packet drew, counted from the bodies it spawned.
+func _packet_tally(world: Variant, day: int) -> Dictionary:
+	world.tick = Clock.tick_on_day(day, Clock.DAY_ENDS) - 1
+	var before: Array[int] = []
+	for e in world.components.query(["zombieType"]):
+		before.append(int(e))
+	SimDirector._emit_packet(world, SimDirector.BASE_SIZE)
+	var tally: Dictionary = {}
+	for e in world.components.query(["zombieType"]):
+		if before.has(int(e)):
+			continue
+		var zt: Dictionary = world.components.get_component(int(e), "zombieType") as Dictionary
+		var kind: String = String(zt.get("id", "?"))
+		tally[kind] = int(tally.get(kind, 0)) + 1
+	_cull(world)
+	return tally
+
+
+func _early_kinds() -> bool:
+	var w: Variant = _boot()["world"]
+	var wave_of: Dictionary = {}
+	for entry in SimRoster.types(w):
+		wave_of[String(entry.get("id", ""))] = int(entry.get("introducedInWave", 0))
+	var lead_was: int = SimDirector.PACKET_WAVE_LEAD_DAYS
+	var tallies: Dictionary = {}
+	for day in EARLY_DAYS:
+		# Several packets a day, so a kind that needs a few draws is seen.
+		var merged: Dictionary = {}
+		for _k in range(EARLY_PACKETS):
+			var one: Dictionary = _packet_tally(w, int(day))
+			for kind in one.keys():
+				merged[kind] = int(merged.get(kind, 0)) + int(one[kind])
+		tallies[day] = merged
+		print("EARLY tally day %d (lead %d): %s" % [int(day), lead_was, str(tallies[day])])
+	var non_shambler: int = 0
+	for day in EARLY_DAYS:
+		for kind in (tallies[day] as Dictionary).keys():
+			if String(kind) != SimRoster.TYPE_SHAMBLER:
+				non_shambler += int((tallies[day] as Dictionary)[kind])
+	if non_shambler == 0:
+		push_error("EARLY: no packet over days 1 to 7 carried a kind but the shambler (lead %d)" % lead_was)
+		return false
+	for day in EARLY_DAYS:
+		if int(day) >= 5:
+			continue
+		for kind in (tallies[day] as Dictionary).keys():
+			if int(wave_of.get(String(kind), 0)) >= 3:
+				push_error("EARLY: a wave-3 kind %s arrived on day %d, before day 5" % [String(kind), int(day)])
+				return false
+	# Negative control: the lead at 0 is the old behaviour, and day 1 is shamblers alone.
+	SimDirector.PACKET_WAVE_LEAD_DAYS = 0
+	var w0: Variant = _boot()["world"]
+	var day1: Dictionary = _packet_tally(w0, 1)
+	SimDirector.PACKET_WAVE_LEAD_DAYS = lead_was
+	for kind in day1.keys():
+		if String(kind) != SimRoster.TYPE_SHAMBLER:
+			push_error("EARLY: at lead 0 a day-1 packet carried %s; the negative control does not hold" % String(kind))
+			return false
+	print("EARLY OK kinds arrive two days early: %d non-shambler bodies over days 1 to 7 at lead %d; no wave-3 kind before day 5; at lead 0 day 1 is shamblers alone %s" % [non_shambler, lead_was, str(day1)])
+	return true
+
 
 func _every_shipped_caliber_counts_as_ammunition() -> bool:
 	var lane: String = "AMMO"

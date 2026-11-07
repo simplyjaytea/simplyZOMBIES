@@ -3251,6 +3251,14 @@ not a to-do list:
   take is a press on its own plate and pane, and the shambler's approach is the sim's seek from a
   quiet body, so a sound-making body or another district could change it. The rest of docs/39's proof
   (the convert-and-switch default and the measured budgets) is still open.
+- **A packet's kinds are judged two days on, 2026-11-07.** `director.gd` `_emit_packet` draws each zombie's kind
+  for the wave it belongs to at now plus `PACKET_WAVE_LEAD_DAYS` (a static var, default 2; the owner card is how
+  early the other kinds arrive). A fresh run at day 0 met shamblers alone until day 3; now a day-1 packet can carry
+  the wave-1 kinds (stalker, screamer, bloater), a day-3 packet the wave-2 kinds (heavy, armored, crawler), and
+  wave-3 kinds (runner, bloodhound, feigner) arrive from day 5. `godot:m2:director` lane EARLY tallies the kinds of
+  packets on days 1 to 7: 85 non-shambler bodies at lead 2, no wave-3 kind before day 5, and at lead 0 day 1 is
+  three shamblers alone (the negative control). The balance harness is unchanged on four seeds: the same survivors
+  (2/3, 1/3, 3/3, 1/3), grabs 423, deaths 10 before and after.
 - **The first-person key reference, 2026-11-01.** F1 opens the top-down legend, shown with the
   first-person scene's own rows; Escape or F1 again puts it down, and walking keys do nothing while it
   is up. The rows come from one table, `KEY_REFERENCE` in `godot/presentation/first_person/first_person.gd`,

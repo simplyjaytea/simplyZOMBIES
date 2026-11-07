@@ -8217,3 +8217,9 @@ The what's-left entry "The juggernaut" is closed. Its record, with the numbers, 
 - **Ten-seed re-baseline owed.** The juggernaut joins the crawler, the lurker, the bloater's gas and
   the feigner in the stage 2 run: ten seeds and a median wipe day, on `main` and on the candidate,
   on a quiet machine. No number from this piece is a balance claim until then.
+
+## Packets draw kinds two days early, 2026-11-07
+
+Card open (owner): how early do the other kinds arrive? The default is `PACKET_WAVE_LEAD_DAYS = 2`, so a
+packet's kinds are judged on the wave gate two days on. A fresh run's first packets then include the wave-1 kinds
+on day 1. Zero is the old behaviour (a control lane pins it). The balance harness does not move on four seeds.

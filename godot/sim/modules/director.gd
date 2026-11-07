@@ -696,6 +696,13 @@ static func _emit_band(world: Variant, size: int, rng: Variant, objective: Varia
 # Returns the side it came from, for the `director.night` event. docs/17's migration lever says a
 # crowd arrives "somewhere the field decides", and it always arrived from the south -- the one
 # authored approach -- so ten nights of a campaign all came down the same street.
+# How many days ahead of now a packet's kinds are judged for their wave. A fresh first-person run starts at day 0,
+# and the wave gate (roster.gd `wave_allows`: day >= 1 + 2 x wave) would give it shamblers alone until day 3. Judged
+# two days on, a day-1 packet can carry the wave-1 kinds and a day-3 packet the wave-2 kinds. Owner card: how early
+# do the other kinds arrive? The default is 2; 0 is the old behaviour.
+static var PACKET_WAVE_LEAD_DAYS: int = 2
+
+
 static func _emit_packet(world: Variant, size: int) -> String:
 	var rng: Variant = world.rng.stream("director")
 	var sides: Array = _edges_by_side(world)
@@ -703,9 +710,10 @@ static func _emit_packet(world: Variant, size: int) -> String:
 	if side < 0:
 		return ""
 	var pool: Array = sides[side] as Array
+	var judged_at: int = int(world.tick) + PACKET_WAVE_LEAD_DAYS * Clock.DAY_TICKS
 	for _i in size:
 		var pick: Vector2i = pool[int(rng.call("int_range", 0, pool.size() - 1))]
-		var type_id: String = SimRoster.pick_type(world, rng)
+		var type_id: String = SimRoster.pick_type(world, rng, judged_at)
 		SimRoster.spawn_zombie(world, float(pick.x) + 0.5, float(pick.y) + 0.5, type_id, rng)
 	(world.director as Dictionary)["lastMigrationTick"] = int(world.tick)
 	world.events.publish({"type": "director.packet", "size": size, "side": SIDE_NAMES[side]})
