@@ -8102,3 +8102,19 @@ the noise entry.
   pack places neither device and one unit is spent. The plant (both RECIPES rows removed) turns it
   red with `M2_MATERIALS_FAIL`. `godot:check:grade` stows one wire before the scene is set up, since
   the E keycap that the grade lane counts is the free alarm rung.
+
+## The arms raise and aim with the sim's fire state, 2026-11-07
+
+The what's-left dead socket "the raise and aim clips have no reader" is closed. The record is in
+[docs/23](23-roadmap.md#the-record-by-system), under the first-person arms.
+
+- **The clip follows the sim, not the clock.** The raise is held at the sim's own progress through
+  the weapon's raise, so a heavy gun's longer raise stretches the 0.40 s clip rather than finishing
+  it early. The aim loops while the sim is steady.
+- **Reload has no clip, so it plays the idle.** The arms return to `idle_<class>` while the sim
+  reloads. This is the conservative default: a player sees the gun stay in the idle position during
+  a reload. A reload clip from the art lead would replace it.
+- **Recover is the idle too.** After the shot the arms blend back to `idle_<class>`, not to a
+  separate settle clip. A settle clip would be a new picture, and none is drawn.
+- **A melee class ignores the fire state.** A bat or a knife has no raise or aim clip, and its
+  idle is the whole picture.
