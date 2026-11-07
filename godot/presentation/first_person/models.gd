@@ -17,6 +17,7 @@ extends RefCounted
 const DIR: String = "res://assets/first_person/"
 const MANIFEST_SUFFIX: String = ".manifest.json"
 const MIPMAP_FILTER: int = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+const HIDDEN_SLOTS: Array[String] = ["internal", "spring", "sear", "extractor"]
 
 # Parsed manifests, read once from the directory, in file-name order so the answer never depends on
 # the order the filesystem lists them.

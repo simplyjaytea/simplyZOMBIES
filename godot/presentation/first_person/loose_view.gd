@@ -15,8 +15,6 @@ const Models = preload("res://presentation/first_person/models.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
 
-const HIDDEN_SLOTS: Array[String] = ["internal", "spring", "sear", "extractor"]
-
 var _nodes: Dictionary = {}
 # Entities whose item has no model. Resolved once, so a refresh does not look the item up again.
 var _modelless: Dictionary = {}
@@ -113,7 +111,7 @@ func _add_ranged_parts(world: Variant, entity: int, receiver_id: String, receive
 	var barrel: Node3D = null
 	for slot_v in slots:
 		var slot: String = String(slot_v)
-		if HIDDEN_SLOTS.has(slot):
+		if Models.HIDDEN_SLOTS.has(slot):
 			continue
 		var part_entity: int = int(installed[slot_v])
 		var base: Variant = SimItems.item_base_of(world, part_entity)

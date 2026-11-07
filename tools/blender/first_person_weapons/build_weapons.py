@@ -1274,7 +1274,7 @@ def rifle_hunting():
     cbox(m, (0, 0.023, -0.0975), (0.032, 0.0305, 0.095), B, "lower_action", 0.0030, E)
     guard = [(z, y - 0.001) for z, y in RIFLE_GUARD_PROFILE] if PLANT == "rifle_guard_gap" else RIFLE_GUARD_PROFILE
     xbox(m, guard, -0.004, 0.004, B, "trigger_guard", 0.0005, E)
-    trigger = [(z - 0.030, y) for z, y in RIFLE_TRIGGER_PROFILE] if PLANT == "rifle_trigger_buried" else RIFLE_TRIGGER_PROFILE
+    trigger = [(z + 0.003, y) for z, y in RIFLE_TRIGGER_PROFILE] if PLANT == "rifle_trigger_buried" else RIFLE_TRIGGER_PROFILE
     xbox(m, trigger, -0.0025, 0.0025, B, "trigger", 0.0005, E)
     sight_lift = 0.002 if PLANT == "receiver_contact" else 0.0
     sight_y = 0.092 if PLANT == "rifle_sight_high" else RIFLE_SIGHT_Y
@@ -1314,7 +1314,7 @@ def rifle_barrel_standard():
     lathe(m, profile, 12, "barrel", lambda i: styles[i])
     ramp = [(-0.468, 0.008), (-0.432, 0.008), (-0.432, 0.020), (-0.442, 0.0225), (-0.452, 0.0225), (-0.468, 0.012)]
     xbox(m, ramp, -0.002, 0.002, B, "front_ramp", 0.0004, E)
-    cbox(m, (0, 0.0225, -0.442), (0.005, 0.003, 0.004), B, "front_bead", 0.0005, E)
+    cbox(m, (0, 0.0225, -0.442), (0.003, 0.003, 0.004), B, "front_bead", 0.0005, E)
     m.sockets = {"socket_muzzle": Matrix.Translation((0, 0, -0.570))}
     m.finish()
     return m
@@ -1378,27 +1378,29 @@ def rifle_stock_standard():
     section = rect_profile(1.0, 1.0, 0.28)
     path = RIFLE_STOCK_PATH
     if PLANT == "rifle_hands":
-        path = [(x, 0.020 if z in (-0.280, -0.250, -0.220) else y, z) for x, y, z in path]
+        path = [(x, 0.035 if z in (-0.280, -0.250, -0.220) else y, z) for x, y, z in path]
     fore_path = path[:6] + [(0, 0.020, -0.080)]
     fore_scales = RIFLE_STOCK_SCALES[:6] + [(0.026, 0.025)]
+    if PLANT == "rifle_hands":
+        fore_scales = [(x, 0.043 if z in (-0.280, -0.250, -0.220) else y) for (x, y), (_, _, z) in zip(fore_scales, fore_path)]
     rear_path = [(0, 0.0, 0.085)] + path[8:]
     rear_scales = [(0.022, 0.045)] + RIFLE_STOCK_SCALES[8:]
     sweep(m, fore_path, fore_scales, section, "fore_end", lambda i: "hickory", ("endgrain_hickory", "endgrain_hickory"))
     rings = sweep(m, rear_path, rear_scales, section, "stock", lambda i: "hickory", ("endgrain_hickory", "endgrain_hickory"))
-    cbox(m, (0, 0.047, 0.010), (0.020, 0.010, 0.190), "hickory", "top_tang", 0.0010, E)
+    cbox(m, (0, 0.0452, 0.015), (0.020, 0.010, 0.210), "hickory", "top_tang", 0.0010, E)
     grip_path = [(0, 0.035, -0.0105), (0, -0.045, 0.0185)]
     sweep(m, grip_path, [(0.013, 0.020), (0.013, 0.020)], section, "pistol_grip", lambda i: "hickory", ("endgrain_hickory", "endgrain_hickory"))
     cbox(m, (0, -0.047, 0.020), (0.028, 0.008, 0.043), "hickory", "grip_hook", 0.0010, E)
     centre = Vector(rear_path[-1])
     normal = (centre - Vector(rear_path[-2])).normalized()
-    plate_offset = 0.0006 if PLANT == "rifle_butt_gap" else -0.0006
+    plate_offset = 0.0006 if PLANT == "rifle_butt_gap" else -0.0012
     inner = [centre + (p - centre).normalized() * ((p - centre).length - 0.0005) + normal * plate_offset for p in rings[-1]]
     outer = [p + normal * 0.006 for p in inner]
     loft(m, [inner, outer], lambda i, k: "coat_dark", "butt_plate")
     m.poly(inner, -normal, "coat_dark")
     m.poly(outer, normal, "coat_dark")
     if PLANT == "near_coplanar":
-        m.poly([(0.0164, 0.0, -0.100), (0.0164, 0.020, -0.100), (0.0164, 0.020, -0.080), (0.0164, 0.0, -0.080)], (1, 0, 0), "hickory")
+        xbox(m, [(-0.100, 0.0), (-0.080, 0.0), (-0.080, 0.020), (-0.100, 0.020)], 0.01635, 0.01645, "hickory", "near_coplanar")
     m.finish(Vector((0, -0.025, 0.060)))
     return m
 
@@ -2161,7 +2163,7 @@ def measure_rifle(loaded, repo):
     trigger_points = [p for tri in trigger_group for p in tri[0]]
     if any(point_in_polygon(RIFLE_GUARD_PROFILE, (p.z, p.y)) for p in trigger_points):
         raise ValueError("trigger profile intersects the guard's solid")
-    inner = [RIFLE_GUARD_PROFILE[i] for i in (1, 2, 3, 4, 5, 6)]
+    inner = [RIFLE_GUARD_PROFILE[i] for i in (2, 3, 4, 5)]
     opening_length = max(p[0] for p in inner) - min(p[0] for p in inner)
     opening_height = max(p[1] for p in inner) - min(p[1] for p in inner)
     guard_end = max(p[0] for p in RIFLE_GUARD_PROFILE)
@@ -2180,6 +2182,8 @@ def measure_rifle(loaded, repo):
     stock = loaded["rifle_stock_standard"]
     stock_points = [furniture @ p for tri in stock.triangles for p in tri[0]]
     sight_y = receiver.nodes["sight"]["matrix"].translation.y
+    if abs(sight_y - 0.079) > 0.0005:
+        raise ValueError(f"rear sight top is {(sight_y - 0.055) * 1000:.2f} mm over bore, not 24.0 mm")
     comb = max(p.y for p in stock_points if 0.170 <= p.z <= 0.240)
     heel = max(p.y for p in stock_points if p.z >= 0.275)
     wrist = [p for p in stock_points if 0.085 <= p.z <= 0.145]
@@ -2232,8 +2236,13 @@ def measure_rifle(loaded, repo):
     crown = max(p.y for tri in receiver.triangles for p in tri[0] if abs(p.z - sight.z) <= 0.002 and abs(p.x) <= 0.001)
     rear_leaf = sight.y - crown
     barrel_body = max(component_groups(barrel.triangles), key=len)
-    barrel_body_points = [receiver.nodes["socket_barrel"]["matrix"] @ p for tri in barrel_body for p in tri[0]]
-    barrel_top = max(p.y for p in barrel_body_points if abs(p.z - front_z) <= 0.002)
+    barrel_body_points = [[receiver.nodes["socket_barrel"]["matrix"] @ p for p in tri[0]] for tri in barrel_body]
+    barrel_section = []
+    for tri in barrel_body_points:
+        for a, b in zip(tri, tri[1:] + tri[:1]):
+            if (a.z - front_z) * (b.z - front_z) <= 0 and abs(a.z - b.z) > 1e-9:
+                barrel_section.append(a + (b - a) * ((front_z - a.z) / (b.z - a.z)))
+    barrel_top = max(p.y for p in barrel_section)
     front_proud = front_y - barrel_top
     if abs(sight.y - 0.079) > 0.0005 or abs(front_y - 0.079) > 0.0005:
         raise ValueError(f"sight tops are {(sight.y - 0.055) * 1000:.2f}/{(front_y - 0.055) * 1000:.2f} mm over bore, not 24.0 mm")
@@ -2246,7 +2255,7 @@ def measure_rifle(loaded, repo):
         raise ValueError("rifle magazine is shorter than a .308 round")
     report.append(f"RIFLE_MAGAZINE {magazine_length * 1000:.1f} mm long, .308 round 71.1 mm")
 
-    grip_group = next(group for group in stock_groups if (lambda bounds: 0.024 <= bounds[1].x - bounds[0].x <= 0.030 and bounds[0].z > -0.040 and bounds[1].z < 0.060 and bounds[0].y < -0.030 and bounds[1].y > 0.020)(points_bounds([p for tri in group for p in tri[0]])))
+    grip_group = next(group for group in stock_groups if (lambda bounds: 0.024 <= bounds[1].x - bounds[0].x <= 0.030 and bounds[0].z > 0.0 and bounds[1].z < 0.120 and bounds[0].y < -0.030 and bounds[1].y > 0.010)(points_bounds([p for tri in group for p in tri[0]])))
     grip_points = np.array([tuple(p) for tri in grip_group for p in tri[0]])
     centred = grip_points - grip_points.mean(0)
     axis = np.linalg.eigh(np.cov(centred.T))[1][:, -1]
@@ -2264,12 +2273,12 @@ def measure_rifle(loaded, repo):
     overall_length = max(p.z for p in all_points) - min(p.z for p in all_points)
     if not 0.026 <= grip_width <= 0.032 or not 0.040 <= grip_depth <= 0.045 or not 15.0 <= grip_rake <= 25.0:
         raise ValueError(f"grip width/depth/rake {grip_width * 1000:.2f}/{grip_depth * 1000:.2f}/{grip_rake:.2f}")
+    hands = measure_rifle_hands(loaded, repo)
     if not 0.019 <= fore_under <= 0.025 or not -0.060 <= trigger_face <= -0.045 or guard_end > -0.043 or magazine_rear > -0.043:
         raise ValueError(f"fore-end/trigger/guard/magazine layout {fore_under * 1000:.2f}/{trigger_face * 1000:.2f}/{guard_end * 1000:.2f}/{magazine_rear * 1000:.2f} mm")
     if not 1.05 <= overall_length <= 1.12:
         raise ValueError(f"rifle overall length {overall_length:.4f} m")
     report.append(f"RIFLE_LAYOUT grip {grip_width * 1000:.1f} x {grip_depth * 1000:.1f} mm, rake {grip_rake:.1f} deg; fore-end underside {fore_under * 1000:.1f} mm at z -250; trigger face z {trigger_face * 1000:.1f}; guard/magazine rear {guard_end * 1000:.1f}/{magazine_rear * 1000:.1f}; length {overall_length:.4f} m")
-    hands = measure_rifle_hands(loaded, repo)
     report.append(f"RIFLE_HANDS left deepest {hands['left'][0] * 1000:.1f} mm ({hands['left'][1]}), right deepest {hands['right'][0] * 1000:.1f} mm ({hands['right'][1]}), idle/aim/raise first-middle-last")
     return report
 
@@ -2330,6 +2339,7 @@ def validate(root, repo):
             (PLANT == "rifle_receiver_width" and stem == "rifle_hunting")
             or (PLANT == "rifle_handle_hidden" and stem == "rifle_action_standard")
             or (PLANT == "receiver_contact" and stem == "rifle_hunting")
+            or (PLANT == "rifle_sight_high" and stem == "rifle_hunting")
         )
         if not targeted and any(abs(size[i] - declared[i]) > tolerance for i in range(3)):
             raise ValueError(f"{stem}: bounds {tuple(round(s, 4) for s in size)} are not within {limit} of sizeM {declared}")

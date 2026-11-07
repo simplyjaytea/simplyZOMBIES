@@ -47,10 +47,6 @@ const PLACEHOLDER_ROTATION_DEG: Vector3 = Vector3(-6.0, 14.0, 0.0)
 const SWAY_POSITION_M: float = 0.003
 const SWAY_ROTATION_RAD: float = 0.004
 
-# Slots whose parts are inside the receiver and never seen in hand. A default pistol's internals
-# are 324 of its 1,430 triangles; the held view does not pay for them.
-const HIDDEN_SLOTS: Array[String] = ["internal", "spring", "sear", "extractor"]
-
 var _pivot: Node3D = null
 # Between the grip node and what is drawn: the arms hide it while a copy of the old model is lowered.
 var _in_hand: Node3D = null
@@ -314,7 +310,7 @@ func _rebuild(world: Variant, item: int, base_id: String, is_ranged: bool) -> vo
 	slots.sort()
 	for slot_v in slots:
 		var slot: String = String(slot_v)
-		if slot == "barrel" or HIDDEN_SLOTS.has(slot):
+		if slot == "barrel" or Models.HIDDEN_SLOTS.has(slot):
 			continue
 		var part_item: int = int(installed[slot])
 		var muzzle_host: Node3D = null
@@ -381,7 +377,7 @@ func _expected(world: Variant, player: int) -> Dictionary:
 		var fitted: Dictionary = SimAttachments.attached(world, item)
 		for slot_v in fitted.keys():
 			var slot: String = String(slot_v)
-			if HIDDEN_SLOTS.has(slot):
+			if Models.HIDDEN_SLOTS.has(slot):
 				continue
 			var part_id: String = _base_id(world, int(fitted[slot_v]))
 			if part_id != "":

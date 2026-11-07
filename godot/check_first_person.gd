@@ -1315,7 +1315,6 @@ func _body_total(body: Dictionary) -> float:
 # equipped through `SimInventory.equip`; the sim's equip handler builds `rangedWeapon` with its
 # `source`. The muzzle swap goes through the sim's own `item.attach` command. The negative detaches
 # the part in the sim and asks the view's own `verify` before it repaints.
-const HELD_HIDDEN_SLOTS: Array[String] = ["internal", "spring", "sear", "extractor"]
 
 func _held(scene: Node) -> bool:
 	var ok: bool = true
@@ -1391,7 +1390,7 @@ func _held(scene: Node) -> bool:
 	# Nothing hidden and nothing uninstalled is ever drawn.
 	for slot_v in held.call("drawn_slots") as Array:
 		var slot: String = String(slot_v)
-		if HELD_HIDDEN_SLOTS.has(slot):
+		if Models.HIDDEN_SLOTS.has(slot):
 			ok = _fail("HELD", "a hidden slot %s was drawn" % slot)
 		if not (held.call("socket_name", slot) as String).begins_with("socket_"):
 			ok = _fail("HELD", "slot %s is not on a socket node" % slot)
@@ -1422,8 +1421,8 @@ func _held(scene: Node) -> bool:
 	var rifle_stock: Node3D = held.call("part_node", "furniture") as Node3D
 	if rifle_barrel == null or absf(Models.bounds(rifle_barrel).size.z - 0.570) > 0.001:
 		ok = _fail("HELD", "the rifle barrel is not the 570 mm rifle model")
-	if rifle_stock == null or absf(Models.bounds(rifle_stock).size.z - 0.862) > 0.001:
-		ok = _fail("HELD", "the rifle stock is not the full-length 862 mm rifle model")
+	if rifle_stock == null or absf(Models.bounds(rifle_stock).size.z - 0.8575) > 0.001:
+		ok = _fail("HELD", "the rifle stock is not the full-length 857.5 mm rifle model")
 	if not bool(held.call("verify", world)):
 		ok = _fail("HELD", "the rifle view does not match the sim's installed parts")
 	SimInventory.unequip(world, player, "primary")
@@ -1463,7 +1462,7 @@ func _held_visible_parts(world: Variant, host: int) -> Dictionary:
 	var fitted: Dictionary = SimAttachments.attached(world, host)
 	for slot_v in fitted.keys():
 		var slot: String = String(slot_v)
-		if HELD_HIDDEN_SLOTS.has(slot):
+		if Models.HIDDEN_SLOTS.has(slot):
 			continue
 		var base: Variant = SimItems.item_base_of(world, int(fitted[slot_v]))
 		if base is Dictionary:
