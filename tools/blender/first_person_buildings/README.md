@@ -86,10 +86,14 @@ filtering, and real stamped placement. Every declared `finishVolumes` box has po
 `kind`. The default `doorstep` stays at or below 0.20 m, avoids every indoor or open footprint tile,
 and shares a nonzero-length contact with the exterior side of a door tile. A `canopy` has no vertex
 below 2.10 m, extends at most 1.20 m from the wall, and shares a nonzero-length contact with an
-exterior wall, window or door face. A `wall_attach` stands at most 0.10 m proud of a permanent wall
-tile, never a template window or `window_candidate`. Planted indoor, tall and detached steps are
-refused, as are low, deep and detached canopies, proud wall attachments and attachments on openable
-tiles. Its WORLDGEN lane builds all four districts through
+exterior wall, window or door face. A `wall_attach` stands at most 0.10 m proud; below the wall
+band its tile is a permanent wall, never a template window or `window_candidate`. Upper-façade boxes
+above 2.55 m declare their actual façade tile. A `window_attach` belongs to a window piece, declares
+that window or candidate tile, stands at most 0.10 m proud, and stays wholly in the 0–1.00 m sill or
+2.10–2.55 m lintel band. Both attachment kinds must fit the declared tile's face within 50 mm at each
+end and 10 mm at the back. Planted indoor, tall and detached steps are refused, as are low, deep and
+detached canopies, proud or openable-host attachments, off-tile boxes and window boxes in the opening.
+Its WORLDGEN lane builds all four districts through
 `SimBoot.bare` and casts the same window rays through every sim window of every finished building,
 holds every sim wall to a drawn wall, and counts band boxes left under drawn tiles. A wall planted over
 a window worldgen opened, and a baseline that keeps its band boxes, are both refused.
@@ -138,27 +142,32 @@ to keep its lifted roof legible from the street.
   plane and overlapping the façade by 10 mm without stepped strips or sky gaps. Dark-wood triangles
   close the eave corners outside the wall lines. The lifted house's upper corners have narrow trim
   boards closing the façade-to-gable seam.
-- Both batch-A houses have 0.75 m eaves and rakes, a 0.30 m stacked ridge, two 0.38 m stepped
-  onigawara, and continuous round rake and eave rolls. Kawara barge strips, backed gable closures and
-  overlapping soffits close the rake and ridge joints. Two 0.11 m gutters and two 0.06 m downpipes
-  finish each house. Neither extends more than 0.90 m outside its footprint.
-- Both houses use 40 mm aluminium sash frames, two tracks 25 mm apart, 40 mm meeting-stile overlap
-  and no centre muntin. Where a permanent side wall exists, an 0.85 m-wide tobukuro stands 90 mm proud;
-  otherwise a lintel shutter box stays over the opening. The main genkan is 1.50 x 0.90 x 0.16 m,
-  granite over a darker riser, with a nameplate, lamp and dark aluminium casing. The door leaf stays
-  in the sim renderer.
-- `house_small` keeps its 9 x 7 m footprint, doors and windows. Dark koshiita boards stand below
-  0.90 m under cream-grey mortar; its sashes are silver. Ten gable-end window hoods are 0.40 m deep,
-  with their outer edges at 2.18 m.
-- `house_gable` keeps its 11 x 8 m footprint, both doors and every window. It uses cedar siding and
-  bronze sashes. A decorative upper façade carries regular sash stations; opaque dark curtains back
-  every upper pane. Four pent-roof runs are 0.70 m deep from 2.95 m at the wall to 2.65 m outside,
-  stopping at the balcony. The balcony slab is 4.0 x 0.89 m at 2.75 m, with a 1.10 m rail and 0.111 m
-  baluster spacing. The kitchen hood is 0.45 m deep at 2.20 to 2.35 m. Its roof is lifted 1.90 m and
-  has a 2.00 m rise above the eave. The interior remains the sim's ground floor, with no new collision,
-  sight or walkable level.
-- Each house has a 0.40 m concrete plinth, a moss line on its north face and 0.30 x 0.12 m vent
-  grilles at no more than four-metre stations.
+- Both batch-A houses have 0.75 m eaves and rakes, a 0.300 m stacked ridge, and continuous round
+  rake and eave rolls. Each ridge end has a seated arched plaque measuring 0.440 m high, 0.400 m
+  across the base and 0.080 m thick, with 0.00 mm seat gap and a 10.00 mm face offset. Kawara barge
+  strips, backed gable closures and overlapping soffits close the rake and ridge joints. Two gutters
+  and four downpipes finish each house; the worst measured outlet-to-gutter gap is 0.06 mm. Neither
+  house extends more than 0.90 m outside its footprint.
+- Both houses use 40 mm aluminium sash frames, two tracks 25 mm apart and 40 mm meeting-stile
+  overlap. Adjacent template windows share one outer stile. Tobukuro or lintel shutter boxes belong
+  to the window pieces. The main genkan is 1.50 x 0.90 x 0.16 m, granite over a darker riser, with a
+  nameplate, lamp and dark aluminium casing. The door leaf stays in the sim renderer.
+- `house_small` keeps its footprint, doors and windows. Dark koshiita boards stand below cream-grey
+  mortar, including the gable infill; its sashes are silver. Two real gable-end windows have hoods
+  measuring 0.435 m deep, with soffits at 2.120 m and wall tops at 2.300 m. Mortar streaks are confined
+  to the sill and eave-corner strips, not a wall-wide dash lattice.
+- `house_gable` keeps its footprint, both doors and every window. It uses cedar siding and bronze
+  sashes. A decorative upper façade carries regular sash stations; opaque dark curtains back every
+  upper pane. Four pent-roof runs measure 0.735 m deep, with soffits at 2.590 m and wall tops at
+  2.950 m, stopping at the balcony and closing both front corners. The balcony slab top is 2.750 m,
+  0.890 m deep, with the rail 1.101 m over it and 0.111 m baluster spacing. The kitchen hood measures
+  0.485 m deep, with its soffit at 2.150 m and wall top at 2.350 m. The interior remains the sim's
+  ground floor, with no new collision, sight or walkable level.
+- Each house has a 0.400 m plinth in the separate `kiso` atlas cell (`#8f918c` to `#b0b1aa`), a moss
+  line on its north face and vent grilles whose measured neighbour gaps are at most 4.000 m. The old
+  `concrete` cell and every other template's mesh and touched atlas pixels match `db64d031`.
+- No finish face crosses a house door opening below its head; only the door's declared porch volume
+  is exempt up to its height. The other 20 templates retain their legacy foundation band.
 - These two overrides live in the builder and their manifest entries. The template JSON, schema enum
   and `street.json` do not change here; R4 can retag the content after the materials have landed.
 - Each genkan step is placed against the door's actual outside neighbour, on any edge, and its exact

@@ -2466,22 +2466,26 @@ not a to-do list:
     higher-contrast sage. Both join the shared atlas and manifest's look tables, ready for the later
     schema/`street.json` retag. Their regular courses and restrained wear use no cloud noise or
     atlas-cell paint patches.
-  - **Houses.** Both have 0.75 m eaves/rakes, a 0.30 m stacked ridge, two 0.38 m onigawara,
-    overlapping kawara rake rolls and barge strips, two gutters and two downpipes. Aluminium sashes
-    measure 40 mm at the frame and meeting-stile overlap, with 25 mm between tracks. Side tobukuro or
-    lintel shutter boxes belong to the window pieces. Each main genkan is 1.50 x 0.90 x 0.16 m.
-    `house_small` has koshiita below 0.90 m, mortar above, silver sashes and ten 0.40 m gable-end
-    hoods. `house_gable` keeps cedar siding, uses bronze sashes, and has four 0.70 m pent-roof runs,
-    a 4.0 x 0.89 m balcony at 2.75 m with a 1.10 m rail, and a 0.45 m kitchen hood. Both have 0.40 m
-    concrete plinths and vent stations at most 4 m apart. The lifted roof does not create an upper
-    sim floor. Existing interiors, open apertures, all 22 template resolutions and the other 20
-    templates' geometry remain.
-  - **Verified.** `build_finishes.py -- --check` prints `BUILDINGS_CHECK_OK` and two measured
-    `CHARACTER` lines; all 13 plants are refused. `godot:check:fp_geometry` proves real-district
-    walls, windows and ceilings, and refuses invalid doorsteps plus low, deep or detached canopies
-    and proud or openable-host wall attachments. `godot:smoke` and `check:routing` pass. Material
-    swatches, Blender clay/textured turnarounds and matched 1280x720 before/after, real-sky, repeat
-    and magenta captures accompany the piece; repeat-run pixel noise is zero.
+  - **Houses.** Both have 0.75 m eaves/rakes, a 0.300 m stacked ridge, two seated 0.440 m arched
+    onigawara plaques, two gutters and four downpipes with a worst 0.06 mm outlet gap. Aluminium
+    sashes measure 40 mm at the frame and meeting-stile overlap, with 25 mm between tracks; adjacent
+    template windows share one outer stile. Side tobukuro or lintel shutter boxes belong to the window
+    pieces and declare their real tiles. Each main genkan is 1.50 x 0.90 x 0.16 m, and no finish face
+    crosses a house door opening. `house_small` has koshiita below 0.90 m, mortar above and in the
+    gable, silver sashes and two real-window hoods measuring 0.435 m deep. `house_gable` keeps cedar
+    siding and bronze sashes, with four closed-corner pent runs measuring 0.735 m deep, a balcony
+    slab at 2.750 m with a 1.101 m rail and 0.111 m baluster spacing, and a kitchen hood whose soffit
+    is 2.150 m. Both have 0.400 m kiso plinths and vent neighbour gaps at most 4.000 m. The lifted
+    roof does not create an upper sim floor. Existing interiors, open apertures and all 22 template
+    resolutions remain; the other 20 templates' mesh arrays and touched atlas pixels match
+    `db64d031`.
+  - **Verified.** `build_finishes.py -- --check` prints `BUILDINGS_CHECK_OK`, two exported-GLB
+    `CHARACTER` lines and `OTHER_TEMPLATES_PIXELS_IDENTICAL 20/20`; all 23 plants are refused,
+    including door crossings, off-tile attachments, a short pipe, low rail/hood and the old spire.
+    `godot:check:fp_geometry` proves real-district walls, windows and ceilings, and refuses invalid
+    doorsteps, canopy errors, proud or openable-host attachments, off-tile boxes and window boxes in
+    the opening. `godot:smoke` and `check:routing` pass. Matched 1280x720 before/after, real-sky,
+    repeat and magenta captures accompany the piece; repeat-run pixel noise is zero.
 
 - **The purifier refill: a carried material repacks a spent filter, 2026-11-04.** The pump filter
   (`item.filter.pump`) has a `refill` block in `godot/content/items/kitchen.json`: one lump of
