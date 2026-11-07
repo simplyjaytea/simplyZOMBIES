@@ -7895,6 +7895,21 @@ status, docs/30 for a call, docs/33 for an open owner question) and the playbook
 The session record, to-do and bugs sections are rewritten at the end of a session, not appended
 to forever.
 
+## The purifier refill is a material, not a key, 2026-11-04
+
+docs/23's what's-left entry for a spent purifier said it: a refill "wants the buildables economy
+above rather than a key of its own". So the refill is content that names a build material, and the
+economy spends it.
+
+- **A `refill` block, not a new key.** A purifier names `refill: {kind, uses}`. The kind is a
+  `MATERIAL_KINDS` kind, and the unit is spent by the same consumer a build stage uses.
+- **A spent purifier is kept, not spent.** A refillable purifier stays in the pack at zero when its
+  last use goes, so there is something to repack. A purifier with no refill still runs out.
+- **Only the filter takes one.** The pump filter takes charcoal. The stove stays as it is, since no
+  fuel kind exists. The billy can is a pot and the tablets are a consumable.
+- **E offers it above the free placements.** An empty floor offers a trip alarm whether or not one is
+  carried, so a rung below them is never reached on open ground. The repack takes E over a placement
+  while a spent filter and its charcoal are carried.
 ## A reach test chooses whom, not whether, 2026-11-04
 
 The two #282 follow-ups (docs/23's first-person group: a zombie's contact target by distance
@@ -8095,3 +8110,22 @@ A feigner lies among the dead. It is a zombie kind, not a special object: its co
   stream is untouched because the pool still answers without a draw on day 1.
 - **Defaults** (owner cards in the report): the rise radius 2.5 m, the lie-within 1.0 m, the lie search
   12 m, and the weight and wave.
+
+## The alarm and the noisemaker are priced (2026-11-05)
+
+The what's-left entry "The alarm and the noisemaker still cost nothing to place" is closed. Its
+record, with the before-and-after table, is in [docs/23](23-roadmap.md#the-record-by-system) under
+the noise entry.
+
+- **The costs.** The trip alarm takes one wire and the noisemaker one metal (`fortify.gd` RECIPES).
+  Both are spent in `_complete` after the placement checks pass, so a refused placement spends nothing.
+  The rungs need the unit carried, and so do the intake rows `trap.alarm.place` and
+  `bait.noisemaker.place`.
+- **The E ladder keeps its default.** A lone wire on open ground strings a fence, since the fence
+  rung sits above the alarm. E lays the alarm only where a wall cannot go up, which is indoors. The
+  owner's choice among keep, an alarm above the fence, or another substance is docs/33's "The trip
+  alarm: where does E lay it when the pack holds wire?", with keep as the built default.
+- **The gates.** PINNED (`godot:m2:materials`) asserts both costs by name; PRICED asserts an empty
+  pack places neither device and one unit is spent. The plant (both RECIPES rows removed) turns it
+  red with `M2_MATERIALS_FAIL`. `godot:check:grade` stows one wire before the scene is set up, since
+  the E keycap that the grade lane counts is the free alarm rung.

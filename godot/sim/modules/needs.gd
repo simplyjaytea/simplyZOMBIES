@@ -9,6 +9,7 @@ const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
+const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
 const SimAttention = preload("res://sim/modules/attention_emitter.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
@@ -1003,6 +1004,9 @@ static func register_module(world: Variant) -> void:
 			if kind == "item.use" or kind == "item.wash":
 				for actor in w.components.query(["controlled", "needs"]):
 					use_item(w, int(actor), int(c.get("item", -1)), kind == "item.wash" or bool(c.get("wash", false)))
+			elif kind == "purifier.refill":
+				for actor in w.components.query(["controlled", "needs"]):
+					refill(w, int(actor))
 			elif kind == "walk.to" or (kind == "move" and (float(c.get("dx", 0.0)) != 0.0 or float(c.get("dy", 0.0)) != 0.0)):
 				# Getting up is a step. Nothing else woke the controlled survivor -- the colonists'
 				# jobs wake their own, and a hit, a grab or an alarm wakes anybody -- so a player who
@@ -2347,8 +2351,10 @@ static func purify(world: Variant, actor: int) -> Dictionary:
 	var left: int = purifier_uses(world, tool) - 1
 	var base: Dictionary = found["base"] as Dictionary
 	base["baseId"] = String(found["into"])
-	if left > 0:
-		world.components.set_component(tool, "purifier", {"usesLeft": left})
+	# A purifier that takes a refill is kept at zero, not spent: it is the instance `refill` repacks,
+	# and a filter with no body left has nothing to repack. A billy can, which takes none, runs out.
+	if left > 0 or not refill_of(world, tool).is_empty():
+		world.components.set_component(tool, "purifier", {"usesLeft": maxi(0, left)})
 	else:
 		# Removed before the spend, not after: a stack that survives the spend must start its next
 		# unit on a full count, and a component left behind saying zero would make the rest of the
@@ -2357,6 +2363,88 @@ static func purify(world: Variant, actor: int) -> Dictionary:
 		_consume_item(world, actor, tool)
 	world.events.publish({"type": "need.purified", "entity": actor, "item": bottle, "with": with_id, "usesLeft": maxi(0, left)})
 	return {"ok": true, "item": bottle, "with": with_id, "usesLeft": maxi(0, left)}
+
+
+# --- repacking a spent purifier (docs/23, "A purifier is spent but never refilled") -----------
+#
+# A purifier whose content declares a `refill` block is repacked from a carried build material,
+# through the materials economy: one unit of `refill.kind` restores `refill.uses` units, capped at
+# the content's `purifies`. Nothing is keyed beyond the block. The kind is a `SimFortify`
+# material kind, and the unit is spent by `SimFortify.consume_material`, the one consumer a build
+# stage uses. A purifier that takes a refill is kept at zero by `purify` (above), so the instance
+# survives to be repacked.
+
+
+## The content's `refill` block for an item, or {} when it declares none. The one place the key is
+## parsed; check_m2_transform.gd's READERS names this read.
+static func refill_of(world: Variant, item: int) -> Dictionary:
+	var base: Variant = world.components.get_component(item, "itemBase")
+	if not (base is Dictionary):
+		return {}
+	var entry: Variant = SimItems.content_entry(world, "item", String((base as Dictionary).get("baseId", "")))
+	if not (entry is Dictionary):
+		return {}
+	var block: Variant = (entry as Dictionary).get("refill", {})
+	return (block as Dictionary) if block is Dictionary else {}
+
+
+## A refill block names a material the economy knows and restores at least one unit. Shared by the
+## carried pick and by the schema lane, so content that fails it is refused by both.
+static func refill_block_ok(block: Dictionary) -> bool:
+	return SimFortify.MATERIAL_KINDS.has(String(block.get("kind", ""))) and int(block.get("uses", 0)) >= 1
+
+
+## The carried purifier that takes a refill and is not full, the one with the fewest uses left -- the
+## order `_carried_purifier` reaches for. -1 when there is none.
+static func _carried_refillable(world: Variant, actor: int) -> int:
+	var best: int = -1
+	var best_left: int = 0
+	for item in SimInventory.carried_items(world, actor):
+		var block: Dictionary = refill_of(world, int(item))
+		if block.is_empty() or not refill_block_ok(block):
+			continue
+		var left: int = purifier_uses(world, int(item))
+		if left >= _capacity_of(world, int(item)):
+			continue
+		if best < 0 or left < best_left:
+			best = int(item)
+			best_left = left
+	return best
+
+
+## The `purifies` of an item's content entry: how many units a full purifier holds. 0 for none.
+static func _capacity_of(world: Variant, item: int) -> int:
+	var base: Variant = world.components.get_component(item, "itemBase")
+	if not (base is Dictionary):
+		return 0
+	var entry: Variant = SimItems.content_entry(world, "item", String((base as Dictionary).get("baseId", "")))
+	return int((entry as Dictionary).get("purifies", 0)) if entry is Dictionary else 0
+
+
+# Repack one carried purifier from one carried unit of its material. Refused with a reason the
+# screen can say: no purifier in the pack that takes a refill and is not full, or no unit of the
+# material it takes. The unit is spent through the build path, and the count is set to what the
+# unit restores on top of what is left, capped at the purifier's capacity.
+static func refill(world: Variant, actor: int) -> Dictionary:
+	var tool: int = _carried_refillable(world, actor)
+	if tool < 0:
+		return {"ok": false, "reason": "nothing-to-refill"}
+	var block: Dictionary = refill_of(world, tool)
+	var kind: String = String(block["kind"])
+	var unit: int = SimFortify.carried_material(world, actor, kind)
+	if unit < 0:
+		return {"ok": false, "reason": "no-material"}
+	var with_id: String = _base_of_item(world, unit)
+	SimFortify.consume_material(world, actor, kind)
+	var left: int = mini(_capacity_of(world, tool), purifier_uses(world, tool) + int(block["uses"]))
+	world.components.set_component(tool, "purifier", {"usesLeft": left})
+	world.events.publish({"type": "need.refilled", "entity": actor, "item": tool, "with": with_id, "usesLeft": left})
+	return {"ok": true, "item": tool, "with": with_id, "usesLeft": left}
+
+
+static func _base_of_item(world: Variant, item: int) -> String:
+	var base: Variant = world.components.get_component(item, "itemBase")
+	return String((base as Dictionary).get("baseId", "")) if base is Dictionary else ""
 
 
 static func eat(world: Variant, entity: int, item: int) -> bool:
