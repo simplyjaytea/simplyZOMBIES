@@ -65,6 +65,7 @@ func _run() -> void:
 	ok = _a_selected_colonist_is_spoken_of() and ok
 	ok = _a_click_finds_a_colonist() and ok
 	ok = _the_shell_speaks_in_words() and ok
+	ok = _the_title_starts_first_person() and ok
 	var sheet_ok: bool = await _the_hidden_sheet_costs_nothing()
 	ok = sheet_ok and ok
 	var reload_ok: bool = await _an_untouched_tree_is_not_reloaded()
@@ -780,8 +781,9 @@ func _the_shell_speaks_in_words() -> bool:
 	var shell: Control = Shell.new()
 	root.add_child(shell)
 	var screens: Array = [
-		["the title, with a run to continue", Shell.TITLE, {"has_continue": true, "is_web": false}],
-		["the title in a browser, refusing a save", Shell.TITLE, {"has_continue": false, "is_web": true, "notice": Session.STALE_NOTICE}],
+		["the top-down title, with a run to continue", Shell.TITLE, {"has_continue": true, "is_web": false, "legacy": true}],
+		["the top-down title in a browser, refusing a save", Shell.TITLE, {"has_continue": false, "is_web": true, "legacy": true, "notice": Session.STALE_NOTICE}],
+		["the default title, starting first person", Shell.TITLE, {"has_continue": true, "is_web": false}],
 		["the pause menu", Shell.PAUSED, {}],
 		["the run-over screen", Shell.RUN_OVER, {"epitaph": ["Mara Sato is dead.", "You are dead.", "There is nobody left to be."]}],
 	]
@@ -807,13 +809,13 @@ func _the_shell_speaks_in_words() -> bool:
 				return false
 	# The rows follow their context, which is what makes the words above the *right* words: a
 	# title with no save does not offer to continue one, and a browser tab has nothing to quit to.
-	shell.call("show_state", Shell.TITLE, {"has_continue": false, "is_web": true})
+	shell.call("show_state", Shell.TITLE, {"has_continue": false, "is_web": true, "legacy": true})
 	var bare: Array = Array(shell.call("rows"))
 	if bare.has("continue") or bare.has("quit"):
 		shell.queue_free()
 		push_error("SHELL: a web title with no save still offers %s" % str(bare))
 		return false
-	shell.call("show_state", Shell.TITLE, {"has_continue": true, "is_web": false})
+	shell.call("show_state", Shell.TITLE, {"has_continue": true, "is_web": false, "legacy": true})
 	var full: Array = Array(shell.call("rows"))
 	if not full.has("continue") or not full.has("quit"):
 		shell.queue_free()
@@ -831,6 +833,50 @@ func _the_shell_speaks_in_words() -> bool:
 		push_error("SHELL: the scanner passed 'You lasted 3 days.' on the run-over screen, so it is judging nothing")
 		return false
 	print("SHELL OK %d words across the title, the pause menu and the run-over screen, not a digit among them, and the rows follow the save and the platform" % counted)
+	return true
+
+
+# TITLE: the default title starts first person (the owner's call, 2026-11-07: "The game should
+# automatically load into first person view"; the top-down game is on hold). Three things are judged,
+# all by asking, not by changing a scene: the default title's rows (new run and quit, no first-person
+# row, and no word that names the top-down game), the top-down title's four rows behind `--topdown`,
+# and the destination `new run` asks for, which is a pure function on main.gd. The plant is in docs/30.
+const Main = preload("res://presentation/main.gd")
+
+func _the_title_starts_first_person() -> bool:
+	var shell: Control = Shell.new()
+	root.add_child(shell)
+	shell.call("show_state", Shell.TITLE, {"has_continue": true, "is_web": false})
+	var default_rows: Array = Array(shell.call("rows"))
+	var default_words: Array = Array(shell.call("words"))
+	shell.call("show_state", Shell.TITLE, {"has_continue": true, "is_web": false, "legacy": true})
+	var legacy_rows: Array = Array(shell.call("rows"))
+	shell.call("show_state", Shell.TITLE, {"has_continue": false, "is_web": false, "legacy": true})
+	var legacy_bare: Array = Array(shell.call("rows"))
+	shell.queue_free()
+	if default_rows != ["new run", "quit"]:
+		push_error("TITLE: the default title offers %s, not new run and quit" % str(default_rows))
+		return false
+	for word in default_words:
+		var text: String = String(word).to_lower()
+		for banned in ["top-down", "top down", "legacy", "experiment"]:
+			if text.contains(banned):
+				push_error("TITLE: the default title says '%s', which names the top-down game" % String(word))
+				return false
+	if legacy_rows != ["new run", "continue", "first person", "quit"]:
+		push_error("TITLE: the top-down title offers %s, not its four rows" % str(legacy_rows))
+		return false
+	if legacy_bare != ["new run", "first person", "quit"]:
+		push_error("TITLE: the top-down title with no save offers %s" % str(legacy_bare))
+		return false
+	var target: String = Main.new_run_scene(false)
+	if target != Main.FIRST_PERSON_SCENE or not ResourceLoader.exists(target):
+		push_error("TITLE: new run on the default title asks for '%s', not the first-person scene" % target)
+		return false
+	if Main.new_run_scene(true) != "":
+		push_error("TITLE: new run under --topdown asks for '%s', not to play in place" % Main.new_run_scene(true))
+		return false
+	print("TITLE OK the default title offers new run and quit and no top-down row, the top-down title keeps its four rows behind --topdown, and new run on the default title asks for the first-person scene")
 	return true
 
 

@@ -3588,6 +3588,14 @@ not a to-do list:
     change -- those are docs/40 slices 3, 5 and 6. The viewmodel is a placeholder box.
   - **Record.** `docs/planning/first-person-fight-report.md`.
 
+- **The title starts first person, 2026-11-07.** Advances "First-person expedition and default
+  switch" by the owner's call (docs/30, "The title starts first person"): the game loads into first
+  person, and the top-down game is on hold. The default title offers new run and quit, and new run
+  changes scene to `presentation/first_person/first_person.tscn`. The top-down title, with its four
+  rows, opens with `-- --topdown`, which `npm run godot:run:topdown` and `npm run godot:check:play`
+  pass; nothing in the first-person scene leads there. Gates: `npm run godot:check:hud` prints
+  `TITLE OK` (its plant turns it red); `npm run godot:check:play` keeps `PLAY_OK` under the top-down
+  title; `npm run godot:check:first_person` and `npm run godot:smoke` boot first person unchanged.
 - **First person from the title, 2026-11-01.** Advances "First-person expedition and default
   switch" with the playable on-ramp: the owner can reach the experiment from the game's own title
   and come back, without the default itself changing.

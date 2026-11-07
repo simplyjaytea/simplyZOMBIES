@@ -71,7 +71,16 @@ switch (mode) {
     break;
   case "--topdown-run":
     // The top-down game, for testing: its own title, reached directly rather than from the default boot.
-    args = ["--path", resolve(root, "godot"), "--scene", "res://presentation/main.tscn"];
+    // `-- --topdown` is what opens that title with its four rows (docs/30, 2026-11-07); without it the
+    // title starts first person.
+    args = [
+      "--path",
+      resolve(root, "godot"),
+      "--scene",
+      "res://presentation/main.tscn",
+      "--",
+      "--topdown",
+    ];
     break;
   case "--first-person":
     args = [
@@ -517,7 +526,16 @@ switch (mode) {
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_hud.gd"];
     break;
   case "--play":
-    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_play.gd"];
+    // check_play drives the top-down game's title, so it asks for the top-down title with `-- --topdown`.
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_play.gd",
+      "--",
+      "--topdown",
+    ];
     break;
   case "--check-first-person":
     args = [

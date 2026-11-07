@@ -18,9 +18,12 @@ const Chrome = preload("res://ui/chrome.gd")
 const UiCursors = preload("res://ui/cursors.gd")
 const QuickStrip = preload("res://ui/quick_strip.gd")
 
-# The first-person scene: the game's default boot (`project.godot`'s main scene), and the row on this
-# top-down title that returns to it. This file's scene is the top-down testing game (docs/39).
+# The first-person scene: the game's default boot (`project.godot`'s main scene), and where this title's
+# "new run" goes unless the top-down game was asked for (docs/39, docs/30 2026-11-07). This file's scene
+# is the top-down testing game, reached with `-- --topdown`.
 const FIRST_PERSON_SCENE: String = "res://presentation/first_person/first_person.tscn"
+# The user arg (after `--`) that opens the top-down game's own title, with its four rows.
+const TOPDOWN_ARG: String = "--topdown"
 # The tag beside the player's body: big enough to read at a glance mid-fight, small enough that it
 # is not competing with the HUD's own columns.
 const TAG_SIZE: int = 25
@@ -127,6 +130,9 @@ var _pointer_want: int = Input.CURSOR_ARROW
 var _pointer_shape: int = Input.CURSOR_ARROW
 var commands_by_tick: Dictionary = {}
 var accumulator: float = 0.0
+# True when the top-down game was asked for with `-- --topdown`: its title keeps its four rows and its
+# "new run" plays in place. False on the default boot, whose title starts first person (docs/30, 2026-11-07).
+var legacy_mode: bool = false
 # Where bodies are drawn between two ticks (presentation/interp.gd): snapshotted before every
 # step, read by the draw and the camera follow. Never read by the sim.
 var _interp: RenderInterp = RenderInterp.new()
@@ -372,6 +378,8 @@ func _ready() -> void:
 		var a: String = String(arg)
 		if a == "--parity":
 			parity = true
+		elif a == TOPDOWN_ARG:
+			legacy_mode = true
 		elif a.begins_with("--seed="):
 			var raw_seed: String = a.trim_prefix("--seed=")
 			if raw_seed.is_valid_int():
@@ -1156,12 +1164,18 @@ func _in_a_run() -> bool:
 	return session != null and bool(session.call("is_live"))
 
 
+# Where a title's "new run" goes: the first-person scene on the default boot, and "" (play in place)
+# for the top-down game under `--topdown`. Pure, so the gate can ask the decision without a scene change.
+static func new_run_scene(legacy: bool) -> String:
+	return "" if legacy else FIRST_PERSON_SCENE
+
+
 # Raise the shell on whatever state the session is in, with the context it cannot work out for
 # itself. `notice` is the one fixed sentence a refused save leaves behind.
 func _show_shell(notice: String = "") -> void:
 	if _shell == null:
 		return
-	var ctx: Dictionary = {"is_web": OS.has_feature("web"), "notice": notice}
+	var ctx: Dictionary = {"is_web": OS.has_feature("web"), "notice": notice, "legacy": legacy_mode}
 	if session.state == SessionRes.State.TITLE:
 		# Asked here and not remembered: the slot can have been written by the run standing behind
 		# this very menu, a moment ago, by "quit to title".
@@ -1177,6 +1191,13 @@ func _show_shell(notice: String = "") -> void:
 func _on_shell_action(id: String) -> void:
 	match id:
 		"new_run":
+			# The default title starts first person: the top-down game is on hold (docs/30, 2026-11-07),
+			# so its world is never played unless `--topdown` asked for it. A failed swap stays here.
+			var target: String = new_run_scene(legacy_mode)
+			if target != "":
+				if get_tree().change_scene_to_file(target) != OK:
+					_show_shell("the first-person scene could not be opened")
+				return
 			# The world `_ready` booted **is** the fixed default town, so a new run from an
 			# untouched title plays it rather than paying for an identical second boot. From the
 			# pause menu, the run-over screen, or a title you quit back to, it is a real reboot.
