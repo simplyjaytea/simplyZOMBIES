@@ -8168,3 +8168,6 @@ of the game. The top down is cancelled/put on hold for now."
   lane's title screens now name `legacy` where they expect today's rows, and the default case is added.
   The plant: `first person` put back into the default rows turns the gate red with
   `TITLE: the default title offers ["new run", "first person", "quit"], not new run and quit`.
+- **The frame bench carries `-- --topdown`.** `bench/runtime_frame.gd` loads `presentation/main.tscn` and
+  times the top-down street, so its `new_run` must play in place; the runner and the budget contract's
+  expected args (`scripts/check-runtime-budget.mjs`) both pass it. (2026-11-07)
