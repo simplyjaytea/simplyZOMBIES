@@ -356,13 +356,18 @@ static func make_shambler(world: Variant, entity: int, rng: Variant, type_id: St
 #
 # No RNG, deliberately: `spawn_dormant_from_manifest` draws for the body through `make_shambler`
 # and this must not add a draw between two records.
-static func make_dormant(world: Variant, entity: int) -> void:
+static func make_dormant(world: Variant, entity: int, lair: Array = []) -> void:
 	var comp: Variant = world.components.get_component(entity, "shambler")
 	if not (comp is Dictionary):
 		push_error("dormant: entity %d has no shambler component to put to sleep" % entity)
 		return
 	(comp as Dictionary)["state"] = ShamblerState["Dormant"]
 	(comp as Dictionary)["ticksToTurn"] = 0
+	# A `wakesIndoors` kind (a lurker) is handed the indoor floor of its building as flat `x, y`
+	# pairs, and the Dormant arm hears any noise on it. A body given no lair keeps the shambler's
+	# rule exactly: its own tile is the only place it can hear.
+	if not lair.is_empty():
+		(comp as Dictionary)["lair"] = lair.duplicate()
 	var vel: Variant = world.components.get_component(entity, "velocity")
 	if vel is Dictionary:
 		# `dx`/`dy`, never `x`/`y` -- CLAUDE.md's standing trap: a velocity written with the
@@ -418,6 +423,17 @@ static func _rise(sd: Dictionary) -> void:
 	sd["ticksCommitted"] = 0
 	sd["feignLying"] = false
 	sd["feignTarget"] = -1
+
+
+# Whether the field reads at or above `threshold` on any tile of a lair: flat `x, y` pairs, read at
+# each tile's centre. The same threshold the body's own `heard` is judged against.
+static func _heard_in_lair(field: Variant, lair: Array, threshold: float) -> bool:
+	var i: int = 0
+	while i + 1 < lair.size():
+		if field.noise_at(float(int(lair[i])) + 0.5, float(int(lair[i + 1])) + 0.5) >= threshold:
+			return true
+		i += 2
+	return false
 
 
 static func _get_content_entry(world: Variant, type_id: String, id: String) -> Variant:
@@ -1348,7 +1364,13 @@ static func register_module(world: Variant, _map: Variant) -> void:
 					# says so. docs/30, 2026-09-14.
 					vd["dx"] = 0.0
 					vd["dy"] = 0.0
-					if heard or _contact_target(survivors, pd, CONTACT_METRES) != null:
+					# A lurker's lair (see make_dormant) hears a noise on any of its building's
+					# indoor tiles, not just its own. Only read for a body that has one, and only
+					# asleep: the awake arms keep the one reader they have always used.
+					var heard_in_lair: bool = false
+					if not heard and sd.has("lair") and noise_sense > 0.0:
+						heard_in_lair = _heard_in_lair(field, sd["lair"] as Array, own_noise + noise_floor / noise_sense)
+					if heard or heard_in_lair or _contact_target(survivors, pd, CONTACT_METRES) != null:
 						sd["state"] = ShamblerState["Wander"]
 						sd["ticksToTurn"] = 0
 				ShamblerState["Feign"]:
