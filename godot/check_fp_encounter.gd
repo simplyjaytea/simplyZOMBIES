@@ -75,6 +75,10 @@ const STRUGGLE_TICKS: int = 16
 const STAMINA_MAX: int = 100
 const ENCOUNTER_CANDIDATES: int = 200
 const MOVED_METRES: float = 0.05
+const REST_TICKS: int = 60
+const REPRESS_TICKS: int = 200
+const DRIFT_SETTLE_TICKS: int = 20
+const DRIFT_SLACK_METRES: float = 0.1
 const TIME_BUDGET_SECONDS: float = 60.0
 
 var _fails: int = 0
@@ -100,6 +104,8 @@ func _run() -> void:
 	_death_noescape()
 	_death_noescape_no_heir()
 	_death_attentive()
+	_repress_lane()
+	_drift_lane()
 	_break_lane()
 	var seconds: float = float(Time.get_ticks_msec() - _started_ms) / 1000.0
 	if seconds > TIME_BUDGET_SECONDS:
@@ -742,11 +748,20 @@ func _death_attentive() -> void:
 	var deaths: Array = []
 	_listen_breaks(world, player, breaks)
 	_listen_deaths(world, player, deaths)
+	var zed_kills: Array = []
+	_sub_serial += 1
+	world.events.subscribe({"type": "entity.killed", "id": "fp_encounter.zed-kill.%d" % _sub_serial, "handler": func(ev: Dictionary) -> void:
+		if int(ev.get("entity", -1)) == zed:
+			zed_kills.append(ev)
+	})
 	var contact: int = int(world.tick)
 	for _i in DEATH_TICKS:
 		world.step()
-		if not deaths.is_empty() or int(world.player) != player:
+		if not deaths.is_empty() or int(world.player) != player or not zed_kills.is_empty():
 			break
+	if not zed_kills.is_empty():
+		_fail(lane, "attentive player (normal stamina) is not killed by a lone shambler: the player killed it at +%d (killer %d, player %d) after %d holds broke; the lane asks the question, and the answer is no" % [_rel(world), int((zed_kills[0] as Dictionary).get("killer", -1)), player, breaks.size()])
+		return
 	if not deaths.is_empty() or int(world.player) != player:
 		_ok(lane, "attentive player died %d ticks (%.1f s) after first contact" % [int(world.tick) - contact, float(int(world.tick) - contact) / 20.0])
 		return
@@ -754,8 +769,172 @@ func _death_attentive() -> void:
 	if not breaks.is_empty():
 		var b: Dictionary = breaks[breaks.size() - 1] as Dictionary
 		last = "%d hold(s) ended, last at tick +%d (cause %s, by %d)" % [breaks.size(), int(b["tick"]), str(b["cause"]), int(b["by"])]
-	_fail(lane, "attentive player (normal stamina): a lone shambler does not kill them; alive after %d ticks (%.0f s) in contact, %d wound(s), held: %s; %s; shambler %s, %.1f m away; contact at tick +%d" % [DEATH_TICKS, float(DEATH_TICKS) / 20.0, _wound_count(world, player), str(world.components.has_component(player, "grabbed")), last, _state_name(_state(world, zed)), _dist(world, zed, player), contact - _base_tick])
+	var zed_note: String = "shambler %s, %.1f m away" % [_state_name(_state(world, zed)), _dist(world, zed, player)] if world.entities.is_alive(zed) else "the shambler is gone (entity not alive)"
+	_fail(lane, "attentive player (normal stamina): a lone shambler does not kill them; alive after %d ticks (%.0f s) in contact, %d wound(s), held: %s; %s; %s; contact at tick +%d" % [DEATH_TICKS, float(DEATH_TICKS) / 20.0, _wound_count(world, player), str(world.components.has_component(player, "grabbed")), last, zed_note, contact - _base_tick])
 
+
+# REPRESS: a grab is broken by the player's struggle; the shambler must press again. The player does not
+# move: after the break-away the freed body must come to rest (a stale shove velocity walking it off is a
+# FAIL), and the same shambler must re-grab, and a bite must land on the player, within REPRESS_TICKS.
+func _repress_lane() -> void:
+	var lane: String = "REPRESS"
+	var boot: Dictionary = _boot()
+	var world: Variant = boot["world"]
+	var map: Variant = boot["map"]
+	var setup: Dictionary = _encounter(world, map, NEAR_METRES)
+	if setup.is_empty():
+		_fail(lane, "no %d m open line with sight in the %d m district" % [NEAR_METRES, DISTRICT_TILES])
+		return
+	var player: int = int(setup["player"])
+	var zed: int = int(setup["zed"])
+	if not _step_until_held(world, zed, player):
+		_fail(lane, "no grab within %d ticks, so no contact to break" % GRAB_TICKS)
+		return
+	var breaks: Array = []
+	_listen_breaks(world, player, breaks)
+	var regrabs: Array = []
+	_sub_serial += 1
+	world.events.subscribe({"type": "grab.started", "id": "fp_encounter.repress-grab.%d" % _sub_serial, "handler": func(ev: Dictionary) -> void:
+		if int(ev.get("source", -1)) == zed and int(ev.get("victim", -1)) == player:
+			regrabs.append(_rel(world))
+	})
+	var released: int = -1
+	for _t in range(1, DEATH_TICKS + 1):
+		world.step()
+		if not breaks.is_empty():
+			released = _rel(world)
+			break
+	if released < 0:
+		_fail(lane, "the grab did not break within %d ticks; nothing to press again" % DEATH_TICKS)
+		return
+	var rest_at: Vector2 = _entity_pos(world, player)
+	_settle(world, REST_TICKS)
+	var drift: float = _entity_pos(world, player).distance_to(rest_at)
+	var still_moving: bool = _velocity(world, player).length() >= MOVED_METRES
+	if still_moving:
+		_fail(lane, "the freed player is still moving %.2f m/s %d ticks after the break with no command; the break-away velocity was never cleared" % [_velocity(world, player).length(), REST_TICKS])
+		return
+	var pressed: int = -1
+	for t in range(1, REPRESS_TICKS + 1):
+		world.step()
+		if not regrabs.is_empty():
+			pressed = t
+			break
+	if pressed < 0:
+		_fail(lane, "the shambler did not press again within %d ticks of the break (%.1f m away, %s, toGrab %d)" % [REPRESS_TICKS, _dist(world, zed, player), _state_name(_state(world, zed)), int((world.components.get_component(zed, "shambler") as Dictionary)["ticksToGrab"])])
+		return
+	var wounds_before: int = _wound_count(world, player)
+	var bite_at: int = -1
+	for t in range(1, BITE_TICKS + 1):
+		world.step()
+		if _wound_count(world, player) > wounds_before:
+			bite_at = t
+			break
+	if bite_at < 0:
+		_fail(lane, "the shambler pressed again at +%d but no bite landed within %d ticks" % [pressed, BITE_TICKS])
+		return
+	_ok(lane, "break at tick +%d; the player came to rest %.2f m from the break point; the shambler pressed again %d ticks after the break; the next bite landed %d ticks after the re-grab" % [released, drift, pressed, bite_at])
+
+
+# DRIFT: a grab broken by the player's struggle leaves a break-away shove on the controlled player. When the
+# shove's record expires the body must come to rest (no move command), and the total travel must not exceed
+# the shove's own distance. A held move command must survive the expiry: a steered body is not zeroed.
+func _drift_lane() -> void:
+	var lane: String = "DRIFT"
+	var shove_metres: float = SimShambler.BREAK_AWAY_SPEED * float(SimShambler.BREAK_AWAY_TICKS) / 20.0
+	var boot: Dictionary = _boot()
+	var world: Variant = boot["world"]
+	var map: Variant = boot["map"]
+	var setup: Dictionary = _encounter(world, map, NEAR_METRES)
+	if setup.is_empty():
+		_fail(lane, "no %d m open line with sight in the %d m district" % [NEAR_METRES, DISTRICT_TILES])
+		return
+	var player: int = int(setup["player"])
+	var zed: int = int(setup["zed"])
+	if not _step_until_held(world, zed, player):
+		_fail(lane, "no grab within %d ticks, so no break to drift from" % GRAB_TICKS)
+		return
+	var breaks: Array = []
+	_listen_breaks(world, player, breaks)
+	var start: Vector2 = Vector2.ZERO
+	var broke: bool = false
+	for _t in range(1, DEATH_TICKS + 1):
+		start = _entity_pos(world, player)
+		world.step()
+		if not breaks.is_empty():
+			broke = true
+			break
+	if not broke:
+		_fail(lane, "the grab did not break within %d ticks" % DEATH_TICKS)
+		return
+	if str((breaks[0] as Dictionary)["cause"]) != "struggle":
+		_info(lane, "the break was cause %s, not struggle; the shove still applies" % str((breaks[0] as Dictionary)["cause"]))
+	var break_at: Vector2 = start
+	var expire: int = -1
+	for k in range(1, 3 * SimShambler.BREAK_AWAY_TICKS + 1):
+		world.step()
+		if not world.components.has_component(player, "breakAway"):
+			expire = k
+			break
+	if expire < 0:
+		_fail(lane, "the break-away record never expired within %d ticks" % (3 * SimShambler.BREAK_AWAY_TICKS))
+		return
+	var rest_from: Vector2 = _entity_pos(world, player)
+	_settle(world, DRIFT_SETTLE_TICKS)
+	var drift: float = _entity_pos(world, player).distance_to(rest_from)
+	var speed: float = _velocity(world, player).length()
+	var travelled: float = _entity_pos(world, player).distance_to(break_at)
+	var zero_at: int = 0
+	if speed >= MOVED_METRES:
+		_fail(lane, "the break-away velocity %.2f m/s is still on the controlled player %d ticks after its record expired; the body drifted %.2f m in %d ticks" % [speed, expire, drift, DRIFT_SETTLE_TICKS])
+		return
+	if travelled > shove_metres + DRIFT_SLACK_METRES:
+		_fail(lane, "the body travelled %.2f m from the break, past the shove's %.2f m" % [travelled, shove_metres])
+		return
+	_ok(lane, "record expired %d ticks after the break; the body came to rest (drift %.4f m over %d ticks after expiry); travelled %.2f m from the break against a shove of %.2f m" % [expire, drift, DRIFT_SETTLE_TICKS, travelled, shove_metres])
+	_drift_guard()
+
+
+# A held move command survives the expiry of the shove that preceded it: the body is steered every tick, the
+# record expires, and the steered velocity must still be on the body.
+func _drift_guard() -> void:
+	var lane: String = "DRIFT"
+	var boot: Dictionary = _boot()
+	var world: Variant = boot["world"]
+	var map: Variant = boot["map"]
+	var setup: Dictionary = _encounter(world, map, NEAR_METRES)
+	if setup.is_empty():
+		_fail(lane, "guard: no %d m open line with sight" % NEAR_METRES)
+		return
+	var player: int = int(setup["player"])
+	var zed: int = int(setup["zed"])
+	if not _step_until_held(world, zed, player):
+		_fail(lane, "guard: no grab within %d ticks" % GRAB_TICKS)
+		return
+	var breaks: Array = []
+	_listen_breaks(world, player, breaks)
+	for _t in range(1, DEATH_TICKS + 1):
+		world.step()
+		if not breaks.is_empty():
+			break
+	if breaks.is_empty():
+		_fail(lane, "guard: the grab did not break")
+		return
+	var steer: Vector2 = Vector2(WALK_SPEED, 0.0)
+	var expire: int = -1
+	for k in range(1, 3 * SimShambler.BREAK_AWAY_TICKS + 1):
+		_walk(world, player, Vector2(1.0, 0.0))
+		world.step()
+		if expire < 0 and not world.components.has_component(player, "breakAway"):
+			expire = k
+	if expire < 0:
+		_fail(lane, "guard: the break-away record never expired")
+		return
+	var v: Vector2 = _velocity(world, player)
+	if absf(v.x - steer.x) > 0.01:
+		_fail(lane, "guard: a held move command (%.2f m/s) was overridden at the shove's expiry; the velocity is now %.2f" % [steer.x, v.x])
+		return
+	_ok(lane, "guard: a held move command (%.2f m/s) survives the shove's expiry at +%d ticks; the body is still steered" % [steer.x, expire])
 
 # --- BREAK -----------------------------------------------------------------------------------------
 

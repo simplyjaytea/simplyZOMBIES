@@ -8226,3 +8226,14 @@ The what's-left entry "The juggernaut" is closed. Its record, with the numbers, 
 - **Ten-seed re-baseline owed.** The juggernaut joins the crawler, the lurker, the bloater's gas and
   the feigner in the stage 2 run: ten seeds and a median wipe day, on `main` and on the candidate,
   on a quiet machine. No number from this piece is a balance claim until then.
+
+## A released holder presses again, 2026-11-07
+
+A grab broken by the player's struggle leaves the holder in reach; the holder re-grabs. The encounter gate's
+REPRESS lane measured the one case that did not: the player walked off at BREAK_AWAY_SPEED (2.1 m/s) after the
+shove, because the shove's velocity stayed on the controlled body when the shove ended. Decision: a controlled body
+the shove leaves comes to rest when its record expires (or the victim is grabbed again), unless a move command steered over
+it; t1v's DRIFT.md measured the same stale velocity from a pistol fight. NPCs keep the velocity their errand
+sets (the escape lane depends on it). The stagger-to-Pursue variant was tried and dropped: REPRESS passes without it.
+Balance on four seeds is unchanged by this decision. The attentive player now kills a lone shambler (about 1200 ticks),
+so the DEATH lane's question is answered, and that lane stays red on the answer.

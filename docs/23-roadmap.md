@@ -3269,6 +3269,23 @@ not a to-do list:
   per roll against grip 0.50, and `grab.broken` lands 27 ticks after the grab. Ticks in the gate
   are counted from the boot; the boot's `world.tick` starts at 9000 (`Clock.DAY_BEGINS`), so an
   absolute tick is 9000 + the number printed.
+- **A released holder presses again, 2026-11-07.** The encounter gate's REPRESS lane found that a player
+  whose grab broke by struggle walked off at 2.1 m/s and was never caught. The break-away shove
+  (`shambler.gd`, `_break_away`) set a controlled body's velocity for 26 ticks, and nothing cleared it when the
+  shove ended, so a player with no move command kept walking. The fix: a controlled body the shove leaves comes to
+  rest when its record expires (or the victim is grabbed again), unless a move command steered over it
+  (the velocity must still equal the shove's own). NPCs are untouched (the escape lane in
+  `check_m2_contact.gd` depends on a walking NPC's errand). REPRESS now passes: the player comes to rest 2.52 m
+  from the break, the shambler presses again 4 ticks after the break, and the next bite lands 30 ticks after the
+  re-grab. The DRIFT lane pins the fix: after a struggle break with no command, the record expires 25 ticks
+  after the break, the body's velocity is zero and it drifts 0.0000 m in the 20 ticks after; it travelled 2.62 m
+  against a shove of 2.73 m. Its plant (the clear removed) is red: "still on the controlled player ... 2.10 m/s".
+  A guard checks that a held move command (1.40 m/s) survives the expiry. Its plant (the clear removed) is red:
+  "still moving 2.10 m/s". The first variant, a stagger that ends
+  in Pursue rather than Wander, was dropped: with the clear in place and the Wander drop restored, REPRESS still
+  passes, so it was not the cause. `godot:m2:balance`, four seeds, before and after: identical (grabs 423, end
+  survivors 2/3, 1/3, 3/3, 1/3, deaths 10). The unnarrowed variant (every body) changed NPC balance and failed
+  the escape lane, so it was not kept.
 - **The first-person key reference, 2026-11-01.** F1 opens the top-down legend, shown with the
   first-person scene's own rows; Escape or F1 again puts it down, and walking keys do nothing while it
   is up. The rows come from one table, `KEY_REFERENCE` in `godot/presentation/first_person/first_person.gd`,
