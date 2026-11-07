@@ -407,6 +407,8 @@ PLANTS = {
     "cuff-gap": ("cuff",),
     "squash-uv": ("density",),
     "subtexel-island": ("background",),
+    "pistol-roll": ("pistol-turn",),
+    "sleeve-tone": ("paint-match",),
     "repaint": ("paint-match",),
     "paint-cells": ("paint-match",),
     "short-padding": ("paint-match",),
