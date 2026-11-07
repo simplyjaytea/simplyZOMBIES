@@ -79,6 +79,8 @@ const LOOK_SENSITIVITY: float = 0.0024
 # The sim's own limit on the aim's pitch, so the camera can never look where the sim cannot aim.
 const PITCH_LIMIT: float = SimAim.PITCH_LIMIT
 const LEDGER_REACH_M: float = 1.80
+# A loose item's aim point above the floor, for the conversation's orders.
+const LOOSE_AIM_HEIGHT_M: float = 0.25
 # cos(30 degrees): the ledger must be inside a narrow cone in front of the eye, not merely near.
 const LEDGER_AIM_DOT: float = 0.866
 # Where the eye aims on a container box: its middle, not its top or its foot.
@@ -139,6 +141,9 @@ var _inventory_panel: Control = null
 var _talk_layer: CanvasLayer = null
 var _talk: Control = null
 var _talk_entity: int = -1
+# The aim the conversation opened on, and the order rows the sim offers for it.
+var _talk_hit: Dictionary = {}
+var _talk_orders: Array[Dictionary] = []
 # The gunsmith bench's screen: the sim's own assembly screen, shown while `benchFocus` exists. The
 # flag mirrors the panel's visibility for input capture; `_bench_was_open` catches the edge where the
 # sim opens or closes it.
@@ -661,9 +666,14 @@ func _input(event: InputEvent) -> void:
 		return
 	if talk_open:
 		# The conversation takes every key while it is up: walking, the aim, the fight buttons, the
-		# stance ladder and the save keys never reach the world. Goodbye is the one action.
+		# stance ladder and the save keys never reach the world. Up and Down move the choice through the
+		# order rows and Goodbye; Enter chooses it; Escape is Goodbye.
 		if ke.pressed and code == KEY_ESCAPE:
 			close_talk()
+		elif ke.pressed and (code == KEY_UP or code == KEY_DOWN) and _talk != null:
+			_talk.call("move", 1 if code == KEY_DOWN else -1)
+		elif ke.pressed and (code == KEY_ENTER or code == KEY_KP_ENTER) and _talk != null:
+			_talk.call("choose")
 		get_viewport().set_input_as_handled()
 		return
 	if menu_open:
@@ -1313,15 +1323,22 @@ func talkable(entity: int) -> bool:
 func talk_target() -> int:
 	if world == null:
 		return -1
+	var people: Array[int] = []
+	for entity in world.components.query(["position", "body"]):
+		if talkable(int(entity)):
+			people.append(int(entity))
+	return _in_aim(people, Callable(self, "_talk_point"))
+
+
+# The candidate in the aim cone nearest the eye, or -1. `point_of` gives each candidate's aim point. This is the
+# one aim cone the scene reads (the conversation, the ledger's person and the orders' pick share it).
+func _in_aim(candidates: Array[int], point_of: Callable) -> int:
 	var eye: Vector3 = Vector3(_rendered_player().x, _eye_m, _rendered_player().y)
 	var look: Vector3 = look_direction()
 	var best: int = -1
 	var best_distance: float = 1.0e9
-	for entity in world.components.query(["position", "body"]):
-		var e: int = int(entity)
-		if not talkable(e):
-			continue
-		var to: Vector3 = _talk_point(e) - eye
+	for e in candidates:
+		var to: Vector3 = (point_of.call(e) as Vector3) - eye
 		var distance: float = to.length()
 		if distance <= 0.000001:
 			continue
@@ -1400,6 +1417,73 @@ func _entity_position(entity: int) -> Vector2:
 	return Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
 
 
+## What the player aims at for a colonist's orders, read once when the conversation opens: {kind, entity, tile}.
+## A zombie or raider in the aim cone first, then a loose item in it, else the ground: the tile the look reaches at
+## LEDGER_REACH_M, or (-1, -1) when a door, window or wall stands on the look. It reads the same look and cone the
+## E ladder reads, and writes nothing.
+func talk_aim_hit() -> Dictionary:
+	if world == null:
+		return {}
+	var tile: Vector2i = _aim_ground_tile()
+	var hostile: Array[int] = []
+	for entity in world.components.query(["position", "body"]):
+		var e: int = int(entity)
+		if not world.entities.is_alive(e) or world.components.has_component(e, "corpse"):
+			continue
+		if world.components.has_component(e, "zombieType") or world.components.has_component(e, "raider"):
+			hostile.append(e)
+	var body: int = _in_aim(hostile, Callable(self, "_talk_point"))
+	if body >= 0:
+		var kind: String = "zombie" if world.components.has_component(body, "zombieType") else "raider"
+		return {"kind": kind, "entity": body, "tile": tile}
+	var loose: Array[int] = []
+	for item in world.components.query(["itemBase", "position"]):
+		if not world.components.has_component(int(item), "stored"):
+			loose.append(int(item))
+	var found: int = _in_aim(loose, Callable(self, "_loose_aim_point"))
+	if found >= 0:
+		return {"kind": "item", "entity": found, "tile": tile}
+	return {"kind": "ground", "entity": -1, "tile": tile}
+
+
+# The ground the look reaches at LEDGER_REACH_M, or (-1, -1) when a door, window or wall stands on the look.
+func _aim_ground_tile() -> Vector2i:
+	if not eye_tile_hit().is_empty():
+		return Vector2i(-1, -1)
+	var look: Vector3 = look_direction()
+	var dir: Vector2 = Vector2(look.x, look.z)
+	if dir.length_squared() < 0.000001:
+		return Vector2i(-1, -1)
+	var p: Vector2 = _curr_player + dir.normalized() * LEDGER_REACH_M
+	return Vector2i(floori(p.x), floori(p.y))
+
+
+# A loose item's aim point: a little above the floor, where the eye meets a thing set down.
+func _loose_aim_point(entity: int) -> Vector3:
+	var at: Dictionary = world.components.get_component(entity, "position") as Dictionary
+	return Vector3(float(at["x"]), LOOSE_AIM_HEIGHT_M, float(at["y"]))
+
+
+## The order rows the sim offers the conversation's colonist for the aim the conversation opened on: the same rows
+## the top-down menu builds for the same hit (`SimContext.orders_for`).
+func _talk_order_rows() -> Array[Dictionary]:
+	var none: Array[Dictionary] = []
+	if world == null or _talk_entity < 0 or _talk_hit.is_empty():
+		return none
+	var tile: Vector2i = _talk_hit["tile"] as Vector2i
+	return SimContext.orders_for(world, _talk_entity, String(_talk_hit["kind"]), int(_talk_hit["entity"]), tile)
+
+
+## A row chosen in the conversation: its own sim command goes through the command queue, then the panel closes and
+## the mouse comes back, as Goodbye does. The row decides nothing here.
+func _on_talk_chosen(index: int) -> void:
+	if not talk_open or index < 0 or index >= _talk_orders.size():
+		return
+	var command: Dictionary = (_talk_orders[index]["command"] as Dictionary).duplicate()
+	world.commands.push(command)
+	close_talk()
+
+
 func _talk_name(entity: int) -> String:
 	if entity < 0:
 		return "them"
@@ -1418,6 +1502,8 @@ func _ensure_talk_panel() -> void:
 	_talk_layer.add_child(_talk)
 	if _talk.has_signal("closed"):
 		_talk.connect("closed", close_talk)
+	if _talk.has_signal("chosen"):
+		_talk.connect("chosen", _on_talk_chosen)
 
 
 ## Opens the conversation with `entity`. The panel reads the sim; this only shows it and stops the
@@ -1431,6 +1517,11 @@ func open_talk(entity: int) -> void:
 	talk_open = true
 	_talk_entity = entity
 	_talk.call("show_colonist", world, entity)
+	# The aim the conversation opens on is the aim its orders are offered for. The mouse is released below, so it
+	# does not move while the panel is up.
+	_talk_hit = talk_aim_hit()
+	_talk_orders = _talk_order_rows()
+	_talk.call("set_orders", _talk_orders)
 	_place_talk()
 	_talk.visible = true
 	_clear_held()
@@ -1465,6 +1556,8 @@ func _refresh_talk() -> void:
 		close_talk()
 		return
 	_talk.call("show_colonist", world, _talk_entity)
+	_talk_orders = _talk_order_rows()
+	_talk.call("set_orders", _talk_orders)
 	_place_talk()
 
 
@@ -2251,8 +2344,9 @@ const KEY_REFERENCE: Array = [
 		["P", "hold the world still", [KEY_P]],
 		["F5 / F9", "save and load, in the first-person slot", [KEY_F5, KEY_F9]],
 		["F2", "testing only: step the camera back behind your own body, and back to your eye; first person is the game, and this view is not saved", [KEY_F2]],
-		["Esc", "free the pointer, then back to the title; in the ledger or the sheet, back a step", [KEY_ESCAPE]],
-		["Enter", "on the end panel, back to the title", [KEY_ENTER, KEY_KP_ENTER]],
+		["Esc", "free the pointer, then back to the title; in the ledger or the sheet, back a step; in a conversation, goodbye", [KEY_ESCAPE]],
+		["Up / Down", "in a conversation, move the choice through the orders and goodbye", [KEY_UP, KEY_DOWN]],
+		["Enter", "on the end panel, back to the title; in a conversation, choose the order at the cursor", [KEY_ENTER, KEY_KP_ENTER]],
 		["F1", "these keys", [KEY_F1]],
 	]],
 ]

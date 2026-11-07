@@ -3286,8 +3286,34 @@ not a to-do list:
     of reach, off the aim, through a wall, at a shambler and at a raider no panel opens.
   - **Not in this piece.** No orders, recruitment, delegation or foreman: the one action is Goodbye,
     and docs/39's foreman stays undecided. No speech content was added. The panel does not stop the
-    clock, and a survivor's own conversations with the player are a later slice.
+    clock, and a survivor's own conversations with the player are a later slice. (Amended 2026-11-07:
+    the orders are in; see "Orders through the conversation, 2026-11-07".)
   - **Record.** `docs/planning/first-person-talk-report.md`.
+
+- **Orders through the conversation, 2026-11-07.** Advances "First-person people and settlement operation",
+  its conversations and delegation. The conversation lists the orders the sim offers the colonist for the aim it
+  opened on, and choosing one pushes the sim's own command.
+  - **The rows.** `SimContext.orders_for` is the one builder: the top-down menu's `verbs_at` and the conversation
+    both reach `_order_rows`, so the two cannot differ. `_order_rows` now offers no row to a body that takes no
+    orders (a recruit, a captive, a colonist being carried or leaving). Rows: "have <name> go here", "hold here",
+    "haul <item>", "attack it", and "stand <name> down" while holding. Every row is the sim's `accepts`.
+  - **The aim.** Read once when the conversation opens, and the mouse is released so the aim holds while it is
+    up: a zombie or raider in the aim cone, then a loose item in it, else the ground the look reaches at the 1.8 m
+    reach (no ground when a door, window or wall is on the look). The cone is `_in_aim`, the one cone the scene
+    reads; `talk_target` uses it too.
+  - **Choosing.** A click or Enter on a row pushes the row's `command` through the command queue and closes the
+    panel, as Goodbye does. Up and Down move the choice through the rows and Goodbye. Goodbye stays last, and
+    Escape is still Goodbye. The rows are kit buttons, like the Reports page's; the words have no digits.
+  - **Gate.** `godot:check:first_person` TALK, ORDERS: open ground gives "go" and "hold" and no haul or attack, and
+    the rows are the sim's own (`SimContext.orders_for`); a click on "go" gives the colonist a go order whose
+    destination is the aimed tile and closes the panel; "stand down" lists while holding and `clear` lands; Down and
+    Enter choose the second row; a loose item in the aim lists haul and gives a haul for that item; a shambler in
+    the aim lists attack and gives an attack on it; a colonist that takes no orders lists none. The plant (the panel
+    pushes `hold` when "go" is chosen) turns the lane red: `choosing 'go' did not give the colonist a go order`.
+  - **Not in this piece.** The E ladder is unchanged: E still opens the conversation only with the aim on a colonist.
+    The ORDERS cases open the panel with the aim set on the thing they test. A go to a tile within the sim's REACH
+    ends at once as an arrival, and a go with no route ends as "no-route" in the same tick; both are the sim's
+    answers and the rows are not filtered for them. No foreman, no standing orders, no recruitment.
 
 - **Animation state from the sim, 2026-11-01.** Advances "First-person people and settlement
   operation", the body art: every drawn body now names the animation it should play, read from the

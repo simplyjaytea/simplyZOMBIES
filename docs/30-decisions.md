@@ -8102,3 +8102,16 @@ the noise entry.
   pack places neither device and one unit is spent. The plant (both RECIPES rows removed) turns it
   red with `M2_MATERIALS_FAIL`. `godot:check:grade` stows one wire before the scene is set up, since
   the E keycap that the grade lane counts is the free alarm rung.
+
+## Orders in first person are the sim's order kinds through the conversation, 2026-11-07
+
+The conversation with a colonist offers the orders the sim already takes: go, hold, haul, attack, and stand down,
+built by the same function the top-down menu uses (`SimContext.orders_for`, the one `_order_rows`). Nothing new is
+written by the scene: a chosen row pushes its own `colonist.order` command through the command queue.
+
+- **Why the same rows.** The menu and the conversation read one answer, so an order that one offers is one the other
+  offers, and the sim's `accepts` decides both.
+- **Why nothing is filtered for routes.** A go within REACH ends as an arrival and a go with no route ends as
+  "no-route" in the same tick. The rows follow `accepts` only, as the menu's rows do; the sim ends the order.
+- **No foreman.** docs/39's foreman stays undecided: the colonist takes one order at a time from the player, and
+  nothing stands in for the player.
