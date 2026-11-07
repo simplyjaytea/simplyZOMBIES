@@ -374,8 +374,6 @@ owes is pictures, a stage behind: the art group's "Pictures for the melee arc".
   from a zombie. Gate: `godot:m2:fortify` SHOVE.
 - **The burner.** Carries fire and spreads it to timber. Waits on fire as a sim fact (owner's
   card, docs/33). Gate: named with the fire piece.
-- **The feigner.** Lies among settled corpses, rises on approach. Reader: the corpse memory.
-  Gate: `godot:m2:sight` FEIGN.
 
 *Raiders, doctrine and archetypes (doctrine stage 2, archetypes stage 4):*
 
@@ -1444,6 +1442,10 @@ tables and day lines are report-noise.md in the project's planning/balance folde
 
 - **The ten-seed re-baseline after the zombie kinds.** The crawler (2026-11-04) joins the day-5 pool,
   so every campaign's spawns from day 5 on move, and its piece did not re-run the ten-seed table.
+  The feigner (2026-11-06) joins the day roll from wave 3 at weight 1, so every campaign's day-3-and-
+  later mix moves by about one draw in 138, and it did not re-run the table. The re-baseline is owed in
+  stage 2: ten seeds and a median wipe day, on `main` and on each candidate, as the balance wall above
+  says. Each later zombie kind owes the same run.
   The gassed bloater (2026-11-06) keeps today's cloud numbers, so it moves no spawn, but it changes
   what a cloud is (a decaying level, read per window), and it did not re-run the table either. The
   re-baseline is owed in stage 2: ten seeds and a median wipe day, on `main` and on each
@@ -4244,6 +4246,26 @@ not a to-do list:
   spawns over four seeds legless from the first tick, 36 of 800 shamblers crawling at the base's
   0.05); `godot:check:appearance` ROSTER. The ten-seed table was not re-run; see "The ten-seed
   re-baseline after the zombie kinds" under Proof.
+- **The feigner, 2026-11-06.** Zombie kind eleven: `godot/content/zombies/feigner.json`, wave 3, weight
+  1, shambler stats and workwear picture, and a `feigns` block (`riseRadius` 2.5 m, `lieWithin` 1.0 m,
+  `lieSearch` 12 m). A feigner is born in the new `Feign` state (`shambler.gd`, state 7, from
+  `make_shambler`, and only a kind that declares `feigns` gets the keys). It walks to within `lieWithin`
+  of the nearest corpse within `lieSearch`, or lies where it stands, and reads no sight, scent or hearing
+  while it lies. It rises to Seek when a living body comes within `riseRadius`, or when a blow lands on
+  it (`attack.connected`), and then it is an ordinary shambler. Its picture is its own corpse frame while
+  it lies (`SimShambler.is_lying` read by the first-person anim state and the top-down body flag). The
+  memory reader: a dead body that was never seen alive is now remembered as a `corpse` record (kind
+  `corpse`, `sightings.gd`), where it was dropped before; a body watched going down is still erased, as
+  it was. A feigner is recorded as a corpse while it lies (`_kind_of`) and flips to a zombie on the first
+  sight after it rises. The clause, the freshest-hostile read and the hostile-only onboarding read leave
+  corpses out; the memory marks and the afterimages skip them (`main.gd`). Gates: `godot:m2:sight` FEIGN
+  (three corpses in a colonist's memory at 12.9 m and nothing hostile; a body at 1.5 times the radius
+  leaves it lying; a body inside the radius rises it within 30 ticks and the record flips; a planted
+  radius of twice the real one rises it at 1.5 times, which the STAYS judgement must see; a blow rises
+  it); `godot:m2:roster` FEIGNER (resolves, has a `feigns` block, has a weight, is born feigning, has
+  eyes) and MIX, re-pinned for the day-7 pool over ten kinds (the feigner draws `g`, not yet in the
+  fifty). The ten-seed table was not re-run; see "The ten-seed re-baseline after the zombie kinds"
+  under Proof.
 - **Colony screen follow-ups, 2026-10-26.** Three nits the Colony and HUD bullets named, one piece.
   - **Reopen scrolls to the pick.** `work_panel.gd` clears `_scrolled_for` on
     `NOTIFICATION_VISIBILITY_CHANGED`, so a reopened screen scrolls to the game's pick afresh.
