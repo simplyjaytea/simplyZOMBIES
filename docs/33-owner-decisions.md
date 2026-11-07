@@ -499,6 +499,24 @@ the main way to fight. This changes the modular firearms plan (docs/41 W2). Defa
 are rare and come from these sources, and the weapon work already built stays in the game. The
 default is not built yet.
 
+**The trip alarm: where does E lay it when the pack holds wire?** (opened 2026-11-05). The alarm
+now costs one wire (docs/23's record, "The alarm and the noisemaker are priced"). A wire fence sits
+above the alarm on the E ladder, so a lone wire on open ground strings a fence, and E lays the
+alarm only where a wall cannot go up, which is indoors. A player with wire outdoors therefore gets
+a fence and never an alarm. Three answers:
+
+- **(a) Keep: E lays the alarm only where a wall cannot go up.** The built default. `E-LADDER` in
+  `godot:m2:fortify` asserts it.
+- **(b) An alarm rung above the fence.** E on open ground with wire lays the alarm first, and the
+  fence needs the next press or a different tile.
+- **(c) Price the alarm with another substance.** Wire builds only the fence, and the alarm needs
+  its own material.
+
+Default: **(a)**. The trade-off: under (a) the trip alarm is effectively unbuildable outdoors for a
+player, because no other UI route lays one (the `trap.alarm.*` intake rows are sent only by tests).
+(b) moves the rung order and (c) moves the `RECIPES` row in `fortify.gd`; either moves `E-LADDER`
+with it.
+
 The next five cards come from [docs/44](44-clothing-layers.md), the design note on clothing layers
 on the first-person bodies (2026-11-04). Each default is what gets built if the owner says nothing.
 
