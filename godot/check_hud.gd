@@ -66,6 +66,8 @@ func _run() -> void:
 	ok = _a_click_finds_a_colonist() and ok
 	ok = _the_shell_speaks_in_words() and ok
 	ok = _the_title_starts_first_person() and ok
+	var continue_ok: bool = await _the_continue_loads_the_first_person_slot()
+	ok = continue_ok and ok
 	var sheet_ok: bool = await _the_hidden_sheet_costs_nothing()
 	ok = sheet_ok and ok
 	var reload_ok: bool = await _an_untouched_tree_is_not_reloaded()
@@ -842,6 +844,9 @@ func _the_shell_speaks_in_words() -> bool:
 # row, and no word that names the top-down game), the top-down title's four rows behind `--topdown`,
 # and the destination `new run` asks for, which is a pure function on main.gd. The plant is in docs/30.
 const Main = preload("res://presentation/main.gd")
+const FirstPersonSlot = preload("res://presentation/first_person/save_slot.gd")
+const SimSave = preload("res://sim/save.gd")
+const MAIN_SCENE: String = "res://presentation/main.tscn"
 
 func _the_title_starts_first_person() -> bool:
 	var shell: Control = Shell.new()
@@ -849,13 +854,18 @@ func _the_title_starts_first_person() -> bool:
 	shell.call("show_state", Shell.TITLE, {"has_continue": true, "is_web": false})
 	var default_rows: Array = Array(shell.call("rows"))
 	var default_words: Array = Array(shell.call("words"))
+	shell.call("show_state", Shell.TITLE, {"has_continue": false, "is_web": false})
+	var default_bare: Array = Array(shell.call("rows"))
 	shell.call("show_state", Shell.TITLE, {"has_continue": true, "is_web": false, "legacy": true})
 	var legacy_rows: Array = Array(shell.call("rows"))
 	shell.call("show_state", Shell.TITLE, {"has_continue": false, "is_web": false, "legacy": true})
 	var legacy_bare: Array = Array(shell.call("rows"))
 	shell.queue_free()
-	if default_rows != ["new run", "quit"]:
-		push_error("TITLE: the default title offers %s, not new run and quit" % str(default_rows))
+	if default_rows != ["new run", "continue", "quit"]:
+		push_error("TITLE: the default title with a slot offers %s, not new run, continue and quit" % str(default_rows))
+		return false
+	if default_bare != ["new run", "quit"]:
+		push_error("TITLE: the default title with no slot offers %s, not new run and quit" % str(default_bare))
 		return false
 	for word in default_words:
 		var text: String = String(word).to_lower()
@@ -876,8 +886,108 @@ func _the_title_starts_first_person() -> bool:
 	if Main.new_run_scene(true) != "":
 		push_error("TITLE: new run under --topdown asks for '%s', not to play in place" % Main.new_run_scene(true))
 		return false
-	print("TITLE OK the default title offers new run and quit and no top-down row, the top-down title keeps its four rows behind --topdown, and new run on the default title asks for the first-person scene")
+	print("TITLE OK the default title offers new run, continue with a slot, and quit, and no top-down row; the top-down title keeps its four rows behind --topdown; new run on the default title asks for the first-person scene")
 	return true
+
+
+# TITLE, continue: the default title's continue row loads the first-person slot. Driven through the
+# title's own action, on a throwaway slot key so no player's save is touched. Three lanes: no slot and
+# no row; a slot that will not decode, which says its sentence and stays on the title; a real slot,
+# which boots first person with the slot's colonist position in the sim (one fact the save carries).
+func _the_continue_loads_the_first_person_slot() -> bool:
+	var kept_key: String = FirstPersonSlot.slot_key
+	FirstPersonSlot.slot_key = "simplyzombies.gate.continue"
+	var ok: bool = await _continue_lanes()
+	FirstPersonSlot.remove()
+	FirstPersonSlot.slot_key = kept_key
+	FirstPersonSlot.load_on_boot = false
+	return ok
+
+
+func _continue_lanes() -> bool:
+	# No slot: the default title offers no continue row.
+	FirstPersonSlot.remove()
+	var bare: Node = await _boot_default_title()
+	if bare == null:
+		return false
+	var bare_rows: Array = Array((bare.get("_shell") as Object).call("rows"))
+	bare.queue_free()
+	await process_frame
+	if bare_rows.has("continue"):
+		push_error("TITLE: a default title with no first-person slot offers continue: %s" % str(bare_rows))
+		return false
+
+	# A slot that will not decode: the row is there, the choice says the sentence and stays put.
+	FirstPersonSlot.write("this is not a save")
+	var broken: Node = await _boot_default_title()
+	if broken == null:
+		return false
+	var broken_shell: Object = broken.get("_shell") as Object
+	if not Array(broken_shell.call("rows")).has("continue"):
+		broken.queue_free()
+		push_error("TITLE: a default title with a slot offers no continue row")
+		return false
+	broken.call("_on_shell_action", "continue")
+	await process_frame
+	var said: Array = Array(broken_shell.call("words"))
+	var kept_title: bool = broken.get("session").get("state") == Session.State.TITLE and bool((broken_shell as CanvasItem).visible)
+	broken.queue_free()
+	await process_frame
+	if not kept_title:
+		push_error("TITLE: continue on a slot that will not decode left the title")
+		return false
+	if not said.has(Session.CORRUPT_NOTICE):
+		push_error("TITLE: continue on a slot that will not decode did not say '%s': %s" % [Session.CORRUPT_NOTICE, str(said)])
+		return false
+
+	# A real slot: the position the save carries is the position first person boots with.
+	var source: Dictionary = SimBoot.playable(SimBoot.DISTRICT_SEED, SimTileMap.DISTRICT_TILES)
+	var sworld: Variant = source["world"]
+	var player: int = int(sworld.player)
+	var at: Dictionary = (sworld.components.get_component(player, "position") as Dictionary).duplicate()
+	at["x"] = float(at["x"]) + 3.0
+	sworld.components.set_component(player, "position", at)
+	FirstPersonSlot.write(SimSave.encode_save(SimSave.create_save(sworld)))
+	var main: Node = await _boot_default_title()
+	if main == null:
+		return false
+	main.call("_on_shell_action", "continue")
+	await process_frame
+	await process_frame
+	var fp: Node = current_scene
+	if fp == null or fp.scene_file_path != Main.FIRST_PERSON_SCENE:
+		if fp != null and fp != main:
+			fp.queue_free()
+		main.queue_free()
+		await process_frame
+		push_error("TITLE: continue with a real slot did not change to the first-person scene")
+		return false
+	if FirstPersonSlot.load_on_boot:
+		fp.queue_free()
+		await process_frame
+		push_error("TITLE: the first-person scene left the one-shot load flag set")
+		return false
+	var booted_at: Variant = (fp.get("world").components.get_component(int(fp.get("world").player), "position") as Dictionary)
+	var want_x: float = float(at["x"])
+	fp.queue_free()
+	await process_frame
+	if absf(float(booted_at["x"]) - want_x) > 0.001:
+		push_error("TITLE: first person booted at x %.3f, the slot says %.3f" % [float(booted_at["x"]), want_x])
+		return false
+	print("TITLE OK continue is absent with no slot, a slot that will not decode says '%s' and stays on the title, and a real slot boots first person at the colonist position the save carries" % Session.CORRUPT_NOTICE)
+	return true
+
+
+# A default-mode title, booted the way the game boots, with its world standing behind the menu.
+func _boot_default_title() -> Node:
+	var packed := load(MAIN_SCENE) as PackedScene
+	if packed == null:
+		push_error("cannot load the main scene")
+		return null
+	var main: Node = packed.instantiate()
+	root.add_child(main)
+	await process_frame
+	return main
 
 
 # The sheet behind M is exempt from the prose rule, but it is not exempt from the frame budget

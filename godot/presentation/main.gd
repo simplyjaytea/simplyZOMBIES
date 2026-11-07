@@ -22,6 +22,8 @@ const QuickStrip = preload("res://ui/quick_strip.gd")
 # "new run" goes unless the top-down game was asked for (docs/39, docs/30 2026-11-07). This file's scene
 # is the top-down testing game, reached with `-- --topdown`.
 const FIRST_PERSON_SCENE: String = "res://presentation/first_person/first_person.tscn"
+const FirstPersonSlot = preload("res://presentation/first_person/save_slot.gd")
+const SimSave = preload("res://sim/save.gd")
 # The user arg (after `--`) that opens the top-down game's own title, with its four rows.
 const TOPDOWN_ARG: String = "--topdown"
 # The tag beside the player's body: big enough to read at a glance mid-fight, small enough that it
@@ -1170,6 +1172,34 @@ static func new_run_scene(legacy: bool) -> String:
 	return "" if legacy else FIRST_PERSON_SCENE
 
 
+# What the default title says when the first-person slot will not load, or "" when it will. Pure, so
+# the gate asks it of a fabricated slot. The two read-failure sentences are the top-down title's own.
+static func continue_refusal(raw: String) -> String:
+	if raw.is_empty():
+		return "there is no run to continue"
+	var parsed: Dictionary = SimSave.decode_save(raw)
+	if parsed.has("__error"):
+		return SessionRes.STALE_NOTICE if String(parsed["__error"]) == "StaleSaveError" else SessionRes.CORRUPT_NOTICE
+	var snap: Variant = parsed.get("snapshot", {})
+	if snap is Dictionary and bool((snap as Dictionary).get("runOver", false)):
+		return "that run is over"
+	return ""
+
+
+# The default title's continue. The slot is read here first: a refusal stays on the title and says its
+# sentence. Otherwise the flag tells the first-person scene to load the slot at boot, before its first
+# frame, and the scene change follows. The flag is cleared again if the scene change fails.
+func _continue_first_person() -> void:
+	var refusal: String = continue_refusal(FirstPersonSlot.read())
+	if not refusal.is_empty():
+		_show_shell(refusal)
+		return
+	FirstPersonSlot.load_on_boot = true
+	if get_tree().change_scene_to_file(FIRST_PERSON_SCENE) != OK:
+		FirstPersonSlot.load_on_boot = false
+		_show_shell("the first-person scene could not be opened")
+
+
 # Raise the shell on whatever state the session is in, with the context it cannot work out for
 # itself. `notice` is the one fixed sentence a refused save leaves behind.
 func _show_shell(notice: String = "") -> void:
@@ -1179,7 +1209,8 @@ func _show_shell(notice: String = "") -> void:
 	if session.state == SessionRes.State.TITLE:
 		# Asked here and not remembered: the slot can have been written by the run standing behind
 		# this very menu, a moment ago, by "quit to title".
-		ctx["has_continue"] = SessionRes.has_continue()
+		# The default title's continue is the first-person slot (docs/30, 2026-11-07); the top-down title's is its own.
+		ctx["has_continue"] = SessionRes.has_continue() if legacy_mode else FirstPersonSlot.has_save()
 	elif session.state == SessionRes.State.RUN_OVER:
 		ctx["epitaph"] = SimChronicle.epitaph(world, EPITAPH_LINES)
 	_shell.call("show_state", session.state, ctx)
@@ -1206,6 +1237,11 @@ func _on_shell_action(id: String) -> void:
 				_on_world_replaced()
 			_enter_state(SessionRes.State.PLAYING)
 		"continue", "load":
+			# The default title's continue starts first person with its slot loaded at boot, and never
+			# starts a scene for a slot that will not load (docs/30, 2026-11-07).
+			if id == "continue" and not legacy_mode:
+				_continue_first_person()
+				return
 			if bool(session.call("load")):
 				_snap_camera()
 				_enter_state(SessionRes.State.PLAYING)
