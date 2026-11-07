@@ -500,6 +500,23 @@ the main way to fight. This changes the modular firearms plan (docs/41 W2). Defa
 are rare and come from these sources, and the weapon work already built stays in the game. The
 default is not built yet.
 
+33. **How many destinations in the first rail cut?** Default: **one**, Asahigaoka, the next town down the
+    line past Umezaki ([docs/45](45-wider-world-by-rail.md), section 7). Recommended: one until the
+    transition works in play.
+34. **Does the train run on a timetable or on demand?** Default: **on demand**: the player calls it from
+    the platform once the car is repaired, fuelled and crewed. A timetable waits on the district tier.
+35. **Can raiders use the line?** Default: **no** in the first cut. A raider on the line would reach a
+    destination's resident map without the player, and no rule covers that yet.
+36. **Is Tokyo a destination or a horizon?** Default: **a horizon**. It is on the line's map and at the far
+    end of the premise; no shipped piece makes it resident.
+37. **What happens to the colony while the player is away?** Decided by the owner on 2026-11-06: **a
+    coarse home tier**, not frozen. While the player is elsewhere, home runs at docs/24's six-number
+    tier and resumes on return at that state. It is docs/23's district-tier simulation for Milestone 3B,
+    so the rail piece (docs/45) depends on it.
+38. **Does the car need a second crew member?** Default: **no**. One driver, as a vehicle has one driver
+    seat.
+39. **Which tier of parts is the hardest?** Default: **Tier III**, the fuel system and electrics, found only
+    at the Hikage Works warehouse, the valley's one industrial site.
 **The trip alarm: where does E lay it when the pack holds wire?** (opened 2026-11-05). The alarm
 now costs one wire (docs/23's record, "The alarm and the noisemaker are priced"). A wire fence sits
 above the alarm on the E ladder, so a lone wire on open ground strings a fence, and E lays the
