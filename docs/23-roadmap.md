@@ -368,14 +368,14 @@ owes is pictures, a stage behind: the art group's "Pictures for the melee arc".
 
 *Zombies, seven to fourteen (stage 2 for the first four, stage 4 for the rest):*
 
+- **The gassed bloater.** Its burst leaves a tile cloud that lingers and hurts. Reader: a tile
+  status field with a decay. Gate: `godot:m2:filter` (the mask already reads it) and a CLOUD lane.
 - **The lurker.** Dormant indoors, wakes on indoor noise. Reuses the dormant placement seam from
   the population plan. Gate: `godot:m2:district` DORMANT.
 - **The juggernaut.** A heavy that shoves barricades, not only windows. Reader: fortify damage
   from a zombie. Gate: `godot:m2:fortify` SHOVE.
 - **The burner.** Carries fire and spreads it to timber. Waits on fire as a sim fact (owner's
   card, docs/33). Gate: named with the fire piece.
-- **The feigner.** Lies among settled corpses, rises on approach. Reader: the corpse memory.
-  Gate: `godot:m2:sight` FEIGN.
 
 *Raiders, doctrine and archetypes (doctrine stage 2, archetypes stage 4):*
 
@@ -1444,6 +1444,13 @@ tables and day lines are report-noise.md in the project's planning/balance folde
 
 - **The ten-seed re-baseline after the zombie kinds.** The crawler (2026-11-04) joins the day-5 pool,
   so every campaign's spawns from day 5 on move, and its piece did not re-run the ten-seed table.
+  The lurker (2026-11-05) changes the boot's dormant bodies, a share of the existing slots, and did
+  not re-run it either. The re-baseline is owed in stage 2: ten seeds and a median wipe day, on `main`
+  and on each candidate, as the balance wall above says. Each later zombie kind owes the same run.
+  The feigner (2026-11-06) joins the day roll from wave 3 at weight 1, so every campaign's day-3-and-
+  later mix moves by about one draw in 138, and it did not re-run the table. The re-baseline is owed in
+  stage 2: ten seeds and a median wipe day, on `main` and on each candidate, as the balance wall above
+  says. Each later zombie kind owes the same run.
   The gassed bloater (2026-11-06) keeps today's cloud numbers, so it moves no spawn, but it changes
   what a cloud is (a decaying level, read per window), and it did not re-run the table either. The
   re-baseline is owed in stage 2: ten seeds and a median wipe day, on `main` and on each
@@ -4273,6 +4280,49 @@ not a to-do list:
   spawns over four seeds legless from the first tick, 36 of 800 shamblers crawling at the base's
   0.05); `godot:check:appearance` ROSTER. The ten-seed table was not re-run; see "The ten-seed
   re-baseline after the zombie kinds" under Proof.
+- **The lurker, 2026-11-05.** Zombie kind ten, a dormant kind: `godot/content/zombies/lurker.json`,
+  extends `zombie.base`, with the shambler's body, sensory, locomotion and workwear picture (no
+  picture of its own, as the crawler and bloodhound). It takes `dormantShare` 0.2 of the dormant
+  manifest's existing slots, drawn on its own `dormantKind` stream at boot (`roster.gd`
+  `spawn_dormant_from_manifest`), and `weight_of` reads it as 0, so the day's roll never draws it.
+  Records, their order and each record's `pick_type` draw are unchanged. Readers used: the dormant
+  manifest and its `make_dormant`; the indoor floor of a placed building, `SimWorldgen.indoor_tiles_of`
+  (reached through `load` because roster, worldgen, director and roster form a preload cycle); the
+  field's `noise_at` and the shambler's hearing threshold. The wake rule is one content flag,
+  `wakesIndoors`, read at spawn: a lurker keeps its building's indoor floor as `lair` (flat `x, y`
+  pairs on the `shambler` component), and the Dormant arm wakes it on a noise at or above its hearing
+  threshold on any lair tile, as well as on its own tile. A kind without the flag keeps the
+  shambler's rule exactly. Gates: `godot:m2:dormant` LURKER (a real booted district at seed 20260805
+  holds one with a 32-tile indoor floor; a noise under its threshold outdoors leaves it asleep and
+  still for 120 ticks; a noise on another floor tile, with its own tile judged below threshold the
+  whole window, wakes it on tick 1 and it walks; a planted body whose floor is one outdoor tile must
+  wake on loud outdoor noise, so the QUIET judgement could see a leak; the floor and dormant state
+  survive a save); `godot:m2:roster` LURKER (resolves as content, `dormantShare` and `wakesIndoors`
+  set, weight 0, never drawn in 500 rolls at day 12, a spawned body has eyes). The MIX pin and the
+  day-1 stream are unchanged; the BOOT lane now allows a slot to be a dormant kind as well as a
+  shambler. The oracle (`npm test`) refused the first draft, a `wake_indoors` behaviour tag, because
+  its registry lists the implemented tags; the flag is the content-side answer, and the oracle is
+  untouched. The ten-seed re-baseline is owed; see "The ten-seed re-baseline after the zombie kinds"
+- **The feigner, 2026-11-06.** Zombie kind eleven: `godot/content/zombies/feigner.json`, wave 3, weight
+  1, shambler stats and workwear picture, and a `feigns` block (`riseRadius` 2.5 m, `lieWithin` 1.0 m,
+  `lieSearch` 12 m). A feigner is born in the new `Feign` state (`shambler.gd`, state 7, from
+  `make_shambler`, and only a kind that declares `feigns` gets the keys). It walks to within `lieWithin`
+  of the nearest corpse within `lieSearch`, or lies where it stands, and reads no sight, scent or hearing
+  while it lies. It rises to Seek when a living body comes within `riseRadius`, or when a blow lands on
+  it (`attack.connected`), and then it is an ordinary shambler. Its picture is its own corpse frame while
+  it lies (`SimShambler.is_lying` read by the first-person anim state and the top-down body flag). The
+  memory reader: a dead body that was never seen alive is now remembered as a `corpse` record (kind
+  `corpse`, `sightings.gd`), where it was dropped before; a body watched going down is still erased, as
+  it was. A feigner is recorded as a corpse while it lies (`_kind_of`) and flips to a zombie on the first
+  sight after it rises. The clause, the freshest-hostile read and the hostile-only onboarding read leave
+  corpses out; the memory marks and the afterimages skip them (`main.gd`). Gates: `godot:m2:sight` FEIGN
+  (three corpses in a colonist's memory at 12.9 m and nothing hostile; a body at 1.5 times the radius
+  leaves it lying; a body inside the radius rises it within 30 ticks and the record flips; a planted
+  radius of twice the real one rises it at 1.5 times, which the STAYS judgement must see; a blow rises
+  it); `godot:m2:roster` FEIGNER (resolves, has a `feigns` block, has a weight, is born feigning, has
+  eyes) and MIX, re-pinned for the day-7 pool over ten kinds (the feigner draws `g`, not yet in the
+  fifty). The ten-seed table was not re-run; see "The ten-seed re-baseline after the zombie kinds"
+  under Proof.
 - **Colony screen follow-ups, 2026-10-26.** Three nits the Colony and HUD bullets named, one piece.
   - **Reopen scrolls to the pick.** `work_panel.gd` clears `_scrolled_for` on
     `NOTIFICATION_VISIBILITY_CHANGED`, so a reopened screen scrolls to the game's pick afresh.

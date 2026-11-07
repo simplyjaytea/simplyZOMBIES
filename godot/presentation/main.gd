@@ -48,6 +48,7 @@ const ContentReload = preload("res://platform/content_reload.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
+const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimAim = preload("res://sim/aim.gd")
 const Pick = preload("res://presentation/pick.gd")
 const SimLight = preload("res://sim/vision/light.gd")
@@ -3140,7 +3141,7 @@ func _draw_entities() -> void:
 		var is_zed: bool = world.components.has_component(int(ent), "shambler")
 		var is_bait: bool = world.components.has_component(int(ent), "noisemaker")
 		var is_raider: bool = world.components.has_component(int(ent), "raider")
-		var is_corpse: bool = world.components.has_component(int(ent), "corpse")
+		var is_corpse: bool = world.components.has_component(int(ent), "corpse") or SimShambler.is_lying(world, int(ent))
 		if world.components.has_component(int(ent), "itemBase"):
 			continue
 		if not is_player and not is_unique and not is_zed and not is_bait and not is_raider and not is_corpse:
@@ -3489,6 +3490,8 @@ func _draw_entities() -> void:
 		var m: Dictionary = row as Dictionary
 		var age: int = int(m["age"])
 		if age <= 0 or age > SimSightings.RECENT_TICKS: continue
+		# A remembered corpse is a recollection a colonist keeps, not a mark the player is shown.
+		if String(m.get("kind", "")) == SimSightings.CORPSE_KIND: continue
 		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(m["x"]), float(m["y"]))
 		var a: float = 0.5 * (1.0 - float(age) / float(SimSightings.RECENT_TICKS))
 		draw_circle(Vector2(float(sc["sx"]), float(sc["sy"])), 8.0, Color(mem.r, mem.g, mem.b, a))
@@ -3516,6 +3519,8 @@ func _draw_afterimages() -> void:
 		var age: int = int(m["age"])
 		var alpha: float = afterimage_alpha(age)
 		if alpha <= 0.0:
+			continue
+		if String(m.get("kind", "")) == SimSightings.CORPSE_KIND:
 			continue
 		var mx: float = float(m["x"])
 		var my: float = float(m["y"])
