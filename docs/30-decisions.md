@@ -8217,3 +8217,9 @@ The what's-left entry "The juggernaut" is closed. Its record, with the numbers, 
 - **Ten-seed re-baseline owed.** The juggernaut joins the crawler, the lurker, the bloater's gas and
   the feigner in the stage 2 run: ten seeds and a median wipe day, on `main` and on the candidate,
   on a quiet machine. No number from this piece is a balance claim until then.
+
+## Colonists come to the held player's aid, 2026-11-07
+
+Card open (owner): the default is 24 m to the zombie and 4 m for a Pursuing zombie to the controlled body. An aider is
+given an attack order through the order seam; the walk and the rescue are the existing ones. Raiders and settlers do not
+aid. A colonist 12 m away is too slow to beat the player's instinct struggle (40 ticks), so the aid lands at close range.
