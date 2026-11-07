@@ -222,7 +222,7 @@ func _run() -> void:
 		ok = _lane("SPEECH", _speech(scene), "the HUD is digit-free prose with no progress bar") and ok
 		ok = _lane("VERBS", _verbs(scene), "E on a door uses the sim's own verb and a plain wall offers none") and ok
 		ok = _lane("STANCE", _stance(scene), "the stance keys change the sim's posture and the eye eases to it") and ok
-		ok = _lane("REPORTS", _reports(scene), "the ledger's Reports page reads the chronicle's own lines and moves the read mark") and ok
+		ok = _lane("REPORTS", _reports(scene), "the ledger's Reports page reads the chronicle's own lines and moves the read mark, and PAGES: the record turns in twelves with older and newer, a twelve-line record shows no paging, every shown line is the chronicle's, the read mark rides the save slot, and the epitaph page is offered only once the run is over") and ok
 		# The speed lane reads keys, so it runs before the run-over lane, which leaves input swallowed.
 		# Save before the lanes that kill the colony: the run-over lane leaves input swallowed.
 		ok = _lane("SPEED", _speed(scene), "the top-down speed keys step the clock 1x and 3x and P holds it, with the ledger refusing them") and ok
@@ -2508,7 +2508,188 @@ func _reports(scene: Node) -> bool:
 	var after: String = _joined_hud(scene)
 	if after.contains("new reports"):
 		ok = _fail("REPORTS", "the prompt still asks about new reports after reading")
+	ok = _reports_pages(scene, world) and ok
 	return ok
+
+
+# PAGES: the record turns in twelves, newest first, and "older" and "newer" move a page and stop at the ends. A
+# record of twelve shows no paging. Every line a page holds is one the chronicle holds, and an invented line is
+# refused by the same check. The read mark rides the slot: a load does not mark old entries new, and a slot with no
+# mark loads as 0. The epitaph is offered only once the run is over, and then it holds every epitaph line. The
+# case writes its own records through the chronicle's writer and puts the record back as it was at the end.
+const PAGE_NAMES: Array[String] = ["Ash", "Brook", "Cole", "Dana", "Eli", "Fenn", "Gray", "Hale", "Iris", "Jude",
+	"Kit", "Lark", "Mae", "Nell", "Orla", "Pax", "Quill", "Rhea", "Sol", "Tam", "Ula", "Vale", "Wren", "Xan",
+	"Yara", "Zed", "Bram", "Cass", "Dov", "Esme"]
+const GATE_REPORTS_KEY: String = "first_person_reports_gate.slot"
+
+
+func _reports_pages(scene: Node, world: Variant) -> bool:
+	var ok: bool = true
+	var record: Array = world.chronicle as Array
+	var kept: Array = record.duplicate(true)
+	var kept_read: int = int(scene.get("_reports_read"))
+	var was_over: bool = bool(world.runOver)
+	if bool(scene.get("menu_open")):
+		scene.call("close_ledger_menu")
+
+	# Thirty entries, newest last, through the chronicle's own writer.
+	record.clear()
+	for name in PAGE_NAMES:
+		SimChronicle._write(world, "joined", name, -1)
+	var expected: Array[String] = []
+	for i in range(record.size() - 1, -1, -1):
+		expected.append(SimChronicle._line_of(world, record[i] as Dictionary))
+	scene.call("open_ledger_menu")
+	scene.call("open_reports")
+	var page: Control = scene.call("reports_node") as Control
+	if page == null or not page.visible:
+		_restore_record(world, kept, kept_read, scene)
+		return _fail("REPORTS", "the Reports page is not up for the PAGES case")
+
+	# The page opens on the newest twelve.
+	if int(page.call("page")) != 0 or not _same_texts(page.call("shown"), expected.slice(0, 12)):
+		ok = _fail("REPORTS", "the record does not open on its newest twelve lines")
+	var older: Control = page.call("older_button") as Control
+	if older == null or not older.visible:
+		_restore_record(world, kept, kept_read, scene)
+		return _fail("REPORTS", "a thirty-line record offers no 'older' button")
+
+	# "older", by a real click on the button, shows the next twelve, then the last six.
+	_click_at(older.get_global_rect().get_center())
+	if int(page.call("page")) != 1 or not _same_texts(page.call("shown"), expected.slice(12, 24)):
+		ok = _fail("REPORTS", "'older' did not show the next twelve lines (page %d)" % int(page.call("page")))
+	older = page.call("older_button") as Control
+	_click_at(older.get_global_rect().get_center())
+	if int(page.call("page")) != 2 or not _same_texts(page.call("shown"), expected.slice(24, 30)):
+		ok = _fail("REPORTS", "'older' did not show the last six lines (page %d)" % int(page.call("page")))
+	if older.visible:
+		ok = _fail("REPORTS", "'older' is still offered on the last page")
+
+	# "newer" goes back a page at a time, and stops at the newest.
+	var newer: Control = page.call("newer_button") as Control
+	_click_at(newer.get_global_rect().get_center())
+	if int(page.call("page")) != 1 or not _same_texts(page.call("shown"), expected.slice(12, 24)):
+		ok = _fail("REPORTS", "'newer' did not return to the middle page (page %d)" % int(page.call("page")))
+	newer = page.call("newer_button") as Control
+	_click_at(newer.get_global_rect().get_center())
+	if int(page.call("page")) != 0 or not _same_texts(page.call("shown"), expected.slice(0, 12)):
+		ok = _fail("REPORTS", "'newer' did not return to the newest twelve (page %d)" % int(page.call("page")))
+	if newer.visible:
+		ok = _fail("REPORTS", "'newer' is still offered on the newest page")
+
+	# Every line on every page is one the chronicle holds, and none has a digit.
+	for row in page.call("all_lines") as Array:
+		var text: String = String((row as Dictionary)["text"])
+		if _has_digit(text):
+			ok = _fail("REPORTS", "a paged line shows a digit: %s" % text)
+		if not _page_holds(world, text):
+			ok = _fail("REPORTS", "a paged line is not one the chronicle holds: %s" % text)
+	# The true negative: the same check refuses a line the chronicle never wrote.
+	if _page_holds(world, "Ash has walked out of the valley."):
+		ok = _fail("REPORTS", "the held-line check accepts a line the chronicle never wrote")
+
+	# A record of twelve shows no paging.
+	record.clear()
+	for i in 12:
+		SimChronicle._write(world, "joined", PAGE_NAMES[i], -1)
+	page.call("show_reports", world, 0)
+	if int(page.call("pages")) != 1 or bool(page.call("paging_visible")) or (page.call("shown") as Array).size() != 12:
+		ok = _fail("REPORTS", "a record of twelve lines shows paging rows")
+
+	# The read mark rides the slot: write it, change the record, load, and the old entries are not new; a slot with
+	# no mark loads as 0.
+	record.clear()
+	for name in PAGE_NAMES:
+		SimChronicle._write(world, "joined", name, -1)
+	var saved_key: String = SaveSlot.slot_key
+	SaveSlot.slot_key = GATE_REPORTS_KEY
+	SaveSlot.remove()
+	scene.set("_reports_read", 30)
+	if not bool(scene.call("save_game")):
+		ok = _fail("REPORTS", "the save did not write for the read-mark case")
+	SimChronicle._write(world, "joined", "Oda", -1)
+	SimChronicle._write(world, "joined", "Pim", -1)
+	if not bool(scene.call("load_game")):
+		ok = _fail("REPORTS", "the load did not read the slot back")
+	record = world.chronicle as Array
+	if (world.chronicle as Array).size() != 30:
+		ok = _fail("REPORTS", "the load did not restore the saved record (%d lines, not 30)" % (world.chronicle as Array).size())
+	if int(scene.get("_reports_read")) != 30:
+		ok = _fail("REPORTS", "the read mark did not come back from the slot (%d, not 30)" % int(scene.get("_reports_read")))
+	page.call("show_reports", world, int(scene.get("_reports_read")))
+	if int(page.call("unread_count")) != 0 or _any_new(page.call("shown")):
+		ok = _fail("REPORTS", "old entries are marked new after a load")
+	SaveSlot.remove_reads()
+	if not bool(scene.call("load_game")):
+		ok = _fail("REPORTS", "the load of a slot with no mark did not read the slot")
+	record = world.chronicle as Array
+	if int(scene.get("_reports_read")) != 0:
+		ok = _fail("REPORTS", "a slot with no read mark loaded as %d, not 0" % int(scene.get("_reports_read")))
+	SaveSlot.remove()
+	SaveSlot.slot_key = saved_key
+
+	# The epitaph: not offered while the colony lives; once the run is over, every line of it, paged.
+	record.clear()
+	for name in PAGE_NAMES:
+		SimChronicle._write(world, "joined", name, -1)
+	world.runOver = false
+	page.call("show_reports", world, 30)
+	if bool(page.call("epitaph_available")) or bool(page.call("show_epitaph")) or String(page.call("mode_name")) != "record":
+		ok = _fail("REPORTS", "the epitaph is offered while the colony lives")
+	world.runOver = true
+	page.call("show_reports", world, 30)
+	var mode_button: Control = page.call("mode_button") as Control
+	if not bool(page.call("epitaph_available")) or mode_button == null or not mode_button.visible:
+		ok = _fail("REPORTS", "the run is over and the record offers no epitaph")
+	if not bool(page.call("show_epitaph")) or String(page.call("mode_name")) != "epitaph":
+		ok = _fail("REPORTS", "the epitaph did not open once the run was over")
+	var want: Array[String] = SimChronicle.epitaph(world, 1000000)
+	if not _same_texts(page.call("all_lines"), want):
+		ok = _fail("REPORTS", "the epitaph page holds %d lines, not the %d the epitaph reads" % [(page.call("all_lines") as Array).size(), want.size()])
+	if int(page.call("pages")) != 3 or (page.call("shown") as Array).size() != 12:
+		ok = _fail("REPORTS", "the epitaph does not page like the record (%d pages)" % int(page.call("pages")))
+	world.runOver = was_over
+	page.call("show_reports", world, 30)
+	if bool(page.call("epitaph_available")) or bool(page.call("show_epitaph")):
+		ok = _fail("REPORTS", "the epitaph is offered after the run is back to live")
+
+	_restore_record(world, kept, kept_read, scene)
+	return ok
+
+
+func _restore_record(world: Variant, kept: Array, kept_read: int, scene: Node) -> void:
+	var record: Array = world.chronicle as Array
+	record.clear()
+	record.append_array(kept)
+	scene.set("_reports_read", kept_read)
+	if bool(scene.get("menu_open")):
+		scene.call("close_ledger_menu")
+
+
+# The rows a page holds, as texts, against the texts wanted, in order.
+func _same_texts(rows: Variant, texts: Array) -> bool:
+	var got: Array = rows as Array
+	if got.size() != texts.size():
+		return false
+	for i in got.size():
+		if String((got[i] as Dictionary)["text"]) != String(texts[i]):
+			return false
+	return true
+
+
+func _any_new(rows: Variant) -> bool:
+	for row in rows as Array:
+		if bool((row as Dictionary)["new"]):
+			return true
+	return false
+
+
+# Whether the chronicle holds a line with this text.
+func _page_holds(world: Variant, text: String) -> bool:
+	for rec in world.chronicle as Array:
+		if SimChronicle._line_of(world, rec as Dictionary) == text:
+			return true
+	return false
 
 
 # --- SAVE -----------------------------------------------------------------------------------
