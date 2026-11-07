@@ -3234,6 +3234,23 @@ not a to-do list:
     manifest JSON is outside the filter `assets/first_person/*.glb`, and the export build was not
     run. CI has no Blender, so the check is run by hand, like the starter kit's.
 
+- **Every zombie kind against the first-person player, 2026-11-07.** `godot/check_fp_kinds.gd`, run by
+  `npm run godot:check:fp_kinds` (about 9 s), boots the district and drives one body of each kind against
+  the controlled player, printing OK, FAIL, FINDING or INFO lines with their numbers. Gate only, no sim
+  change, and it is red at its pause on purpose. STALKER fails: a sprint's noise (6.0) reads 0.0000 at
+  the stalker's cell 20 m away, in the open and behind a wall alike, so no sprint turns it at that range.
+  BLOODHOUND fails: a walking player's scent is a level (about 15 at its cell) with no rise over its own
+  cell, and `sensory.trail` needs 20, so Track never starts from a walker. FINDING: the crawler closes at
+  0.55 of the shambler's speed in the same lane; content says crawl 0.45 and `m2:variance` pins
+  crawlFactor 0.25, and the sim does not say which is the crawl speed. OK, measured: the runner closes at
+  2.94 m/s, is caught walking at +173 ticks and not sprinting (gap 26.7 m after 100 ticks); the screamer
+  screams once in its cooldown; the bloater's cloud exposes a body with an open wound at 4 m and none at
+  8 m; the heavy closes at 1.26 m/s with grab 0.5, and one swing takes 4.0% of its body against the
+  shambler's 7.6%, neither dying; the armored body takes 14 of a 20-point torso hit (the shambler 20); the
+  crawler closes at 0.76 m/s, is born legless and bites the legs 0.70 of the time; the lurker wakes to a
+  rifle shot and not to a walker; the feigner rises at 2.34 m; the juggernaut's three shoves take 30 each
+  from timber. Plants: the runner at the shambler's speed turns RUNNER red (1.68 m/s), and the bloater
+  without `blooms_on_death` turns BLOATER red; both files restored byte-identical.
 - **The first-person expedition gate, 2026-11-01.** The scripted start of docs/39's "End-to-end
   conversion and default switch" proof. `godot/check_fp_expedition.gd`, run by
   `npm run godot:check:fp_expedition`, boots the real first-person scene on the small district and
