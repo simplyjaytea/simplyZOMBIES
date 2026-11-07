@@ -1256,6 +1256,73 @@ RIFLE_STOCK_SCALES = [
     (0.023, 0.028), (0.026, 0.030), (0.022, 0.035), (0.022, 0.045),
     (0.020, 0.034), (0.023, 0.052), (0.025, 0.052), (0.026, 0.058),
 ]
+RIFLE_REAR_PATH = [
+    (0, 0.034, -0.0095), (0, 0.0, 0.030), (0, 0.0, 0.0645),
+    (0, -0.010, 0.125), (0, -0.010, 0.165), (0, -0.013, 0.215),
+    (0, -0.0286, 0.300),
+]
+RIFLE_REAR_SCALES = [
+    (0.013, 0.020), (0.015, 0.033), (0.022, 0.037), (0.020, 0.045),
+    (0.023, 0.047), (0.025, 0.052), (0.026, 0.058),
+]
+RIFLE_FOREEND_PATH = [
+    (0, 0.012, -0.540), (0, 0.020, -0.480), (0, 0.0445, -0.300),
+    (0, 0.0445, -0.280), (0, 0.0445, -0.250), (0, 0.0445, -0.220),
+    (0, 0.0445, -0.120), (0, 0.0445, -0.080),
+]
+RIFLE_FOREEND_SCALES = [
+    (0.016, 0.018), (0.020, 0.025), (0.0225, 0.0225), (0.0235, 0.0225),
+    (0.0235, 0.0225), (0.0235, 0.0225), (0.0235, 0.0225), (0.0235, 0.0225),
+]
+RIFLE_FOREEND_SECTION = [
+    (-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (0.85, 1.0),
+    (0.85, -0.64), (-0.85, -0.64), (-0.85, 1.0), (-1.0, 1.0),
+]
+
+
+def add_port_recess(model):
+    def key(point):
+        return tuple(round(value, 7) for value in point)
+
+    edges = {}
+    for poly in model.polys:
+        points = poly["points"]
+        for a, b in zip(points, points[1:] + points[:1]):
+            edge = tuple(sorted((key(a), key(b))))
+            edges[edge] = edges.get(edge, 0) + 1
+    adjacency = {}
+    for a, b in edges:
+        if edges[(a, b)] != 1:
+            continue
+        adjacency.setdefault(a, []).append(b)
+        adjacency.setdefault(b, []).append(a)
+    if not adjacency:
+        raise ValueError("port cut has no boundary")
+    start = min(adjacency)
+    loop = [start]
+    previous, current = None, start
+    while True:
+        choices = [point for point in adjacency[current] if point != previous]
+        following = next((point for point in choices if point != start), start if len(loop) > 2 else None)
+        if following is None:
+            raise ValueError("port boundary does not close")
+        if following == start:
+            break
+        loop.append(following)
+        previous, current = current, following
+        if len(loop) > len(adjacency) + 1:
+            raise ValueError("port boundary is not one loop")
+    inner = [(0.0125, y, z) for _, y, z in loop]
+    for index, outer in enumerate(loop):
+        following = (index + 1) % len(loop)
+        points = [Vector(outer), Vector(loop[following]), Vector(inner[following]), Vector(inner[index])]
+        normal = newell(points).normalized()
+        centre = (points[2] + points[3]) * 0.5
+        target = Vector((0.0125, 0.055, -0.115)) - centre
+        if normal.dot(target) < 0.0:
+            normal = -normal
+        model.poly(points, normal, B, f"port_walls:{index}")
+    model.poly([Vector(point) for point in inner], (1, 0, 0), B, "port_floor")
 
 
 def rifle_hunting():
@@ -1265,13 +1332,21 @@ def rifle_hunting():
     profile = [
         (0.0, 0.065), (radius * 0.45, 0.064), (radius * 0.78, 0.058),
         (radius * 0.95, 0.050), (radius, 0.043), (radius, -0.060),
-        (radius, -0.070), (radius, -0.120), (radius, -0.130),
-        (radius, -0.170), (radius, -0.180), (0.0, -0.180),
+        (radius, -0.070), (radius, -0.085), (radius, -0.120),
+        (radius, -0.130), (radius, -0.145), (radius, -0.170),
+        (radius, -0.180), (0.0, -0.180),
     ]
-    port_skip = (lambda i, k: i == 7 and k in (0, 11)) if PLANT == "rifle_port_open" else None
-    lathe(m, profile, 12, "action", lambda i: E if i in (0, 1, 2, 9, 10) else B, frame, skip=port_skip)
+
+    def port_skip(i, k):
+        z0, z1 = profile[i][1], profile[i + 1][1]
+        return k in (0, 11) and max(z0, z1) <= -0.085 + 0.000001 and min(z0, z1) >= -0.145 - 0.000001
+
+    skip = port_skip if PLANT != "rifle_port_proud" else None
+    lathe(m, profile, 12, "action", lambda i: E if i in (0, 1, 2, 9, 10) else B, frame, skip=skip)
+    if PLANT != "rifle_port_open" and PLANT != "rifle_port_proud":
+        add_port_recess(m)
     lathe(m, [(0.0, 0.050), (0.013, 0.050), (0.013, 0.061), (0.011, 0.061), (0.011, 0.073), (0.0, 0.073)], 12, "bolt_shroud", lambda i: B, frame)
-    cbox(m, (0, 0.023, -0.0975), (0.032, 0.0305, 0.095), B, "lower_action", 0.0030, E)
+    cbox(m, (0, 0.023375, -0.0975), (0.032, 0.03125, 0.095), B, "lower_action", 0.0030, E)
     guard = [(z, y - 0.001) for z, y in RIFLE_GUARD_PROFILE] if PLANT == "rifle_guard_gap" else RIFLE_GUARD_PROFILE
     xbox(m, guard, -0.004, 0.004, B, "trigger_guard", 0.0005, E)
     trigger = [(z + 0.003, y) for z, y in RIFLE_TRIGGER_PROFILE] if PLANT == "rifle_trigger_buried" else RIFLE_TRIGGER_PROFILE
@@ -1281,8 +1356,11 @@ def rifle_hunting():
     rear_centre = 0.08225 if PLANT == "rifle_sight_high" else 0.07575
     rear_height = 0.0195 if PLANT == "rifle_sight_high" else 0.0065
     cbox(m, (0, rear_centre + sight_lift, -0.120), (0.012, rear_height, 0.018), B, "rear_sight", 0.0010, E)
-    cbox(m, (0.0175, 0.055, -0.115), (0.003, 0.018, 0.060), B, "port_floor", 0.0004, E)
-    cbox(m, (0.0192, 0.055, -0.115), (0.0012, 0.010, 0.048), "steel_bare", "port_bolt", 0.0003, E)
+    if PLANT in ("rifle_port_open", "rifle_port_proud"):
+        cbox(m, (0.0175, 0.055, -0.115), (0.003, 0.018, 0.060), B, "port_floor", 0.0004, E)
+        cbox(m, (0.0192, 0.055, -0.115), (0.0012, 0.010, 0.048), "steel_bare", "port_bolt", 0.0003, E)
+    else:
+        cbox(m, (0.0130, 0.055, -0.115), (0.0008, 0.010, 0.048), "steel_bare", "port_bolt", 0.0003, E)
     cbox(m, (0.030, 0.055, -0.005), (0.028, 0.008, 0.010), "steel_bare", "bolt_handle", 0.0015, E)
     cbox(m, (0.048, 0.052, -0.005), (0.014, 0.014, 0.014), B, "bolt_knob", 0.0040, E)
     m.sockets = {
@@ -1379,15 +1457,28 @@ def rifle_stock_standard():
     path = RIFLE_STOCK_PATH
     if PLANT == "rifle_hands":
         path = [(x, 0.035 if z in (-0.280, -0.250, -0.220) else y, z) for x, y, z in path]
-    fore_path = path[:6] + [(0, 0.020, -0.080)]
-    fore_scales = RIFLE_STOCK_SCALES[:6] + [(0.026, 0.025)]
-    if PLANT == "rifle_hands":
-        fore_scales = [(x, 0.043 if z in (-0.280, -0.250, -0.220) else y) for (x, y), (_, _, z) in zip(fore_scales, fore_path)]
-    rear_path = [(0, 0.0, 0.085)] + path[8:]
-    rear_scales = [(0.022, 0.045)] + RIFLE_STOCK_SCALES[8:]
-    sweep(m, fore_path, fore_scales, section, "fore_end", lambda i: "hickory", ("endgrain_hickory", "endgrain_hickory"))
+    if PLANT in ("rifle_stock_tang", "rifle_forend_hump", "rifle_hands"):
+        fore_path = path[:6] + [(0, 0.020, -0.080)]
+        fore_scales = RIFLE_STOCK_SCALES[:6] + [(0.026, 0.025)]
+        if PLANT == "rifle_hands":
+            fore_scales = [(x, 0.043 if z in (-0.280, -0.250, -0.220) else y) for (x, y), (_, _, z) in zip(fore_scales, fore_path)]
+    else:
+        fore_path = RIFLE_FOREEND_PATH
+        fore_scales = RIFLE_FOREEND_SCALES
+    if PLANT == "rifle_stock_tang":
+        rear_path = [(0, 0.0, 0.085)] + path[8:]
+        rear_scales = [(0.022, 0.045)] + RIFLE_STOCK_SCALES[8:]
+    else:
+        rear_path = list(RIFLE_REAR_PATH)
+        rear_scales = list(RIFLE_REAR_SCALES)
+        if PLANT == "rifle_stock_notch":
+            rear_path[3] = (0, -0.030, 0.125)
+            rear_scales[3] = (0.020, 0.034)
+    fore_section = section if PLANT in ("rifle_stock_tang", "rifle_forend_hump", "rifle_hands") else RIFLE_FOREEND_SECTION
+    sweep(m, fore_path, fore_scales, fore_section, "fore_end", lambda i: "hickory", ("endgrain_hickory", "endgrain_hickory"))
     rings = sweep(m, rear_path, rear_scales, section, "stock", lambda i: "hickory", ("endgrain_hickory", "endgrain_hickory"))
-    cbox(m, (0, 0.0452, 0.015), (0.020, 0.010, 0.210), "hickory", "top_tang", 0.0010, E)
+    if PLANT == "rifle_stock_tang":
+        cbox(m, (0, 0.0452, 0.015), (0.020, 0.010, 0.210), "hickory", "top_tang", 0.0010, E)
     grip_path = [(0, 0.035, -0.0105), (0, -0.045, 0.0185)]
     sweep(m, grip_path, [(0.013, 0.020), (0.013, 0.020)], section, "pistol_grip", lambda i: "hickory", ("endgrain_hickory", "endgrain_hickory"))
     cbox(m, (0, -0.047, 0.020), (0.028, 0.008, 0.043), "hickory", "grip_hook", 0.0010, E)
@@ -1400,7 +1491,7 @@ def rifle_stock_standard():
     m.poly(inner, -normal, "coat_dark")
     m.poly(outer, normal, "coat_dark")
     if PLANT == "near_coplanar":
-        xbox(m, [(-0.100, 0.0), (-0.080, 0.0), (-0.080, 0.020), (-0.100, 0.020)], 0.01635, 0.01645, "hickory", "near_coplanar")
+        xbox(m, [(-0.100, 0.0), (-0.080, 0.0), (-0.080, 0.020), (-0.100, 0.020)], 0.01615, 0.01625, "hickory", "near_coplanar")
     m.finish(Vector((0, -0.025, 0.060)))
     return m
 
@@ -1430,7 +1521,7 @@ MODELS = [
     ("rifle_spring_standard", rifle_spring_standard, {"id": "item.part.spring.standard", "receiver": "item.rifle.hunting"}, "part", [0.0104, 0.0108, 0.100], {}),
     ("rifle_sear_standard", rifle_sear_standard, {"id": "item.part.sear.standard", "receiver": "item.rifle.hunting"}, "part", [0.012, 0.0125, 0.026], {}),
     ("rifle_extractor_standard", rifle_extractor_standard, {"id": "item.part.extractor.standard", "receiver": "item.rifle.hunting"}, "part", [0.0065, 0.013, 0.043], {}),
-    ("rifle_stock_standard", rifle_stock_standard, {"id": "item.part.stock.standard", "receiver": "item.rifle.hunting"}, "part", [0.052, 0.1636, 0.8578], {}),
+    ("rifle_stock_standard", rifle_stock_standard, {"id": "item.part.stock.standard", "receiver": "item.rifle.hunting"}, "part", [0.052, 0.153, 0.8575], {}),
     ("bat_wood", bat_wood, {"id": "item.bat.wood"}, "melee", [0.066, 0.066, 0.840], {"stud": "socket_stud", "weight": "socket_weight", "wrap": "socket_wrap"}),
     ("knife_kitchen", knife_kitchen, {"id": "item.knife.kitchen"}, "melee", [0.019, 0.046, 0.322], {"edge": "socket_edge", "wrap": "socket_wrap"}),
     ("crowbar_steel", crowbar_steel, {"id": "item.crowbar.steel"}, "melee", [0.0275, 0.102, 0.600], {"weight": "socket_weight", "wrap": "socket_wrap"}),
@@ -1794,23 +1885,39 @@ def point_triangle_distance(point, triangles):
     return float(best.min())
 
 
-def mesh_gap(triangles_a, triangles_b):
+def mesh_contact(triangles_a, triangles_b):
     best = np.inf
+    witness = None
     for samples, triangles in ((edge_samples(triangles_a), triangles_b), (edge_samples(triangles_b), triangles_a)):
         lo = triangles.min(axis=1)
         hi = triangles.max(axis=1)
         for point in samples:
             candidate = np.all((lo <= point + best) & (hi >= point - best), axis=1)
             if candidate.any():
-                best = min(best, point_triangle_distance(point, triangles[candidate]))
+                distance = point_triangle_distance(point, triangles[candidate])
+                if distance < best:
+                    best = distance
+                    witness = point.copy()
             if best <= 1e-9:
-                return 0.0
-    return best
+                return 0.0, point.copy()
+    return best, witness
 
 
-def contact_group_measure(triangles, gap):
+def mesh_gap(triangles_a, triangles_b):
+    return mesh_contact(triangles_a, triangles_b)[0]
+
+
+def contact_group_measure(triangles, gap, containers=(), hosts=()):
     groups = component_groups(triangles)
-    arrays = [group_array(group) for group in groups]
+    arrays = []
+    hidden = 0
+    for group in groups:
+        array = group_array(group)
+        samples = edge_samples(array)
+        if any(len(samples) and skin_inside(samples, container).mean() > 0.90 for container in containers):
+            hidden += 1
+        else:
+            arrays.append(array)
     parent = list(range(len(arrays)))
     largest = 0.0
 
@@ -1820,19 +1927,33 @@ def contact_group_measure(triangles, gap):
             i = parent[i]
         return i
 
+    def join(i, j, distance):
+        nonlocal largest
+        largest = max(largest, distance)
+        ri, rj = find(i), find(j)
+        if ri != rj:
+            parent[ri] = rj
+
     for i, triangles in enumerate(arrays):
         lo_i, hi_i = triangles.reshape(-1, 3).min(0), triangles.reshape(-1, 3).max(0)
         for j in range(i):
             lo_j, hi_j = arrays[j].reshape(-1, 3).min(0), arrays[j].reshape(-1, 3).max(0)
             if aabb_gap(Vector(lo_i), Vector(hi_i), Vector(lo_j), Vector(hi_j)) > 0.002:
                 continue
-            distance = mesh_gap(triangles, arrays[j])
+            distance, witness = mesh_contact(triangles, arrays[j])
+            hidden_contact = witness is not None and any(bool(skin_inside(np.array([witness]), container)[0]) for container in containers)
+            if distance <= gap and not hidden_contact:
+                join(i, j, distance)
+    for host in hosts:
+        seated = []
+        for i, array in enumerate(arrays):
+            distance = mesh_gap(array, host)
             if distance <= gap:
+                seated.append(i)
                 largest = max(largest, distance)
-                ri, rj = find(i), find(j)
-                if ri != rj:
-                    parent[ri] = rj
-    return len({find(i) for i in range(len(arrays))}), largest
+        for i in seated[1:]:
+            join(seated[0], i, 0.0)
+    return len({find(i) for i in range(len(arrays))}), largest, hidden
 
 
 def open_edge_count(glb):
@@ -2105,6 +2226,18 @@ def shading(stem, glb, model):
     return judged, flat, seam, over
 
 
+def mesh_section(triangles, z):
+    points = []
+    for tri in triangles:
+        points_tri = tri[0]
+        for a, b in ((points_tri[0], points_tri[1]), (points_tri[1], points_tri[2]), (points_tri[2], points_tri[0])):
+            if abs(a.z - z) <= 0.0000001:
+                points.append(a)
+            if (a.z - z) * (b.z - z) < 0:
+                points.append(a + (b - a) * ((z - a.z) / (b.z - a.z)))
+    return points
+
+
 def measure_rifle(loaded, repo):
     report = []
     receiver = loaded["rifle_hunting"]
@@ -2130,27 +2263,45 @@ def measure_rifle(loaded, repo):
     if hidden_handle > 0.025:
         raise ValueError("hidden bolt handle: the internal action carries an exterior handle")
     report.append(f"RIFLE_BOLT knob {handle_reach * 1000:.1f} mm past the receiver side, on the visible receiver")
-    contact = {}
+    assembled = {}
     for stem in ("rifle_hunting", "rifle_barrel_standard", "rifle_magazine_standard", "rifle_stock_standard"):
-        groups, joining_gap = contact_group_measure(loaded[stem].triangles, 0.0002)
-        contact[stem] = (groups, joining_gap)
-        if groups != 1:
+        matrix = Matrix.Identity(4) if stem == "rifle_hunting" else receiver.nodes[f"socket_{'furniture' if stem == 'rifle_stock_standard' else 'barrel' if stem == 'rifle_barrel_standard' else 'magazine'}"]["matrix"]
+        assembled[stem] = [([matrix @ p for p in tri[0]], tri[1], tri[2]) for tri in loaded[stem].triangles]
+    contact = {}
+    for stem in assembled:
+        containers = [np.array([[tuple(p) for p in tri[0]] for tri in assembled[other]]) for other in assembled if other != stem]
+        hosts = [np.array([[tuple(p) for p in tri[0]] for tri in assembled["rifle_hunting"]])] if stem == "rifle_stock_standard" else []
+        groups, joining_gap, hidden = contact_group_measure(assembled[stem], 0.0002, containers, hosts)
+        contact[stem] = (groups, joining_gap, hidden)
+        if groups != 1 and PLANT not in ("rifle_hands", "rifle_forend_hump"):
             raise ValueError(f"{stem} sub-bodies form {groups} groups, not one connected group at 0.2 mm")
-    report.append("RIFLE_CONTACT " + ", ".join(f"{stem.removeprefix('rifle_').removesuffix('_standard')} {groups} group (largest joining gap {gap * 1000:.2f} mm)" for stem, (groups, gap) in contact.items()))
+    report.append("RIFLE_CONTACT " + ", ".join(f"{stem.removeprefix('rifle_').removesuffix('_standard')} {groups} group (largest joining gap {gap * 1000:.2f} mm, hidden pieces excluded: {hidden})" for stem, (groups, gap, hidden) in contact.items()))
     open_edges = {stem: open_edge_count(loaded[stem]) for stem in contact}
     if any(open_edges.values()):
         raise ValueError(f"held rifle open edges: {open_edges}")
     report.append("RIFLE_CLOSED 0 open edges in 4 held models")
+    floor_points = [p for tri in receiver.triangles for p in tri[0] if abs(p.x - 0.0125) <= 0.00001 and 0.046 <= p.y <= 0.064 and -0.145 <= p.z <= -0.085]
+    outer_points = [p for tri in receiver.triangles for p in tri[0] if p.x >= 0.014 and 0.046 <= p.y <= 0.064 and -0.145 <= p.z <= -0.085]
+    if not floor_points or not outer_points:
+        raise ValueError("port recess/floor is missing")
+    port_length = max(p.z for p in outer_points) - min(p.z for p in outer_points)
+    port_height = max(p.y for p in outer_points) - min(p.y for p in outer_points)
+    floor_depth = max(p.x for p in outer_points) - 0.0125
+    if floor_depth < 0.003:
+        raise ValueError(f"port floor is only {floor_depth * 1000:.2f} mm below the tube")
+    report.append(f"RIFLE_PORT {port_length * 1000:.1f} x {port_height * 1000:.1f} mm, floor {floor_depth * 1000:.1f} mm below the tube")
 
     connected = component_groups(receiver.triangles)
     trigger_candidates = []
     lower_action = None
+    lower_group = None
     for group in connected:
         lo, hi = points_bounds([p for tri in group for p in tri[0]])
         if lo.y < -0.040 and hi.y > -0.020 and 0.004 <= hi.x - lo.x <= 0.006:
             trigger_candidates.append(group)
         elif lo.y < 0.020 and hi.y > 0.030:
             lower_action = (lo, hi)
+            lower_group = group
     shroud = next(group for group in connected if (lambda bounds: bounds[0].z >= 0.049 and bounds[1].z <= 0.074)(points_bounds([p for tri in group for p in tri[0]])))
     shroud_points = [p for tri in shroud for p in tri[0]]
     shroud_lo, shroud_hi = points_bounds(shroud_points)
@@ -2159,6 +2310,10 @@ def measure_rifle(loaded, repo):
     if lower_below > 0.030 or shroud_diameter > 0.030:
         raise ValueError(f"lower body/shroud measure {lower_below * 1000:.2f}/{shroud_diameter * 1000:.2f} mm")
     report.append(f"RIFLE_RECEIVER lower body {lower_below * 1000:.2f} mm below the tube; shroud {shroud_diameter * 1000:.1f} mm across")
+    lower_gap = mesh_gap(group_array(lower_group), group_array(connected[0]))
+    if lower_gap > 0.00005:
+        raise ValueError(f"lower body sits {lower_gap * 1000:.2f} mm from the tube, not seated")
+    report.append(f"RIFLE_LOWER_SEAT lower body to tube {lower_gap * 1000:.2f} mm")
     trigger_group = min(trigger_candidates, key=lambda group: points_bounds([p for tri in group for p in tri[0]])[0].y)
     trigger_points = [p for tri in trigger_group for p in tri[0]]
     if any(point_in_polygon(RIFLE_GUARD_PROFILE, (p.z, p.y)) for p in trigger_points):
@@ -2186,15 +2341,13 @@ def measure_rifle(loaded, repo):
         raise ValueError(f"rear sight top is {(sight_y - 0.055) * 1000:.2f} mm over bore, not 24.0 mm")
     comb = max(p.y for p in stock_points if 0.170 <= p.z <= 0.240)
     heel = max(p.y for p in stock_points if p.z >= 0.275)
-    wrist = [p for p in stock_points if 0.085 <= p.z <= 0.145]
-    wrist_lo, wrist_hi = points_bounds(wrist)
     comb_drop = sight_y - comb
     heel_drop = sight_y - heel
     comb_ok = 0.038 <= comb_drop <= 0.045
     heel_ok = 0.050 <= heel_drop <= 0.064
     if not comb_ok or not heel_ok or heel >= comb:
         raise ValueError(f"stock comb/heel drops are {comb_drop * 1000:.3f}/{heel_drop * 1000:.3f} mm; heights {comb:.6f}/{heel:.6f}, sight {sight_y:.6f}")
-    report.append(f"RIFLE_STOCK comb {comb_drop * 1000:.1f} mm below sights, heel {heel_drop * 1000:.1f} mm; wrist {(wrist_hi.y - wrist_lo.y) * 1000:.1f} mm deep x {(wrist_hi.x - wrist_lo.x) * 1000:.1f} mm wide")
+    report.append(f"RIFLE_STOCK comb {comb_drop * 1000:.1f} mm below sights, heel {heel_drop * 1000:.1f} mm")
 
     stock_groups = component_groups(stock.triangles)
     plate = max(stock_groups, key=lambda group: sum(p.z for tri in group for p in tri[0]) / sum(len(tri[0]) for tri in group))
@@ -2227,6 +2380,49 @@ def measure_rifle(loaded, repo):
     if plate_angle > 1.0 or outline_error > 0.001 or len(wood_outline) != len(plate_outline):
         raise ValueError(f"butt plate angle/outline error {plate_angle:.2f} deg/{outline_error * 1000:.2f} mm")
     report.append(f"RIFLE_BUTT plate normal {plate_angle:.2f} deg from the butt, outline within {outline_error * 1000:.2f} mm")
+
+    def assembled_group(group):
+        return [([furniture @ p for p in tri[0]], tri[1], tri[2]) for tri in group]
+
+    fore_group = min(stock_groups, key=lambda group: min(p.z for tri in group for p in tri[0]))
+    fore_sections = []
+    for z in np.arange(-0.530, -0.080, 0.020):
+        section_points = mesh_section(assembled_group(fore_group), float(z))
+        if not section_points:
+            raise ValueError(f"fore-end has no section at z {z * 1000:.0f} mm")
+        top = max(p.y for p in section_points)
+        width = max(p.x for p in section_points) - min(p.x for p in section_points)
+        fore_sections.append((z, top, width))
+    fore_top = max(top for _, top, _ in fore_sections)
+    fore_width = max(width for _, _, width in fore_sections)
+    fore_bottom = min(p.y for p in mesh_section(assembled_group(fore_group), -0.250))
+    if (fore_top > 0.0670001 or fore_width > 0.0480001) and PLANT not in ("rifle_hands", "rifle_stock_tang"):
+        raise ValueError(f"fore-end top/width {fore_top * 1000:.2f}/{fore_width * 1000:.2f} mm")
+    report.append(f"RIFLE_FOREEND top max {fore_top * 1000:.1f} mm, width max {fore_width * 1000:.1f} mm, underside {fore_bottom * 1000:.1f} mm at z -250; sections (z, top, width) {[(round(z * 1000), round(top * 1000, 1), round(width * 1000, 1)) for z, top, width in fore_sections]}")
+
+    wrist_sections = []
+    for z in np.arange(0.020, 0.211, 0.010):
+        section_points = mesh_section(assembled_group(wood), float(z))
+        if section_points:
+            depth = max(p.y for p in section_points) - min(p.y for p in section_points)
+            width = max(p.x for p in section_points) - min(p.x for p in section_points)
+            wrist_sections.append((z, depth, width))
+    wrist_z, wrist_depth, wrist_width = min(wrist_sections, key=lambda row: row[1])
+    if wrist_depth <= 0.005 or wrist_width <= 0.010:
+        raise ValueError("wrist has no substantial stock section")
+    report.append(f"RIFLE_WRIST {wrist_depth * 1000:.1f} mm deep x {wrist_width * 1000:.1f} mm wide at z {wrist_z * 1000:.0f} mm")
+
+    top_sections = []
+    for z in np.arange(0.080, 0.301, 0.020):
+        section_points = mesh_section(assembled_group(wood), float(z))
+        if section_points:
+            top_sections.append((z, max(p.y for p in section_points)))
+    comb_z, comb_top = max((row for row in top_sections if 0.160 <= row[0] <= 0.240), key=lambda row: row[1])
+    before_comb = [row for row in top_sections if row[0] <= comb_z]
+    largest_dip = max(max(0.0, previous[1] - current[1]) for previous, current in zip(before_comb, before_comb[1:]))
+    if largest_dip > 0.0030001 and PLANT != "rifle_stock_tang":
+        raise ValueError(f"stock top dips {largest_dip * 1000:.1f} mm before the comb")
+    report.append(f"RIFLE_TOPLINE rises {(comb_top - top_sections[0][1]) * 1000:.1f} mm to the comb at z {comb_z * 1000:.0f}, largest dip before comb {largest_dip * 1000:.1f} mm; (z, top y) {[(round(z * 1000), round(top * 1000, 1)) for z, top in top_sections]}")
 
     barrel_points = [receiver.nodes["socket_barrel"]["matrix"] @ p for tri in barrel.triangles for p in tri[0]]
     front_y = max(p.y for p in barrel_points)
@@ -2340,6 +2536,7 @@ def validate(root, repo):
             or (PLANT == "rifle_handle_hidden" and stem == "rifle_action_standard")
             or (PLANT == "receiver_contact" and stem == "rifle_hunting")
             or (PLANT == "rifle_sight_high" and stem == "rifle_hunting")
+            or (PLANT in ("rifle_hands", "rifle_stock_tang", "rifle_forend_hump") and stem == "rifle_stock_standard")
         )
         if not targeted and any(abs(size[i] - declared[i]) > tolerance for i in range(3)):
             raise ValueError(f"{stem}: bounds {tuple(round(s, 4) for s in size)} are not within {limit} of sizeM {declared}")
@@ -2529,6 +2726,10 @@ PLANTS = [
     ("rifle_guard_gap", "one connected group"),
     ("rifle_butt_gap", "one connected group"),
     ("rifle_sight_high", "not 24.0 mm"),
+    ("rifle_stock_tang", "one connected group"),
+    ("rifle_stock_notch", "top dips"),
+    ("rifle_forend_hump", "fore-end top/width"),
+    ("rifle_port_proud", "port recess/floor"),
     ("material", "one material per model"),
     ("double_sided", "single-sided"),
     ("filter", "NEAREST"),
