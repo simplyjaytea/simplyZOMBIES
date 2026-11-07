@@ -3282,6 +3282,9 @@ not a to-do list:
   3/3, 1/3 become 1/3, 1/3, 3/3, 2/3; grabs 423 become 482; deaths 10 become 10 (per seed 2, 4, 1, 3 become 3, 4, 0, 3);
   no seed wipes, so no fallback to 6 m was needed. `m2:lethality`,
   `m2:district` and `m2:variance` read the same before and after.
+  `godot:m2:fog` EYES also checks the default floor unpinned: clear reach 8.00 m, and under the shipped fog (x0.25)
+  2.00 m, outside the 1.6 m contact radius; its plant (the fog applied to the content reach instead of the floor) is red:
+  "the fogged reach is 8.0000 m".
 - **A released holder presses again, 2026-11-07.** The encounter gate's REPRESS lane found that a player
   whose grab broke by struggle walked off at 2.1 m/s and was never caught. The break-away shove
   (`shambler.gd`, `_break_away`) set a controlled body's velocity for 26 ticks, and nothing cleared it when the

@@ -791,7 +791,7 @@ static func _chase(world: Variant, target: int, pos: Dictionary, vel: Dictionary
 #
 # How far the stimulus reaches is the type's `sensory.light` weight on its eyes: the eyes are
 # the geometry (walls, arcs, the light at the target) and the weight is how good the type is at
-# using them, docs/14's "poor eyesight" made a number. The reach is `range_metres x sqrt(light)`
+# using them, docs/14's "poor eyesight" made a number. The content reach is `range_metres x sqrt(light)`
 # -- 3.8 m for the shambler and bloater (0.1), 11.4 m for the screamer (0.9) -- rather than
 # `range x light`, because a tenth of 12 m is 1.2 m and puts the shambler back inside the 1.6 m
 # contact this slice exists to fix. Measured, not theorised: at the eyes' full 12 m a shambler
@@ -801,9 +801,16 @@ static func _chase(world: Variant, target: int, pos: Dictionary, vel: Dictionary
 # a colonist who walks off still loses it, which was the district's one escape before eyes and
 # has to stay one until the colony can kill what it sees.
 #
-# The sky closes that reach too. Under fog at 0.25 a shambler's 3.8 m falls to 0.95 m -- inside
-# the 1.6 m contact radius, so in a fog the dead have no sight worth the name and find you by
-# nose and ear instead. Both gates on a zombie *seeing* move together and by the same factor:
+# That 3.8 m is the content reach, and it is no longer the reach a shambler has: by day it is raised
+# to SIGHT_REACH_FLOOR_METRES (8 m, below), the first-person alpha's default, so a shambler notices a
+# person at a room's width. The measurement above is why that floor is a named, gate-drivable
+# constant that carries a balance record (docs/23), not a retune of `sensory.light`. The lanes that
+# pin the content numbers (m2:roster far-reach, m2:fog EYES) pin the floor to 0 and restore it.
+#
+# The sky closes the reach too. Under fog at 0.25 the 8 m floor falls to 2.0 m -- outside the 1.6 m
+# contact radius, so a shambler in fog still sees a person it is about to reach, but only just; the
+# content reach of 3.8 m would have fallen to 0.95 m, inside contact, and the dead would have found
+# you by nose and ear alone. The fog multiplies the floor as it multiplies everything. Both gates on a zombie *seeing* move together and by the same factor:
 # this reach, and the range `detail` judges through SimVisibility.refresh, which SimBoot scales
 # with the same `sight_mul`. Neither is allowed to shrink alone -- docs/16's symmetry is that
 # the fog blinds the living and the dead by the same amount, and a reach that stayed open while
