@@ -41,6 +41,7 @@ const SimHealth = preload("res://sim/modules/health.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
+const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const ContentValidator = preload("res://platform/content_validator.gd")
 
@@ -67,6 +68,7 @@ const CANTEEN_CLEAN: String = "item.canteen.clean"
 const TABLETS: String = "item.tablets.purification"
 const FILTER: String = "item.filter.pump"
 const POT: String = "item.pot.camp"
+const CHARCOAL: String = "item.charcoal.lump"
 
 # The files that must be shown to read each key, and the call the reader is reached by. A textual
 # assertion has to be able to find its needle after a refactor, so each of these is a *call*, named
@@ -76,12 +78,14 @@ const READERS: Array[Dictionary] = [
 	{"key": "cooksInto", "file": "res://sim/modules/jobs.gd", "needle": "get(\"cooksInto\", \"\")"},
 	{"key": "boilsInto", "file": "res://sim/modules/needs.gd", "needle": "get(\"boilsInto\", \"\")"},
 	{"key": "purifies", "file": "res://sim/modules/needs.gd", "needle": "get(\"purifies\", 0)"},
+	{"key": "refill", "file": "res://sim/modules/needs.gd", "needle": "get(\"refill\", {})"},
 ]
 # Where a *player or a colonist* reaches the purify verb, as opposed to where the key is parsed. A
 # mechanism nothing in play can reach is the dead socket this milestone has paid for eleven times.
 const VERB_CALLERS: Array[Dictionary] = [
 	{"what": "the E ladder", "file": "res://sim/modules/fortify.gd", "needle": "\"purify\""},
 	{"what": "thirst autonomy", "file": "res://sim/modules/jobs.gd", "needle": "SimNeeds.purify("},
+	{"what": "the E ladder's repack", "file": "res://sim/modules/fortify.gd", "needle": "Needs.call(\"refill\""},
 ]
 # What a verb makes that no table rolls and no other base turns into. The well fills a bottle, and
 # that is the whole list -- cooked food came off it with this slice, because jobs.gd does not name
@@ -105,8 +109,9 @@ func _run() -> void:
 	ok = _a_filter_makes_water_safe_with_no_fire_in_the_world() and ok
 	ok = _the_smallest_remainder_is_spent_first() and ok
 	ok = _every_key_is_read_and_every_product_is_reachable() and ok
+	ok = _a_spent_filter_is_repacked_from_carried_charcoal() and ok
 	if ok:
-		print("M2_TRANSFORM_OK pinned content cook order boil purify rank reach")
+		print("M2_TRANSFORM_OK pinned content cook order boil purify rank reach refill")
 		quit(0)
 	else:
 		push_error("M2_TRANSFORM_FAIL")
@@ -330,6 +335,11 @@ func _every_transform_names_a_real_base_and_the_schema_says_so() -> bool:
 			else:
 				boil_targets[into] = true
 				boilables += 1
+		if e.has("refill"):
+			var block: Variant = e["refill"]
+			if not (block is Dictionary) or not e.has("purifies") or not SimNeeds.refill_block_ok(block as Dictionary):
+				push_error("CONTENT: '%s' declares refill %s, which is not a purifier with a known material and at least one unit" % [String(id), str(block)])
+				return false
 		if e.has("purifies"):
 			purifiers += 1
 			if int(e["purifies"]) < 1:
@@ -347,6 +357,12 @@ func _every_transform_names_a_real_base_and_the_schema_says_so() -> bool:
 		return false
 	if purifiers < 3:
 		push_error("CONTENT: %d purifiers, and docs/04 names three routes (fuel, filters, chemicals)" % purifiers)
+		return false
+
+	# The refill kind, planted: a kind the materials economy does not know, and a count of none. The
+	# shipped block above must pass the same test these two must fail.
+	if SimNeeds.refill_block_ok({"kind": "unobtainium", "uses": 5}) or SimNeeds.refill_block_ok({"kind": "charcoal", "uses": 0}):
+		push_error("CONTENT: refill_block_ok accepts a planted bad block, so the shipped refill is judged by nothing")
 		return false
 
 	# The shallow validator, and its negatives beside the shipped positive. The Godot validator
@@ -746,6 +762,178 @@ func _the_smallest_remainder_is_spent_first() -> bool:
 		push_error("RANK: with only the filter in the pack the bottle was treated with %s" % str(res2))
 		return false
 	print("  RANK: a pack holding a %d-use tablet and a %d-use filter spends the tablet, whichever went in first, and the filter when the tablet is gone" % [small, large])
+	return true
+
+
+# --- REFILL -----------------------------------------------------------------------------------
+#
+# A spent purifier is repacked from a carried material, and from nothing else. The pump filter is
+# run down by its own `purify`, one real bottle at a time, so its last use is the one the
+# keep-at-zero rule has to get right: the instance must survive with a count of nothing. Then one
+# lump of charcoal, carried, brings it back to its content's full capacity. The numbers are read
+# from the shipped base, not from the helper that repacks. Refusals: no material, a full filter,
+# and the two shapes refill must never touch, the tablets and the billy can. The last lane reaches
+# the repack from the E ladder and from the `purifier.refill` command, so it is not a dead socket.
+func _a_spent_filter_is_repacked_from_carried_charcoal() -> bool:
+	var lane: String = "REFILL"
+	var shipped: Dictionary = _entry(_pocket(5700), FILTER)
+	var cap: int = int(shipped.get("purifies", 0))
+	var block: Dictionary = shipped.get("refill", {}) as Dictionary
+	if cap < 2 or String(block.get("kind", "")) != "charcoal" or int(block.get("uses", 0)) < 1:
+		push_error("%s: the shipped pump filter declares purifies %d and refill %s, not a charcoal refill" % [lane, cap, str(block)])
+		return false
+
+	# Run down by real use. Every bottle is a `purify`, and each is taken out of the pack after.
+	var w: Variant = _pocket(5701)
+	var pump: int = _give(w, FILTER)
+	if pump < 0:
+		return false
+	for i in cap:
+		var bottle: int = _give(w, UNTREATED)
+		if bottle < 0:
+			return false
+		var r: Dictionary = SimNeeds.purify(w, w.player)
+		if not bool(r.get("ok", false)):
+			push_error("%s: bottle %d of %d through the filter was refused: %s" % [lane, i + 1, cap, str(r)])
+			return false
+		SimInventory.remove_from_container(w, bottle)
+		w.despawn(bottle)
+	if SimNeeds.purifier_uses(w, pump) != 0:
+		push_error("%s: a filter run down by %d bottles reads %d uses" % [lane, cap, SimNeeds.purifier_uses(w, pump)])
+		return false
+	if not w.components.has_component(pump, "itemBase"):
+		push_error("%s: the filter's last use despawned it, so a spent filter has nothing left to repack" % lane)
+		return false
+
+	# Without material: refused, and nothing is spent.
+	var dry: Dictionary = SimNeeds.refill(w, w.player)
+	if bool(dry.get("ok", true)) or String(dry.get("reason", "")) != "no-material":
+		push_error("%s: a spent filter with no charcoal returned %s" % [lane, str(dry)])
+		return false
+	if SimNeeds.purifier_uses(w, pump) != 0:
+		push_error("%s: a refused repack moved the count to %d" % [lane, SimNeeds.purifier_uses(w, pump)])
+		return false
+
+	# The true positive: one lump in the pack, the filter comes back to its full count, the lump is
+	# spent, and the event says so.
+	var lump: int = _give(w, CHARCOAL)
+	if lump < 0:
+		return false
+	var done: Dictionary = SimNeeds.refill(w, w.player)
+	if not bool(done.get("ok", false)) or int(done.get("usesLeft", -1)) != cap:
+		push_error("%s: repacking a spent filter from one lump left %s, not %d uses" % [lane, str(done), cap])
+		return false
+	if SimNeeds.purifier_uses(w, pump) != cap:
+		push_error("%s: the filter reads %d uses after the repack, not %d" % [lane, SimNeeds.purifier_uses(w, pump), cap])
+		return false
+	if w.components.has_component(lump, "itemBase"):
+		push_error("%s: the charcoal is still in the pack after the repack spent it" % lane)
+		return false
+	w.events.drain()
+	var published: bool = false
+	for e in w.events.drained:
+		if String((e as Dictionary).get("type", "")) == "need.refilled" and int((e as Dictionary).get("usesLeft", -1)) == cap:
+			published = true
+	if not published:
+		push_error("%s: the repack did not publish need.refilled with usesLeft %d" % [lane, cap])
+		return false
+
+	# A part-used filter refills to its capacity, not past it: ten left plus forty is forty.
+	var part: Variant = _pocket(5702)
+	var part_pump: int = _give(part, FILTER)
+	part.components.set_component(part_pump, "purifier", {"usesLeft": 10})
+	if _give(part, CHARCOAL) < 0:
+		return false
+	var topped: Dictionary = SimNeeds.refill(part, part.player)
+	if not bool(topped.get("ok", false)) or SimNeeds.purifier_uses(part, part_pump) != cap:
+		push_error("%s: a filter with ten uses left reads %d after a repack, not %d" % [lane, SimNeeds.purifier_uses(part, part_pump), cap])
+		return false
+
+	# True negatives. A full filter is refused as full and keeps its charcoal.
+	var full: Variant = _pocket(5703)
+	_give(full, FILTER)
+	var full_lump: int = _give(full, CHARCOAL)
+	if full_lump < 0:
+		return false
+	var fr: Dictionary = SimNeeds.refill(full, full.player)
+	if bool(fr.get("ok", true)) or String(fr.get("reason", "")) != "nothing-to-refill":
+		push_error("%s: a full filter with charcoal in the pack returned %s, not nothing-to-refill" % [lane, str(fr)])
+		return false
+	if not full.components.has_component(full_lump, "itemBase"):
+		push_error("%s: a refused repack of a full filter spent its charcoal" % lane)
+		return false
+
+	# The tablets and the billy can take no refill, even with charcoal carried beside them.
+	var others: Variant = _pocket(5704)
+	if _give(others, TABLETS, 4) < 0 or _give(others, POT) < 0 or _give(others, CHARCOAL) < 0:
+		return false
+	var orr: Dictionary = SimNeeds.refill(others, others.player)
+	if bool(orr.get("ok", true)) or String(orr.get("reason", "")) != "nothing-to-refill":
+		push_error("%s: tablets and a billy can, with charcoal carried, returned %s" % [lane, str(orr)])
+		return false
+
+	# Reached from the E ladder: a spent filter with its charcoal is the rung E offers, and pressing E
+	# repacks it.
+	# The E ladder reads the tilemap, which the pocket world does not have, so this one is the booted
+	# district with the survivor's own pack.
+	var e_world: Variant = _district()
+	# Loose loot in reach takes E before any rung of the ladder does, so the spawn's own loot is set
+	# down out of the way first, the same way `_district` clears cookables off the pile.
+	for _g in 64:
+		var loose: Variant = SimInventory.nearest_ground_item(e_world, e_world.player)
+		if loose == null:
+			break
+		e_world.components.remove(int(loose), "position")
+	# A campfire in reach takes E for the boil and fire rungs, which sit above this one.
+	# A bed in reach takes E for sleep, which sits above it too.
+	for fire in e_world.components.query(["campfire"]):
+		e_world.components.remove(int(fire), "position")
+	for bed in e_world.components.query(["bed"]):
+		e_world.components.remove(int(bed), "position")
+	var e_pump: int = _give(e_world, FILTER)
+	e_world.components.set_component(e_pump, "purifier", {"usesLeft": 0})
+	if _give(e_world, CHARCOAL) < 0:
+		return false
+	var rung: Dictionary = SimFortify.rung_of(e_world, e_world.player)
+	if String(rung.get("verb", "")) != "refill":
+		push_error("%s: the E ladder offers '%s' for a spent filter and its charcoal, not 'refill'" % [lane, String(rung.get("verb", ""))])
+		return false
+	e_world.commands.push({"type": "use.context"})
+	e_world.step()
+	if SimNeeds.purifier_uses(e_world, e_pump) != cap:
+		push_error("%s: pressing E on the repack rung left the filter at %d uses, not %d" % [lane, SimNeeds.purifier_uses(e_world, e_pump), cap])
+		return false
+
+	# Reached from the command: `purifier.refill` through the sim's queue, one tick.
+	# The command reaches the controlled survivor, as `item.use` does, so the lane runs on the district
+	# whose survivor is controlled, not on the pocket, which has no controlled body.
+	var c_world: Variant = _district()
+	var c_pump: int = _give(c_world, FILTER)
+	c_world.components.set_component(c_pump, "purifier", {"usesLeft": 0})
+	if _give(c_world, CHARCOAL) < 0:
+		return false
+	c_world.commands.push({"type": "purifier.refill"})
+	c_world.step()
+	if SimNeeds.purifier_uses(c_world, c_pump) != cap:
+		push_error("%s: the purifier.refill command left the filter at %d uses, not %d" % [lane, SimNeeds.purifier_uses(c_world, c_pump), cap])
+		return false
+
+	# The schema's enum for a refill kind is the materials economy's own list, held equal.
+	var schema: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://content/schemas/item.schema.json"))
+	if not (schema is Dictionary):
+		push_error("%s: the item schema could not be read" % lane)
+		return false
+	var props: Dictionary = (schema as Dictionary).get("properties", {}) as Dictionary
+	var refill_enum: Array = ((props.get("refill", {}) as Dictionary).get("properties", {}) as Dictionary).get("kind", {}).get("enum", []) as Array
+	var material_enum: Array = (props.get("buildMaterial", {}) as Dictionary).get("enum", []) as Array
+	var kinds_a: Array = refill_enum.duplicate()
+	var kinds_b: Array = SimFortify.MATERIAL_KINDS.duplicate()
+	kinds_a.sort()
+	kinds_b.sort()
+	if kinds_a != kinds_b or refill_enum != material_enum:
+		push_error("%s: the schema's refill kinds %s do not equal MATERIAL_KINDS %s and buildMaterial %s" % [lane, str(refill_enum), str(kinds_b), str(material_enum)])
+		return false
+	print("  REFILL: a filter run down by %d real bottles keeps its instance at zero; one lump of charcoal brings it to %d and is spent; a part-used filter at ten tops up to %d, not past it; no material, a full filter, tablets and a billy can all refuse; the E ladder and the purifier.refill command both repack it" % [cap, cap, cap])
 	return true
 
 

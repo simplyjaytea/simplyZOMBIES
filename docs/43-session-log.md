@@ -3,6 +3,46 @@
 Each entry is the handoff a session wrote when it stopped, moved here from PLAYBOOK.md so the
 playbook stays current. Read the newest entry first. Links are relative to this folder.
 
+## Where we left off (2026-11-05 to 06, paused by the owner at night)
+
+The first session with the afternoon roster: the orchestrator plans and dispatches, the lead engineer
+reviews every worker change and runs the merge train, two Haiku workers build the pieces and keep the queue
+current, Kimi does the art and the art QA signs it off. `PLAYBOOK.md`'s "Where we are" carries the state;
+`sz-shared/merge-train-2026-11-05/TRAIN.md` the heads and CI of the open PRs.
+
+**Merged:** #338 (arms art), #348 (the roster), #329 (the crawler), #331 (the arms in the game), #336 (the
+bloodhound's scent-led Seek), #327 (the purifier refill), #328 (the clothing layers note, docs/44), #349 (the alarm and noisemaker priced). #346 and
+#347 merged first; #322 was closed as a no-op by the owner; fourteen merged remote branches were deleted.
+
+**Opened and queued:** #350 the lurker, #351 the Kei Car, #352 the
+bloater's gas decay, #353 the feigner, #354 docs/45 (the wider world by rail), #355 arms polish. The code
+pieces are gated on their branches (full chain per shared-module piece); none merged, because the heads need
+`main` and CI again.
+
+**Decisions.** 2026-11-05: the roster. Japanese buildings batch A, signed off by the art QA at `db64d031`
+after four rounds, was shown to the owner and sent back for a fifth, full character round before any PR.
+2026-11-06: all 18 cards on #349, #350, #352, #353, #354 answered; two changed from the built default (the gas
+rolls again every 10 s; home is simulated at a coarse tier while away), 16 kept
+(`sz-shared/owner-calls-2026-11-06/DECISIONS.md`). The coordinator's engineering call: a merge of `main`
+into an art PR keeps the art QA's verdict when the diff of the reviewed paths is empty.
+
+**Art.** Batch A round 5 (the character round) was in progress; its checkpoint is `HANDOFF_round5.md` in
+`sz-shared/fp-buildings-jp/`. R4 and batch B wait on batch A. The rifle's round 2 is done and unreviewed. The
+arms polish was cleared by the art QA on `67492b7a` (`reviews/fp-arms/confirmation_polish.md`); n1, the skin
+tone at the UV seams, stays open. The method is `reviews/fp-buildings-jp/METHOD.md`; the art QA's handoff is
+`sz-shared/art-qa/HANDOFF.md`.
+
+**Lessons.**
+
+- Verify a merge with `gh pr view N --json state,mergeCommit` before reporting it: GitHub's GraphQL errors made
+  one "merged" report false, and a PR's head view lagged a pushed branch for hours until an empty commit push
+  refreshed it.
+- Docs-only merges wait until the code queue drains: one early docs merge voided every queued head and cost a
+  CI round.
+- Two docs PRs that both append `docs/33` cards collide on numbers; number against the queue, not `main`.
+- The owner sees the accepted model before the PR: the art QA's sign-off is necessary, not sufficient.
+- Small fillers for the queue worker kept both Haiku terminals busy between merges.
+
 ## Roster change (2026-11-05 afternoon)
 
 The owner's call: Fable orchestrates and plans, Sonnet is the lead engineer (reviews every worker change, runs the merge train), the rest unchanged; the playbook's team table says so.

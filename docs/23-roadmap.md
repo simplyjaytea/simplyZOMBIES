@@ -187,6 +187,9 @@ The source baseline is archived on GitHub at
   save/reload, die and succeed; measured performance, regression proof, campaign
   balance and human play. The default switch landed 2026-11-01 (docs/30, "First person
   is the default boot"), so the boot is first person and the top-down game is the testing build.
+- **Worn items on the first-person bodies, first cut.** [docs/44](44-clothing-layers.md)'s first
+  piece: the outfit resolver, a picture or an explicit none for all 63 worn items, five layer
+  families, gloves on the arms, and their gates. Waits on the organic survivor and the arms kit.
 - **Starter-kit polish (#275 round 2).** In `tools/blender/first_person_kit/build_kit.py`: plaster
   cloud noise reads as camouflage blocks up close; oak grain steps every 8 texels, like brickwork;
   paint chips follow atlas cells, not mesh edges; barricade planks float 6 mm off the brace; wall
@@ -365,15 +368,6 @@ owes is pictures, a stage behind: the art group's "Pictures for the melee arc".
 
 *Zombies, seven to fourteen (stage 2 for the first four, stage 4 for the rest):*
 
-- **The bloodhound's nose as a seek.** The bloodhound shipped as content (the record, 2026-10-27),
-  and content can only widen its nose: `scentSense` moves the smell threshold, the turn toward
-  scent is the constant `SCENT_BIAS` in `shambler.gd`, and it acts only in Wander, at wander
-  speed. Seek is entered through `heard` or a seen target, and the bloodhound has neither, so it
-  never walks a trail at `seekSpeed`. Reader: a scent-led Seek, or a per-type scent bias, in
-  `shambler.gd`'s think loop (a shared sim module: strongest tier). Gate: `godot:m2:district`
-  SCENT-ONLY gains a lane where the bloodhound reaches a scent source the shambler does not.
-- **The gassed bloater.** Its burst leaves a tile cloud that lingers and hurts. Reader: a tile
-  status field with a decay. Gate: `godot:m2:filter` (the mask already reads it) and a CLOUD lane.
 - **The lurker.** Dormant indoors, wakes on indoor noise. Reuses the dormant placement seam from
   the population plan. Gate: `godot:m2:district` DORMANT.
 - **The juggernaut.** A heavy that shoves barricades, not only windows. Reader: fortify damage
@@ -591,19 +585,8 @@ system.
   before-and-after run that a rebalance owes.
 - ~~**Light that burns down, and what feeds it**~~ — **landed** 2026-09-12, see the record.
 - ~~**Noise that is an item**~~ — **landed** 2026-09-12, see the record. Half of it: the eight new
-  devices are real, and the alarm and the noisemaker are **still free world singletons**, by the
-  owner's decision of 2026-09-12. Repricing them is below.
-- **The alarm and the noisemaker still cost nothing to place.** They are `fortify.gd` world
-  singletons that consume no item, and the noise slice deliberately left them that way: the owner
-  chose new items only, and `check_m2_materials.gd`'s PINNED lane asserts both by name, so
-  repricing them is a rebalance that would turn a shipped gate red rather than a content addition.
-  What closes it is giving each an item to spend and moving that PINNED assertion with it, in one
-  commit, with the before-and-after run that a rebalance owes.
-- **A purifier is spent but never refilled.** The transform slice gives the pump filter forty uses
-  and the billy can six, and when a purifier runs out it is simply a thing with nothing left in it.
-  There is no cartridge to replace and no way to boil the filter clean, so the best purifier in the
-  game is strictly a countdown. A refill recipe is the obvious close, and it wants the buildables
-  economy above rather than a key of its own.
+  devices are real, and the alarm and the noisemaker were **free world singletons** until
+  2026-11-05, by the owner's decision of 2026-09-12. They are priced now; see the record.
 - ~~**Comfort that is not food**~~ — **landed** 2026-09-12, see the record.
 - ~~**The mask that filters**~~ — **landed** 2026-09-12, see the record.
 - **The explosives docs/09 says already exist.** docs/09's cut list asserted *"they exist as rare
@@ -1461,7 +1444,9 @@ tables and day lines are report-noise.md in the project's planning/balance folde
 
 - **The ten-seed re-baseline after the zombie kinds.** The crawler (2026-11-04) joins the day-5 pool,
   so every campaign's spawns from day 5 on move, and its piece did not re-run the ten-seed table.
-  The re-baseline is owed in stage 2: ten seeds and a median wipe day, on `main` and on each
+  The gassed bloater (2026-11-06) keeps today's cloud numbers, so it moves no spawn, but it changes
+  what a cloud is (a decaying level, read per window), and it did not re-run the table either. The
+  re-baseline is owed in stage 2: ten seeds and a median wipe day, on `main` and on each
   candidate, as the balance wall above says. Each later zombie kind owes the same run.
 - **Distribution assertions.** Quiet nights, sieges, deaths and run lengths asserted as
   distributions in the balance harness, not as single-seed anecdotes.
@@ -2468,6 +2453,28 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **The purifier refill: a carried material repacks a spent filter, 2026-11-04.** The pump filter
+  (`item.filter.pump`) has a `refill` block in `godot/content/items/kitchen.json`: one lump of
+  `charcoal` restores forty uses, up to its `purifies` of forty. The block is in
+  `godot/content/schemas/item.schema.json`, its `kind` enum held equal to `buildMaterial`'s. The sim
+  is `SimNeeds.refill` in `godot/sim/modules/needs.gd`, beside `purify`: it picks the carried purifier
+  that takes a refill, is not full and has the fewest uses left, spends one unit through
+  `SimFortify.consume_material` (the build path's consumer), and publishes `need.refilled`. A
+  `purify` that spends the last use of a refillable purifier now leaves it at zero instead of
+  despawning it. The stove is unchanged: `MATERIAL_KINDS` has no fuel kind. The billy can and the
+  tablets take no refill. The verb is the E ladder's `repack the filter` in `fortify.gd`'s `rung_of`,
+  placed above the free placements, and a `purifier.refill` command in `need.intake` reaches the same
+  function.
+  - **The gate.** `npm run godot:m2:transform` prints `M2_TRANSFORM_OK pinned content cook order boil
+    purify rank reach refill`. Its REFILL lane runs a filter down by forty real bottles, then repacks
+    it from one lump of charcoal to forty and checks the lump is spent and `need.refilled` published;
+    a part-used filter at ten tops up to forty, not past it; no charcoal and a full filter refuse
+    with nothing spent; tablets and a billy can refuse even with charcoal carried; the E ladder offers
+    `refill` and pressing E repacks; the command does the same. The schema lane refuses a refill whose
+    kind is not in `MATERIAL_KINDS` or whose count is below one, with a planted `unobtainium` block.
+  - **The plant.** Commenting out the material consume in `refill` turns the gate red:
+    `REFILL: the charcoal is still in the pack after the repack spent it`.
+  - **Measured.** Nothing measured. The entry makes no balance claim.
 - **First-person arms in the view, 2026-11-04.** docs/41 item W1, the held weapon: the player's
   own arms under the eye, holding the item the sim says is in hand; bare hands show the arms alone.
   It plays the arms kit (`tools/blender/first_person_arms/README.md`, round 1) through its README's
@@ -2626,7 +2633,7 @@ not a to-do list:
   `vehicle.truck` is Kei Truck (was "Flatbed truck"). `vehicle.sedan` stays "Sedan" for now: the
   `MOUNT` lane of `godot/check_vehicles.gd` asserts the HUD clause "a sedan beside you", and that clause
   is built from the name, so the rename waits for that pin to move. The other vehicles keep their names,
-  as docs/42 says. The vehicle files carry no description field.
+  as docs/42 says. The vehicle files carry no description field. The sedan now takes its name too (Kei Car), and the `MOUNT` pin reads the car's name from content, so the "stays Sedan" clause above no longer holds.
   - **The gate.** `npm run godot:validate` prints `GODOT_CONTENT_OK`. `npm run godot:check:wrecks`,
     `npm run godot:m2:vehicles` (`M2_VEHICLES_OK`) and `npm run godot:m2:light_burn` hold on the renamed
     content, and so does `npm run godot:smoke`.
@@ -4181,6 +4188,78 @@ not a to-do list:
   the ten-seed table: see docs/30's "The bloodhound, 2026-10-27". What content could not say: its
   scent 1.0 widens the nose a tenth over the shambler's and nothing more, because the turn toward
   scent is a constant and runs only in Wander, so it never Seeks; that is the open bullet "The
+  bloodhound's nose as a seek" under what's left, and docs/30's entry has the arithmetic. (It
+  landed on 2026-11-04: the next entry.)
+- **The bloodhound hunts by nose, 2026-11-04.** The reader the bloodhound's record above named as
+  missing: a scent-led Seek, `Track`, the seventh shambler state. A body walks up the scent field at
+  its own `seekSpeed` (2.1 m/s for the bloodhound). It is entered from Wander on a *gradient*, never
+  on a level: the uphill neighbour must carry `sensory.trail` more scent than the body's own cell
+  (`SimShambler._trail_of`). The key is new in the zombie schema, and only `bloodhound.json` names
+  it (20), so every other kind asks the field nothing new and draws exactly what it drew. The
+  threshold is set above anything one body lays on its own. On the 64-tile district at seed
+  20260805, a lone bloodhound's own residue peaks at 19.8 in its own cell, and the steepest rise its
+  own trail shows it is 16.6 (seven spots, a game day each). It keeps the trail on half the rise,
+  the two-radii rule, and holds its heading for `COMMIT_TICKS` when the rise fades, as the heard
+  Seek does. On the top of the hill it closes on the middle of that cell (the field cannot say
+  where in its four metres the smell is) and mills. Contact, sight and hearing outrank the trail in
+  the Wander arm's order. The Dormant arm is untouched: a sleeping body still wakes on noise and
+  contact only.
+
+  Measured with a throwaway driver (deleted) on the 64-tile district at seed 20260805, along the
+  open street at row 45. The source is a stationary emitter of 15 (docs/03's cooking) at (8.5,
+  45.5), left 6,000 ticks to stand, with one body placed 10, 20 or 40 m downwind (east), run 2,000
+  ticks. Each cell gives ticks to within 2 m of the source, then the mean speed to there (over the
+  whole run where it never arrived: 0.72 m/s for the bloodhound, 0.57 for the shambler, both trees).
+  Before is `main` at 3b274730; after is this head, the same driver on both.
+
+  | Body, distance | Rise at start | Before | After |
+  |---|---|---|---|
+  | bloodhound, 10 m | 60.4 | 374 ticks, 0.64 m/s | **91 ticks, 2.10 m/s** |
+  | shambler, 10 m | 60.4 | 373 ticks, 0.52 m/s | 373 ticks, 0.52 m/s |
+  | bloodhound, 20 m | 21.7 | 678 ticks, 0.69 m/s | **201 ticks, 2.10 m/s** |
+  | shambler, 20 m | 21.7 | 814 ticks, 0.55 m/s | 814 ticks, 0.55 m/s |
+  | bloodhound, 40 m | 1.5 | never (closest 39.5 m) | never (closest 39.5 m) |
+  | shambler, 40 m | 1.5 | never (closest 39.5 m) | never (closest 39.5 m) |
+
+  At 40 m the field holds a rise of 1.5, below even the shambler's drift, so neither kind smells the
+  source in 2,000 ticks: on this calibration a plume of 15 carries about 20 m downwind, and no
+  reader can follow what the field does not hold. The shambler's numbers are identical before and
+  after: it never enters Track. The self-smell negative:
+  the bloodhound alone, with no source, at each of the three spots, stays in Wander on all 2,000
+  ticks. At seven more spots (corners, edges, a room) it stays in Wander for a whole 72,000-tick
+  day. What it cannot do: a source of 1, one person, makes the same 18 in its cell that a lone body
+  makes in its own, so the bloodhound cannot tell one survivor from itself. It reached such a
+  source at 10 m in 374 ticks, the same as before, and at 20 and 40 m never. What it follows is
+  anything that smells stronger than one body: a fire, a kill, a latrine, a crowd, a camp.
+
+  Proof that nothing else moved: on four seeds (20260805, 404, 31337, 90210), a playable 64-tile
+  world fingerprints byte for byte the same on `main` and on this head after 6,000 ticks. That holds
+  with its boot shamblers alone, and again with three of every other kind added (armored, bloater,
+  heavy, runner, screamer, shambler, stalker). `godot:m2:roster`'s output is identical line for
+  line on both trees. The shambler component gains no key (`scentTrail` is set only for a kind
+  that names a trail), so no save changes shape. The no-bump reason is in `serialize.gd`'s
+  version notes.
+
+  Gate: `godot:m2:district` TRAIL, beside SCENT-ONLY, on the same district street. The bloodhound
+  20 m downwind of the warmed source takes the trail and walks it at exactly its `seekSpeed`, and
+  is within 2 m by tick 201, inside a 400-tick window. The shambler from the same spot is 11.3 m off
+  at tick 400 and never enters Track. The true negatives: alone with no source, it never leaves
+  Wander in 2,000 ticks; on a hill of 500 in its own cell it does not wake in the 108 ticks it lies
+  there (the same run's positive: one cell off, the hill is a trail, and it turns back at tick 110);
+  and a planted field whose `uphill_scent` names the body's own cell does not wake it, where the
+  same plant naming the next cell does. READ holds the threshold to the content's and the shambler
+  to none. Broken on purpose: with `_trail_of`'s rise test dropped to any rise above zero, TRAIL
+  goes red: alone, it tracked its own trail from tick 110 and left Wander on 1,139 of 2,000 ticks.
+  With the own-cell guard removed, the planted negative goes red. Both were restored.
+
+  Ran green: the full `godot:m2` chain (four shards), `godot:smoke`, `godot:validate`, `npm test`,
+  `check:routing`. Balance, same machine, FAST band (`godot:m2:balance`, four seeds, ten days):
+  `M2_BALANCE_OK` on `main` and on this head, every seed's line identical, so no bloodhound that
+  arrived from day 7 on those four campaigns walked a trail that changed an outcome. The ten-seed
+  table was not re-baselined. That is owed in stage 2 with the
+  zombie arc's re-baseline, since a bloodhound arrives from day 7 and now walks at 2.1 m/s where it
+  drifted at 0.7. docs/30's "The bloodhound's nose is a gradient, not a level, 2026-11-04" has the
+  design, the rejected one, and why.
   bloodhound's nose as a seek" under what's left, and docs/30's entry has the arithmetic.
 - **The crawler, 2026-11-04.** Zombie kind nine: `godot/content/zombies/crawler.json`, wave 2,
   weight 3, speed 0.8 with `crawl` 0.45, `sensory` noise 0.5, light 0.2, scent 0.9, and
@@ -15858,18 +15937,45 @@ not a to-do list:
   floodlight is a one-way trip and is recorded as such — two placeable items, two opposite answers,
   both by the owner's decision of 2026-09-12 rather than by whichever was written first.
 
-  **Half of it did not ship, on purpose.** The what's-left entry wanted the alarm and the noisemaker
-  turned into things you had to have carried there first. They are still free world singletons,
-  because `check_m2_materials.gd`'s PINNED lane asserts both of them by name and by cost — so
-  repricing them is a rebalance that turns a shipped gate red, not a content addition riding along
-  beside one. The owner chose new items only. The repricing is named in what's left with the
-  before-and-after run it owes.
+  **Half of it did not ship, on purpose, until 2026-11-05.** The what's-left entry wanted the alarm and
+  the noisemaker turned into things you had to have carried there first. They stayed free world
+  singletons, because `check_m2_materials.gd`'s PINNED lane asserts both of them by name and by cost,
+  so repricing them was a rebalance that would turn a shipped gate red. The owner chose new items
+  only. The repricing landed 2026-11-05; see the next paragraph.
 
   **HORDE is the lane worth naming**, because it measures the thing the slice is for rather than
   the field it writes into: twelve bodies at a mean 18.0 m held 18.6 m through a 400-tick fuse and
   then closed to 3.0 m over 3600 ticks of siren, while an identical siren that never went off left
   its ring at 20.9 m. The control is what makes it an assertion — the crowd came for the sound, and
   a crowd that did not hear one stayed where it was.
+
+  **The alarm and the noisemaker are priced, 2026-11-05.** The alarm costs one wire and the noisemaker
+  one metal (`fortify.gd` RECIPES: `"alarm": "wire", "noisemaker": "metal"`). Both are spent in
+  `_complete`, only after the placement checks pass, so a refused placement spends nothing. The alarm
+  rung needs a carried wire and the noisemaker rung a carried metal (`rung_of`); the intake rows
+  `trap.alarm.place` and `bait.noisemaker.place` also require the unit carried. The E ladder keeps its
+  default: a lone wire on open ground strings a fence, because the fence rung sits above the alarm, so E
+  lays the alarm only where a wall cannot go up (indoors). The owner card is docs/33's "The trip alarm".
+  PINNED asserts both costs by name, and PRICED (in `godot:m2:materials`) asserts that an empty pack
+  places neither device and one unit spent is one unit gone. Removing both RECIPES rows turns PINNED red
+  with `M2_MATERIALS_FAIL`. The grade gate's chrome lane needed a fixture change: the amber E keycap is
+  the free alarm rung, so an empty pack hid it; `check_grade_look.gd` stows one wire before the scene
+  is set up, and the count is back at 21 pixels.
+
+  Before and after, `godot:playtest` (the scripted survivor, ten days, seeds 1, 2, 3; base is
+  `origin/main` `3b274730`, after is the merge `80887746`). The log has no placement field, so the
+  alarms and noisemakers the colony lays are not counted.
+
+  | Seed | Base | After |
+  |---|---|---|
+  | 1 | wiped, day 9, 0 survivors, 3 deaths, wall 3454 s | wiped, day 9, 0 survivors, 3 deaths, wall 2975 s |
+  | 2 | wiped, day 8, 0 survivors, 4 deaths, wall 2205 s | wiped, day 8, 0 survivors, 4 deaths, wall 2046 s |
+  | 3 | alive, day 11, 2 survivors, not over, wall 3823 s | alive, day 11, 2 survivors, not over, 1 death, wall 3249 s |
+
+  Wall times are not quiet-machine numbers: the three base runs and the three after runs each ran three
+  at once. `M2_BALANCE_OK` holds on both trees (base 384 s, after 295 s in the handoff's concurrent
+  runs; 217 s on the final chain, run beside the seed 3 playtest). The seed outcomes are the same on
+  both trees; the measurement does not show a shift in the wipe day.
 - **Items** — ~~build materials: the substance that is not scrap~~ **landed** 2026-09-12
   (`npm run godot:m2:materials` → **`M2_MATERIALS_OK pinned kind kinds findable reach recipes`**, a
   new gate whose six lanes were each broken and watched go red; `godot:m2:fortify`, `godot:m2:jobs`,
@@ -16045,6 +16151,28 @@ not a to-do list:
   once-per-survivor contamination bug **was already fixed and its entry was stale**, and
   `_has_open_wound` matches `kind == "bite"` alone, so a deep laceration or a burn is no way in for
   a plume.
+- **Zombies — the gassed bloater, 2026-11-06.** The burst's cloud is a gas level that decays, not a
+  flag that waits for its expiry. `godot/content/zombies/bloater.json` carries a `gas` block (`radius`
+  6.0, `lingerTicks` 1800, `decayPerTick` 1/1800, `threshold` 0.000001, `hurtEvery` 200), and
+  `bloater.gd`'s `gas_of` reads it, with the module's constants as the fallback for a kind with no
+  block. The burst writes `level` 1.0 and `bornAtTick` into the cloud's `contamination` component; the
+  system decays the level once a tick and despawns the cloud when it reaches the threshold. A cloud
+  with no level (a fixture, or a save from before the field) reads its level off its nominal end. The
+  disc and the roll are unchanged: the roll reads the cloud's level, not the burst event, and a survivor
+  in the disc with an open wound rolls once per `hurtEvery` window, `contaminationRolls` rows carrying a
+  `window` (a row without one is window 0). The owner's call of 2026-11-06 set the window to ten seconds (`hurtEvery`
+  200 at 20 ticks a second): a survivor who stands in the cloud is rolled again every window, nine times
+  over a cloud's 90 s life. The field is per cloud, not per tile: the footprint is one disc at
+  one level, so a grid would store the same level in every cell. Gates: `godot:m2:filter` LINGER (a
+  bitten survivor outside the disc, walked in on tick 600, rolled once with the cloud there; walked in
+  on the cloud's last live tick, 1799, rolled once; walked in on 1800, the tick the level reaches zero,
+  not rolled and the cloud gone; a planted field held at level 1.0, walked in on 1900, rolled, so the
+  GONE judgement could see a leak), and LINGER STAY (a survivor who stands in the cloud from its birth to
+  its end is rolled nine times, one per 200-tick window; with `hurtEvery` back at 1800 it is rolled once,
+  and the lane goes red). The CLOUD, PINNED and BLOOM lanes of the same gate, the roster's BLOOM and
+  BLOOM-TWICE, and the chain's medicine lane are unchanged, since their fixtures stand inside one window.
+  The FAST balance tier does not move: `godot:m2:balance` prints the same FAST lines on `origin/main`
+  and on this branch (`M2_BALANCE_OK` on both). The ten-seed re-baseline is owed (see Proof).
 - **Items** — ~~food, drink, and the medical quality tiers~~ **landed** 2026-09-12
   (`npm run godot:m2:medicine` → **`M2_MEDICINE_OK`**, a new gate whose eight lanes were each run
   red *and* green before they were trusted; `godot:m2:treatment`, `godot:m2:wounds`,
