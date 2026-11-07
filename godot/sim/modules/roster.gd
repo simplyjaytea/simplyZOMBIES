@@ -324,8 +324,28 @@ static func spawn_zombie(world: Variant, x: float, y: float, type_id: String, rn
 			alarm = {"magnitude": 300, "relay": true, "cooldownTicks": 600}
 		alarm["ticksUntilReady"] = 0
 		world.components.set_component(ent, "alarm", alarm)
+	var shove: Dictionary = shove_of(world, type_id)
+	if not shove.is_empty():
+		world.components.set_component(ent, "shove", shove)
 	_wear_the_kit(world, ent, type_id, x, y)
 	return ent
+
+
+# A kind's barricade shove, from its `shoves` block: the per-hit damage and the cooldown, with the
+# cooldown itself starting ready. Empty for a kind that shoves nothing or shoves no barricades, so the
+# component is only on the bodies that have it (fortify.gd's `_tick_shoves` reads it).
+static func shove_of(world: Variant, type_id: String) -> Dictionary:
+	var entry: Variant = content_entry(world, type_id)
+	if not (entry is Dictionary) or not ((entry as Dictionary).get("shoves") is Dictionary):
+		return {}
+	var block: Dictionary = (entry as Dictionary)["shoves"] as Dictionary
+	if not bool(block.get("barricades", false)):
+		return {}
+	return {
+		"perHit": float(block.get("perHit", 0.0)),
+		"cooldownTicks": maxi(1, int(block.get("cooldownTicks", 1))),
+		"cooldown": 0,
+	}
 
 
 # What a body of this kind is wearing, from the resolved entry's `worn` list. A kind that
