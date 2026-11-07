@@ -3045,6 +3045,11 @@ func _visual_remains_items() -> Array[Dictionary]:
 	if world == null:
 		return out
 	for record in world.visualRemains:
+		# A zombie whose body is still in the world is drawn by the entity pass as the corpse it is (docs/30,
+		# 2026-11-07); its settled picture takes over when the body goes. Drawn once, never twice.
+		var rid: int = int(record["entity"])
+		if world.entities.is_alive(rid) and world.components.has_component(rid, "corpse"):
+			continue
 		var x: float = float(record["x"])
 		var y: float = float(record["y"])
 		if world.vision != null and int(world.vision.detail(int(world.player), x, y)) != SimVisibility.Detail.Focal:

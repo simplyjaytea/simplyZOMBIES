@@ -8169,3 +8169,21 @@ the noise entry.
   pack places neither device and one unit is spent. The plant (both RECIPES rows removed) turns it
   red with `M2_MATERIALS_FAIL`. `godot:check:grade` stows one wire before the scene is set up, since
   the E keycap that the grade lane counts is the free alarm rung.
+
+
+## A dead zombie lies where it fell (2026-11-07)
+
+The owner, in the first-person pass: a zombie that dies vanished the same tick, which reads as broken when
+the body you just put down disappears mid-fall. A zombie's body now stays where it fell.
+
+- **The body.** `ZOMBIE_CORPSE_SHEDS` names what it sheds; `corpse` is marked `zombie` and carries its kind.
+  The kind's model and tint stay, and it plays `death` held in first person.
+- **The lying time.** `ZOMBIE_CORPSE_TICKS` = 6000 (five minutes at 20 Hz). Owner card: the lying time.
+- **Not buried, no scent, no loot.** Owner cards: burial is not built for zombie bodies; scent is none; the
+  kit still drops as before and nothing is looted from the body.
+- **The gates.** `godot:m2:roster`'s ZOMBIE CORPSE lane; `godot:check:first_person`'s BODIES case; and
+  `godot:check:zombie_art`'s REMAINS lane, which holds the new contract (death = the drop and the shed list
+  and `corpse`; nothing else in the world moves).
+- **Two places the spec named that are not components here.** The dormant, lurker, feigner, gas, shove and
+  crawler states are not components of their own: they live in the `shambler` component (a feigner's keys,
+  a dormant body's state) or in the content. Removing `shambler` is what covers them.

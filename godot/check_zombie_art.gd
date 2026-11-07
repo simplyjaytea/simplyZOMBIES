@@ -45,7 +45,7 @@ func _run() -> void:
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	ok = _require(seconds <= BUDGET_SECONDS, "BUDGET: %.2f s exceeds %.0f s" % [seconds, BUDGET_SECONDS]) and ok
 	if ok:
-		print("ZOMBIE_ART_OK CONTENT nine selected families; MOTION four views with eight distinct poses and a breath, render-clock stride timing; CORPSES matching art centered on ground; DEATH one drop/despawn and no active corpse zombie; SAVE optional bounded cosmetic history without RNG/allocation; READERS Focal-only settled draw before standing aim/gear/speech; %.2f s" % seconds)
+		print("ZOMBIE_ART_OK CONTENT nine selected families; MOTION four views with eight distinct poses and a breath, render-clock stride timing; CORPSES matching art centered on ground; DEATH one drop, one zombie corpse that counts as no zombie; SAVE optional bounded cosmetic history without RNG/allocation; READERS Focal-only settled draw before standing aim/gear/speech; %.2f s" % seconds)
 		quit(0)
 	else:
 		push_error("ZOMBIE_ART_FAIL")

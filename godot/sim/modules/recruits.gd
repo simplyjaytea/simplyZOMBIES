@@ -32,6 +32,15 @@ const CORPSE_SCENT: float = 8.0
 const CORPSE_SCENT_OLD: float = 25.0
 # Four one-hour days: the four-hour day this scent was tuned against, in the same real minutes.
 const CORPSE_OLD_TICKS: int = 4 * Clock.DAY_TICKS
+# A zombie that dies lies where it fell for this long, then goes (the owner's card, docs/33; five minutes at
+# 20 Hz). Not buried, no scent, no loot on it: those are cards of their own.
+const ZOMBIE_CORPSE_TICKS: int = 6000
+# What a zombie sheds when it dies. `shambler` holds every kind's AI (dormant, feigning, crawling, grabbing:
+# all keys of that one component), so removing it is what stops a body acting or counting as a zombie. The rest
+# are the components a zombie is given beside it at spawn (roster.gd `spawn_zombie`): `velocity` (it does not
+# move), `attention_emitter` (no scent or noise), `observer` (it does not see), `alarm` (a screamer's), `light_source`
+# (a glowing kind's), and `lootKit`, which `_drop_kit` has already spent on the way down.
+const ZOMBIE_CORPSE_SHEDS: Array[String] = ["shambler", "velocity", "attention_emitter", "observer", "alarm", "light_source", "lootKit"]
 const STREAM: String = "recruits"
 
 
@@ -47,6 +56,7 @@ static func register_module(world: Variant) -> void:
 		_tick_dawn_leave(w)
 		_tick_leave(w)
 		_tick_corpse(w)
+		_tick_zombie_corpses(w)
 	)
 	world.events.subscribe({"id": "recruits.mood-leave", "type": "mood.threshold", "handler": func(e: Dictionary) -> void:
 		begin_leave(world, int(e.get("entity", -1)))
@@ -297,6 +307,10 @@ static func waiting_in_reach(world: Variant, actor: int) -> int:
 static func handle_death(world: Variant, entity: int) -> bool:
 	if entity < 0 or not bool(world.entities.is_alive(entity)):
 		return false
+	# A zombie's body lies where it fell (docs/30, 2026-11-07): it is already dead, so a second death is
+	# refused rather than despawning it early.
+	if is_zombie_corpse(world, entity):
+		return false
 	if int(entity) == int(world.player) or world.components.has_component(entity, "controlled"):
 		var next: int = _succession_pick(world, entity)
 		if next >= 0:
@@ -317,7 +331,7 @@ static func handle_death(world: Variant, entity: int) -> bool:
 	if world.components.has_component(entity, "shambler"):
 		_remember_zombie_remains(world, entity)
 		_drop_kit(world, entity)
-		world.despawn(entity)
+		_make_zombie_corpse(world, entity)
 		return true
 	if _turns_on_death(world, entity):
 		_turn_with_kit(world, entity)
@@ -356,6 +370,38 @@ static func handle_death(world: Variant, entity: int) -> bool:
 		return true
 	world.despawn(entity)
 	return true
+
+
+# The body a zombie leaves: a `corpse` marked `zombie`, keeping its position, body, facing, `zombieType` (the kind's
+# model and tint) and `bodyMax`, and shedding what `ZOMBIE_CORPSE_SHEDS` names. It stays in the world as a body
+# until `_tick_zombie_corpses` takes it away.
+static func _make_zombie_corpse(world: Variant, entity: int) -> void:
+	var zt: Variant = world.components.get_component(entity, "zombieType")
+	var kind: String = String((zt as Dictionary).get("id", "zombie.shambler")) if zt is Dictionary else "zombie.shambler"
+	world.components.set_component(entity, "corpse", {"sinceTick": int(world.tick), "zombie": true, "kind": kind})
+	for shed in ZOMBIE_CORPSE_SHEDS:
+		world.components.remove(entity, shed)
+	world.events.publish({"type": "corpse.formed", "entity": entity, "zombie": true})
+
+
+# True for the body a zombie left, as opposed to a colonist, raider or settler's. Bury and the human corpse
+# readers ask this; the zombie corpse is still a `corpse` to everything else.
+static func is_zombie_corpse(world: Variant, entity: int) -> bool:
+	var c: Variant = world.components.get_component(entity, "corpse")
+	return c is Dictionary and bool((c as Dictionary).get("zombie", false))
+
+
+# Takes a zombie's body away once it has lain ZOMBIE_CORPSE_TICKS. Collected first, then despawned, so the
+# query is not walked while the world changes under it.
+static func _tick_zombie_corpses(world: Variant) -> void:
+	var gone: Array[int] = []
+	for e in world.components.query(["corpse"]):
+		var c: Variant = world.components.get_component(int(e), "corpse")
+		if c is Dictionary and bool((c as Dictionary).get("zombie", false)):
+			if int(world.tick) - int((c as Dictionary).get("sinceTick", 0)) >= ZOMBIE_CORPSE_TICKS:
+				gone.append(int(e))
+	for e2 in gone:
+		world.despawn(e2)
 
 
 static func _remember_zombie_remains(world: Variant, entity: int) -> void:
