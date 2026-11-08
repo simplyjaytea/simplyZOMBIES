@@ -59,6 +59,8 @@ const SimBoot = preload("res://sim/boot.gd")
 const SimStances = preload("res://sim/stances.gd")
 
 const SMALL_TILES: int = 64
+# The content templates `_finishes` loops over; `_finish` prints the count, not a literal.
+var _finish_count: int = 0
 const EPSILON_M: float = 0.001
 
 var _failures: Array[String] = []
@@ -83,7 +85,7 @@ func _run() -> void:
 
 func _finish(ok: bool) -> void:
 	if ok:
-		print("FP_GEOMETRY_OK every tile and all 22 building finishes keep their profile bands, every body keeps its cylinder, finish skins stay within 25 mm of a solid host, finish volumes are low exterior door steps, canopies are attached above 2.10 m and at most 1.20 m deep, wall and window attachments are at most 0.10 m proud on their declared tile and window boxes stay in the sill or lintel band, every sim window in four generated districts is drawn open and every indoor tile there has a ceiling, and planted wall-over-window, stripped-ceiling, band-box, window, Low-tile, module, open-tile, high-wall, indoor-volume, tall-volume, detached-volume, canopy-low, canopy-deep, canopy-detached, wall-proud, wall-open, attach-offtile, window-attach-opening, and smooth-normal box errors are refused, and every band box and the ground draw flat-shaded")
+		print("FP_GEOMETRY_OK every tile and all %d building finishes keep their profile bands, every body keeps its cylinder, finish skins stay within 25 mm of a solid host, finish volumes are low exterior door steps, canopies are attached above 2.10 m and at most 1.20 m deep, wall and window attachments are at most 0.10 m proud on their declared tile and window boxes stay in the sill or lintel band, every sim window in four generated districts is drawn open and every indoor tile there has a ceiling, and planted wall-over-window, stripped-ceiling, band-box, window, Low-tile, module, open-tile, high-wall, indoor-volume, tall-volume, detached-volume, canopy-low, canopy-deep, canopy-detached, wall-proud, wall-open, attach-offtile, window-attach-opening, and smooth-normal box errors are refused, and every band box and the ground draw flat-shaded" % _finish_count)
 		quit(0)
 		return
 	for failure in _failures:
@@ -472,6 +474,7 @@ func _size_close(a: Vector3, b: Vector3) -> bool:
 
 func _finishes() -> bool:
 	var templates: Dictionary = _building_templates()
+	_finish_count = templates.size()
 	var manifest: Dictionary = BuildingView.read_manifest()
 	var models: Array = manifest.get("models", []) as Array
 	var ok: bool = true
