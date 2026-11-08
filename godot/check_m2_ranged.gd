@@ -81,16 +81,30 @@ func _dispersion_half(state: int) -> float:
 	return float(rw["coneHalf"])
 
 
+# Forces the spawn's posture: a standing body keeps the legs its max says it has, a crawler has none.
+func _dispersion_posture(w: Variant, target: int, crawler: bool) -> void:
+	var body: Dictionary = w.components.get_component(target, "body") as Dictionary
+	var max_body: Dictionary = w.components.get_component(target, "bodyMax") as Dictionary
+	if crawler:
+		body["legs"] = 0.0
+	else:
+		body["legs"] = float(max_body.get("legs", 1.0))
+	if SimHealth.is_crawling(body) != crawler:
+		push_error("DISPERSION posture not forced to %s" % ("crawler" if crawler else "standing"))
+
+
 # Hits out of DISPERSION_ROUNDS for one distance, state and disc value.
-func _dispersion_hits(distance: float, half: float) -> int:
+# A standing shambler (legs intact) unless `crawler`: a body with its legs gone, as a crawl-rolled spawn is.
+# The shooter's camera pitches at `aim_mm` above the floor, the way a player's camera does.
+func _dispersion_hits(distance: float, half: float, crawler: bool = false, aim_mm: int = 900) -> int:
 	var hits: int = 0
 	for seed_val in range(1, DISPERSION_ROUNDS + 1):
 		var w: Variant = _dispersion_world(seed_val)
 		var rng: Variant = w.rng.stream("shambler")
 		var target: int = SimRoster.spawn_zombie(w, 2.0 + distance, 12.0, SimRoster.TYPE_SHAMBLER, rng)
 		w.events.drain()
-		# A player's camera pitches at the body it aims at: the chest, 900 mm, from the eye.
-		var rise: int = 900 - SimSpace.eye_of(w, int(w.player))
+		_dispersion_posture(w, target, crawler)
+		var rise: int = aim_mm - SimSpace.eye_of(w, int(w.player))
 		SimAim.set_pitch(w.components, int(w.player), SimAim.pitch_toward(rise, distance))
 		var contact: Dictionary = SimRanged._shot_ray(w, int(w.player), half, DISPERSION_REACH, 0.0, 2.0, 12.0)
 		if int(contact["hit"]) == target:
@@ -125,6 +139,13 @@ func _dispersion() -> bool:
 				line += "  %.3f" % rate
 			table["%.2f|%s" % [value, state_name]] = row
 			print(line)
+	# Printed only, not asserted: a crawler (legs gone) aimed at its own chest, 250 mm, at the built default.
+	SimRanged.DISPERSION = 0.25
+	var crawl_line: String = "DISPERSION crawler 0.25 Steady aimed 250 mm"
+	for d_c in [2.0, 6.0]:
+		var rate_c: float = float(_dispersion_hits(float(d_c), steady_half, true, 250)) / float(DISPERSION_ROUNDS)
+		crawl_line += "  %.0f m %.3f" % [float(d_c), rate_c]
+	print(crawl_line)
 	SimRanged.DISPERSION = was
 	# The assertions at the built default.
 	var steady: Array = table["0.25|Steady"] as Array
