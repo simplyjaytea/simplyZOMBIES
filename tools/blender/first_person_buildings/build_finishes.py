@@ -74,6 +74,11 @@ STYLES = {
     "sign_orange_alt": (3, 6),
     "sawmill_tin": (4, 6),
     "sawmill_tin_alt": (5, 6),
+    "sawmill_eave": (6, 6),
+    "sawmill_eave_alt": (7, 6),
+    "sawmill_verge": (0, 7),
+    "sawmill_verge_alt": (1, 7),
+    "sawmill_door_wood": (2, 7),
 }
 PALETTES = {
     "siding": ["#586058", "#636a60", "#6d7367", "#777b6d", "#818474"],
@@ -312,13 +317,35 @@ def atlas_pixel(style, x, y, plant=None):
     if style == "granite":
         grout = x % 16 == 0 or y % 16 == 0
         return tone("concrete", 1) if grout else tone("granite", 2 + ((x // 16 + y // 16) % 2))
-    if style in ("sawmill_tin", "sawmill_tin_alt"):
-        index = 2 + ((x // 8 + (style == "sawmill_tin_alt")) % 2)
+    if style == "sawmill_door_wood":
+        if min(x, 63 - x) <= 1 or x % 16 == 0:
+            return tone("wood", 1)
+        if x % 16 == 1:
+            return tone("wood", 3)
+        grain = (y + noise(x // 9, 0, 281) % 5) % 23
+        return tone("wood", 2 + (grain in (2, 7)))
+    if style in ("sawmill_tin", "sawmill_tin_alt", "sawmill_eave", "sawmill_eave_alt", "sawmill_verge", "sawmill_verge_alt"):
+        alternate = style in ("sawmill_tin_alt", "sawmill_eave_alt", "sawmill_verge_alt")
+        index = 2 + ((x // 8 + alternate) % 2)
         if x % 8 == 0:
             index = 1
         elif x % 8 == 1:
             index = 4
-        rust = min(x, 63 - x) <= 2 or (x % 16 == 0 and y >= 24) or y >= 61
+        rust = False
+        if style in ("sawmill_tin", "sawmill_tin_alt"):
+            rust = min(x, 63 - x) <= 1 or (style == "sawmill_tin" and y <= 2)
+        elif style in ("sawmill_eave", "sawmill_eave_alt"):
+            rust = y >= 61 if style == "sawmill_eave" else y <= 2
+            for column, length in ((7, 18), (22, 29), (38, 13), (52, 24)):
+                if column <= x <= column + 1:
+                    if style == "sawmill_eave" and 61 - length <= y < 61:
+                        rust = True
+                    if style == "sawmill_eave_alt" and 3 <= y <= 2 + length:
+                        rust = True
+        elif style == "sawmill_verge":
+            rust = x <= 2
+        elif style == "sawmill_verge_alt":
+            rust = x >= 60
         return tone("brick", 2) if rust else tone("stone", index)
     if style in SIGN_GLYPHS:
         palette = "sign_blue" if style.startswith("sign_blue") else "sign_orange"
@@ -434,7 +461,7 @@ class MeshBuilder:
         self.styles.extend(other.styles)
         self.roles.extend(other.roles)
 
-    def face(self, origin, u_axis, v_axis, style, variants=None, normal=None):
+    def face(self, origin, u_axis, v_axis, style, variants=None, normal=None, style_for_cell=None):
         origin = Vector(origin)
         u_axis = Vector(u_axis)
         v_axis = Vector(v_axis)
@@ -452,7 +479,9 @@ class MeshBuilder:
                 u0, u1 = u_bounds[ui : ui + 2]
                 v0, v1 = v_bounds[vi : vi + 2]
                 pick = stable_int("%.3f,%.3f,%d" % (origin.x + u0, origin.z + v0, self.seed))
-                cell_style = variants[pick % len(variants)] if variants else style
+                cell_style = style_for_cell(u0, u1, v0, v1, width, height) if style_for_cell is not None else None
+                if cell_style is None:
+                    cell_style = variants[pick % len(variants)] if variants else style
                 cell_x, cell_y = STYLES[cell_style]
                 a0, a1 = u0 % 1.0, u1 % 1.0
                 b0, b1 = v0 % 1.0, v1 % 1.0
@@ -1456,29 +1485,88 @@ def shotengai_character(template, model):
     )
 
 
+def sampled_rust_share(pixels, faces):
+    samples = set()
+    for face in faces:
+        coords = [(uv[0] * ATLAS_SIZE, (1.0 - uv[1]) * ATLAS_SIZE) for uv in face["uv"]]
+        (x0, y0), (x1, y1), (x2, y2) = coords
+        denominator = (y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2)
+        if abs(denominator) < 0.000001:
+            continue
+        for x in range(max(0, math.floor(min(x0, x1, x2))), min(ATLAS_SIZE, math.ceil(max(x0, x1, x2)))):
+            for y in range(max(0, math.floor(min(y0, y1, y2))), min(ATLAS_SIZE, math.ceil(max(y0, y1, y2)))):
+                px, py = x + 0.5, y + 0.5
+                a = ((y1 - y2) * (px - x2) + (x2 - x1) * (py - y2)) / denominator
+                b = ((y2 - y0) * (px - x2) + (x0 - x2) * (py - y2)) / denominator
+                c = 1.0 - a - b
+                if min(a, b, c) >= -0.000001:
+                    samples.add((x, y))
+    if not samples:
+        raise ValueError("rust measurement has no sampled atlas pixels")
+    rust_colour = tone("brick", 2)
+    rust = 0
+    for x, y in samples:
+        start = (y * ATLAS_SIZE + x) * 4
+        if all(abs(pixels[start + axis] - rust_colour[axis]) <= 0.003 for axis in range(3)):
+            rust += 1
+    return 100.0 * rust / len(samples)
+
+
 def sawmill_character(template, model, doors_clear):
+    south = template["size"]["h"] - 1
+    leaf_styles = {"sawmill_tin", "sawmill_tin_alt"}
     boxes = model_boxes(model)
-    panel_boxes = [box for box in boxes if "sawmill_tin" in box["styles"] and box["min"][2] >= template["size"]["h"] and box["min"][1] < 2.20]
-    panels = [[box for box in panel_boxes if (box["min"][0] + box["max"][0]) * 0.5 < 7.0], [box for box in panel_boxes if (box["min"][0] + box["max"][0]) * 0.5 >= 7.0]]
-    if len(panel_boxes) == 0 or any(not panel for panel in panels):
-        raise ValueError(f"{template['id']} sliding panels are missing")
-    panel_sizes = [([max(point[0] for box in panel for face in box["faces"] for point in face["points"]) - min(point[0] for box in panel for face in box["faces"] for point in face["points"]), max(point[1] for box in panel for face in box["faces"] for point in face["points"]) - min(point[1] for box in panel for face in box["faces"] for point in face["points"])]) for panel in panels]
+    leaves = [box for box in boxes if box["styles"] & leaf_styles and box["min"][2] >= template["size"]["h"] and box["min"][1] < 2.20]
+    leaves.sort(key=lambda box: box["min"][0])
+    slug = template["id"].removeprefix("building.").replace(".", "_")
+    for box in leaves:
+        low, high = box["min"][0], box["max"][0]
+        tile = math.floor((low + high) * 0.5)
+        if low < tile - 0.00001 or high > tile + 1.00001:
+            raise ValueError(f"{template['id']} sliding leaf crosses tile boundary at x {low:.3f}..{high:.3f}")
+        expected = f"{slug}-wall-{tile}-{south}"
+        if window_candidate(template, tile, south) and box["node"] != expected:
+            raise ValueError(f"{template['id']} sliding leaf at tile {tile} belongs to {box['node']}, not {expected}")
+    leaf_sizes = [(box["max"][0] - box["min"][0], box["max"][1] - box["min"][1]) for box in leaves]
     track_faces = [face for face in model.faces if face["style"] == "metal" and min(point[2] for point in face["points"]) >= template["size"]["h"] and min(point[1] for point in face["points"]) >= 2.21 and max(point[1] for point in face["points"]) <= 2.29]
     track = max(point[0] for face in track_faces for point in face["points"]) - min(point[0] for face in track_faces for point in face["points"])
-    roof_faces = [face for face in model.faces if face["style"] in ("sawmill_tin", "sawmill_tin_alt") and max(point[1] for point in face["points"]) >= 2.50]
+    roof_styles = set(ROOF_VARIANTS["tin"]) | {"sawmill_eave", "sawmill_eave_alt", "sawmill_verge", "sawmill_verge_alt"}
+    roof_faces = [face for face in model.faces if face["style"] in roof_styles and max(point[1] for point in face["points"]) >= 2.50]
     roof_points = [point for face in roof_faces for point in face["points"]]
     eave = -min(point[2] for point in roof_points)
     rake = -min(point[0] for point in roof_points)
     closed = all(any(face["style"].startswith("siding_vertical") and all(abs(point[0] - x) <= 0.00001 for point in face["points"]) and max(point[1] for point in face["points"]) > WALL_TOP for face in model.faces) for x in (-0.005, template["size"]["w"] + 0.005))
-    if len(panels) != 2 or any(abs(width - 1.80) > 0.005 or abs(height - 2.04) > 0.005 for width, height in panel_sizes) or abs(track - 6.00) > 0.005:
-        raise ValueError(f"{template['id']} sliding panel/track measurement {panel_sizes}/{track}")
+    if len(leaves) != 4 or any(abs(width - 0.90) > 0.005 or abs(height - 2.04) > 0.005 for width, height in leaf_sizes) or abs(track - 6.00) > 0.005:
+        raise ValueError(f"{template['id']} sliding leaf/track measurement {leaf_sizes}/{track}")
     if abs(eave - 0.30) > 0.005 or abs(rake - 0.30) > 0.005 or not closed or doors_clear != 3:
         raise ValueError(f"{template['id']} roof/gable/door measurement {eave}/{rake}/{closed}/{doors_clear}")
+    image = bpy.data.images.get("buildings_atlas")
+    if image is None:
+        raise ValueError("rust measurement cannot find the buildings atlas")
+    pixels = [0.0] * len(image.pixels)
+    image.pixels.foreach_get(pixels)
+    field_faces = [face for face in roof_faces if face["style"] in ROOF_VARIANTS["tin"]]
+    eave_faces = [face for face in roof_faces if face["style"] in ("sawmill_eave", "sawmill_eave_alt")]
+    verge_faces = [face for face in roof_faces if face["style"] in ("sawmill_verge", "sawmill_verge_alt")]
+    leaf_faces = []
+    for face in model.faces:
+        points = [Vector(point) for point in face["points"]]
+        normal = (points[1] - points[0]).cross(points[2] - points[0]).normalized()
+        if face["style"] in leaf_styles and min(point.z for point in points) >= template["size"]["h"] and min(point.y for point in points) < 2.20 and abs(normal.z) > 0.9 and max(point.x for point in points) - min(point.x for point in points) > 0.80:
+            leaf_faces.append(face)
+    field_rust = sampled_rust_share(pixels, field_faces)
+    eave_rust = sampled_rust_share(pixels, eave_faces)
+    verge_rust = sampled_rust_share(pixels, verge_faces)
+    leaf_rust = sampled_rust_share(pixels, leaf_faces)
+    if field_rust > 0.001 or min(eave_rust, verge_rust, leaf_rust) <= 0.0:
+        raise ValueError(f"{template['id']} rust allocation field {field_rust:.1f}, eave {eave_rust:.1f}, verge {verge_rust:.1f}, leaf {leaf_rust:.1f}")
     roof = sorted({face["style"] for face in roof_faces})
     walls = sorted({face["style"] for face in model.faces if face["style"] in WALL_VARIANTS["siding"]})
     return (
-        f"CHARACTER {template['id']}: sliding doors {len(panels)}, panel {panel_sizes[0][0]:.2f} x {panel_sizes[0][1]:.2f} m, track {track:.2f} m; "
-        f"doors clear {doors_clear}; roof {roof}, eave {eave:.2f} m, rake {rake:.2f} m; gable faces closed {'yes' if closed else 'no'}; walls {walls}"
+        f"CHARACTER {template['id']}: sliding leaves {len(leaves)}, leaf {leaf_sizes[0][0]:.2f} x {leaf_sizes[0][1]:.2f} m, track {track:.2f} m; "
+        f"doors clear {doors_clear}; roof {roof}, eave {eave:.2f} m, rake {rake:.2f} m; "
+        f"roof rust: field {field_rust:.1f}%, eave course {eave_rust:.1f}%, verge {verge_rust:.1f}%; leaf rust {leaf_rust:.1f}%; "
+        f"gable faces closed {'yes' if closed else 'no'}; walls {walls}"
     )
 
 
@@ -1882,21 +1970,33 @@ def build_shotengai_details(pieces, template, plant=None):
         add_canopy(finish, spec, plant)
 
 
+def sawmill_leaf(mesh, x, south, u0=0.05, u1=0.95):
+    for y0, y1, style in ((0.08, 1.08, "sawmill_tin"), (1.08, 2.08, "sawmill_tin_alt"), (2.08, 2.12, "sawmill_tin_alt")):
+        start = len(mesh.uvs)
+        side_box(mesh, x, south, 2, u0, u1, y0, y1, 0.024, style)
+        cell_x, _ = STYLES[style]
+        for index in range(start, len(mesh.uvs)):
+            points = [mesh.vertices[vertex] for vertex in mesh.faces[index]]
+            if abs(points[1][0] - points[0][0]) < 0.80:
+                continue
+            local = [uv[0] * ATLAS_METRES - cell_x for uv in mesh.uvs[index]]
+            low, high = min(local), max(local)
+            mesh.uvs[index] = tuple(((cell_x + (a - low) / (high - low)) / ATLAS_METRES, uv[1]) for a, uv in zip(local, mesh.uvs[index]))
+
+
 def build_sawmill_details(pieces, template, plant=None):
     south = template["size"]["h"] - 1
     for x in (4, 5, 8, 9):
         target = pieces.piece("wall", x, south)["finish"] if window_candidate(template, x, south) else pieces.finish
-        u0 = 0.10 if x in (4, 8) else 0.0
-        u1 = 0.90 if x in (5, 9) else 1.0
-        side_box(target, x, south, 2, u0, u1, 0.08, 2.12, 0.024, "sawmill_tin")
+        sawmill_leaf(target, x, south, u1=1.05 if plant == "sliding_leaf_span" and x == 4 else 0.95)
     for x in range(4, 10):
         target = pieces.piece("wall", x, south)["finish"] if window_candidate(template, x, south) else pieces.finish
         side_box(target, x, south, 2, 0.0, 1.0, 2.22, 2.28, 0.024, "metal")
     if plant == "sliding_door_cross":
-        side_box(pieces.finish, 6, south, 2, 0.10, 0.90, 0.08, 2.12, 0.024, "sawmill_tin")
-    side_quad(pieces.finish, 11, 0, 0, 0.0, 0.06, 0.0, 2.20, "dark_wood", offset=0.024)
-    side_quad(pieces.finish, 11, 0, 0, 0.94, 1.0, 0.0, 2.20, "dark_wood", offset=0.024)
-    side_quad(pieces.finish, 11, 0, 0, 0.0, 1.0, 2.20, 2.28, "dark_wood", offset=0.024)
+        sawmill_leaf(pieces.finish, 6, south)
+    side_quad(pieces.finish, 11, 0, 0, 0.0, 0.06, 0.0, 2.20, "sawmill_door_wood", offset=0.024)
+    side_quad(pieces.finish, 11, 0, 0, 0.94, 1.0, 0.0, 2.20, "sawmill_door_wood", offset=0.024)
+    side_quad(pieces.finish, 11, 0, 0, 0.0, 1.0, 2.20, 2.28, "sawmill_door_wood", offset=0.024)
     for y in range(template["size"]["h"]):
         if not openable(template, 0, y):
             continue
@@ -2061,12 +2161,25 @@ def add_house_roof_character(mesh, template, eave, peak, plant=None):
         tube_between(mesh, (-eave + 0.004, 2.56, gutter_z), (w + eave - 0.004, 2.56, gutter_z), 0.055, "dark_wood")
 
 
+def sawmill_roof_cells(north):
+    def choose(u0, u1, v0, v1, width, height):
+        if (north and math.isclose(v1, height)) or (not north and math.isclose(v0, 0.0)):
+            return "sawmill_eave" if north else "sawmill_eave_alt"
+        if math.isclose(u0, 0.0):
+            return "sawmill_verge"
+        if math.isclose(u1, width):
+            return "sawmill_verge_alt"
+        return None
+
+    return choose
+
+
 def build_roof(mesh, template, plant=None):
     roof_start = len(mesh.vertices)
     w, h = template["size"]["w"], template["size"]["h"]
     form = roof_form(template)
     roof_style = finish_looks(template)["roof"]
-    variants = ["sawmill_tin", "sawmill_tin_alt"] if template["id"] == SAWMILL_ID else ROOF_VARIANTS[roof_style]
+    variants = ROOF_VARIANTS[roof_style]
     exterior = exterior_style(template)
     eave = eave_for(template)
     # Roles let `validate_roof` judge the winding: a "roof" face must face up, a "roof_down" face
@@ -2092,8 +2205,10 @@ def build_roof(mesh, template, plant=None):
     rise = peak - 2.62
     if form == "gable":
         wall_roof = 2.62 + rise * eave / (h * 0.5 + eave)
-        mesh.face((-eave, 2.62, -eave), (w + 2 * eave, 0, 0), (0, rise, h * 0.5 + eave), variants[0], variants, (0, 1, -0.4))
-        mesh.face((-eave, peak, h * 0.5), (w + 2 * eave, 0, 0), (0, -rise, h * 0.5 + eave), variants[0], variants, (0, 1, 0.4))
+        north_cells = sawmill_roof_cells(True) if template["id"] == SAWMILL_ID else None
+        south_cells = sawmill_roof_cells(False) if template["id"] == SAWMILL_ID else None
+        mesh.face((-eave, 2.62, -eave), (w + 2 * eave, 0, 0), (0, rise, h * 0.5 + eave), variants[0], variants, (0, 1, -0.4), north_cells)
+        mesh.face((-eave, peak, h * 0.5), (w + 2 * eave, 0, 0), (0, -rise, h * 0.5 + eave), variants[0], variants, (0, 1, 0.4), south_cells)
         mesh.role = "roof_side"
         gable_style = exterior[0] if plant == "gable_sage" or template["id"] != "building.house.small" else "mortar"
         for x, normal in ((-0.005, (-1, 0, 0)), (w + 0.005, (1, 0, 0))):
@@ -2720,7 +2835,7 @@ def main():
     arguments = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter", "sliding_door_cross"])
+    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter", "sliding_door_cross", "sliding_leaf_span"])
     args = parser.parse_args(arguments)
     repo = Path(__file__).resolve().parents[3]
     try:
