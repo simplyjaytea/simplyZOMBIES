@@ -195,14 +195,26 @@ func _init() -> void:
 	call_deferred("_run")
 
 
+# The scene lanes stage their own fixtures (a talker beside the player, an open area to stand in) and read
+# the sim after a fixed number of ticks, so they run with the shambler's daylight reach floor off, as
+# m2:roster and m2:fog do for the content reach: at the 8 m default a district shambler sees the player
+# during the TALK lane, grabs and is shaken off, and the shove it leaves runs into the ANIM lane's "standing
+# reads idle". What a shambler does to the first-person player at the floor is fp_encounter's to judge.
+var _floor_was: float = 0.0
+
+
 func _run() -> void:
 	var old_size: Vector2i = root.size
 	root.size = Vector2i(1280, 720)
+	_floor_was = SimShambler.SIGHT_REACH_FLOOR_METRES
+	# Floor off for the scene lanes: TALK lets a zombie at 8 m grab the player and the break-away shove outlives into ANIM.
+	SimShambler.SIGHT_REACH_FLOOR_METRES = 0.0
 	var packed: PackedScene = load(SCENE_PATH) as PackedScene
 	if packed == null:
 		_fail("SCENE", "could not load %s" % SCENE_PATH)
 		_finish(old_size)
 		return
+	var lead_before: int = SimBoot.BOOT_WAVE_LEAD_DAYS
 	var ok: bool = _lane("DISTRICT", _district_default(packed), "the scene boots the shipped district size and seed by default and the gate walks a smaller one")
 	ok = _lane("BOOT", _default_boot(), "project.godot boots the first-person scene, and a project that names the top-down scene is refused") and ok
 	var scene: Node = packed.instantiate()
@@ -212,6 +224,7 @@ func _run() -> void:
 	await process_frame
 
 	ok = _lane("SHAPE", _scene_shape(scene), "the scene is the opt-in scene with a district, a HUD and no physics body") and ok
+	ok = _lane("BOOTKINDS", _boot_kinds(scene), "the first-person boot carries an outdoor wanderer that is not a shambler, and the tally is printed") and ok
 	if ok:
 		ok = _district(scene) and ok
 		var spawn: Vector2 = scene.call("rendered_player_position")
@@ -253,6 +266,7 @@ func _run() -> void:
 	await process_frame
 	# The body lane runs its own 300 ticks, so it gets a fresh scene of its own: the colony the other lanes read
 	# is not changed by it, and the lane reads a colony that is all there.
+	ok = _lane("BOOTLEAD", _boot_lead_restored(lead_before), "the boot lead is restored when the first-person scene leaves") and ok
 	var bodies_scene: Node = packed.instantiate()
 	bodies_scene.set("district_tiles", SMALL_DISTRICT_TILES)
 	root.add_child(bodies_scene)
@@ -264,8 +278,48 @@ func _run() -> void:
 	_finish(old_size, ok)
 
 
+# --- BOOTKINDS (2026-11-08) -----------------------------------------------------------------
+
+# True positive: the first-person boot judges its outdoor wanderers two days on (first_person.gd sets
+# BOOT_WAVE_LEAD_DAYS = 2), so day 3's wave admits a stalker, screamer or bloater. The tally of outdoor
+# wanderers that are not shamblers is printed. Plant: remove the first_person.gd line and the boot judges at
+# lead 0, where day 1 admits the shambler alone, so the tally is 0 and this lane fails.
+func _boot_kinds(scene: Node) -> bool:
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	if world == null or map == null:
+		return _fail("BOOTKINDS", "the scene has no sim world or map to tally")
+	var outdoor: int = 0
+	var non_shambler: int = 0
+	for ent in world.components.query(["position", "zombieType"]):
+		var e: int = int(ent)
+		if not world.entities.is_alive(e):
+			continue
+		var pos: Dictionary = world.components.get_component(e, "position") as Dictionary
+		var tx: int = int(floorf(float(pos["x"])))
+		var ty: int = int(floorf(float(pos["y"])))
+		if SimTileMap.is_indoors(map, tx, ty):
+			continue
+		outdoor += 1
+		var kind: String = String((world.components.get_component(e, "zombieType") as Dictionary).get("id", ""))
+		if kind != SimRoster.TYPE_SHAMBLER:
+			non_shambler += 1
+	print("FIRST_PERSON_BOOTKINDS lead %d: %d outdoor wanderers, %d not a shambler" % [SimBoot.BOOT_WAVE_LEAD_DAYS, outdoor, non_shambler])
+	if non_shambler < 1:
+		return _fail("BOOTKINDS", "the first-person boot has %d outdoor wanderers and none is a stalker, screamer or bloater" % outdoor)
+	return true
+
+
+# The static lead is the scene's to set and to give back: a scene that leaves it changed would tilt every boot after it.
+func _boot_lead_restored(lead_before: int) -> bool:
+	if SimBoot.BOOT_WAVE_LEAD_DAYS != lead_before:
+		return _fail("BOOTLEAD", "the boot lead is %d after the scene left, not %d" % [SimBoot.BOOT_WAVE_LEAD_DAYS, lead_before])
+	return true
+
+
 func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	root.size = old_size
+	SimShambler.SIGHT_REACH_FLOOR_METRES = _floor_was
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)

@@ -44,18 +44,21 @@ Then read, in order:
 
 ## The team
 
-**Linux, since 2026-11-04; this roster since 2026-11-05.** The owner's machine runs six terminals in
-herdr, not Orca, in two workspaces: "simplyZOMBIES / Main Code" (the orchestrator, the lead engineer, the two
-workers) and "simplyZOMBIES / Modeling and Art" (the art lead and its QA). The owner decides and gives
-tasks to the orchestrator directly. Agents do the rest, each on its own model.
+**Linux, since 2026-11-04; this roster since 2026-11-07.** The owner's machine runs nine terminals in
+herdr, not Orca, in three workspaces: "simplyZOMBIES / Main Code" (the orchestrator, the lead engineer, the
+three workers), "simplyZOMBIES / Modeling and Art" (the art lead and its QA), and "simplyZOMBIES / Claude Code"
+(the NPC and zombie mechanics lead and its worker). The owner decides and gives tasks to the orchestrator
+directly. Agents do the rest, each on its own model.
 
 | Role | Agent | Does | Does not |
 |---|---|---|---|
-| Orchestrator | Claude Code, Fable 5.1 | Plans and orchestrates: reads the state, writes the specs, dispatches the lead engineer, the workers and the art lead, makes the harder judgement calls, and talks to the art QA for anything that crosses the two workspaces. The owner gives it tasks directly | Write the work, merge, or run the merge train |
-| Lead engineer | Claude Code, Sonnet 5.5 | Reviews every worker change against the diff before the orchestrator sees it; runs the merge train and merges; opens PRs; small fixes to docs and records | Plan the rounds; touch art |
+| Orchestrator | Claude Code, Fable 5.1 | Plans and orchestrates: reads the state, writes the specs, dispatches the lead engineer, the workers and the art lead, makes the harder judgement calls, and talks to the art QA for anything that crosses the two workspaces. The owner gives it tasks directly. Runs the merge command when the lead engineer sends `MERGE #N <full SHA>` after its review | Write the work; merge a head the lead engineer has not reviewed |
+| Lead engineer | Claude Code, Sonnet 5.5 | Reviews every worker change against the diff before the orchestrator sees it; runs the merge train: checks the head contains `origin/main`, CI is green on that head and the merge diff is read, then sends the orchestrator `MERGE #N <full 40-char SHA>`; writes `REPORT-<N>.md`; opens PRs; small fixes to docs and records | Plan the rounds; touch art |
 | Art lead | Kimi Code, K3.1 Pro, thinking high, in "Never Ask" mode | Every 3D model, rig, clip, UV layout and painted texture | Edit another worker's worktree |
 | Art QA | Claude Code, Opus 5.5, a standing terminal beside Kimi | Plans Kimi's rounds, reviews every art batch independently and writes the verdict to `sz-shared/reviews/<piece>/`; the strong tier for a piece that needs higher thinking (a new gate, a shared sim module, the save format) when the coordinator asks | Merge; routine work, which stays with the workers |
-| Workers (two) | Claude Code, Haiku 5.5 | Every piece of work that is not art: code, gates, docs, keeping pull requests current with main, and independent reviews of code they did not make | Merge |
+| Workers (three) | Claude Code, Haiku 5.5 | Every piece of work that is not art: code, gates, docs, keeping pull requests current with main, and independent reviews of code they did not make. The two merge-train queue workers (head and tail) keep the open PRs current with main and run each PR's named gates after every re-merge | Merge |
+| NPC and zombie lead | Claude Code, Sonnet 5.5 | Surveys, writes the specs and reviews every change in the NPC and zombie workspace, reruns its gates, and hands reviewed heads to the orchestrator for the train | Merge; plan outside its workspace |
+| NPC and zombie worker | Claude Code, Haiku 5.5 | The code, gates and re-merges that the NPC and zombie lead dispatches | Merge |
 
 The roster may name models, because it says who runs what. Authorship never does: a commit, PR
 title or body, code comment or doc does not say which model wrote it (the owner's call, 2026-11-01,
@@ -78,8 +81,8 @@ never share a worktree at the same time, and nobody switches branches in the mai
    (or off the PR it stacks on). Worktrees sit under `.claude/worktrees/`, on branches named
    `<agent>/<piece>`. Symlink `node_modules` from the main checkout; the symlink is excluded in
    `.git/info/exclude`.
-4. **Dispatch.** `hc ls` lists the terminals in both workspaces, "simplyZOMBIES / Main Code" and
-   "simplyZOMBIES / Modeling and Art". Addresses such as `t1p` change between runs: Kimi is the `kimi-code`
+4. **Dispatch.** `hc ls` lists the terminals in all three workspaces, "simplyZOMBIES / Main Code",
+   "simplyZOMBIES / Modeling and Art" and "simplyZOMBIES / Claude Code". Addresses such as `t1p` change between runs: Kimi is the `kimi-code`
    row, the art QA is the Claude row beside it, and the workers are the Haiku rows (`hc read <t>` shows
    the model on each screen). Start one
    with `hc run --bg --name <n> --cwd <worktree> --outlive-parent <cmd>`, then
@@ -143,7 +146,8 @@ never share a worktree at the same time, and nobody switches branches in the mai
    handoff and the original task.
 
 A worker revived after days can wake with stale context, so brief it on the current `main` first. Push
-at a clean point before a long run.
+at a clean point before a long run. When herdr restarts, every agent exits and the shells keep their
+addresses; the orchestrator relaunches each agent in its shell and briefs it from `sz-shared/RESUME-<date>.md`.
 
 **Briefing a worker.** docs/23 and docs/30 are too large to read whole. A brief names the parts that
 bear on the piece: its entry in docs/23's what's left, its row in the [routing table](#routing-table),
@@ -698,6 +702,10 @@ row when a system gains a home; the gate goes red when a route stops being true.
 | The first-person weapon kit: receivers, parts, melee, their sockets | [the weapon kit's README](tools/blender/first_person_weapons/README.md), the socket contract | `tools/blender/first_person_weapons/build_weapons.py`, `godot/assets/first_person/weapons/`, `godot/assets/first_person/weapons.manifest.json` | `blender --background --factory-startup --python tools/blender/first_person_weapons/build_weapons.py -- --check` prints `WEAPONS_CHECK_OK` (bounds, sockets against content slots, origins, single-sided single material, coplanar faces, texel density, assembly contact, byte reproducibility); `-- --prove` plants an error per check | the record |
 | The first-person loot-item kit: world-pose models for the things a player picks up | [the item kit's README](tools/blender/first_person_items/README.md) | `tools/blender/first_person_items/build_items.py`, `godot/assets/first_person/items/`, `godot/assets/first_person/items.manifest.json` | `blender --background --factory-startup --python tools/blender/first_person_items/build_items.py -- --check` proves bounds, origins, bodies resting on the floor, item ids and coverage, every item within 2x of its expected size, no laddered item drawn as another item's own model, one single-sided closed material per model, no coplanar faces, texel density per face and byte reproducibility; each check has a `--plant` that turns it red | the record |
 | The first-person view-model arms: hands, sleeves, rig and clips for every hold class | [the arms kit's README](tools/blender/first_person_arms/README.md), which carries the contract | `tools/blender/first_person_arms/build_arms.py`, `godot/assets/first_person/arms/`; `godot/assets/first_person/arms/arms.json` stays in that directory so `Models.manifests()` does not register it as loot | `blender --background --factory-startup --python tools/blender/first_person_arms/build_arms.py -- --check` prints `ARMS_CHECK_OK` (bytes, names, anchor, bone-length, grip-land, wrap, sight-line, near-plane, stump, in-frame, chain, smooth, weights, cuff, density, background, paint-match, body-match, budget, measured on the exported GLB); `-- --plant <name>` turns each check red | the record |
+
+| The first-person harm readout: held, the newest wound, bleeding, blood loss, infection, the fire state, on the HUD | [docs/05](docs/05-health-injury.md#the-condition-view), [docs/01](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) | `godot/presentation/first_person/hud.gd` (`_state_lines`, `_body_lines`, `_weapon_line`), the sim readers `godot/sim/modules/wounds.gd` (`hud_clause`), `godot/sim/condition.gd`, `godot/sim/modules/ranged.gd` (`FireState`) | `npm run godot:check:fp_harm` (`godot/check_fp_harm.gd`): CLEAN, HELD, BITE, BLOOD, INFECTED, WEAPON, DIGITS | the record |
+| First-person presentation | [the foundation report](docs/planning/first-person-foundation-report.md), [docs/37](docs/37-traps.md) | `godot/presentation/first_person/`, `godot/check_first_person.gd`, `godot/check_fp_expedition.gd` | `npm run godot:check:first_person` runs the headless gate, whose MODELS lane holds the manifest loader (`godot/presentation/first_person/models.gd`) and the loose items it draws (`godot/presentation/first_person/loose_view.gd`), and whose BODIES lane holds the character bodies (`godot/presentation/first_person/body_view.gd`), and whose ARMS lane holds the view-model arms and the weapon in their hand (`godot/presentation/first_person/arms_view.gd`); `npm run godot:check:fp_expedition` runs the one-run expedition gate (ledger, door, container take, F5/F9, a shambler struck, and two true negatives); `npm run godot:run:first_person` launches the opt-in scene | the report |
+| The first-person encounter: one zombie against the first-person player, from sight or sound to the grab, the wound, the death and the break | [docs/40](docs/40-first-person-spatial-contract.md), [docs/14](docs/14-zombies.md) | `godot/sim/modules/shambler.gd` (`_seen_target`, `sight_reach`, `_clear_contact`, the struggle), `godot/sim/modules/melee.gd` (`try_begin_swing`), `godot/sim/modules/attention_emitter.gd` | `npm run godot:check:fp_encounter` (`godot/check_fp_encounter.gd`): SIGHT-NEAR, SIGHT, NOISE, CONTACT, DEATH-NOESCAPE, DEATH-ATTENTIVE, REPRESS, DRIFT, DRIFT-WALL, BREAK; green, with owner cards for the sight floor and the attentive player | the report |
 
 | A colonist comes to the held player's aid: an attack order through the order seam, the rescue or the blow that breaks the hold | [docs/09](docs/09-combat.md), [docs/08](docs/08-skill-web.md) | `godot/sim/modules/npc_combat.gd` (`_aid_colonists`, `_aid_target`), the order seam `godot/sim/modules/orders.gd` (`issue`) | `npm run godot:check:fp_aid` (`godot/check_fp_aid.gd`): AID-12 (a finding: the instinct breaks first), AID-5, FAR, NOIN, RESUME, ONCE | the record |
 | Art somebody drew for us | [the brief](godot/assets/sprites/README.md), [art we did not generate](docs/30-decisions.md#art-we-did-not-generate-2026-09-09) | `godot/assets/sprites/authored.json` declares it; the PNG sits beside it | `npm run godot:check:authored` holds it to the published bounds and refuses art nothing reads; `npm run sprites:check` proves it is present at the canvas it declares | the record |

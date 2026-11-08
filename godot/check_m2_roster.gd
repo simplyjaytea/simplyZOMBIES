@@ -524,7 +524,11 @@ func _sight_lane() -> bool:
 		if not bool(sd2["canGrab"]):
 			push_error("EYES: %s cannot grab -- `behaviors` lost its inherited grab" % type_id)
 			return false
-	# The reach, from content: eight metres is past a shambler's eyes and inside a screamer's.
+	# The reach, from content: eight metres is past a shambler's eyes and inside a screamer's. This lane pins the
+	# shambler's daylight floor to 0 (its 3.8 m is the content reach, sqrt(0.1) x 12 m), and restores it before any check
+	# can return: the floor is a shared static, so a lane that pins it must put it back.
+	var floor_was: float = SimShambler.SIGHT_REACH_FLOOR_METRES
+	SimShambler.SIGHT_REACH_FLOOR_METRES = 0.0
 	var far: Dictionary = {}
 	for type_id in [SimRoster.TYPE_SHAMBLER, SimRoster.TYPE_SCREAMER]:
 		var w3: Variant = _daylight_world(23)
@@ -539,6 +543,7 @@ func _sight_lane() -> bool:
 			if st3 == SimShambler.ShamblerState["Seek"] or st3 == SimShambler.ShamblerState["Pursue"]:
 				sought = true
 		far[type_id] = {"sought": sought, "reach": SimShambler.sight_reach(w3, z3, sd3)}
+	SimShambler.SIGHT_REACH_FLOOR_METRES = floor_was
 	var sh: Dictionary = far[SimRoster.TYPE_SHAMBLER]
 	var sc: Dictionary = far[SimRoster.TYPE_SCREAMER]
 	if bool(sh["sought"]) or absf(float(sh["reach"]) - 12.0 * sqrt(0.1)) > 0.01:
