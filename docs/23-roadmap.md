@@ -3041,8 +3041,9 @@ not a to-do list:
     survivor, a lunging shambler and a corpse. The walking survivor is hard to tell from the horde at this
     size; the gate is what holds it.
   - **Not in this piece.** Zombie kinds other than the shambler still draw the shambler model. A corpse is
-    made for survivors only (`recruits.gd`'s `_make_corpse`), so a zombie's death clip is set by the
-    gate, not the sim. Horde cost beyond 40 is unmeasured, and so is a horde at the shipped district's
+    made for survivors only (`recruits.gd`'s `_make_corpse`), so a zombie's death clip was set by the
+    gate, not the sim; since 2026-11-07 a zombie's body lies where it fell and plays it (the entry
+    "A dead zombie lies there"). Horde cost beyond 40 is unmeasured, and so is a horde at the shipped district's
     density.
 - **Held items on the first-person bodies, 2026-11-07.** The bodies in the first-person world carry what the
   sim says they hold. `held_weapon.gd` gains a `holder` (the entity whose hand it is; unset is the player, so the
@@ -3343,6 +3344,34 @@ not a to-do list:
     the orders are in; see "Orders through the conversation, 2026-11-07".)
   - **Record.** `docs/planning/first-person-talk-report.md`.
 
+- **The shot as a ray, 2026-11-07.** docs/40's slice 5, behind `SimRanged.SHOT_AS_RAY` (true: the default; false:
+  the nearest living body in the cone, hit for certain, as before). docs/33 question 1 stays open; the switch is
+  its implementation.
+  - **The ray.** `SimSpace.ray_first_hit(world, from, dir, reach, shooter)`: the first contact along a ray out to
+    the reach, a tile whose bands stop a SHOT (walked by the same integer walk `segment_clear` uses, now `_scan`,
+    which `_walk` answers as before) or a living body's cylinder (`body_of`); the shooter is ignored. The first
+    contact wins, and a body the ray enters before a tile is the body.
+  - **The round.** `_shot_ray` takes the origin at `SimSpace.eye_of` and the direction from the aim deviated within a
+    disc of radius `cone × DISPERSION` (1.0), two uniform draws on the new `ranged.spread` stream (`SPREAD_STREAM`),
+    so no existing stream moves. A body contact applies the hit as before (same `attack.connected`, the same part and
+    recovery rolls on `ranged`); falloff takes the ray distance to contact. A tile contact or no contact hits nobody.
+  - **Events.** `weapon.fired` keeps its keys and, on the ray path only, adds `oz`, `pitch`, `ex`, `ey`, `ez` (the
+    contact, or the ray's end at reach). The switch-off path publishes today's keys exactly. `decals.gd` marks the tile
+    at `ex, ey` when the event carries a contact, by the tile's surface (no mark for a body contact); without a contact
+    key it walks the line as before.
+  - **Gates.** `godot:m2:space` RAY: a shot through a window's aperture hits the body behind; below the sill it strikes
+    the window's tile; over a Low tile a standing eye hits the body behind and a crouched eye is stopped; a crouched body
+    behind a Low tile is not hit by a standing shot; a body off the ray is not hit; the same seed gives the same contact;
+    a save between Steady and release fires the same round; the spread leaves the `ranged` stream where it was; and
+    `ray_first_hit` has one sim caller, in `ranged.gd`. The lanes that measure the cone's outcome pin the switch
+    false and restore it: `godot:m2:attach` (per process), and three lanes of `godot:m2:sight` (`_cone`).
+    `godot:m2:ranged`, `godot:m2:lethality` and `godot:m2:balance` pass with the ray on and are not pinned.
+  - **Bench (same machine, seed fixed by the bench, `godot:bench`).** Switch off, then on. quiet-night 0.536 / 0.530 ms,
+    after-a-shout 0.550 / 0.547 ms, crowded 3.296 / 3.311 ms, crowded-and-loud 3.378 / 3.240 ms (p95 within 0.08 ms).
+    The bench scenarios fire few or no rounds, so these numbers measure the switch's cost off the shot path, not the
+    shot's cost.
+  - **Not in this piece.** No tracer and no draw of the contact (slice 7). DISPERSION is 1.0 until slice 8 measures it.
+    The jam, part and recovery rolls keep their draws; owner question 2 (part by geometry) is not this slice.
 - **Orders through the conversation, 2026-11-07.** Advances "First-person people and settlement operation",
   its conversations and delegation. The conversation lists the orders the sim offers the colonist for the aim it
   opened on, and choosing one pushes the sim's own command.
@@ -4440,6 +4469,38 @@ not a to-do list:
   eyes) and MIX, re-pinned for the day-7 pool over ten kinds (the feigner draws `g`, not yet in the
   fifty). The ten-seed table was not re-run; see "The ten-seed re-baseline after the zombie kinds"
   under Proof.
+- **A dead zombie lies there, 2026-11-07.** Advances the first-person survival pivot by the owner's card
+  (docs/30, "A dead zombie lies where it fell"): a zombie that dies no longer vanishes the same tick.
+  - **The body.** `recruits.gd` `handle_death`'s shambler arm keeps `_remember_zombie_remains` and `_drop_kit`,
+    then `_make_zombie_corpse` sets `corpse` = `{sinceTick, zombie: true, kind}` and sheds
+    `ZOMBIE_CORPSE_SHEDS`: `shambler` (every kind's AI is a key of that one component, so this is what stops
+    the body acting or counting), `velocity`, `attention_emitter`, `observer`, `alarm` and `light_source` (the
+    components `spawn_zombie` gives by kind), and `lootKit`, spent by `_drop_kit`. `body`, `position`,
+    `facing`, `zombieType` and `bodyMax` stay, so the body keeps its shape and its kind's model. A second
+    death of a zombie body is refused, not a despawn. The dormant, lurker, feigner, gas, shove and crawler
+    states are not components of their own: they live in `shambler` or in the stats the kind's content sets.
+  - **It goes away.** `ZOMBIE_CORPSE_TICKS` = 6000 (five minutes at 20 Hz), read by `_tick_zombie_corpses` in
+    the recruits beat. A save in between keeps it. Nothing is buried, nothing scents, nothing loots from it.
+  - **Who reads it.** Bury's target (`jobs.gd` `_bury_work`) and the Haul target (`_haul_work`) skip a zombie
+    body; a human corpse is still a Bury target beside it. The director's live count, `query(["shambler"])`,
+    does not find it. The settled-picture record (`visualRemains`) keeps its contract; the top-down remains
+    collector skips a record while its zombie body is still in the world, so the body is drawn once.
+  - **The views.** First person already drew it: `AnimState.is_zombie` reads `zombieType`, so the body draws
+    the shambler model on `death`, held (the clip's own loop mode holds it). Top-down draws it through the
+    entity pass as a corpse.
+  - **The gates.** `godot:m2:roster` prints `ZOMBIE CORPSE OK`: the body keeps its kind, sheds the list, stays
+    put for 100 ticks, is not in the director's count, survives a save, goes at the tick the constant names
+    and not before, and Bury and Haul pass it by while the human body beside it is still Bury's target. Plant:
+    `shambler` taken off the shed list, which turns the lane red at `ZOMBIE CORPSE: the body still has shambler,
+    so it acts or counts`. `godot:check:first_person`'s BODIES lane draws a zombie body through the real death
+    path on `death` held, and drops its view when its lying time is up. `godot:check:zombie_art`'s REMAINS lane
+    holds the new contract: death drops the kit and sheds the list, and nothing else in the world moves.
+  - **Owner cards (built as stated).** Lie time: 6000 ticks (five minutes). Burial: not built, zombie bodies
+    are never buried. Scent: none. Loot: the kit still drops as before, and nothing is looted from the body.
+  - **Not in this piece.** No loot on the body, no infection from it, no burial, no smell.
+  - **The cap.** `ZOMBIE_CORPSE_CAP` = 60: a death past it takes the oldest body first (`recruits.gd`
+    `_bound_zombie_corpses`). Gate: `godot:m2:roster`'s ZOMBIE CORPSE CAP lane, with its plant.
+
 - **Colony screen follow-ups, 2026-10-26.** Three nits the Colony and HUD bullets named, one piece.
   - **Reopen scrolls to the pick.** `work_panel.gd` clears `_scrolled_for` on
     `NOTIFICATION_VISIBILITY_CHANGED`, so a reopened screen scrolls to the game's pick afresh.

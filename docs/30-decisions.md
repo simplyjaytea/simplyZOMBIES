@@ -8200,6 +8200,21 @@ the noise entry.
   red with `M2_MATERIALS_FAIL`. `godot:check:grade` stows one wire before the scene is set up, since
   the E keycap that the grade lane counts is the free alarm rung.
 
+## The shot is a ray behind `SHOT_AS_RAY`, 2026-11-07
+
+The shot is a ray behind `SimRanged.SHOT_AS_RAY`, true by default (docs/40, "The shot"; docs/33 question 1 stays open,
+and the switch is what the owner's pick would flip).
+
+- **The round.** The origin is the shooter's eye at its own position. The direction is the aim deviated within a disc
+  of radius `cone × DISPERSION`, drawn as two uniform draws on the new `ranged.spread` stream. The first contact out to
+  the weapon's reach decides: a living body's cylinder (`SimSpace.body_of`), or a tile whose bands stop a shot.
+- **Consequences.** A round can miss a body the old rule hit for certain, and can hit a body nobody saw in the line.
+  Falloff takes the ray's distance to contact. A body contact applies the hit exactly as before, on the same `ranged`
+  rolls. A tile contact or no contact hits nobody; a tile contact marks the tile it struck.
+- **Built defaults.** `DISPERSION` is 1.0 until the balance slice measures it. A round that hits nobody marks the tile at
+  its end only if that tile has a surface (the card's default: yes, at the ray's end within reach).
+- **The switch off** is today's cone rule, unchanged; the lanes that measure the cone's outcome pin it false.
+
 ## The arms raise and aim with the sim's fire state, 2026-11-07
 
 The what's-left dead socket "the raise and aim clips have no reader" is closed. The record is in
@@ -8256,6 +8271,39 @@ written by the scene: a chosen row pushes its own `colonist.order` command throu
 - **No foreman.** docs/39's foreman stays undecided: the colonist takes one order at a time from the player, and
   nothing stands in for the player.
 
+
+## A dead zombie lies where it fell (2026-11-07)
+
+The owner, in the first-person pass: a zombie that dies vanished the same tick, which reads as broken when
+the body you just put down disappears mid-fall. A zombie's body now stays where it fell.
+
+- **The body.** `ZOMBIE_CORPSE_SHEDS` names what it sheds; `corpse` is marked `zombie` and carries its kind.
+  The kind's model and tint stay, and it plays `death` held in first person.
+- **The lying time.** `ZOMBIE_CORPSE_TICKS` = 6000 (five minutes at 20 Hz). Owner card: the lying time.
+- **Not buried, no scent, no loot.** Owner cards: burial is not built for zombie bodies; scent is none; the
+  kit still drops as before and nothing is looted from the body.
+- **The gates.** `godot:m2:roster`'s ZOMBIE CORPSE lane; `godot:check:first_person`'s BODIES case; and
+  `godot:check:zombie_art`'s REMAINS lane, which holds the new contract (death = the drop and the shed list
+  and `corpse`; nothing else in the world moves).
+- **Two places the spec named that are not components here.** The dormant, lurker, feigner, gas, shove and
+  crawler states are not components of their own: they live in the `shambler` component (a feigner's keys,
+  a dormant body's state) or in the content. Removing `shambler` is what covers them.
+- **The cap (2026-11-07, the owner's budget card).** `ZOMBIE_CORPSE_CAP` = 60 bodies at once. A death that
+  would make 61 takes the oldest body first, the way decals bound their marks; ties on the tick go to the
+  lower entity id. The gate is `godot:m2:roster`'s ZOMBIE CORPSE CAP lane (61 deaths, 60 stand, the oldest
+  taken, the newest kept); its plant (the bound call removed) stands 61 and turns the lane red. The tick cost
+  of the cap is measured in the PR body and REPORT.md: a throwaway driver, 100 kills and 600 ticks, three
+  process runs of three worlds each, on origin/main (which despawns them) and on this head.
+  **Measured (2026-11-07), 100 zombies killed, 600 ticks timed, world = `SimBoot.playable(20260805, 64)`.**
+  Three process runs of three worlds each, per tree, alternating so both see the same load drift (machine
+  load 6 to 9, other sessions' Godot runs on it).
+  - origin/main at 3190fc5a (the zombies despawn, 0 bodies): mean tick median 1.830 ms (range 1.798 to 1.836),
+    worst-tick median 13.27 ms.
+  - this head with the cap (60 bodies stand): mean tick median 2.740 ms (range 2.715 to 2.778), worst-tick
+    median 14.35 ms.
+  - Mean delta at 60 bodies: 0.91 ms, under the 1 ms line. The worst tick is noisy on both trees (13 to 15 ms)
+    and is not judged here. origin/main has moved since (3e4440c5, #355, no sim files), so the baseline is the
+    last sim-identical commit.
 
 ## The title starts first person; the top-down game hides behind `--topdown` (2026-11-07)
 
