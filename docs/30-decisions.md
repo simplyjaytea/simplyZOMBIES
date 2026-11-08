@@ -8366,11 +8366,20 @@ The armour lane pins `NPC_AID_ENABLED` off: it tests what a blow wears, not who 
   goes red.
 - **Draw order.** Torso `inner` < `mid` < the vest slot < `over`, then the rest. A `none` entry draws nothing. A base
   id missing from the manifest is an error the picture carries, never a silent skip.
-- **Over rule, default.** A vest under a torso item on the `over` layer shows no node, when that item draws one. A
-  `none` poncho or blanket hides nothing until its drape exists. Card (for the owner): whether a none drape should hide
-  the carrier. The default is the one above.
+- **Over rule, an engineering consequence.** A vest under a torso item on the `over` layer shows no node, when that
+  item draws one. A `none` poncho or blanket hides nothing until its drape has a picture: a none drape that hid a worn
+  carrier would show an armoured torso as bare. This follows from the named gap (docs/33 card 32) and from card 28 and
+  hardcore clause 4. When drapes get pictures, card 28's rule applies as written.
 - **Hair.** `hidden` beats `tucked` beats `default`. The parka hides it, a cap tucks it.
 - **Sleeve and hand.** The torso's sleeve (knit by default), and the gloves' hand page (bare by default). Chemical
   gloves add the cuff node.
 - **What is not drawn yet.** The layer GLBs and their skinned binding wait for round 2; the arms' sleeve and hand pages
   wait for round 3. The OUTFIT lane names the families it skips and passes them as skips, not as passes.
+- **Layers bind to the body's skeleton by bone name.** A layer's variant mesh moves onto the body's `Skeleton3D`;
+  a bone the body's skeleton lacks is recorded on the mesh and failed by the lane. A layer mesh with no skin, or not on
+  the skeleton, would stay frozen on a walking body, and the lane refuses both.
+- **Dress cache.** A body is re-dressed only when its worn base ids or its vest's plate change: the key is cheap, the
+  resolve runs on a change only.
+- **Tucked hair has its own GLB, when the manifest names it.** `hair.tuckedGlb` (additive, round 2's `hair_tucked.glb`)
+  makes a tucked head draw that GLB under the body's skeleton; survivor.glb keeps only its default `hair` node. Until the
+  key exists the survivor's legacy `hair_tucked` node stands in, and the lane names the absence rather than passing it.
