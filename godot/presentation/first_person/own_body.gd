@@ -11,6 +11,7 @@ extends Node3D
 const Models = preload("res://presentation/first_person/models.gd")
 const AnimState = preload("res://presentation/first_person/anim_state.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
+const Outfit = preload("res://presentation/first_person/outfit.gd")
 
 const SURVIVOR_GLB: String = "res://assets/first_person/survivor.glb"
 # The clips that loop; the others are one-shots that hold their last frame, as in body_view.gd.
@@ -24,6 +25,8 @@ var player: AnimationPlayer = null
 var _sought: float = -1.0
 # The held-weapon mount under the right hand (`body_view.gd`'s `mount_held`): {held, bone, skeleton}, or {}.
 var _held: Dictionary = {}
+# The last outfit key this body was dressed with (`outfit.gd`).
+var _dressed: Dictionary = {}
 
 
 ## The held-weapon view under the player's right hand, or null when the model did not load or has no hand bone.
@@ -73,6 +76,7 @@ func update(world: Variant, entity: int, at: Vector2) -> void:
 	if player == null:
 		return
 	position = Vector3(at.x, 0.0, at.y)
+	Outfit.dress(self, world, entity, _dressed)
 	var facing: Variant = world.components.get_component(entity, "facing")
 	if facing is Dictionary:
 		rotation.y = -float((facing as Dictionary).get("radians", 0.0)) + BodyView.FACING_YAW_OFFSET

@@ -145,6 +145,7 @@ const SimWeather = preload("res://sim/modules/weather.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimStances = preload("res://sim/stances.gd")
+const Outfit = preload("res://presentation/first_person/outfit.gd")
 const SimSpace = preload("res://sim/space/space.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const ReportsPanel = preload("res://ui/reports_panel.gd")
@@ -253,6 +254,7 @@ func _run() -> void:
 	bodies_scene.set_process(false)
 	await process_frame
 	ok = _lane("BODIES", _character_bodies(bodies_scene), "a walking colonist plays walk at the sim's phase, a lunging shambler plays lunge, a corpse holds death, loops loop and one-shots hold, a body the sim cannot see is hidden, a missing model falls back to the capsule, and HELD: a colonist's pistol sits in its right hand within 0.15 m, a bat swaps it, an unarmed colonist draws nothing, and the player's own body in third person carries the pistol") and ok
+	ok = _lane("OUTFIT", _outfit(bodies_scene), "the outfit resolver keeps the manifest whole and draws a worn item's own node, equip and unequip move the picture, the picture is blind to condition and tier, the plate, over, hair, sleeve and hand rules hold, and the arms show the player's gloves; drawn nodes are asserted only for families with a GLB in the build") and ok
 	bodies_scene.queue_free()
 	await process_frame
 	_finish(old_size, ok)
@@ -4700,6 +4702,179 @@ func _filter_of(root: Node3D) -> int:
 			if mat is BaseMaterial3D:
 				return (mat as BaseMaterial3D).texture_filter
 	return -1
+
+
+# --- OUTFIT ----------------------------------------------------------------------------------------
+
+# The outfit resolver (docs/44, `presentation/first_person/outfit.gd`): the manifest is whole; the picture is a
+# function of the worn base ids and the vest's plate; equip and unequip move the picture and nothing else does;
+# the picture is blind to condition and tier; the over, plate, hair, sleeve and hand rules hold; and the arms
+# show the player's picture. A layer's drawn node is asserted only when its family GLB is in the build, and
+# until round 2 the drawn-node checks name the families they skip. Each rule has its true positive, and its
+# planted failure is refused where the lane can plant it.
+func _outfit(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var data: Dictionary = Outfit.manifest()
+	var items: Dictionary = data.get("items", {}) as Dictionary
+	var families: Dictionary = data.get("families", {}) as Dictionary
+	if items.size() != 63:
+		return _fail("OUTFIT", "the clothing manifest lists %d worn items, not 63" % items.size())
+	if int(data.get("dressedCap", 0)) != 14500:
+		return _fail("OUTFIT", "the dressed-body cap is %s, not 14500" % str(data.get("dressedCap", "missing")))
+
+	# Manifest whole: every family, variant and hand page resolves, every torso item names its layer, and every
+	# entry is a drawn item, a hand page or a first cut.
+	for id in items:
+		var entry: Dictionary = items[id] as Dictionary
+		if entry.has("family"):
+			var family: String = String(entry["family"])
+			if not families.has(family):
+				ok = _fail("OUTFIT", "%s names family %s, which the manifest does not have" % [id, family])
+			elif not ((families[family] as Dictionary).get("variants", {}) as Dictionary).has(String(entry.get("variant", "default"))):
+				ok = _fail("OUTFIT", "%s names a variant family %s does not have" % [id, family])
+		elif entry.has("hand"):
+			if not ((data.get("handPages", {}) as Dictionary)).has(String(entry["hand"])):
+				ok = _fail("OUTFIT", "%s names hand page %s, which the manifest does not have" % [id, String(entry["hand"])])
+		elif not entry.has("none"):
+			ok = _fail("OUTFIT", "%s is neither drawn, a hand page, nor a first cut" % id)
+		if String(entry.get("slot", "")) == "torso" and not ["inner", "mid", "over"].has(String(entry.get("layer", ""))):
+			ok = _fail("OUTFIT", "%s is a torso item with no inner, mid or over layer" % id)
+	# The plant: a manifest that names a family it does not have must be refused, not drawn.
+	var broken: Dictionary = data.duplicate(true)
+	(broken["items"] as Dictionary)["item.cap.canvas"] = {"family": "no_such_family", "variant": "cap", "slot": "head", "hair": "tucked", "parts": ["head"], "read": "10m"}
+	if (Outfit.resolve(broken, {"head": "item.cap.canvas"}, false)["errors"] as Array).is_empty():
+		ok = _fail("OUTFIT", "a manifest naming a family it does not have resolves with no error")
+	# The true negative: every real worn item resolves with no error on its own slot.
+	for id in items:
+		var one: Dictionary = {String((items[id] as Dictionary)["slot"]): id}
+		for plate in [false, true]:
+			if not (Outfit.resolve(data, one, plate)["errors"] as Array).is_empty():
+				ok = _fail("OUTFIT", "%s does not resolve on its own slot" % id)
+
+	# Equip and unequip on a colonist, one item at a time: the picture carries the item's own node when it has
+	# one, and goes back to the bare picture on unequip. A picture kept from before the unequip is the planted
+	# stale layer, and it must differ from the bare one whenever the item drew.
+	var colonist: int = _other_colonists(world)[0]
+	var saved: Variant = world.components.get_component(colonist, "equipment")
+	world.components.set_component(colonist, "equipment", {"slots": {}})
+	var bare: Dictionary = Outfit.picture_for(world, colonist)
+	var skipped: Dictionary = {}
+	for id in items:
+		var entry: Dictionary = items[id] as Dictionary
+		var slot: String = String(entry["slot"])
+		var item: int = SimItems.spawn_item(world, id)
+		world.components.set_component(colonist, "equipment", {"slots": {slot: item}})
+		var worn: Dictionary = Outfit.picture_for(world, colonist)
+		if not (worn["errors"] as Array).is_empty():
+			ok = _fail("OUTFIT", "%s equipped on a colonist resolves with errors %s" % [id, str(worn["errors"])])
+		var shows: bool = _layer_in(worn, slot) != null
+		if entry.has("family") and not shows:
+			ok = _fail("OUTFIT", "%s is worn and its family draws no layer" % id)
+		if not entry.has("family") and shows:
+			ok = _fail("OUTFIT", "%s is a first cut and draws a layer" % id)
+		if entry.has("family"):
+			if not ResourceLoader.exists(Outfit.LAYER_DIR + String((families[String(entry["family"])] as Dictionary).get("glb", ""))):
+				skipped[String(entry["family"])] = true
+		world.components.set_component(colonist, "equipment", {"slots": {}})
+		var after: Dictionary = Outfit.picture_for(world, colonist)
+		if JSON.stringify(after) != JSON.stringify(bare):
+			ok = _fail("OUTFIT", "%s is still drawn after unequip" % id)
+		if entry.has("family") and JSON.stringify(worn) == JSON.stringify(bare):
+			ok = _fail("OUTFIT", "a worn %s and the bare picture are equal: a stale layer would pass" % id)
+	world.components.set_component(colonist, "equipment", saved if saved != null else {"slots": {}})
+
+	# Hidden information: two carriers of one base, one at a tenth of its condition, draw the same picture, and
+	# the condition the picture ignores really does differ (so the equality means something).
+	var sound: int = SimItems.spawn_item(world, "item.vest.carrier")
+	var worn_out: int = SimItems.spawn_item(world, "item.vest.carrier")
+	var cond: Dictionary = (world.components.get_component(worn_out, "condition") as Dictionary).duplicate() if world.components.get_component(worn_out, "condition") is Dictionary else {"current": 1.0}
+	cond["current"] = float(cond.get("current", 1.0)) * 0.1
+	world.components.set_component(worn_out, "condition", cond)
+	var sound_base: Dictionary = (world.components.get_component(sound, "condition") as Dictionary) if world.components.get_component(sound, "condition") is Dictionary else {"current": 1.0}
+	if float(sound_base.get("current", 1.0)) == float(cond["current"]):
+		ok = _fail("OUTFIT", "the condition probe cannot tell the two carriers apart, so the hidden-information check proves nothing")
+	world.components.set_component(colonist, "equipment", {"slots": {"vest": sound}})
+	var picture_sound: String = JSON.stringify(Outfit.picture_for(world, colonist))
+	world.components.set_component(colonist, "equipment", {"slots": {"vest": worn_out}})
+	var picture_worn: String = JSON.stringify(Outfit.picture_for(world, colonist))
+	if picture_sound != picture_worn:
+		ok = _fail("OUTFIT", "a sound and a worn-out carrier draw different pictures: the resolver reads condition")
+	world.components.set_component(colonist, "equipment", saved if saved != null else {"slots": {}})
+
+	# The plate: a carrier shows its loaded node with a plate and its flat node without one.
+	var loaded: Dictionary = Outfit.resolve(data, {"vest": "item.vest.carrier"}, true)
+	var flat: Dictionary = Outfit.resolve(data, {"vest": "item.vest.carrier"}, false)
+	if _layer_in(loaded, "vest") == null or String((_layer_in(loaded, "vest") as Dictionary)["node"]) != "carrier_loaded":
+		ok = _fail("OUTFIT", "a carrier with a plate does not draw carrier_loaded")
+	if _layer_in(flat, "vest") == null or String((_layer_in(flat, "vest") as Dictionary)["node"]) != "carrier_flat":
+		ok = _fail("OUTFIT", "a carrier without a plate does not draw carrier_flat")
+
+	# The over rule, with a synthetic over drape (none is drawn yet): a carrier under it shows no node. The true
+	# negative is an inner shirt, which leaves the carrier to show; a none poncho is the open reading (REPORT).
+	var drape: Dictionary = data.duplicate(true)
+	(drape["items"] as Dictionary)["item.test.drape"] = {"family": "helmet_hard", "variant": "default", "layer": "over", "slot": "torso", "parts": [], "read": "10m"}
+	if _layer_in(Outfit.resolve(drape, {"torso": "item.test.drape", "vest": "item.vest.carrier"}, true), "vest") != null:
+		ok = _fail("OUTFIT", "a carrier under an over layer shows a node")
+	if _layer_in(Outfit.resolve(drape, {"torso": "item.shirt.linen", "vest": "item.vest.carrier"}, true), "vest") == null:
+		ok = _fail("OUTFIT", "a carrier under an inner shirt shows no node")
+
+	# Hair: hidden beats tucked beats default; the parka hides it, the cap tucks it.
+	var hidden: Dictionary = Outfit.resolve(data, {"torso": "item.coat.parka", "head": "item.cap.canvas"}, false)
+	var tucked: Dictionary = Outfit.resolve(data, {"head": "item.cap.canvas"}, false)
+	var plain: Dictionary = Outfit.resolve(data, {}, false)
+	if String(hidden["hair"]) != "hidden" or String(hidden["hairNode"]) != "":
+		ok = _fail("OUTFIT", "the parka does not hide the hair under a cap")
+	if String(tucked["hair"]) != "tucked" or String(tucked["hairNode"]) != "hair_tucked":
+		ok = _fail("OUTFIT", "a cap does not tuck the hair")
+	if String(plain["hair"]) != "default" or String(plain["hairNode"]) != "hair":
+		ok = _fail("OUTFIT", "bare hair is not the default node")
+
+	# Sleeve and hand: the torso's sleeve (knit by default), the gloves' hand page (bare by default), and the
+	# chemical gloves' cuff.
+	if String(Outfit.resolve(data, {"torso": "item.coat.parka"}, false)["sleeve"]) != "padded":
+		ok = _fail("OUTFIT", "a parka does not show the padded sleeve")
+	if String(Outfit.resolve(data, {"torso": "item.shirt.linen"}, false)["sleeve"]) != "knit":
+		ok = _fail("OUTFIT", "a shirt does not show the knit sleeve")
+	if String(Outfit.resolve(data, {"gloves": "item.gloves.leather"}, false)["hand"]) != "leather":
+		ok = _fail("OUTFIT", "leather gloves do not show the leather hand page")
+	var chem: Dictionary = Outfit.resolve(data, {"gloves": "item.gloves.chemical"}, false)
+	if String(chem["hand"]) != "chemical" or String(chem["handExtra"]) != "arms_cuff_chemical":
+		ok = _fail("OUTFIT", "chemical gloves do not show the cuff")
+	var none: Dictionary = Outfit.resolve(data, {}, false)
+	if String(none["hand"]) != "bare" or String(none["handExtra"]) != "":
+		ok = _fail("OUTFIT", "no gloves is not the bare hand page")
+
+	# The arms show the player's picture: gloves on the player show on the arms after an update, and go with them.
+	var arms: Variant = scene.get("_arms")
+	if arms == null:
+		skipped["the arms view"] = true
+	else:
+		var player: int = int(world.player)
+		var own: Variant = world.components.get_component(player, "equipment")
+		var gloves: int = SimItems.spawn_item(world, "item.gloves.leather")
+		world.components.set_component(player, "equipment", {"slots": {"gloves": gloves}})
+		arms.call("update", world, 0.0, false, false, false, Vector2.ZERO, 0.0)
+		if String((arms.call("outfit_picture") as Dictionary).get("hand", "")) != "leather":
+			ok = _fail("OUTFIT", "the arms do not show the player's leather gloves on the tick they are equipped")
+		world.components.set_component(player, "equipment", {"slots": {}})
+		arms.call("update", world, 0.0, false, false, false, Vector2.ZERO, 0.0)
+		if String((arms.call("outfit_picture") as Dictionary).get("hand", "")) != "bare":
+			ok = _fail("OUTFIT", "the arms still show the gloves on the tick they come off")
+		world.components.set_component(player, "equipment", own if own != null else {"slots": {}})
+
+	# Drawn nodes: a family without its GLB in the build draws nothing yet, so its drawn-node check is named here
+	# and skipped, not passed quietly. Round 2 brings the carrier, hard-helmet and padded-coat GLBs.
+	print("OUTFIT_SKIPPED drawn-node checks, no GLB in this build: %s" % str(skipped.keys()))
+	return ok
+
+
+# The layer of a picture on `slot`, or null.
+func _layer_in(picture: Dictionary, slot: String) -> Variant:
+	for layer in picture.get("layers", []) as Array:
+		if String((layer as Dictionary)["slot"]) == slot:
+			return layer
+	return null
 
 
 # --- BODIES ----------------------------------------------------------------------------------------

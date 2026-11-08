@@ -52,6 +52,9 @@ const SimItems = preload("res://sim/modules/items.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const Models = preload("res://presentation/first_person/models.gd")
 const HeldWeapon = preload("res://presentation/first_person/held_weapon.gd")
+const Outfit = preload("res://presentation/first_person/outfit.gd")
+# The player's outfit picture from the last update (`outfit.gd`): the sleeve family and hand page.
+var _outfit: Dictionary = {}
 
 const ARMS_GLB: String = "res://assets/first_person/arms/arms_base.glb"
 const ARMS_JSON: String = "res://assets/first_person/arms/arms.json"
@@ -175,6 +178,7 @@ func update(world: Variant, delta: float, covered: bool, third_person: bool, ins
 		want_item = equipped_item(world, int(world.player))
 		want_class = hold_class_of(world, int(world.player))
 		fire = _fire_now(world, int(world.player))
+		_outfit = Outfit.picture_for(world, int(world.player))
 	if _player == null:
 		# No arms: the old eye-anchored weapon, untouched.
 		if _held != null:
@@ -498,6 +502,11 @@ static func _meshes(node: Node) -> Array[MeshInstance3D]:
 
 
 # --- what the gate reads ------------------------------------------------------------------------
+
+## The player's outfit picture as the arms last read it (`outfit.gd`): the sleeve family and hand page the arms show.
+func outfit_picture() -> Dictionary:
+	return _outfit
+
 
 func arms_loaded() -> bool:
 	return _player != null

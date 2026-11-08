@@ -31,6 +31,7 @@ const SimSpace = preload("res://sim/space/space.gd")
 const AnimState = preload("res://presentation/first_person/anim_state.gd")
 const Models = preload("res://presentation/first_person/models.gd")
 const HeldWeapon = preload("res://presentation/first_person/held_weapon.gd")
+const Outfit = preload("res://presentation/first_person/outfit.gd")
 
 # The character rig's right hand bone (the kit's `hand.R`, in both survivor.glb and shambler.glb). A body's
 # held weapon is mounted under it.
@@ -73,6 +74,8 @@ var shambler_glb: String = SHAMBLER_GLB
 var models_enabled: bool = true
 
 var _views: Dictionary = {}
+# The last outfit key each body was dressed with (`outfit.gd`), so a changed equipment re-dresses it.
+var _dressed: Dictionary = {}
 var _players: Dictionary = {}
 # entity -> the held-weapon mount of a body with a model (`mount_held`): {held, bone, skeleton}.
 var _held: Dictionary = {}
@@ -233,6 +236,7 @@ func _sync_views(world: Variant, alpha: float) -> void:
 			_players.erase(ent)
 			_held.erase(ent)
 			_sought.erase(ent)
+			_dressed.erase(ent)
 			if stale != null:
 				stale.queue_free()
 	for ent in _curr.keys():
@@ -247,6 +251,7 @@ func _sync_views(world: Variant, alpha: float) -> void:
 		if _players.has(e):
 			view.position = Vector3(at.x, 0.0, at.y)
 			_face(view, world, e)
+			Outfit.dress(view, world, e, _dressed)
 			_animate(e, world)
 			if _held.has(e):
 				update_held(_held[e] as Dictionary, world)

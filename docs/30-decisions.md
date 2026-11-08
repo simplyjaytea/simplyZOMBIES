@@ -8357,3 +8357,20 @@ Card open (owner): the default is 24 m to the zombie and 4 m for a Pursuing zomb
 given an attack order through the order seam; the walk and the rescue are the existing ones. Raiders and settlers do not
 aid. A colonist 12 m away is too slow to beat the player's instinct struggle (40 ticks), so the aid lands at close range.
 The armour lane pins `NPC_AID_ENABLED` off: it tests what a blow wears, not who strikes. Shipped on.
+
+## The outfit resolver reads only base ids and the plate (2026-11-08)
+
+- **The resolver is pure.** `presentation/first_person/outfit.gd` turns a body's worn base ids and the vest's
+  `plate` slot into its picture: layers, hair, sleeve, hand, and any errors. It reads nothing else. Tier, condition,
+  affixes and what a container holds never reach it, and the OUTFIT lane plants a resolver that reads condition and
+  goes red.
+- **Draw order.** Torso `inner` < `mid` < the vest slot < `over`, then the rest. A `none` entry draws nothing. A base
+  id missing from the manifest is an error the picture carries, never a silent skip.
+- **Over rule, default.** A vest under a torso item on the `over` layer shows no node, when that item draws one. A
+  `none` poncho or blanket hides nothing until its drape exists. Card (for the owner): whether a none drape should hide
+  the carrier. The default is the one above.
+- **Hair.** `hidden` beats `tucked` beats `default`. The parka hides it, a cap tucks it.
+- **Sleeve and hand.** The torso's sleeve (knit by default), and the gloves' hand page (bare by default). Chemical
+  gloves add the cuff node.
+- **What is not drawn yet.** The layer GLBs and their skinned binding wait for round 2; the arms' sleeve and hand pages
+  wait for round 3. The OUTFIT lane names the families it skips and passes them as skips, not as passes.

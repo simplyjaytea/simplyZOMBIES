@@ -190,6 +190,8 @@ The source baseline is archived on GitHub at
 - **Worn items on the first-person bodies, first cut.** [docs/44](44-clothing-layers.md)'s first
   piece: the outfit resolver, a picture or an explicit none for all 63 worn items, five layer
   families, gloves on the arms, and their gates. Waits on the organic survivor and the arms kit.
+  Code half landed 2026-11-08 (the resolver `outfit.gd`, the three callers, the OUTFIT lane); drawn-node
+  checks skip until round 2's GLBs, and the arms' sleeve and hand pages wait on round 3.
 - **Starter-kit polish (#275 round 2).** In `tools/blender/first_person_kit/build_kit.py`: plaster
   cloud noise reads as camouflage blocks up close; oak grain steps every 8 texels, like brickwork;
   paint chips follow atlas cells, not mesh edges; barricade planks float 6 mm off the brace; wall
