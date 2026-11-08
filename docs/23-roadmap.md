@@ -3245,6 +3245,53 @@ not a to-do list:
     cutaway of the internals, and separate melee part models, are later.
   - **Record.** `docs/planning/first-person-held-weapon-report.md`.
 
+- **The hunting rifle and receiver-qualified parts, 2026-11-07.** Advances the weapon plan's
+  second receiver and gives the arms' `long` hold class a real model instead of the placeholder.
+  - **The art.** `rifle_hunting` is a bolt-action receiver with all ten sockets and both hand
+    grips. Seven separate default GLBs supply the barrel, magazine, action, spring, sear,
+    extractor and hickory stock. The default assembly is 1.0651 m long and 2,118 triangles; the
+    held view draws the receiver, barrel, magazine and stock (1,568 triangles, four meshes).
+    The 36 mm receiver is 1.20 times the barrel's 30 mm breech. Its 60 x 18 mm ejection port is
+    a closed recess with a visible bolt and a floor 5.5 mm below the tube; all 40 outward rays are
+    clear. Its lower action extends 29.25 mm below the tube with a 0.03 mm seat, and its stepped
+    shroud is 26 mm across. The rear stock runs continuously from the hooked pistol grip under the
+    receiver's rear to the comb, without a hidden tang or a notch. The pistol grip is 26 x 40 mm at
+    19.9 degrees. The U-channel fore-end's underside is 22 mm at z -250 mm, its top is at most 67 mm
+    and its width at most 47 mm. Over the action its top drops to 43.3 mm at z -150 mm and 43.0 mm
+    farther back, leaving the port visible; the trigger and magazine are ahead of the right-hand
+    finger wrap. The comb is 40.4 mm
+    below the sight line, the heel 50.6 mm and lower, and the narrowest measured wrist is 65.6 mm
+    deep x 36.3 mm wide at z 40 mm. The top rises 2.1 mm to the comb at z 220 mm, with a largest
+    pre-comb dip of 0.7 mm. The closed butt plate matches its angled end section within 0.50 mm.
+    `grip_r` is at the origin and `grip_l` is (0, 0.022, -0.250) m from it, exactly the arms'
+    long anchor. Blued steel and dark wood use the shared weapons atlas at the kit's densities.
+  - **The match rule.** A manifest part may match `id` plus `receiver`. The loader resolves that
+    ahead of an unqualified id and then class, and the held assembler passes the host receiver,
+    so shared content ids select the rifle's parts on the rifle and the pistol's on the pistol.
+  - **The loose production path.** `loose_view.gd` assembles a long firearm's installed visible
+    parts with weapon-kit-first resolution, lays it on its side and puts its lowest point on the
+    floor. Held and loose assembly read the loader's one hidden-slot list. The pistol's upright,
+    bare-receiver loose pose is deferred; its GLBs and isolated loose frames stay unchanged.
+  - **Verified.** `build_weapons.py -- --check` and `-- --prove` cover every model, socket,
+    origin, material, winding, coplanarity, density, assembly contact, closure, hand clearance,
+    shading and byte output; all 34 plants are refused. Visible-surface mesh-distance contact
+    excludes sub-bodies more than 90% inside another held body and holds each held rifle model
+    to one group at 0.2 mm, with zero open edges. The stock's largest joining gap is 0.16 mm;
+    no hidden piece is excluded in the final model. The hand check poses the committed arms GLB
+    at the first, middle and last frames of all three long clips and measures 0.0 mm deepest skin
+    in either hand. The receiver's breech ratio, guard opening, stock line, wrist, fore-end,
+    recessed port, lower-body seat, butt fit and sight point are printed measurements.
+    `godot:check:first_person` (ARMS, MODELS and HELD) loads every entry and checks the equipped
+    and loose assemblies. Blender turnaround sheets and 1280x720 held/loose engine captures
+    accompany the piece.
+  - **Sight hand-off.** The receiver exports `sight` at (0, 0.079, -0.120) m, 24.0 mm over the
+    bore and level with the front bead. The rear leaf is 6.0 mm and the front bead stands 14.3 mm
+    proud. The arms' `long` aim pose re-anchors to 24.0 mm; the rifle's idle grip anchors stay
+    unchanged.
+  - **Minors left.** The shared blued-steel paint still has pale noise patches (the pistol is
+    unchanged); both hidden springs retain anisotropic UV axes; and a loose part off a receiver
+    still has no receiver id with which to choose between rifle and pistol models. No scope model.
+
 - **The first-person loot-item kit, 2026-11-01.** Advances "First-person scavenging and personal
   equipment": the things a player picks up now have world-pose models. Only the art lands here: no
   scene reads the manifest yet. Wiring it is a separate code piece.
