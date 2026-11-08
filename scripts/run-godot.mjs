@@ -578,6 +578,10 @@ switch (mode) {
       "res://check_fp_encounter.gd",
     ];
     break;
+  case "--check-fp-title":
+    // The title first on a plain boot (docs/30, 2026-11-09). Boots without --skip-title on purpose.
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_fp_title.gd"];
+    break;
   case "--context":
     // The top-down street: its title's Enter starts the top-down run, so it asks for the top-down title (docs/30, 2026-11-07).
     args = [
@@ -817,6 +821,14 @@ const run = (invocation, timeoutMs = 0) => {
   if (result.status !== 0) finish(result.status ?? 1);
 };
 
+// Every gate and dev launch boots the first-person scene past the title (docs/30, 2026-11-09): a plain boot
+// goes to the title first, and only the player's own launch (`--run`, the editor, the exports) and the title
+// gate itself do not skip it. The user arg is read by first_person.gd's _redirect_to_title.
+const PLAYER_BOOTS = new Set(["--run", "--editor", "--export", "--export-web", "--check-fp-title"]);
+if (!PLAYER_BOOTS.has(mode)) {
+  args = args.includes("--") ? [...args, "--skip-title"] : [...args, "--", "--skip-title"];
+}
+
 if (mode === "--runtime-tick" || mode === "--runtime-frame") {
   const result = spawnSync(executable, args, {
     cwd: root,
@@ -853,7 +865,7 @@ if (mode === "--runtime-tick" || mode === "--runtime-frame") {
   // The first-person gate is bounded on purpose: a GDScript runtime error can leave a SceneTree
   // alive forever, and the gate's own quit is not reached in that case. Two minutes is far above
   // its measured run and still ends a wedged process rather than hanging the chain.
-  run(args, mode === "--check-first-person" ? 120000 : 0);
+  run(args, mode === "--check-first-person" ? 120000 : mode === "--check-fp-title" ? 180000 : 0);
 }
 
 finish(0);
