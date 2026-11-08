@@ -2489,6 +2489,16 @@ not a to-do list:
     the opening. `godot:smoke` and `check:routing` pass. Matched 1280x720 before/after, real-sky,
     repeat and magenta captures accompany the piece; repeat-run pixel noise is zero.
 
+- **The konbini template: `building.konbini.road`, 2026-11-07.** Batch B's first template, content and
+  generic finish only (the art round B4 replaces the finish later). 12 x 9 tiles, commercial, weight 4
+  (the largest of 4, 3, 2 that keeps `godot:check:buildings` green at seed 20260805; at 6 the grocery is no
+  longer drawn there). Glass front of window tiles with the door at the centre, two shelf rows, a counter
+  at the back; tar roof, render walls. `build_finishes.py` now proves the other templates against
+  `6ed10b19` by name-blind, order-free geometry and atlas cells, and deletes each template's objects and
+  mesh datablocks after export, so merged meshes keep their names (`spatial_bands`, `finish`) and a new
+  template changes no other GLB's bytes. The 22 existing GLBs changed once, by name only. Verified:
+  `OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22`, `BUILDINGS_CHECK_OK 23 templates`, `other_template` plant refused.
+
 - **The purifier refill: a carried material repacks a spent filter, 2026-11-04.** The pump filter
   (`item.filter.pump`) has a `refill` block in `godot/content/items/kitchen.json`: one lump of
   `charcoal` restores forty uses, up to its `purifies` of forty. The block is in
