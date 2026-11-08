@@ -72,6 +72,8 @@ STYLES = {
     "sign_blue_alt": (1, 6),
     "sign_orange": (2, 6),
     "sign_orange_alt": (3, 6),
+    "sawmill_tin": (4, 6),
+    "sawmill_tin_alt": (5, 6),
 }
 PALETTES = {
     "siding": ["#586058", "#636a60", "#6d7367", "#777b6d", "#818474"],
@@ -310,6 +312,14 @@ def atlas_pixel(style, x, y, plant=None):
     if style == "granite":
         grout = x % 16 == 0 or y % 16 == 0
         return tone("concrete", 1) if grout else tone("granite", 2 + ((x // 16 + y // 16) % 2))
+    if style in ("sawmill_tin", "sawmill_tin_alt"):
+        index = 2 + ((x // 8 + (style == "sawmill_tin_alt")) % 2)
+        if x % 8 == 0:
+            index = 1
+        elif x % 8 == 1:
+            index = 4
+        rust = min(x, 63 - x) <= 2 or (x % 16 == 0 and y >= 24) or y >= 61
+        return tone("brick", 2) if rust else tone("stone", index)
     if style in SIGN_GLYPHS:
         palette = "sign_blue" if style.startswith("sign_blue") else "sign_orange"
         edge = min(x, y, 63 - x, 63 - y)
@@ -673,10 +683,12 @@ TEMPLATE_FINISHES = {
     "building.house.small": {"roof": "kawara", "wall": "timber"},
     "building.house.gable": {"roof": "kawara", "wall": "siding"},
     "building.arcade.retail": {"roof": "tin", "wall": "siding"},
+    "building.unit.industrial": {"roof": "tin", "wall": "siding"},
 }
 HOUSE_IDS = {"building.house.small", "building.house.gable"}
 SHOP_ID = "building.arcade.retail"
-OTHER_TEMPLATES_BASE = "6ed10b19"
+SAWMILL_ID = "building.unit.industrial"
+OTHER_TEMPLATES_BASE = "1d2063b9"
 
 
 def finish_looks(template):
@@ -945,7 +957,7 @@ def build_tile_trim(finish, template, x, y, plant=None):
                 if tile != 6 and side_index == 0:
                     side_quad(finish, x, y, side_index, 0, 1, 0.0, 0.06, "foundation", offset=0.009)
             else:
-                if template["id"] != SHOP_ID or tile != 6:
+                if template["id"] not in (SHOP_ID, SAWMILL_ID) or tile != 6:
                     side_quad(finish, x, y, side_index, 0, 1, 0, 0.24, "foundation", offset=0.007)
                 side_quad(finish, x, y, side_index, 0, 1, 2.43, 2.55, "trim", offset=0.007)
         else:
@@ -968,7 +980,7 @@ def build_tile_trim(finish, template, x, y, plant=None):
             side_quad(finish, x, y, side_index, 1.0 - frame, 1, low, high, casing, offset=0.014)
         head0 = frame if left_frame else 0.0
         head1 = 1.0 - frame if right_frame else 1.0
-        raised_head = template["id"] in HOUSE_IDS or template["id"] == SHOP_ID
+        raised_head = template["id"] in HOUSE_IDS or template["id"] in (SHOP_ID, SAWMILL_ID)
         head_low = high if raised_head else high - frame
         head_high = high + frame if raised_head else high
         side_quad(finish, x, y, side_index, head0, head1, head_low, head_high, casing, offset=0.014)
@@ -1444,7 +1456,35 @@ def shotengai_character(template, model):
     )
 
 
-def character_report(template, model):
+def sawmill_character(template, model, doors_clear):
+    boxes = model_boxes(model)
+    panel_boxes = [box for box in boxes if "sawmill_tin" in box["styles"] and box["min"][2] >= template["size"]["h"] and box["min"][1] < 2.20]
+    panels = [[box for box in panel_boxes if (box["min"][0] + box["max"][0]) * 0.5 < 7.0], [box for box in panel_boxes if (box["min"][0] + box["max"][0]) * 0.5 >= 7.0]]
+    if len(panel_boxes) == 0 or any(not panel for panel in panels):
+        raise ValueError(f"{template['id']} sliding panels are missing")
+    panel_sizes = [([max(point[0] for box in panel for face in box["faces"] for point in face["points"]) - min(point[0] for box in panel for face in box["faces"] for point in face["points"]), max(point[1] for box in panel for face in box["faces"] for point in face["points"]) - min(point[1] for box in panel for face in box["faces"] for point in face["points"])]) for panel in panels]
+    track_faces = [face for face in model.faces if face["style"] == "metal" and min(point[2] for point in face["points"]) >= template["size"]["h"] and min(point[1] for point in face["points"]) >= 2.21 and max(point[1] for point in face["points"]) <= 2.29]
+    track = max(point[0] for face in track_faces for point in face["points"]) - min(point[0] for face in track_faces for point in face["points"])
+    roof_faces = [face for face in model.faces if face["style"] in ("sawmill_tin", "sawmill_tin_alt") and max(point[1] for point in face["points"]) >= 2.50]
+    roof_points = [point for face in roof_faces for point in face["points"]]
+    eave = -min(point[2] for point in roof_points)
+    rake = -min(point[0] for point in roof_points)
+    closed = all(any(face["style"].startswith("siding_vertical") and all(abs(point[0] - x) <= 0.00001 for point in face["points"]) and max(point[1] for point in face["points"]) > WALL_TOP for face in model.faces) for x in (-0.005, template["size"]["w"] + 0.005))
+    if len(panels) != 2 or any(abs(width - 1.80) > 0.005 or abs(height - 2.04) > 0.005 for width, height in panel_sizes) or abs(track - 6.00) > 0.005:
+        raise ValueError(f"{template['id']} sliding panel/track measurement {panel_sizes}/{track}")
+    if abs(eave - 0.30) > 0.005 or abs(rake - 0.30) > 0.005 or not closed or doors_clear != 3:
+        raise ValueError(f"{template['id']} roof/gable/door measurement {eave}/{rake}/{closed}/{doors_clear}")
+    roof = sorted({face["style"] for face in roof_faces})
+    walls = sorted({face["style"] for face in model.faces if face["style"] in WALL_VARIANTS["siding"]})
+    return (
+        f"CHARACTER {template['id']}: sliding doors {len(panels)}, panel {panel_sizes[0][0]:.2f} x {panel_sizes[0][1]:.2f} m, track {track:.2f} m; "
+        f"doors clear {doors_clear}; roof {roof}, eave {eave:.2f} m, rake {rake:.2f} m; gable faces closed {'yes' if closed else 'no'}; walls {walls}"
+    )
+
+
+def character_report(template, model, doors_clear=None):
+    if template["id"] == SAWMILL_ID:
+        return sawmill_character(template, model, doors_clear)
     if template["id"] == SHOP_ID:
         return shotengai_character(template, model)
     if template["id"] not in HOUSE_IDS:
@@ -1842,6 +1882,29 @@ def build_shotengai_details(pieces, template, plant=None):
         add_canopy(finish, spec, plant)
 
 
+def build_sawmill_details(pieces, template, plant=None):
+    south = template["size"]["h"] - 1
+    for x in (4, 5, 8, 9):
+        target = pieces.piece("wall", x, south)["finish"] if window_candidate(template, x, south) else pieces.finish
+        u0 = 0.10 if x in (4, 8) else 0.0
+        u1 = 0.90 if x in (5, 9) else 1.0
+        side_box(target, x, south, 2, u0, u1, 0.08, 2.12, 0.024, "sawmill_tin")
+    for x in range(4, 10):
+        target = pieces.piece("wall", x, south)["finish"] if window_candidate(template, x, south) else pieces.finish
+        side_box(target, x, south, 2, 0.0, 1.0, 2.22, 2.28, 0.024, "metal")
+    if plant == "sliding_door_cross":
+        side_box(pieces.finish, 6, south, 2, 0.10, 0.90, 0.08, 2.12, 0.024, "sawmill_tin")
+    side_quad(pieces.finish, 11, 0, 0, 0.0, 0.06, 0.0, 2.20, "dark_wood", offset=0.024)
+    side_quad(pieces.finish, 11, 0, 0, 0.94, 1.0, 0.0, 2.20, "dark_wood", offset=0.024)
+    side_quad(pieces.finish, 11, 0, 0, 0.0, 1.0, 2.20, 2.28, "dark_wood", offset=0.024)
+    for y in range(template["size"]["h"]):
+        if not openable(template, 0, y):
+            continue
+        target = pieces.piece("window", 0, y)["finish"]
+        for u0, u1, y0, y1 in ((0.0, 0.06, 1.0, 2.10), (0.94, 1.0, 1.0, 2.10), (0.06, 0.94, 1.0, 1.06), (0.06, 0.94, 2.04, 2.10)):
+            side_quad(target, 0, y, 3, u0, u1, y0, y1, "metal", offset=0.024)
+
+
 def build_pieces(template, plant=None):
     pieces = Pieces(template)
     interior = interior_spec(template)
@@ -1863,6 +1926,8 @@ def build_pieces(template, plant=None):
     build_house_details(pieces.finish, template, plant)
     if template["id"] == SHOP_ID:
         build_shotengai_details(pieces, template, plant)
+    if template["id"] == SAWMILL_ID:
+        build_sawmill_details(pieces, template, plant)
     finish = pieces.finish
     if plant == "coplanar" and template["id"] == "building.house.small":
         finish._polygon([Vector(v) for v in finish.vertices[:4]], finish.uvs[0], "trim")
@@ -1944,6 +2009,8 @@ def roof_peak(template):
         return 2.78
     if template["id"] == "building.house.gable":
         return 4.62
+    if template["id"] == SAWMILL_ID:
+        return 3.45
     short = min(template["size"]["w"], template["size"]["h"])
     return 2.62 + min(1.50, 0.20 * short + 0.20)
 
@@ -1999,7 +2066,7 @@ def build_roof(mesh, template, plant=None):
     w, h = template["size"]["w"], template["size"]["h"]
     form = roof_form(template)
     roof_style = finish_looks(template)["roof"]
-    variants = ROOF_VARIANTS[roof_style]
+    variants = ["sawmill_tin", "sawmill_tin_alt"] if template["id"] == SAWMILL_ID else ROOF_VARIANTS[roof_style]
     exterior = exterior_style(template)
     eave = eave_for(template)
     # Roles let `validate_roof` judge the winding: a "roof" face must face up, a "roof_down" face
@@ -2197,10 +2264,11 @@ def validate_doors(template, model):
             if lowest is not None:
                 raise ValueError(f"door ({x},{y}) has a {lowest_face['style']} face crossing its opening at y {lowest:.3f} m")
     print(f"DOORS {template['id']}: {len(template.get('doors', []))} doors clear, lowest crossing face none")
+    return len(template.get("doors", []))
 
 
 def validate_other_templates(repo, export_dir, templates, plant=None):
-    others = [template for template in templates if template["id"] != SHOP_ID]
+    others = [template for template in templates if template["id"] != SAWMILL_ID]
     with tempfile.TemporaryDirectory(prefix="building-r4-pixels-") as temporary:
         old_path = Path(temporary) / "r4-atlas.png"
         old_path.write_bytes(git_show_bytes(repo, OTHER_TEMPLATES_BASE, "godot/assets/first_person/buildings_atlas.png"))
@@ -2600,9 +2668,8 @@ def build_all(export_dir, blend_path, manifest_path, plant=None, reference_manif
             reference_entry = next((item for item in reference_manifest["models"] if item["match"]["id"] == template["id"]), None)
         validate_export(output, entry, reference_entry, plant)
         model = ExportedModel(output) if template["id"] in TEMPLATE_FINISHES else None
-        if model is not None:
-            validate_doors(template, model)
-        character = character_report(template, model)
+        doors_clear = validate_doors(template, model) if model is not None else None
+        character = character_report(template, model, doors_clear)
         if character is not None:
             print(character)
         if template["id"] in HOUSE_IDS:
@@ -2653,7 +2720,7 @@ def main():
     arguments = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter"])
+    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter", "sliding_door_cross"])
     args = parser.parse_args(arguments)
     repo = Path(__file__).resolve().parents[3]
     try:

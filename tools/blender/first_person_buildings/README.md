@@ -46,12 +46,14 @@ blender --background --factory-startup --python tools/blender/first_person_build
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=wall_open
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=shop_canopy_low
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=shutter
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=sliding_door_cross
 ```
 
 `winding` reverses one hip-roof face; `aperture` draws a wall across house_small's first window. The
 canopy plants put it at 1.90 m, make it 1.40 m deep, or detach it; the wall plants make an attachment
 0.15 m proud or put it on an openable tile. `shop_canopy_low` puts the shotengai canopy's underside
-at 2.20 m, and `shutter` draws a shutter down over an openable shop window.
+at 2.20 m, `shutter` draws a shutter down over an openable shop window, and `sliding_door_cross`
+puts a sawmill panel across the south doorway.
 
 ## Data and runtime
 
@@ -207,6 +209,24 @@ If room tags are added to content later, the manifest is the place to refine thi
 - `CHARACTER building.arcade.retail` reads all of those counts and dimensions from the exported GLB.
   `OTHER_TEMPLATES_PIXELS_IDENTICAL 21/21` compares every other template, both houses included, with
   `OTHER_TEMPLATES_BASE = 6ed10b19` for mesh arrays and every atlas cell those meshes touch.
+
+### Batch B: the sawmill shed
+
+- `building.unit.industrial` keeps its 14 x 10 m footprint, all sim walls and all three doors. Its
+  `TEMPLATE_FINISHES` override is tin / siding; the JSON's `block` wall stays for R4. Owner card A's
+  default keeps the walls rather than opening a side.
+- Two corrugated sliding panels sit beside the south double doorway, on wall tiles x 4–5 and x 8–9.
+  Each measures 1.80 x 2.04 m. Their top track is 6.00 m long and wholly above the 2.20 m door band.
+  Panels and track are 24 mm finish skins, conditional on their wall tiles, so no openable window keeps
+  a panel. `sliding_door_cross` puts a panel across `(6,9)` and is refused by `DOORS`.
+- The north door has plain dark-wood trim, and the west window variants have metal industrial casings
+  that do not cover their apertures.
+- The roof is a low tin gable at 3.45 m with 0.30 m eaves and rakes, closed siding gable faces, down-facing
+  soffits and barge boards. Rust edges and drip lines use new `sawmill_tin` cells `(4,6)` and `(5,6)`;
+  the shared `tin` cells are unchanged. `CHARACTER building.unit.industrial` measures these values from
+  the exported GLB, including all three clear doors.
+- `OTHER_TEMPLATES_PIXELS_IDENTICAL 21/21` compares every other template, the shotengai and both houses
+  included, with `OTHER_TEMPLATES_BASE = 1d2063b9`.
 
 ## Windows
 

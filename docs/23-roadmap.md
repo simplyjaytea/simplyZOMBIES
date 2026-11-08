@@ -174,8 +174,8 @@ The source baseline is archived on GitHub at
   draw on, a fictional map of the valley, building types, and the item and district renames. See
   [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
   The brief is [docs/42](42-ome-okutama-setting.md); its section 6 is the order of the work.
-  Building batch A and batch B's shotengai row have landed; the remaining art batches, templates,
-  props and renames stay planned.
+  Building batch A and batch B's shotengai row and sawmill shed have landed; the remaining art
+  batches, templates, props and renames stay planned.
 - **The wider world by rail.** Other districts and cities reached by a train the colony repairs
   first. The design exists as [docs/45](45-wider-world-by-rail.md), a note like docs/42, under the
   region and streaming work; the sizing does not. See [docs/30](30-decisions.md#the-setting-cards-the-defaults-and-the-valley-is-the-first-of-several-2026-11-04).
@@ -2503,6 +2503,21 @@ not a to-do list:
     over an openable window. `godot:check:fp_geometry`, `godot:smoke` and `check:routing` pass.
     Matched base/head, repeat, magenta and Blender captures accompany the piece; repeat-run pixel
     noise is zero.
+
+- **The Ome–Okutama re-theme: the sawmill shed, 2026-11-07.** Batch B's `building.unit.industrial`
+  keeps its 14 x 10 m footprint, all sim walls and all three doors. `TEMPLATE_FINISHES` applies siding
+  over the JSON's block look; the roof stays tin. Owner card A's default keeps the walls.
+  - **Shed.** Two corrugated sliding panels beside the south double doorway measure 1.80 x 2.04 m,
+    on a 6.00 m track wholly above the 2.20 m opening. They are conditional 24 mm skins on wall tiles,
+    never across the doors or a worldgen-opened window. The north door has plain dark-wood trim and
+    the west windows have metal industrial casings. The low tin gable rises to 3.45 m, with 0.30 m
+    eaves/rakes, closed siding gable faces, soffits and barge boards. Rust edges and drip lines use
+    new `sawmill_tin` cells; the shared tin cells are unchanged.
+  - **Verified.** The measured `CHARACTER` line reports both panels, the track, three clear doors,
+    roof cells, eave/rake and closed gables. `OTHER_TEMPLATES_PIXELS_IDENTICAL 21/21` holds every other
+    template to `1d2063b9`. All 26 plants are refused, including `sliding_door_cross`.
+    `godot:check:fp_geometry`, `godot:smoke` and `check:routing` pass. Matched base/head, repeat,
+    magenta and Blender captures accompany the piece; repeat-run pixel noise is zero.
 
 - **The purifier refill: a carried material repacks a spent filter, 2026-11-04.** The pump filter
   (`item.filter.pump`) has a `refill` block in `godot/content/items/kitchen.json`: one lump of
