@@ -8381,3 +8381,9 @@ no seed wipes; grabs 423 to 482; end survivors change by one body on two seeds i
 the owner's to change; the floor is one constant.
 `check_first_person.gd` runs its scene lanes with the floor at 0, as m2:roster and m2:fog do: at 8 m the TALK lane lets a zombie
 grab the player, and the break-away shove outlives into the ANIM lane's "standing reads idle"; fp_encounter judges the floor.
+## Colonists come to the held player's aid, 2026-11-07
+
+Card open (owner): the default is 24 m to the zombie and 4 m for a Pursuing zombie to the controlled body. An aider is
+given an attack order through the order seam; the walk and the rescue are the existing ones. Raiders and settlers do not
+aid. A colonist 12 m away is too slow to beat the player's instinct struggle (40 ticks), so the aid lands at close range.
+The armour lane pins `NPC_AID_ENABLED` off: it tests what a blow wears, not who strikes. Shipped on.
