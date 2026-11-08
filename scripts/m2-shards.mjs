@@ -69,6 +69,7 @@ export const M2_SHARDS = [
   [
     "godot:m2:needs",
     "godot:check:fp_expedition",
+    "godot:check:fp_aid",
     "godot:check:world_bake",
     "godot:m2:orders",
     "godot:m2:stockpile",
