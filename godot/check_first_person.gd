@@ -4805,6 +4805,32 @@ func _character_bodies(scene: Node) -> bool:
 		if absf(dead_player.current_animation_position - death_length) > PHASE_EPSILON:
 			ok = _fail("BODIES", "death is at %.3f s after 300 ticks, not held at its last frame %.3f s" % [dead_player.current_animation_position, death_length])
 
+	# A zombie that dies lies where it fell (docs/30, 2026-11-07): the sim's own death path leaves a zombie corpse,
+	# which draws the kind's model playing death, held. Once its lying time is up the sim takes the body away and
+	# its view goes with it. The lying time is aged by setting `sinceTick` back, not by running the ticks.
+	var fallen: int = int(SimRoster.spawn_zombie(world, spot.x, spot.y + 1.6, SimRoster.TYPE_SHAMBLER, rng))
+	SimHealth.finish_death(world, fallen)
+	bodies.call("end_tick", world)
+	bodies.call("apply", world, 1.0)
+	var fallen_player: AnimationPlayer = scene.call("body_player_for", fallen) as AnimationPlayer
+	if fallen_player == null:
+		ok = _fail("BODIES", "a zombie corpse has no character model")
+	else:
+		if fallen_player.current_animation != "death":
+			ok = _fail("BODIES", "a zombie corpse plays %s, not death" % fallen_player.current_animation)
+		for i in 300:
+			scene.call("_process", TICK_SECONDS)
+		var fallen_length: float = fallen_player.get_animation("death").length
+		if fallen_player.current_animation != "death" or absf(fallen_player.current_animation_position - fallen_length) > PHASE_EPSILON:
+			ok = _fail("BODIES", "a zombie corpse is on %s at %.3f s after 300 ticks, not death held at %.3f s" % [fallen_player.current_animation, fallen_player.current_animation_position, fallen_length])
+		var due: Dictionary = (world.components.get_component(fallen, "corpse") as Dictionary).duplicate()
+		due["sinceTick"] = int(world.tick) - SimRecruits.ZOMBIE_CORPSE_TICKS
+		world.components.set_component(fallen, "corpse", due)
+		for i in 3:
+			scene.call("_process", TICK_SECONDS)
+		if world.entities.is_alive(fallen) or scene.call("body_node_for", fallen) != null:
+			ok = _fail("BODIES", "a zombie corpse is still in the world or drawn after ZOMBIE_CORPSE_TICKS")
+
 	# Loops loop and one-shots do not: the flags on the shared clips, and a one-shot seeked past its end stays
 	# at its last frame rather than wrapping.
 	for clip in ["idle", "walk", "crouch_idle"]:
