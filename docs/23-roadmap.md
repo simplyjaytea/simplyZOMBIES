@@ -3393,6 +3393,14 @@ not a to-do list:
   take is a press on its own plate and pane, and the shambler's approach is the sim's seek from a
   quiet body, so a sound-making body or another district could change it. The rest of docs/39's proof
   (the convert-and-switch default and the measured budgets) is still open.
+- **The first-person harm readout, 2026-11-07.** `hud.gd` says what the player's body carries, in prose and
+  digit-free: held (names F; two holders read as several things; cleared when the hold ends), the newest wound
+  as a sentence on the sim's presentation word and the part (80 ticks, then gone), bleeding, the blood-loss words
+  from `wounds.gd` `hud_clause` (the open-wound clause is not repeated), infected (only for a transmitted exposure,
+  no stage and no clock), and the fire state of the held weapon (Raise; Steady, which says the shot fires on its
+  own; Recover; Reload; Clearing). `godot:check:fp_harm` (CLEAN, HELD, BITE, BLOOD, INFECTED, WEAPON, DIGITS) is
+  green; its plant (`grabbed` ignored) is red. The panel and `lines()` draw from one list; the bleeding line, which
+  `_draw()` used to omit, is drawn. Not done: a camera or screen effect (needs `first_person.gd`), a follow-up.
 
 - **The first-person encounter gate, 2026-11-07.** `godot/check_fp_encounter.gd`, run by
   `npm run godot:check:fp_encounter`, boots the seeded first-person district (`SimBoot.playable`,
