@@ -18,9 +18,14 @@ const Chrome = preload("res://ui/chrome.gd")
 const UiCursors = preload("res://ui/cursors.gd")
 const QuickStrip = preload("res://ui/quick_strip.gd")
 
-# The first-person scene: the game's default boot (`project.godot`'s main scene), and the row on this
-# top-down title that returns to it. This file's scene is the top-down testing game (docs/39).
+# The first-person scene: the game's default boot (`project.godot`'s main scene), and where this title's
+# "new run" goes unless the top-down game was asked for (docs/39, docs/30 2026-11-07). This file's scene
+# is the top-down testing game, reached with `-- --topdown`.
 const FIRST_PERSON_SCENE: String = "res://presentation/first_person/first_person.tscn"
+const FirstPersonSlot = preload("res://presentation/first_person/save_slot.gd")
+const SimSave = preload("res://sim/save.gd")
+# The user arg (after `--`) that opens the top-down game's own title, with its four rows.
+const TOPDOWN_ARG: String = "--topdown"
 # The tag beside the player's body: big enough to read at a glance mid-fight, small enough that it
 # is not competing with the HUD's own columns.
 const TAG_SIZE: int = 25
@@ -128,6 +133,9 @@ var _pointer_want: int = Input.CURSOR_ARROW
 var _pointer_shape: int = Input.CURSOR_ARROW
 var commands_by_tick: Dictionary = {}
 var accumulator: float = 0.0
+# True when the top-down game was asked for with `-- --topdown`: its title keeps its four rows and its
+# "new run" plays in place. False on the default boot, whose title starts first person (docs/30, 2026-11-07).
+var legacy_mode: bool = false
 # Where bodies are drawn between two ticks (presentation/interp.gd): snapshotted before every
 # step, read by the draw and the camera follow. Never read by the sim.
 var _interp: RenderInterp = RenderInterp.new()
@@ -373,6 +381,8 @@ func _ready() -> void:
 		var a: String = String(arg)
 		if a == "--parity":
 			parity = true
+		elif a == TOPDOWN_ARG:
+			legacy_mode = true
 		elif a.begins_with("--seed="):
 			var raw_seed: String = a.trim_prefix("--seed=")
 			if raw_seed.is_valid_int():
@@ -1157,16 +1167,51 @@ func _in_a_run() -> bool:
 	return session != null and bool(session.call("is_live"))
 
 
+# Where a title's "new run" goes: the first-person scene on the default boot, and "" (play in place)
+# for the top-down game under `--topdown`. Pure, so the gate can ask the decision without a scene change.
+static func new_run_scene(legacy: bool) -> String:
+	return "" if legacy else FIRST_PERSON_SCENE
+
+
+# What the default title says when the first-person slot will not load, or "" when it will. Pure, so
+# the gate asks it of a fabricated slot. The two read-failure sentences are the top-down title's own.
+static func continue_refusal(raw: String) -> String:
+	if raw.is_empty():
+		return "there is no run to continue"
+	var parsed: Dictionary = SimSave.decode_save(raw)
+	if parsed.has("__error"):
+		return SessionRes.STALE_NOTICE if String(parsed["__error"]) == "StaleSaveError" else SessionRes.CORRUPT_NOTICE
+	var snap: Variant = parsed.get("snapshot", {})
+	if snap is Dictionary and bool((snap as Dictionary).get("runOver", false)):
+		return "that run is over"
+	return ""
+
+
+# The default title's continue. The slot is read here first: a refusal stays on the title and says its
+# sentence. Otherwise the flag tells the first-person scene to load the slot at boot, before its first
+# frame, and the scene change follows. The flag is cleared again if the scene change fails.
+func _continue_first_person() -> void:
+	var refusal: String = continue_refusal(FirstPersonSlot.read())
+	if not refusal.is_empty():
+		_show_shell(refusal)
+		return
+	FirstPersonSlot.load_on_boot = true
+	if get_tree().change_scene_to_file(FIRST_PERSON_SCENE) != OK:
+		FirstPersonSlot.load_on_boot = false
+		_show_shell("the first-person scene could not be opened")
+
+
 # Raise the shell on whatever state the session is in, with the context it cannot work out for
 # itself. `notice` is the one fixed sentence a refused save leaves behind.
 func _show_shell(notice: String = "") -> void:
 	if _shell == null:
 		return
-	var ctx: Dictionary = {"is_web": OS.has_feature("web"), "notice": notice}
+	var ctx: Dictionary = {"is_web": OS.has_feature("web"), "notice": notice, "legacy": legacy_mode}
 	if session.state == SessionRes.State.TITLE:
 		# Asked here and not remembered: the slot can have been written by the run standing behind
 		# this very menu, a moment ago, by "quit to title".
-		ctx["has_continue"] = SessionRes.has_continue()
+		# The default title's continue is the first-person slot (docs/30, 2026-11-07); the top-down title's is its own.
+		ctx["has_continue"] = SessionRes.has_continue() if legacy_mode else FirstPersonSlot.has_save()
 	elif session.state == SessionRes.State.RUN_OVER:
 		ctx["epitaph"] = SimChronicle.epitaph(world, EPITAPH_LINES)
 	_shell.call("show_state", session.state, ctx)
@@ -1178,6 +1223,13 @@ func _show_shell(notice: String = "") -> void:
 func _on_shell_action(id: String) -> void:
 	match id:
 		"new_run":
+			# The default title starts first person: the top-down game is on hold (docs/30, 2026-11-07),
+			# so its world is never played unless `--topdown` asked for it. A failed swap stays here.
+			var target: String = new_run_scene(legacy_mode)
+			if target != "":
+				if get_tree().change_scene_to_file(target) != OK:
+					_show_shell("the first-person scene could not be opened")
+				return
 			# The world `_ready` booted **is** the fixed default town, so a new run from an
 			# untouched title plays it rather than paying for an identical second boot. From the
 			# pause menu, the run-over screen, or a title you quit back to, it is a real reboot.
@@ -1186,6 +1238,11 @@ func _on_shell_action(id: String) -> void:
 				_on_world_replaced()
 			_enter_state(SessionRes.State.PLAYING)
 		"continue", "load":
+			# The default title's continue starts first person with its slot loaded at boot, and never
+			# starts a scene for a slot that will not load (docs/30, 2026-11-07).
+			if id == "continue" and not legacy_mode:
+				_continue_first_person()
+				return
 			if bool(session.call("load")):
 				_snap_camera()
 				_enter_state(SessionRes.State.PLAYING)
@@ -3045,6 +3102,11 @@ func _visual_remains_items() -> Array[Dictionary]:
 	if world == null:
 		return out
 	for record in world.visualRemains:
+		# A zombie whose body is still in the world is drawn by the entity pass as the corpse it is (docs/30,
+		# 2026-11-07); its settled picture takes over when the body goes. Drawn once, never twice.
+		var rid: int = int(record["entity"])
+		if world.entities.is_alive(rid) and world.components.has_component(rid, "corpse"):
+			continue
 		var x: float = float(record["x"])
 		var y: float = float(record["y"])
 		if world.vision != null and int(world.vision.detail(int(world.player), x, y)) != SimVisibility.Detail.Focal:

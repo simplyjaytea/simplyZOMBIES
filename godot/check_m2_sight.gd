@@ -39,14 +39,24 @@ func _init() -> void:
 	call_deferred("_run")
 
 
+# Runs one lane with the shot's cone rule (SimRanged.SHOT_AS_RAY false), and gives the switch back as it was.
+func _cone(lane: Callable) -> bool:
+	var was_ray: bool = SimRanged.SHOT_AS_RAY
+	SimRanged.SHOT_AS_RAY = false
+	var passed: bool = lane.call()
+	SimRanged.SHOT_AS_RAY = was_ray
+	return passed
+
+
 func _run() -> void:
 	var ok: bool = true
-	ok = _a_wall_refuses_the_shot_and_open_ground_does_not() and ok
-	ok = _a_shooter_with_no_eyes_is_not_refused() and ok
+	# The lanes that judge a shot's outcome against the cone rule pin SimRanged.SHOT_AS_RAY false and restore it.
+	ok = _cone(Callable(self, "_a_wall_refuses_the_shot_and_open_ground_does_not")) and ok
+	ok = _cone(Callable(self, "_a_shooter_with_no_eyes_is_not_refused")) and ok
 	ok = _memory_holds_where_it_was_last_seen() and ok
 	ok = _memory_expires_and_a_watched_death_erases_it() and ok
 	ok = _the_prose_degrades() and ok
-	ok = _an_npc_fires_at_a_remembered_position() and ok
+	ok = _cone(Callable(self, "_an_npc_fires_at_a_remembered_position")) and ok
 	ok = _a_zombie_sees_what_is_lit_at_night() and ok
 	ok = _a_survivor_sees_three_and_a_half_metres_in_the_dark() and ok
 	ok = _sight_works_by_height() and ok
