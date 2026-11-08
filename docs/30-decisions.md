@@ -8255,6 +8255,36 @@ written by the scene: a chosen row pushes its own `colonist.order` command throu
   "no-route" in the same tick. The rows follow `accepts` only, as the menu's rows do; the sim ends the order.
 - **No foreman.** docs/39's foreman stays undecided: the colonist takes one order at a time from the player, and
   nothing stands in for the player.
+
+
+## The title starts first person; the top-down game hides behind `--topdown` (2026-11-07)
+
+The owner, 2026-11-07: "Let's hide the top down mode. The game should automatically load into first
+person view." Minutes later, the same session: "Everything should be working on the first person part
+of the game. The top down is cancelled/put on hold for now."
+
+- **The title.** The default title offers new run and quit. New run changes scene to the first-person
+  scene (`main.gd`'s `new_run_scene`, a pure function the gate asks). The first-person row is off the
+  default title. So is continue: the first-person scene does not load its slot on boot, so a continue
+  row would start a fresh run under that name. The first-person save is loaded with F9 in the game. A
+  continue row on the default title is a later piece, if the owner wants one.
+- **Legacy by argument, not by row.** `-- --topdown` opens the top-down title with its four rows (new
+  run, continue, first person, quit), and its new run plays in place. `npm run godot:run:topdown` passes
+  the argument, and `npm run godot:check:play` passes it too. `main.gd` hands the mode to the shell as
+  `legacy` in its context. Nothing in the first-person scene leads to the top-down game.
+- **Hidden, not deleted.** The top-down game, its scenes and its gates stay. The rows and the argument
+  are the whole switch. The over screen's and the pause menu's rows are unchanged; the over screen's new
+  run follows the same rule as the title's.
+- **The gate.** `npm run godot:check:hud` prints `TITLE OK` (lane `TITLE` in `godot/check_hud.gd`): the
+  default rows are new run and quit, no word on the default title names the top-down game, the top-down
+  rows are the four above, and the default title's new run asks for the first-person scene. The SHELL
+  lane's title screens now name `legacy` where they expect today's rows, and the default case is added.
+  The plant: `first person` put back into the default rows turns the gate red with
+  `TITLE: the default title offers ["new run", "first person", "quit"], not new run and quit`.
+- **The frame bench carries `-- --topdown`.** `bench/runtime_frame.gd` loads `presentation/main.tscn` and
+  times the top-down street, so its `new_run` must play in place; the runner and the budget contract's
+  expected args (`scripts/check-runtime-budget.mjs`) both pass it. (2026-11-07)
+
 ## The juggernaut shoves barricades, 2026-11-06
 
 The what's-left entry "The juggernaut" is closed. Its record, with the numbers, is in

@@ -20,6 +20,17 @@ const READS_SUFFIX: String = ".reads"
 # afterwards, so no lane ever touches a real player's save.
 static var slot_key: String = DEFAULT_KEY
 
+# Set by the default title's continue just before the scene change, read and cleared by the
+# first-person scene's _ready, which then loads the slot before its first frame (docs/30, 2026-11-07).
+# One-shot: a plain boot, or a later boot, starts a fresh run.
+static var load_on_boot: bool = false
+
+
+# Is there a slot to offer as continue? The default title asks this; it does not decode the slot,
+# so a slot that will not load still gets its row and says why when chosen (main.gd's continue_refusal).
+static func has_save() -> bool:
+	return not read().is_empty()
+
 
 static func write(text: String) -> bool:
 	return _write(slot_key, text)
