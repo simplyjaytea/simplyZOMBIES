@@ -39,8 +39,12 @@ static func run() -> bool:
 	if not w.components.has_component(entity, "equipment"):
 		push_error("REMAINS: armored fixture has no equipment; the drop comparison would judge nothing")
 		return false
+	# The contract since 2026-11-07 (docs/30): death drops the kit and leaves the body as a zombie corpse -- the
+	# shed components go, `corpse` is set -- and nothing else in the world moves. The control says exactly that.
 	Recruits._drop_kit(control, entity)
-	control.despawn(entity)
+	for shed in Recruits.ZOMBIE_CORPSE_SHEDS:
+		control.components.remove(entity, shed)
+	control.components.set_component(entity, "corpse", {"sinceTick": 417, "zombie": true, "kind": "zombie.armored"})
 	if not Recruits.handle_death(w, entity):
 		push_error("REMAINS: a living zombie refused the real death path")
 		return false
@@ -49,7 +53,7 @@ static func run() -> bool:
 	var sim_control: Dictionary = control.snapshot()
 	sim_control.erase("visualRemains")
 	if Serialize.canonicalize(sim_after) != Serialize.canonicalize(sim_control):
-		push_error("REMAINS: death changed simulation state beyond the settled picture (entities, drops, RNG, field or components)")
+		push_error("REMAINS: death changed simulation state beyond the zombie corpse (entities, drops, RNG, field or components)")
 		return false
 	var records: Array = w.visualRemains as Array
 	if records.size() != 1:
@@ -66,7 +70,9 @@ static func run() -> bool:
 	if Recruits.handle_death(w, entity) or w.serialize() != before_repeat:
 		push_error("REMAINS: repeated death of a removed zombie changed the world")
 		return false
-	# Entity slots recycle, but their generations make a second body a second identity.
+	# The body goes at its lying time; only then does its slot come back. Entity slots recycle, but their
+	# generations make a second body a second identity.
+	w.despawn(entity)
 	var second: int = Roster.spawn_zombie(w, 10.5, 12.25, "zombie.shambler", w.rng.stream("shambler"))
 	if second == entity or Entities.entity_index(second) != Entities.entity_index(entity):
 		push_error("REMAINS: the fixture did not recycle the dead body's slot with a new identity")
@@ -119,7 +125,7 @@ static func run() -> bool:
 	if (w.visualRemains as Array).size() != World.VISUAL_REMAINS_MAX or int(((w.visualRemains as Array)[0] as Dictionary)["entity"]) != 10007:
 		push_error("REMAINS: restoring oversized history bypassed its bound")
 		return false
-	print("REMAINS OK actual equipped zombie death changes only bounded visual data; drops, RNG, field, entities and components match the old path; duplicate death, recycled slots, save text and old saves hold")
+	print("REMAINS OK actual equipped zombie death changes only bounded visual data and the body it leaves as a zombie corpse; drops, RNG, field, other entities and components match; duplicate death, recycled slots, save text and old saves hold")
 	return true
 
 

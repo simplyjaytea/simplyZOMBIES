@@ -22,6 +22,22 @@ const SEEK_EPSILON_S: float = 0.0001
 # The AnimationPlayer playing the model, or null when the GLB is missing or carries no player.
 var player: AnimationPlayer = null
 var _sought: float = -1.0
+# The held-weapon mount under the right hand (`body_view.gd`'s `mount_held`): {held, bone, skeleton}, or {}.
+var _held: Dictionary = {}
+
+
+## The held-weapon view under the player's right hand, or null when the model did not load or has no hand bone.
+func held_node() -> Node3D:
+	if _held.is_empty():
+		return null
+	return _held["held"] as Node3D
+
+
+## The right hand's attachment, or null (the same cases as `held_node`).
+func hand_node() -> BoneAttachment3D:
+	if _held.is_empty():
+		return null
+	return _held["bone"] as BoneAttachment3D
 
 
 ## Loads the survivor model under this node. False when the model is missing, so the screen has no
@@ -40,6 +56,9 @@ func build() -> bool:
 	found.speed_scale = 0.0
 	add_child(model)
 	player = found
+	# The weapon the arms hold in first person is drawn in the hand here in third person. The holder is -1, the
+	# player, so the held view reads the same sim state the arms do.
+	_held = BodyView.mount_held(self, -1)
 	return true
 
 
@@ -69,6 +88,7 @@ func update(world: Variant, entity: int, at: Vector2) -> void:
 	if _sought < 0.0 or absf(_sought - phase_s) > SEEK_EPSILON_S:
 		player.seek(phase_s, true)
 		_sought = phase_s
+	BodyView.update_held(_held, world)
 
 
 static func _player_in(node: Node) -> AnimationPlayer:
