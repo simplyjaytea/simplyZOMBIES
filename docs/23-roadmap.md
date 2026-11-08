@@ -3393,6 +3393,68 @@ not a to-do list:
   take is a press on its own plate and pane, and the shambler's approach is the sim's seek from a
   quiet body, so a sound-making body or another district could change it. The rest of docs/39's proof
   (the convert-and-switch default and the measured budgets) is still open.
+- **The first-person harm readout, 2026-11-07.** `hud.gd` says what the player's body carries, in prose and
+  digit-free: held (names F; two holders read as several things; cleared when the hold ends), the newest wound
+  as a sentence on the sim's presentation word and the part (80 ticks, then gone), bleeding, the blood-loss words
+  from `wounds.gd` `hud_clause` (the open-wound clause is not repeated), infected (only for a transmitted exposure,
+  no stage and no clock), and the fire state of the held weapon (Raise; Steady, which says the shot fires on its
+  own; Recover; Reload; Clearing). `godot:check:fp_harm` (CLEAN, HELD, BITE, BLOOD, INFECTED, WEAPON, DIGITS) is
+  green; its plant (`grabbed` ignored) is red. The panel and `lines()` draw from one list; the bleeding line, which
+  `_draw()` used to omit, is drawn. Not done: a camera or screen effect (needs `first_person.gd`), a follow-up.
+
+- **The first-person encounter gate, 2026-11-07.** `godot/check_fp_encounter.gd`, run by
+  `npm run godot:check:fp_encounter`, boots the seeded first-person district (`SimBoot.playable`,
+  the scene's seed, 64 tiles) and reads and steps the sim only. It ends green (no FAIL). Lanes:
+  SIGHT-NEAR (passes): a shambler 3 m out acquires the player one tick after setup and closes. SIGHT
+  (passes): a shambler 5 m out by day acquires and closes; the daylight reach is 6 m
+  (`SIGHT_REACH_FLOOR_METRES`, see the sight record below). The 7 m probe is a FINDING: not acquired by
+  day. A night line (INFO) shows the same 5 m unlit: not acquired. NOISE (passes): a rifle shot
+  (`item.rifle.hunting`, ranged noise 200 from content) through one wall tile at 30 m is heard, field 178
+  at the shambler against a threshold of 0.25; the shambler turns in 2 ticks and closes; the player's
+  footsteps publish `noise.emitted` (magnitude 1.0); the walking player is first turned at 4.1 m (INFO).
+  CONTACT (passes): a grab forms at 3 m, `_clear_contact` true, first wound 30 ticks later.
+  DEATH-NOESCAPE (passes): with stamina held at 0 the player dies 1080 ticks after contact and
+  `world.player` moves to Mara; with the other survivors removed, `world.runOver` is set 1071 ticks
+  after contact. DEATH-ATTENTIVE (measured, passes whatever the outcome): an attentive player with the
+  struggle open is killed by the lone shambler at +1222 ticks (1190 after contact), after 5 holds broke,
+  with 6 wounds and blood loss 17.1; the design question is an owner card. REPRESS, DRIFT, DRIFT-WALL
+  (passes): the re-pursuit and drift record below. BREAK (passes): melee is refused while held (a FINDING
+  line); the struggle is the answer; escape odds 0.667 per roll against grip 0.50; `grab.broken` lands 27
+  ticks after the grab. Ticks are counted from the boot; the boot's `world.tick` starts at 9000
+  (`Clock.DAY_BEGINS`), so an absolute tick is 9000 + the number printed.
+- **The shambler's daylight sight reach has a floor, 2026-11-07.** `SIGHT_REACH_FLOOR_METRES` (static,
+  `godot/sim/modules/shambler.gd`) is 6.0 m; the owner card's 8 m is not the default (it wipes seed 20260805 on top of main be4c058e), the card is open. A
+  shambler's reach was observer range times sqrt(lightSense): 12 x sqrt(0.1) = 3.8 m, so it was blind past
+  4 m by day. `sight_reach` now takes the larger of that and the floor, times the fog as before; a kind with no
+  light sense (the bloodhound) keeps 0. Lanes: `godot:check:fp_encounter` SIGHT (5 m by day acquires and closes,
+  reach 6.0 m; the 7 m probe is a FINDING; the night line, unlit, is not acquired) and its plant (floor 0:
+  SIGHT fails, reach 3.8 m). `godot:m2:balance` over ten seeds (a throwaway driver on the merge of #370, the compressed
+  campaign): floor 8 m wipes seed 20260805 (0/3, 23 survivors in all, 711 grabs); floor 6 m wipes none (25 survivors in
+  all, 654 grabs; per seed 20260805 3/3, 404 1/3, 31337 3/3, 90210 2/3, 1 3/3, 2 2/3, 3 2/3, 7 3/3, 42 3/3, 1234 3/3). On
+  the four gate seeds the floor of 6 m reads 3/3, 1/3, 3/3, 2/3 (grabs 304). `m2:lethality`,
+  `m2:district` and `m2:variance` read the same before and after.
+  `godot:m2:fog` EYES also checks the default floor unpinned: clear reach 6.00 m, and under the shipped fog (x0.25)
+  1.50 m, a hair inside the 1.6 m contact radius; its plant (the fog applied to the content reach instead of the floor) is red:
+  "the fogged reach is 6.0000 m".
+- **A released holder presses again, 2026-11-07.** The encounter gate's REPRESS lane found that a player
+  whose grab broke by struggle walked off at 2.1 m/s and was never caught. The break-away shove
+  (`shambler.gd`, `_break_away`) set a controlled body's velocity for 26 ticks, and nothing cleared it when the
+  shove ended, so a player with no move command kept walking. The fix: a controlled body the shove leaves comes to
+  rest when its record expires (or the victim is grabbed again), axis by axis: an axis still equal to the
+  shove's own is zeroed, and an axis a wall hit or a move command changed is left alone. DRIFT-WALL pins the
+  wall case: the wall zeroes x, y is kept, and after expiry both are zero. NPCs are untouched (the escape lane in
+  `check_m2_contact.gd` depends on a walking NPC's errand). REPRESS now passes: the player comes to rest 2.52 m
+  from the break, the shambler presses again 4 ticks after the break, and the next bite lands 30 ticks after the
+  re-grab. The DRIFT lane pins the fix: after a struggle break with no command, the record expires 25 ticks
+  after the break, the body's velocity is zero and it drifts 0.0000 m in the 20 ticks after; it travelled 2.62 m
+  against a shove of 2.73 m. Its plant (the clear removed) is red: "still on the controlled player ... 2.10 m/s".
+  A guard checks that a held move command (1.40 m/s) survives the expiry. Its plant (the clear removed) is red:
+  "still moving 2.10 m/s". The first variant, a stagger that ends
+  in Pursue rather than Wander, was dropped: with the clear in place and the Wander drop restored, REPRESS still
+  passes, so it was not the cause. `godot:m2:balance`, four seeds, before and after: identical (grabs 423, end
+  survivors 2/3, 1/3, 3/3, 1/3, deaths 10). The unnarrowed variant (every body) changed NPC balance and failed
+  the escape lane, so it was not kept.
+
 - **Outdoor boot wanderers judged ahead, 2026-11-07.** `boot.gd` judges an outdoor boot wanderer's kind at the boot
   tick plus `BOOT_WAVE_LEAD_DAYS`, a static var that ships at 0 (the boot is unchanged; `m2:balance` is byte-identical).
   At 2 (the recommended alpha default, to be set by the first-person scene once #361 is on main) the boot's wave-1 kinds

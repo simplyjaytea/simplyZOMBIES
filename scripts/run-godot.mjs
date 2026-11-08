@@ -557,6 +557,9 @@ switch (mode) {
       "res://check_fp_geometry.gd",
     ];
     break;
+  case "--check-fp-harm":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_fp_harm.gd"];
+    break;
   case "--check-fp-aid":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_fp_aid.gd"];
     break;
@@ -567,6 +570,15 @@ switch (mode) {
       resolve(root, "godot"),
       "--script",
       "res://check_fp_expedition.gd",
+    ];
+    break;
+  case "--check-fp-encounter":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_fp_encounter.gd",
     ];
     break;
   case "--context":
