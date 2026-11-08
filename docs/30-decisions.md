@@ -8359,3 +8359,9 @@ wipes the headless colony by day 10 (2/3 to 0/3) with two stalkers and a bloater
 in the diagnostic, and its early losses are two shamblers and one septic death, not a stalker or the bloater. At 1 the boot
 is inert (day 2 admits no kind before day 3). The owner can dial it. Card open: how early do the boot wanderers take the
 other kinds, and is the wipe on seed 20260805 acceptable for an alpha that starts with a day-1 packet? 0 is the old behaviour.
+## Colonists come to the held player's aid, 2026-11-07
+
+Card open (owner): the default is 24 m to the zombie and 4 m for a Pursuing zombie to the controlled body. An aider is
+given an attack order through the order seam; the walk and the rescue are the existing ones. Raiders and settlers do not
+aid. A colonist 12 m away is too slow to beat the player's instinct struggle (40 ticks), so the aid lands at close range.
+The armour lane pins `NPC_AID_ENABLED` off: it tests what a blow wears, not who strikes. Shipped on.

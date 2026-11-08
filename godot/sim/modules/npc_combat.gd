@@ -34,6 +34,22 @@ const SimSpaceRes = preload("res://sim/space/space.gd")
 # `_nearest_threat` below asks it rather than carrying a second answer.
 const ENGAGE_METRES: float = 20.0
 
+# Colonists come to the held player's aid (2026-11-07). A colonist that can see a zombie holding a controlled body,
+# or Pursuing one within AID_PURSUE_METRES of it, and that is within AID_METRES of the zombie, is given an attack order
+# on it through the order seam (orders.gd `issue`): the walk and the rescue are then the existing ones. One aider per
+# zombie, and at most one issue per colonist per AID_RETRY_TICKS, so a colonist is not re-ordered every tick. Owner
+# card: default 24 m and 4 m. The raiders and the settlers do not aid.
+const AID_METRES: float = 24.0
+const AID_PURSUE_METRES: float = 4.0
+const AID_RETRY_TICKS: int = 60
+# The switch the armour lane pins off: a gate that tests what a blow wears (check_m2_armor.gd REACHED) would otherwise see
+# a colonist's swings in the same fight. A static var so a gate can drive it both ways, as SIGHT_ENABLED is; any lane that
+# pins it restores the previous value on every exit path. Shipped on.
+static var NPC_AID_ENABLED: bool = true
+# While nobody is grabbed, the aid scan runs every AID_SCAN_TICKS ticks rather than every tick: a Pursuing zombie is still
+# found within 0.2 s, and the scan is the one cost the system adds to an idle run. While anybody is held, it runs every tick.
+const AID_SCAN_TICKS: int = 4
+
 # How long the controlled survivor goes without a single command before instinct answers a claw
 # for them -- SimShambler.STRUGGLE_INSTINCT_TICKS' number and its exact reasoning: two seconds is
 # long enough that an attentive player's own key is always the thing that answers an attack, and
@@ -83,6 +99,11 @@ static func register_module(world: Variant) -> void:
 	# DEFEND_INSTINCT_TICKS above), and melee only -- instinct is flailing at the thing on you,
 	# not marksmanship. Restricted to a *Pursuing* threat so it can never open a fight: a
 	# shambler that has not noticed anybody draws no swing and no noise from it.
+	# Aid runs before the combat intake, so an order given this tick is what the walk and the swing read.
+	world.systems.register("npc.aid", "combat", -6, func(w: Variant) -> void:
+		_aid_colonists(w)
+	)
+
 	world.systems.register("npc.instinct-defense", "combat", -4, func(w: Variant) -> void:
 		var any_command: bool = not (w.commands.current as Array).is_empty()
 		for ent in w.components.query(["controlled", "position", "facing"]):
@@ -141,6 +162,105 @@ static func _combatants(world: Variant) -> Array[int]:
 			out.append(int(ent))
 	out.sort()
 	return out
+
+
+# The order seam is loaded at run time: orders.gd preloads jobs.gd, which preloads this file, so a preload here
+# would be a ring.
+static func _orders() -> GDScript:
+	return load("res://sim/modules/orders.gd") as GDScript
+
+
+static func _aid_colonists(world: Variant) -> void:
+	if not NPC_AID_ENABLED:
+		return
+	if world.components.count("grabbed") == 0 and int(world.tick) % AID_SCAN_TICKS != 0:
+		return
+	var holders: Array[int] = []
+	for c in world.components.query(["controlled", "position"]):
+		holders.append(int(c))
+	if holders.is_empty():
+		return
+	# The zombies worth an aid this tick, read once: a shambler holding a controlled body, or Pursuing one within
+	# AID_PURSUE_METRES. The common case is an empty list, and then nothing else is read.
+	var candidates: Array = _aid_candidates(world, holders)
+	if candidates.is_empty():
+		return
+	var orders: GDScript = _orders()
+	for ent in _combatants(world):
+		var e: int = int(ent)
+		if SimAllegiance.faction_of(world, e) != SimAllegiance.COLONY:
+			continue
+		if not _engages(world, e) or not bool(orders.call("takes_orders", world, e)):
+			continue
+		if bool(orders.call("holds", world, e)):
+			continue
+		var body: Variant = world.components.get_component(e, "body")
+		if body is Dictionary and _critically_injured(world, e, body as Dictionary):
+			continue
+		var issued: Variant = world.components.get_component(e, "aidIssued")
+		if issued is Dictionary and int(world.tick) - int((issued as Dictionary).get("tick", -100000)) < AID_RETRY_TICKS:
+			continue
+		var target: int = _aid_target(world, e, candidates)
+		if target < 0:
+			continue
+		if bool(orders.call("issue", world, {"type": "colonist.order", "entity": e, "kind": "attack", "target": target})):
+			world.components.set_component(e, "aidIssued", {"tick": int(world.tick)})
+
+
+# The zombies that hold a controlled body, or are Pursuing one within AID_PURSUE_METRES of it: {zed, at} records, in
+# the shamblers' own order. Read once per tick, by `_aid_colonists`.
+static func _aid_candidates(world: Variant, holders: Array[int]) -> Array:
+	var out: Array = []
+	var holder_at: Array = []
+	for h in holders:
+		holder_at.append(world.components.get_component(h, "position") as Dictionary)
+	for z in world.components.query(["shambler", "position"]):
+		var zed: int = int(z)
+		if not world.entities.is_alive(zed) or world.components.has_component(zed, "corpse"):
+			continue
+		var zp: Dictionary = world.components.get_component(zed, "position") as Dictionary
+		var zv := Vector2(float(zp["x"]), float(zp["y"]))
+		var hold: Variant = world.components.get_component(zed, "grabState")
+		var holds_one: bool = hold is Dictionary and holders.has(int((hold as Dictionary)["victim"]))
+		var pursuing: bool = false
+		if not holds_one and int((world.components.get_component(zed, "shambler") as Dictionary).get("state", -1)) == SimShamblerRes.ShamblerState["Pursue"]:
+			for hp in holder_at:
+				if zv.distance_to(Vector2(float((hp as Dictionary)["x"]), float((hp as Dictionary)["y"]))) <= AID_PURSUE_METRES:
+					pursuing = true
+					break
+		if holds_one or pursuing:
+			out.append({"zed": zed, "at": zv})
+	return out
+
+
+# The zombie this colonist goes to: the nearest candidate that it can see and that no other colonist already has an order
+# on. Within AID_METRES of the colonist.
+static func _aid_target(world: Variant, ent: int, candidates: Array) -> int:
+	var best: int = -1
+	var best_d: float = INF
+	for c in candidates:
+		var zed: int = int((c as Dictionary)["zed"])
+		var zv: Vector2 = (c as Dictionary)["at"] as Vector2
+		var d: float = _distance(world, ent, zed)
+		if d > AID_METRES:
+			continue
+		if not SimRanged.can_target(world, ent, zv.x, zv.y):
+			continue
+		if _aided(world, zed):
+			continue
+		if d < best_d:
+			best_d = d
+			best = zed
+	return best
+
+
+# Another colonist already has an attack order on this zombie.
+static func _aided(world: Variant, zed: int) -> bool:
+	for c in world.components.query(["colonistOrder"]):
+		var order: Dictionary = world.components.get_component(int(c), "colonistOrder") as Dictionary
+		if String(order.get("kind", "")) == "attack" and int(order.get("target", -1)) == zed:
+			return true
+	return false
 
 
 # The roster of people this module is allowed to act for: survivors who are not the one the

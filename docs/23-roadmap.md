@@ -171,10 +171,10 @@ The source baseline is archived on GitHub at
 - **First-person scavenging and personal equipment.** Real world containers,
   search/take/stow/equip through a revised grid UI; skill and condition access.
 - **The Ome–Okutama re-theme.** A setting brief first, as a new doc. It covers the real places to
-  draw on, a fictional map of the valley, building types, and the item and district renames. After
-  the brief: Japanese building templates and props by the art lead, then content renames. See
+  draw on, a fictional map of the valley, building types, and the item and district renames. See
   [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
   The brief is [docs/42](42-ome-okutama-setting.md); its section 6 is the order of the work.
+  Building batch A has landed; the remaining art batches, templates, props and renames stay planned.
 - **The wider world by rail.** Other districts and cities reached by a train the colony repairs
   first. The design exists as [docs/45](45-wider-world-by-rail.md), a note like docs/42, under the
   region and streaming work; the sizing does not. See [docs/30](30-decisions.md#the-setting-cards-the-defaults-and-the-valley-is-the-first-of-several-2026-11-04).
@@ -2457,6 +2457,46 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **The Ome–Okutama re-theme: buildings batch A, 2026-11-05.** The first art batch of
+  [docs/42](42-ome-okutama-setting.md) adds two finishes and two whole houses without moving a
+  footprint, door, window, pool or weight.
+  - **Materials.** Kawara is a cool grey glazed-clay roof tile whose straight, unoffset rolls have
+    bright crowns and dark troughs down the slope. Siding is vertical weathered darkened cedar in a
+    warm grey-brown ramp of its own, with two close board-body tones rather than the timber look's
+    higher-contrast sage. Both join the shared atlas and manifest's look tables, ready for the later
+    schema/`street.json` retag. Their regular courses and restrained wear use no cloud noise or
+    atlas-cell paint patches.
+  - **Houses.** Both have 0.75 m eaves/rakes, a 0.300 m stacked ridge, two seated 0.440 m arched
+    onigawara plaques, two gutters and four downpipes with a worst 0.06 mm outlet gap. Aluminium
+    sashes measure 40 mm at the frame and meeting-stile overlap, with 25 mm between tracks; adjacent
+    template windows share one outer stile. Side tobukuro or lintel shutter boxes belong to the window
+    pieces and declare their real tiles. Each main genkan is 1.50 x 0.90 x 0.16 m, and no finish face
+    crosses a house door opening. `house_small` has koshiita below 0.90 m, mortar above and in the
+    gable, silver sashes and two real-window hoods measuring 0.435 m deep. `house_gable` keeps cedar
+    siding and bronze sashes, with four closed-corner pent runs measuring 0.735 m deep, a balcony
+    slab at 2.750 m with a 1.101 m rail and 0.111 m baluster spacing, and a kitchen hood whose soffit
+    is 2.150 m. Both have 0.400 m kiso plinths and vent neighbour gaps at most 4.000 m. The lifted
+    roof does not create an upper sim floor. Existing interiors, open apertures and all 22 template
+    resolutions remain; the other 20 templates' mesh arrays and touched atlas pixels match
+    `db64d031`.
+  - **Verified.** `build_finishes.py -- --check` prints `BUILDINGS_CHECK_OK`, two exported-GLB
+    `CHARACTER` lines and `OTHER_TEMPLATES_PIXELS_IDENTICAL 20/20`; all 23 plants are refused,
+    including door crossings, off-tile attachments, a short pipe, low rail/hood and the old spire.
+    `godot:check:fp_geometry` proves real-district walls, windows and ceilings, and refuses invalid
+    doorsteps, canopy errors, proud or openable-host attachments, off-tile boxes and window boxes in
+    the opening. `godot:smoke` and `check:routing` pass. Matched 1280x720 before/after, real-sky,
+    repeat and magenta captures accompany the piece; repeat-run pixel noise is zero.
+
+- **The konbini template: `building.konbini.road`, 2026-11-07.** Batch B's first template, content and
+  generic finish only (the art round B4 replaces the finish later). 12 x 9 tiles, commercial, weight 4
+  (the largest of 4, 3, 2 that keeps `godot:check:buildings` green at seed 20260805; at 6 the grocery is no
+  longer drawn there). Glass front of window tiles with the door at the centre, two shelf rows, a counter
+  at the back; tar roof, render walls. `build_finishes.py` now proves the other templates against
+  `6ed10b19` by name-blind, order-free geometry and atlas cells, and deletes each template's objects and
+  mesh datablocks after export, so merged meshes keep their names (`spatial_bands`, `finish`) and a new
+  template changes no other GLB's bytes. The 22 existing GLBs changed once, by name only. Verified:
+  `OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22`, `BUILDINGS_CHECK_OK 23 templates`, `other_template` plant refused.
+
 - **The purifier refill: a carried material repacks a spent filter, 2026-11-04.** The pump filter
   (`item.filter.pump`) has a `refill` block in `godot/content/items/kitchen.json`: one lump of
   `charcoal` restores forty uses, up to its `purifies` of forty. The block is in
@@ -3215,6 +3255,53 @@ not a to-do list:
     cutaway of the internals, and separate melee part models, are later.
   - **Record.** `docs/planning/first-person-held-weapon-report.md`.
 
+- **The hunting rifle and receiver-qualified parts, 2026-11-07.** Advances the weapon plan's
+  second receiver and gives the arms' `long` hold class a real model instead of the placeholder.
+  - **The art.** `rifle_hunting` is a bolt-action receiver with all ten sockets and both hand
+    grips. Seven separate default GLBs supply the barrel, magazine, action, spring, sear,
+    extractor and hickory stock. The default assembly is 1.0651 m long and 2,118 triangles; the
+    held view draws the receiver, barrel, magazine and stock (1,568 triangles, four meshes).
+    The 36 mm receiver is 1.20 times the barrel's 30 mm breech. Its 60 x 18 mm ejection port is
+    a closed recess with a visible bolt and a floor 5.5 mm below the tube; all 40 outward rays are
+    clear. Its lower action extends 29.25 mm below the tube with a 0.03 mm seat, and its stepped
+    shroud is 26 mm across. The rear stock runs continuously from the hooked pistol grip under the
+    receiver's rear to the comb, without a hidden tang or a notch. The pistol grip is 26 x 40 mm at
+    19.9 degrees. The U-channel fore-end's underside is 22 mm at z -250 mm, its top is at most 67 mm
+    and its width at most 47 mm. Over the action its top drops to 43.3 mm at z -150 mm and 43.0 mm
+    farther back, leaving the port visible; the trigger and magazine are ahead of the right-hand
+    finger wrap. The comb is 40.4 mm
+    below the sight line, the heel 50.6 mm and lower, and the narrowest measured wrist is 65.6 mm
+    deep x 36.3 mm wide at z 40 mm. The top rises 2.1 mm to the comb at z 220 mm, with a largest
+    pre-comb dip of 0.7 mm. The closed butt plate matches its angled end section within 0.50 mm.
+    `grip_r` is at the origin and `grip_l` is (0, 0.022, -0.250) m from it, exactly the arms'
+    long anchor. Blued steel and dark wood use the shared weapons atlas at the kit's densities.
+  - **The match rule.** A manifest part may match `id` plus `receiver`. The loader resolves that
+    ahead of an unqualified id and then class, and the held assembler passes the host receiver,
+    so shared content ids select the rifle's parts on the rifle and the pistol's on the pistol.
+  - **The loose production path.** `loose_view.gd` assembles a long firearm's installed visible
+    parts with weapon-kit-first resolution, lays it on its side and puts its lowest point on the
+    floor. Held and loose assembly read the loader's one hidden-slot list. The pistol's upright,
+    bare-receiver loose pose is deferred; its GLBs and isolated loose frames stay unchanged.
+  - **Verified.** `build_weapons.py -- --check` and `-- --prove` cover every model, socket,
+    origin, material, winding, coplanarity, density, assembly contact, closure, hand clearance,
+    shading and byte output; all 34 plants are refused. Visible-surface mesh-distance contact
+    excludes sub-bodies more than 90% inside another held body and holds each held rifle model
+    to one group at 0.2 mm, with zero open edges. The stock's largest joining gap is 0.16 mm;
+    no hidden piece is excluded in the final model. The hand check poses the committed arms GLB
+    at the first, middle and last frames of all three long clips and measures 0.0 mm deepest skin
+    in either hand. The receiver's breech ratio, guard opening, stock line, wrist, fore-end,
+    recessed port, lower-body seat, butt fit and sight point are printed measurements.
+    `godot:check:first_person` (ARMS, MODELS and HELD) loads every entry and checks the equipped
+    and loose assemblies. Blender turnaround sheets and 1280x720 held/loose engine captures
+    accompany the piece.
+  - **Sight hand-off.** The receiver exports `sight` at (0, 0.079, -0.120) m, 24.0 mm over the
+    bore and level with the front bead. The rear leaf is 6.0 mm and the front bead stands 14.3 mm
+    proud. The arms' `long` aim pose re-anchors to 24.0 mm; the rifle's idle grip anchors stay
+    unchanged.
+  - **Minors left.** The shared blued-steel paint still has pale noise patches (the pistol is
+    unchanged); both hidden springs retain anisotropic UV axes; and a loose part off a receiver
+    still has no receiver id with which to choose between rifle and pistol models. No scope model.
+
 - **The first-person loot-item kit, 2026-11-01.** Advances "First-person scavenging and personal
   equipment": the things a player picks up now have world-pose models. Only the art lands here: no
   scene reads the manifest yet. Wiring it is a separate code piece.
@@ -3301,6 +3388,22 @@ not a to-do list:
   the bloater: the early losses are shambler kills, and the difference is in the trajectory, not in a kind that kills
   directly. BOOTKINDS (`godot/check_m2_district.gd`) pins lead 2 for its tallies (17 non-shambler bodies over three seeds),
   checks the lead-0 control (shamblers alone) and that the dormant lurkers are unchanged; the day-1 pin lane pins lead 0.
+- **A colonist comes to the held player's aid, 2026-11-07.** `npc_combat.gd` (`npc.aid`, priority -6) gives a
+  colonist in the colony faction an `attack` order on a zombie that holds a controlled body, or is Pursuing one
+  within `AID_PURSUE_METRES` (4 m) of it, when the colonist is within `AID_METRES` (24 m) of the zombie and can see
+  it. One aider per zombie; one issue per colonist per `AID_RETRY_TICKS` (60). The order goes through the seam
+  (`orders.gd` `issue`, loaded at run time: a preload would be a ring). `godot:check:fp_aid` (AID-12, AID-5, FAR,
+  NOIN, RESUME, ONCE) is green with one FINDING: at 12 m Ellis is ordered at once but the player's instinct breaks
+  the hold at +55, before she arrives; at 5 m her blow staggers the holder and breaks the hold at +44. The aid's
+  effect on the balance harness is none: no controlled body exists there, so `m2:balance` is identical by
+  construction. `NPC_AID_ENABLED` (static, shipped on) is the switch the armour lane REACHED pins off: the lane tests
+  what a blow wears, and a colonist's swings in the same fight changed its blow count. Cost: the aid scan first added 0.43 ms
+  per tick (4.56 to 4.99 ms, all of it scanning every shambler for every colonist every tick). The candidate list is now
+  built once per tick and the scan runs every `AID_SCAN_TICKS` (4) ticks while nobody is grabbed (every tick while
+  somebody is). Measured in a 256 district with a controlled body, 3000 ticks, aid off and on, interleaved: 0.048 ms/tick
+  and 0.047 ms/tick over two runs (4.53 to 4.58 ms), within the 0.05 ms target. Measured on a fresh boot with no input (5 minutes): Ellis 4.1 m from the player from ~30 s and still
+  there at 5 min; Mara 13.5 m; settlers 78 to 83 m. Not done: #361 (orders in conversation) is not on main yet,
+  so the RESUME lane is to be re-run when it lands.
 - **The first-person key reference, 2026-11-01.** F1 opens the top-down legend, shown with the
   first-person scene's own rows; Escape or F1 again puts it down, and walking keys do nothing while it
   is up. The rows come from one table, `KEY_REFERENCE` in `godot/presentation/first_person/first_person.gd`,
