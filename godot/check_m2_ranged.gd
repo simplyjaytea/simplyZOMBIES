@@ -13,6 +13,8 @@ const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimStances = preload("res://sim/stances.gd")
+const SimAim = preload("res://sim/aim.gd")
+const SimSpace = preload("res://sim/space/space.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -87,6 +89,9 @@ func _dispersion_hits(distance: float, half: float) -> int:
 		var rng: Variant = w.rng.stream("shambler")
 		var target: int = SimRoster.spawn_zombie(w, 2.0 + distance, 12.0, SimRoster.TYPE_SHAMBLER, rng)
 		w.events.drain()
+		# A player's camera pitches at the body it aims at: the chest, 900 mm, from the eye.
+		var rise: int = 900 - SimSpace.eye_of(w, int(w.player))
+		SimAim.set_pitch(w.components, int(w.player), SimAim.pitch_toward(rise, distance))
 		var contact: Dictionary = SimRanged._shot_ray(w, int(w.player), half, DISPERSION_REACH, 0.0, 2.0, 12.0)
 		if int(contact["hit"]) == target:
 			hits += 1
