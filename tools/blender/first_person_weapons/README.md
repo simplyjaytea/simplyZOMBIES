@@ -1,13 +1,13 @@
 # First-person weapon kit
 
-The service pistol's receiver with a socket for each of its ten slots, its six default parts
-and three alternatives, and four whole melee weapons with a socket line for later parts. All
-of it shares one pixel atlas. The builder is the source. The GLBs, the atlas and the manifest
-are its outputs, and the game reads only those outputs.
+The service pistol and hunting rifle's receivers have one socket for each of their ten slots,
+with six default pistol parts and seven default rifle parts. The pistol also has three
+alternatives; four whole melee weapons carry a socket line for later parts. All of it shares one
+pixel atlas. The builder is the source. The GLBs, atlas and manifest are its outputs, and the
+game's loader and assembler read those outputs.
 
 This is art piece 1 of the weapon plan: the socket contract, and the first models built to
-it. Nothing in the game reads these files yet. The assembler that reads the manifest is a
-separate code piece.
+it.
 
 ## Rebuild and check
 
@@ -23,7 +23,7 @@ blender --background --factory-startup --python tools/blender/first_person_weapo
 
 - `godot/assets/first_person/weapons.manifest.json`
 - `godot/assets/first_person/weapons/weapons_atlas.png`
-- 14 GLBs in the same folder.
+- 22 GLBs in the same folder.
 
 It then runs the checks on what it wrote. Every pattern comes from integer hashes, fixed seeds
 and fixed formulae, so the rebuild is byte-identical. `-- --out <folder>` builds somewhere
@@ -33,12 +33,14 @@ is not byte-reproducible.
 **`--check`** builds into a temporary folder and judges every file there. It prints
 `WEAPONS_CHECK_OK`, or `WEAPONS_CHECK_FAIL: <reason>` and exits 1. It checks:
 
-- **Bounds.** Each model's mesh bounds are within 1 cm of the `sizeM` the manifest declares. The
-  declared sizes are real-world sizes, written by hand in `MODELS`. They are not read back from
-  the geometry.
+- **Bounds.** Each model's mesh bounds are within 1 cm of the `sizeM` the manifest declares, tightened
+  to 2 mm for every rifle model. The declared sizes are real-world sizes, written by hand in `MODELS`.
+  They are not read back from the geometry.
 - **Sockets.** Every socket the manifest names exists in the GLB as an empty node, inside the
-  model's bounds (1 mm of slack). The GLB holds no `socket_*` node the manifest does not name,
-  and no grip node but `grip_r` and `grip_l`.
+  model's bounds (1 mm of slack). The one exception is a receiver's fallback `socket_muzzle`,
+  which may sit at its separate barrel's crown; the assembly chain still holds it to 1 mm. The
+  GLB holds no `socket_*` node the manifest does not name, and no grip node but `grip_r` and
+  `grip_l`. The rifle's `grip_l` is also held to the arms' long anchor within 5 mm.
 - **Content.**
   - An item that declares `slots` in `godot/content/items` has exactly one socket per slot, no
     more and no fewer.
@@ -54,12 +56,15 @@ is not byte-reproducible.
   by both of its faces.
 - **No coplanar faces.** No two same-facing triangles lie within 0.2 mm of one plane with
   overlapping area. This is checked within each model, and also across every assembly: the
-  receiver plus each part placed at its socket.
+  receiver plus each part placed at its socket. Rifle cross-part faces also refuse near-coplanar
+  pairs within 1 degree and 0.5 mm.
 - **Texel density.** Every triangle is within 25% of its model's declared density. Every
   triangle samples exactly one atlas region, and every region is sampled by some model.
 - **Assembly.**
   - Each part placed at its socket touches a piece of the receiver (1 mm of slack). No part
-    floats.
+    floats. In each of the rifle's four held models, vertex and edge samples measure mesh distance
+    between sub-bodies; they form one connected group at 0.2 mm. All four models are closed, with
+    zero open edges.
   - The barrel's own `socket_muzzle`, carried through `socket_barrel`, lands within 1 mm of the
     receiver's `socket_muzzle`.
 - **Shading.** Each triangle in the GLB is traced to the built face that holds its corners, and
@@ -71,15 +76,20 @@ is not byte-reproducible.
     more than 30 degrees (a shoulder, a cap, a muzzle face), the builder keeps a hard edge.
   - Every other face is flat: its corners agree within 0.05 degrees. A box, a slide or a
     magazine exports exactly the normals it had before lathes were smoothed.
-- **Bytes.** All 16 outputs rebuild byte-identical to the committed files.
+- **Bytes.** All 24 outputs rebuild byte-identical to the committed files.
 
 **`--prove`** shows that each check can fail. It plants one error per build: a size 2 cm off, a
-misnamed socket, a slot with no socket, a misspelt id, a part shifted off its origin, an optic
-lifted off the slide, a muzzle socket 3 mm out, a second material, a double-sided material,
-linear filtering, one face wound backwards, a coplanar decal face, a flush extractor, a squashed
-unwrap, lathes exported with their face normals (`flat_lathe`), the barrel's hood smoothed
-(`smooth_box`), and a flipped byte. It prints `PLANT <name> CAUGHT: <message>` for each, then
-`WEAPONS_PROVE_OK`. If any planted error passes, it prints `WEAPONS_CHECK_FAIL` instead.
+misnamed socket, a slot with no socket, a misspelt part or receiver id, a part shifted off its
+origin, an optic lifted off the slide, a muzzle socket 3 mm out, the rifle's support grip 6 mm off,
+a receiver 1.5 times its barrel's breech width, a handle on the hidden action, a rear sight lifted
+2 mm, a trigger buried in its guard, the old fore-end in the left hand, an open ejection port, a
+floating guard, a floating butt plate, a 37 mm sight, a tang-supported stock, a notched stock, a
+raised/wide fore-end, a proud port plate, a fore-end burying the port, a near-coplanar rifle part,
+a second material, a double-sided material, linear filtering, one face wound backwards, a coplanar
+decal face, a flush extractor, a squashed unwrap, lathes exported with their face normals
+(`flat_lathe`), the barrel's hood smoothed (`smooth_box`), and a flipped byte. It prints
+`PLANT <name> CAUGHT: <message>` for each, then `WEAPONS_PROVE_OK 34 plants`. If any planted error passes, it prints
+`WEAPONS_CHECK_FAIL` instead.
 
 CI has no Blender, so these checks run by hand, as the starter kit's do.
 
@@ -147,11 +157,11 @@ CI has no Blender, so these checks run by hand, as the starter kit's do.
 - Parts list only the sockets they carry (the barrel lists `muzzle`).
 - `grip` appears on held weapons and is left out on parts.
 
-**One limit of the format.** `match` is an item id or class, and the sim's standard parts
-(`item.part.barrel.standard` and the rest) are shared by every receiver. The part GLBs here
-are drawn at pistol scale, which is why their file names start with `pistol_`. When a second
-receiver lands (art piece 2), the manifest needs a match keyed by receiver as well as part id.
-Which key is the coordinator's call, because the format is shared.
+**Receiver-qualified parts.** `match` may carry `{"id": "<part id>", "receiver":
+"<receiver item id>"}`. A qualified id match beats an unqualified id, which beats a class;
+a qualified entry never matches another receiver. The sim's standard part ids are shared, so
+all seven rifle defaults use this qualifier. The unqualified `pistol_` models remain the generic
+fallbacks, while shared attachments such as the suppressor need no qualifier.
 
 ## The models
 
@@ -167,6 +177,14 @@ Which key is the coordinator's call, because the format is shared.
 | `pistol_suppressor` | `item.attach.suppressor` (muzzle) | 0.0324 x 0.0324 x 0.149 | |
 | `pistol_optic_red_dot` | `item.attach.optic.red_dot` (optic) | 0.022 x 0.0215 x 0.032 | |
 | `pistol_magazine_extended` | `item.attach.magazine.extended` (magazine) | 0.0256 x 0.1345 x 0.0375 | |
+| `rifle_hunting` | `item.rifle.hunting` | 0.073 x 0.135 x 0.253 | all ten slots, `grip_r`, `grip_l` |
+| `rifle_barrel_standard` | `item.part.barrel.standard` on the rifle | 0.030 x 0.039 x 0.570 | `socket_muzzle` |
+| `rifle_magazine_standard` | `item.part.magazine.standard` on the rifle | 0.030 x 0.049 x 0.080 | |
+| `rifle_action_standard` | `item.part.action.standard` on the rifle | 0.016 x 0.016 x 0.160 | |
+| `rifle_spring_standard` | `item.part.spring.standard` on the rifle | 0.0104 x 0.0108 x 0.100 | |
+| `rifle_sear_standard` | `item.part.sear.standard` on the rifle | 0.012 x 0.0125 x 0.026 | |
+| `rifle_extractor_standard` | `item.part.extractor.standard` on the rifle | 0.0065 x 0.013 x 0.043 | |
+| `rifle_stock_standard` | `item.part.stock.standard` on the rifle | 0.052 x 0.153 x 0.8575 | |
 | `bat_wood` | `item.bat.wood` | 0.066 x 0.066 x 0.840 | stud, weight, wrap; `grip_r`, `grip_l` |
 | `knife_kitchen` | `item.knife.kitchen` | 0.019 x 0.046 x 0.322 | edge, wrap; `grip_r` |
 | `crowbar_steel` | `item.crowbar.steel` | 0.0275 x 0.102 x 0.600 | weight, wrap; `grip_r` |
@@ -184,6 +202,49 @@ Which key is the coordinator's call, because the format is shared.
   coil, 64 in its guide rod), which is kept for a bench cutaway. With the suppressor, red dot
   and extended magazine the assembly is 2,002 triangles.
 
+**The hunting rifle.**
+
+- A bolt-action hunting rifle, 1.0651 m long in its default assembly. The receiver is 253 mm
+  long; the separate barrel is 570 mm and the hickory stock is 857.5 mm from fore-end to butt.
+  The rear stock runs continuously from the hooked pistol grip under the receiver's rear to the
+  comb; there is no hidden tang and no notch in its top line.
+- The receiver is 36 mm across at the breech, 1.20 times the barrel's 30 mm shank. Its 60 x 18 mm
+  ejection port is cut into the tube, with side walls, a visible bolt and a floor 5.5 mm below
+  the tube's surface. All 40 rays in the port's outward-view grid are clear within 60 mm. The
+  stepped bolt shroud is 26 mm across, and the lower action extends 29.25 mm below the tube with
+  a measured 0.03 mm seat. The right-side handle's knob reaches 37 mm past the receiver and belongs
+  to the visible receiver, not the hidden internal action.
+- Every held model is closed and its sub-bodies form one mesh-connected group at 0.2 mm. Sub-bodies
+  more than 90% inside another held body are excluded; the stock's fore-end and rear body also join
+  through their visible receiver seats. The largest joining gaps are 0.10 mm for the receiver,
+  0.08 mm for the barrel, 0.02 mm for the magazine and 0.16 mm for the stock. No hidden piece is
+  excluded in the final model. The closed butt plate follows the end section within 0.50 mm and
+  0.00 degrees, without an overrun.
+- The guard opening is 66 x 30 mm and ends at z -43 mm; the trigger face is at z -47 mm and its
+  lowest point is y -48 mm. The magazine ends at z -75 mm and is 80 mm long, longer than the
+  71.1 mm round. The stock's comb is 40.4 mm below the sight line and its heel 50.6 mm and lower.
+  The narrowest measured wrist is 65.6 mm deep x 36.3 mm wide at z 40 mm. The top rises 2.1 mm
+  to the comb at z 220 mm, with a largest pre-comb dip of 0.7 mm.
+- The hooked pistol grip is 26 x 40 mm square to its axis, raked 19.9 degrees. The U-channel
+  fore-end's underside is y 22 mm at z -250 mm, its top never exceeds 67 mm and its width never
+  exceeds 47 mm. Over the action its top drops to 43.3 mm at z -150 mm and 43.0 mm farther back,
+  below the port's bottom edge. `grip_r` is the origin and `grip_l` is (0, 0.022, -0.250) m relative
+  to it; both exported grips measure 0.0 mm from the long contract. At the first, middle and last
+  frames of `idle_long`, `aim_long` and `raise_long`, neither hand has a skin vertex inside the rifle.
+- The receiver exports `sight` at (0, 0.079, -0.120) m, 24.0 mm over the bore. Front and rear
+  sight tops are level to 0.00 degrees; the rear leaf is 6.0 mm and the front bead stands 14.3 mm
+  proud. The arms' `long` aim pose must re-anchor to this height; the idle grip anchors do not move.
+- The seven defaults are `rifle_barrel_standard`, `rifle_magazine_standard`,
+  `rifle_action_standard`, `rifle_spring_standard`, `rifle_sear_standard`,
+  `rifle_extractor_standard` and `rifle_stock_standard`. Each manifest match carries the part
+  id and `receiver: item.rifle.hunting`, so neither side of the pistol/rifle scale split leaks.
+- The default assembly is 2,118 triangles. The held view draws 1,568 in four meshes: receiver,
+  barrel, magazine and stock. The action, spring, sear and extractor remain separate for a bench
+  cutaway but are hidden in hand. No scope model is included.
+- The production loose view assembles the installed visible parts of long firearms through the
+  same receiver-qualified, weapon-kit-first resolution and lays them on their sides on the floor.
+  The pistol's upright, bare-receiver loose pose is deferred and its frames stay unchanged.
+
 **The melee weapons.**
 
 - The bat is an ash lathe with a knob and a cupped end.
@@ -191,9 +252,10 @@ Which key is the coordinator's call, because the format is shared.
 - The crowbar is a hexagonal bar swept into a gooseneck. Its chisel end and claw are flattened.
 - The fire axe has an oval hickory haft, a red head with a ground edge, and a pick.
 
-**Shading.** Every lathe (the bat, the axe's haft, the barrel's tube, the suppressor, the
-recoil spring's guide rod, the optic's battery cap and the knife's rivets) carries smoothed
-corner normals, so it reads round at 8 or 12 segments. Everything else is flat-shaded. The
+**Shading.** Every lathe (the bat, the axe's haft, both barrels' tubes, the rifle's receiver,
+bolt and spring guide, the suppressor, the recoil spring's guide rod, the optic's battery cap and
+the knife's rivets) carries smoothed corner normals, so it reads round at 8 or 12 segments.
+Everything else is flat-shaded. The
 smoothed normals are written as Blender's `custom_normal` corner attribute, which the glTF
 exporter carries into the file; the triangle and vertex counts are unchanged by them.
 
@@ -207,10 +269,12 @@ one mesh with one primitive, so each model is one draw.
   receiver: the recoil spring's 276 (212 in its coil), the action's 24 and the sear's 24.
 - The alternate assembly, with the suppressor, red dot and extended magazine, is 2,002
   triangles in 9 meshes.
+- A default rifle is 2,118 triangles in 8 meshes. The held view skips all four internal parts,
+  leaving 1,568 triangles in 4 meshes: receiver, barrel, magazine and stock.
 - The melee weapons are one mesh each: the bat 408 triangles, the knife 540, the crowbar 260 and
   the axe 420.
 
-A pistol is cheap for the player's hands and dear for a crowd. An NPC that carries one in
+A firearm is cheap for the player's hands and dear for a crowd. An NPC that carries one in
 numbers, such as a raider band, should skip the hidden internals outside a bench view, which
 saves 324 triangles and 3 draws a pistol, or use a merged world LOD of one mesh and one draw.
 That LOD is not built yet.
@@ -230,10 +294,10 @@ zlib or zlib-ng), so the byte check holds on one machine's Blender, not across b
 **Densities.**
 
 - **128 texels per metre** is the plan's allowance for close-up hand-held surfaces. This kit uses
-  it on every surface a held weapon shows: the receiver, barrel, magazines, extractor,
-  suppressor, optic and all four melee weapons.
-- **64 texels per metre** is the world density. It is used on the three parts the receiver
-  hides: the action, the recoil spring and the sear.
+  it on every surface a held weapon shows: both receivers, barrels, magazines, extractors, the
+  rifle stock, suppressor, optic and all four melee weapons.
+- **64 texels per metre** is the world density. It is used on the parts the receiver hides:
+  both actions, springs and sears.
 - One texel is 7.8 mm at 128 per metre. The pistol's side is about 24 x 17 texels, so geometry
   carries the detail and the texture carries the material.
 
@@ -268,7 +332,8 @@ columns, and it never forms a figure.
 - Polymer: `#242527`, `#2b2c2e`, `#333436`, `#3c3d3f`, `#48494a`.
 - Fire-axe red: `#3f1814`, `#55201a`, `#6a2a20`, `#7e3628`, `#8e4533`.
 - Ash: `#5f5444`, `#736755`, `#877a65`, `#9a8c74`, `#ab9c83`.
-- Hickory: `#3f2c1d`, `#533b28`, `#684b33`, `#7c5c40`, `#8e6d4e`.
+- Hickory, including the rifle's oiled stock, uses the dark-wood ramp: `#3f2c1d`, `#533b28`,
+  `#684b33`, `#7c5c40`, `#8e6d4e`.
 
 The full set is `PALETTE` in the builder. Everything is original: there is no downloaded,
 copied or traced source.
