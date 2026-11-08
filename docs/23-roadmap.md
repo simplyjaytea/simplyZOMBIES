@@ -171,10 +171,11 @@ The source baseline is archived on GitHub at
 - **First-person scavenging and personal equipment.** Real world containers,
   search/take/stow/equip through a revised grid UI; skill and condition access.
 - **The Ome–Okutama re-theme.** A setting brief first, as a new doc. It covers the real places to
-  draw on, a fictional map of the valley, building types, and the item and district renames. After
-  the brief: Japanese building templates and props by the art lead, then content renames. See
+  draw on, a fictional map of the valley, building types, and the item and district renames. See
   [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
   The brief is [docs/42](42-ome-okutama-setting.md); its section 6 is the order of the work.
+  Building batch A and batch B's shotengai row have landed; the remaining art batches, templates,
+  props and renames stay planned.
 - **The wider world by rail.** Other districts and cities reached by a train the colony repairs
   first. The design exists as [docs/45](45-wider-world-by-rail.md), a note like docs/42, under the
   region and streaming work; the sizing does not. See [docs/30](30-decisions.md#the-setting-cards-the-defaults-and-the-valley-is-the-first-of-several-2026-11-04).
@@ -2457,6 +2458,61 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **The Ome–Okutama re-theme: buildings batch A, 2026-11-05.** The first art batch of
+  [docs/42](42-ome-okutama-setting.md) adds two finishes and two whole houses without moving a
+  footprint, door, window, pool or weight.
+  - **Materials.** Kawara is a cool grey glazed-clay roof tile whose straight, unoffset rolls have
+    bright crowns and dark troughs down the slope. Siding is vertical weathered darkened cedar in a
+    warm grey-brown ramp of its own, with two close board-body tones rather than the timber look's
+    higher-contrast sage. Both join the shared atlas and manifest's look tables, ready for the later
+    schema/`street.json` retag. Their regular courses and restrained wear use no cloud noise or
+    atlas-cell paint patches.
+  - **Houses.** Both have 0.75 m eaves/rakes, a 0.300 m stacked ridge, two seated 0.440 m arched
+    onigawara plaques, two gutters and four downpipes with a worst 0.06 mm outlet gap. Aluminium
+    sashes measure 40 mm at the frame and meeting-stile overlap, with 25 mm between tracks; adjacent
+    template windows share one outer stile. Side tobukuro or lintel shutter boxes belong to the window
+    pieces and declare their real tiles. Each main genkan is 1.50 x 0.90 x 0.16 m, and no finish face
+    crosses a house door opening. `house_small` has koshiita below 0.90 m, mortar above and in the
+    gable, silver sashes and two real-window hoods measuring 0.435 m deep. `house_gable` keeps cedar
+    siding and bronze sashes, with four closed-corner pent runs measuring 0.735 m deep, a balcony
+    slab at 2.750 m with a 1.101 m rail and 0.111 m baluster spacing, and a kitchen hood whose soffit
+    is 2.150 m. Both have 0.400 m kiso plinths and vent neighbour gaps at most 4.000 m. The lifted
+    roof does not create an upper sim floor. Existing interiors, open apertures and all 22 template
+    resolutions remain; the other 20 templates' mesh arrays and touched atlas pixels match
+    `db64d031`.
+  - **Verified.** `build_finishes.py -- --check` prints `BUILDINGS_CHECK_OK`, two exported-GLB
+    `CHARACTER` lines and `OTHER_TEMPLATES_PIXELS_IDENTICAL 20/20`; all 23 plants are refused,
+    including door crossings, off-tile attachments, a short pipe, low rail/hood and the old spire.
+    `godot:check:fp_geometry` proves real-district walls, windows and ceilings, and refuses invalid
+    doorsteps, canopy errors, proud or openable-host attachments, off-tile boxes and window boxes in
+    the opening. `godot:smoke` and `check:routing` pass. Matched 1280x720 before/after, real-sky,
+    repeat and magenta captures accompany the piece; repeat-run pixel noise is zero.
+
+- **The Ome–Okutama re-theme: the shotengai row, 2026-11-07.** Batch B starts with the existing
+  18 x 13 m `building.arcade.retail`; `TEMPLATE_FINISHES` gives it a tin gable and siding walls without
+  changing its template JSON, footprint, doors, windows, pool or weight.
+  - **Street.** Four closed 4.5 m signboard fronts reach 4.00 m, with back faces, top caps, faded
+    blue/orange cells and original generic Japanese glyphs. One continuous canopy measures 18.00 m
+    long, 1.085 m deep and 2.60 to 2.90 m high. Fifteen wall-state shutters are down, 13 window
+    variants raise the shutter over glazing, and all three doors have raised shutters and clear
+    openings. Permanent-wall and window boxes declare `wall_attach` and `window_attach` on their real
+    tiles; openable wall-state and door curtains use shallow skins. No new finish-volume kind.
+  - **Verified.** The builder's measured `CHARACTER` line reports those counts and dimensions.
+    `OTHER_TEMPLATES_PIXELS_IDENTICAL 21/21` holds every other template's mesh and touched atlas cells
+    to `6ed10b19`. All 25 plants are refused, including the shop's 2.20 m canopy and a shutter lowered
+    over an openable window. `godot:check:fp_geometry`, `godot:smoke` and `check:routing` pass.
+    Matched base/head, repeat, magenta and Blender captures accompany the piece; repeat-run pixel
+    noise is zero.
+- **The konbini template: `building.konbini.road`, 2026-11-07.** Batch B's first template, content and
+  generic finish only (the art round B4 replaces the finish later). 12 x 9 tiles, commercial, weight 4
+  (the largest of 4, 3, 2 that keeps `godot:check:buildings` green at seed 20260805; at 6 the grocery is no
+  longer drawn there). Glass front of window tiles with the door at the centre, two shelf rows, a counter
+  at the back; tar roof, render walls. `build_finishes.py` now proves the other templates against
+  `6ed10b19` by name-blind, order-free geometry and atlas cells, and deletes each template's objects and
+  mesh datablocks after export, so merged meshes keep their names (`spatial_bands`, `finish`) and a new
+  template changes no other GLB's bytes. The 22 existing GLBs changed once, by name only. Verified:
+  `OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22`, `BUILDINGS_CHECK_OK 23 templates`, `other_template` plant refused.
+
 - **The purifier refill: a carried material repacks a spent filter, 2026-11-04.** The pump filter
   (`item.filter.pump`) has a `refill` block in `godot/content/items/kitchen.json`: one lump of
   `charcoal` restores forty uses, up to its `purifies` of forty. The block is in
@@ -2534,6 +2590,22 @@ not a to-do list:
     were deleted. `godot:bench:frame` draws the top-down scene and is not moved by this.
   - **Verified.** `godot:check:first_person`, `godot:check:fp_expedition`,
     `godot:check:fp_geometry`, `godot:smoke` and `check:routing`.
+- **The arms raise and aim with the fire state, 2026-11-07.** The dead socket is closed: the arms kit's
+  `raise_pistol`, `raise_long`, `aim_pistol` and `aim_long` had no reader, and the sim's `FireState` had none
+  in presentation. `ArmsView.fire_of` (beside `hold_class_of`) reads the sim's `rangedWeapon` state and gives
+  `{phase: idle|raise|aim|recover|reload, t}`: Raise is `raise` with `t` = 1 - ticksLeft / the weapon's own
+  raise ticks; Steady is `aim`; Recover and Clearing are `recover`; Reload is `reload`. The view's phase machine
+  plays `raise_<class>` held at that `t` (so a heavier gun's longer raise stretches the 0.40 s clip), `aim_<class>`
+  while steady, and returns to `idle_<class>` on recover or reload. Draw, lower, inspect and covered still win;
+  a melee class and bare hands ignore the state. The sim is not changed. Gate: `godot:check:first_person` ARMS,
+  the AIM case: rifle then pistol, each shot checked tick by tick (the clip is `raise_<class>` at the sim's `t`
+  across at least two distinct positions, then `aim_<class>` while steady, a sheet opened in the aim lowers the
+  arms and closing it brings the aim back, then `idle_<class>` after the shot); a stubbed read model that says
+  idle leaves the arms on idle through the whole shot; a knife under a stubbed raise and aim stays on
+  `idle_melee1`. The plant (`fire_of` returns aim for every state) turns ARMS red, with `in Raise the long arms
+  play 'aim_long', not raise_long`. Reload has no clip, so its idle is the conservative default (docs/30). The
+  PLAYBOOK "Known bugs" line on the lowered weapon is removed. `SimAim.holds` still has its reader only in the
+  top-down `main.gd`, not in the first-person arms.
 - **The organic survivor, 2026-11-04.** The first-person survivor body is replaced: the box-segment
   `survivor.glb` gives way to an organic, smooth-skinned woman built by `organic_survivor.py` in the
   Blender character kit (`tools/blender/first_person_kit/build_characters.py`). She has 7,810 triangles,
@@ -3025,9 +3097,32 @@ not a to-do list:
     survivor, a lunging shambler and a corpse. The walking survivor is hard to tell from the horde at this
     size; the gate is what holds it.
   - **Not in this piece.** Zombie kinds other than the shambler still draw the shambler model. A corpse is
-    made for survivors only (`recruits.gd`'s `_make_corpse`), so a zombie's death clip is set by the
-    gate, not the sim. Horde cost beyond 40 is unmeasured, and so is a horde at the shipped district's
+    made for survivors only (`recruits.gd`'s `_make_corpse`), so a zombie's death clip was set by the
+    gate, not the sim; since 2026-11-07 a zombie's body lies where it fell and plays it (the entry
+    "A dead zombie lies there"). Horde cost beyond 40 is unmeasured, and so is a horde at the shipped district's
     density.
+- **Held items on the first-person bodies, 2026-11-07.** The bodies in the first-person world carry what the
+  sim says they hold. `held_weapon.gd` gains a `holder` (the entity whose hand it is; unset is the player, so the
+  arms are unchanged), and the same assembly the arms draw (receiver, sockets, parts) is mounted under the right
+  hand of each body with a model: `body_view.gd`'s `mount_held` puts a `BoneAttachment3D` on the rig's `hand.R`
+  (both `survivor.glb` and `shambler.glb` carry it) and parents the held view to it. `own_body.gd` does the same
+  for the player's body, so the weapon the arms hide in third person (`hide_weapon`) is drawn on the body there.
+  Unarmed bodies draw nothing under the hand. No sim change, no HUD words.
+  - **The orientation.** Measured on the shipped survivor rig before the turn: the grip's bore pointed backwards
+    (dot with the body's forward -0.960), because the hand bone's Y runs down the arm. One constant,
+    `HAND_TO_GRIP_RADIANS` (a half turn about the hand's X), sends the bore forward: dot +0.960. The grip's top
+    then points 16 degrees above the body's up (dot 0.960), which is the hand bone's own rest roll and is left
+    as it is.
+  - **The gate.** `godot:check:first_person` BODIES, the HELD case: a colonist given a pistol (its model under
+    `hand.R`, 0.000 m from the bone), then a bat (swapped; the pistol is gone); an unarmed colonist draws nothing
+    under the hand (the negative: the grip stays under the hand, hidden, with no model in it); the player's own body
+    in third person draws the pistol the arms hold, at 0.000 m from `hand.R`. The distance is read from the
+    skeleton by name, not from the attachment, so a plant on `hand.L` fails it: the pistol sits 0.478 m from the
+    hand bone. The plant is recorded in the REPORT.
+  - **Not in this piece.** A shambler's model gets the same mount (its skeleton has `hand.R`), but no zombie
+    carries a weapon in the sim, so nothing is drawn there. An unarmed body keeps its grip under the hand, hidden,
+    rather than leaving the hand with no child at all; nothing is drawn either way.
+
 - **Art — the survivor review driver, 2026-11-01.** `npm run godot:shots:survivor` photographs a
   candidate survivor GLB in the first-person scene's own sky, sun and lens: `SkyView` for the
   light, the first-person 75-degree lens at the 1.62 m eye, and `models.gd` for the loader. It
@@ -3176,6 +3271,53 @@ not a to-do list:
     cutaway of the internals, and separate melee part models, are later.
   - **Record.** `docs/planning/first-person-held-weapon-report.md`.
 
+- **The hunting rifle and receiver-qualified parts, 2026-11-07.** Advances the weapon plan's
+  second receiver and gives the arms' `long` hold class a real model instead of the placeholder.
+  - **The art.** `rifle_hunting` is a bolt-action receiver with all ten sockets and both hand
+    grips. Seven separate default GLBs supply the barrel, magazine, action, spring, sear,
+    extractor and hickory stock. The default assembly is 1.0651 m long and 2,118 triangles; the
+    held view draws the receiver, barrel, magazine and stock (1,568 triangles, four meshes).
+    The 36 mm receiver is 1.20 times the barrel's 30 mm breech. Its 60 x 18 mm ejection port is
+    a closed recess with a visible bolt and a floor 5.5 mm below the tube; all 40 outward rays are
+    clear. Its lower action extends 29.25 mm below the tube with a 0.03 mm seat, and its stepped
+    shroud is 26 mm across. The rear stock runs continuously from the hooked pistol grip under the
+    receiver's rear to the comb, without a hidden tang or a notch. The pistol grip is 26 x 40 mm at
+    19.9 degrees. The U-channel fore-end's underside is 22 mm at z -250 mm, its top is at most 67 mm
+    and its width at most 47 mm. Over the action its top drops to 43.3 mm at z -150 mm and 43.0 mm
+    farther back, leaving the port visible; the trigger and magazine are ahead of the right-hand
+    finger wrap. The comb is 40.4 mm
+    below the sight line, the heel 50.6 mm and lower, and the narrowest measured wrist is 65.6 mm
+    deep x 36.3 mm wide at z 40 mm. The top rises 2.1 mm to the comb at z 220 mm, with a largest
+    pre-comb dip of 0.7 mm. The closed butt plate matches its angled end section within 0.50 mm.
+    `grip_r` is at the origin and `grip_l` is (0, 0.022, -0.250) m from it, exactly the arms'
+    long anchor. Blued steel and dark wood use the shared weapons atlas at the kit's densities.
+  - **The match rule.** A manifest part may match `id` plus `receiver`. The loader resolves that
+    ahead of an unqualified id and then class, and the held assembler passes the host receiver,
+    so shared content ids select the rifle's parts on the rifle and the pistol's on the pistol.
+  - **The loose production path.** `loose_view.gd` assembles a long firearm's installed visible
+    parts with weapon-kit-first resolution, lays it on its side and puts its lowest point on the
+    floor. Held and loose assembly read the loader's one hidden-slot list. The pistol's upright,
+    bare-receiver loose pose is deferred; its GLBs and isolated loose frames stay unchanged.
+  - **Verified.** `build_weapons.py -- --check` and `-- --prove` cover every model, socket,
+    origin, material, winding, coplanarity, density, assembly contact, closure, hand clearance,
+    shading and byte output; all 34 plants are refused. Visible-surface mesh-distance contact
+    excludes sub-bodies more than 90% inside another held body and holds each held rifle model
+    to one group at 0.2 mm, with zero open edges. The stock's largest joining gap is 0.16 mm;
+    no hidden piece is excluded in the final model. The hand check poses the committed arms GLB
+    at the first, middle and last frames of all three long clips and measures 0.0 mm deepest skin
+    in either hand. The receiver's breech ratio, guard opening, stock line, wrist, fore-end,
+    recessed port, lower-body seat, butt fit and sight point are printed measurements.
+    `godot:check:first_person` (ARMS, MODELS and HELD) loads every entry and checks the equipped
+    and loose assemblies. Blender turnaround sheets and 1280x720 held/loose engine captures
+    accompany the piece.
+  - **Sight hand-off.** The receiver exports `sight` at (0, 0.079, -0.120) m, 24.0 mm over the
+    bore and level with the front bead. The rear leaf is 6.0 mm and the front bead stands 14.3 mm
+    proud. The arms' `long` aim pose re-anchors to 24.0 mm; the rifle's idle grip anchors stay
+    unchanged.
+  - **Minors left.** The shared blued-steel paint still has pale noise patches (the pistol is
+    unchanged); both hidden springs retain anisotropic UV axes; and a loose part off a receiver
+    still has no receiver id with which to choose between rifle and pistol models. No scope model.
+
 - **The first-person loot-item kit, 2026-11-01.** Advances "First-person scavenging and personal
   equipment": the things a player picks up now have world-pose models. Only the art lands here: no
   scene reads the manifest yet. Wiring it is a separate code piece.
@@ -3269,6 +3411,87 @@ not a to-do list:
   notice window raised to a million) is red. Not done: a directional marker or sound (art and audio, a follow-up).
   The shambler's reach on this branch is 3.8 m, so the notice lanes place it inside that; the 8 m daylight floor
   is on the bundle branch, and the notice lanes can move to 7 m when it merges.
+
+- **The first-person encounter gate, 2026-11-07.** `godot/check_fp_encounter.gd`, run by
+  `npm run godot:check:fp_encounter`, boots the seeded first-person district (`SimBoot.playable`,
+  the scene's seed, 64 tiles) and reads and steps the sim only. It ends green (no FAIL). Lanes:
+  SIGHT-NEAR (passes): a shambler 3 m out acquires the player one tick after setup and closes. SIGHT
+  (passes): a shambler 5 m out by day acquires and closes; the daylight reach is 6 m
+  (`SIGHT_REACH_FLOOR_METRES`, see the sight record below). The 7 m probe is a FINDING: not acquired by
+  day. A night line (INFO) shows the same 5 m unlit: not acquired. NOISE (passes): a rifle shot
+  (`item.rifle.hunting`, ranged noise 200 from content) through one wall tile at 30 m is heard, field 178
+  at the shambler against a threshold of 0.25; the shambler turns in 2 ticks and closes; the player's
+  footsteps publish `noise.emitted` (magnitude 1.0); the walking player is first turned at 4.1 m (INFO).
+  CONTACT (passes): a grab forms at 3 m, `_clear_contact` true, first wound 30 ticks later.
+  DEATH-NOESCAPE (passes): with stamina held at 0 the player dies 1080 ticks after contact and
+  `world.player` moves to Mara; with the other survivors removed, `world.runOver` is set 1071 ticks
+  after contact. DEATH-ATTENTIVE (measured, passes whatever the outcome): an attentive player with the
+  struggle open is killed by the lone shambler at +1222 ticks (1190 after contact), after 5 holds broke,
+  with 6 wounds and blood loss 17.1; the design question is an owner card. REPRESS, DRIFT, DRIFT-WALL
+  (passes): the re-pursuit and drift record below. BREAK (passes): melee is refused while held (a FINDING
+  line); the struggle is the answer; escape odds 0.667 per roll against grip 0.50; `grab.broken` lands 27
+  ticks after the grab. Ticks are counted from the boot; the boot's `world.tick` starts at 9000
+  (`Clock.DAY_BEGINS`), so an absolute tick is 9000 + the number printed.
+- **The shambler's daylight sight reach has a floor, 2026-11-07.** `SIGHT_REACH_FLOOR_METRES` (static,
+  `godot/sim/modules/shambler.gd`) is 6.0 m; the owner card's 8 m is not the default (it wipes seed 20260805 on top of main be4c058e), the card is open. A
+  shambler's reach was observer range times sqrt(lightSense): 12 x sqrt(0.1) = 3.8 m, so it was blind past
+  4 m by day. `sight_reach` now takes the larger of that and the floor, times the fog as before; a kind with no
+  light sense (the bloodhound) keeps 0. Lanes: `godot:check:fp_encounter` SIGHT (5 m by day acquires and closes,
+  reach 6.0 m; the 7 m probe is a FINDING; the night line, unlit, is not acquired) and its plant (floor 0:
+  SIGHT fails, reach 3.8 m). `godot:m2:balance` over ten seeds (a throwaway driver on the merge of #370, the compressed
+  campaign): floor 8 m wipes seed 20260805 (0/3, 23 survivors in all, 711 grabs); floor 6 m wipes none (25 survivors in
+  all, 654 grabs; per seed 20260805 3/3, 404 1/3, 31337 3/3, 90210 2/3, 1 3/3, 2 2/3, 3 2/3, 7 3/3, 42 3/3, 1234 3/3). On
+  the four gate seeds the floor of 6 m reads 3/3, 1/3, 3/3, 2/3 (grabs 304). `m2:lethality`,
+  `m2:district` and `m2:variance` read the same before and after.
+  `godot:m2:fog` EYES also checks the default floor unpinned: clear reach 6.00 m, and under the shipped fog (x0.25)
+  1.50 m, a hair inside the 1.6 m contact radius; its plant (the fog applied to the content reach instead of the floor) is red:
+  "the fogged reach is 6.0000 m".
+- **A released holder presses again, 2026-11-07.** The encounter gate's REPRESS lane found that a player
+  whose grab broke by struggle walked off at 2.1 m/s and was never caught. The break-away shove
+  (`shambler.gd`, `_break_away`) set a controlled body's velocity for 26 ticks, and nothing cleared it when the
+  shove ended, so a player with no move command kept walking. The fix: a controlled body the shove leaves comes to
+  rest when its record expires (or the victim is grabbed again), axis by axis: an axis still equal to the
+  shove's own is zeroed, and an axis a wall hit or a move command changed is left alone. DRIFT-WALL pins the
+  wall case: the wall zeroes x, y is kept, and after expiry both are zero. NPCs are untouched (the escape lane in
+  `check_m2_contact.gd` depends on a walking NPC's errand). REPRESS now passes: the player comes to rest 2.52 m
+  from the break, the shambler presses again 4 ticks after the break, and the next bite lands 30 ticks after the
+  re-grab. The DRIFT lane pins the fix: after a struggle break with no command, the record expires 25 ticks
+  after the break, the body's velocity is zero and it drifts 0.0000 m in the 20 ticks after; it travelled 2.62 m
+  against a shove of 2.73 m. Its plant (the clear removed) is red: "still on the controlled player ... 2.10 m/s".
+  A guard checks that a held move command (1.40 m/s) survives the expiry. Its plant (the clear removed) is red:
+  "still moving 2.10 m/s". The first variant, a stagger that ends
+  in Pursue rather than Wander, was dropped: with the clear in place and the Wander drop restored, REPRESS still
+  passes, so it was not the cause. `godot:m2:balance`, four seeds, before and after: identical (grabs 423, end
+  survivors 2/3, 1/3, 3/3, 1/3, deaths 10). The unnarrowed variant (every body) changed NPC balance and failed
+  the escape lane, so it was not kept.
+
+- **Outdoor boot wanderers judged ahead, 2026-11-07.** `boot.gd` judges an outdoor boot wanderer's kind at the boot
+  tick plus `BOOT_WAVE_LEAD_DAYS`, a static var that ships at 0 (the boot is unchanged; `m2:balance` is byte-identical).
+  At 2 (the recommended alpha default, to be set by the first-person scene once #361 is on main) the boot's wave-1 kinds
+  (two stalkers and a bloater outdoors on seed 20260805) appear, and seed 20260805, the first-person default district
+  seed, wipes the headless colony by day 10 (2/3 to 0/3 survivors in `m2:balance`). At 1 the boot is inert (day 2 admits no
+  kind before day 3). The owner can dial it. Wipe diagnosis (seed 20260805, lead 2 against lead 0, colony deaths by day):
+  the colony is 3 at boot, 2 by day 3, 1 by day 5, 0 by day 6. The deaths at lead 2 are two shamblers (day 3, day 5) and
+  one septic death (day 6). The lead-0 run loses one colonist to a shambler on day 8. No death is credited to a stalker or
+  the bloater: the early losses are shambler kills, and the difference is in the trajectory, not in a kind that kills
+  directly. BOOTKINDS (`godot/check_m2_district.gd`) pins lead 2 for its tallies (17 non-shambler bodies over three seeds),
+  checks the lead-0 control (shamblers alone) and that the dormant lurkers are unchanged; the day-1 pin lane pins lead 0.
+- **A colonist comes to the held player's aid, 2026-11-07.** `npc_combat.gd` (`npc.aid`, priority -6) gives a
+  colonist in the colony faction an `attack` order on a zombie that holds a controlled body, or is Pursuing one
+  within `AID_PURSUE_METRES` (4 m) of it, when the colonist is within `AID_METRES` (24 m) of the zombie and can see
+  it. One aider per zombie; one issue per colonist per `AID_RETRY_TICKS` (60). The order goes through the seam
+  (`orders.gd` `issue`, loaded at run time: a preload would be a ring). `godot:check:fp_aid` (AID-12, AID-5, FAR,
+  NOIN, RESUME, ONCE) is green with one FINDING: at 12 m Ellis is ordered at once but the player's instinct breaks
+  the hold at +55, before she arrives; at 5 m her blow staggers the holder and breaks the hold at +44. The aid's
+  effect on the balance harness is none: no controlled body exists there, so `m2:balance` is identical by
+  construction. `NPC_AID_ENABLED` (static, shipped on) is the switch the armour lane REACHED pins off: the lane tests
+  what a blow wears, and a colonist's swings in the same fight changed its blow count. Cost: the aid scan first added 0.43 ms
+  per tick (4.56 to 4.99 ms, all of it scanning every shambler for every colonist every tick). The candidate list is now
+  built once per tick and the scan runs every `AID_SCAN_TICKS` (4) ticks while nobody is grabbed (every tick while
+  somebody is). Measured in a 256 district with a controlled body, 3000 ticks, aid off and on, interleaved: 0.048 ms/tick
+  and 0.047 ms/tick over two runs (4.53 to 4.58 ms), within the 0.05 ms target. Measured on a fresh boot with no input (5 minutes): Ellis 4.1 m from the player from ~30 s and still
+  there at 5 min; Mara 13.5 m; settlers 78 to 83 m. Not done: #361 (orders in conversation) is not on main yet,
+  so the RESUME lane is to be re-run when it lands.
 - **The first-person key reference, 2026-11-01.** F1 opens the top-down legend, shown with the
   first-person scene's own rows; Escape or F1 again puts it down, and walking keys do nothing while it
   is up. The rows come from one table, `KEY_REFERENCE` in `godot/presentation/first_person/first_person.gd`,
@@ -3308,8 +3531,62 @@ not a to-do list:
     of reach, off the aim, through a wall, at a shambler and at a raider no panel opens.
   - **Not in this piece.** No orders, recruitment, delegation or foreman: the one action is Goodbye,
     and docs/39's foreman stays undecided. No speech content was added. The panel does not stop the
-    clock, and a survivor's own conversations with the player are a later slice.
+    clock, and a survivor's own conversations with the player are a later slice. (Amended 2026-11-07:
+    the orders are in; see "Orders through the conversation, 2026-11-07".)
   - **Record.** `docs/planning/first-person-talk-report.md`.
+
+- **The shot as a ray, 2026-11-07.** docs/40's slice 5, behind `SimRanged.SHOT_AS_RAY` (true: the default; false:
+  the nearest living body in the cone, hit for certain, as before). docs/33 question 1 stays open; the switch is
+  its implementation.
+  - **The ray.** `SimSpace.ray_first_hit(world, from, dir, reach, shooter)`: the first contact along a ray out to
+    the reach, a tile whose bands stop a SHOT (walked by the same integer walk `segment_clear` uses, now `_scan`,
+    which `_walk` answers as before) or a living body's cylinder (`body_of`); the shooter is ignored. The first
+    contact wins, and a body the ray enters before a tile is the body.
+  - **The round.** `_shot_ray` takes the origin at `SimSpace.eye_of` and the direction from the aim deviated within a
+    disc of radius `cone × DISPERSION` (1.0), two uniform draws on the new `ranged.spread` stream (`SPREAD_STREAM`),
+    so no existing stream moves. A body contact applies the hit as before (same `attack.connected`, the same part and
+    recovery rolls on `ranged`); falloff takes the ray distance to contact. A tile contact or no contact hits nobody.
+  - **Events.** `weapon.fired` keeps its keys and, on the ray path only, adds `oz`, `pitch`, `ex`, `ey`, `ez` (the
+    contact, or the ray's end at reach). The switch-off path publishes today's keys exactly. `decals.gd` marks the tile
+    at `ex, ey` when the event carries a contact, by the tile's surface (no mark for a body contact); without a contact
+    key it walks the line as before.
+  - **Gates.** `godot:m2:space` RAY: a shot through a window's aperture hits the body behind; below the sill it strikes
+    the window's tile; over a Low tile a standing eye hits the body behind and a crouched eye is stopped; a crouched body
+    behind a Low tile is not hit by a standing shot; a body off the ray is not hit; the same seed gives the same contact;
+    a save between Steady and release fires the same round; the spread leaves the `ranged` stream where it was; and
+    `ray_first_hit` has one sim caller, in `ranged.gd`. The lanes that measure the cone's outcome pin the switch
+    false and restore it: `godot:m2:attach` (per process), and three lanes of `godot:m2:sight` (`_cone`).
+    `godot:m2:ranged`, `godot:m2:lethality` and `godot:m2:balance` pass with the ray on and are not pinned.
+  - **Bench (same machine, seed fixed by the bench, `godot:bench`).** Switch off, then on. quiet-night 0.536 / 0.530 ms,
+    after-a-shout 0.550 / 0.547 ms, crowded 3.296 / 3.311 ms, crowded-and-loud 3.378 / 3.240 ms (p95 within 0.08 ms).
+    The bench scenarios fire few or no rounds, so these numbers measure the switch's cost off the shot path, not the
+    shot's cost.
+  - **Not in this piece.** No tracer and no draw of the contact (slice 7). DISPERSION is 1.0 until slice 8 measures it.
+    The jam, part and recovery rolls keep their draws; owner question 2 (part by geometry) is not this slice.
+- **Orders through the conversation, 2026-11-07.** Advances "First-person people and settlement operation",
+  its conversations and delegation. The conversation lists the orders the sim offers the colonist for the aim it
+  opened on, and choosing one pushes the sim's own command.
+  - **The rows.** `SimContext.orders_for` is the one builder: the top-down menu's `verbs_at` and the conversation
+    both reach `_order_rows`, so the two cannot differ. `_order_rows` now offers no row to a body that takes no
+    orders (a recruit, a captive, a colonist being carried or leaving). Rows: "have <name> go here", "hold here",
+    "haul <item>", "attack it", and "stand <name> down" while holding. Every row is the sim's `accepts`.
+  - **The aim.** Read once when the conversation opens, and the mouse is released so the aim holds while it is
+    up: a zombie or raider in the aim cone, then a loose item in it, else the ground the look reaches at the 1.8 m
+    reach (no ground when a door, window or wall is on the look). The cone is `_in_aim`, the one cone the scene
+    reads; `talk_target` uses it too.
+  - **Choosing.** A click or Enter on a row pushes the row's `command` through the command queue and closes the
+    panel, as Goodbye does. Up and Down move the choice through the rows and Goodbye. Goodbye stays last, and
+    Escape is still Goodbye. The rows are kit buttons, like the Reports page's; the words have no digits.
+  - **Gate.** `godot:check:first_person` TALK, ORDERS: open ground gives "go" and "hold" and no haul or attack, and
+    the rows are the sim's own (`SimContext.orders_for`); a click on "go" gives the colonist a go order whose
+    destination is the aimed tile and closes the panel; "stand down" lists while holding and `clear` lands; Down and
+    Enter choose the second row; a loose item in the aim lists haul and gives a haul for that item; a shambler in
+    the aim lists attack and gives an attack on it; a colonist that takes no orders lists none. The plant (the panel
+    pushes `hold` when "go" is chosen) turns the lane red: `choosing 'go' did not give the colonist a go order`.
+  - **Not in this piece.** The E ladder is unchanged: E still opens the conversation only with the aim on a colonist.
+    The ORDERS cases open the panel with the aim set on the thing they test. A go to a tile within the sim's REACH
+    ends at once as an arrival, and a go with no route ends as "no-route" in the same tick; both are the sim's
+    answers and the rows are not filtered for them. No foreman, no standing orders, no recruitment.
 
 - **Animation state from the sim, 2026-11-01.** Advances "First-person people and settlement
   operation", the body art: every drawn body now names the animation it should play, read from the
@@ -3610,6 +3887,14 @@ not a to-do list:
     change -- those are docs/40 slices 3, 5 and 6. The viewmodel is a placeholder box.
   - **Record.** `docs/planning/first-person-fight-report.md`.
 
+- **The title starts first person, 2026-11-07.** Advances "First-person expedition and default
+  switch" by the owner's call (docs/30, "The title starts first person"): the game loads into first
+  person, and the top-down game is on hold. The default title offers new run and quit, and new run
+  changes scene to `presentation/first_person/first_person.tscn`. The top-down title, with its four
+  rows, opens with `-- --topdown`, which `npm run godot:run:topdown` and `npm run godot:check:play`
+  pass; nothing in the first-person scene leads there. Gates: `npm run godot:check:hud` prints
+  `TITLE OK` (its plant turns it red); `npm run godot:check:play` keeps `PLAY_OK` under the top-down
+  title; `npm run godot:check:first_person` and `npm run godot:smoke` boot first person unchanged.
 - **First person from the title, 2026-11-01.** Advances "First-person expedition and default
   switch" with the playable on-ramp: the owner can reach the experiment from the game's own title
   and come back, without the default itself changing.
@@ -3660,7 +3945,8 @@ not a to-do list:
     `first_person.gd`'s `_ready` prints. The top-down scene still prints R1 and R4. CI's
     `godot-exports` job is the check that the exported default boot reaches it.
   - **Not in this piece.** The held weapon is drawn at the camera in third person; the body carries
-    no weapon yet. Third person is not a player-facing mode.
+    no weapon yet (amended 2026-11-07: the bodies now carry what they hold, see "Held items on the
+    first-person bodies, 2026-11-07"). Third person is not a player-facing mode.
   - **Captures.** Two in-engine captures (default boot, third-person survivor) are in
     `C:/Users/jtf/orca/sz-shared/fp-default/`. They were taken with a temporary driver that is not
     committed.
@@ -3732,8 +4018,29 @@ not a to-do list:
     mutation (no read mark, no prompt, Escape to the street, an invented line) turns the lane red.
   - **Not in this piece.** Paging beyond the 12 newest lines. A page for the run's epitaph. Save and
     load of the read mark. The gate does not run the death itself: it publishes the event health.gd
-    publishes, and the body stays alive.
+    publishes, and the body stays alive. (Amended 2026-11-07: the three gaps before the read mark and the
+    epitaph are closed; see "The Reports page turns pages, 2026-11-07".)
 
+
+- **The Reports page turns pages, 2026-11-07.** Closes the three gaps the 2026-11-01 entry named. `reports_panel.gd`
+  pages the record twelve lines to a page, newest first: "older" and "newer" are kit buttons (words, no digits), the
+  page opens on the newest twelve, and a record of twelve or fewer shows no paging rows. `ReportsPanel.rows(world,
+  read, page)` stays pure and `entries` is its full list. The "new" tags follow each entry wherever its page is, and
+  the "since you last looked" banner shows while the record holds unread entries.
+  - **The read mark survives a save.** The mark stays presentation state; the sim is never written. It is stored
+    beside the first-person slot under a sibling key, `<slot>.reads` (`save_slot.gd`'s `write_reads`, `read_reads`),
+    written before the sim's save and read back on F9. A slot with no sibling key (an older save) loads as 0. The save
+    text and `SAVE_VERSION` are unchanged, so `godot:m2:save` is not affected.
+  - **The epitaph page.** Once the run is over, the page offers an "epitaph" button (only then), and it shows every
+    line of `SimChronicle.epitaph` with no cap, paged the same way; a "record" button returns to the record. The
+    sim writes nothing new.
+  - **The gate.** `godot:check:first_person` REPORTS, the PAGES case: thirty entries written through the chronicle's
+    writer; the page opens on the newest twelve; "older" by a real click shows the next twelve, then the last six, and
+    stops; "newer" returns; a twelve-line record shows no paging; every paged line is one the chronicle holds, and a
+    line it never wrote is refused by the same check; the read mark comes back after a save and a load with the record
+    changed in between, and old entries are not new; a slot with no mark loads as 0; the epitaph is offered only when
+    `world.runOver` is true, and then holds every epitaph line. The plant (`older()` skips a page) turns the lane red:
+    `'older' did not show the next twelve lines (page 2)`.
 - **First-person stance and gait, 2026-11-01.** Advances "First-person simulation and ledger
   foundation": the scene's movement and camera now follow the body's posture.
   - **The keys.** `first_person.gd` reads the stance rows of `input_map.gd`'s `BINDINGS`: Ctrl+Z
@@ -4310,6 +4617,22 @@ not a to-do list:
     ramp check passes) is refused by `paint-match` at 27.3 levels.
   - **Not done.** The round-2 review's N1 (the trigger finger carried over from the previous clip) is a view
     branch fix (`deterministic` on the arms' player), not in this piece.
+- **View-model arms: the long hold on the hunting rifle, 2026-11-07.** The `long` reference changes
+  from `jig_long` to the committed `rifle_hunting`, assembled with its barrel, magazine and stock on
+  their exported sockets. `grip_r`, `grip_l` and `sight` come from the rifle's nodes; the jig remains a
+  fallback and a plant. The rifle's rig, skin, paint and weapon GLBs do not change.
+  - **Pose and contact.** `aim_long` and the end of `raise_long` use the rifle's 24.0 mm sight at
+    z -120 mm; the aim anchor moves 46.0 mm from the jig, with the sight 0.0 mm off the camera axis
+    and the bore 0.06 degrees from -Z. Both hands re-close on the assembled mesh. At idle, aim and
+    raise's first/middle/last frames, `LONG_HANDS` measures zero penetration, left palm/proximal maxima
+    2.2/3.2 mm, right palm 0.8 mm and right index-to-trigger 0.6 mm. `RIFLE_HANDS` on the weapon kit
+    still measures 0.0 mm in both hands.
+  - **Verified.** `build_arms.py -- --check` prints `ARMS_CHECK_OK`; all 30 plants are refused,
+    including the jig sight, an open left hand, a right palm pushed into the grip and a changed pistol
+    key. `OTHER_HOLDS_IDENTICAL 17 clips` compares every non-long animation track with `cbb1fb00`.
+    `godot:check:first_person` prints `FIRST_PERSON_OK`. Production idle/aim/raise captures, hand
+    close-ups and before/after frames accompany the piece.
+
 - **The lurker, 2026-11-05.** Zombie kind ten, a dormant kind: `godot/content/zombies/lurker.json`,
   extends `zombie.base`, with the shambler's body, sensory, locomotion and workwear picture (no
   picture of its own, as the crawler and bloodhound). It takes `dormantShare` 0.2 of the dormant
@@ -4353,6 +4676,38 @@ not a to-do list:
   eyes) and MIX, re-pinned for the day-7 pool over ten kinds (the feigner draws `g`, not yet in the
   fifty). The ten-seed table was not re-run; see "The ten-seed re-baseline after the zombie kinds"
   under Proof.
+- **A dead zombie lies there, 2026-11-07.** Advances the first-person survival pivot by the owner's card
+  (docs/30, "A dead zombie lies where it fell"): a zombie that dies no longer vanishes the same tick.
+  - **The body.** `recruits.gd` `handle_death`'s shambler arm keeps `_remember_zombie_remains` and `_drop_kit`,
+    then `_make_zombie_corpse` sets `corpse` = `{sinceTick, zombie: true, kind}` and sheds
+    `ZOMBIE_CORPSE_SHEDS`: `shambler` (every kind's AI is a key of that one component, so this is what stops
+    the body acting or counting), `velocity`, `attention_emitter`, `observer`, `alarm` and `light_source` (the
+    components `spawn_zombie` gives by kind), and `lootKit`, spent by `_drop_kit`. `body`, `position`,
+    `facing`, `zombieType` and `bodyMax` stay, so the body keeps its shape and its kind's model. A second
+    death of a zombie body is refused, not a despawn. The dormant, lurker, feigner, gas, shove and crawler
+    states are not components of their own: they live in `shambler` or in the stats the kind's content sets.
+  - **It goes away.** `ZOMBIE_CORPSE_TICKS` = 6000 (five minutes at 20 Hz), read by `_tick_zombie_corpses` in
+    the recruits beat. A save in between keeps it. Nothing is buried, nothing scents, nothing loots from it.
+  - **Who reads it.** Bury's target (`jobs.gd` `_bury_work`) and the Haul target (`_haul_work`) skip a zombie
+    body; a human corpse is still a Bury target beside it. The director's live count, `query(["shambler"])`,
+    does not find it. The settled-picture record (`visualRemains`) keeps its contract; the top-down remains
+    collector skips a record while its zombie body is still in the world, so the body is drawn once.
+  - **The views.** First person already drew it: `AnimState.is_zombie` reads `zombieType`, so the body draws
+    the shambler model on `death`, held (the clip's own loop mode holds it). Top-down draws it through the
+    entity pass as a corpse.
+  - **The gates.** `godot:m2:roster` prints `ZOMBIE CORPSE OK`: the body keeps its kind, sheds the list, stays
+    put for 100 ticks, is not in the director's count, survives a save, goes at the tick the constant names
+    and not before, and Bury and Haul pass it by while the human body beside it is still Bury's target. Plant:
+    `shambler` taken off the shed list, which turns the lane red at `ZOMBIE CORPSE: the body still has shambler,
+    so it acts or counts`. `godot:check:first_person`'s BODIES lane draws a zombie body through the real death
+    path on `death` held, and drops its view when its lying time is up. `godot:check:zombie_art`'s REMAINS lane
+    holds the new contract: death drops the kit and sheds the list, and nothing else in the world moves.
+  - **Owner cards (built as stated).** Lie time: 6000 ticks (five minutes). Burial: not built, zombie bodies
+    are never buried. Scent: none. Loot: the kit still drops as before, and nothing is looted from the body.
+  - **Not in this piece.** No loot on the body, no infection from it, no burial, no smell.
+  - **The cap.** `ZOMBIE_CORPSE_CAP` = 60: a death past it takes the oldest body first (`recruits.gd`
+    `_bound_zombie_corpses`). Gate: `godot:m2:roster`'s ZOMBIE CORPSE CAP lane, with its plant.
+
 - **Colony screen follow-ups, 2026-10-26.** Three nits the Colony and HUD bullets named, one piece.
   - **Reopen scrolls to the pick.** `work_panel.gd` clears `_scrolled_for` on
     `NOTIFICATION_VISIBILITY_CHANGED`, so a reopened screen scrolls to the game's pick afresh.

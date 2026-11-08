@@ -71,7 +71,16 @@ switch (mode) {
     break;
   case "--topdown-run":
     // The top-down game, for testing: its own title, reached directly rather than from the default boot.
-    args = ["--path", resolve(root, "godot"), "--scene", "res://presentation/main.tscn"];
+    // `-- --topdown` is what opens that title with its four rows (docs/30, 2026-11-07); without it the
+    // title starts first person.
+    args = [
+      "--path",
+      resolve(root, "godot"),
+      "--scene",
+      "res://presentation/main.tscn",
+      "--",
+      "--topdown",
+    ];
     break;
   case "--first-person":
     args = [
@@ -121,6 +130,8 @@ switch (mode) {
       "Dummy",
       "--script",
       "res://bench/runtime_frame.gd",
+      "--",
+      "--topdown",
     ];
     break;
   case "--r6-ticks":
@@ -517,7 +528,16 @@ switch (mode) {
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_hud.gd"];
     break;
   case "--play":
-    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_play.gd"];
+    // check_play drives the top-down game's title, so it asks for the top-down title with `-- --topdown`.
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_play.gd",
+      "--",
+      "--topdown",
+    ];
     break;
   case "--check-first-person":
     args = [
@@ -543,6 +563,9 @@ switch (mode) {
   case "--check-fp-harm":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_fp_harm.gd"];
     break;
+  case "--check-fp-aid":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_fp_aid.gd"];
+    break;
   case "--check-fp-expedition":
     args = [
       "--headless",
@@ -552,8 +575,26 @@ switch (mode) {
       "res://check_fp_expedition.gd",
     ];
     break;
+  case "--check-fp-encounter":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_fp_encounter.gd",
+    ];
+    break;
   case "--context":
-    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_context.gd"];
+    // The top-down street: its title's Enter starts the top-down run, so it asks for the top-down title (docs/30, 2026-11-07).
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_context.gd",
+      "--",
+      "--topdown",
+    ];
     break;
   case "--speech":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_speech.gd"];
@@ -610,6 +651,8 @@ switch (mode) {
       resolve(root, "godot"),
       "--script",
       "res://check_memory_look.gd",
+      "--",
+      "--topdown",
     ];
     break;
   case "--grade":
@@ -621,6 +664,8 @@ switch (mode) {
       resolve(root, "godot"),
       "--script",
       "res://check_grade_look.gd",
+      "--",
+      "--topdown",
     ];
     break;
   case "--road":
@@ -636,7 +681,15 @@ switch (mode) {
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_roof_look.gd"];
     break;
   case "--trees":
-    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_trees.gd"];
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_trees.gd",
+      "--",
+      "--topdown",
+    ];
     break;
   case "--worn":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_worn.gd"];
@@ -660,10 +713,26 @@ switch (mode) {
     ];
     break;
   case "--fx":
-    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_fx.gd"];
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_fx.gd",
+      "--",
+      "--topdown",
+    ];
     break;
   case "--decals":
-    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_decals.gd"];
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_decals.gd",
+      "--",
+      "--topdown",
+    ];
     break;
   case "--m2-vehicles":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_vehicles.gd"];
@@ -690,11 +759,21 @@ switch (mode) {
       "--script",
       "res://review/shots.gd",
       "--",
+      "--topdown",
       ...process.argv.slice(3),
     ];
     break;
   case "--shots-check":
-    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_shots.gd"];
+    // The review scenes boot the top-down street and start it with Enter on the title (docs/30, 2026-11-07).
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_shots.gd",
+      "--",
+      "--topdown",
+    ];
     break;
   case "--shots-survivor":
     // The survivor review: a candidate GLB photographed under the first-person scene's own sky and lens.

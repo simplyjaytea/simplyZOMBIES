@@ -22,11 +22,24 @@ extends Node3D
 # `world.player`, so it comes back as the corpse it now is.
 #
 # Visibility is the sim's: a body the player's eye cannot see is not drawn, wherever it stands.
+#
+# A body with a model also carries what the sim says it holds: the held-weapon assembly `held_weapon.gd` draws for
+# the arms, mounted under its right hand (`mount_held`, on the rig's `hand.R`) and read from the sim every frame.
 
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimSpace = preload("res://sim/space/space.gd")
 const AnimState = preload("res://presentation/first_person/anim_state.gd")
 const Models = preload("res://presentation/first_person/models.gd")
+const HeldWeapon = preload("res://presentation/first_person/held_weapon.gd")
+
+# The character rig's right hand bone (the kit's `hand.R`, in both survivor.glb and shambler.glb). A body's
+# held weapon is mounted under it.
+const HAND_BONE: String = "hand.R"
+# The turn from the hand bone's rest frame to the weapon's grip frame, one constant for every weapon. Measured by
+# the HELD gate's orientation line on the shipped survivor rig before the turn: the grip's bore (-Z) pointed backwards
+# (dot with the body's forward -0.960) and the grip's top (+Y) pointed down the arm, because the hand bone's Y runs
+# down the arm. A half turn about the hand's X (the body's right side) sends the bore forward and the top up.
+const HAND_TO_GRIP_RADIANS: Vector3 = Vector3(PI, 0.0, 0.0)
 
 const SURVIVOR_GLB: String = "res://assets/first_person/survivor.glb"
 const SHAMBLER_GLB: String = "res://assets/first_person/shambler.glb"
@@ -61,6 +74,8 @@ var models_enabled: bool = true
 
 var _views: Dictionary = {}
 var _players: Dictionary = {}
+# entity -> the held-weapon mount of a body with a model (`mount_held`): {held, bone, skeleton}.
+var _held: Dictionary = {}
 # entity -> the clip position last sought, so a body whose phase has not moved is not sought again.
 var _sought: Dictionary = {}
 var _prev: Dictionary = {}
@@ -124,6 +139,65 @@ func player_of(entity: int) -> AnimationPlayer:
 	return _players.get(entity) as AnimationPlayer
 
 
+## The held-weapon view under a body's right hand, or null for a capsule or a body whose model has no hand bone.
+func held_for(entity: int) -> Node3D:
+	var entry: Variant = _held.get(entity)
+	if not (entry is Dictionary):
+		return null
+	return (entry as Dictionary)["held"] as Node3D
+
+
+## The right hand's attachment for a body, or null (the same cases as `held_for`).
+func hand_for(entity: int) -> BoneAttachment3D:
+	var entry: Variant = _held.get(entity)
+	if not (entry is Dictionary):
+		return null
+	return (entry as Dictionary)["bone"] as BoneAttachment3D
+
+
+## Mounts the held-weapon view under the right hand of the model under `root`: the same assembly the arms view
+## draws (`held_weapon.gd`, with its `holder` set to the entity whose weapon it is), parented to a BoneAttachment3D
+## on the skeleton's `hand.R`, so the weapon moves with the hand. `root` must already be in the tree. Returns
+## {held, bone, skeleton}, or {} when the model has no skeleton or no such bone, which is a body that carries nothing.
+static func mount_held(root: Node3D, holder: int) -> Dictionary:
+	var skeleton: Skeleton3D = _skeleton_in(root)
+	if skeleton == null or skeleton.find_bone(HAND_BONE) < 0:
+		return {}
+	var bone: BoneAttachment3D = BoneAttachment3D.new()
+	bone.name = HAND_BONE
+	bone.bone_name = HAND_BONE
+	skeleton.add_child(bone)
+	var held: HeldWeapon = HeldWeapon.new()
+	held.name = "HeldWeapon"
+	held.holder = holder
+	root.add_child(held)
+	held.mount(bone)
+	(held.grip_node() as Node3D).transform = Transform3D(Basis.from_euler(HAND_TO_GRIP_RADIANS), Vector3.ZERO)
+	return {"held": held, "bone": bone, "skeleton": skeleton}
+
+
+## Brings the held weapon to the sim's hand this frame: the body's assembly is read from the sim, and when something
+## is drawn the skeleton's pose is taken so the attachment sits on the hand that the clip just played.
+static func update_held(mounted: Dictionary, world: Variant) -> void:
+	if mounted.is_empty():
+		return
+	var held: HeldWeapon = mounted["held"] as HeldWeapon
+	held.update(world, 0.0)
+	if held.visible_any():
+		(mounted["skeleton"] as Skeleton3D).force_update_all_bone_transforms()
+		(mounted["bone"] as BoneAttachment3D).on_skeleton_update()
+
+
+static func _skeleton_in(node: Node) -> Skeleton3D:
+	if node is Skeleton3D:
+		return node as Skeleton3D
+	for child in node.get_children():
+		var found: Skeleton3D = _skeleton_in(child)
+		if found != null:
+			return found
+	return null
+
+
 func _collect(world: Variant) -> Dictionary:
 	var out: Dictionary = {}
 	if world == null:
@@ -157,6 +231,7 @@ func _sync_views(world: Variant, alpha: float) -> void:
 			var stale: Node3D = _views[ent] as Node3D
 			_views.erase(ent)
 			_players.erase(ent)
+			_held.erase(ent)
 			_sought.erase(ent)
 			if stale != null:
 				stale.queue_free()
@@ -173,6 +248,8 @@ func _sync_views(world: Variant, alpha: float) -> void:
 			view.position = Vector3(at.x, 0.0, at.y)
 			_face(view, world, e)
 			_animate(e, world)
+			if _held.has(e):
+				update_held(_held[e] as Dictionary, world)
 		else:
 			_draw_capsule(view as MeshInstance3D, world, e, at)
 		# The screen may not know more than the sim does: a body behind a wall or beyond the player's range is
@@ -273,6 +350,9 @@ func _make_view(entity: int, world: Variant) -> Node3D:
 		var model_view: Node3D = _model_view(entity, world)
 		if model_view != null:
 			add_child(model_view)
+			var mounted: Dictionary = mount_held(model_view, entity)
+			if not mounted.is_empty():
+				_held[entity] = mounted
 			return model_view
 	var capsule: MeshInstance3D = _capsule_view(entity, world)
 	add_child(capsule)

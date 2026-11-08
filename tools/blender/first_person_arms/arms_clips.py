@@ -181,6 +181,8 @@ def frames(build, plant=None):
                 x = index / count
                 if kind == "idle":
                     state = breathing(base, 0.0 if index == count else x)
+                    if plant == "other-holds" and cls == "pistol" and index == 0:
+                        state = state.map(lambda f: moved(f, right=0.001))
                 elif kind == "aim":
                     sight = build.classes[cls]["weapon"].points["sight"][:3, 3]
                     state = aim_sway(aimed(build, cls), 0.0 if index == count else x, sight)
