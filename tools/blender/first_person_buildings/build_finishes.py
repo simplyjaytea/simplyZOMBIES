@@ -1703,6 +1703,12 @@ def station_character(template, model, doors_clear):
     arch_faces = [face for face in model.faces if face["node"] == "station_small-window-8-4" and face["style"] == "trim" and min(point[1] for point in face["points"]) >= 2.10 and min(point[2] for point in face["points"]) >= 5.05]
     arched = len(arch_faces) >= 10 and max(point[1] for face in arch_faces for point in face["points"]) >= 2.38
     boards = [box for box in boxes if "station_name" in box["styles"]]
+    board_uv = [uv for face in model.faces if face["style"] == "station_name" for uv in face["uv"]]
+    cell_x, cell_y = STYLES["station_name"]
+    expected_uv = (cell_x / ATLAS_METRES, (ATLAS_METRES - cell_y - 1) / ATLAS_METRES, (cell_x + 1) / ATLAS_METRES, (ATLAS_METRES - cell_y) / ATLAS_METRES)
+    actual_uv = (min(uv[0] for uv in board_uv), min(uv[1] for uv in board_uv), max(uv[0] for uv in board_uv), max(uv[1] for uv in board_uv)) if board_uv else ()
+    if len(actual_uv) != 4 or any(abs(actual - expected) > 0.000001 for actual, expected in zip(actual_uv, expected_uv)):
+        raise ValueError(f"{template['id']} name board UV bounds {actual_uv}, expected {expected_uv}")
     roof_faces = [face for face in model.faces if face["style"] in ROOF_VARIANTS["tin"] and max(point[1] for point in face["points"]) >= 2.50]
     roof_points = [point for face in roof_faces for point in face["points"]]
     eave = -min(point[2] for point in roof_points)
@@ -2171,13 +2177,20 @@ def build_station_details(pieces, template, plant=None):
         tube_between(finish, (x, 2.22, 5.02), (x, 2.34, 5.98), 0.025, "metal")
     start = len(finish.uvs)
     finish.box((5.55, 2.30, 6.10), (0.90, 0.28, 0.04), "dark_wood", {"south": "station_name", "top": "trim", "east": "trim", "west": "trim"})
-    cell_x, _ = STYLES["station_name"]
+    cell_x, cell_y = STYLES["station_name"]
     for index in range(start, len(finish.uvs)):
         if finish.styles[index] != "station_name":
             continue
-        local = [uv[0] * ATLAS_METRES - cell_x for uv in finish.uvs[index]]
-        low, high = min(local), max(local)
-        finish.uvs[index] = tuple(((cell_x + (a - low) / (high - low)) / ATLAS_METRES, uv[1]) for a, uv in zip(local, finish.uvs[index]))
+        local = [(uv[0] * ATLAS_METRES - cell_x, uv[1] * ATLAS_METRES - cell_y) for uv in finish.uvs[index]]
+        low = [min(uv[axis] for uv in local) for axis in range(2)]
+        high = [max(uv[axis] for uv in local) for axis in range(2)]
+        finish.uvs[index] = tuple(
+            (
+                (cell_x + (a - low[0]) / (high[0] - low[0])) / ATLAS_METRES,
+                uv[1] if plant == "name_board_uv" else (cell_y + (b - low[1]) / (high[1] - low[1])) / ATLAS_METRES,
+            )
+            for (a, b), uv in zip(local, finish.uvs[index])
+        )
     target = pieces.piece("window", 8, 4)["finish"]
     ledge_depth = 0.15 if plant == "ticket_ledge_proud" else 0.09
     side_box(target, 8, 4, 2, 0.12, 0.88, 0.86, 1.00, ledge_depth, "dark_wood")
@@ -2655,7 +2668,9 @@ def source_bounds(builders):
 
 
 def validate_density(mesh, label):
-    for face_index, (face, uv) in enumerate(zip(mesh.faces, mesh.uvs)):
+    for face_index, (face, uv, style) in enumerate(zip(mesh.faces, mesh.uvs, mesh.styles)):
+        if style == "station_name":
+            continue
         for i in range(len(face)):
             j = (i + 1) % len(face)
             world = (Vector(mesh.vertices[face[j]]) - Vector(mesh.vertices[face[i]])).length
@@ -3062,7 +3077,7 @@ def main():
     arguments = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter", "sliding_door_cross", "sliding_leaf_span", "eave_north_clean", "canopy_post", "ticket_ledge_proud", "name_board_open"])
+    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter", "sliding_door_cross", "sliding_leaf_span", "eave_north_clean", "canopy_post", "ticket_ledge_proud", "name_board_open", "name_board_uv"])
     args = parser.parse_args(arguments)
     repo = Path(__file__).resolve().parents[3]
     try:
