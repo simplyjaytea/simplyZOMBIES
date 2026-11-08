@@ -580,75 +580,92 @@ Ome–Okutama (brief docs/42, on `main`; the owner took every card's default on 
 For what is open, `gh pr list`; for the last session's handoff, the newest entry in
 [docs/43](docs/43-session-log.md).
 
-**Team** (the owner's call, 2026-11-05). Claude Fable orchestrates and plans, and the owner gives it
-tasks directly. Claude Sonnet is the lead engineer: it reviews every worker change, runs the merge
-train and merges. Kimi does all 3D and art; a standing Claude Opus terminal beside it plans Kimi's
-rounds and signs every art batch off before its PR. Two Claude Code Haiku workers do everything else.
-On 2026-11-04 Fable coordinated and Opus was a subagent; the OpenCode workers were retired that day.
+**Team** (the owner's call, 2026-11-05, extended 2026-11-07): the orchestrator plans, dispatches, approves
+every spec and runs the merge command; the lead engineer reviews every worker change and prepares the train;
+two workers build in the main workspace; the NPC and zombie workspace has its own lead and worker; the art
+lead does all 3D and painted art and the art QA plans its rounds and signs each batch off before its PR.
+Nine terminals in three herdr workspaces; the roster and the merge line are in [The team](#the-team).
 
-**Merged this session (2026-11-05 to 06):** #338 (arms art), #348 (this roster), #329 (crawler), #331 (arms
-view in the game, retargeted to `main` before `claude/fp-arms` was deleted), #336 (bloodhound's scent-led
-Seek), #327 (purifier refill), #328 (clothing layers note, docs/44), #349 (the trip alarm and noisemaker priced, the last merge of the night). #346 (the renames R1 to R11) and #347
-merged just before. #322 was closed as a no-op by the owner. Fourteen merged remote branches were deleted by
-the owner; the rest of the merged `claude/*` branches are still on the remote. R4 was never built.
+**The alpha plan (2026-11-09).** The owner was offered three areas toward a playable first-person alpha and
+picked two, in this order: **the fight reads** (hit marks and blood, the lowered weapon, shot dispersion) and
+**the town is a place** (the station, prop kit A, the konbini, the kōban and the shrine from the art line;
+door and window trim per template, a street dressing placer and a review camera in code). Not picked, parked:
+the first hour's stakes (early zombie kinds, follow orders, day-0 reports), clothing round 2, the rail, the
+bolt and bottles, a downed state. The plan, the builder queue and one approved spec per piece live in
+`sz-shared/alpha-2026-11-09/` (`PLAN.md`, `QUEUE.md`, `<piece>/task-haiku.md`, reports and handoffs beside them).
 
-**The merge train.** A PR merges only when its head contains `origin/main` and CI is green on that head; each
-merge voids every head behind it, so the next merges `main` in and waits for CI again. After a merge, check
-`gh pr view N --json state,mergeCommit`: a GitHub error once made a "merged" report false, and a PR's head
-view lagged a pushed branch until an empty commit push refreshed it. Docs-only merges wait until the code
-queue drains (one early docs merge voided every queued head). Two docs PRs that append `docs/33` cards collide
-on numbers: number against the queue, not `main`. State of the train: `sz-shared/merge-train-2026-11-05/TRAIN.md`.
+**Merged 2026-11-09, in order:** #374 (the boot judges its outdoor wanderers two days ahead), #366 (the
+first-person encounter: the gate, re-pursuit after a broken grab, the 6 m daylight sight floor, and the end of
+the break-away drift), #367 (the HUD says when you are held, bitten, bleeding, infected, and what the weapon is
+doing), #373 (this playbook's roster). `main` is `c97b60ed`.
 
-**Open pull requests at the pause (the train, in order; heads and CI in TRAIN.md):** #350 the lurker (a dormant
-kind, 20% of declared dormant slots, wakes on indoor noise); #351 the sedan is a Kei Car; #352 the bloater's gas
-decays (the owner changed card 2: a survivor in the cloud is rolled again every 10 s; re-review the reworked
-head); #353 the feigner (reads as a corpse in the sight memory until a living body comes within 2.5 m; every
-settled corpse is now a memory record); #354 docs/45, the wider world by rail (the owner changed card 37: home
-is simulated at a coarse tier while away; re-review the reworked head); #355 arms polish (the key bar clears
-the hands, a HANDS lane, the pistol inspect axis; the art QA cleared it on `67492b7a`, see the ruling under the
-merge train). The owner answered all 18 cards on #349, #350, #352, #353, #354 (16 kept, two changed;
-`sz-shared/owner-calls-2026-11-06/DECISIONS.md`); one docs PR after the train marks them decided in docs/33.
+**Decisions of the day** (docs/30 entries ride with their PRs):
 
-**Art line.** Japanese buildings batch A: the art QA signed off round 4 at `db64d031`, the owner saw it
-(`sz-shared/reviews/fp-buildings-jp/round-4/OWNER_SHEET.png`) and sent it back for a fifth, full character
-round before any PR (deeper eaves, amado, aluminium sashes, genkan, pent roof, balcony, kiso). Round 5 was in
-progress at the pause: `sz-shared/fp-buildings-jp/task-kimi-round5.md`, checkpoint `HANDOFF_round5.md` there
-(not yet written when this was). The art QA reviews it as a full round, the owner sees it, then the PR. R4
-(kawara and siding retag) and batch B (`task-kimi-batchB.md`, drafted, six templates) wait on batch A. The
-hunting rifle's round 2 is done on `kimi/fp-rifle` (`sz-shared/fp-rifle/REPORT_round2.md`) and waits for its
-independent review. Arms: the skin tone at the UV seams (n1) stays open. The art QA's method is
-`sz-shared/reviews/fp-buildings-jp/METHOD.md`; its handoff is `sz-shared/art-qa/HANDOFF.md`.
+- **The title shows first on boot** (reversing #362's straight-into-play boot). PR #377: `first_person.tscn`
+  stays the main scene and redirects to the title before any world exists; gates and tools pass `--skip-title`.
+- **Shot dispersion.** The #364 ray spread each round over the whole aim cone (`DISPERSION` 1.0 times a 0.55 rad
+  idle half-angle), so past 2 m most rounds missed a 0.3 m body: on `main` the sheet's shambler survived 30
+  presses where the cone rule killed in 4 rounds. Not a bug; the named dial. Built default 0.25, measured over
+  ten seeds before it merges (`claude/fp-shot-dispersion`). The ally standing in the line still takes the round.
+- Street dressing: a prop taller than the Low band (1.1 m) is never placed on a Low tile, only flush to a wall.
+- The shrine is a 7x6 hall with a closed perimeter; its precinct is dressing. No torii or lantern in prop kit A.
+- The raise readout piece was superseded: #367 already ships the weapon line. Its card (fire on the first
+  press, a sim change, versus the raise) stands.
 
-**Code in flight.** The juggernaut (`claude/juggernaut`, `sz-shared/juggernaut/HANDOFF.md`) waited behind #349 (both touch
-`fortify.gd`); #349 is on `main`, so it can resume.
+**The merge train at the pause** (`sz-shared/merge-train-2026-11-07/TRAIN.md`, "STATE AT PAUSE" at the top), in
+order: #376 the sawmill (`dd6daccd`, CI green, the art QA confirms the re-merge with `covered_diff.sh` and the
+hybrid render first), #377 the title (`404693a6`, a runtime-budget CI fix just pushed, CI to judge), #378 the
+zombie tells (`c18930a5`, CI green on this head, its gates still to re-run on it), then the alpha heads below as
+they are reviewed. A PR merges only when its head contains `origin/main` and CI is green on that head; the
+orchestrator runs `gh pr merge N --merge --match-head-commit <full SHA>` on the lead engineer's MERGE line after
+the owner's go for the session.
 
-**Waiting on the owner:** docs/33's firearms card (default rare); docs/44's five clothing cards (28 to 32);
-the survivor concept image for `/home/jtf/sz-shared/concept/`. Every one has a default built.
+**Alpha heads not yet PRs:** door and window trim per template, `claude/fp-door-leaves` `14bdf03c` (reviewed
+sound; needs a `main` re-merge, then the PR); hit feedback, `claude/fp-hit-feedback` `a0140a2a` (built, HIT lane
+green; shard 2 `GRADE_LOOK_FAIL` open); shot dispersion, `claude/fp-shot-dispersion` `284a026c` (built; the
+quiet-box ten-seed re-baseline was stopped mid-run, before-balance alone takes 31 min: redo on a quiet box);
+the lowered weapon, `claude/fp-lowered-weapon` `5b5d3736` (WIP, untested). Specced, not started: street
+dressing, the kōban and shrine JSON, the review camera. Handoffs beside each spec.
+
+**Art line.** Sawmill #376 signed and queued. Station round 1 was not signed off (the name board's kana
+unreadable, the ticket-window arch 46 mm off its casing, the canopy brackets 17 mm off the wall;
+`sz-shared/reviews/fp-buildings-jp-b/station/`); round 2 is pushed on `kimi/fp-bldg-station` at `eea12f6a` (the three
+majors fixed by the builder's numbers, 34 plants, gates green; its hybrid capture, close-ups and report are
+pending, then the art QA's review). The sawmill's re-merge is confirmed on the git half; the builder check
+and the hybrid render run in the morning. Then, in order: prop kit A, the konbini (B4), the kōban, the shrine, the arms
+reload and settle clips; each task is drafted under `sz-shared/fp-buildings-jp-b/` and `fp-props-a/`. The
+owner sees the sheet before every art PR. Clothing round 1 is not signed; round 2 is parked.
+
+**Waiting on the owner** (defaults built): the dispersion value (0.25, with 0.5 and 1.0 and the measured
+table); fire on the first press versus the raise; a direct launch of the exe or web build opens the title;
+docs/33's firearms card; docs/44's clothing cards. Cards from the day's merged PRs are collected in
+`sz-shared/OWNER-CARDS-2026-11-08.md` and the PR bodies.
 
 **Next session, start here**, in order:
 
-1. `hc ls`; read `sz-shared/merge-train-2026-11-05/TRAIN.md` and every `HANDOFF.md` or `REPORT.md` it and the
-   art line name.
-2. Run the train: merge `main` into #350, CI, merge; then down the list. (#349 landed with the owner's card (a): E lays the alarm only where a wall cannot go up.) #352 and #354 only on their reworked
-   heads after the lead engineer's re-review; #355 only with the art QA's written verdict (or an empty diff
-   on the covered paths).
-3. Art: Kimi resumes round 5 from its handoff, the art QA reviews it as a full round, the owner sees it, then
-   the PR; then R4, batch B and the rifle round 2.
-4. The juggernaut, now that #349 is on `main`.
-5. After the train: the docs/33 decided-cards sweep, then the ten-seed re-baseline (stage 2) for the crawler,
-   lurker, bloater gas, feigner and juggernaut, on a quiet machine. The burner waits on fire; raiders'
-   archetypes follow the zombie kinds.
+1. `hc ls`; read `sz-shared/RESUME-2026-11-09.md`, TRAIN.md's STATE AT PAUSE, `alpha-2026-11-09/QUEUE.md` and
+   every HANDOFF.md they name. Relaunch the terminals as RESUME-2026-11-09.md says; ask the owner for the
+   merge go once.
+2. The train: #376 (art re-merge rule), #377 once CI is green on `404693a6`, #378 after its gates on its head.
+3. Door-leaves: re-merge `main`, `fp_geometry` and `first_person`, open the PR. Hit feedback: clear shard 2's
+   `GRADE_LOOK_FAIL`, push, review. Shot dispersion: the quiet-box re-baseline (no other Godot run live), then
+   review. Lowered weapon: finish from its handoff.
+4. Art: the art QA reviews station round 2; then prop kit A.
+5. Then street dressing, the kōban and shrine JSON, the review camera, in `QUEUE.md`'s order.
 
-**To do:** crossbow bolt, fuel, oil and canteen bottles (Kimi); the shambler and the remaining zombie kinds
-on the organic base, with a lighter horde version; the clothing layers' first cut after the cards; the wider
-world by rail's first cut after docs/45.
+**To do, parked:** the first hour's stakes (early zombie kinds, follow orders, day-0 reports); crossbow bolt,
+fuel, oil and canteen bottles; the shambler and the remaining zombie kinds on the organic base; clothing round 2;
+the wider world by rail's first cut.
 
 **Known bugs**
 
+- No presentation draws a lowered weapon yet (`claude/fp-lowered-weapon` is the WIP fix).
 - `godot:check:fp_geometry` takes about 13 s; its real-worldgen lane is most of it. The next speed-up
   is caching the four worldgen districts.
 - The survivor review scene's light is flat grey, so colour judgements there run dark.
 - R2's save bump refuses every v33 save, district saves included, because a save carries only its seed.
+- A both-kept merge of a `switch` in `scripts/run-godot.mjs` can drop a `break;` (it did on #367: the harm gate
+  silently ran the aid gate). After such a merge, run the gate and its plant before pushing.
 
 ## The docs map
 
