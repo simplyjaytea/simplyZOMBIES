@@ -3393,6 +3393,17 @@ not a to-do list:
   take is a press on its own plate and pane, and the shambler's approach is the sim's seek from a
   quiet body, so a sound-making body or another district could change it. The rest of docs/39's proof
   (the convert-and-switch default and the measured budgets) is still open.
+- **Outdoor boot wanderers judged ahead, 2026-11-07.** `boot.gd` judges an outdoor boot wanderer's kind at the boot
+  tick plus `BOOT_WAVE_LEAD_DAYS`, a static var that ships at 0 (the boot is unchanged; `m2:balance` is byte-identical).
+  At 2 (the recommended alpha default, to be set by the first-person scene once #361 is on main) the boot's wave-1 kinds
+  (two stalkers and a bloater outdoors on seed 20260805) appear, and seed 20260805, the first-person default district
+  seed, wipes the headless colony by day 10 (2/3 to 0/3 survivors in `m2:balance`). At 1 the boot is inert (day 2 admits no
+  kind before day 3). The owner can dial it. Wipe diagnosis (seed 20260805, lead 2 against lead 0, colony deaths by day):
+  the colony is 3 at boot, 2 by day 3, 1 by day 5, 0 by day 6. The deaths at lead 2 are two shamblers (day 3, day 5) and
+  one septic death (day 6). The lead-0 run loses one colonist to a shambler on day 8. No death is credited to a stalker or
+  the bloater: the early losses are shambler kills, and the difference is in the trajectory, not in a kind that kills
+  directly. BOOTKINDS (`godot/check_m2_district.gd`) pins lead 2 for its tallies (17 non-shambler bodies over three seeds),
+  checks the lead-0 control (shamblers alone) and that the dormant lurkers are unchanged; the day-1 pin lane pins lead 0.
 - **A colonist comes to the held player's aid, 2026-11-07.** `npc_combat.gd` (`npc.aid`, priority -6) gives a
   colonist in the colony faction an `attack` order on a zombie that holds a controlled body, or is Pursuing one
   within `AID_PURSUE_METRES` (4 m) of it, when the colonist is within `AID_METRES` (24 m) of the zombie and can see

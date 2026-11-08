@@ -63,6 +63,15 @@ const DEFAULT_DISTRICT: String = "district.residential_suburb"
 # times over the live cap and refuse every night. check_m2_district.gd, check_m2_director.gd and
 # check_worldgen.gd pin `wanderers_for` at the size they boot.
 const WANDERERS_PER_64: int = 20
+# How many days ahead of the boot tick an outdoor boot wanderer's kind is judged for its wave (roster.gd `pick_type`
+# at a later tick). Shipped at 0: the boot is unchanged, so every campaign gate and `m2:balance` are byte-identical. At
+# 2 (the recommended alpha default, set by the first-person scene: the boot tick is day 1 by `Clock.day_number`, and day
+# 3 admits the wave-1 kinds: stalker, screamer, bloater) seed 20260805, the first-person default district seed, wipes the
+# headless colony by day 10 (2/3 to 0/3 survivors, two stalkers and a bloater outdoors; the colony is down to 0 by day 6).
+# At 1 the boot tick's day 2 admits no kind before day 3, so 1 is inert. Indoor wanderers keep the boot tick's kind.
+# The screamer's alarm (noise 300) rallies the district sooner at 2. Owner card: how early do the boot wanderers take the
+# other kinds? A static var so a lane can pin it.
+static var BOOT_WAVE_LEAD_DAYS: int = 0
 # How many times a boot wanderer's tile is re-rolled to land outside the colony before it is placed
 # wherever it fell. See the scatter loop in `playable`.
 const SCATTER_TRIES: int = 8
@@ -601,7 +610,9 @@ static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.D
 	# through to the side reading) and the sum of the cells on a region, where a side would count
 	# the seams between districts as if people lived on them.
 	for i in wanderers_for_map(map):
-		var type_id: String = SimRoster.pick_type(world, place_rng)
+		# Judged at the boot tick plus the lead, so an outdoor body can take a wave the boot tick does not admit yet. An
+		# indoor body is re-judged at the boot tick below (after its tile is known), so the lead is for outdoor bodies only.
+		var type_id: String = SimRoster.pick_type(world, place_rng, int(world.tick) + BOOT_WAVE_LEAD_DAYS * Clock.DAY_TICKS)
 		var tile: Dictionary = {}
 		# The first roll outside the annex, kept for the case where every try lands in the ring.
 		var outside: Dictionary = {}
@@ -621,6 +632,10 @@ static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.D
 			break
 		if not placed and not outside.is_empty():
 			tile = outside
+		# An indoor body keeps the kind it would have had at the boot tick. Lead 0 never gets here: it judged at the boot
+		# tick already, so its draws are the same as before.
+		if BOOT_WAVE_LEAD_DAYS > 0 and SimTileMap.is_indoors(map, int(tile["x"]), int(tile["y"])):
+			type_id = SimRoster.pick_type(world, place_rng, int(world.tick))
 		SimRoster.spawn_zombie(world, float(tile["x"]) + 0.5, float(tile["y"]) + 0.5, type_id, place_rng)
 	world.events.drain()
 	return {"world": world, "map": map}

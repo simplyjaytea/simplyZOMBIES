@@ -90,6 +90,7 @@ func _run() -> void:
 	ok = _blit_confined() and ok
 	ok = _annex_shell() and ok
 	ok = _playable_boot() and ok
+	ok = _boot_kinds() and ok
 	ok = _the_booted_world_carries_its_colony_anchors() and ok
 	ok = _two_worlds_do_not_share_an_attention_field() and ok
 	ok = _walls_are_solid_to_the_attention_field() and ok
@@ -219,7 +220,17 @@ func _annex_shell() -> bool:
 	print("ANNEX OK at %s windows=%d screens=%d indoors=%d" % [str(rect), windows, screens, indoors])
 	return true
 
+# This lane pins the boot's shamblers alone. The boot's wanderers are judged BOOT_WAVE_LEAD_DAYS on (2026-11-07): the
+# pin is the lead at 0, which is the boot as it was, and it is restored on every exit path (a static var).
 func _playable_boot() -> bool:
+	var lead_was: int = SimBoot.BOOT_WAVE_LEAD_DAYS
+	SimBoot.BOOT_WAVE_LEAD_DAYS = 0
+	var ok: bool = _playable_boot_body()
+	SimBoot.BOOT_WAVE_LEAD_DAYS = lead_was
+	return ok
+
+
+func _playable_boot_body() -> bool:
 	var boot: Dictionary = SimBoot.playable(20260805, 64)
 	var world: Variant = boot["world"]
 	if int(world.map_width) != 64:
@@ -1889,3 +1900,56 @@ func _hunt(type_id: String, magnitude: float, ticks: int, fixture: Dictionary = 
 			out["at_window"] = snappedf(now.distance_to(TRAIL_SOURCE), 0.1)
 	out["track_speed"] = walked / float(steps) * 20.0 if steps > 0 else 0.0
 	return out
+
+
+# --- BOOTKINDS (2026-11-07): an outdoor boot wanderer is judged BOOT_WAVE_LEAD_DAYS on ----------------
+# Tallies the kinds of the boot's wanderers at the shipped lead for three seeds, asserts a non-shambler kind arrives,
+# pins the lead to 0 (the control: shamblers and nothing else at boot), and asserts the dormant bodies (lurkers, the
+# roster's own draw) are the same count at the shipped lead and at 0.
+const BOOTKINDS_SEEDS: Array = [20260805, 404, 31337]
+
+
+func _boot_tally(seed_val: int) -> Dictionary:
+	var world: Variant = SimBoot.playable(seed_val, 64)["world"]
+	var tally: Dictionary = {}
+	var lurkers: int = 0
+	for e in world.components.query(["shambler"]):
+		var zt: Variant = world.components.get_component(int(e), "zombieType")
+		var id: String = String((zt as Dictionary).get("id", "?")) if zt is Dictionary else "?"
+		tally[id] = int(tally.get(id, 0)) + 1
+		if id == "zombie.lurker":
+			lurkers += 1
+	tally["_lurkers"] = lurkers
+	return tally
+
+
+func _boot_kinds() -> bool:
+	var lane: String = "BOOTKINDS"
+	var lead_was: int = SimBoot.BOOT_WAVE_LEAD_DAYS
+	var shipped_non_shambler: int = 0
+	SimBoot.BOOT_WAVE_LEAD_DAYS = 2
+	for seed_val in BOOTKINDS_SEEDS:
+		var t: Dictionary = _boot_tally(int(seed_val))
+		print("BOOTKINDS tally seed %d (pinned lead 2): %s" % [int(seed_val), str(t)])
+		for k in t.keys():
+			if String(k).begins_with("zombie.") and String(k) != "zombie.shambler" and String(k) != "zombie.lurker":
+				shipped_non_shambler += int(t[k])
+	if shipped_non_shambler == 0:
+		push_error("%s: no outdoor boot wanderer at pinned lead 2 is a non-shambler kind on any of the seeds" % [lane])
+		return false
+	# The mechanism is tested at lead 2 explicitly (the lead the shipped default was measured against); the shipped default
+	# is 1, which admits no wave-1 kind on the boot's day 1 and so asserts nothing here.
+	SimBoot.BOOT_WAVE_LEAD_DAYS = 2
+	var shipped: Dictionary = _boot_tally(int(BOOTKINDS_SEEDS[0]))
+	SimBoot.BOOT_WAVE_LEAD_DAYS = 0
+	var control: Dictionary = _boot_tally(int(BOOTKINDS_SEEDS[0]))
+	SimBoot.BOOT_WAVE_LEAD_DAYS = lead_was
+	for k in control.keys():
+		if String(k).begins_with("zombie.") and String(k) != "zombie.shambler" and String(k) != "zombie.lurker":
+			push_error("%s: at lead 0 the boot already carries %s; the control does not hold" % [lane, String(k)])
+			return false
+	if int(shipped.get("_lurkers", 0)) != int(control.get("_lurkers", 0)):
+		push_error("%s: the dormant lurkers changed with the lead (%d at 0, %d at %d)" % [lane, int(control.get("_lurkers", 0)), int(shipped.get("_lurkers", 0)), lead_was])
+		return false
+	print("BOOTKINDS OK outdoor boot wanderers at pinned lead 2 carry %d non-shambler bodies over three seeds; at lead 0 the boot is shamblers alone; the dormant lurkers are %d at both" % [shipped_non_shambler, int(control.get("_lurkers", 0))])
+	return true
