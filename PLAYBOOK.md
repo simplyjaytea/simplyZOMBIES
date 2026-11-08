@@ -22,7 +22,7 @@ bash scripts/setup-web-session.sh   # verify or install the pinned engine and np
 npm run godot:smoke                 # the project boots
 npm run check:routing               # the routing table below, and every gate reachable
 npm run godot:run                   # play it, first person (DISPLAY=:1 on a headless VM; docs/34)
-npm run godot:run:topdown           # the top-down testing game
+npm run godot:run:topdown           # the top-down testing game (on hold; its title is reached only by this, with --topdown)
 npm run godot:m2:needs              # one gate while iterating: any godot:m2:<name> or godot:check:<name>
 npm run godot:m2 -- --shard=1/4     # one of CI's four shards of the full chain
 npx vitest run test/unit/<file>     # one test file of the frozen oracle
@@ -185,7 +185,7 @@ file; this section is the same rules as the repository holds them.
 Read [docs/39](docs/39-first-person-pivot.md) before new presentation or art work.
 The owner has superseded the flat-top-down art direction for the conversion;
 the default boot has been first person since the owner's call of 2026-11-01 (docs/30); the
-top-down game remains as the testing build (`npm run godot:run:topdown`).
+top-down game remains as the testing build, on hold since 2026-11-07 (`npm run godot:run:topdown`, whose title opens only with `-- --topdown`).
 The existing game is preserved by the GitHub source archive linked in docs/39.
 Colony systems, skills, authored/generated people and the captive roadmap remain.
 Management moves to physical ledgers and conversations. Earlier projection and
@@ -270,7 +270,7 @@ matter every session:
 
 - **First person is the game; top-down is legacy** (2026-11-04, docs/30): first person is the
   default boot and every new piece is first person; the top-down game stays, boots with
-  `npm run godot:run:topdown`, and keeps its gates, but gets no new features or UI slices unless
+  `npm run godot:run:topdown` (its title opens only with `-- --topdown`, docs/30, 2026-11-07), and keeps its gates, but gets no new features or UI slices unless
   the owner asks. Shared sim modules serve both. The top-down rules in docs/30 and docs/32 govern
   only the legacy build.
 - **The setting is Japan (Ome–Okutama), 2026-11-04** (docs/30): inspired by the real Ome–Okutama
@@ -715,7 +715,7 @@ row when a system gains a home; the gate goes red when a route stops being true.
 | Shipped runtime performance | [docs/22](docs/22-performance.md#shipped-godot-runtime-measurements) | `godot/bench/runtime_tick.gd`, `godot/bench/runtime_frame.gd`, `godot/bench/measured_main.gd`, `scripts/runtime-budget.mjs`, `scripts/run-godot.mjs` | `npm run check:runtime-budget` judges the production runner contract; `npm run godot:m2:tick` (`godot/check_m2_tick.gd`) holds each tick speed-up to the slow answer it replaced; `npm run godot:bench:runtime` and `npm run godot:bench:frame` measure actual timing on a quiet machine (frame needs a display). Existing overruns remain product debt; the real timing commands are not yet CI shipping gates. | docs/22's dated measurements and the record |
 | Driving a pull request | `.claude/skills/steward/SKILL.md`, then [Pushing and pull requests](PLAYBOOK.md#pushing-and-pull-requests) | -- | whatever CI reports; the touched gates before every push, per [Verifying a change](PLAYBOOK.md#verifying-a-change) | the PR itself |
 | The survivor body in the game's renderer: a candidate GLB under the first-person scene's sky, lens and eye, beside the concept | The header of `godot/review/survivor_shots.gd`, then the first-person loader `godot/presentation/first_person/models.gd` | `godot/review/survivor_shots.gd` (the driver; `--glb=` or `SURVIVOR_GLB` picks the model, `--out=` the folder), `godot/presentation/first_person/sky_view.gd` (the light the shots use) | `npm run godot:shots:survivor` renders and composes the sheet; it is a render, not a gate, and needs a display | the PR itself |
-| Playing it, or a screenshot | [Running the game](docs/34-agents-and-environment.md#running-the-game-gui) below | `godot/presentation/first_person/first_person.tscn` (the default boot), `godot/presentation/main.tscn` (the top-down testing game) | `npm run godot:run` (first person), `npm run godot:run:topdown` | -- |
+| Playing it, or a screenshot | [Running the game](docs/34-agents-and-environment.md#running-the-game-gui) below | `godot/presentation/first_person/first_person.tscn` (the default boot), `godot/presentation/main.tscn` (the top-down testing game) | `npm run godot:run` (first person), `npm run godot:run:topdown` (the top-down title, on hold; it passes `-- --topdown`) | -- |
 | Art review: before and after screenshots of fixed scenes at both windows | the header of `godot/review/shots.gd`, then `godot/review/scenes.gd` | `godot/review/scenes.gd` (each scene and its verify), `godot/review/shots.gd` (the capture driver, run with `DISPLAY=:1 npm run godot:shots`) | `npm run godot:check:shots` (`godot/check_shots.gd`); its PIXELS lane skips without a display | the record |
 
 **By system** -- the spec, the code, and the gate that proves it. Where a row names several
