@@ -827,7 +827,18 @@ const run = (invocation, timeoutMs = 0) => {
 // Every gate and dev launch boots the first-person scene past the title (docs/30, 2026-11-09): a plain boot
 // goes to the title first, and only the player's own launch (`--run`, the editor, the exports) and the title
 // gate itself do not skip it. The user arg is read by first_person.gd's _redirect_to_title.
-const PLAYER_BOOTS = new Set(["--run", "--editor", "--export", "--export-web", "--check-fp-title"]);
+// The runtime modes and the top-down run never load first_person.tscn, and the runtime-budget contract
+// (scripts/check-runtime-budget.mjs) asserts their engine arguments exactly, so they take no skip flag.
+const PLAYER_BOOTS = new Set([
+  "--run",
+  "--editor",
+  "--export",
+  "--export-web",
+  "--check-fp-title",
+  "--runtime-tick",
+  "--runtime-frame",
+  "--topdown-run",
+]);
 if (!PLAYER_BOOTS.has(mode)) {
   args = args.includes("--") ? [...args, "--skip-title"] : [...args, "--", "--skip-title"];
 }
