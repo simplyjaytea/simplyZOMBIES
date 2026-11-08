@@ -10,10 +10,14 @@ extends Control
 #                 HUD's own fallback for an empty needs clause.
 #   what they do `SimWorkRead.doing`, the Colony row's own "now" phrase.
 #
+# The orders: the rows the sim offers for what the player aims at (`SimContext.orders_for`), set by the
+# caller as `set_orders`. The panel shows them as kit buttons above Goodbye, moves a selection with Up and
+# Down, and emits `chosen(index)` for a row (a click or Enter); it decides nothing, and the caller pushes
+# the row's own command. Goodbye, the last row, is Escape, and emits `closed`.
+#
 # Presentation only: it reads the world and writes nothing. No numbers, no new information -- every
-# word here is one the top-down screens already show. One action, Goodbye, which is Escape; the
-# panel emits `closed` and decides nothing. The kit chrome is `Chrome`/`Locker`, the same as the
-# Reports page and the work grid.
+# word here is one the top-down screens already show or the sim's own order row. The kit chrome is
+# `Chrome`/`Locker`, the same as the Reports page and the work grid.
 
 const Chrome = preload("res://ui/chrome.gd")
 const Locker = preload("res://ui/locker.gd")
@@ -22,6 +26,7 @@ const SimNeeds = preload("res://sim/modules/needs.gd")
 const WorkRead = preload("res://sim/work_read.gd")
 
 signal closed
+signal chosen(index: int)
 
 const WIDTH: float = 660.0
 const PAD: float = 28.0
@@ -33,6 +38,7 @@ const GOODBYE_HINT: String = "Escape"
 const GOODBYE_W: float = 160.0
 const GOODBYE_H: float = 40.0
 const ROW_GAP: float = 10.0
+const ORDER_H: float = 40.0
 # The first-person HUD's own words for the condition view's worst part ("worst" 0..3), and its
 # fallback for a body with nothing to report. Kept here as the same words, not a second language.
 const CONDITION_WORDS: Array[String] = ["", "hurt", "badly hurt", "barely standing"]
@@ -42,6 +48,9 @@ var _entity: int = -1
 var _name: String = ""
 var _feel: String = ""
 var _doing: String = ""
+# The order rows the sim offers now, and the selection: 0 to rows-1 is a row, rows is Goodbye.
+var _orders: Array[Dictionary] = []
+var _selected: int = 0
 
 
 ## The name the panel's header shows: the sim's own identity name.
@@ -87,6 +96,40 @@ func show_colonist(world: Variant, entity: int) -> void:
 	queue_redraw()
 
 
+## Sets the order rows the sim offers, each `{text, command, target}`. The selection stays where it was, held
+## inside the rows and Goodbye.
+func set_orders(rows: Array[Dictionary]) -> void:
+	_orders = rows
+	_selected = clampi(_selected, 0, _orders.size())
+	custom_minimum_size = Vector2(WIDTH, _natural_height())
+	size = custom_minimum_size
+	queue_redraw()
+
+
+## The order rows as shown, in order.
+func orders() -> Array[Dictionary]:
+	return _orders
+
+
+## The choice's index: 0 to the row count minus one for a row, the row count for Goodbye.
+func selected() -> int:
+	return _selected
+
+
+## Moves the selection down (1) or up (-1), through the rows and on to Goodbye, wrapping.
+func move(step: int) -> void:
+	_selected = posmod(_selected + step, _orders.size() + 1)
+	queue_redraw()
+
+
+## Chooses the selected row, or Goodbye when Goodbye is selected.
+func choose() -> void:
+	if _selected < _orders.size():
+		chosen.emit(_selected)
+	else:
+		closed.emit()
+
+
 ## What the panel is showing, for the gate: the sim's name, the read models' words, and the entity.
 func shown() -> Dictionary:
 	return {"entity": _entity, "name": _name, "feel": _feel, "doing": _doing}
@@ -99,14 +142,43 @@ func entity() -> int:
 ## Every line the panel draws, for the gate's digit scan. The header is the name; the goodbye action
 ## and its key hint are words too.
 func lines() -> Array[String]:
-	return [_name, _feel, NOW_LEAD + _doing, GOODBYE, GOODBYE_HINT]
+	var out: Array[String] = [_name, _feel, NOW_LEAD + _doing, GOODBYE, GOODBYE_HINT]
+	for row in _orders:
+		out.append(String((row as Dictionary)["text"]))
+	return out
+
+
+## The order rows' words, in order, for the gate.
+func order_texts() -> Array[String]:
+	var out: Array[String] = []
+	for row in _orders:
+		out.append(String((row as Dictionary)["text"]))
+	return out
+
+
+## The rect of an order row, for a click.
+func order_rect(index: int) -> Rect2:
+	return _order_rect(index)
 
 
 func _natural_height() -> float:
+	return _orders_top() + _orders_h() + GOODBYE_H + PAD
+
+
+# Where the order rows start: under the doing line.
+func _orders_top() -> float:
 	var wrap: float = WIDTH - PAD * 2.0
 	var feel_h: float = _text_height(_feel, BODY_SIZE, wrap)
 	var doing_h: float = _text_height(NOW_LEAD + _doing, BODY_SIZE, wrap)
-	return Chrome.HEADER_H + PAD + feel_h + ROW_GAP + doing_h + ROW_GAP + GOODBYE_H + PAD
+	return Chrome.HEADER_H + PAD + feel_h + ROW_GAP + doing_h + ROW_GAP
+
+
+func _orders_h() -> float:
+	return float(_orders.size()) * (ORDER_H + ROW_GAP)
+
+
+func _order_rect(index: int) -> Rect2:
+	return Rect2(Vector2(PAD, _orders_top() + float(index) * (ORDER_H + ROW_GAP)), Vector2(WIDTH - PAD * 2.0, ORDER_H))
 
 
 func _text_height(text: String, size: int, wrap: float) -> float:
@@ -130,7 +202,9 @@ func _draw() -> void:
 	draw_string(font, Vector2(PAD, y + base), NOW_LEAD, HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, Chrome.TEXT_DIM)
 	draw_string(font, Vector2(PAD + lead, y + base), _doing, HORIZONTAL_ALIGNMENT_LEFT, wrap - lead, BODY_SIZE, Chrome.TEXT)
 	y += _text_height(NOW_LEAD + _doing, BODY_SIZE, wrap) + ROW_GAP
-	Locker.button(self, _goodbye_rect(), GOODBYE, false, 1.0)
+	for i in _orders.size():
+		Locker.button(self, _order_rect(i), String((_orders[i] as Dictionary)["text"]), i == _selected, 1.0)
+	Locker.button(self, _goodbye_rect(), GOODBYE, _selected == _orders.size(), 1.0)
 	var hint_base: float = Chrome.ascent(ACTION_SIZE)
 	var hint_at: Vector2 = Vector2(PAD + GOODBYE_W + 16.0, y + (GOODBYE_H - Chrome.line_height(ACTION_SIZE)) * 0.5 + hint_base)
 	draw_string(font, hint_at, GOODBYE_HINT, HORIZONTAL_ALIGNMENT_LEFT, -1, ACTION_SIZE, Chrome.TEXT_DIM)
@@ -146,6 +220,11 @@ func _gui_input(event: InputEvent) -> void:
 	var mb: InputEventMouseButton = event as InputEventMouseButton
 	if not mb.pressed or mb.button_index != MOUSE_BUTTON_LEFT:
 		return
+	for i in _orders.size():
+		if _order_rect(i).has_point(mb.position):
+			accept_event()
+			chosen.emit(i)
+			return
 	if _goodbye_rect().has_point(mb.position):
 		accept_event()
 		closed.emit()

@@ -43,6 +43,9 @@ extends SceneTree
 #             the tile's own head band where its profile has one (a window's lintel, a door's head).
 #             Counters, shelves and partitions included. The ceiling stripped in memory from one
 #             counter or shelf tile's mesh is refused by the same rays, at that tile.
+#   FLAT      every band box and the ground draw flat-shaded: each vertex's normal is its triangle's
+#             face normal, in every tile's mesh and in the built district's solids, fence and ground.
+#             A box built with smooth normals (corner normals averaged) is refused by the same reading.
 
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BuildingView = preload("res://presentation/first_person/building_view.gd")
@@ -72,12 +75,13 @@ func _run() -> void:
 	ok = _bodies() and ok
 	ok = _kit(fixture) and ok
 	ok = _finishes() and ok
+	ok = _flat(fixture) and ok
 	_finish(ok)
 
 
 func _finish(ok: bool) -> void:
 	if ok:
-		print("FP_GEOMETRY_OK every tile and all 22 building finishes keep their profile bands, every body keeps its cylinder, finish skins stay within 25 mm of a solid host, finish volumes are low exterior door steps, canopies are attached above 2.10 m and at most 1.20 m deep, wall and window attachments are at most 0.10 m proud on their declared tile and window boxes stay in the sill or lintel band, every sim window in four generated districts is drawn open and every indoor tile there has a ceiling, and planted wall-over-window, stripped-ceiling, band-box, window, Low-tile, module, open-tile, high-wall, indoor-volume, tall-volume, detached-volume, canopy-low, canopy-deep, canopy-detached, wall-proud, wall-open, attach-offtile and window-attach-opening errors are refused")
+		print("FP_GEOMETRY_OK every tile and all 22 building finishes keep their profile bands, every body keeps its cylinder, finish skins stay within 25 mm of a solid host, finish volumes are low exterior door steps, canopies are attached above 2.10 m and at most 1.20 m deep, wall and window attachments are at most 0.10 m proud on their declared tile and window boxes stay in the sill or lintel band, every sim window in four generated districts is drawn open and every indoor tile there has a ceiling, and planted wall-over-window, stripped-ceiling, band-box, window, Low-tile, module, open-tile, high-wall, indoor-volume, tall-volume, detached-volume, canopy-low, canopy-deep, canopy-detached, wall-proud, wall-open, attach-offtile, window-attach-opening, and smooth-normal box errors are refused, and every band box and the ground draw flat-shaded")
 		quit(0)
 		return
 	for failure in _failures:
@@ -229,6 +233,72 @@ func _mesh_of(boxes: Array) -> ArrayMesh:
 		DistrictView._add_box_of(st, box as Dictionary)
 	st.generate_normals()
 	return st.commit()
+
+
+# --- FLAT -----------------------------------------------------------------------------------
+
+# A SurfaceTool that never calls `set_smooth_group(-1)` averages the normals of a box's corners, so a
+# flat box lights like a pillow. Each triangle's vertex normals must equal its own face normal, which
+# gives every face one normal at all four of its corners.
+func _flat(fixture: Variant) -> bool:
+	var ok: bool = true
+	for tx in int(fixture.w):
+		var key: String = SimSpace.profile_key(fixture, tx, 0)
+		if not _flat_ok(DistrictView.tile_mesh(fixture, tx, 0), "tile %d (%s)" % [tx, key]):
+			ok = false
+	var view: Node3D = DistrictView.new()
+	root.add_child(view)
+	view.call("build", fixture)
+	for part in [["solids", view.get("solids")], ["fence", view.get("fence")], ["ground", view.get("ground")]]:
+		var node: MeshInstance3D = part[1] as MeshInstance3D
+		if node != null and not _flat_ok(node.mesh as ArrayMesh, "the built " + str(part[0])):
+			ok = false
+	view.queue_free()
+	# True negative: the same box built the smooth way is refused by the same reading, so the lane can fail.
+	var boxes: Array = _first_boxes(fixture)
+	if boxes.is_empty():
+		return _fail("FLAT", "the fixture has no band box, so the smooth-normal plant was never tried")
+	if _flat_violations(_mesh_of(boxes)) == 0:
+		ok = _fail("FLAT", "a band box built with smooth normals was accepted as flat (the plant)")
+	return ok
+
+
+func _flat_ok(mesh: ArrayMesh, what: String) -> bool:
+	var bad: int = _flat_violations(mesh)
+	if bad > 0:
+		return _fail("FLAT", "%s has %d triangles whose vertex normals are not their face normal" % [what, bad])
+	return true
+
+
+func _flat_violations(mesh: ArrayMesh) -> int:
+	var bad: int = 0
+	if mesh == null:
+		return bad
+	for s in mesh.get_surface_count():
+		var arrays: Array = mesh.surface_get_arrays(s)
+		if arrays[Mesh.ARRAY_INDEX] != null:
+			bad += 1
+			continue
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+		for t in range(0, verts.size() - 2, 3):
+			var face: Vector3 = (verts[t + 2] - verts[t]).cross(verts[t + 1] - verts[t])
+			if face.length_squared() < 1e-12:
+				continue
+			face = face.normalized()
+			for k in 3:
+				if absf(normals[t + k].dot(face)) < 0.999:
+					bad += 1
+					break
+	return bad
+
+
+func _first_boxes(fixture: Variant) -> Array:
+	for tx in int(fixture.w):
+		var boxes: Array = DistrictView.tile_boxes(fixture, tx, 0)
+		if not boxes.is_empty():
+			return boxes
+	return []
 
 
 # --- BODIES ---------------------------------------------------------------------------------
