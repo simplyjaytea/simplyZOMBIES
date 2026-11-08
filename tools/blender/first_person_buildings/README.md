@@ -53,6 +53,8 @@ blender --background --factory-startup --python tools/blender/first_person_build
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=ticket_ledge_proud
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=name_board_open
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=name_board_uv
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=arch_float
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=bracket_float
 ```
 
 `winding` reverses one hip-roof face; `aperture` draws a wall across house_small's first window. The
@@ -62,8 +64,8 @@ at 2.20 m, `shutter` draws a shutter down over an openable shop window, and `sli
 puts a sawmill leaf across the south doorway. `sliding_leaf_span` draws one leaf across the x 4–5
 boundary and is refused by the one-tile leaf assertion. `eave_north_clean` paints the north eave
 with plain tin and is refused by the per-region rust measurement. The station plants put a post under
-the canopy, make the ticket ledge 0.15 m proud, put the name board on an openable wall tile, and leave
-its vertical UVs unfitted.
+the canopy, make the ticket ledge 0.15 m proud, put the name board on an openable wall tile, leave its
+vertical UVs unfitted, remove the arch's return, and restore the bracket feet's round-1 stand-off.
 
 ## Data and runtime
 
@@ -252,14 +254,17 @@ If room tags are added to content later, the manifest is the place to refine thi
   `TEMPLATE_FINISHES`. The platform surface, kerb and tactile line belong to the rail piece. Both doors
   have low exterior steps and clear openings; the ticket window is `(8,4)` on the track side.
 - The south canopy measures 12.00 m long, 2.30 to 2.48 m high and 1.140 m deep, including its front
-  roll. Six brackets are fixed to the wall; there are no posts. Its underside and both ends are closed,
-  and its top stays below the roof eave. `canopy_post` proves that a post is refused.
+  roll. Six bracket start caps are ray-measured against the wall, with a maximum allowed gap of 1 mm;
+  there are no posts. Its underside and both ends are closed, and its top stays below the roof eave.
+  `canopy_post` and `bracket_float` prove the post and contact failures.
 - The ticket window's counter ledge is 0.09 m proud at 0.86 m and its arched head reaches 2.42 m.
-  Both are `window_attach` in the sill/lintel bands and leave the aperture open. `ticket_ledge_proud`
-  proves the 0.10 m limit.
+  The arch has returns to the wall and legs seated on the 2.10 m casing head. Both attachments are
+  `window_attach` in the sill/lintel bands and leave the aperture open. `ticket_ledge_proud` and
+  `arch_float` prove the projection and missing-return failures.
 - One 0.90 m board on the canopy fascia carries the invented 梅崎 / うめざき name, using only
-  `station_name` cell `(3,7)`. Its face UVs fit the whole cell on both axes instead of repeating by
-  metre. `name_board_open` refuses a wall-mounted board on an openable tile; `name_board_uv` leaves the
+  `station_name` cell `(3,7)`. Round 2 redraws the four kana's individual strokes, leaving the kanji
+  unchanged. The face UVs fit the whole cell on both axes instead of repeating by metre.
+  `name_board_open` refuses a wall-mounted board on an openable tile; `name_board_uv` leaves the
   vertical fit out and is refused by the measured full-cell UV bounds.
 - The tin gable uses shared `tin` / `tin_alt`, with 0.60 m eaves and rakes, closed timber gables,
   soffits and barge boards. `CHARACTER building.station.small` measures every value above from the GLB.

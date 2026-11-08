@@ -123,19 +123,27 @@ STATION_STROKES = (
         ((0.76, 0.54), (0.76, 0.96)), ((0.76, 0.96), (0.66, 0.96)),
     ),
     (
-        ((0.16, 0.16), (0.82, 0.16)), ((0.66, 0.18), (0.66, 0.52)), ((0.66, 0.52), (0.46, 0.78)), ((0.46, 0.78), (0.18, 0.88)),
+        ((0.34, 0.12), (0.66, 0.12)),
+        ((0.18, 0.36), (0.62, 0.36)), ((0.62, 0.36), (0.76, 0.44)), ((0.76, 0.44), (0.80, 0.56)),
+        ((0.80, 0.56), (0.72, 0.74)), ((0.72, 0.74), (0.54, 0.88)), ((0.54, 0.88), (0.30, 0.94)),
     ),
     (
-        ((0.20, 0.14), (0.70, 0.90)), ((0.12, 0.48), (0.84, 0.26)), ((0.58, 0.30), (0.84, 0.58)),
-        ((0.84, 0.58), (0.76, 0.88)), ((0.76, 0.88), (0.42, 0.92)), ((0.42, 0.92), (0.30, 0.68)),
+        ((0.14, 0.32), (0.74, 0.62)),
+        ((0.64, 0.06), (0.50, 0.28)), ((0.50, 0.28), (0.34, 0.48)), ((0.34, 0.48), (0.26, 0.66)),
+        ((0.26, 0.66), (0.34, 0.82)), ((0.34, 0.82), (0.54, 0.88)), ((0.54, 0.88), (0.72, 0.76)),
+        ((0.72, 0.76), (0.80, 0.58)), ((0.80, 0.58), (0.70, 0.44)), ((0.70, 0.44), (0.52, 0.42)),
+        ((0.52, 0.42), (0.40, 0.54)),
     ),
     (
-        ((0.16, 0.26), (0.76, 0.26)), ((0.14, 0.50), (0.72, 0.50)), ((0.58, 0.52), (0.26, 0.90)),
+        ((0.14, 0.26), (0.66, 0.26)), ((0.44, 0.08), (0.28, 0.52)),
+        ((0.18, 0.58), (0.58, 0.56)), ((0.58, 0.56), (0.70, 0.64)), ((0.70, 0.64), (0.66, 0.76)),
+        ((0.66, 0.76), (0.50, 0.88)), ((0.50, 0.88), (0.30, 0.92)), ((0.30, 0.92), (0.18, 0.84)),
         ((0.80, 0.04), (0.80, 0.14)), ((0.94, 0.04), (0.94, 0.14)),
     ),
     (
-        ((0.16, 0.24), (0.82, 0.24)), ((0.14, 0.46), (0.78, 0.46)), ((0.54, 0.12), (0.54, 0.66)),
-        ((0.54, 0.66), (0.30, 0.86)), ((0.30, 0.86), (0.66, 0.90)), ((0.66, 0.90), (0.76, 0.72)),
+        ((0.16, 0.24), (0.82, 0.24)), ((0.14, 0.46), (0.78, 0.46)), ((0.56, 0.10), (0.42, 0.62)),
+        ((0.22, 0.74), (0.66, 0.74)), ((0.66, 0.74), (0.64, 0.86)), ((0.64, 0.86), (0.50, 0.95)),
+        ((0.50, 0.95), (0.32, 0.96)), ((0.32, 0.96), (0.22, 0.88)),
     ),
 )
 STATION_NAME_PIXELS = None
@@ -1367,7 +1375,7 @@ def station_volumes(template, plant=None):
     ledge_depth = 0.15 if plant == "ticket_ledge_proud" else 0.09
     volumes = [
         {"kind": "window_attach", "min": [8.12, 0.86, 5.0], "max": [8.88, 1.00, 5.0 + ledge_depth], "tile": [8, 4], "side": 2},
-        {"kind": "window_attach", "min": [8.18, 2.18, 5.0], "max": [8.82, 2.42, 5.06], "tile": [8, 4], "side": 2},
+        {"kind": "window_attach", "min": [8.18, 2.10, 5.0], "max": [8.82, 2.42, 5.06], "tile": [8, 4], "side": 2},
     ]
     if plant == "name_board_open":
         volumes.append({"kind": "wall_attach", "min": [5.05, 2.30, 5.0], "max": [5.95, 2.58, 5.04], "tile": [5, 4], "side": 2})
@@ -1688,20 +1696,63 @@ def sawmill_character(template, model, doors_clear):
 
 
 def station_character(template, model, doors_clear):
+    def ray_hit(faces, origin):
+        direction = Vector((0, 0, -1))
+        nearest = None
+        for face in faces:
+            points = [Vector(point) for point in face["points"]]
+            for order in ((0, 1, 2), (2, 1, 0)):
+                hit = intersect_ray_tri(points[order[0]], points[order[1]], points[order[2]], direction, origin, True)
+                if hit is None or (hit - origin).length <= 0.000001:
+                    continue
+                if nearest is None or (hit - origin).length < (nearest - origin).length:
+                    nearest = hit
+        return nearest
+
     spec = next(spec for spec in canopy_specs(template) if spec["kind"] == "station")
     canopy = measure_canopy(template, model, spec)
     boxes = model_boxes(model)
-    metal = [box for box in boxes if "metal" in box["styles"] and box["min"][2] >= template["size"]["h"] and box["max"][1] > 2.10]
+    metal = [box for box in boxes if "metal" in box["styles"] and box["min"][2] >= template["size"]["h"] - 0.05 and box["max"][1] > 2.10]
     posts = [box for box in metal if box["min"][1] < 2.10 and box["max"][1] - box["min"][1] > 0.50]
     brackets = [box for box in metal if box["min"][1] >= 2.10]
     if posts:
         raise ValueError(f"{template['id']} canopy has a post below 2.10 m")
+    wall_faces = [face for face in model.faces if face["style"] in WALL_VARIANTS["timber"] and (face["node"] == "spatial_bands" or "-wall-" in face["node"] or "-window-" in face["node"])]
+    foot_gaps = []
+    for bracket in brackets:
+        caps = []
+        for face in bracket["faces"]:
+            points = [Vector(point) for point in face["points"]]
+            normal = (points[1] - points[0]).cross(points[2] - points[0]).normalized()
+            if normal.z < -0.90:
+                caps.append(face)
+        if not caps:
+            raise ValueError(f"{template['id']} bracket start cap is missing")
+        cap_points = {tuple(round(value, 6) for value in point): Vector(point) for face in caps for point in face["points"]}
+        centre = sum(cap_points.values(), Vector()) / len(cap_points)
+        origin = Vector((centre.x, centre.y, 5.30))
+        bracket_hit = ray_hit(caps, origin)
+        wall_hit = ray_hit(wall_faces, origin)
+        if bracket_hit is None or wall_hit is None:
+            raise ValueError(f"{template['id']} bracket/wall ray did not hit")
+        foot_gaps.append(abs(bracket_hit.z - wall_hit.z) * 1000.0)
+    foot_gap = max(foot_gaps, default=1000.0)
     ledge_boxes = [box for box in boxes if box["node"] == "station_small-window-8-4" and "dark_wood" in box["styles"] and box["max"][1] <= 1.01]
     if len(ledge_boxes) != 1:
         raise ValueError(f"{template['id']} ticket ledge is missing")
     ledge = ledge_boxes[0]["max"][2] - ledge_boxes[0]["min"][2]
     arch_faces = [face for face in model.faces if face["node"] == "station_small-window-8-4" and face["style"] == "trim" and min(point[1] for point in face["points"]) >= 2.10 and min(point[2] for point in face["points"]) >= 5.05]
     arched = len(arch_faces) >= 10 and max(point[1] for face in arch_faces for point in face["points"]) >= 2.38
+    arch_body = [face for face in model.faces if face["node"] == "station_small-window-8-4" and face["style"] == "trim" and max(point[1] for point in face["points"]) >= 2.10 and max(point[2] for point in face["points"]) >= 5.059]
+    arch_return = sum(min(point[2] for point in face["points"]) <= 5.000001 and max(point[2] for point in face["points"]) >= 5.059 for face in arch_body) >= 20
+    arch_wall = ray_hit(wall_faces, Vector((8.50, 2.50, 5.30)))
+    if not arch_body or arch_wall is None:
+        raise ValueError(f"{template['id']} arch/wall measurement is missing")
+    arch_gap = abs(min(point[2] for face in arch_body for point in face["points"]) - arch_wall.z) * 1000.0
+    head_faces = [face for face in model.faces if face["node"] == "station_small-window-8-4" and face["style"] == "trim" and min(point[1] for point in face["points"]) >= 2.0 and max(point[1] for point in face["points"]) <= 2.101 and all(abs(point[2] - 5.014) <= 0.0001 for point in face["points"])]
+    head_top = max((point[1] for face in head_faces for point in face["points"]), default=0.0)
+    foot_height = min(point[1] for face in arch_body for point in face["points"])
+    feet_on_head = abs(foot_height - head_top) <= 0.001
     boards = [box for box in boxes if "station_name" in box["styles"]]
     board_uv = [uv for face in model.faces if face["style"] == "station_name" for uv in face["uv"]]
     cell_x, cell_y = STYLES["station_name"]
@@ -1714,17 +1765,17 @@ def station_character(template, model, doors_clear):
     eave = -min(point[2] for point in roof_points)
     rake = -min(point[0] for point in roof_points)
     closed = all(any(face["style"].startswith("timber_") and all(abs(point[0] - x) <= 0.00001 for point in face["points"]) and max(point[1] for point in face["points"]) > WALL_TOP for face in model.faces) for x in (-0.005, template["size"]["w"] + 0.005))
-    if len(brackets) != 6 or canopy["lowest"] < 2.10 or canopy["depth"] > 1.20 or abs(canopy["length"] - 12.00) > 0.10 or canopy["highest"] >= 2.62:
-        raise ValueError(f"{template['id']} canopy/bracket measurement {canopy}, brackets {len(brackets)}")
-    if abs(ledge - 0.09) > 0.005 or not arched or len(boards) != 1 or boards[0]["max"][1] >= 2.62:
-        raise ValueError(f"{template['id']} ticket/board measurement {ledge}/{arched}/{len(boards)}")
+    if len(brackets) != 6 or foot_gap > 1.0 or canopy["lowest"] < 2.10 or canopy["depth"] > 1.20 or abs(canopy["length"] - 12.00) > 0.10 or canopy["highest"] >= 2.62:
+        raise ValueError(f"{template['id']} canopy/bracket measurement {canopy}, brackets {len(brackets)}, foot gap max {foot_gap:.1f} mm")
+    if abs(ledge - 0.09) > 0.005 or not arched or not arch_return or arch_gap > 1.0 or not feet_on_head or len(boards) != 1 or boards[0]["max"][1] >= 2.62:
+        raise ValueError(f"{template['id']} ticket/board measurement {ledge}/{arched}/return {arch_return}/gap {arch_gap:.1f} mm/feet {feet_on_head}/{len(boards)}")
     if abs(eave - 0.60) > 0.005 or abs(rake - 0.60) > 0.005 or not closed or doors_clear != 2:
         raise ValueError(f"{template['id']} roof/gable/door measurement {eave}/{rake}/{closed}/{doors_clear}")
     roof = sorted({face["style"] for face in roof_faces})
     walls = sorted({face["style"] for face in model.faces if face["style"] in WALL_VARIANTS["timber"]})
     return (
-        f"CHARACTER {template['id']}: canopy {canopy['lowest']:.2f} m to {canopy['highest']:.2f} m, depth {canopy['depth']:.3f} m, length {canopy['length']:.2f} m, brackets {len(brackets)}, posts 0; "
-        f"ticket window ledge {ledge:.2f} m proud at {ledge_boxes[0]['min'][1]:.2f} m, arched head {'yes' if arched else 'no'}; doors clear {doors_clear}; "
+        f"CHARACTER {template['id']}: canopy {canopy['lowest']:.2f} m to {canopy['highest']:.2f} m, depth {canopy['depth']:.3f} m, length {canopy['length']:.2f} m, brackets {len(brackets)}, foot gap max {foot_gap:.1f} mm, posts 0; "
+        f"ticket window ledge {ledge:.2f} m proud at {ledge_boxes[0]['min'][1]:.2f} m, arched head {'yes' if arched else 'no'}, arch return {'yes' if arch_return else 'no'}, gap to wall {arch_gap:.1f} mm, feet on head {'yes' if feet_on_head else 'no'}; doors clear {doors_clear}; "
         f"roof {roof}, eave {eave:.2f} m, rake {rake:.2f} m, gable faces closed {'yes' if closed else 'no'}; name board {len(boards)} on south canopy fascia; walls {walls}"
     )
 
@@ -2174,7 +2225,8 @@ def build_station_details(pieces, template, plant=None):
     for spec in canopy_specs(template, plant):
         add_canopy(finish, spec, plant)
     for x in (1.0, 3.0, 5.0, 7.0, 9.0, 11.0):
-        tube_between(finish, (x, 2.22, 5.02), (x, 2.34, 5.98), 0.025, "metal")
+        foot_z = 5.02 if plant == "bracket_float" else 5.0
+        tube_between(finish, (x, 2.22, foot_z), (x, 2.34, 5.98), 0.025, "metal")
     start = len(finish.uvs)
     finish.box((5.55, 2.30, 6.10), (0.90, 0.28, 0.04), "dark_wood", {"south": "station_name", "top": "trim", "east": "trim", "west": "trim"})
     cell_x, cell_y = STYLES["station_name"]
@@ -2201,6 +2253,22 @@ def build_station_details(pieces, template, plant=None):
         inner_a = (8.50 + 0.24 * math.cos(a), 2.18 + 0.16 * math.sin(a), 5.06)
         inner_b = (8.50 + 0.24 * math.cos(b), 2.18 + 0.16 * math.sin(b), 5.06)
         target.polygon([outer_a, outer_b, inner_b, inner_a], "trim", (0, 0, 1))
+        if plant == "arch_float":
+            continue
+        back_outer_a, back_outer_b = outer_a[:2] + (5.0,), outer_b[:2] + (5.0,)
+        back_inner_a, back_inner_b = inner_a[:2] + (5.0,), inner_b[:2] + (5.0,)
+        middle = (a + b) * 0.5
+        radial = (math.cos(middle), math.sin(middle), 0)
+        target.polygon([outer_a, back_outer_a, back_outer_b, outer_b], "trim", radial)
+        target.polygon([inner_a, inner_b, back_inner_b, back_inner_a], "trim", tuple(-value for value in radial))
+        if index in (0, 9):
+            target.polygon([outer_a, inner_a, back_inner_a, back_outer_a], "trim", (0, -1, 0))
+    if plant != "arch_float":
+        for x0, x1 in ((8.18, 8.26), (8.74, 8.82)):
+            target.polygon([(x0, 2.10, 5.06), (x1, 2.10, 5.06), (x1, 2.18, 5.06), (x0, 2.18, 5.06)], "trim", (0, 0, 1))
+            for x, sign in ((x0, -1), (x1, 1)):
+                target.polygon([(x, 2.10, 5.06), (x, 2.10, 5.0), (x, 2.18, 5.0), (x, 2.18, 5.06)], "trim", (sign, 0, 0))
+            target.polygon([(x0, 2.10, 5.06), (x0, 2.10, 5.0), (x1, 2.10, 5.0), (x1, 2.10, 5.06)], "trim", (0, -1, 0))
     if plant == "canopy_post":
         finish.box((0.45, 0.0, 5.85), (0.10, 2.34, 0.10), "metal")
 
@@ -3077,7 +3145,7 @@ def main():
     arguments = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter", "sliding_door_cross", "sliding_leaf_span", "eave_north_clean", "canopy_post", "ticket_ledge_proud", "name_board_open", "name_board_uv"])
+    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter", "sliding_door_cross", "sliding_leaf_span", "eave_north_clean", "canopy_post", "ticket_ledge_proud", "name_board_open", "name_board_uv", "arch_float", "bracket_float"])
     args = parser.parse_args(arguments)
     repo = Path(__file__).resolve().parents[3]
     try:

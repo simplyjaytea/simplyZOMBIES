@@ -2538,8 +2538,9 @@ not a to-do list:
     うめざき in the single new `station_name` cell. The shared-tin gable has 0.60 m eaves/rakes, closed
     timber gables, soffits and barge boards. Both doors have low steps and clear openings.
   - **Verified.** `CHARACTER building.station.small` measures those values and the board's full-cell UV
-    bounds on the GLB. All 32 plants are refused, including `canopy_post`, `ticket_ledge_proud`,
-    `name_board_open` and `name_board_uv`. The name-blind,
+    bounds on the GLB, plus the arch's return, wall gap and head contact and the six bracket caps' ray
+    gap to the wall. All 34 plants are refused, including `canopy_post`, `ticket_ledge_proud`,
+    `name_board_open`, `name_board_uv`, `arch_float` and `bracket_float`. The name-blind,
     order-free other-template proof is `OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22` against `0f510604`.
     `BUILDINGS_CHECK_OK 23 templates`, `godot:check:fp_geometry`, `godot:smoke` and `check:routing`
     pass. Matched base/head, repeat, magenta, other-template and four close-up captures accompany it;
