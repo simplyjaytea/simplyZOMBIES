@@ -280,6 +280,8 @@ func _run() -> void:
 	# above read is not shot at or moved by it.
 	var hit_scene: Node = packed.instantiate()
 	hit_scene.set("district_tiles", SMALL_DISTRICT_TILES)
+	# No title redirect in a gate scene (title-first-frame, t1p): the boot is the game.
+	hit_scene.set("skip_title", true)
 	root.add_child(hit_scene)
 	hit_scene.set_process(false)
 	await process_frame
