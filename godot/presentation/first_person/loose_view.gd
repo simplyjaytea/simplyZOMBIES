@@ -7,9 +7,13 @@ extends Node3D
 # no node: it keeps whatever placeholder the scene already draws, which is nothing for loose items today.
 # The model stands on the floor: its lowest point is lifted to y = 0. Its turn is a fixed yaw seeded by
 # the entity, so the same item lies the same way every run, and nothing here draws from the sim's RNG.
+# A long firearm also draws its installed visible parts, weapon kit first and receiver-qualified, then
+# rolls onto its side before the floor lift. Shorter firearms keep their existing loose pose.
 
 const Appearance = preload("res://presentation/appearance.gd")
 const Models = preload("res://presentation/first_person/models.gd")
+const SimItems = preload("res://sim/modules/items.gd")
+const SimAttachments = preload("res://sim/modules/attachments.gd")
 
 var _nodes: Dictionary = {}
 # Entities whose item has no model. Resolved once, so a refresh does not look the item up again.
@@ -86,12 +90,59 @@ func _node_for(world: Variant, entity: int, base_id: String) -> Node3D:
 	var model: Node3D = Models.model_for(base_id, String(entry.get("class", "")))
 	if model == null:
 		return null
+	if String(entry.get("class", "")) == "weapon.ranged" and model.find_child("grip_l", true, false) != null:
+		_add_ranged_parts(world, entity, base_id, model)
+		model.rotation.z = -PI * 0.5
 	var holder: Node3D = Node3D.new()
 	holder.name = "Loose%d" % entity
 	holder.rotation.y = _yaw_of(entity)
 	model.position.y = -Models.bounds(model).position.y
 	holder.add_child(model)
 	return holder
+
+
+func _add_ranged_parts(world: Variant, entity: int, receiver_id: String, receiver: Node3D) -> void:
+	var installed: Dictionary = SimAttachments.attached(world, entity)
+	var slots: Array = installed.keys()
+	slots.sort()
+	if slots.has("barrel"):
+		slots.erase("barrel")
+		slots.push_front("barrel")
+	var barrel: Node3D = null
+	for slot_v in slots:
+		var slot: String = String(slot_v)
+		if Models.HIDDEN_SLOTS.has(slot):
+			continue
+		var part_entity: int = int(installed[slot_v])
+		var base: Variant = SimItems.item_base_of(world, part_entity)
+		if not (base is Dictionary):
+			continue
+		var part_id: String = String((base as Dictionary).get("id", ""))
+		var part: Node3D = _weapon_model(part_id, String((base as Dictionary).get("class", "")), receiver_id)
+		if part == null:
+			continue
+		var parent: Node3D = null
+		if slot == "muzzle" and barrel != null:
+			parent = barrel.find_child("socket_muzzle", true, false) as Node3D
+		if parent == null:
+			parent = receiver.find_child("socket_%s" % slot, true, false) as Node3D
+		if parent == null:
+			part.free()
+			continue
+		parent.add_child(part)
+		if slot == "barrel":
+			barrel = part
+
+
+func _weapon_model(item_id: String, item_class: String, receiver_id: String) -> Node3D:
+	for manifest_v in Models.manifests():
+		var manifest: Dictionary = manifest_v as Dictionary
+		if String(manifest.get("kit", "")) != "weapons":
+			continue
+		var entry: Variant = Models.resolve_in([manifest], item_id, item_class, receiver_id)
+		if entry is Dictionary:
+			return Models.instance_of(String((entry as Dictionary).get("glb", "")))
+	return Models.model_for(item_id, item_class, receiver_id)
 
 
 # A fixed turn for each entity: a generator seeded by the entity id, so the answer is the same on every run.
