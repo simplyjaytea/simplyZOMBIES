@@ -885,7 +885,14 @@ static func _buildings(map: Variant, seed_val: int, district: Dictionary, templa
 
 # The templates a district's pool may draw. A template with no `districts` key is drawn everywhere, as
 # before, so filtering on this changes no draw for any template that does not name a district.
+# Pinned by the worldgen gate's plant only: false ignores a template's `districts` key, so the gate can
+# show that the key is what keeps a template out of a district. Shipped code never sets it.
+static var DISTRICTS_KEY_HONOURED: bool = true
+
+
 static func _for_district(templates: Array, district: Dictionary) -> Array:
+	if not DISTRICTS_KEY_HONOURED:
+		return templates
 	var here: String = String(district.get("id", ""))
 	var out: Array = []
 	for t in templates:
