@@ -68,6 +68,10 @@ STYLES = {
     "alu_bronze": (4, 5),
     "granite": (5, 5),
     "kiso": (6, 5),
+    "sign_blue": (0, 6),
+    "sign_blue_alt": (1, 6),
+    "sign_orange": (2, 6),
+    "sign_orange_alt": (3, 6),
 }
 PALETTES = {
     "siding": ["#586058", "#636a60", "#6d7367", "#777b6d", "#818474"],
@@ -88,6 +92,14 @@ PALETTES = {
     "alu_silver": ["#9da2a0", "#a8adab", "#b0b5b2", "#b9bdbb", "#c2c6c3"],
     "alu_bronze": ["#4a4038", "#51473e", "#574c42", "#5f5348", "#675a4f"],
     "granite": ["#62645f", "#70726c", "#7c7e77", "#898b84", "#95978f"],
+    "sign_blue": ["#435761", "#50646c", "#5c7077", "#677a80", "#74868a"],
+    "sign_orange": ["#765743", "#846149", "#916d50", "#9c7757", "#a68260"],
+}
+SIGN_GLYPHS = {
+    "sign_blue": ["1001110", "0101010", "0101110", "1001010", "0101110", "0101010", "0001110"],
+    "sign_blue_alt": ["0010100", "0101010", "0011100", "0001000", "1111111", "0011100", "1010101"],
+    "sign_orange": ["0001000", "1111111", "0011100", "0101010", "1010101", "0001000", "0011100"],
+    "sign_orange_alt": ["0101010", "1111111", "0101010", "0111110", "0100010", "0111110", "0011100"],
 }
 WALL_VARIANTS = {
     "timber": ["timber_sage", "timber_grey", "timber_worn"],
@@ -298,6 +310,10 @@ def atlas_pixel(style, x, y, plant=None):
     if style == "granite":
         grout = x % 16 == 0 or y % 16 == 0
         return tone("concrete", 1) if grout else tone("granite", 2 + ((x // 16 + y // 16) % 2))
+    if style in SIGN_GLYPHS:
+        palette = "sign_blue" if style.startswith("sign_blue") else "sign_orange"
+        edge = min(x, y, 63 - x, 63 - y)
+        return tone(palette, 0 if edge < 2 else 3 if edge < 4 else 2)
     if style == "glass":
         edge = min(x, y, 63 - x, 63 - y)
         return tone("glass", 1 if edge < 5 and n % 3 == 0 else 3)
@@ -653,14 +669,18 @@ def tube_path(mesh, points, radius, style, segments=8):
     mesh.polygon(rings[-1], style, (points[-1] - points[-2]).normalized())
 
 
-HOUSE_FINISHES = {
+TEMPLATE_FINISHES = {
     "building.house.small": {"roof": "kawara", "wall": "timber"},
     "building.house.gable": {"roof": "kawara", "wall": "siding"},
+    "building.arcade.retail": {"roof": "tin", "wall": "siding"},
 }
+HOUSE_IDS = {"building.house.small", "building.house.gable"}
+SHOP_ID = "building.arcade.retail"
+OTHER_TEMPLATES_BASE = "6ed10b19"
 
 
 def finish_looks(template):
-    return HOUSE_FINISHES.get(template["id"], template["look"])
+    return TEMPLATE_FINISHES.get(template["id"], template["look"])
 
 
 def exterior_style(template):
@@ -756,7 +776,7 @@ def build_wall_tile(pieces, template, x, y):
         if inside(template, nx, ny) and not indoors_at(template, nx, ny) and not openable(template, nx, ny):
             exterior_sides.append(side_index)
     if len(exterior_sides) >= 2:
-        trim = "dark_wood" if template["id"] in HOUSE_FINISHES else "trim"
+        trim = "dark_wood" if template["id"] in HOUSE_IDS else "trim"
         for side_index in exterior_sides[:2]:
             side_quad(finish, x, y, side_index, 0, 0.08, 0, WALL_TOP, trim, offset=0.010)
             side_quad(finish, x, y, side_index, 0.92, 1, 0, WALL_TOP, trim, offset=0.010)
@@ -852,7 +872,7 @@ def build_window_tile(pieces, template, x, y):
             continue
         styles = finish_for_neighbour(template, x, y, side_index)
         outside = not indoors_at(template, nx, ny)
-        if template["id"] in HOUSE_FINISHES:
+        if template["id"] in HOUSE_IDS:
             outside = outside and tile_at(template, nx, ny) == 0
             wall_quad(spatial, template, x, y, side_index, 0, 1, 0, WINDOW_SILL, styles)
             wall_quad(spatial, template, x, y, side_index, 0, 1, WINDOW_TOP, WALL_TOP, styles)
@@ -909,7 +929,7 @@ def build_tile_trim(finish, template, x, y, plant=None):
             door_style = "mortar" if template["id"] == "building.house.small" else styles[0]
             side_quad(finish, x, y, side_index, 0, 1, DOOR_TOP, WALL_TOP, door_style, None if template["id"] == "building.house.small" else styles, 0.004)
         if outside:
-            if template["id"] in HOUSE_FINISHES:
+            if template["id"] in HOUSE_IDS:
                 if tile != 6:
                     side_quad(finish, x, y, side_index, 0, 1, 0, 0.40, "kiso", offset=0.007)
                 side_quad(finish, x, y, side_index, 0, 1, 2.43, 2.55, "dark_wood", offset=0.007)
@@ -925,7 +945,8 @@ def build_tile_trim(finish, template, x, y, plant=None):
                 if tile != 6 and side_index == 0:
                     side_quad(finish, x, y, side_index, 0, 1, 0.0, 0.06, "foundation", offset=0.009)
             else:
-                side_quad(finish, x, y, side_index, 0, 1, 0, 0.24, "foundation", offset=0.007)
+                if template["id"] != SHOP_ID or tile != 6:
+                    side_quad(finish, x, y, side_index, 0, 1, 0, 0.24, "foundation", offset=0.007)
                 side_quad(finish, x, y, side_index, 0, 1, 2.43, 2.55, "trim", offset=0.007)
         else:
             finish.role = "interior"
@@ -939,16 +960,17 @@ def build_tile_trim(finish, template, x, y, plant=None):
         left_frame = tile_at(template, *left) != tile
         right_frame = tile_at(template, *right) != tile
         frame = 0.065
-        casing = alu_for(template) if template["id"] in HOUSE_FINISHES else "trim"
-        inner_casing = alu_for(template) if template["id"] in HOUSE_FINISHES else "dark_wood"
+        casing = alu_for(template) if template["id"] in HOUSE_IDS else "trim"
+        inner_casing = alu_for(template) if template["id"] in HOUSE_IDS else "dark_wood"
         if left_frame:
             side_quad(finish, x, y, side_index, 0, frame, low, high, casing, offset=0.014)
         if right_frame:
             side_quad(finish, x, y, side_index, 1.0 - frame, 1, low, high, casing, offset=0.014)
         head0 = frame if left_frame else 0.0
         head1 = 1.0 - frame if right_frame else 1.0
-        head_low = high - frame if template["id"] not in HOUSE_FINISHES else high
-        head_high = high if template["id"] not in HOUSE_FINISHES else high + frame
+        raised_head = template["id"] in HOUSE_IDS or template["id"] == SHOP_ID
+        head_low = high if raised_head else high - frame
+        head_high = high + frame if raised_head else high
         side_quad(finish, x, y, side_index, head0, head1, head_low, head_high, casing, offset=0.014)
         if left_frame:
             side_quad(finish, x, y, side_index, 0, 0.025, low, high - 0.065, inner_casing, offset=0.018)
@@ -958,7 +980,7 @@ def build_tile_trim(finish, template, x, y, plant=None):
 
 def genkan_volumes(template):
     volumes = []
-    if template["id"] not in HOUSE_FINISHES:
+    if template["id"] not in HOUSE_IDS:
         return volumes
     for door_index, door in enumerate(template.get("doors", [])):
         x, y = int(door["x"]), int(door["y"])
@@ -1005,6 +1027,8 @@ def canopy_specs(template, plant=None):
                     if tile_at(template, x + dx, y + dy) != 0 or indoors_at(template, x + dx, y + dy):
                         continue
                     specs.append({"tile": (x, y), "side": side, "u0": 0.0, "u1": 1.0, "depth": 0.40, "wall_y": 2.30, "outer_y": 2.18, "kind": "hood"})
+    elif template["id"] == SHOP_ID:
+        specs.append({"tile": (0, h - 1), "side": 2, "u0": 0.0, "u1": float(w), "depth": 1.05, "wall_y": 2.90, "outer_y": 2.66, "kind": "shop", "style": "tin"})
     return specs
 
 
@@ -1024,15 +1048,16 @@ def add_canopy(mesh, spec, plant=None):
     b = origin + u_axis * spec["u1"] + Vector((0, spec["wall_y"], 0))
     ao = a + normal * spec["depth"] + Vector((0, spec["outer_y"] - spec["wall_y"], 0))
     bo = b + normal * spec["depth"] + Vector((0, spec["outer_y"] - spec["wall_y"], 0))
+    style = spec.get("style", "kawara")
     mesh.role = "roof"
-    mesh.polygon([a, b, bo, ao], "kawara", (0, 1, 0))
+    mesh.polygon([a, b, bo, ao], style, (0, 1, 0))
     mesh.role = "roof_down"
     mesh.polygon([a + Vector((0, -0.06, 0)), ao + Vector((0, -0.06, 0)), bo + Vector((0, -0.06, 0)), b + Vector((0, -0.06, 0))], "dark_wood", (0, -1, 0))
     mesh.role = ""
-    mesh.polygon([a, ao, ao + Vector((0, -0.06, 0)), a + Vector((0, -0.06, 0))], "kawara", -u_axis)
-    mesh.polygon([b, b + Vector((0, -0.06, 0)), bo + Vector((0, -0.06, 0)), bo], "kawara", u_axis)
+    mesh.polygon([a, ao, ao + Vector((0, -0.06, 0)), a + Vector((0, -0.06, 0))], style, -u_axis)
+    mesh.polygon([b, b + Vector((0, -0.06, 0)), bo + Vector((0, -0.06, 0)), bo], style, u_axis)
     mesh.role = ""
-    tube_between(mesh, ao + Vector((0, 0.02, 0)) + u_axis * 0.002, bo + Vector((0, 0.02, 0)) - u_axis * 0.002, 0.035, "kawara")
+    tube_between(mesh, ao + Vector((0, 0.02, 0)) + u_axis * 0.002, bo + Vector((0, 0.02, 0)) - u_axis * 0.002, 0.035, style)
 
 
 def add_balcony(mesh, spec, plant=None):
@@ -1114,9 +1139,31 @@ def wall_volume(out, tile, side, u0, u1, y0, y1, depth, kind="wall_attach"):
     out.append({"kind": kind, "min": low, "max": high, "tile": list(tile), "side": side})
 
 
+def shotengai_volumes(template):
+    out = []
+    if template["id"] != SHOP_ID:
+        return out
+    y = template["size"]["h"] - 1
+    for bay in range(4):
+        left = bay * 4.5 + 0.03
+        right = (bay + 1) * 4.5 - 0.03
+        for x in range(math.floor(left), math.ceil(right)):
+            u0, u1 = max(left, x), min(right, x + 1.0)
+            if u1 > u0:
+                wall_volume(out, (x, y), 2, u0 - x, u1 - x, 2.85, 4.00, 0.080)
+    for x in range(template["size"]["w"]):
+        if tile_at(template, x, y) != 1:
+            continue
+        if not openable(template, x, y):
+            wall_volume(out, (x, y), 2, 0.0, 1.0, 2.18, 2.48, 0.085)
+        if window_candidate(template, x, y):
+            wall_volume(out, (x, y), 2, 0.0, 1.0, 2.18, 2.48, 0.085, "window_attach")
+    return out
+
+
 def wall_attachment_volumes(template):
     out = []
-    if template["id"] not in HOUSE_FINISHES:
+    if template["id"] not in HOUSE_IDS:
         return out
     w, h = template["size"]["w"], template["size"]["h"]
     for y in range(h):
@@ -1178,11 +1225,13 @@ def wall_attachment_volumes(template):
 
 
 def finish_volumes(template, plant=None):
-    volumes = genkan_volumes(template) + [canopy_volume(spec) for spec in canopy_specs(template, plant)] + wall_attachment_volumes(template)
+    volumes = genkan_volumes(template) + [canopy_volume(spec) for spec in canopy_specs(template, plant)] + wall_attachment_volumes(template) + shotengai_volumes(template)
     canopies = [v for v in volumes if v.get("kind") == "canopy"]
     walls = [v for v in volumes if v.get("kind") == "wall_attach"]
     windows = [v for v in volumes if v.get("kind") == "window_attach"]
-    if plant == "canopy_low" and canopies:
+    if plant == "shop_canopy_low" and template["id"] == SHOP_ID:
+        canopies[0]["min"][1] = 2.20
+    elif plant == "canopy_low" and canopies:
         canopies[0]["min"][1] = 1.90
     elif plant == "canopy_deep" and canopies:
         volume = canopies[0]
@@ -1256,12 +1305,14 @@ def validate_finish_volumes(template, volumes):
             continue
         if low[1] < 2.10 - 0.000001:
             raise ValueError("canopy has a vertex below 2.10 m")
+        if template["id"] == SHOP_ID and low[1] < 2.30 - 0.000001:
+            raise ValueError("shop canopy has a vertex below 2.30 m")
         if depth > 1.200001:
             raise ValueError("canopy is more than 1.20 m deep")
         overlap = min(high[along], origin + 1.0) - max(low[along], float(origin))
         if not contact or overlap <= 0.0001:
             raise ValueError("canopy is detached from an exterior wall")
-    if template["id"] in HOUSE_FINISHES:
+    if template["id"] in TEMPLATE_FINISHES:
         wall_count = sum(volume.get("kind") == "wall_attach" for volume in volumes)
         window_count = sum(volume.get("kind") == "window_attach" for volume in volumes)
         print(f"ATTACH {template['id']}: wall {wall_count}, window {window_count}, off-tile 0")
@@ -1307,10 +1358,11 @@ def measure_canopy(template, model, spec):
     along_axis = 0 if spec["side"] in (0, 2) else 2
     plane = origin[along_axis]
     points = []
-    band_low = 2.50 if spec["kind"] == "pent" else 2.00
-    band_high = 3.10 if spec["kind"] == "pent" else 2.60
+    band_low = 2.50 if spec["kind"] == "pent" else 2.30 if spec["kind"] == "shop" else 2.00
+    band_high = 3.10 if spec["kind"] == "pent" else 3.20 if spec["kind"] == "shop" else 2.60
+    roof_style = spec.get("style", "kawara")
     for face in model.faces:
-        if not face["node"].startswith("finish") or face["style"] not in ("kawara", "dark_wood"):
+        if not face["node"].startswith("finish") or face["style"] not in (roof_style, "dark_wood"):
             continue
         face_normal = (Vector(face["points"][1]) - Vector(face["points"][0])).cross(Vector(face["points"][2]) - Vector(face["points"][0])).normalized()
         if face["style"] == "dark_wood" and (face_normal.y > -0.5 or abs(face_normal.x) > 0.01 or abs(face_normal.z) > 0.01):
@@ -1318,7 +1370,15 @@ def measure_canopy(template, model, spec):
         centre = [sum(point[axis] for point in face["points"]) / 3 for axis in range(3)]
         along = centre[along_axis] - plane
         outward = (Vector(centre) - origin).dot(normal)
-        if not spec["u0"] - 0.01 <= along <= spec["u1"] + 0.01 or outward < 0.02 or not band_low <= centre[1] <= band_high or min(point[1] for point in face["points"]) < band_low or max(point[1] for point in face["points"]) > band_high:
+        if not spec["u0"] - 0.01 <= along <= spec["u1"] + 0.01 or not band_low <= centre[1] <= band_high or min(point[1] for point in face["points"]) < band_low or max(point[1] for point in face["points"]) > band_high:
+            continue
+        if spec["kind"] == "shop":
+            if any(not spec["u0"] - 0.01 <= (Vector(point) - origin).dot(u_axis) <= spec["u1"] + 0.01 or not -0.001 <= (Vector(point) - origin).dot(normal) <= 1.20 for point in face["points"]):
+                continue
+            top = face["style"] == roof_style and face_normal.dot(normal) > 0.1 and max(point[1] for point in face["points"]) >= 2.65
+            if not top and outward <= 0.90 and not (face["style"] == "dark_wood" and outward > 0.45):
+                continue
+        elif outward < 0.02:
             continue
         points.extend(Vector(point) for point in face["points"])
     if not points:
@@ -1328,14 +1388,66 @@ def measure_canopy(template, model, spec):
     wall_points = [point for point, distance in zip(points, outward) if abs(distance) <= 0.005]
     return {
         "lowest": min(point.y for point in points),
-        "wall": max(point.y for point in wall_points),
+        "highest": max(point.y for point in points),
+        "wall": max((point.y for point in wall_points), default=spec["wall_y"]),
         "depth": max(outward),
+        "length": max(along) - min(along),
         "centre": (min(along) + max(along)) * 0.5,
     }
 
 
+def shotengai_character(template, model):
+    y = template["size"]["h"] - 1
+    boxes = model_boxes(model)
+    fronts = [box for box in boxes if any(style in SIGN_GLYPHS for style in box["styles"])]
+    closed = all(
+        any(face["style"] == "siding_vertical" and all(abs(point[2] - box["min"][2]) <= 0.00001 for point in face["points"]) for face in box["faces"])
+        and any(face["style"] == "tin" and all(abs(point[1] - box["max"][1]) <= 0.00001 for point in face["points"]) for face in box["faces"])
+        for box in fronts
+    )
+    spec = next(spec for spec in canopy_specs(template) if spec["kind"] == "shop")
+    canopy = measure_canopy(template, model, spec)
+    down, doors, windows = set(), set(), set()
+    door_tiles = {(int(door["x"]), int(door["y"])) for door in template.get("doors", [])}
+    for face in model.faces:
+        if face["style"] != "metal":
+            continue
+        points = [Vector(point) for point in face["points"]]
+        if min(point.z for point in points) < y + 1.0:
+            continue
+        low = min(point.y for point in points)
+        high = max(point.y for point in points)
+        centre = sum(point.x for point in points) / len(points)
+        tile = (math.floor(centre), y)
+        if low < WINDOW_TOP and high > 0.10:
+            down.add(tile)
+        if tile in door_tiles and low >= DOOR_TOP:
+            doors.add(tile)
+        if "-window-" in face["node"] and low >= WINDOW_TOP:
+            parts = face["node"].split("-")
+            station = parts.index("window")
+            windows.add((int(parts[station + 1]), int(parts[station + 2])))
+    expected_down = {(x, y) for x in range(template["size"]["w"]) if tile_at(template, x, y) == 1}
+    expected_windows = {(x, y) for x in range(template["size"]["w"]) if window_candidate(template, x, y)}
+    if len(fronts) != 4 or not closed:
+        raise ValueError(f"{template['id']} false fronts {len(fronts)}, closed {closed}")
+    if canopy["lowest"] < 2.30 - 0.000001 or canopy["highest"] > 3.20 + 0.000001 or canopy["depth"] > 1.20 + 0.000001 or abs(canopy["length"] - template["size"]["w"]) > 0.003001:
+        raise ValueError(f"{template['id']} shop canopy measurement {canopy}")
+    if down != expected_down or doors != door_tiles or windows != expected_windows:
+        raise ValueError(f"{template['id']} shutter stations down {sorted(down)}, doors {sorted(doors)}, windows {sorted(windows)}")
+    walls = sorted({face["style"] for face in model.faces if face["style"] in WALL_VARIANTS["siding"]})
+    roof = sorted({face["style"] for face in model.faces if face["style"] in ROOF_VARIANTS["tin"]})
+    return (
+        f"CHARACTER {template['id']}: false fronts {len(fronts)}, top {max(box['max'][1] for box in fronts):.2f} m, back face {'yes' if closed else 'no'}; "
+        f"canopy {canopy['lowest']:.2f} m to {canopy['highest']:.2f} m, depth {canopy['depth']:.3f} m, length {canopy['length']:.2f} m; "
+        f"shutters down {len(down)}, raised over doors {len(doors)}, raised over windows {len(windows)}; signboards {len(fronts)}; walls {walls}; roof {roof}"
+    )
+
+
 def character_report(template, model):
-    if template["id"] not in HOUSE_FINISHES:
+    if template["id"] == SHOP_ID:
+        return shotengai_character(template, model)
+    if template["id"] not in HOUSE_IDS:
         return None
     w, h = template["size"]["w"], template["size"]["h"]
     lift = 1.90 if template["id"] == "building.house.gable" else 0.0
@@ -1631,7 +1743,7 @@ def add_pent_corners(mesh, template):
 
 
 def build_house_details(finish, template, plant=None):
-    if template["id"] not in HOUSE_FINISHES:
+    if template["id"] not in HOUSE_IDS:
         return
     for volume in genkan_volumes(template):
         low = volume["min"]
@@ -1676,6 +1788,60 @@ def build_house_details(finish, template, plant=None):
                     add_upper_amado(finish, template, x, y, side_index)
 
 
+def shop_shutter_down(mesh, x, y, shallow=False):
+    depth = 0.024 if shallow else 0.085
+    for index in range(14):
+        low = 0.12 + index * 0.14
+        side_quad(mesh, x, y, 2, 0.08, 0.92, low, min(low + 0.12, 2.08), "metal", offset=0.024)
+    side_box(mesh, x, y, 2, 0.0, 1.0, 2.18, 2.48, depth, "metal")
+
+
+def shop_shutter_raised(mesh, x, y, door=False):
+    bottom = 2.22 if door else 2.18
+    depth = 0.024 if door else 0.085
+    side_box(mesh, x, y, 2, 0.0, 1.0, bottom, 2.48, depth, "metal")
+    for index in range(3):
+        low = 2.24 + index * 0.07
+        side_quad(mesh, x, y, 2, 0.06, 0.94, low, low + 0.05, "metal", offset=depth - 0.002)
+
+
+def build_shotengai_details(pieces, template, plant=None):
+    finish = pieces.finish
+    y = template["size"]["h"] - 1
+    planted = False
+    for x in range(template["size"]["w"]):
+        tile = tile_at(template, x, y)
+        if tile == 6:
+            shop_shutter_raised(finish, x, y, True)
+            continue
+        if tile != 1:
+            continue
+        candidate = window_candidate(template, x, y)
+        wall_finish = pieces.piece("wall", x, y)["finish"] if candidate else finish
+        shop_shutter_down(wall_finish, x, y, shallow=candidate)
+        if candidate:
+            window_finish = pieces.piece("window", x, y)["finish"]
+            if plant == "shutter" and not planted:
+                shop_shutter_down(window_finish, x, y)
+                planted = True
+            else:
+                shop_shutter_raised(window_finish, x, y)
+    for bay, style in enumerate(SIGN_GLYPHS):
+        left = bay * 4.5 + 0.03
+        finish.box((left, 2.85, float(y + 1)), (4.44, 1.15, 0.08), style, {"north": "siding_vertical", "top": "tin", "bottom": "dark_wood", "east": "dark_wood", "west": "dark_wood"})
+        scale = 0.13
+        centre = left + 2.22 - 0.91 * 0.5
+        for row, pixels in enumerate(SIGN_GLYPHS[style]):
+            for column, pixel in enumerate(pixels):
+                if pixel != "1":
+                    continue
+                u0 = centre + column * scale
+                high = 3.88 - row * scale
+                side_quad(finish, 0, y, 2, u0, u0 + scale, high - scale, high, "trim", offset=0.083)
+    for spec in canopy_specs(template, plant):
+        add_canopy(finish, spec, plant)
+
+
 def build_pieces(template, plant=None):
     pieces = Pieces(template)
     interior = interior_spec(template)
@@ -1695,6 +1861,8 @@ def build_pieces(template, plant=None):
                 build_tile_trim(pieces.finish, template, x, y, plant)
     build_roof(pieces.finish, template, plant)
     build_house_details(pieces.finish, template, plant)
+    if template["id"] == SHOP_ID:
+        build_shotengai_details(pieces, template, plant)
     finish = pieces.finish
     if plant == "coplanar" and template["id"] == "building.house.small":
         finish._polygon([Vector(v) for v in finish.vertices[:4]], finish.uvs[0], "trim")
@@ -1768,7 +1936,7 @@ def roof_form(template):
 
 
 def eave_for(template):
-    return 0.75 if template["id"] in HOUSE_FINISHES else EAVE
+    return 0.75 if template["id"] in HOUSE_IDS else EAVE
 
 
 def roof_peak(template):
@@ -1866,7 +2034,7 @@ def build_roof(mesh, template, plant=None):
             mesh.polygon([(x, 2.53, -eave), (x, 2.53, 0), (x, wall_roof, 0)], "dark_wood", normal)
             mesh.polygon([(x, 2.53, h), (x, 2.53, h + eave), (x, wall_roof, h)], "dark_wood", normal)
         mesh.role = ""
-        if template["id"] in HOUSE_FINISHES:
+        if template["id"] in HOUSE_IDS:
             add_house_roof_character(mesh, template, eave, peak, plant)
         else:
             mesh.box((-eave, peak - 0.04, h * 0.5 - 0.07), (w + 2 * eave, 0.04, 0.14), variants[0])
@@ -1886,13 +2054,13 @@ def build_roof(mesh, template, plant=None):
         for x in (-eave, w):
             mesh.face((x, 2.53, 0), (eave, 0, 0), (0, 0, h), "dark_wood", normal=(0, -1, 0))
     else:
-        inner = 0.005 if template["id"] in HOUSE_FINISHES else -0.005
+        inner = 0.005 if template["id"] in HOUSE_IDS else -0.005
         for x0, x1 in ((-eave, inner), (w - inner, w + eave)):
             mesh.polygon([(x0, 2.53, -eave), (x1, 2.53, -eave), (x1, peak - 0.09, h * 0.5), (x0, peak - 0.09, h * 0.5)], "dark_wood", (0, -1, 0))
             mesh.polygon([(x0, peak - 0.09, h * 0.5), (x1, peak - 0.09, h * 0.5), (x1, 2.53, h + eave), (x0, 2.53, h + eave)], "dark_wood", (0, -1, 0))
         mesh.role = "roof_side"
         for x, normal in ((-eave - 0.005, (-1, 0, 0)), (w + eave + 0.005, (1, 0, 0))):
-            style = "kawara" if template["id"] in HOUSE_FINISHES else "trim"
+            style = "kawara" if template["id"] in HOUSE_IDS else "trim"
             mesh.polygon([(x, 2.62, -eave), (x, peak, h * 0.5), (x, peak - 0.14, h * 0.5), (x, 2.51, -eave)], style, normal)
             mesh.polygon([(x, peak, h * 0.5), (x, 2.62, h + eave), (x, 2.51, h + eave), (x, peak - 0.14, h * 0.5)], style, normal)
     mesh.role = "roof_side"
@@ -1906,7 +2074,7 @@ def build_roof(mesh, template, plant=None):
             (Vector((-eave - 0.005, 0, -eave)), Vector((0, 0, 1)), h + 2 * eave, 3),
         ]
     for origin, u_axis, length, side_index in edges:
-        if template["id"] in HOUSE_FINISHES:
+        if template["id"] in HOUSE_IDS:
             continue
         normal = Vector((SIDES[side_index][0][0], 0, SIDES[side_index][0][1]))
         mesh.face(origin + Vector((0, 2.53, 0)), u_axis * length, Vector((0, 0.14, 0)), "trim", normal=normal)
@@ -2008,8 +2176,9 @@ def validate_doors(template, model):
             along = 0 if plane_axis == 2 else 2
             plane = y + (1 if side == 2 else 0) if plane_axis == 2 else x + (1 if side == 1 else 0)
             origin = x if along == 0 else y
-            step = steps[door_index]
+            step = steps[door_index] if door_index < len(steps) else None
             lowest = None
+            lowest_face = None
             for face in model.faces:
                 points = face["points"]
                 if any(abs(point[plane_axis] - plane) > 0.030001 for point in points):
@@ -2020,11 +2189,13 @@ def validate_doors(template, model):
                 y1 = max(point[1] for point in points)
                 if a1 <= origin + 0.0650001 or a0 >= origin + 0.9349999 or y0 >= DOOR_TOP or y1 < 0.0:
                     continue
-                if all(step["min"][axis] - 0.0001 <= point[axis] <= step["max"][axis] + 0.0001 for point in points for axis in range(3)):
+                if step is not None and all(step["min"][axis] - 0.0001 <= point[axis] <= step["max"][axis] + 0.0001 for point in points for axis in range(3)):
                     continue
-                lowest = y0 if lowest is None else min(lowest, y0)
+                if lowest is None or y0 < lowest:
+                    lowest = y0
+                    lowest_face = face
             if lowest is not None:
-                raise ValueError(f"door ({x},{y}) has a {face['style']} face crossing its opening at y {lowest:.3f} m")
+                raise ValueError(f"door ({x},{y}) has a {lowest_face['style']} face crossing its opening at y {lowest:.3f} m")
     print(f"DOORS {template['id']}: {len(template.get('doors', []))} doors clear, lowest crossing face none")
 
 
@@ -2070,7 +2241,8 @@ def validate_other_templates(repo, export_dir, templates, plant=None):
     # geometry of each primitive, and the atlas cells its UVs touch, are compared.
     if subprocess.run(["git", "-C", str(repo), "cat-file", "-e", f"{OTHER_TEMPLATES_BASE}^{{commit}}"], capture_output=True).returncode != 0:
         raise ValueError(f"base commit {OTHER_TEMPLATES_BASE} is not in this clone: the other-template proof cannot run")
-    others = [template for template in templates if template["id"] not in NEW_SINCE_BASE]
+    # The round's own template (SHOP_ID, changed by batch B) and the templates new since the base are excluded by name.
+    others = [template for template in templates if template["id"] not in NEW_SINCE_BASE and template["id"] != SHOP_ID]
     for template in others:
         relative = f"godot/assets/first_person/buildings/{template['id'].removeprefix('building.').replace('.', '_')}.glb"
         if not base_has(repo, relative):
@@ -2079,7 +2251,9 @@ def validate_other_templates(repo, export_dir, templates, plant=None):
     # would otherwise go unproved without a sound.
     base_glbs = set(subprocess.run(["git", "-C", str(repo), "ls-tree", "--name-only", f"{OTHER_TEMPLATES_BASE}:godot/assets/first_person/buildings/"], capture_output=True, text=True, check=True).stdout.split())
     proved = {f"{template['id'].removeprefix('building.').replace('.', '_')}.glb" for template in others}
-    if {name for name in base_glbs if name.endswith(".glb")} != proved:
+    # SHOP_ID's base GLB is the one this round changes, so it is named as excluded rather than proved.
+    excluded = {f"{SHOP_ID.removeprefix('building.').replace('.', '_')}.glb"}
+    if {name for name in base_glbs if name.endswith(".glb")} != proved | excluded:
         raise ValueError("other-template proof: the base's building GLBs and the proved templates differ")
     with tempfile.TemporaryDirectory(prefix="building-base-pixels-") as temporary:
         old_path = Path(temporary) / "base-atlas.png"
@@ -2480,13 +2654,13 @@ def build_all(export_dir, blend_path, manifest_path, plant=None, reference_manif
         if reference_manifest is not None:
             reference_entry = next((item for item in reference_manifest["models"] if item["match"]["id"] == template["id"]), None)
         validate_export(output, entry, reference_entry, plant)
-        model = ExportedModel(output) if template["id"] in HOUSE_FINISHES else None
+        model = ExportedModel(output) if template["id"] in TEMPLATE_FINISHES else None
         if model is not None:
             validate_doors(template, model)
         character = character_report(template, model)
         if character is not None:
             print(character)
-        if model is not None:
+        if template["id"] in HOUSE_IDS:
             validate_downpipes(template, model)
             validate_hoods(template, model, plant)
         print(f"BUILT {template['id']} {roof_form(template)} {len(pieces.conditional)} pieces, {roof_faces} roof faces, {windows} windows judged {sha256(output)}")
@@ -2538,7 +2712,7 @@ def main():
     arguments = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire"])
+    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter"])
     args = parser.parse_args(arguments)
     repo = Path(__file__).resolve().parents[3]
     try:
