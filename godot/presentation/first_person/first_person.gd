@@ -99,6 +99,8 @@ const MOVE_KEYS: Array[int] = [KEY_W, KEY_A, KEY_S, KEY_D]
 # world's own generation remains the sim's business.
 var world: Variant = null
 var map: Variant = null
+# The boot-lead value this scene found and replaces; restored on exit (-1 = not set by this scene).
+var _boot_lead_was: int = -1
 # The district size this scene boots. Set before the scene enters the tree (the gate's small override).
 var district_tiles: int = DISTRICT_TILES
 var camera: Camera3D = null
@@ -218,6 +220,9 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	if _boot_lead_was >= 0:
+		SimBoot.BOOT_WAVE_LEAD_DAYS = _boot_lead_was
+		_boot_lead_was = -1
 	if DisplayServer.get_name() != "headless":
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
@@ -237,6 +242,10 @@ func _notification(what: int) -> void:
 # --- boot and views -------------------------------------------------------------------------
 
 func _boot() -> void:
+	# The outdoor boot wanderers are judged two days on, so a stalker, screamer or bloater can stand outdoors at the
+	# boot (boot.gd BOOT_WAVE_LEAD_DAYS; the owner card records seed 20260805 wiping at lead 2). Restored on exit.
+	_boot_lead_was = SimBoot.BOOT_WAVE_LEAD_DAYS
+	SimBoot.BOOT_WAVE_LEAD_DAYS = 2
 	var boot: Dictionary = SimBoot.playable(SEED, district_tiles)
 	world = boot["world"]
 	map = boot["map"]
