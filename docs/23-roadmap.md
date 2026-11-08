@@ -3290,6 +3290,22 @@ not a to-do list:
   take is a press on its own plate and pane, and the shambler's approach is the sim's seek from a
   quiet body, so a sound-making body or another district could change it. The rest of docs/39's proof
   (the convert-and-switch default and the measured budgets) is still open.
+- **A colonist comes to the held player's aid, 2026-11-07.** `npc_combat.gd` (`npc.aid`, priority -6) gives a
+  colonist in the colony faction an `attack` order on a zombie that holds a controlled body, or is Pursuing one
+  within `AID_PURSUE_METRES` (4 m) of it, when the colonist is within `AID_METRES` (24 m) of the zombie and can see
+  it. One aider per zombie; one issue per colonist per `AID_RETRY_TICKS` (60). The order goes through the seam
+  (`orders.gd` `issue`, loaded at run time: a preload would be a ring). `godot:check:fp_aid` (AID-12, AID-5, FAR,
+  NOIN, RESUME, ONCE) is green with one FINDING: at 12 m Ellis is ordered at once but the player's instinct breaks
+  the hold at +55, before she arrives; at 5 m her blow staggers the holder and breaks the hold at +44. The aid's
+  effect on the balance harness is none: no controlled body exists there, so `m2:balance` is identical by
+  construction. `NPC_AID_ENABLED` (static, shipped on) is the switch the armour lane REACHED pins off: the lane tests
+  what a blow wears, and a colonist's swings in the same fight changed its blow count. Cost: the aid scan first added 0.43 ms
+  per tick (4.56 to 4.99 ms, all of it scanning every shambler for every colonist every tick). The candidate list is now
+  built once per tick and the scan runs every `AID_SCAN_TICKS` (4) ticks while nobody is grabbed (every tick while
+  somebody is). Measured in a 256 district with a controlled body, 3000 ticks, aid off and on, interleaved: 0.048 ms/tick
+  and 0.047 ms/tick over two runs (4.53 to 4.58 ms), within the 0.05 ms target. Measured on a fresh boot with no input (5 minutes): Ellis 4.1 m from the player from ~30 s and still
+  there at 5 min; Mara 13.5 m; settlers 78 to 83 m. Not done: #361 (orders in conversation) is not on main yet,
+  so the RESUME lane is to be re-run when it lands.
 - **The first-person key reference, 2026-11-01.** F1 opens the top-down legend, shown with the
   first-person scene's own rows; Escape or F1 again puts it down, and walking keys do nothing while it
   is up. The rows come from one table, `KEY_REFERENCE` in `godot/presentation/first_person/first_person.gd`,
