@@ -36,6 +36,7 @@ const SessionRes = preload("res://presentation/session.gd")
 const RenderInterp = preload("res://presentation/interp.gd")
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
+const HitMarks = preload("res://presentation/first_person/hit_marks.gd")
 const OwnBody = preload("res://presentation/first_person/own_body.gd")
 const ArmsView = preload("res://presentation/first_person/arms_view.gd")
 const PropView = preload("res://presentation/first_person/prop_view.gd")
@@ -126,6 +127,7 @@ var talk_open: bool = false
 var _rig: Node3D = null
 var _district: Node3D = null
 var _bodies: Node3D = null
+var _hit_marks: Node3D = null
 var _props: Node3D = null
 var _containers: Node3D = null
 var _loose: Node3D = null
@@ -302,6 +304,12 @@ func _build_views() -> void:
 	add_child(_bodies)
 	_bodies.call("build")
 	_bodies.call("reset", world)
+	# Hit feedback (docs/30, 2026-11-09): marks, puffs and flinches read the tick's events. The flinch offsets are
+	# one dictionary, shared with the body views, so a flinch moves the drawn body and nothing in the sim.
+	_hit_marks = HitMarks.new()
+	_hit_marks.name = "HitMarks"
+	add_child(_hit_marks)
+	_hit_marks.set("kick", _bodies.get("kick"))
 
 	own_body = OwnBody.new()
 	own_body.name = "OwnBody"
@@ -501,6 +509,8 @@ func step_sim_once() -> void:
 	_prev_player = _curr_player
 	_bodies.call("begin_tick")
 	world.step()
+	_hit_marks.call("tick_once")
+	_hit_marks.call("from_events", world, world.events.drained)
 	var pos: Variant = world.components.get_component(int(world.player), "position")
 	if pos is Dictionary:
 		_curr_player = Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
