@@ -2458,6 +2458,14 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Door leaves, frames and window casing per template, 2026-11-09 (alpha area 2, presentation only).**
+  `godot/presentation/first_person/door_style.gd` holds one row per manifest template and a `default`
+  row (wall reference, leaf, frame, frame width, glazed). `district_view.gd` draws each door as a leaf
+  and a frame, and each window its casing on the faces that meet open ground, as extra boxes in a
+  `Trim` mesh. The band boxes stay the collision and ray truth, unchanged. The `DOORSTYLE` lane of
+  `godot:check:fp_geometry` judges every drawn door's leaf against its wall by at least 0.20 in
+  luminance and refuses a planted leaf equal to its wall. The manifest ships no door-leaf piece, so
+  the leaves are drawn, not kit art; the art line may replace the table later.
 - **The Ome–Okutama re-theme: buildings batch A, 2026-11-05.** The first art batch of
   [docs/42](42-ome-okutama-setting.md) adds two finishes and two whole houses without moving a
   footprint, door, window, pool or weight.
