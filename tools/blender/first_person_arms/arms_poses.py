@@ -20,7 +20,7 @@ from gltf_read import Glb
 C = np.array([[1.0, 0, 0], [0, 0, 1.0], [0, -1.0, 0]])
 WEAPONS = body.REPO / "godot" / "assets" / "first_person" / "weapons"
 CLASSES = ("unarmed", "pistol", "long", "melee1", "melee2")
-REFERENCE = {"pistol": "pistol_service", "melee1": "knife_kitchen", "melee2": "bat_wood", "long": "jig_long"}
+REFERENCE = {"pistol": "pistol_service", "melee1": "knife_kitchen", "melee2": "bat_wood", "long": "rifle_hunting"}
 CONTACT = 0.0008  # the gap left between skin and weapon when a hand or finger closes
 
 
@@ -78,8 +78,14 @@ def slerp_matrix(a, b, amount):
 class Weapon:
     def __init__(self, name):
         self.name = name
+        self.labels = None
         if name == "jig_long":
             self.vertices, self.triangles, self.points = jig_long()
+        elif name == "rifle_hunting":
+            try:
+                self.vertices, self.triangles, self.points, self.labels = assemble_rifle()
+            except FileNotFoundError:
+                self.vertices, self.triangles, self.points = jig_long()
         else:
             glb = Glb(WEAPONS / f"{name}.glb")
             node = glb.mesh_nodes()[0]
@@ -142,6 +148,25 @@ def jig_long():
         "butt": matrix(np.eye(3), [0, bore - 0.020, 0.30]),
     }
     return np.array(vertices), np.array(triangles), points
+
+
+def assemble_rifle():
+    receiver = Glb(WEAPONS / "rifle_hunting.glb")
+    arrays = receiver.mesh_arrays(receiver.mesh_nodes()[0])
+    vertices = [np.array(point) for point in arrays["positions"]]
+    triangles = [tuple(int(i) for i in triangle) for triangle in arrays["triangles"]]
+    labels = ["receiver"] * len(triangles)
+    globals_ = receiver.globals_at()
+    points = {receiver.nodes[i].get("name"): globals_[i] for i in range(len(receiver.nodes)) if "mesh" not in receiver.nodes[i]}
+    for slot, stem in (("barrel", "rifle_barrel_standard"), ("magazine", "rifle_magazine_standard"), ("furniture", "rifle_stock_standard")):
+        part = Glb(WEAPONS / f"{stem}.glb")
+        arrays = part.mesh_arrays(part.mesh_nodes()[0])
+        socket = globals_[receiver.by_name[f"socket_{slot}"]]
+        offset = len(vertices)
+        vertices.extend((np.r_[point, 1.0] @ socket.T)[:3] for point in arrays["positions"])
+        triangles.extend(tuple(offset + int(i) for i in triangle) for triangle in arrays["triangles"])
+        labels.extend([slot] * len(arrays["triangles"]))
+    return np.array(vertices), np.array(triangles), points, labels
 
 
 # ---------------------------------------------------------------------------------------------
@@ -464,8 +489,10 @@ def closed_hand(kin, side, W, obstacles, u, w, grasp, target, curls, fingers):
     return frame, curls
 
 
-def solve_classes(kin, skin_triangles):
+def solve_classes(kin, skin_triangles, plant=None):
     weapons = {cls: Weapon(name) for cls, name in REFERENCE.items()}
+    if plant == "long-jig-sight":
+        weapons["long"] = Weapon("jig_long")
     classes = {}
     zero = {digit: (0, 0, 0, 0, 0) for digit in DIGITS}
     discipline = {**zero, "index": (0, 0, 0, 0, 0), "pinky": (0, 0, 0, -3, 0)}
@@ -493,18 +520,36 @@ def solve_classes(kin, skin_triangles):
         "rel_r": np.linalg.inv(W) @ right, "rel_l": np.linalg.inv(right) @ left, "left_on": "hand",
         "curls": {"R": curls_r, "L": curls_l}, "protract": {"R": 0.10, "L": 0.70},
     }
-    # Long gun (the jig): the right hand on the raked grip as on the pistol, the left under the
-    # handguard at grip_l; carried low right with the muzzle toward the screen centre.
-    jig = weapons["long"]
+    # The real rifle: right hand on its raked grip, left hand under the fore-end at its exported anchor.
+    rifle = weapons["long"]
     W = toward((0.10, -0.15, -0.24), (0.0, -0.02, -3.0))
-    obstacles = [placed(jig, W)]
-    right, curls_r = closed_hand(kin, "R", W, obstacles, (0, -S20, -C20), (-1, 0, 0), (0.060, -0.004, 0.0), np.array([0, -0.010, 0.006]), discipline, ("middle", "ring", "pinky"))
-    grip_l = jig.points["grip_l"][:3, 3]
-    left, curls_l = closed_hand(kin, "L", W, obstacles, (0.97, -0.25, 0.0), (0.25, 0.97, 0.0), (0.050, -0.002, 0.0), grip_l, zero, ("index", "middle", "ring", "pinky"))
+    obstacles = [placed(rifle, W)]
+    long_grip = {digit: tuple(values) for digit, values in discipline.items()}
+    long_grip["pinky"] = (0, 0, 0, 10, 0)
+    right, curls_r = closed_hand(kin, "R", W, obstacles, (0, -S20, -C20), (-1, 0.6, 0), (0.060, -0.004, 0.0), np.array([0, -0.010, 0.006]), long_grip, ("middle", "ring", "pinky"))
+    curls_r["index"] = (30, 100, 20, 0, 0)
+    if plant == "long-into-wood":
+        right = right.copy()
+        right[:3, 3] += right[:3, 2] * 0.004
+    grip_l = rifle.points["grip_l"][:3, 3]
+    left_target = grip_l + np.array([-0.020, 0.0, 0.0])
+    left, curls_l = closed_hand(kin, "L", W, obstacles, (0.97, -0.25, 0.0), (math.cos(math.radians(105)), math.sin(math.radians(105)), 0.0), (0.050, -0.002, 0.0), left_target, zero, ("index", "middle", "ring", "pinky"))
+    left[:3, 3] += np.array([0.0, 0.0, 0.001])
+    curls_l["middle"] = (40, 60, 60, 60, 0)
+    if plant == "long-open-hand":
+        curls_l = zero
+    aim = straight_on_axis(rifle, 0.40)
+    old_aim = straight_on_axis(Weapon("jig_long"), 0.40)
+    position = C @ aim[:3, 3]
+    rotation = C @ aim[:3, :3]
+    angles = [math.degrees(math.asin(max(-1.0, min(1.0, -rotation[1][2])))), math.degrees(math.atan2(rotation[0][2], rotation[2][2])), math.degrees(math.atan2(rotation[1][0], rotation[1][1]))]
+    moved_mm = np.linalg.norm(aim[:3, 3] - old_aim[:3, 3]) * 1000
+    turned = math.degrees(math.acos(max(-1.0, min(1.0, (np.trace(aim[:3, :3].T @ old_aim[:3, :3]) - 1) / 2))))
+    print(f"LONG_AIM anchor position {tuple(round(float(v), 4) for v in position)} m, angles {tuple(round(float(v), 3) for v in angles)} deg, change from jig {moved_mm:.1f} mm / {turned:.2f} deg")
     classes["long"] = {
-        "weapon": jig, "idle": W, "aim": straight_on_axis(jig, 0.40),
+        "weapon": rifle, "idle": W, "aim": aim,
         "rel_r": np.linalg.inv(W) @ right, "rel_l": np.linalg.inv(W) @ left, "left_on": "weapon",
-        "curls": {"R": curls_r, "L": curls_l}, "protract": {"R": 0.05, "L": 0.75},
+        "curls": {"R": curls_r, "L": curls_l}, "protract": {"R": 0.05, "L": 1.00},
     }
     # One-hand melee (the kitchen knife): the pistol's anchor, a closed fist on the handle with the
     # blade forward; the left hand drops below the frame.

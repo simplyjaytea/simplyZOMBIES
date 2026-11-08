@@ -66,7 +66,7 @@ class Build:
         rig_.assign(self.skin, skin_rows, self.rig)
         rig_.assign(self.sleeve, sleeve_rows, self.rig)
         self.kin = poses.Kin(self.rig, self.rest, skin_rest, dominant)
-        self.classes = poses.solve_classes(self.kin, self.skin_triangles)
+        self.classes = poses.solve_classes(self.kin, self.skin_triangles, plant)
         self.idle_roll = {}
         self.grip_locals = {}
         for cls, data in self.classes.items():
@@ -398,6 +398,10 @@ PLANTS = {
     "finger-through": ("wrap",),
     "support-wrap": ("wrap",),
     "sight-off": ("sight-line",),
+    "long-jig-sight": ("sight-line",),
+    "long-open-hand": ("long-hands",),
+    "long-into-wood": ("long-hands",),
+    "other-holds": ("other-holds",),
     "near-clip": ("near-plane",),
     "short-arm": ("stump",),
     "hand-out": ("in-frame",),
