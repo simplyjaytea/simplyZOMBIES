@@ -174,7 +174,8 @@ The source baseline is archived on GitHub at
   draw on, a fictional map of the valley, building types, and the item and district renames. See
   [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
   The brief is [docs/42](42-ome-okutama-setting.md); its section 6 is the order of the work.
-  Building batch A has landed; the remaining art batches, templates, props and renames stay planned.
+  Building batch A and batch B's shotengai row have landed; the remaining art batches, templates,
+  props and renames stay planned.
 - **The wider world by rail.** Other districts and cities reached by a train the colony repairs
   first. The design exists as [docs/45](45-wider-world-by-rail.md), a note like docs/42, under the
   region and streaming work; the sizing does not. See [docs/30](30-decisions.md#the-setting-cards-the-defaults-and-the-valley-is-the-first-of-several-2026-11-04).
@@ -2487,6 +2488,21 @@ not a to-do list:
     the opening. `godot:smoke` and `check:routing` pass. Matched 1280x720 before/after, real-sky,
     repeat and magenta captures accompany the piece; repeat-run pixel noise is zero.
 
+- **The Ome–Okutama re-theme: the shotengai row, 2026-11-07.** Batch B starts with the existing
+  18 x 13 m `building.arcade.retail`; `TEMPLATE_FINISHES` gives it a tin gable and siding walls without
+  changing its template JSON, footprint, doors, windows, pool or weight.
+  - **Street.** Four closed 4.5 m signboard fronts reach 4.00 m, with back faces, top caps, faded
+    blue/orange cells and original generic Japanese glyphs. One continuous canopy measures 18.00 m
+    long, 1.085 m deep and 2.60 to 2.90 m high. Fifteen wall-state shutters are down, 13 window
+    variants raise the shutter over glazing, and all three doors have raised shutters and clear
+    openings. Permanent-wall and window boxes declare `wall_attach` and `window_attach` on their real
+    tiles; openable wall-state and door curtains use shallow skins. No new finish-volume kind.
+  - **Verified.** The builder's measured `CHARACTER` line reports those counts and dimensions.
+    `OTHER_TEMPLATES_PIXELS_IDENTICAL 21/21` holds every other template's mesh and touched atlas cells
+    to `6ed10b19`. All 25 plants are refused, including the shop's 2.20 m canopy and a shutter lowered
+    over an openable window. `godot:check:fp_geometry`, `godot:smoke` and `check:routing` pass.
+    Matched base/head, repeat, magenta and Blender captures accompany the piece; repeat-run pixel
+    noise is zero.
 - **The konbini template: `building.konbini.road`, 2026-11-07.** Batch B's first template, content and
   generic finish only (the art round B4 replaces the finish later). 12 x 9 tiles, commercial, weight 4
   (the largest of 4, 3, 2 that keeps `godot:check:buildings` green at seed 20260805; at 6 the grocery is no
@@ -4571,6 +4587,22 @@ not a to-do list:
     ramp check passes) is refused by `paint-match` at 27.3 levels.
   - **Not done.** The round-2 review's N1 (the trigger finger carried over from the previous clip) is a view
     branch fix (`deterministic` on the arms' player), not in this piece.
+- **View-model arms: the long hold on the hunting rifle, 2026-11-07.** The `long` reference changes
+  from `jig_long` to the committed `rifle_hunting`, assembled with its barrel, magazine and stock on
+  their exported sockets. `grip_r`, `grip_l` and `sight` come from the rifle's nodes; the jig remains a
+  fallback and a plant. The rifle's rig, skin, paint and weapon GLBs do not change.
+  - **Pose and contact.** `aim_long` and the end of `raise_long` use the rifle's 24.0 mm sight at
+    z -120 mm; the aim anchor moves 46.0 mm from the jig, with the sight 0.0 mm off the camera axis
+    and the bore 0.06 degrees from -Z. Both hands re-close on the assembled mesh. At idle, aim and
+    raise's first/middle/last frames, `LONG_HANDS` measures zero penetration, left palm/proximal maxima
+    2.2/3.2 mm, right palm 0.8 mm and right index-to-trigger 0.6 mm. `RIFLE_HANDS` on the weapon kit
+    still measures 0.0 mm in both hands.
+  - **Verified.** `build_arms.py -- --check` prints `ARMS_CHECK_OK`; all 30 plants are refused,
+    including the jig sight, an open left hand, a right palm pushed into the grip and a changed pistol
+    key. `OTHER_HOLDS_IDENTICAL 17 clips` compares every non-long animation track with `cbb1fb00`.
+    `godot:check:first_person` prints `FIRST_PERSON_OK`. Production idle/aim/raise captures, hand
+    close-ups and before/after frames accompany the piece.
+
 - **The lurker, 2026-11-05.** Zombie kind ten, a dormant kind: `godot/content/zombies/lurker.json`,
   extends `zombie.base`, with the shambler's body, sensory, locomotion and workwear picture (no
   picture of its own, as the crawler and bloodhound). It takes `dormantShare` 0.2 of the dormant
