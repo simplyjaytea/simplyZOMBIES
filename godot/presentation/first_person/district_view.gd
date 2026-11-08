@@ -142,6 +142,7 @@ func _build_mesh(node_name: String, mesh: Mesh, see_through: bool) -> MeshInstan
 func _ground_surface() -> ArrayMesh:
 	var st: SurfaceTool = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_smooth_group(-1)
 	var w: int = int(map.w)
 	var h: int = int(map.h)
 	for ty in h:
@@ -171,6 +172,7 @@ func _ground_surface() -> ArrayMesh:
 func _band_surface(see_through: bool, skip_walls: bool) -> ArrayMesh:
 	var st: SurfaceTool = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_smooth_group(-1)
 	var drew: bool = false
 	for ty in int(map.h):
 		for tx in int(map.w):
@@ -358,6 +360,7 @@ static func tile_mesh(map: Variant, tx: int, ty: int) -> ArrayMesh:
 		return null
 	var st: SurfaceTool = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_smooth_group(-1)
 	for box in boxes:
 		_add_box_of(st, box)
 	st.generate_normals()
