@@ -174,7 +174,8 @@ The source baseline is archived on GitHub at
   draw on, a fictional map of the valley, building types, and the item and district renames. See
   [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
   The brief is [docs/42](42-ome-okutama-setting.md); its section 6 is the order of the work.
-  Building batch A has landed; the remaining art batches, templates, props and renames stay planned.
+  Building batch A and batch B's shotengai row have landed; the remaining art batches, templates,
+  props and renames stay planned.
 - **The wider world by rail.** Other districts and cities reached by a train the colony repairs
   first. The design exists as [docs/45](45-wider-world-by-rail.md), a note like docs/42, under the
   region and streaming work; the sizing does not. See [docs/30](30-decisions.md#the-setting-cards-the-defaults-and-the-valley-is-the-first-of-several-2026-11-04).
@@ -2489,6 +2490,21 @@ not a to-do list:
     the opening. `godot:smoke` and `check:routing` pass. Matched 1280x720 before/after, real-sky,
     repeat and magenta captures accompany the piece; repeat-run pixel noise is zero.
 
+- **The Ome–Okutama re-theme: the shotengai row, 2026-11-07.** Batch B starts with the existing
+  18 x 13 m `building.arcade.retail`; `TEMPLATE_FINISHES` gives it a tin gable and siding walls without
+  changing its template JSON, footprint, doors, windows, pool or weight.
+  - **Street.** Four closed 4.5 m signboard fronts reach 4.00 m, with back faces, top caps, faded
+    blue/orange cells and original generic Japanese glyphs. One continuous canopy measures 18.00 m
+    long, 1.085 m deep and 2.60 to 2.90 m high. Fifteen wall-state shutters are down, 13 window
+    variants raise the shutter over glazing, and all three doors have raised shutters and clear
+    openings. Permanent-wall and window boxes declare `wall_attach` and `window_attach` on their real
+    tiles; openable wall-state and door curtains use shallow skins. No new finish-volume kind.
+  - **Verified.** The builder's measured `CHARACTER` line reports those counts and dimensions.
+    `OTHER_TEMPLATES_PIXELS_IDENTICAL 21/21` holds every other template's mesh and touched atlas cells
+    to `6ed10b19`. All 25 plants are refused, including the shop's 2.20 m canopy and a shutter lowered
+    over an openable window. `godot:check:fp_geometry`, `godot:smoke` and `check:routing` pass.
+    Matched base/head, repeat, magenta and Blender captures accompany the piece; repeat-run pixel
+    noise is zero.
 - **The konbini template: `building.konbini.road`, 2026-11-07.** Batch B's first template, content and
   generic finish only (the art round B4 replaces the finish later). 12 x 9 tiles, commercial, weight 4
   (the largest of 4, 3, 2 that keeps `godot:check:buildings` green at seed 20260805; at 6 the grocery is no
