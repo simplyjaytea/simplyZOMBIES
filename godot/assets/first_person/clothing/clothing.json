@@ -1,0 +1,481 @@
+{
+  "atlas": "clothing_atlas.png",
+  "dressedCap": 14500,
+  "families": {
+    "cap_soft": {
+      "glb": "cap_soft.glb",
+      "tris": 240,
+      "variants": {
+        "cap": "cap_soft_cap",
+        "knit": "cap_soft_knit"
+      }
+    },
+    "carrier": {
+      "glb": "carrier.glb",
+      "tris": 0,
+      "variants": {
+        "flat": "carrier_flat",
+        "loaded": "carrier_loaded",
+        "rig": "carrier_rig"
+      }
+    },
+    "coat_padded": {
+      "glb": "coat_padded.glb",
+      "tris": 0,
+      "variants": {
+        "default": "coat_padded",
+        "hood": "coat_padded_hood"
+      }
+    },
+    "helmet_hard": {
+      "glb": "helmet_hard.glb",
+      "tris": 0,
+      "variants": {
+        "default": "helmet_hard"
+      }
+    },
+    "pack": {
+      "glb": "pack.glb",
+      "tris": 264,
+      "variants": {
+        "default": "pack"
+      }
+    }
+  },
+  "hair": {
+    "default": "hair",
+    "tucked": "hair_tucked"
+  },
+  "handExtras": {
+    "chemical": "arms_cuff_chemical"
+  },
+  "handPages": {
+    "bare": "arms_atlas.png",
+    "chemical": "arms_hands_chemical.png",
+    "leather": "arms_hands_leather.png",
+    "mesh": "arms_hands_mesh.png",
+    "wool": "arms_hands_wool.png",
+    "work": "arms_hands_work.png"
+  },
+  "items": {
+    "item.apron.welding": {
+      "layer": "mid",
+      "none": "first cut",
+      "slot": "torso"
+    },
+    "item.bandana.cotton": {
+      "none": "first cut",
+      "slot": "face"
+    },
+    "item.bandolier.canvas": {
+      "none": "first cut",
+      "slot": "vest"
+    },
+    "item.blanket.wool": {
+      "layer": "over",
+      "none": "first cut",
+      "slot": "torso"
+    },
+    "item.boots.insulated": {
+      "none": "first cut",
+      "slot": "feet"
+    },
+    "item.boots.leather": {
+      "none": "first cut",
+      "slot": "feet"
+    },
+    "item.boots.steel": {
+      "none": "first cut",
+      "slot": "feet"
+    },
+    "item.cap.canvas": {
+      "drawnBeyond": [],
+      "family": "cap_soft",
+      "hair": "tucked",
+      "parts": [
+        "head"
+      ],
+      "read": "10m",
+      "slot": "head",
+      "variant": "cap"
+    },
+    "item.case.gun": {
+      "none": "first cut",
+      "slot": "back"
+    },
+    "item.cliplight.glasses": {
+      "none": "first cut",
+      "slot": "eyes"
+    },
+    "item.coat.parka": {
+      "drawnBeyond": [],
+      "family": "coat_padded",
+      "hair": "hidden",
+      "layer": "mid",
+      "parts": [
+        "arm_left",
+        "arm_right",
+        "head",
+        "torso"
+      ],
+      "read": "10m",
+      "sleeve": "padded",
+      "slot": "torso",
+      "variant": "hood"
+    },
+    "item.coat.winter": {
+      "drawnBeyond": [],
+      "family": "coat_padded",
+      "layer": "mid",
+      "parts": [
+        "arm_left",
+        "arm_right",
+        "torso"
+      ],
+      "read": "10m",
+      "sleeve": "padded",
+      "slot": "torso",
+      "variant": "default"
+    },
+    "item.coverall.paper": {
+      "layer": "mid",
+      "none": "first cut",
+      "slot": "torso"
+    },
+    "item.drybag.roll": {
+      "none": "first cut",
+      "slot": "back"
+    },
+    "item.duffel.canvas": {
+      "none": "first cut",
+      "slot": "back"
+    },
+    "item.glasses.safety": {
+      "none": "first cut",
+      "slot": "eyes"
+    },
+    "item.gloves.chemical": {
+      "body": "none",
+      "bodyReason": "first cut, arms only",
+      "hand": "chemical",
+      "parts": [
+        "hand_left",
+        "hand_right"
+      ],
+      "read": "2m",
+      "slot": "gloves"
+    },
+    "item.gloves.leather": {
+      "body": "none",
+      "bodyReason": "first cut, arms only",
+      "hand": "leather",
+      "parts": [
+        "hand_left",
+        "hand_right"
+      ],
+      "read": "2m",
+      "slot": "gloves"
+    },
+    "item.gloves.mesh": {
+      "body": "none",
+      "bodyReason": "first cut, arms only",
+      "hand": "mesh",
+      "parts": [
+        "hand_left",
+        "hand_right"
+      ],
+      "read": "2m",
+      "slot": "gloves"
+    },
+    "item.gloves.wool": {
+      "body": "none",
+      "bodyReason": "first cut, arms only",
+      "hand": "wool",
+      "parts": [
+        "hand_left",
+        "hand_right"
+      ],
+      "read": "2m",
+      "slot": "gloves"
+    },
+    "item.gloves.work": {
+      "body": "none",
+      "bodyReason": "first cut, arms only",
+      "hand": "work",
+      "parts": [
+        "hand_left",
+        "hand_right"
+      ],
+      "read": "2m",
+      "slot": "gloves"
+    },
+    "item.goggles.sealed": {
+      "none": "first cut",
+      "slot": "eyes"
+    },
+    "item.hat.sun": {
+      "none": "first cut",
+      "slot": "head"
+    },
+    "item.hat.wool": {
+      "drawnBeyond": [],
+      "family": "cap_soft",
+      "hair": "tucked",
+      "parts": [
+        "head"
+      ],
+      "read": "10m",
+      "slot": "head",
+      "variant": "knit"
+    },
+    "item.headlamp.band": {
+      "none": "first cut",
+      "slot": "head"
+    },
+    "item.headlamp.miners": {
+      "none": "first cut",
+      "slot": "head"
+    },
+    "item.helmet.bike": {
+      "drawnBeyond": [],
+      "family": "helmet_hard",
+      "hair": "tucked",
+      "parts": [
+        "head"
+      ],
+      "read": "10m",
+      "slot": "head",
+      "variant": "default"
+    },
+    "item.helmet.hardhat": {
+      "drawnBeyond": [],
+      "family": "helmet_hard",
+      "hair": "tucked",
+      "parts": [
+        "head"
+      ],
+      "read": "10m",
+      "slot": "head",
+      "variant": "default"
+    },
+    "item.jacket.leather": {
+      "layer": "mid",
+      "none": "first cut",
+      "slot": "torso"
+    },
+    "item.jeans.denim": {
+      "none": "first cut",
+      "slot": "legs"
+    },
+    "item.mask.cloth": {
+      "none": "first cut",
+      "slot": "face"
+    },
+    "item.mask.dust": {
+      "none": "first cut",
+      "slot": "face"
+    },
+    "item.mask.gas": {
+      "none": "first cut",
+      "slot": "face"
+    },
+    "item.mask.surgical": {
+      "none": "first cut",
+      "slot": "face"
+    },
+    "item.named.butchers_apron": {
+      "layer": "mid",
+      "none": "first cut",
+      "slot": "torso"
+    },
+    "item.pack.frame": {
+      "drawnBeyond": [
+        {
+          "part": "torso",
+          "reason": "a pack on the back; it protects nothing"
+        }
+      ],
+      "family": "pack",
+      "parts": [],
+      "read": "10m",
+      "slot": "back",
+      "variant": "default"
+    },
+    "item.pack.hiking": {
+      "drawnBeyond": [
+        {
+          "part": "torso",
+          "reason": "a pack on the back; it protects nothing"
+        }
+      ],
+      "family": "pack",
+      "parts": [],
+      "read": "10m",
+      "slot": "back",
+      "variant": "default"
+    },
+    "item.pack.school": {
+      "drawnBeyond": [
+        {
+          "part": "torso",
+          "reason": "a pack on the back; it protects nothing"
+        }
+      ],
+      "family": "pack",
+      "parts": [],
+      "read": "10m",
+      "slot": "back",
+      "variant": "default"
+    },
+    "item.pants.canvas": {
+      "none": "first cut",
+      "slot": "legs"
+    },
+    "item.poncho.rain": {
+      "layer": "over",
+      "none": "first cut",
+      "slot": "torso"
+    },
+    "item.poncho.tarp": {
+      "layer": "over",
+      "none": "first cut",
+      "slot": "torso"
+    },
+    "item.pouch.dropleg": {
+      "none": "first cut",
+      "slot": "belt"
+    },
+    "item.pouch.dump": {
+      "none": "first cut",
+      "slot": "belt"
+    },
+    "item.pouch.medic": {
+      "none": "first cut",
+      "slot": "belt"
+    },
+    "item.raincoat.hooded": {
+      "layer": "over",
+      "none": "first cut",
+      "slot": "torso"
+    },
+    "item.respirator.halfmask": {
+      "none": "first cut",
+      "slot": "face"
+    },
+    "item.rig.chest": {
+      "drawnBeyond": [
+        {
+          "part": "torso",
+          "reason": "a load-bearing rig over the chest; it protects nothing"
+        }
+      ],
+      "family": "carrier",
+      "parts": [],
+      "read": "10m",
+      "slot": "vest",
+      "variant": "rig"
+    },
+    "item.sandals.canvas": {
+      "none": "first cut",
+      "slot": "feet"
+    },
+    "item.satchel.canvas": {
+      "none": "first cut",
+      "slot": "belt"
+    },
+    "item.scarf.wool": {
+      "none": "first cut",
+      "slot": "face"
+    },
+    "item.shirt.linen": {
+      "layer": "inner",
+      "none": "first cut",
+      "slot": "torso"
+    },
+    "item.shorts.cotton": {
+      "none": "first cut",
+      "slot": "legs"
+    },
+    "item.sling.bag": {
+      "none": "first cut",
+      "slot": "back"
+    },
+    "item.suit.hazmat": {
+      "layer": "mid",
+      "none": "first cut",
+      "slot": "torso"
+    },
+    "item.thermals.leggings": {
+      "none": "first cut",
+      "slot": "legs"
+    },
+    "item.thermals.top": {
+      "layer": "inner",
+      "none": "first cut",
+      "slot": "torso"
+    },
+    "item.trousers.insulated": {
+      "none": "first cut",
+      "slot": "legs"
+    },
+    "item.vest.carrier": {
+      "drawnBeyond": [],
+      "family": "carrier",
+      "loadedWhen": "plate",
+      "parts": [
+        "arm_left",
+        "arm_right",
+        "torso"
+      ],
+      "read": "10m",
+      "slot": "vest",
+      "variant": "flat"
+    },
+    "item.vest.down": {
+      "none": "first cut",
+      "slot": "vest"
+    },
+    "item.vest.mesh": {
+      "none": "first cut",
+      "slot": "vest"
+    },
+    "item.vest.riot": {
+      "drawnBeyond": [],
+      "family": "carrier",
+      "loadedWhen": "plate",
+      "parts": [
+        "arm_left",
+        "arm_right",
+        "torso"
+      ],
+      "read": "10m",
+      "slot": "vest",
+      "variant": "flat"
+    },
+    "item.vest.scrap": {
+      "drawnBeyond": [],
+      "family": "carrier",
+      "loadedWhen": "plate",
+      "parts": [
+        "arm_left",
+        "arm_right",
+        "torso"
+      ],
+      "read": "10m",
+      "slot": "vest",
+      "variant": "flat"
+    },
+    "item.wrap.cloth": {
+      "layer": "inner",
+      "none": "first cut",
+      "slot": "torso"
+    }
+  },
+  "material": "ClothingAtlas",
+  "sleeves": {
+    "knit": "arms_sleeve",
+    "padded": "arms_sleeve_padded"
+  },
+  "survivorRig": "survivor.glb",
+  "version": 1
+}

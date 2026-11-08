@@ -1727,9 +1727,15 @@ def validate_export(path, character):
     expected_image = "survivor_atlas" if character == "survivor" else "characters_atlas"
     if len(document.get("images", [])) != 1 or document["images"][0].get("name") != expected_image:
         raise ValueError(f"{path.name}: expected only {expected_image}")
-    primitives = [primitive for mesh in document.get("meshes", []) for primitive in mesh["primitives"]]
-    if not primitives or any(primitive.get("material") != 0 for primitive in primitives):
+    all_primitives = [primitive for mesh in document.get("meshes", []) for primitive in mesh["primitives"]]
+    if not all_primitives or any(primitive.get("material") != 0 for primitive in all_primitives):
         raise ValueError(f"{path.name}: every primitive must use the shared material")
+    tucked_meshes = {node["mesh"] for node in document.get("nodes", []) if node.get("name") == "hair_tucked" and "mesh" in node}
+    if character == "survivor":
+        names = {node.get("name") for node in document.get("nodes", [])}
+        if not {"survivor", "hair", "hair_tucked"} <= names:
+            raise ValueError(f"{path.name}: survivor body, hair and hair_tucked nodes are required")
+    primitives = [primitive for mesh_index, mesh in enumerate(document.get("meshes", [])) if mesh_index not in tucked_meshes for primitive in mesh["primitives"]]
     positions = []
     triangles = 0
     densities = []
@@ -1860,10 +1866,12 @@ def survivor_density(path, measured_triangles):
     return f"all {len(samples)} non-hair islands at nominal body {BODY_DENSITY}/head {HEAD_DENSITY} px/m +/-10% (area-weighted p50)"
 
 
-def export_character(character, armature, mesh, path):
+def export_character(character, armature, mesh, path, extras=()):
     bpy.ops.object.select_all(action="DESELECT")
     armature.select_set(True)
     mesh.select_set(True)
+    for extra in extras:
+        extra.select_set(True)
     bpy.context.view_layer.objects.active = armature
     bpy.ops.export_scene.gltf(
         filepath=str(path),
@@ -2094,7 +2102,7 @@ def build_all(export_dir, blend_path, render_dir=None, layout_dir=None, clay=Fal
     image = build_atlas_image(pixels, export_dir / "characters_atlas.png")
     material = build_material(image)
     paint_path = Path(__file__).with_name("survivor_paint.png")
-    survivor_mesh = build_survivor(rigs["survivor"], export_dir, layout_dir, PLANT, paint_path)
+    survivor_mesh, survivor_hair, survivor_tucked = build_survivor(rigs["survivor"], export_dir, layout_dir, PLANT, paint_path)
     shambler_mesh = builders["shambler"].object("shambler", material, rigs["shambler"])
     characters = {"survivor": (rigs["survivor"], survivor_mesh), "shambler": (rigs["shambler"], shambler_mesh)}
     actions = {}
@@ -2102,7 +2110,8 @@ def build_all(export_dir, blend_path, render_dir=None, layout_dir=None, clay=Fal
         rig, mesh = characters[character]
         actions[character] = build_actions(character, rig, mesh)
         validate_motion(character, rig, mesh, actions[character])
-        export_character(character, rig, mesh, export_dir / f"{character}.glb")
+        extras = (survivor_hair, survivor_tucked) if character == "survivor" else ()
+        export_character(character, rig, mesh, export_dir / f"{character}.glb", extras)
     characters["survivor"][0].location.x = -0.7
     characters["shambler"][0].location.x = 0.7
     bpy.ops.object.select_all(action="DESELECT")

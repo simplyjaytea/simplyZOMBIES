@@ -500,9 +500,15 @@ def bun_locks():
     return locks
 
 
-def hair_source():
+def hair_source(tucked=False):
     vertices, faces, face_uvs, face_rects, normals = [], [], [], [], []
-    locks = head_locks() + bun_locks()
+    if tucked:
+        locks = []
+        for x in (-0.030, 0.030):
+            points = [Vector((x, -0.105, 1.610)), Vector((x * 1.1, -0.110, 1.570)), Vector((x * 1.2, -0.104, 1.535))]
+            locks.append((points, [0.014, 0.012, 0.004], 0.40, 1, HEAD_CENTRE))
+    else:
+        locks = head_locks() + bun_locks()
     lengths = []
     for points, widths, flat, per_span, centre in locks:
         lengths.append(sum((b - a).length for a, b in zip(points, points[1:])))
@@ -562,7 +568,7 @@ def hair_source():
             faces.append((offset + last * segments + index, offset + last * segments + (index + 1) % segments, tip))
             face_uvs.append([uv(last, index), uv(last, index + 1), ((x + w / 2) / ATLAS_SIZE, (y + h - PAD) / ATLAS_SIZE)])
             face_rects.append(name)
-    obj = object_from("survivor_hair", vertices, faces)
+    obj = object_from("hair_tucked" if tucked else "hair", vertices, faces)
     for polygon in obj.data.polygons:
         polygon.use_smooth = True
     obj.data.normals_split_custom_set_from_vertices(normals)
@@ -862,29 +868,34 @@ def skin_body(body, vertex_labels, rig):
     body["eye_vertices"] = [min((v for v in body.data.vertices if v.co.y > 0.04), key=lambda v: (v.co.x - eye_x) ** 2 + (v.co.z - 1.623) ** 2).index for eye_x in (-0.034, 0.034)]
 
 
-def join_character(body, hair, material):
+def separate_hair(body, hair, tucked, material, rig):
     body.data.materials.append(material)
-    hair.data.materials.append(material)
-    hair_group = hair.vertex_groups.new(name="head")
-    hair_group.add(list(range(len(hair.data.vertices))), 1.0, "REPLACE")
+    for piece in (hair, tucked):
+        piece.data.materials.append(material)
+        hair_group = piece.vertex_groups.new(name="head")
+        hair_group.add(list(range(len(piece.data.vertices))), 1.0, "REPLACE")
+        modifier = piece.modifiers.new("Head-following hair", "ARMATURE")
+        modifier.object = rig
+        modifier.use_deform_preserve_volume = True
+        piece.parent = rig
     # The 1.75 m contract is the skull crown (the head with its hair mass); the bun and loose
     # locks may rise above it. The soles stand on the origin; nothing is rescaled.
     lowest = min(vertex.co.z for vertex in body.data.vertices)
     crown = max(vertex.co.z for vertex in body.data.vertices) - lowest
     if abs(crown - CROWN) > 0.02:
         raise ValueError(f"[height] survivor: skull crown {crown:.3f} m is not within 2 cm of {CROWN} m")
-    activate(body)
-    hair.select_set(True)
-    bpy.ops.object.join()
-    for vertex in body.data.vertices:
-        vertex.co.z -= lowest
-    top = max(vertex.co.z for vertex in body.data.vertices)
+    for piece in (body, hair, tucked):
+        for vertex in piece.data.vertices:
+            vertex.co.z -= lowest
+    top = max(vertex.co.z for vertex in hair.data.vertices)
     print(f"SURVIVOR_HEIGHT skull crown {crown:.4f} m, hair top {top:.4f} m")
     if top > CROWN + HAIR_RISE:
         raise ValueError(f"[height] survivor: hair rises to {top:.3f} m, more than {HAIR_RISE} m above the crown")
-    for polygon in body.data.polygons:
-        polygon.use_smooth = True
-    return body
+    for piece in (body, hair, tucked):
+        for polygon in piece.data.polygons:
+            polygon.use_smooth = True
+    print(f"SURVIVOR_MESH body {len(body.data.polygons)} triangles, hair {sum(len(p.vertices) - 2 for p in hair.data.polygons)}, tucked {sum(len(p.vertices) - 2 for p in tucked.data.polygons)}")
+    return body, hair, tucked
 
 
 FONT = {
@@ -1054,12 +1065,17 @@ def build_survivor(rig, export_dir, layout_dir=None, plant=None, paint_path=None
     body = unified_body(source)
     vertex_labels, face_labels = label_surface(body, source)
     hair, hair_rects, hair_uvs = hair_source()
+    tucked, tucked_rects, tucked_uvs = hair_source(tucked=True)
     charts, body_charts = build_charts(body, face_labels, hair, hair_rects, hair_uvs)
     place_charts(charts, plant)
     if layout_dir:
         write_layout(charts, Path(layout_dir))
         write_position_map(charts, Path(layout_dir))
     assign_uv(body, body_charts, hair, hair_rects, hair_uvs, charts)
+    tucked_layer = tucked.data.uv_layers.new(name="CharacterUV")
+    for polygon, uvs in zip(tucked.data.polygons, tucked_uvs):
+        for loop_index, coord in zip(polygon.loop_indices, uvs):
+            tucked_layer.data[loop_index].uv = coord
     pixels = paint_atlas(charts)
     if paint_path and Path(paint_path).is_file():
         painted = bpy.data.images.load(str(paint_path), check_existing=False)
@@ -1070,9 +1086,7 @@ def build_survivor(rig, export_dir, layout_dir=None, plant=None, paint_path=None
     image = make_image(pixels, export_dir / "survivor_atlas.png")
     material = make_material(image)
     skin_body(body, vertex_labels, rig)
-    body = join_character(body, hair, material)
-    print(f"SURVIVOR_MESH {len(body.data.polygons)} polygons, {sum(len(p.vertices) - 2 for p in body.data.polygons)} triangles")
-    return body
+    return separate_hair(body, hair, tucked, material, rig)
 
 
 def point_camera(camera, target):
@@ -1171,15 +1185,16 @@ def render_review(rig, mesh, actions, render_dir, clay=False):
     prefix = "clay_" if clay else ""
     rig.location = (0, 0, 0)
     for obj in bpy.context.scene.objects:
-        obj.hide_render = obj not in (rig, mesh)
+        obj.hide_render = obj not in (rig, mesh) and obj.name != "hair"
     if clay:
         material = bpy.data.materials.new("ReviewClay")
         material.use_nodes = True
         shader = material.node_tree.nodes.get("Principled BSDF")
         shader.inputs["Base Color"].default_value = (0.30, 0.31, 0.31, 1)
         shader.inputs["Roughness"].default_value = 0.8
-        mesh.data.materials.clear()
-        mesh.data.materials.append(material)
+        for obj in (mesh, bpy.data.objects["hair"]):
+            obj.data.materials.clear()
+            obj.data.materials.append(material)
     scene = bpy.context.scene
     scene.render.engine = "BLENDER_EEVEE"
     scene.render.resolution_percentage = 100

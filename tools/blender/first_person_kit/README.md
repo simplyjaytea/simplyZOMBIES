@@ -210,7 +210,10 @@ Hair is broad, chunky clumps laid on the head surface with volume off the scalp,
 leaning out from the head so each shades as one soft mass (bangs swept
 across the forehead from a part on her left, face-framing clumps past the cheekbones, the crown
 swept back, the back gathered up from the nape, a few thin flyaways) and a big messy bun high on
-the crown-back (a core, five loops and two escaping strands), all weighted to the head.
+the crown-back (a core, five loops and two escaping strands), all weighted to the head. The GLB keeps
+that hairstyle in a separate `hair` mesh under the same `SurvivorAtlas` material. A `hair_tucked`
+variant omits the bun and crown locks, leaving two short nape locks for caps and helmets. The export
+check counts the default body-plus-hair picture, not the optional tucked variant.
 
 `survivor_atlas.png` is 512 x 512: head and neck at 256 px/m, body at 128 px/m, hair locks at
 their own tapered density. The face and original garment islands keep their v2 registration;
