@@ -8401,3 +8401,11 @@ Card open (owner): the default is 24 m to the zombie and 4 m for a Pursuing zomb
 given an attack order through the order seam; the walk and the rescue are the existing ones. Raiders and settlers do not
 aid. A colonist 12 m away is too slow to beat the player's instinct struggle (40 ticks), so the aid lands at close range.
 The armour lane pins `NPC_AID_ENABLED` off: it tests what a blow wears, not who strikes. Shipped on.
+
+- **Hits are marked from the sim's events, 2026-11-09.** `godot/presentation/first_person/hit_marks.gd` reads the tick's
+  drained events (the `world.events.drained` read, as `anim_clock.gd` and `fx_look.gd` do; no bus subscription): an impact
+  mark on the surface a round met inside reach (`weapon.fired` with no body hit), a blood puff at the body part's height
+  on a zombie (`attack.connected`), and a 0.15 m flinch back along the shot for 8 ticks (`entity.staggered`). Marks last
+  400 ticks (20 s) and cap at 64; puffs last 8 ticks. The sim is not written. Gate: the HIT lane in
+  `godot/check_first_person.gd`, on its own fresh scene. Owner cards, defaults built: dark red puff, marks freed with the
+  scene, flinch 0.15 m and 8 ticks.
