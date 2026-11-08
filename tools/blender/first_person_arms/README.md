@@ -187,8 +187,11 @@ that keeps the names, the frame and the clip table needs no code change.
   with a copy of the old model still in the hand, then draws the new class. A screen over the
   view plays `lower_<class>` and hides the arms until it closes; the third-person view hides them
   at once. `inspect_<class>` plays while L is held and goes round while it stays held; letting go
-  blends back to idle over 0.2 s. `raise_*` and `aim_*` have no reader yet: the sim has no
-  aim-down-sights state.
+  blends back to idle over 0.2 s. A firearm's `raise_<class>` is held at the sim's own progress
+  through its raise (`ArmsView.fire_of`, read from the sim's `rangedWeapon` state), so a heavier
+  weapon's longer raise stretches the clip; `aim_<class>` loops while the sim is steady; recover
+  and reload blend back to `idle_<class>` (there is no reload clip, so the idle is the default).
+  A melee class and bare hands ignore the fire state.
 - **Sway** is code: a lag behind a turn of the head, a bob from the body's speed and a breath
   scaled by the sim's `SimRanged.cone_half`, all a few millimetres and a fraction of a degree.
 - **The lens.** Every surface in the view model (the arms, the weapon and its parts) draws through
