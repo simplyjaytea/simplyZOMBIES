@@ -201,6 +201,7 @@ func _run() -> void:
 	var old_size: Vector2i = root.size
 	root.size = Vector2i(1280, 720)
 	_floor_was = SimShambler.SIGHT_REACH_FLOOR_METRES
+	# Floor off for the scene lanes: TALK lets a zombie at 8 m grab the player and the break-away shove outlives into ANIM.
 	SimShambler.SIGHT_REACH_FLOOR_METRES = 0.0
 	var packed: PackedScene = load(SCENE_PATH) as PackedScene
 	if packed == null:

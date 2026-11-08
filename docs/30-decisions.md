@@ -8379,3 +8379,5 @@ in `shambler.gd`, applied as `max(own, floor) * fog`; the fog and the night rule
 is seen, and a kind with no light sense keeps none. Measured on four seeds (`godot:m2:balance`, before and after):
 no seed wipes; grabs 423 to 482; end survivors change by one body on two seeds in opposite directions. The card is
 the owner's to change; the floor is one constant.
+`check_first_person.gd` runs its scene lanes with the floor at 0, as m2:roster and m2:fog do: at 8 m the TALK lane lets a zombie
+grab the player, and the break-away shove outlives into the ANIM lane's "standing reads idle"; fp_encounter judges the floor.
