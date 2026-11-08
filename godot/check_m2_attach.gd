@@ -62,6 +62,9 @@ func _init() -> void:
 
 
 func _run() -> void:
+	# The barrel's falloff is judged on a round the cone rule carries to the body (docs/40, "The shot"): the switch is
+	# false for this gate's process, which ends with it. The ray is judged in check_m2_space's RAY lane.
+	SimRanged.SHOT_AS_RAY = false
 	var ok: bool = true
 	ok = _content_is_wired_to_something() and ok
 	ok = _every_declared_slot_has_something_that_fits() and ok

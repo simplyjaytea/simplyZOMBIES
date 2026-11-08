@@ -133,6 +133,10 @@ static func _vehicle_row_text(world: Variant, actor: int, car: int) -> String:
 # command -- the same rule the rows above keep, so nothing here is a promise the sim then refuses.
 static func _order_rows(world: Variant, colonist: int, kind: String, entity: int, tile: Vector2i) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
+	# A body that takes no orders (a recruit, a captive, a colonist being carried) is offered none, even one
+	# still holding an order from before.
+	if not SimOrdersRes.takes_orders(world, colonist):
+		return out
 	var who: String = _name_of(world, colonist, "them")
 	if SimOrdersRes.holds(world, colonist):
 		out.append({"text": "stand %s down" % who, "command": {"type": SimOrdersRes.COMMAND, "entity": colonist, "kind": "clear"}, "target": colonist})
@@ -152,6 +156,16 @@ static func _order_rows(world: Variant, colonist: int, kind: String, entity: int
 		if SimOrdersRes.accepts(world, colonist, hold):
 			out.append({"text": "have %s hold here" % who, "command": _as_command(hold), "target": colonist})
 	return out
+
+
+## The order rows the sim offers `colonist` for what the player is aiming at: `kind`, `entity` and `tile` as
+## `verbs_at` reads them from the hit, with `tile` (-1, -1) for no ground. The first-person conversation calls this
+## and the top-down menu reaches the same function through `verbs_at`, so the two build their rows from one answer.
+static func orders_for(world: Variant, colonist: int, kind: String, entity: int, tile: Vector2i) -> Array[Dictionary]:
+	if world == null or colonist < 0:
+		var none: Array[Dictionary] = []
+		return none
+	return _order_rows(world, colonist, kind, entity, tile)
 
 
 static func _as_command(order: Dictionary) -> Dictionary:

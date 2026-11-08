@@ -259,6 +259,19 @@ static func has_pool_of(world: Variant, entity: int, near: Vector2) -> bool:
 static func _on_round(world: Variant, ev: Dictionary) -> void:
 	if int(ev.get("hit", -1)) >= 0 or not ev.has("dx") or world.tilemap == null:
 		return
+	if ev.has("ex"):
+		# The ray path (ranged.gd's SHOT_AS_RAY): the contact is the sim's own, `ex, ey`, a point inside the tile the
+		# round met, or the ray's end within reach. The tile there takes the mark its material gives, if any; a body
+		# contact returned above, and a round that met nothing marks nothing a surface does not give it.
+		var at := Vector2(float(ev["ex"]), float(ev["ey"]))
+		var t := Vector2i(floori(at.x), floori(at.y))
+		var map: Variant = world.tilemap
+		if t.x < 0 or t.y < 0 or t.x >= int(map.w) or t.y >= int(map.h):
+			return
+		var kind: String = surface_of(world, t.x, t.y)
+		if not kind.is_empty():
+			add(world, kind, at.x, at.y)
+		return
 	var o := Vector2(float(ev.get("x", 0.0)), float(ev.get("y", 0.0)))
 	var d := Vector2(float(ev.get("dx", 0.0)), float(ev.get("dy", 0.0)))
 	if d.length_squared() < 0.0001:

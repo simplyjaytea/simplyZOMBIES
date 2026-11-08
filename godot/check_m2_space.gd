@@ -52,6 +52,9 @@ const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimStances = preload("res://sim/stances.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
+const SimRanged = preload("res://sim/modules/ranged.gd")
+const SimSave = preload("res://sim/save.gd")
+const SimBoot = preload("res://sim/boot.gd")
 
 const T: int = SimTileMap.Tile.Floor
 const PURPOSES: Array = [["SIGHT", SimSpace.SIGHT], ["SHOT", SimSpace.SHOT], ["REACH", SimSpace.REACH]]
@@ -77,8 +80,9 @@ func _run() -> void:
 	ok = _clipped() and ok
 	ok = _swing() and ok
 	ok = _reads() and ok
+	ok = _ray() and ok
 	if ok:
-		print("M2_SPACE_OK every wall, window, sill, lintel, board, door, Low, screen and fence case answers each purpose and flips with its pair; a swing through a wall is refused and through a window lands; mirrored segments agree; the swing, the claw and the attack walk each read segment_clear; a shambler reaches the nearest survivor it can touch, and a colonist starts no swing the blow cannot land")
+		print("M2_SPACE_OK RAY a round is a ray from the eye: a shot through a window's aperture hits the body behind and below the sill strikes the window's tile, over a Low tile a standing body behind is hit and a crouched one is not, a body off the ray is not hit, the same seed gives the same contact, a save between Steady and release fires the same round, and ray_first_hit has one sim caller; every wall, window, sill, lintel, board, door, Low, screen and fence case answers each purpose and flips with its pair; a swing through a wall is refused and through a window lands; mirrored segments agree; the swing, the claw and the attack walk each read segment_clear; a shambler reaches the nearest survivor it can touch, and a colonist starts no swing the blow cannot land")
 		quit(0)
 		return
 	for failure in _failures:
@@ -144,6 +148,166 @@ func _zombie(w: Variant, x: float, y: float) -> int:
 	w.components.set_component(ent, "body", SimCombat.ZOMBIE_BODY.duplicate())
 	w.components.set_component(ent, "zombieType", {"id": "zombie.shambler"})
 	return ent
+
+
+# --- RAY (docs/40, "The shot") ----------------------------------------------------------------
+
+# A survivor on its own cylinder at (x, y), in the stance given: a body, a position and a posture.
+func _survivor(w: Variant, x: float, y: float, stance: int) -> int:
+	var ent: int = int(w.entities.spawn())
+	w.components.set_component(ent, "position", {"x": x, "y": y})
+	w.components.set_component(ent, "velocity", {"dx": 0.0, "dy": 0.0})
+	w.components.set_component(ent, "facing", {"radians": 0.0})
+	SimHealth.make_survivor_body(w, ent)
+	w.components.set_component(ent, "posture", SimStances.make_posture(stance))
+	return ent
+
+
+# The contact of a round from `from` (metres, and the eye in millimetres) due east along the row, out to `reach`.
+func _east(w: Variant, from_x: float, eye: int, reach: float, shooter: int) -> Dictionary:
+	return SimSpace.ray_first_hit(w, {"x": from_x, "y": ROW_Y, "h": eye}, Vector3(1.0, 0.0, 0.0), reach, shooter)
+
+
+func _ray() -> bool:
+	var lane: String = "RAY"
+	var ok: bool = true
+	var standing: int = SimStances.Stance.Walk
+	var crouched: int = SimStances.Stance.Crouch
+	var eye_standing: int = SimSpace.SURVIVOR_EYE_MM["walk"]
+	var eye_crouched: int = SimSpace.SURVIVOR_EYE_MM["crouch"]
+
+	# A window aperture: the eye passes it, so the body behind is the contact. Below the sill, the round strikes the
+	# window's tile, which is the wall the round meets.
+	var wz: Variant = _column_world(20260807, standing, SimTileMap.Tile.Window)
+	var shooter: int = int(wz.player)
+	var behind: int = _zombie(wz, 17.5, ROW_Y)
+	var through: Dictionary = _east(wz, SWING_FROM_X, eye_standing, 4.0, shooter)
+	if String(through["kind"]) != "body" or int(through["entity"]) != behind:
+		ok = _fail(lane, "a standing eye through a window's aperture did not meet the body behind it (%s)" % str(through))
+	var below: Dictionary = _east(wz, SWING_FROM_X, 900, 4.0, shooter)
+	if String(below["kind"]) != "tile" or int(below["tx"]) != COLUMN_X or int(below["ty"]) != 16:
+		ok = _fail(lane, "a round below the window's sill did not strike the window's tile (%s)" % str(below))
+
+	# Over a Low tile: a standing eye sees over it and hits the standing body behind; a crouched eye is stopped by it.
+	var lw: Variant = _column_world(20260808, standing, SimTileMap.Tile.Low)
+	var low_shooter: int = int(lw.player)
+	var low_behind: int = _zombie(lw, 17.5, ROW_Y)
+	var over: Dictionary = _east(lw, SWING_FROM_X, eye_standing, 4.0, low_shooter)
+	if String(over["kind"]) != "body" or int(over["entity"]) != low_behind:
+		ok = _fail(lane, "a standing head over a Low tile did not hit the body behind it (%s)" % str(over))
+	var low_crouch: Dictionary = _east(lw, SWING_FROM_X, eye_crouched, 4.0, low_shooter)
+	if String(low_crouch["kind"]) != "tile":
+		ok = _fail(lane, "a crouched eye behind a Low tile was not stopped by it (%s)" % str(low_crouch))
+	var hw: Variant = _column_world(20260809, standing, SimTileMap.Tile.Low)
+	var hw_shooter: int = int(hw.player)
+	var crouched_behind: int = _survivor(hw, 17.5, ROW_Y, crouched)
+	var past: Dictionary = _east(hw, SWING_FROM_X, eye_standing, 4.0, hw_shooter)
+	if String(past["kind"]) == "body" and int(past["entity"]) == crouched_behind:
+		ok = _fail(lane, "a standing shot over a Low tile hit a crouched body behind it, whose top is under the eye")
+	if String(past["kind"]) != "none":
+		ok = _fail(lane, "a standing shot over a crouched body behind a Low tile met %s, not nothing" % str(past))
+
+	# A body inside the cone but off the ray is not hit: its cylinder's radius does not reach the line.
+	var ow: Variant = _column_world(20260810, standing, T)
+	var off_shooter: int = int(ow.player)
+	var off_body: int = _zombie(ow, 17.5, ROW_Y + 0.7)
+	var off: Dictionary = _east(ow, SWING_FROM_X, eye_standing, 4.0, off_shooter)
+	if String(off["kind"]) == "body" and int(off["entity"]) == off_body:
+		ok = _fail(lane, "a body 0.7 m off the ray was hit by it")
+
+	# The same seed twice gives identical contact points: the spread is drawn on its own stream from the same seed.
+	var first: Dictionary = _spread_contact(20260811)
+	var second: Dictionary = _spread_contact(20260811)
+	if first.is_empty() or first != second:
+		ok = _fail(lane, "the same seed gave different contacts (%s and %s)" % [str(first), str(second)])
+
+	# The deviation has its own stream: a shot's draws leave the `ranged` stream where they found it, so the jam and
+	# part and recovery rolls keep their draws (the ranged gate's pins hold). The next `ranged` draw is the same with
+	# and without a shot first.
+	var ranged_alone: Variant = _column_world(20260811, SimStances.Stance.Walk, T)
+	var ranged_after_shot: Variant = _column_world(20260811, SimStances.Stance.Walk, T)
+	_zombie(ranged_after_shot, 17.5, ROW_Y)
+	SimRanged._shot_ray(ranged_after_shot, int(ranged_after_shot.player), 0.2, 4.0, 0.0, SWING_FROM_X, ROW_Y)
+	var next_alone: float = float(ranged_alone.rng.stream("ranged").call("next"))
+	var next_after: float = float(ranged_after_shot.rng.stream("ranged").call("next"))
+	if next_alone != next_after:
+		ok = _fail(lane, "a shot's deviation moved the ranged stream: its next draw is %f, not %f" % [next_after, next_alone])
+
+	# A save between Steady and release fires the same round: the contact after the restore is the one before it.
+	ok = _save_fires_same_round(lane) and ok
+
+	# READS: ray_first_hit has exactly one caller in the sim, by name.
+	var callers: Array[String] = []
+	_callers_of("res://sim", "ray_first_hit(", callers)
+	if callers.size() != 1 or not callers[0].ends_with("ranged.gd"):
+		ok = _fail(lane, "ray_first_hit has %d sim callers (%s), not one in ranged.gd" % [callers.size(), str(callers)])
+	return ok
+
+
+# The contact of one shot at a fixed aim, from a fresh world of this seed, with the deviation drawn on the spread stream.
+func _spread_contact(seed_val: int) -> Dictionary:
+	var w: Variant = _column_world(seed_val, SimStances.Stance.Walk, T)
+	_zombie(w, 17.5, ROW_Y)
+	return SimRanged._shot_ray(w, int(w.player), 0.2, 4.0, 0.0, SWING_FROM_X, ROW_Y)
+
+
+# A save written while a shooter is Steady, restored into a bare world of the same seed, releases the same round:
+# the weapon.fired contact after the restore is the one the world that was not saved fires.
+func _save_fires_same_round(lane: String) -> bool:
+	var a: Variant = SimBoot.bare(20260812, 64)["world"]
+	var shooter: int = _survivor(a, 15.0, 16.5, SimStances.Stance.Walk)
+	var target: int = _zombie(a, 17.0, 16.5)
+	SimRanged.make_ranged_armed(a, shooter, {"magSize": 6, "rangeMetres": 12.0, "damage": 12.0, "weight": 1.0, "handling": 1.0, "reloadTicks": 20})
+	a.components.set_component(shooter, "facing", {"radians": 0.0})
+	if not SimRanged.try_begin_fire(a, shooter):
+		return _fail(lane, "the shooter would not begin its shot for the save case")
+	var guard: int = 0
+	while int((a.components.get_component(shooter, "rangedWeapon") as Dictionary)["state"]) != SimRanged.FireState.Steady and guard < 200:
+		a.step()
+		guard += 1
+	var text: String = SimSave.encode_save(SimSave.create_save(a))
+	var back: Variant = SimBoot.bare(20260812, 64)["world"]
+	SimSave.apply_save(back, SimSave.decode_save(text))
+	var fired_a: Dictionary = _release(a, shooter)
+	var fired_b: Dictionary = _release(back, shooter)
+	if fired_a.is_empty() or fired_b.is_empty():
+		return _fail(lane, "the Steady shot did not release a round in the saved or the restored world")
+	if fired_a != fired_b:
+		return _fail(lane, "the round released after a save is not the round fired without one (%s and %s)" % [str(fired_a), str(fired_b)])
+	return true
+
+
+# Steps a world until its shooter's round is released, and returns the contact of that weapon.fired (or {}).
+func _release(w: Variant, shooter: int) -> Dictionary:
+	var guard: int = 0
+	while guard < 200:
+		w.step()
+		guard += 1
+		for ev in w.events.drained as Array:
+			var e: Dictionary = ev as Dictionary
+			if String(e.get("type", "")) == "weapon.fired" and int(e.get("entity", -1)) == shooter:
+				return {"ex": e.get("ex", 0.0), "ey": e.get("ey", 0.0), "ez": e.get("ez", 0), "hit": e.get("hit", -1)}
+	return {}
+
+
+# Every .gd under `dir` whose text holds `needle` on a line that is not its own definition, as res:// paths.
+func _callers_of(dir: String, needle: String, out: Array[String]) -> void:
+	var d: DirAccess = DirAccess.open(dir)
+	if d == null:
+		return
+	d.list_dir_begin()
+	var name: String = d.get_next()
+	while name != "":
+		var path: String = dir + "/" + name
+		if d.current_is_dir() and not name.begins_with("."):
+			_callers_of(path, needle, out)
+		elif name.ends_with(".gd"):
+			for line in FileAccess.get_file_as_string(path).split("\n"):
+				if line.contains(needle) and not line.strip_edges().begins_with("static func"):
+					out.append(path)
+					break
+		name = d.get_next()
+	d.list_dir_end()
 
 
 # --- PAIRS -----------------------------------------------------------------------------------
