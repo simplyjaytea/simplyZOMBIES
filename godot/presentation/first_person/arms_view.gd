@@ -29,8 +29,11 @@ extends Node3D
 # screen over the view (`covered`) lowers the arms and holds them below the frame, hidden; when it
 # goes they are drawn again. The third-person testing view hides them at once. `inspect_<class>`
 # plays only while the inspect key is held, from idle, and goes back to idle the moment it is let go;
-# the bare hands have no inspect clip. The raise and aim clips have no reader yet: the sim has no
-# aim-down-sights state for them to follow.
+# the bare hands have no inspect clip. The fire state (`fire_of`, read from the sim's `rangedWeapon`)
+# drives a firearm's clips: `raise_<class>` is held at the sim's own progress through its raise, so a
+# heavier weapon's longer raise stretches the clip; `aim_<class>` loops while the sim is steady;
+# recover and reload blend back to `idle_<class>`, since there is no reload clip yet. A melee class
+# or bare hands ignore the fire state. Draw, lower, inspect and covered win over it.
 #
 # The view-model lens. Every surface under this node draws through a copy of its material with Godot's
 # view-model switches on: `use_fov_override` at VIEW_MODEL_FOV_DEG, so the arms keep their own lens
@@ -78,10 +81,12 @@ const BOB_FULL_SPEED_MPS: float = 2.0
 const BREATH_M: float = 0.0025
 const BREATH_RAD: float = 0.004
 
-enum Phase { HIDDEN, DRAW, IDLE, INSPECT, LOWER, LOWERED }
+enum Phase { HIDDEN, DRAW, IDLE, INSPECT, LOWER, LOWERED, RAISE, AIM }
 
 # 1 scales every sway term; the gate sets 0 to read the clip's own pose against the anchors.
 var sway_scale: float = 1.0
+# A fire state the gate sets in place of the sim's, `{"phase", "t"}`; empty reads the sim.
+var fire_stub: Dictionary = {}
 
 var _sway: Node3D = null
 var _model: Node3D = null
@@ -165,9 +170,11 @@ func update(world: Variant, delta: float, covered: bool, third_person: bool, ins
 	_updates += 1
 	var want_item: int = -2
 	var want_class: String = ""
+	var fire: Dictionary = {"phase": "idle", "t": 0.0}
 	if world != null and int(world.player) >= 0:
 		want_item = equipped_item(world, int(world.player))
 		want_class = hold_class_of(world, int(world.player))
+		fire = _fire_now(world, int(world.player))
 	if _player == null:
 		# No arms: the old eye-anchored weapon, untouched.
 		if _held != null:
@@ -176,7 +183,7 @@ func update(world: Variant, delta: float, covered: bool, third_person: bool, ins
 	# A change of what is in hand while the arms are up: keep a copy of the old model in the hand and
 	# lower it before the sim's new item is drawn.
 	if _class != "" and want_class != "" and (want_item != _item or want_class != _class) and not _swapping:
-		if _phase == Phase.DRAW or _phase == Phase.IDLE or _phase == Phase.INSPECT:
+		if _phase == Phase.DRAW or _phase == Phase.IDLE or _phase == Phase.INSPECT or _phase == Phase.RAISE or _phase == Phase.AIM:
 			_begin_swap()
 		elif _phase == Phase.LOWER:
 			_swapping = true
@@ -191,18 +198,22 @@ func update(world: Variant, delta: float, covered: bool, third_person: bool, ins
 	if revision != _held_revision:
 		_held_revision = revision
 		_apply_view_lens(_grip_r)
-	_step_phase(delta, covered or want_class == "", third_person, inspect_held, want_class, want_item)
+	_step_phase(delta, covered or want_class == "", third_person, inspect_held, want_class, want_item, fire)
 	_held.call("set_in_hand", not _swapping)
 	_update_sway(world, delta, look, speed_mps)
 	_player.advance(delta)
+	if _phase == Phase.RAISE:
+		_hold_raise(fire)
 	_sync_bones()
 	_clip_time += delta
 
 
-func _step_phase(delta: float, covered: bool, third_person: bool, inspect_held: bool, want_class: String, want_item: int) -> void:
+func _step_phase(delta: float, covered: bool, third_person: bool, inspect_held: bool, want_class: String, want_item: int, fire: Dictionary) -> void:
 	if third_person:
 		_set_phase_hidden()
 		return
+	# The sim's fire phase, read only for a firearm: a melee class and bare hands have no raise or aim clip.
+	var fire_phase: String = String(fire.get("phase", "idle")) if _fires() else "idle"
 	match _phase:
 		Phase.HIDDEN:
 			_finish_swap(want_class, want_item)
@@ -221,6 +232,26 @@ func _step_phase(delta: float, covered: bool, third_person: bool, inspect_held: 
 				_start(Phase.LOWER, "lower_" + _class, SWITCH_BLEND_S)
 			elif inspect_held and _player.has_animation("inspect_" + _class):
 				_start(Phase.INSPECT, "inspect_" + _class, SWITCH_BLEND_S)
+			elif fire_phase == "raise":
+				_start(Phase.RAISE, "raise_" + _class, SWITCH_BLEND_S)
+			elif fire_phase == "aim":
+				_start(Phase.AIM, "aim_" + _class, SWITCH_BLEND_S)
+		Phase.RAISE:
+			if covered:
+				_start(Phase.LOWER, "lower_" + _class, SWITCH_BLEND_S)
+			elif fire_phase == "aim":
+				_start(Phase.AIM, "aim_" + _class, SWITCH_BLEND_S)
+			elif fire_phase != "raise":
+				# A raise that ends without a steady (a stagger, a lost capability): back to idle.
+				_start(Phase.IDLE, "idle_" + _class, SWITCH_BLEND_S)
+		Phase.AIM:
+			if covered:
+				_start(Phase.LOWER, "lower_" + _class, SWITCH_BLEND_S)
+			elif fire_phase == "raise":
+				_start(Phase.RAISE, "raise_" + _class, SWITCH_BLEND_S)
+			elif fire_phase != "aim":
+				# The shot is fired and the sim recovers, or reloads: the idle is the default for both.
+				_start(Phase.IDLE, "idle_" + _class, SWITCH_BLEND_S)
 		Phase.INSPECT:
 			if covered:
 				_start(Phase.LOWER, "lower_" + _class, SWITCH_BLEND_S)
@@ -271,6 +302,27 @@ func _clip_done(delta: float) -> bool:
 func _set_phase_hidden() -> void:
 	_phase = Phase.HIDDEN
 	_sway.visible = false
+
+
+# The fire state the arms follow this frame: the gate's stub when one is set, else the sim's.
+func _fire_now(world: Variant, entity: int) -> Dictionary:
+	if not fire_stub.is_empty():
+		return fire_stub
+	return fire_of(world, entity)
+
+
+# Only a firearm has a raise and an aim clip.
+func _fires() -> bool:
+	return _class == "pistol" or _class == "long"
+
+
+# The raise clip sits at the sim's own progress through the weapon's raise, read after the mixer's
+# advance so the pose on screen is the sim's `t` and not one frame later.
+func _hold_raise(fire: Dictionary) -> void:
+	if not _player.has_animation(_clip):
+		return
+	var t: float = clampf(float(fire.get("t", 0.0)), 0.0, 1.0)
+	_player.seek(t * _player.get_animation(_clip).length, true)
 
 
 func _begin_swap() -> void:
@@ -355,6 +407,28 @@ static func hold_class_of(world: Variant, entity: int) -> String:
 				return "melee2"
 		return "melee1"
 	return "unarmed"
+
+
+## The fire phase the sim is in for an entity, as the arms show it: `{"phase": "idle"|"raise"|"aim"|
+## "recover"|"reload", "t": 0..1}`. `raise` carries the progress through the weapon's own raise, from
+## 0 at the trigger; Steady is `aim`; Recover and Clearing are `recover`; Reload is `reload`; no
+## `rangedWeapon` or Idle is `idle`. Read only: the sim is never written from here.
+static func fire_of(world: Variant, entity: int) -> Dictionary:
+	var rw: Variant = world.components.get_component(entity, "rangedWeapon")
+	if not (rw is Dictionary):
+		return {"phase": "idle", "t": 0.0}
+	var r: Dictionary = rw as Dictionary
+	var state: int = int(r.get("state", SimRanged.FireState.Idle))
+	if state == SimRanged.FireState.Raise:
+		var length: float = float(maxi(1, SimRanged._raise_of(r)))
+		return {"phase": "raise", "t": clampf(1.0 - float(r.get("ticksLeft", 0)) / length, 0.0, 1.0)}
+	if state == SimRanged.FireState.Steady:
+		return {"phase": "aim", "t": 0.0}
+	if state == SimRanged.FireState.Recover or state == SimRanged.FireState.Clearing:
+		return {"phase": "recover", "t": 0.0}
+	if state == SimRanged.FireState.Reload:
+		return {"phase": "reload", "t": 0.0}
+	return {"phase": "idle", "t": 0.0}
 
 
 # --- the view-model lens ------------------------------------------------------------------------
@@ -453,6 +527,11 @@ func shown_class() -> String:
 ## The clip the arms are playing, by name.
 func clip_playing() -> String:
 	return _clip
+
+
+## The playing clip's position in seconds, as the mixer holds it.
+func clip_seconds() -> float:
+	return _player.current_animation_position if _player != null else 0.0
 
 
 func phase_name() -> String:
