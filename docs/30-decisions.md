@@ -8200,6 +8200,62 @@ the noise entry.
   red with `M2_MATERIALS_FAIL`. `godot:check:grade` stows one wire before the scene is set up, since
   the E keycap that the grade lane counts is the free alarm rung.
 
+## The arms raise and aim with the sim's fire state, 2026-11-07
+
+The what's-left dead socket "the raise and aim clips have no reader" is closed. The record is in
+[docs/23](23-roadmap.md#the-record-by-system), under the first-person arms.
+
+- **The clip follows the sim, not the clock.** The raise is held at the sim's own progress through
+  the weapon's raise, so a heavy gun's longer raise stretches the 0.40 s clip rather than finishing
+  it early. The aim loops while the sim is steady.
+- **Reload has no clip, so it plays the idle.** The arms return to `idle_<class>` while the sim
+  reloads. This is the conservative default: a player sees the gun stay in the idle position during
+  a reload. A reload clip from the art lead would replace it.
+- **Recover is the idle too.** After the shot the arms blend back to `idle_<class>`, not to a
+  separate settle clip. A settle clip would be a new picture, and none is drawn.
+- **A melee class ignores the fire state.** A bat or a knife has no raise or aim clip, and its
+  idle is the whole picture.
+
+## The held weapon on a body is turned a half turn from the hand, 2026-11-07
+
+The bodies in the first-person world now carry what they hold (docs/23, "Held items on the first-person
+bodies, 2026-11-07"). The weapon is mounted on the rig's `hand.R`, and one constant turns it from the hand's
+rest frame to the grip's: a half turn about the hand's X, the body's right side.
+
+- **Why a turn.** The hand bone's Y runs down the arm, and its -Z points the bore backwards: a weapon mounted
+  with identity points into the body's back. The half turn sends the bore forward (dot with the body's forward
+  +0.960) and the weapon's top up.
+- **What is left.** The grip's top sits 16 degrees above the body's up (dot 0.960). That is the hand bone's own
+  rest roll. It is left as it is: a pistol held a little high at rest reads as a body's hand, and correcting it
+  would be a per-weapon or per-pose table, which the spec rules out.
+- **Where it is judged.** `godot:check:first_person` BODIES, HELD: the bore and top are asserted above 0.9 each
+  (`HELD_FORWARD_DOT`), and the model is asserted within 0.15 m of `hand.R`, read by name from the skeleton.
+
+## The Reports read mark rides beside the first-person slot, 2026-11-07
+
+The Reports page's read mark is presentation state, and the sim is never written for it. A load that
+restored the record but not the mark would mark every old report new, so the mark is saved with the slot.
+
+- **Where it lives.** Under a sibling key, `<slot>.reads`, beside the first-person save (`save_slot.gd`). The
+  sim's save text and `SAVE_VERSION` do not move, so the top-down slot and the sim's save gate are untouched.
+- **What an old save does.** A slot with no sibling key loads as mark 0: the same as before the mark was kept.
+- **What the page shows.** Entries are marked new by their own index against the mark, wherever their page is. The
+  "since you last looked" banner shows while the record holds unread entries, not only on the page showing.
+- **The epitaph.** Offered only once the run is over, and then every epitaph line, paged. The sim writes nothing.
+
+## Orders in first person are the sim's order kinds through the conversation, 2026-11-07
+
+The conversation with a colonist offers the orders the sim already takes: go, hold, haul, attack, and stand down,
+built by the same function the top-down menu uses (`SimContext.orders_for`, the one `_order_rows`). Nothing new is
+written by the scene: a chosen row pushes its own `colonist.order` command through the command queue.
+
+- **Why the same rows.** The menu and the conversation read one answer, so an order that one offers is one the other
+  offers, and the sim's `accepts` decides both.
+- **Why nothing is filtered for routes.** A go within REACH ends as an arrival and a go with no route ends as
+  "no-route" in the same tick. The rows follow `accepts` only, as the menu's rows do; the sim ends the order.
+- **No foreman.** docs/39's foreman stays undecided: the colonist takes one order at a time from the player, and
+  nothing stands in for the player.
+
 
 ## The title starts first person; the top-down game hides behind `--topdown` (2026-11-07)
 
