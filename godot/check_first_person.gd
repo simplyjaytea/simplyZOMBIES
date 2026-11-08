@@ -196,9 +196,20 @@ func _init() -> void:
 	call_deferred("_run")
 
 
+# The scene lanes stage their own fixtures (a talker beside the player, an open area to stand in) and read
+# the sim after a fixed number of ticks, so they run with the shambler's daylight reach floor off, as
+# m2:roster and m2:fog do for the content reach: at the 8 m default a district shambler sees the player
+# during the TALK lane, grabs and is shaken off, and the shove it leaves runs into the ANIM lane's "standing
+# reads idle". What a shambler does to the first-person player at the floor is fp_encounter's to judge.
+var _floor_was: float = 0.0
+
+
 func _run() -> void:
 	var old_size: Vector2i = root.size
 	root.size = Vector2i(1280, 720)
+	_floor_was = SimShambler.SIGHT_REACH_FLOOR_METRES
+	# Floor off for the scene lanes: TALK lets a zombie at 8 m grab the player and the break-away shove outlives into ANIM.
+	SimShambler.SIGHT_REACH_FLOOR_METRES = 0.0
 	var packed: PackedScene = load(SCENE_PATH) as PackedScene
 	if packed == null:
 		_fail("SCENE", "could not load %s" % SCENE_PATH)
@@ -319,6 +330,7 @@ func _boot_lead_restored(lead_before: int) -> bool:
 
 func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	root.size = old_size
+	SimShambler.SIGHT_REACH_FLOOR_METRES = _floor_was
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)

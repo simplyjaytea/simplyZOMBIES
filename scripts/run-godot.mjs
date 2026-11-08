@@ -569,6 +569,15 @@ switch (mode) {
       "res://check_fp_expedition.gd",
     ];
     break;
+  case "--check-fp-encounter":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_fp_encounter.gd",
+    ];
+    break;
   case "--context":
     // The top-down street: its title's Enter starts the top-down run, so it asks for the top-down title (docs/30, 2026-11-07).
     args = [
