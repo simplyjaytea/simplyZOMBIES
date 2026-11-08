@@ -372,7 +372,8 @@ func _noin() -> void:
 	if _has_aid_order(world, ellis, zed):
 		_fail(lane, "a recruit was given an order")
 		return
-	world.components.remove(ellis, "recruit")
+	# Ellis keeps the recruit marker for the rest of the lane: she is a colonist who aids while the hold lasts, and
+	# a hold that lasts (the re-pursuit after a broken grab) would give her an order that is not the kind under test.
 	kinds.append("recruit")
 	# A settler and a raider: Mara, re-factioned by fixture, at 12 m.
 	_place(world, mara, _pos(world, ellis) + Vector2(0.0, 1.0))
