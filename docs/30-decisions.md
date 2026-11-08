@@ -8218,22 +8218,31 @@ The what's-left entry "The juggernaut" is closed. Its record, with the numbers, 
   the feigner in the stage 2 run: ten seeds and a median wipe day, on `main` and on the candidate,
   on a quiet machine. No number from this piece is a balance claim until then.
 
-## The station's platform is Floor tiles, not Low (2026-11-08)
+## The station's platform is outside the footprint, Floor-level ground, no cover (2026-11-08)
 
-docs/42 section 4 has `building.station.small`'s platform as "a strip of Low tiles". It is built as Floor
-tiles: paved, outdoor, no cover.
+docs/42 section 4 has `building.station.small`'s platform as "a strip of Low tiles". It is not part of the
+template. The template is the waiting room only: 12 x 5, perimeter walls, the interior indoors, a street door
+on the north face, a platform door on the south face, and the ticket window as a template window tile on the
+south face. The platform is art outside the footprint: the canopy and the kerb are attachments on the south
+exterior wall, and the ground along that face is plain outdoor tiles. It is Floor level, with no cover.
 
-- **Why.** In the sim, Low is cover. `SimSpace.PROFILE` gives a Low tile a 0 to 1,100 mm band that stops sight,
-  shots and reach, and a crouched eye is still blocked by it. `godot:check:fp_geometry` requires that band to be
-  drawn. A platform of Low tiles would be a 1.1 m wall to the sim, while the art brief sets a kerb of 0.20 m or
-  less and the floor is not lifted. That draws cover the player cannot see, which breaks the rule that the
-  picture is what the sim is.
-- **Default, built.** Floor tiles. No new cover.
-- **If the owner wants a platform you can crouch behind,** that is a card for docs/33. Floor tiles stand until it
-  is answered.
-- **Template.** `building.station.small`, 12 x 7, tags `civic` and `station`, weight 4 (the civic convention).
-  Look: tin roof, timber walls. A waiting room on the north, a partition with a ticket window and a floor gap,
-  and the platform strip along the south; a street door on the north wall, a platform door on the west wall.
+- **Why not Low.** In the sim, Low is cover. `SimSpace.PROFILE` gives a Low tile a 0 to 1,100 mm band that
+  stops sight, shots and reach, and a crouched eye is still blocked by it. A platform of Low tiles would be a
+  1.1 m wall to the sim, while the art brief sets a kerb of 0.20 m or less. That draws cover the player cannot see.
+- **Why not an open-edge platform in the footprint.** The first attempt put the platform strip inside the
+  footprint with an open south edge. `godot:check:buildings` refused it three ways:
+  - `doors: (6, 4) is not on the perimeter`: a door on an interior row is refused, so the platform door cannot
+    sit between the waiting room and a platform inside the footprint;
+  - `indoors: interior (1..10, 5) is not flagged indoors`: every non-perimeter tile must be indoors, so an
+    outdoor platform cannot be inside the footprint;
+  - `perimeter: (1, 6) is open but is not a door`: an open edge must be a door.
+  The check was not changed. The platform therefore sits outside the footprint.
+- **Pool.** `building.station.small` carries `"districts": ["district.town_center"]`, so it draws only in the
+  town-centre pool. This is the new optional template key on `building.schema.json`. `worldgen.gd`'s
+  `_buildings` filters the pool on it (`_for_district`). A template with no `districts` key is drawn everywhere,
+  as before, so no other template's draws move. Tag weights are unchanged: `civic` is 4 in town_center, 2 in
+  residential_suburb and 1 in industrial_park, and the station's own weight is 4.
+- **Template.** `building.station.small`, 12 x 5, tags `civic` and `station`, weight 4, tin roof, timber walls.
 - **Proof.** The other 22 templates are proved against `84aef0fd` by name-blind, order-free geometry and the
   atlas cells each one touches (`OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22`). The station is excluded by name,
   as a template with no base GLB.

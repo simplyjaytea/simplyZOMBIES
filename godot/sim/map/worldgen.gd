@@ -832,7 +832,7 @@ static func _buildings(map: Variant, seed_val: int, district: Dictionary, templa
 	var rng: Variant = _stream(seed_val, "buildings")
 	var density: float = clampf(float(district.get("density", 0.0)), 0.0, 1.0)
 	var pool: Array = district.get("pool", []) as Array
-	var by_tag: Dictionary = _by_tag(templates)
+	var by_tag: Dictionary = _by_tag(_for_district(templates, district))
 	var placed: Array = []
 	for parcel in parcels:
 		var lot: Rect2i = parcel as Rect2i
@@ -881,6 +881,18 @@ static func _buildings(map: Variant, seed_val: int, district: Dictionary, templa
 			"doors": doors,
 		})
 	return placed
+
+
+# The templates a district's pool may draw. A template with no `districts` key is drawn everywhere, as
+# before, so filtering on this changes no draw for any template that does not name a district.
+static func _for_district(templates: Array, district: Dictionary) -> Array:
+	var here: String = String(district.get("id", ""))
+	var out: Array = []
+	for t in templates:
+		var only: Variant = (t as Dictionary).get("districts", null)
+		if only == null or (only as Array).has(here):
+			out.append(t)
+	return out
 
 
 static func _by_tag(templates: Array) -> Dictionary:

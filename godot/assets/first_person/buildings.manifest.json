@@ -3407,8 +3407,8 @@
       "bounds": {
         "max": [
           12.305,
-          4.12,
-          7.305
+          3.82,
+          5.305
         ],
         "min": [
           -0.305,
@@ -3429,9 +3429,9 @@
         "id": "building.station.small"
       },
       "pieces": {
-        "jamb": 57,
-        "wall": 31,
-        "window": 36
+        "jamb": 38,
+        "wall": 21,
+        "window": 24
       },
       "roof": "tin",
       "roofForm": "gable",

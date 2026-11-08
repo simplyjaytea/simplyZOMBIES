@@ -281,7 +281,7 @@ generator only if it is cheaper that way (docs/41 P3); none depends on it.
 | `building.bath.public` | 14 x 10 | commercial | tar / render | A sento or small onsen: changing rooms, the bath hall, a boiler room. Later. |
 | `building.works.control` | 10 x 8 | industrial | tar / block | The dam's control house or the works' weigh office. Later, a landmark (docs/41 P4). |
 
-The station's platform is built as Floor tiles, not the Low strip above: see docs/30, "The station's platform is Floor tiles" (2026-11-08).
+The station is a 12 x 5 waiting room. Its platform is outside the footprint, Floor-level ground with no cover, not the Low strip above: see docs/30, "The station's platform is outside the footprint" (2026-11-08). The station draws only in the town-centre pool.
 
 Props that are not buildings but belong to the valley, for the dresser (docs/41 P1 and P2):
 vending machines (the single most Japanese object; several liveries, no real brand), utility
