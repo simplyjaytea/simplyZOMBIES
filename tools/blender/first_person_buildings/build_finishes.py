@@ -2028,11 +2028,62 @@ def validate_doors(template, model):
     print(f"DOORS {template['id']}: {len(template.get('doors', []))} doors clear, lowest crossing face none")
 
 
+# The commit the other templates are proved against: every building GLB and the atlas at this base must
+# be reproduced, in mesh and in the atlas cells each one touches, by this build.
+OTHER_TEMPLATES_BASE = "6ed10b19"
+
+
+def base_has(repo, relative):
+    return subprocess.run(["git", "-C", str(repo), "cat-file", "-e", f"{OTHER_TEMPLATES_BASE}:{relative}"], capture_output=True).returncode == 0
+
+
+def geometry_key(arrays):
+    positions = arrays["positions"]
+    low = tuple(round(min(p[axis] for p in positions), 4) for axis in range(3))
+    high = tuple(round(max(p[axis] for p in positions), 4) for axis in range(3))
+    return (len(positions), len(arrays["indices"]), low, high)
+
+
+def same_geometry(a, b):
+    if len(a) != len(b):
+        return False
+    key_a = sorted(a, key=lambda arrays: geometry_key(arrays))
+    key_b = sorted(b, key=lambda arrays: geometry_key(arrays))
+    for x, y in zip(key_a, key_b):
+        if geometry_key(x) != geometry_key(y):
+            return False
+        for name in ("positions", "normals", "uvs"):
+            if len(x[name]) != len(y[name]) or any(abs(u - v) > 1e-6 for p, q in zip(x[name], y[name]) for u, v in zip(p, q)):
+                return False
+        if x["indices"] != y["indices"]:
+            return False
+    return True
+
+
+# Templates added after OTHER_TEMPLATES_BASE. They have no base GLB and are excluded from the proof, by name,
+# so a template missing from the base cannot shrink the proof silently.
+NEW_SINCE_BASE = {"building.konbini.road"}
+
+
 def validate_other_templates(repo, export_dir, templates, plant=None):
-    others = [template for template in templates if template["id"] not in HOUSE_FINISHES]
-    with tempfile.TemporaryDirectory(prefix="building-r4-pixels-") as temporary:
-        old_path = Path(temporary) / "r4-atlas.png"
-        old_path.write_bytes(git_show_bytes(repo, "db64d031", "godot/assets/first_person/buildings_atlas.png"))
+    # Name-blind and node-order-free: node and mesh names carry Blender's build-order suffixes, so only the
+    # geometry of each primitive, and the atlas cells its UVs touch, are compared.
+    if subprocess.run(["git", "-C", str(repo), "cat-file", "-e", f"{OTHER_TEMPLATES_BASE}^{{commit}}"], capture_output=True).returncode != 0:
+        raise ValueError(f"base commit {OTHER_TEMPLATES_BASE} is not in this clone: the other-template proof cannot run")
+    others = [template for template in templates if template["id"] not in NEW_SINCE_BASE]
+    for template in others:
+        relative = f"godot/assets/first_person/buildings/{template['id'].removeprefix('building.').replace('.', '_')}.glb"
+        if not base_has(repo, relative):
+            raise ValueError(f"other-template proof: {relative} is missing at {OTHER_TEMPLATES_BASE}")
+    # Every GLB at the base must be one of the templates proved here: a base building the list does not name
+    # would otherwise go unproved without a sound.
+    base_glbs = set(subprocess.run(["git", "-C", str(repo), "ls-tree", "--name-only", f"{OTHER_TEMPLATES_BASE}:godot/assets/first_person/buildings/"], capture_output=True, text=True, check=True).stdout.split())
+    proved = {f"{template['id'].removeprefix('building.').replace('.', '_')}.glb" for template in others}
+    if {name for name in base_glbs if name.endswith(".glb")} != proved:
+        raise ValueError("other-template proof: the base's building GLBs and the proved templates differ")
+    with tempfile.TemporaryDirectory(prefix="building-base-pixels-") as temporary:
+        old_path = Path(temporary) / "base-atlas.png"
+        old_path.write_bytes(git_show_bytes(repo, OTHER_TEMPLATES_BASE, "godot/assets/first_person/buildings_atlas.png"))
         old_image = bpy.data.images.load(str(old_path), check_existing=False)
         new_image = bpy.data.images.load(str(export_dir / "buildings_atlas.png"), check_existing=False)
         old_pixels = [0.0] * len(old_image.pixels)
@@ -2041,17 +2092,19 @@ def validate_other_templates(repo, export_dir, templates, plant=None):
         new_image.pixels.foreach_get(new_pixels)
         for template in others:
             relative = f"godot/assets/first_person/buildings/{template['id'].removeprefix('building.').replace('.', '_')}.glb"
-            old = ExportedModel(git_show_bytes(repo, "db64d031", relative))
+            old = ExportedModel(git_show_bytes(repo, OTHER_TEMPLATES_BASE, relative))
             new = ExportedModel(export_dir / "buildings" / Path(relative).name)
-            if old.primitives != new.primitives:
-                raise ValueError(f"other template mesh differs from db64d031: {template['id']}")
+            old_arrays = [arrays for _, arrays in old.primitives]
+            new_arrays = [arrays for _, arrays in new.primitives]
+            if not same_geometry(old_arrays, new_arrays):
+                raise ValueError(f"other template mesh differs from {OTHER_TEMPLATES_BASE}: {template['id']}")
             cells = {face["cell"] for face in new.faces}
             for cell_x, cell_y in cells:
                 for y in range(cell_y * 64, (cell_y + 1) * 64):
                     start = (y * ATLAS_SIZE + cell_x * 64) * 4
                     end = start + 64 * 4
                     if old_pixels[start:end] != new_pixels[start:end]:
-                        raise ValueError(f"other template atlas pixels differ from db64d031: {template['id']} cell {(cell_x, cell_y)}")
+                        raise ValueError(f"other template atlas pixels differ from {OTHER_TEMPLATES_BASE}: {template['id']} cell {(cell_x, cell_y)}")
         bpy.data.images.remove(old_image)
         bpy.data.images.remove(new_image)
     print(f"OTHER_TEMPLATES_PIXELS_IDENTICAL {len(others)}/{len(others)}")
@@ -2376,8 +2429,7 @@ def build_all(export_dir, blend_path, manifest_path, plant=None, reference_manif
         "interiors": INTERIORS,
         "models": [],
     }
-    arranged = []
-    for index, template in enumerate(templates):
+    for template in templates:
         pieces = build_pieces(template, plant)
         roof_faces = validate_roof(pieces.finish, template)
         windows = 0
@@ -2437,10 +2489,14 @@ def build_all(export_dir, blend_path, manifest_path, plant=None, reference_manif
         if model is not None:
             validate_downpipes(template, model)
             validate_hoods(template, model, plant)
-        for obj in objects:
-            obj.location = ((index % 5) * 25.0, 0.0, (index // 5) * 25.0)
-        arranged.extend(objects)
         print(f"BUILT {template['id']} {roof_form(template)} {len(pieces.conditional)} pieces, {roof_faces} roof faces, {windows} windows judged {sha256(output)}")
+        # Blender suffixes a name that is still taken (finish.001, finish.002, ...). Removing this template's
+        # objects and their mesh datablocks keeps the next template's merged meshes named exactly as they are.
+        for obj in objects:
+            mesh = obj.data
+            bpy.data.objects.remove(obj, do_unlink=True)
+            if mesh is not None and mesh.users == 0:
+                bpy.data.meshes.remove(mesh)
     validate_other_templates(repo, export_dir, templates, plant)
     validate_manifest(manifest, templates, plant)
     # LF on every platform: the repository stores the manifest with LF (`.gitattributes`).
