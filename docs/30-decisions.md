@@ -8371,6 +8371,13 @@ The what's-left entry "The juggernaut" is closed. Its record, with the numbers, 
   `MERGE #N <full 40-char SHA>`. The orchestrator runs `gh pr merge N --merge --match-head-commit <SHA>`
   on that line. Where the auto-mode classifier blocks that command on a seat, the owner runs it, as on
   2026-11-08 for #362.
+## The harm readout says a wound and a held body in words, 2026-11-07
+
+The first-person HUD names held (F struggles free, several holders read as several things), the newest wound
+(the sim's presentation word, so a bite that presents as a scratch reads as a scratch), the blood-loss words, and
+infection, and the fire state. Infection shows only for a transmitted exposure, not for every bite: the condition
+view reads every exposure as "watch", which would tell the player about a bite that did nothing. Pressing fire again
+during Steady does nothing; the Steady line says the shot fires by itself.
 ## A released holder presses again, 2026-11-07
 
 A grab broken by the player's struggle leaves the holder in reach; the holder re-grabs. The encounter gate's
