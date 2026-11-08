@@ -3372,9 +3372,9 @@ not a to-do list:
   `npm run godot:check:fp_encounter`, boots the seeded first-person district (`SimBoot.playable`,
   the scene's seed, 64 tiles) and reads and steps the sim only. It ends green (no FAIL). Lanes:
   SIGHT-NEAR (passes): a shambler 3 m out acquires the player one tick after setup and closes. SIGHT
-  (passes): a shambler 7 m out by day acquires and closes; the daylight reach is 8 m
-  (`SIGHT_REACH_FLOOR_METRES`, see the sight record below). The 12 m probe is a FINDING: not acquired by
-  day. A night line (INFO) shows the same 7 m unlit: not acquired. NOISE (passes): a rifle shot
+  (passes): a shambler 5 m out by day acquires and closes; the daylight reach is 6 m
+  (`SIGHT_REACH_FLOOR_METRES`, see the sight record below). The 7 m probe is a FINDING: not acquired by
+  day. A night line (INFO) shows the same 5 m unlit: not acquired. NOISE (passes): a rifle shot
   (`item.rifle.hunting`, ranged noise 200 from content) through one wall tile at 30 m is heard, field 178
   at the shambler against a threshold of 0.25; the shambler turns in 2 ticks and closes; the player's
   footsteps publish `noise.emitted` (magnitude 1.0); the walking player is first turned at 4.1 m (INFO).
@@ -3389,18 +3389,19 @@ not a to-do list:
   ticks after the grab. Ticks are counted from the boot; the boot's `world.tick` starts at 9000
   (`Clock.DAY_BEGINS`), so an absolute tick is 9000 + the number printed.
 - **The shambler's daylight sight reach has a floor, 2026-11-07.** `SIGHT_REACH_FLOOR_METRES` (static,
-  `godot/sim/modules/shambler.gd`) is 8.0 m, the owner-card default built by t1n; the card is open. A
+  `godot/sim/modules/shambler.gd`) is 6.0 m; the owner card's 8 m is not the default (it wipes seed 20260805 on top of main be4c058e), the card is open. A
   shambler's reach was observer range times sqrt(lightSense): 12 x sqrt(0.1) = 3.8 m, so it was blind past
   4 m by day. `sight_reach` now takes the larger of that and the floor, times the fog as before; a kind with no
-  light sense (the bloodhound) keeps 0. Lanes: `godot:check:fp_encounter` SIGHT (7 m by day acquires and closes,
-  reach 8.0 m; the 12 m probe is a FINDING; the night line, unlit, is not acquired) and its plant (floor 0:
-  SIGHT fails, reach 3.8 m). `godot:m2:balance` on the four seeds, before then after: end survivors 2/3, 1/3,
-  3/3, 1/3 become 1/3, 1/3, 3/3, 2/3; grabs 423 become 482; deaths 10 become 10 (per seed 2, 4, 1, 3 become 3, 4, 0, 3);
-  no seed wipes, so no fallback to 6 m was needed. `m2:lethality`,
+  light sense (the bloodhound) keeps 0. Lanes: `godot:check:fp_encounter` SIGHT (5 m by day acquires and closes,
+  reach 6.0 m; the 7 m probe is a FINDING; the night line, unlit, is not acquired) and its plant (floor 0:
+  SIGHT fails, reach 3.8 m). `godot:m2:balance` over ten seeds (a throwaway driver on the merge of #370, the compressed
+  campaign): floor 8 m wipes seed 20260805 (0/3, 23 survivors in all, 711 grabs); floor 6 m wipes none (25 survivors in
+  all, 654 grabs; per seed 20260805 3/3, 404 1/3, 31337 3/3, 90210 2/3, 1 3/3, 2 2/3, 3 2/3, 7 3/3, 42 3/3, 1234 3/3). On
+  the four gate seeds the floor of 6 m reads 3/3, 1/3, 3/3, 2/3 (grabs 304). `m2:lethality`,
   `m2:district` and `m2:variance` read the same before and after.
-  `godot:m2:fog` EYES also checks the default floor unpinned: clear reach 8.00 m, and under the shipped fog (x0.25)
-  2.00 m, outside the 1.6 m contact radius; its plant (the fog applied to the content reach instead of the floor) is red:
-  "the fogged reach is 8.0000 m".
+  `godot:m2:fog` EYES also checks the default floor unpinned: clear reach 6.00 m, and under the shipped fog (x0.25)
+  1.50 m, a hair inside the 1.6 m contact radius; its plant (the fog applied to the content reach instead of the floor) is red:
+  "the fogged reach is 6.0000 m".
 - **A released holder presses again, 2026-11-07.** The encounter gate's REPRESS lane found that a player
   whose grab broke by struggle walked off at 2.1 m/s and was never caught. The break-away shove
   (`shambler.gd`, `_break_away`) set a controlled body's velocity for 26 ticks, and nothing cleared it when the

@@ -466,8 +466,8 @@ func _the_dead_are_blinded_by_exactly_as_much() -> bool:
 		return false
 	print("EYES OK SIGHT_ENABLED restored to %s" % str(was))
 	# The default floor, unpinned: nothing above gates floor x fog, so this does. Clear it is the floor
-	# itself, and under fog it is the floor times the fog's own sight_mul (8 x 0.25 = 2.0 m at the
-	# shipped fog), which is outside the 1.6 m contact radius.
+	# itself, and under fog it is the floor times the fog's own sight_mul (6 x 0.25 = 1.5 m at the
+	# shipped fog), a hair inside the 1.6 m contact radius.
 	var floor_m: float = SimShambler.SIGHT_REACH_FLOOR_METRES
 	var clear_default: Dictionary = _zombie_reading("clear")
 	var fog_default: Dictionary = _zombie_reading("fog")

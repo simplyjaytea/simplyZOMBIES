@@ -8205,7 +8205,7 @@ the noise entry.
 `godot:check:fp_encounter` ends green: no FAIL, with FINDING and INFO lines for the facts it measures. Its
 lanes: SIGHT-NEAR, SIGHT (7 m by day, acquires and closes), NOISE, CONTACT, DEATH-NOESCAPE, DEATH-ATTENTIVE,
 REPRESS, DRIFT, DRIFT-WALL, BREAK. Two questions are owner cards, and the sim's current answer is the default:
-(a) the shambler's daylight sight reach, 8 m (`SIGHT_REACH_FLOOR_METRES`, its own decision); (b) whether a lone
+(a) the shambler's daylight sight reach, 6 m built (`SIGHT_REACH_FLOOR_METRES`, its own decision; the card is 8 m, which wipes seed 20260805, see below); (b) whether a lone
 shambler is too weak against an attentive player: DEATH-ATTENTIVE measures it (the player kills it at +1222 ticks
 in the fixture, after 5 holds broke and with 6 wounds and blood loss 17.1), and the lane passes whatever the outcome.
 DEATH-NOESCAPE is the pinned death: stamina held at 0, the player must die and hand over or end the run.
@@ -8373,13 +8373,18 @@ so the DEATH lane's question is answered, and that lane stays red on the answer.
 
 ## The shambler's daylight sight reach has a floor, 2026-11-07
 
-Default built, owner card open: a shambler's daylight reach is 8 m, not 3.8 m. The reach was observer range
+Default built, owner card open: a shambler's daylight reach is 6 m, not 3.8 m. The owner chose 8 m as the
+default; on top of main be4c058e (the hunting rifle) it wipes seed 20260805, the first-person default, in the
+compressed campaign, and `godot:m2:balance` fails. Built 6 m, measured over ten seeds (floor 8: one wipe; floor 6:
+none; the result is not monotonic in the floor, floor 7 wiped seed 90210 instead). 8 m is the card. The reach was observer range
 times sqrt(lightSense), 12 x sqrt(0.1), so it was blind past 4 m by day. The floor is `SIGHT_REACH_FLOOR_METRES`
 in `shambler.gd`, applied as `max(own, floor) * fog`; the fog and the night rule in `visibility.gd` still limit what
-is seen, and a kind with no light sense keeps none. Measured on four seeds (`godot:m2:balance`, before and after):
-no seed wipes; grabs 423 to 482; end survivors change by one body on two seeds in opposite directions. The card is
-the owner's to change; the floor is one constant.
-`check_first_person.gd` runs its scene lanes with the floor at 0, as m2:roster and m2:fog do: at 8 m the TALK lane lets a zombie
+is seen, and a kind with no light sense keeps none. Under fog the floor falls to 1.5 m, a hair inside the
+1.6 m contact radius. The card is the owner's to change; the floor is one constant, and 8 m needs a balance answer
+for seed 20260805 first.
+`check_fp_aid.gd` NOIN keeps Ellis marked a recruit for the whole lane: with the re-pursuit the hold lasts, and an unmarked Ellis
+aids, which is not the kind under test (a settler and a raider, Mara); the plant (the colony gate in `npc_combat.gd` removed) still goes red.
+`check_first_person.gd` runs its scene lanes with the floor at 0, as m2:roster and m2:fog do: at the floor the TALK lane lets a zombie
 grab the player, and the break-away shove outlives into the ANIM lane's "standing reads idle"; fp_encounter judges the floor.
 ## Colonists come to the held player's aid, 2026-11-07
 

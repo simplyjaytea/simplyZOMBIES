@@ -13,9 +13,9 @@ extends SceneTree
 #
 #   SIGHT-NEAR      a shambler 3 m away on open ground, inside its sight reach, acquires the player (the
 #                   module's own _seen_target must be the player) and closes.
-#   SIGHT           a shambler 7 m away by day, on open ground, acquires and closes (the daylight reach floor,
-#                   SIGHT_REACH_FLOOR_METRES, is 8 m). A night line (INFO) shows the same 7 m unlit. The spec's
-#                   12 m probe is a FINDING, not a FAIL: it is beyond the reach by day.
+#   SIGHT           a shambler 5 m away by day, on open ground, acquires and closes (the daylight reach floor,
+#                   SIGHT_REACH_FLOOR_METRES, is 6 m). A night line (INFO) shows the same 5 m unlit. The
+#                   7 m probe is a FINDING, not a FAIL: it is beyond the reach by day.
 #   NOISE           a rifle shot (item.rifle.hunting's ranged.noise from content, published as ranged.gd
 #                   publishes a shot) at the player; a shambler 30 m away behind one wall tile, no sight.
 #                   FAIL if not heard: the field value at the shambler and the hearing threshold are printed.
@@ -61,9 +61,9 @@ const SEED: int = SimBoot.DISTRICT_SEED
 # check_fp_expedition, so every lane walks the sim and not the map.
 const DISTRICT_TILES: int = 64
 const NEAR_METRES: int = 3
-# The SIGHT lane: by day, inside the shambler's daylight reach (SIGHT_REACH_FLOOR_METRES, 8 m).
-const SIGHT_METRES: int = 7
-const PROBE_METRES: int = 12
+# The SIGHT lane: by day, inside the shambler's daylight reach (SIGHT_REACH_FLOOR_METRES, 6 m).
+const SIGHT_METRES: int = 5
+const PROBE_METRES: int = 7
 const NOISE_METRES: int = 30
 const WALL_AT_METRES: int = 15
 const RIFLE_ITEM: String = "item.rifle.hunting"

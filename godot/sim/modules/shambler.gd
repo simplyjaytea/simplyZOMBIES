@@ -802,15 +802,14 @@ static func _chase(world: Variant, target: int, pos: Dictionary, vel: Dictionary
 # has to stay one until the colony can kill what it sees.
 #
 # That 3.8 m is the content reach, and it is no longer the reach a shambler has: by day it is raised
-# to SIGHT_REACH_FLOOR_METRES (8 m, below), the first-person alpha's default, so a shambler notices a
+# to SIGHT_REACH_FLOOR_METRES (6 m, below), the first-person alpha's default, so a shambler notices a
 # person at a room's width. The measurement above is why that floor is a named, gate-drivable
 # constant that carries a balance record (docs/23), not a retune of `sensory.light`. The lanes that
 # pin the content numbers (m2:roster far-reach, m2:fog EYES) pin the floor to 0 and restore it.
 #
-# The sky closes the reach too. Under fog at 0.25 the 8 m floor falls to 2.0 m -- outside the 1.6 m
-# contact radius, so a shambler in fog still sees a person it is about to reach, but only just; the
-# content reach of 3.8 m would have fallen to 0.95 m, inside contact, and the dead would have found
-# you by nose and ear alone. The fog multiplies the floor as it multiplies everything. Both gates on a zombie *seeing* move together and by the same factor:
+# The sky closes the reach too. Under fog at 0.25 the 6 m floor falls to 1.5 m -- a hair inside the 1.6 m
+# contact radius, so a shambler in fog sees a person only as it reaches them, and finds them by nose and ear
+# before that; the content reach of 3.8 m would have fallen to 0.95 m, well inside contact. The fog multiplies the floor as it multiplies everything. Both gates on a zombie *seeing* move together and by the same factor:
 # this reach, and the range `detail` judges through SimVisibility.refresh, which SimBoot scales
 # with the same `sight_mul`. Neither is allowed to shrink alone -- docs/16's symmetry is that
 # the fog blinds the living and the dead by the same amount, and a reach that stayed open while
@@ -846,12 +845,12 @@ static func sight_reach(world: Variant, entity: int, shambler_data: Dictionary, 
 static var SIGHT_ENABLED: bool = true
 # The shambler's daylight reach floor, in metres. A shambler's sight reach is its observer range (12 m,
 # docs/28's eyes) times sqrt(lightSense), which is 3.8 m for the shambler (lightSense 0.1). That made a
-# shambler blind at 4 m by day, and the first-person alpha sheet showed one stopping at 3 to 5 m. 8 m is
-# the owner-card default (t1n, 2026-11-07): a shambler notices a person at a room's width by day, and the
+# shambler blind at 4 m by day, and the first-person alpha sheet showed one stopping at 3 to 5 m. 6 m is
+# the built default (the owner card's 8 m wipes seed 20260805 on top of #370; docs/30): a shambler notices a person at a room's width by day, and the
 # night rule in visibility.gd still limits what it sees after dark. The floor is the reach, not a second
 # sense: the fog multiplier and the occlusion in visibility.gd still apply, and a kind with no light
 # sense (the bloodhound) keeps no reach at all. A static so a lane can pin it, as SIGHT_ENABLED is.
-static var SIGHT_REACH_FLOOR_METRES: float = 8.0
+static var SIGHT_REACH_FLOOR_METRES: float = 6.0
 
 # A wandering or dormant body with no person within FAR_THINK_METRES thinks on one tick in
 # FAR_THINK_EVERY, its phase set by its id so a quarter of them think on any tick (A3's ninth
