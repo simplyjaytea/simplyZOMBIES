@@ -281,6 +281,8 @@ generator only if it is cheaper that way (docs/41 P3); none depends on it.
 | `building.bath.public` | 14 x 10 | commercial | tar / render | A sento or small onsen: changing rooms, the bath hall, a boiler room. Later. |
 | `building.works.control` | 10 x 8 | industrial | tar / block | The dam's control house or the works' weigh office. Later, a landmark (docs/41 P4). |
 
+The station's platform is built as Floor tiles, not the Low strip above: see docs/30, "The station's platform is Floor tiles" (2026-11-08).
+
 Props that are not buildings but belong to the valley, for the dresser (docs/41 P1 and P2):
 vending machines (the single most Japanese object; several liveries, no real brand), utility
 poles with transformers and wire webs, convex road mirrors, guardrails, concrete-block walls with

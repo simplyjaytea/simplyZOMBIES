@@ -3406,6 +3406,45 @@
     {
       "bounds": {
         "max": [
+          12.305,
+          4.12,
+          7.305
+        ],
+        "min": [
+          -0.305,
+          0.0,
+          -0.305
+        ]
+      },
+      "floor": [
+        "tile",
+        "tile_alt"
+      ],
+      "glb": "res://assets/first_person/buildings/station_small.glb",
+      "interior": "civic",
+      "interiorWall": [
+        "render_ivory"
+      ],
+      "match": {
+        "id": "building.station.small"
+      },
+      "pieces": {
+        "jamb": 57,
+        "wall": 31,
+        "window": 36
+      },
+      "roof": "tin",
+      "roofForm": "gable",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "timber"
+    },
+    {
+      "bounds": {
+        "max": [
           16.18,
           2.81,
           12.18

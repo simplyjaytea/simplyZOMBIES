@@ -8217,3 +8217,23 @@ The what's-left entry "The juggernaut" is closed. Its record, with the numbers, 
 - **Ten-seed re-baseline owed.** The juggernaut joins the crawler, the lurker, the bloater's gas and
   the feigner in the stage 2 run: ten seeds and a median wipe day, on `main` and on the candidate,
   on a quiet machine. No number from this piece is a balance claim until then.
+
+## The station's platform is Floor tiles, not Low (2026-11-08)
+
+docs/42 section 4 has `building.station.small`'s platform as "a strip of Low tiles". It is built as Floor
+tiles: paved, outdoor, no cover.
+
+- **Why.** In the sim, Low is cover. `SimSpace.PROFILE` gives a Low tile a 0 to 1,100 mm band that stops sight,
+  shots and reach, and a crouched eye is still blocked by it. `godot:check:fp_geometry` requires that band to be
+  drawn. A platform of Low tiles would be a 1.1 m wall to the sim, while the art brief sets a kerb of 0.20 m or
+  less and the floor is not lifted. That draws cover the player cannot see, which breaks the rule that the
+  picture is what the sim is.
+- **Default, built.** Floor tiles. No new cover.
+- **If the owner wants a platform you can crouch behind,** that is a card for docs/33. Floor tiles stand until it
+  is answered.
+- **Template.** `building.station.small`, 12 x 7, tags `civic` and `station`, weight 4 (the civic convention).
+  Look: tin roof, timber walls. A waiting room on the north, a partition with a ticket window and a floor gap,
+  and the platform strip along the south; a street door on the north wall, a platform door on the west wall.
+- **Proof.** The other 22 templates are proved against `84aef0fd` by name-blind, order-free geometry and the
+  atlas cells each one touches (`OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22`). The station is excluded by name,
+  as a template with no base GLB.

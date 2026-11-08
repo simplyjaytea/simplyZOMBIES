@@ -2527,6 +2527,15 @@ not a to-do list:
     `check:routing` pass. Matched base/head, repeat, magenta and Blender captures accompany the piece;
     repeat-run pixel noise is zero.
 
+- **The Ome–Okutama re-theme: the station, 2026-11-08.** Batch B's `building.station.small`, content and
+  generic finish only (the art round replaces the finish later). 12 x 7 tiles, civic and station, weight 4
+  (the civic convention, as `hall.civic` and `clinic.storefront`). Waiting room, a ticket window in the partition
+  wall, a street door on the north wall and a platform door on the west wall; tin roof, timber walls. The platform is
+  Floor tiles, not Low (docs/30, 2026-11-08). `build_finishes.py` proves the other 22 templates against
+  `84aef0fd` by name-blind, order-free geometry and atlas cells, and deletes each template's objects and mesh
+  datablocks after export, so a new template changes no other template's geometry or atlas pixels.
+  Verified: `OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22`, `BUILDINGS_BUILD_OK`.
+
 - **The purifier refill: a carried material repacks a spent filter, 2026-11-04.** The pump filter
   (`item.filter.pump`) has a `refill` block in `godot/content/items/kitchen.json`: one lump of
   `charcoal` restores forty uses, up to its `purifies` of forty. The block is in

@@ -18,7 +18,7 @@ committed bytes, and prints `BUILDINGS_CHECK_OK`. It checks export bounds agains
 manifest, wall-band heights and tile ownership, floor contact, coplanar overlap, measured UV density,
 atlas materials and filtering, every wall/roof look, and every template resolution. The manifest is
 written with LF; a checkout that holds it with CRLF (`core.autocrlf`) is folded back before the compare.
-The editable blend is arranged as a contact sheet of the 22 source shells and is not byte-compared.
+The editable blend holds no objects: each template's objects and mesh datablocks are removed after its export, so merged meshes keep the names `spatial_bands` and `finish`. It is a build artefact and is not byte-compared.
 
 Two checks judge what Godot will draw. Every roof face must be wound to face up, every soffit to
 face down, and every eave, fascia, parapet, barge board and gable end to face away from the building:
@@ -235,8 +235,8 @@ If room tags are added to content later, the manifest is the place to refine thi
   the course depth. Leaf cells `(4,6)` / `(5,6)` keep rust to their vertical edges and lowest bottom
   course. `CHARACTER building.unit.industrial` measures the exported geometry and samples each eave
   and verge separately: every edge must exceed 1.0% rust and the field must be exactly 0.0%.
-- `OTHER_TEMPLATES_PIXELS_IDENTICAL 21/21` compares every other template, the shotengai and both houses
-  included, with `OTHER_TEMPLATES_BASE = 1d2063b9`. At extreme minification, new atlas cells can still
+- `OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22` compares every other template, the shotengai, the sawmill and both
+  houses included, name-blind, with `OTHER_TEMPLATES_BASE = 84aef0fd`; the station is excluded by name as new since base. At extreme minification, new atlas cells can still
   move isolated pixels in other templates through mip levels 8 and 9; round 1's render and byte proofs
   identified that effect separately from the unchanged meshes and base-level cells.
 
