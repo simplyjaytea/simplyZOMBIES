@@ -461,7 +461,7 @@ class MeshBuilder:
         self.styles.extend(other.styles)
         self.roles.extend(other.roles)
 
-    def face(self, origin, u_axis, v_axis, style, variants=None, normal=None, style_for_cell=None):
+    def face(self, origin, u_axis, v_axis, style, variants=None, normal=None, style_for_cell=None, uv_shift_for_cell=None):
         origin = Vector(origin)
         u_axis = Vector(u_axis)
         v_axis = Vector(v_axis)
@@ -489,6 +489,10 @@ class MeshBuilder:
                     a1 = 1.0
                 if math.isclose(b1, 0.0):
                     b1 = 1.0
+                if uv_shift_for_cell is not None:
+                    a_shift, b_shift = uv_shift_for_cell(u0, u1, v0, v1, width, height)
+                    a0, a1 = a0 + a_shift, a1 + a_shift
+                    b0, b1 = b0 + b_shift, b1 + b_shift
                 points = [
                     origin + u_axis * u0 + v_axis * v0,
                     origin + u_axis * u1 + v_axis * v0,
@@ -1502,7 +1506,7 @@ def sampled_rust_share(pixels, faces):
                 if min(a, b, c) >= -0.000001:
                     samples.add((x, y))
     if not samples:
-        raise ValueError("rust measurement has no sampled atlas pixels")
+        return 0.0
     rust_colour = tone("brick", 2)
     rust = 0
     for x, y in samples:
@@ -1546,8 +1550,10 @@ def sawmill_character(template, model, doors_clear):
     pixels = [0.0] * len(image.pixels)
     image.pixels.foreach_get(pixels)
     field_faces = [face for face in roof_faces if face["style"] in ROOF_VARIANTS["tin"]]
-    eave_faces = [face for face in roof_faces if face["style"] in ("sawmill_eave", "sawmill_eave_alt")]
-    verge_faces = [face for face in roof_faces if face["style"] in ("sawmill_verge", "sawmill_verge_alt")]
+    eave_north_faces = [face for face in roof_faces if face["style"] == "sawmill_eave"]
+    eave_south_faces = [face for face in roof_faces if face["style"] == "sawmill_eave_alt"]
+    verge_west_faces = [face for face in roof_faces if face["style"] == "sawmill_verge"]
+    verge_east_faces = [face for face in roof_faces if face["style"] == "sawmill_verge_alt"]
     leaf_faces = []
     for face in model.faces:
         points = [Vector(point) for point in face["points"]]
@@ -1555,17 +1561,20 @@ def sawmill_character(template, model, doors_clear):
         if face["style"] in leaf_styles and min(point.z for point in points) >= template["size"]["h"] and min(point.y for point in points) < 2.20 and abs(normal.z) > 0.9 and max(point.x for point in points) - min(point.x for point in points) > 0.80:
             leaf_faces.append(face)
     field_rust = sampled_rust_share(pixels, field_faces)
-    eave_rust = sampled_rust_share(pixels, eave_faces)
-    verge_rust = sampled_rust_share(pixels, verge_faces)
+    eave_north_rust = sampled_rust_share(pixels, eave_north_faces)
+    eave_south_rust = sampled_rust_share(pixels, eave_south_faces)
+    verge_west_rust = sampled_rust_share(pixels, verge_west_faces)
+    verge_east_rust = sampled_rust_share(pixels, verge_east_faces)
     leaf_rust = sampled_rust_share(pixels, leaf_faces)
-    if field_rust > 0.001 or min(eave_rust, verge_rust, leaf_rust) <= 0.0:
-        raise ValueError(f"{template['id']} rust allocation field {field_rust:.1f}, eave {eave_rust:.1f}, verge {verge_rust:.1f}, leaf {leaf_rust:.1f}")
+    edge_rust = (eave_north_rust, eave_south_rust, verge_west_rust, verge_east_rust)
+    if field_rust != 0.0 or min(edge_rust) <= 1.0 or leaf_rust <= 0.0:
+        raise ValueError(f"{template['id']} rust allocation field {field_rust:.1f}, eave north {eave_north_rust:.1f}, eave south {eave_south_rust:.1f}, verge west {verge_west_rust:.1f}, verge east {verge_east_rust:.1f}, leaf {leaf_rust:.1f}")
     roof = sorted({face["style"] for face in roof_faces})
     walls = sorted({face["style"] for face in model.faces if face["style"] in WALL_VARIANTS["siding"]})
     return (
         f"CHARACTER {template['id']}: sliding leaves {len(leaves)}, leaf {leaf_sizes[0][0]:.2f} x {leaf_sizes[0][1]:.2f} m, track {track:.2f} m; "
         f"doors clear {doors_clear}; roof {roof}, eave {eave:.2f} m, rake {rake:.2f} m; "
-        f"roof rust: field {field_rust:.1f}%, eave course {eave_rust:.1f}%, verge {verge_rust:.1f}%; leaf rust {leaf_rust:.1f}%; "
+        f"roof rust: field {field_rust:.1f}%, eave north {eave_north_rust:.1f}%, eave south {eave_south_rust:.1f}%, verge west {verge_west_rust:.1f}%, verge east {verge_east_rust:.1f}%; leaf rust {leaf_rust:.1f}%; "
         f"gable faces closed {'yes' if closed else 'no'}; walls {walls}"
     )
 
@@ -2161,9 +2170,11 @@ def add_house_roof_character(mesh, template, eave, peak, plant=None):
         tube_between(mesh, (-eave + 0.004, 2.56, gutter_z), (w + eave - 0.004, 2.56, gutter_z), 0.055, "dark_wood")
 
 
-def sawmill_roof_cells(north):
+def sawmill_roof_cells(north, plant=None):
     def choose(u0, u1, v0, v1, width, height):
         if (north and math.isclose(v1, height)) or (not north and math.isclose(v0, 0.0)):
+            if plant == "eave_north_clean" and north:
+                return "tin"
             return "sawmill_eave" if north else "sawmill_eave_alt"
         if math.isclose(u0, 0.0):
             return "sawmill_verge"
@@ -2172,6 +2183,20 @@ def sawmill_roof_cells(north):
         return None
 
     return choose
+
+
+def sawmill_roof_uv(north):
+    def shift(u0, u1, v0, v1, width, height):
+        a_shift, b_shift = 0.0, 0.0
+        if math.isclose(u1, width):
+            a1 = u1 % 1.0
+            a_shift = 1.0 - (1.0 if math.isclose(a1, 0.0) else a1)
+        if north and math.isclose(v1, height):
+            b1 = v1 % 1.0
+            b_shift = 1.0 - (1.0 if math.isclose(b1, 0.0) else b1)
+        return a_shift, b_shift
+
+    return shift
 
 
 def build_roof(mesh, template, plant=None):
@@ -2205,10 +2230,12 @@ def build_roof(mesh, template, plant=None):
     rise = peak - 2.62
     if form == "gable":
         wall_roof = 2.62 + rise * eave / (h * 0.5 + eave)
-        north_cells = sawmill_roof_cells(True) if template["id"] == SAWMILL_ID else None
-        south_cells = sawmill_roof_cells(False) if template["id"] == SAWMILL_ID else None
-        mesh.face((-eave, 2.62, -eave), (w + 2 * eave, 0, 0), (0, rise, h * 0.5 + eave), variants[0], variants, (0, 1, -0.4), north_cells)
-        mesh.face((-eave, peak, h * 0.5), (w + 2 * eave, 0, 0), (0, -rise, h * 0.5 + eave), variants[0], variants, (0, 1, 0.4), south_cells)
+        north_cells = sawmill_roof_cells(True, plant) if template["id"] == SAWMILL_ID else None
+        south_cells = sawmill_roof_cells(False, plant) if template["id"] == SAWMILL_ID else None
+        north_uv = sawmill_roof_uv(True) if template["id"] == SAWMILL_ID else None
+        south_uv = sawmill_roof_uv(False) if template["id"] == SAWMILL_ID else None
+        mesh.face((-eave, 2.62, -eave), (w + 2 * eave, 0, 0), (0, rise, h * 0.5 + eave), variants[0], variants, (0, 1, -0.4), north_cells, north_uv)
+        mesh.face((-eave, peak, h * 0.5), (w + 2 * eave, 0, 0), (0, -rise, h * 0.5 + eave), variants[0], variants, (0, 1, 0.4), south_cells, south_uv)
         mesh.role = "roof_side"
         gable_style = exterior[0] if plant == "gable_sage" or template["id"] != "building.house.small" else "mortar"
         for x, normal in ((-0.005, (-1, 0, 0)), (w + 0.005, (1, 0, 0))):
@@ -2835,7 +2862,7 @@ def main():
     arguments = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter", "sliding_door_cross", "sliding_leaf_span"])
+    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter", "sliding_door_cross", "sliding_leaf_span", "eave_north_clean"])
     args = parser.parse_args(arguments)
     repo = Path(__file__).resolve().parents[3]
     try:

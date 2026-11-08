@@ -48,6 +48,7 @@ blender --background --factory-startup --python tools/blender/first_person_build
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=shutter
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=sliding_door_cross
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=sliding_leaf_span
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=eave_north_clean
 ```
 
 `winding` reverses one hip-roof face; `aperture` draws a wall across house_small's first window. The
@@ -55,7 +56,8 @@ canopy plants put it at 1.90 m, make it 1.40 m deep, or detach it; the wall plan
 0.15 m proud or put it on an openable tile. `shop_canopy_low` puts the shotengai canopy's underside
 at 2.20 m, `shutter` draws a shutter down over an openable shop window, and `sliding_door_cross`
 puts a sawmill leaf across the south doorway. `sliding_leaf_span` draws one leaf across the x 4–5
-boundary and is refused by the one-tile leaf assertion.
+boundary and is refused by the one-tile leaf assertion. `eave_north_clean` paints the north eave
+with plain tin and is refused by the per-region rust measurement.
 
 ## Data and runtime
 
@@ -228,9 +230,11 @@ If room tags are added to content later, the manifest is the place to refine thi
 - The roof is a low tin gable at 3.45 m with 0.30 m eaves and rakes, closed siding gable faces, down-facing
   soffits and barge boards. Its field uses the unchanged shared `tin` / `tin_alt` cells. Only the eave
   and verge courses use the new `sawmill_eave` cells `(6,6)` / `(7,6)` and `sawmill_verge` cells
-  `(0,7)` / `(1,7)`, with edge rust and down-slope drips. Leaf cells `(4,6)` / `(5,6)` keep rust to
-  their vertical edges and lowest bottom course. `CHARACTER building.unit.industrial` measures the
-  exported geometry and the rust shares of the atlas pixels its GLB faces sample.
+  `(0,7)` / `(1,7)`, with edge rust and down-slope drips. Partial north-eave and east-verge courses
+  offset their UVs to the rust-bearing outer end of the cell, so every edge keeps its rust whatever
+  the course depth. Leaf cells `(4,6)` / `(5,6)` keep rust to their vertical edges and lowest bottom
+  course. `CHARACTER building.unit.industrial` measures the exported geometry and samples each eave
+  and verge separately: every edge must exceed 1.0% rust and the field must be exactly 0.0%.
 - `OTHER_TEMPLATES_PIXELS_IDENTICAL 21/21` compares every other template, the shotengai and both houses
   included, with `OTHER_TEMPLATES_BASE = 1d2063b9`. At extreme minification, new atlas cells can still
   move isolated pixels in other templates through mip levels 8 and 9; round 1's render and byte proofs

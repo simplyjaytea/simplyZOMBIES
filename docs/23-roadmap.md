@@ -2513,11 +2513,14 @@ not a to-do list:
     door has plank-lined dark-wood trim and the west windows have metal industrial casings. The low
     tin gable rises to 3.45 m, with 0.30 m eaves/rakes, closed siding gable faces, soffits and barge
     boards. The roof field uses the unchanged shared tin cells; rust and drip lines are confined to
-    new eave and verge cells, and leaf rust to the vertical edges and lowest bottom course.
+    new eave and verge cells, and leaf rust to the vertical edges and lowest bottom course. Partial
+    north-eave and east-verge courses offset their UVs to the rust-bearing outer end of their cells.
   - **Verified.** The measured `CHARACTER` line reports four leaves, the track, three clear doors,
-    roof cells, sampled rust shares, eave/rake and closed gables. A GLB assertion holds every leaf to
-    one tile and its own conditional piece; all 27 plants are refused, including `sliding_leaf_span`
-    and `sliding_door_cross`. `OTHER_TEMPLATES_PIXELS_IDENTICAL 21/21` holds every other template's
+    roof cells, eave/rake and closed gables. Each eave and verge has its own sampled rust share above
+    1.0%, with the field exactly 0.0%; `eave_north_clean` proves the north measurement can fail. A GLB
+    assertion holds every leaf to one tile and its own conditional piece; all 28 plants are refused,
+    including `sliding_leaf_span` and `sliding_door_cross`. `OTHER_TEMPLATES_PIXELS_IDENTICAL 21/21`
+    holds every other template's
     mesh and touched base-level atlas cells to `1d2063b9`. Isolated render differences in other
     templates come from new cells shared through atlas mip levels 8 and 9 at extreme minification,
     as round 1's hybrid and byte proofs established. `godot:check:fp_geometry`, `godot:smoke` and
