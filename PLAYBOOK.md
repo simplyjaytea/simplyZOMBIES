@@ -44,18 +44,21 @@ Then read, in order:
 
 ## The team
 
-**Linux, since 2026-11-04; this roster since 2026-11-05.** The owner's machine runs six terminals in
-herdr, not Orca, in two workspaces: "simplyZOMBIES / Main Code" (the orchestrator, the lead engineer, the two
-workers) and "simplyZOMBIES / Modeling and Art" (the art lead and its QA). The owner decides and gives
-tasks to the orchestrator directly. Agents do the rest, each on its own model.
+**Linux, since 2026-11-04; this roster since 2026-11-07.** The owner's machine runs nine terminals in
+herdr, not Orca, in three workspaces: "simplyZOMBIES / Main Code" (the orchestrator, the lead engineer, the
+three workers), "simplyZOMBIES / Modeling and Art" (the art lead and its QA), and "simplyZOMBIES / Claude Code"
+(the NPC and zombie mechanics lead and its worker). The owner decides and gives tasks to the orchestrator
+directly. Agents do the rest, each on its own model.
 
 | Role | Agent | Does | Does not |
 |---|---|---|---|
-| Orchestrator | Claude Code, Fable 5.1 | Plans and orchestrates: reads the state, writes the specs, dispatches the lead engineer, the workers and the art lead, makes the harder judgement calls, and talks to the art QA for anything that crosses the two workspaces. The owner gives it tasks directly | Write the work, merge, or run the merge train |
-| Lead engineer | Claude Code, Sonnet 5.5 | Reviews every worker change against the diff before the orchestrator sees it; runs the merge train and merges; opens PRs; small fixes to docs and records | Plan the rounds; touch art |
+| Orchestrator | Claude Code, Fable 5.1 | Plans and orchestrates: reads the state, writes the specs, dispatches the lead engineer, the workers and the art lead, makes the harder judgement calls, and talks to the art QA for anything that crosses the two workspaces. The owner gives it tasks directly. Runs the merge command when the lead engineer sends `MERGE #N <full SHA>` after its review | Write the work; merge a head the lead engineer has not reviewed |
+| Lead engineer | Claude Code, Sonnet 5.5 | Reviews every worker change against the diff before the orchestrator sees it; runs the merge train: checks the head contains `origin/main`, CI is green on that head and the merge diff is read, then sends the orchestrator `MERGE #N <full 40-char SHA>`; writes `REPORT-<N>.md`; opens PRs; small fixes to docs and records | Plan the rounds; touch art |
 | Art lead | Kimi Code, K3.1 Pro, thinking high, in "Never Ask" mode | Every 3D model, rig, clip, UV layout and painted texture | Edit another worker's worktree |
 | Art QA | Claude Code, Opus 5.5, a standing terminal beside Kimi | Plans Kimi's rounds, reviews every art batch independently and writes the verdict to `sz-shared/reviews/<piece>/`; the strong tier for a piece that needs higher thinking (a new gate, a shared sim module, the save format) when the coordinator asks | Merge; routine work, which stays with the workers |
-| Workers (two) | Claude Code, Haiku 5.5 | Every piece of work that is not art: code, gates, docs, keeping pull requests current with main, and independent reviews of code they did not make | Merge |
+| Workers (three) | Claude Code, Haiku 5.5 | Every piece of work that is not art: code, gates, docs, keeping pull requests current with main, and independent reviews of code they did not make. The two merge-train queue workers (head and tail) keep the open PRs current with main and run each PR's named gates after every re-merge | Merge |
+| NPC and zombie lead | Claude Code, Sonnet 5.5 | Surveys, writes the specs and reviews every change in the NPC and zombie workspace, reruns its gates, and hands reviewed heads to the orchestrator for the train | Merge; plan outside its workspace |
+| NPC and zombie worker | Claude Code, Haiku 5.5 | The code, gates and re-merges that the NPC and zombie lead dispatches | Merge |
 
 The roster may name models, because it says who runs what. Authorship never does: a commit, PR
 title or body, code comment or doc does not say which model wrote it (the owner's call, 2026-11-01,
@@ -78,8 +81,8 @@ never share a worktree at the same time, and nobody switches branches in the mai
    (or off the PR it stacks on). Worktrees sit under `.claude/worktrees/`, on branches named
    `<agent>/<piece>`. Symlink `node_modules` from the main checkout; the symlink is excluded in
    `.git/info/exclude`.
-4. **Dispatch.** `hc ls` lists the terminals in both workspaces, "simplyZOMBIES / Main Code" and
-   "simplyZOMBIES / Modeling and Art". Addresses such as `t1p` change between runs: Kimi is the `kimi-code`
+4. **Dispatch.** `hc ls` lists the terminals in all three workspaces, "simplyZOMBIES / Main Code",
+   "simplyZOMBIES / Modeling and Art" and "simplyZOMBIES / Claude Code". Addresses such as `t1p` change between runs: Kimi is the `kimi-code`
    row, the art QA is the Claude row beside it, and the workers are the Haiku rows (`hc read <t>` shows
    the model on each screen). Start one
    with `hc run --bg --name <n> --cwd <worktree> --outlive-parent <cmd>`, then
@@ -143,7 +146,8 @@ never share a worktree at the same time, and nobody switches branches in the mai
    handoff and the original task.
 
 A worker revived after days can wake with stale context, so brief it on the current `main` first. Push
-at a clean point before a long run.
+at a clean point before a long run. When herdr restarts, every agent exits and the shells keep their
+addresses; the orchestrator relaunches each agent in its shell and briefs it from `sz-shared/RESUME-<date>.md`.
 
 **Briefing a worker.** docs/23 and docs/30 are too large to read whole. A brief names the parts that
 bear on the piece: its entry in docs/23's what's left, its row in the [routing table](#routing-table),

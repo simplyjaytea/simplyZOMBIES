@@ -8388,6 +8388,17 @@ The what's-left entry "The juggernaut" is closed. Its record, with the numbers, 
   the feigner in the stage 2 run: ten seeds and a median wipe day, on `main` and on the candidate,
   on a quiet machine. No number from this piece is a balance claim until then.
 
+## The roster is nine terminals in three workspaces, and the merge line (2026-11-08)
+
+- **The roster.** Nine terminals in herdr, in three workspaces: "simplyZOMBIES / Main Code" (the
+  orchestrator, the lead engineer and three workers), "simplyZOMBIES / Modeling and Art" (the art lead
+  and its QA), and "simplyZOMBIES / Claude Code" (the NPC and zombie lead and its worker). The table in
+  [The team](../PLAYBOOK.md#the-team) is the record of who does what.
+- **The merge line runs from the orchestrator's seat.** The lead engineer reviews a head, checks it
+  contains `origin/main`, reads its merge diff and confirms CI on that head, then sends the orchestrator
+  `MERGE #N <full 40-char SHA>`. The orchestrator runs `gh pr merge N --merge --match-head-commit <SHA>`
+  on that line. Where the auto-mode classifier blocks that command on a seat, the owner runs it, as on
+  2026-11-08 for #362.
 ## The harm readout says a wound and a held body in words, 2026-11-07
 
 The first-person HUD names held (F struggles free, several holders read as several things), the newest wound
