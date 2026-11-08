@@ -2534,6 +2534,22 @@ not a to-do list:
     were deleted. `godot:bench:frame` draws the top-down scene and is not moved by this.
   - **Verified.** `godot:check:first_person`, `godot:check:fp_expedition`,
     `godot:check:fp_geometry`, `godot:smoke` and `check:routing`.
+- **The arms raise and aim with the fire state, 2026-11-07.** The dead socket is closed: the arms kit's
+  `raise_pistol`, `raise_long`, `aim_pistol` and `aim_long` had no reader, and the sim's `FireState` had none
+  in presentation. `ArmsView.fire_of` (beside `hold_class_of`) reads the sim's `rangedWeapon` state and gives
+  `{phase: idle|raise|aim|recover|reload, t}`: Raise is `raise` with `t` = 1 - ticksLeft / the weapon's own
+  raise ticks; Steady is `aim`; Recover and Clearing are `recover`; Reload is `reload`. The view's phase machine
+  plays `raise_<class>` held at that `t` (so a heavier gun's longer raise stretches the 0.40 s clip), `aim_<class>`
+  while steady, and returns to `idle_<class>` on recover or reload. Draw, lower, inspect and covered still win;
+  a melee class and bare hands ignore the state. The sim is not changed. Gate: `godot:check:first_person` ARMS,
+  the AIM case: rifle then pistol, each shot checked tick by tick (the clip is `raise_<class>` at the sim's `t`
+  across at least two distinct positions, then `aim_<class>` while steady, a sheet opened in the aim lowers the
+  arms and closing it brings the aim back, then `idle_<class>` after the shot); a stubbed read model that says
+  idle leaves the arms on idle through the whole shot; a knife under a stubbed raise and aim stays on
+  `idle_melee1`. The plant (`fire_of` returns aim for every state) turns ARMS red, with `in Raise the long arms
+  play 'aim_long', not raise_long`. Reload has no clip, so its idle is the conservative default (docs/30). The
+  PLAYBOOK "Known bugs" line on the lowered weapon is removed. `SimAim.holds` still has its reader only in the
+  top-down `main.gd`, not in the first-person arms.
 - **The organic survivor, 2026-11-04.** The first-person survivor body is replaced: the box-segment
   `survivor.glb` gives way to an organic, smooth-skinned woman built by `organic_survivor.py` in the
   Blender character kit (`tools/blender/first_person_kit/build_characters.py`). She has 7,810 triangles,
@@ -3028,6 +3044,28 @@ not a to-do list:
     made for survivors only (`recruits.gd`'s `_make_corpse`), so a zombie's death clip is set by the
     gate, not the sim. Horde cost beyond 40 is unmeasured, and so is a horde at the shipped district's
     density.
+- **Held items on the first-person bodies, 2026-11-07.** The bodies in the first-person world carry what the
+  sim says they hold. `held_weapon.gd` gains a `holder` (the entity whose hand it is; unset is the player, so the
+  arms are unchanged), and the same assembly the arms draw (receiver, sockets, parts) is mounted under the right
+  hand of each body with a model: `body_view.gd`'s `mount_held` puts a `BoneAttachment3D` on the rig's `hand.R`
+  (both `survivor.glb` and `shambler.glb` carry it) and parents the held view to it. `own_body.gd` does the same
+  for the player's body, so the weapon the arms hide in third person (`hide_weapon`) is drawn on the body there.
+  Unarmed bodies draw nothing under the hand. No sim change, no HUD words.
+  - **The orientation.** Measured on the shipped survivor rig before the turn: the grip's bore pointed backwards
+    (dot with the body's forward -0.960), because the hand bone's Y runs down the arm. One constant,
+    `HAND_TO_GRIP_RADIANS` (a half turn about the hand's X), sends the bore forward: dot +0.960. The grip's top
+    then points 16 degrees above the body's up (dot 0.960), which is the hand bone's own rest roll and is left
+    as it is.
+  - **The gate.** `godot:check:first_person` BODIES, the HELD case: a colonist given a pistol (its model under
+    `hand.R`, 0.000 m from the bone), then a bat (swapped; the pistol is gone); an unarmed colonist draws nothing
+    under the hand (the negative: the grip stays under the hand, hidden, with no model in it); the player's own body
+    in third person draws the pistol the arms hold, at 0.000 m from `hand.R`. The distance is read from the
+    skeleton by name, not from the attachment, so a plant on `hand.L` fails it: the pistol sits 0.478 m from the
+    hand bone. The plant is recorded in the REPORT.
+  - **Not in this piece.** A shambler's model gets the same mount (its skeleton has `hand.R`), but no zombie
+    carries a weapon in the sim, so nothing is drawn there. An unarmed body keeps its grip under the hand, hidden,
+    rather than leaving the hand with no child at all; nothing is drawn either way.
+
 - **Art — the survivor review driver, 2026-11-01.** `npm run godot:shots:survivor` photographs a
   candidate survivor GLB in the first-person scene's own sky, sun and lens: `SkyView` for the
   light, the first-person 75-degree lens at the 1.62 m eye, and `models.gd` for the loader. It
@@ -3301,8 +3339,34 @@ not a to-do list:
     of reach, off the aim, through a wall, at a shambler and at a raider no panel opens.
   - **Not in this piece.** No orders, recruitment, delegation or foreman: the one action is Goodbye,
     and docs/39's foreman stays undecided. No speech content was added. The panel does not stop the
-    clock, and a survivor's own conversations with the player are a later slice.
+    clock, and a survivor's own conversations with the player are a later slice. (Amended 2026-11-07:
+    the orders are in; see "Orders through the conversation, 2026-11-07".)
   - **Record.** `docs/planning/first-person-talk-report.md`.
+
+- **Orders through the conversation, 2026-11-07.** Advances "First-person people and settlement operation",
+  its conversations and delegation. The conversation lists the orders the sim offers the colonist for the aim it
+  opened on, and choosing one pushes the sim's own command.
+  - **The rows.** `SimContext.orders_for` is the one builder: the top-down menu's `verbs_at` and the conversation
+    both reach `_order_rows`, so the two cannot differ. `_order_rows` now offers no row to a body that takes no
+    orders (a recruit, a captive, a colonist being carried or leaving). Rows: "have <name> go here", "hold here",
+    "haul <item>", "attack it", and "stand <name> down" while holding. Every row is the sim's `accepts`.
+  - **The aim.** Read once when the conversation opens, and the mouse is released so the aim holds while it is
+    up: a zombie or raider in the aim cone, then a loose item in it, else the ground the look reaches at the 1.8 m
+    reach (no ground when a door, window or wall is on the look). The cone is `_in_aim`, the one cone the scene
+    reads; `talk_target` uses it too.
+  - **Choosing.** A click or Enter on a row pushes the row's `command` through the command queue and closes the
+    panel, as Goodbye does. Up and Down move the choice through the rows and Goodbye. Goodbye stays last, and
+    Escape is still Goodbye. The rows are kit buttons, like the Reports page's; the words have no digits.
+  - **Gate.** `godot:check:first_person` TALK, ORDERS: open ground gives "go" and "hold" and no haul or attack, and
+    the rows are the sim's own (`SimContext.orders_for`); a click on "go" gives the colonist a go order whose
+    destination is the aimed tile and closes the panel; "stand down" lists while holding and `clear` lands; Down and
+    Enter choose the second row; a loose item in the aim lists haul and gives a haul for that item; a shambler in
+    the aim lists attack and gives an attack on it; a colonist that takes no orders lists none. The plant (the panel
+    pushes `hold` when "go" is chosen) turns the lane red: `choosing 'go' did not give the colonist a go order`.
+  - **Not in this piece.** The E ladder is unchanged: E still opens the conversation only with the aim on a colonist.
+    The ORDERS cases open the panel with the aim set on the thing they test. A go to a tile within the sim's REACH
+    ends at once as an arrival, and a go with no route ends as "no-route" in the same tick; both are the sim's
+    answers and the rows are not filtered for them. No foreman, no standing orders, no recruitment.
 
 - **Animation state from the sim, 2026-11-01.** Advances "First-person people and settlement
   operation", the body art: every drawn body now names the animation it should play, read from the
@@ -3603,6 +3667,14 @@ not a to-do list:
     change -- those are docs/40 slices 3, 5 and 6. The viewmodel is a placeholder box.
   - **Record.** `docs/planning/first-person-fight-report.md`.
 
+- **The title starts first person, 2026-11-07.** Advances "First-person expedition and default
+  switch" by the owner's call (docs/30, "The title starts first person"): the game loads into first
+  person, and the top-down game is on hold. The default title offers new run and quit, and new run
+  changes scene to `presentation/first_person/first_person.tscn`. The top-down title, with its four
+  rows, opens with `-- --topdown`, which `npm run godot:run:topdown` and `npm run godot:check:play`
+  pass; nothing in the first-person scene leads there. Gates: `npm run godot:check:hud` prints
+  `TITLE OK` (its plant turns it red); `npm run godot:check:play` keeps `PLAY_OK` under the top-down
+  title; `npm run godot:check:first_person` and `npm run godot:smoke` boot first person unchanged.
 - **First person from the title, 2026-11-01.** Advances "First-person expedition and default
   switch" with the playable on-ramp: the owner can reach the experiment from the game's own title
   and come back, without the default itself changing.
@@ -3653,7 +3725,8 @@ not a to-do list:
     `first_person.gd`'s `_ready` prints. The top-down scene still prints R1 and R4. CI's
     `godot-exports` job is the check that the exported default boot reaches it.
   - **Not in this piece.** The held weapon is drawn at the camera in third person; the body carries
-    no weapon yet. Third person is not a player-facing mode.
+    no weapon yet (amended 2026-11-07: the bodies now carry what they hold, see "Held items on the
+    first-person bodies, 2026-11-07"). Third person is not a player-facing mode.
   - **Captures.** Two in-engine captures (default boot, third-person survivor) are in
     `C:/Users/jtf/orca/sz-shared/fp-default/`. They were taken with a temporary driver that is not
     committed.
@@ -3725,8 +3798,29 @@ not a to-do list:
     mutation (no read mark, no prompt, Escape to the street, an invented line) turns the lane red.
   - **Not in this piece.** Paging beyond the 12 newest lines. A page for the run's epitaph. Save and
     load of the read mark. The gate does not run the death itself: it publishes the event health.gd
-    publishes, and the body stays alive.
+    publishes, and the body stays alive. (Amended 2026-11-07: the three gaps before the read mark and the
+    epitaph are closed; see "The Reports page turns pages, 2026-11-07".)
 
+
+- **The Reports page turns pages, 2026-11-07.** Closes the three gaps the 2026-11-01 entry named. `reports_panel.gd`
+  pages the record twelve lines to a page, newest first: "older" and "newer" are kit buttons (words, no digits), the
+  page opens on the newest twelve, and a record of twelve or fewer shows no paging rows. `ReportsPanel.rows(world,
+  read, page)` stays pure and `entries` is its full list. The "new" tags follow each entry wherever its page is, and
+  the "since you last looked" banner shows while the record holds unread entries.
+  - **The read mark survives a save.** The mark stays presentation state; the sim is never written. It is stored
+    beside the first-person slot under a sibling key, `<slot>.reads` (`save_slot.gd`'s `write_reads`, `read_reads`),
+    written before the sim's save and read back on F9. A slot with no sibling key (an older save) loads as 0. The save
+    text and `SAVE_VERSION` are unchanged, so `godot:m2:save` is not affected.
+  - **The epitaph page.** Once the run is over, the page offers an "epitaph" button (only then), and it shows every
+    line of `SimChronicle.epitaph` with no cap, paged the same way; a "record" button returns to the record. The
+    sim writes nothing new.
+  - **The gate.** `godot:check:first_person` REPORTS, the PAGES case: thirty entries written through the chronicle's
+    writer; the page opens on the newest twelve; "older" by a real click shows the next twelve, then the last six, and
+    stops; "newer" returns; a twelve-line record shows no paging; every paged line is one the chronicle holds, and a
+    line it never wrote is refused by the same check; the read mark comes back after a save and a load with the record
+    changed in between, and old entries are not new; a slot with no mark loads as 0; the epitaph is offered only when
+    `world.runOver` is true, and then holds every epitaph line. The plant (`older()` skips a page) turns the lane red:
+    `'older' did not show the next twelve lines (page 2)`.
 - **First-person stance and gait, 2026-11-01.** Advances "First-person simulation and ledger
   foundation": the scene's movement and camera now follow the body's posture.
   - **The keys.** `first_person.gd` reads the stance rows of `input_map.gd`'s `BINDINGS`: Ctrl+Z

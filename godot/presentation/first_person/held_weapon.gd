@@ -71,6 +71,9 @@ var _missing: Array[String] = []
 var _signature: String = ""
 var _armed: bool = false
 var _ranged_drawn: bool = false
+# The entity whose hand this is. -1 is the player, whose weapon the arms hold; a body's hand sets its own
+# entity, so the same assembly draws what that body holds (`body_view.gd`, `own_body.gd`).
+var holder: int = -1
 
 
 func _ready() -> void:
@@ -146,7 +149,7 @@ func update(world: Variant, now: float, hide: bool = false) -> void:
 	if world == null or hide:
 		_set_shown(false)
 		return
-	var player: int = int(world.player)
+	var player: int = _holder(world)
 	if SimMelee.is_unarmed(world, player):
 		_set_shown(false)
 		return
@@ -221,9 +224,9 @@ func set_view_visible(shown: bool) -> void:
 ## True when the assembly drawn is the assembly the sim holds now. The gate's mismatch negative uses
 ## it: draw, change the sim's parts, and the drawn set no longer answers true until `update` runs.
 func verify(world: Variant) -> bool:
-	if not visible_any() or world == null or world.player < 0:
+	if not visible_any() or world == null or _holder(world) < 0:
 		return false
-	var expected: Dictionary = _expected(world, int(world.player))
+	var expected: Dictionary = _expected(world, _holder(world))
 	if expected.is_empty():
 		return false
 	if not _drawn.has("receiver") or String(_drawn["receiver"]) != String(expected["receiver"]):
@@ -394,12 +397,16 @@ func _assembly_signature(world: Variant, item: int, base_id: String, is_ranged: 
 	var sig: String = "ranged" if is_ranged else "melee"
 	sig += "|" + base_id
 	if is_ranged and item >= 0:
-		var parts: Dictionary = _expected(world, int(world.player))["parts"] as Dictionary
+		var parts: Dictionary = _expected(world, _holder(world))["parts"] as Dictionary
 		var names: Array = parts.keys()
 		names.sort()
 		for slot in names:
 			sig += "|%s=%s" % [slot, String(parts[slot])]
 	return sig
+
+
+func _holder(world: Variant) -> int:
+	return holder if holder >= 0 else int(world.player)
 
 
 func _base_id(world: Variant, item: int) -> String:

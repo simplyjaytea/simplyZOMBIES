@@ -103,6 +103,8 @@ function check(label, kind, output, expected, engineExit = 0) {
                 "Dummy",
                 "--script",
                 "res://bench/runtime_frame.gd",
+                "--",
+                "--topdown",
               ],
         ),
       },
