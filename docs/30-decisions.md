@@ -8386,6 +8386,15 @@ for seed 20260805 first.
 aids, which is not the kind under test (a settler and a raider, Mara); the plant (the colony gate in `npc_combat.gd` removed) still goes red.
 `check_first_person.gd` runs its scene lanes with the floor at 0, as m2:roster and m2:fog do: at the floor the TALK lane lets a zombie
 grab the player, and the break-away shove outlives into the ANIM lane's "standing reads idle"; fp_encounter judges the floor.
+
+## Outdoor boot wanderers are judged ahead; the boot ships at lead 0, 2026-11-07
+
+Option B (t1n). `BOOT_WAVE_LEAD_DAYS` ships 0: the boot, and every balance gate, is unchanged. The recommended alpha default
+is 2, to be set by the first-person scene once #361 is on main. At 2, seed 20260805, the first-person default district seed,
+wipes the headless colony by day 10 (2/3 to 0/3) with two stalkers and a bloater outdoors; the colony is down to 0 by day 6
+in the diagnostic, and its early losses are two shamblers and one septic death, not a stalker or the bloater. At 1 the boot
+is inert (day 2 admits no kind before day 3). The owner can dial it. Card open: how early do the boot wanderers take the
+other kinds, and is the wipe on seed 20260805 acceptable for an alpha that starts with a day-1 packet? 0 is the old behaviour.
 ## Colonists come to the held player's aid, 2026-11-07
 
 Card open (owner): the default is 24 m to the zombie and 4 m for a Pursuing zombie to the controlled body. An aider is
