@@ -8509,3 +8509,14 @@ Card open (owner): the default is 24 m to the zombie and 4 m for a Pursuing zomb
 given an attack order through the order seam; the walk and the rescue are the existing ones. Raiders and settlers do not
 aid. A colonist 12 m away is too slow to beat the player's instinct struggle (40 ticks), so the aid lands at close range.
 The armour lane pins `NPC_AID_ENABLED` off: it tests what a blow wears, not who strikes. Shipped on.
+
+## Doors and windows carry a per-template style, 2026-11-09
+
+Owner card (the door leaf and window frames styled per template, from #368): presentation only. A door
+draws a leaf and a frame, a window its casing, as extra boxes on the tile. The band boxes stay the
+collision and ray truth, so the aperture rays are unchanged (`godot:check:fp_geometry` prints the same
+WORLDGEN and FP_GEOMETRY_OK lines before and after). The leaf differs from its wall by 0.28 in luminance
+and the frame by 0.14, the leaf darker on a light wall and lighter on a dark one; a leaf closer than 0.20
+is refused by the DOORSTYLE lane. Default card, built: colours by luminance contrast, not art. Option
+for the owner: wait for real leaf pieces from the art line, and this table yields to them. Glazed shop
+doors (the convenience and grocery fronts) show a static glass panel; they do not light up at night.
