@@ -39,6 +39,10 @@ const SIDES: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1),
 
 const SALT_PICK: int = 501
 const SALT_CHOICE: int = 502
+# The rank a placement takes when the eligible set outnumbers PROP_CAP.
+const SALT_RANK: int = 503
+# true: keep the lowest-ranked PROP_CAP placements. false: the row-major cut (the gate's plant only).
+const CAP_BY_RANK: bool = true
 
 
 # The manifest entries, or [] when the file is missing or unreadable: an absent manifest draws nothing. Accepts a
@@ -79,9 +83,15 @@ static func _entry_ok(entry: Dictionary) -> bool:
 	return true
 
 
-# Every prop on a map for this seed, in row-major tile order, capped at PROP_CAP. Each placement is a dictionary:
+# Every prop on a map for this seed, in row-major tile order. Each placement is a dictionary:
 # {id, placement, tx, ty, tile_key, pos (Godot metres, base on the floor or at the hem), yaw, size, hem, proud,
 #  anchors (local Vector3 by name)}. Empty for a null map or no entries.
+#
+# Past PROP_CAP eligible placements, WHICH props are kept is chosen by hash rank, not by the first rows: each
+# eligible tile has a rank from Dressing.hash_at with SALT_RANK, ties broken by tile index, and the lowest
+# PROP_CAP ranks are kept. The kept set is emitted in row-major order, so the digest is stable. A plain row-major
+# cut would leave the south of a large district bare; CAP_BY_RANK false is that cut, kept only as the plant the
+# gate proves itself against.
 static func placements(map: Variant, seed_val: int, entries: Array) -> Array:
 	var out: Array = []
 	if map == null or entries.is_empty():
@@ -92,16 +102,37 @@ static func placements(map: Variant, seed_val: int, entries: Array) -> Array:
 	for entry in entries:
 		(by_kind[String((entry as Dictionary)["placement"])] as Array).append(entry)
 	var vehicle_tiles: Dictionary = _vehicle_tiles(map)
+	var w: int = int(map.w)
+	var all: Array = []
 	for ty in range(int(map.h)):
 		for tx in range(int(map.w)):
-			if out.size() >= PROP_CAP:
-				return out
 			if vehicle_tiles.has(Vector2i(tx, ty)):
 				continue
 			var p: Dictionary = _place_on_tile(map, seed_val, tx, ty, by_kind)
 			if not p.is_empty():
-				out.append(p)
-	return out
+				all.append(p)
+	if all.size() <= PROP_CAP:
+		return all
+	if not CAP_BY_RANK:
+		return all.slice(0, PROP_CAP)
+	var ranked: Array = all.duplicate()
+	ranked.sort_custom(func(a, b): return _rank_before(a as Dictionary, b as Dictionary, seed_val, w))
+	var kept: Array = ranked.slice(0, PROP_CAP)
+	kept.sort_custom(func(a, b): return _tile_index(a as Dictionary, w) < _tile_index(b as Dictionary, w))
+	return kept
+
+
+# True when placement a outranks b: the lower hash rank wins, a tie goes to the earlier tile.
+static func _rank_before(a: Dictionary, b: Dictionary, seed_val: int, w: int) -> bool:
+	var ra: int = Dressing.hash_at(seed_val, int(a["tx"]), int(a["ty"]), SALT_RANK)
+	var rb: int = Dressing.hash_at(seed_val, int(b["tx"]), int(b["ty"]), SALT_RANK)
+	if ra != rb:
+		return ra < rb
+	return _tile_index(a, w) < _tile_index(b, w)
+
+
+static func _tile_index(p: Dictionary, w: int) -> int:
+	return int(p["ty"]) * w + int(p["tx"])
 
 
 static func _vehicle_tiles(map: Variant) -> Dictionary:

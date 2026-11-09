@@ -286,9 +286,14 @@ func _run() -> void:
 	root.add_child(dress_b)
 	dress_b.set_process(false)
 	await process_frame
-	ok = _lane("DRESSING", _dressing(dress_a, dress_b), "the street dressing places props from the sim's own tile classes and the manifest alone: the same seed gives the same props on two boots, a tall prop stands flush to a wall and never on a Low tile or open floor, a wall piece is at most 0.10 m proud, a noren hangs over an open door with its hem at 1.80 m or higher, wire spans join poles in range only, a missing manifest draws nothing, the drawn count is the placed count, and the sim's save is byte-identical before and after drawing") and ok
+	var dress_c: Node = packed.instantiate()
+	root.add_child(dress_c)
+	dress_c.set_process(false)
+	await process_frame
+	ok = _lane("DRESSING", _dressing(dress_a, dress_b, dress_c), "the street dressing places props from the sim's own tile classes and the manifest alone: the same seed gives the same props on two boots, a tall prop stands flush to a wall and never on a Low tile or open floor, a wall piece is at most 0.10 m proud, a noren hangs over an open door with its hem at 1.80 m or higher, wire spans join poles in range only, a missing manifest draws nothing, the drawn count is the placed count, and the sim's save is byte-identical before and after drawing") and ok
 	dress_a.queue_free()
 	dress_b.queue_free()
+	dress_c.queue_free()
 	await process_frame
 	_finish(old_size, ok)
 
@@ -304,7 +309,7 @@ const DRESSING_PLANT_CLOCK: bool = false
 const DRESSING_PLANT_OPEN_FLOOR: bool = false
 
 
-func _dressing(dress_a: Node, dress_b: Node) -> bool:
+func _dressing(dress_a: Node, dress_b: Node, dress_c: Node) -> bool:
 	var ok: bool = true
 	var entries: Array = StreetDressing.load_manifest(DRESSING_FIXTURE)
 	if entries.size() != 5:
@@ -375,6 +380,24 @@ func _dressing(dress_a: Node, dress_b: Node) -> bool:
 	if not fails.is_empty():
 		ok = _fail("DRESSING", "the placer broke its rules: %s" % str(fails.slice(0, 3)))
 
+	# The shipped district size: the placed props must reach both halves of it, so a row-major cap cannot leave the
+	# south bare. The plant (StreetDressing.CAP_BY_RANK false) is that cap, and this assertion must fail on it.
+	var map_c: Variant = dress_c.get("map")
+	if int(map_c.h) != 256:
+		ok = _fail("DRESSING", "the default district is %d tiles, not 256" % int(map_c.h))
+	var big: Array = StreetDressing.placements(map_c, seed_val, entries)
+	var half: int = int(map_c.h) / 2
+	var north: int = 0
+	var south: int = 0
+	for p in big:
+		if int((p as Dictionary)["ty"]) < half:
+			north += 1
+		else:
+			south += 1
+	print("DRESSING 256 district: %d props (cap %d), north %d, south %d" % [big.size(), StreetDressing.PROP_CAP, north, south])
+	# Each half holds at least 40% of the props: the rank cut gives about half and half; a row-major cut gives about 70 to 30.
+	if north * 5 < big.size() * 2 or south * 5 < big.size() * 2:
+		ok = _fail("DRESSING", "the 256 district's props miss a half (each needs 40%%): north %d, south %d of %d" % [north, south, big.size()])
 	# Wire spans: a true positive (two poles 20 m apart in one row are joined) and a true negative (50 m apart are not).
 	var near_a: Dictionary = _pole_at(10, 20, 0.0)
 	var near_b: Dictionary = _pole_at(30, 20, 0.0)
