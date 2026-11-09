@@ -17,7 +17,9 @@ function testWindows() {
   const executable = resolve(root, "dist-godot/windows/simplyZOMBIES.exe");
   if (!existsSync(executable))
     throw new Error("Windows export is missing; run npm run godot:export");
-  const result = spawnSync(executable, ["--headless", "--quit-after", "3"], {
+  // The plain boot goes to the title first (docs/30, 2026-11-09). This smoke proves the first-person scene
+  // boots, so it passes --skip-title; the title's own boot is judged by godot:check:fp_title.
+  const result = spawnSync(executable, ["--headless", "--quit-after", "3", "--", "--skip-title"], {
     encoding: "utf8",
     timeout: 30_000,
   });
@@ -79,7 +81,12 @@ async function testWeb() {
     page.on("pageerror", (error) => errors.push(`page: ${String(error)}`));
     page.on("console", (message) => {
       if (message.type() === "error") errors.push(`console: ${message.text()}`);
-      if (message.text().includes("GODOT_FIRST_PERSON_READY")) ready();
+      // The plain web boot is the title (docs/30, 2026-11-09): its ready line is main.gd's, GODOT_R1_READY.
+      if (
+        message.text().includes("GODOT_FIRST_PERSON_READY") ||
+        message.text().includes("GODOT_R1_READY")
+      )
+        ready();
     });
     page.on("response", (response) => {
       if (response.status() >= 400) errors.push(`${response.status()} for ${response.url()}`);

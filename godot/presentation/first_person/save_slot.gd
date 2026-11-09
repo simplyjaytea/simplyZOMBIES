@@ -25,6 +25,12 @@ static var slot_key: String = DEFAULT_KEY
 # One-shot: a plain boot, or a later boot, starts a fresh run.
 static var load_on_boot: bool = false
 
+# Set once the title has been shown to the player in this process (docs/30, 2026-11-09, "the game boots to
+# its title"). The first-person scene's _ready sends a plain boot to the title while this is false; the
+# title's new run and continue set it true before they change scene, so a return to play, and an Esc back
+# to the title and a new run from it, never bounce again. Process-level: a relaunch shows the title once.
+static var title_seen: bool = false
+
 
 # Is there a slot to offer as continue? The default title asks this; it does not decode the slot,
 # so a slot that will not load still gets its row and says why when chosen (main.gd's continue_refusal).
