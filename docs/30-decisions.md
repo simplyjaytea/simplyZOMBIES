@@ -8587,3 +8587,10 @@ and the frame by 0.14, the leaf darker on a light wall and lighter on a dark one
 is refused by the DOORSTYLE lane. Default card, built: colours by luminance contrast, not art. Option
 for the owner: wait for real leaf pieces from the art line, and this table yields to them. Glazed shop
 doors (the convenience and grocery fronts) show a static glass panel; they do not light up at night.
+
+- **The street placer draws the kit's GLBs, not boxes, 2026-11-10.** A placed prop whose manifest entry names a `glb` that
+  loads is drawn as that model, instanced at its base point and yaw (`street_dressing_view.gd`, through `Assets.load_model`, the
+  building kit's loader, nearest filtering). A wall_back_centre model is placed at its wall-facing back, half its depth from the
+  centre the rule places. The box of the manifest size is the fallback for an entry with no file, or an unreadable one, so the
+  fixture and a tree without the kit draw as before. No rule changed: the tall-prop, tile-class and density rules still read the
+  manifest size and the tile. Gate: the DRESSING lane GLB assertions, with the plant `PLANT_IGNORE_GLB`.

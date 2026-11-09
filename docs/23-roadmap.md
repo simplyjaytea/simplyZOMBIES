@@ -4790,6 +4790,11 @@ not a to-do list:
   puff on the zombie's body part, and a flinch back along the shot (`godot/presentation/first_person/hit_marks.gd`, presentation
   only, read from the drained events). Gate: the HIT lane of `godot:check:first_person`, which also plants and fails when the
   read is dropped. The 3b frame before and after is in `sz-shared/alpha-2026-11-09/hit-feedback/`.
+- **The street placer draws the kit's GLBs, 2026-11-10.** `street_dressing_view.gd` instances each placed entry's own `glb`
+  (cached per path, duplicated per prop) at its base point and yaw; a wall_back_centre model is placed by its back face.
+  The box stays the fallback for an entry with no file or an unreadable one, so the fixture and main without the kit draw as
+  before. Gate: the DRESSING lane checks the GLB-named vending props are instanced models and the GLB-less pole is the box;
+  the plant (`PLANT_IGNORE_GLB`) turns the loader off and the lane fails.
 - **A dead zombie lies there, 2026-11-07.** Advances the first-person survival pivot by the owner's card
   (docs/30, "A dead zombie lies where it fell"): a zombie that dies no longer vanishes the same tick.
   - **The body.** `recruits.gd` `handle_death`'s shambler arm keeps `_remember_zombie_remains` and `_drop_kit`,
