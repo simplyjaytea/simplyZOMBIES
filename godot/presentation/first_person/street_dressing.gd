@@ -465,7 +465,8 @@ static func wire_spans(poles_all: Array, map: Variant = null) -> Array:
 			for k in WIRE_KEYS:
 				var a: Vector3 = anchor_world(pa, k)
 				var b: Vector3 = anchor_world(pb, k)
-				if map != null and not PLANT_NO_WIRE_BUILDING_CHECK and _crosses_wall(map, a, b):
+				# Only the centre wire is judged: an outer wire may overhang the wall line a flush pole stands on.
+				if map != null and not PLANT_NO_WIRE_BUILDING_CHECK and k == "wire_c" and _crosses_wall(map, a, b):
 					crosses = true
 				triple.append({"a": a, "b": b, "points": _catenary(a, b), "key": k})
 			if not crosses:
