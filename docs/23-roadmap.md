@@ -174,8 +174,8 @@ The source baseline is archived on GitHub at
   draw on, a fictional map of the valley, building types, and the item and district renames. See
   [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
   The brief is [docs/42](42-ome-okutama-setting.md); its section 6 is the order of the work.
-  Building batch A and batch B's shotengai row have landed; the remaining art batches, templates,
-  props and renames stay planned.
+  Building batch A and batch B's shotengai row and sawmill shed have landed; the remaining art
+  batches, templates, props and renames stay planned.
 - **The wider world by rail.** Other districts and cities reached by a train the colony repairs
   first. The design exists as [docs/45](45-wider-world-by-rail.md), a note like docs/42, under the
   region and streaming work; the sizing does not. See [docs/30](30-decisions.md#the-setting-cards-the-defaults-and-the-valley-is-the-first-of-several-2026-11-04).
@@ -2513,6 +2513,29 @@ not a to-do list:
   template changes no other GLB's bytes. The 22 existing GLBs changed once, by name only. Verified:
   `OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22`, `BUILDINGS_CHECK_OK 23 templates`, `other_template` plant refused.
 
+- **The Ome–Okutama re-theme: the sawmill shed, 2026-11-07.** Batch B's `building.unit.industrial`
+  keeps its 14 x 10 m footprint, all sim walls and all three doors. `TEMPLATE_FINISHES` applies siding
+  over the JSON's block look; the roof stays tin. Owner card A's default keeps the walls.
+  - **Shed.** Four corrugated sliding leaves beside the south double doorway measure 0.90 x 2.04 m,
+    on a 6.00 m track wholly above the 2.20 m opening. Each leaf is a 24 mm skin conditional only on
+    its own wall tile, so an opened window removes a whole leaf and never cuts one in half. The north
+    door has plank-lined dark-wood trim and the west windows have metal industrial casings. The low
+    tin gable rises to 3.45 m, with 0.30 m eaves/rakes, closed siding gable faces, soffits and barge
+    boards. The roof field uses the unchanged shared tin cells; rust and drip lines are confined to
+    new eave and verge cells, and leaf rust to the vertical edges and lowest bottom course. Partial
+    north-eave and east-verge courses offset their UVs to the rust-bearing outer end of their cells.
+  - **Verified.** The measured `CHARACTER` line reports four leaves, the track, three clear doors,
+    roof cells, eave/rake and closed gables. Each eave and verge has its own sampled rust share above
+    1.0%, with the field exactly 0.0%; `eave_north_clean` proves the north measurement can fail. A GLB
+    assertion holds every leaf to one tile and its own conditional piece; all 28 plants are refused,
+    including `sliding_leaf_span` and `sliding_door_cross`. `OTHER_TEMPLATES_PIXELS_IDENTICAL 21/21`
+    holds every other template's
+    mesh and touched base-level atlas cells to `1d2063b9`. Isolated render differences in other
+    templates come from new cells shared through atlas mip levels 8 and 9 at extreme minification,
+    as round 1's hybrid and byte proofs established. `godot:check:fp_geometry`, `godot:smoke` and
+    `check:routing` pass. Matched base/head, repeat, magenta and Blender captures accompany the piece;
+    repeat-run pixel noise is zero.
+
 - **The purifier refill: a carried material repacks a spent filter, 2026-11-04.** The pump filter
   (`item.filter.pump`) has a `refill` block in `godot/content/items/kitchen.json`: one lump of
   `charcoal` restores forty uses, up to its `purifies` of forty. The block is in
@@ -3887,6 +3910,20 @@ not a to-do list:
     change -- those are docs/40 slices 3, 5 and 6. The viewmodel is a placeholder box.
   - **Record.** `docs/planning/first-person-fight-report.md`.
 
+- **The game boots to its title, 2026-11-09.** Advances "First-person expedition and default switch"
+  by the owner's call (docs/30, "The game boots to its title"): a plain boot of the default scene shows
+  the title first, and the title's new run starts first person. `first_person.gd` `_ready` sends a plain
+  boot to `presentation/main.tscn` before it builds any world, content or view (`SaveSlot.title_seen`
+  false, not `skip_title`, no `--skip-title`); the title's new run and continue set `title_seen`, so the
+  return to play builds one world and never bounces. The title's own backdrop is the top-down boot world
+  at the boot tick (9000), which does not move on the title. Every gate and dev launch passes
+  `--skip-title` (`scripts/run-godot.mjs`), except `--run`; `godot:smoke:exports` on Windows passes it,
+  and its web ready line accepts the title's `GODOT_R1_READY`. Gate: `npm run godot:check:fp_title`
+  (`godot/check_fp_title.gd`, `FP_TITLE_OK`; lanes BOOT at frames 1 and 8, NEW_RUN, BACK, CONTINUE,
+  REFUSE, SKIP; its plant, the redirect disabled, turns it red at BOOT). Boot-to-title measured at
+  963 ms. Also green: `check:routing`, `check:shards`, `godot:smoke`, `godot:validate`, `npm test` (594),
+  `godot:check:first_person`, `godot:check:fp_expedition`, `godot:check:fp_geometry`, `godot:check:hud`,
+  `godot:check:play`, `godot:check:fp_encounter`, `godot:m2:save`, `godot:check:shots` (PIXELS SKIP, no display).
 - **The title starts first person, 2026-11-07.** Advances "First-person expedition and default
   switch" by the owner's call (docs/30, "The title starts first person"): the game loads into first
   person, and the top-down game is on hold. The default title offers new run and quit, and new run
