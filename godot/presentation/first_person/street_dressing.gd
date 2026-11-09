@@ -238,6 +238,9 @@ static func _pose(map: Variant, entry: Dictionary, tx: int, ty: int, key: String
 		"hem": hem,
 		"proud": proud,
 		"anchors": _anchors_of(entry),
+		"glb": String(entry.get("glb", "")),
+		"origin": String(entry.get("origin", "floor_centre")),
+		"wall_dir": Vector2(float(walls[0].x), float(walls[0].y)) if not walls.is_empty() else Vector2.ZERO,
 	}
 
 
