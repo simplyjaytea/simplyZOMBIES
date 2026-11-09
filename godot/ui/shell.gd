@@ -56,10 +56,10 @@ const ROW_MARKER_X: float = 14.0
 # what the screen says; they are not the same string because "quit to title" is two words the
 # player reads and `quit_to_title` is one token main.gd matches on.
 #
-# The game boots into first person (project.godot's main scene, docs/39), and its title offers a new
-# run, which starts first person, a continue when a first-person slot exists, then quit. The top-down
-# game is on hold (docs/30, 2026-11-07): its title is the four rows below, reached only with `--topdown`,
-# which main.gd passes as `legacy`.
+# The game boots to this title (docs/30, 2026-11-09: first person's scene sends a plain boot here first,
+# before any world exists). Its rows are a new run, which starts first person, a continue when a
+# first-person slot exists, then quit. The top-down game is on hold (docs/30, 2026-11-07): its title is
+# the four rows below, reached only with `--topdown`, which main.gd passes as `legacy`.
 const TITLE_ROWS: Array = [["new_run", "new run"], ["continue", "continue"], ["quit", "quit"]]
 const LEGACY_TITLE_ROWS: Array = [["new_run", "new run"], ["continue", "continue"], ["first_person", "first person"], ["quit", "quit"]]
 const PAUSE_ROWS: Array = [

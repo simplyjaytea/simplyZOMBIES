@@ -72,6 +72,15 @@ STYLES = {
     "sign_blue_alt": (1, 6),
     "sign_orange": (2, 6),
     "sign_orange_alt": (3, 6),
+    "sawmill_tin": (4, 6),
+    "sawmill_tin_alt": (5, 6),
+    "sawmill_eave": (6, 6),
+    "sawmill_eave_alt": (7, 6),
+    "sawmill_verge": (0, 7),
+    "sawmill_verge_alt": (1, 7),
+    "sawmill_door_wood": (2, 7),
+    "station_name": (3, 7),
+    "station_name_kana": (4, 7),
 }
 PALETTES = {
     "siding": ["#586058", "#636a60", "#6d7367", "#777b6d", "#818474"],
@@ -101,6 +110,142 @@ SIGN_GLYPHS = {
     "sign_orange": ["0001000", "1111111", "0011100", "0101010", "1010101", "0001000", "0011100"],
     "sign_orange_alt": ["0101010", "1111111", "0101010", "0111110", "0100010", "0111110", "0011100"],
 }
+STATION_NAME_BITMAPS = {
+    "station_name": [
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000001110000110000000000000000000001100000000000000000",
+        "0000000000000001110000110000000000011000000001100000000000000000",
+        "0000000000000001110001110000000000011000011111111110000000000000",
+        "0000000000000001110001110000000000011000111111111110000000000000",
+        "0000000000000001110001111111111000011000111111111110000000000000",
+        "0000000000000001110001111111111001111011000011100000000000000000",
+        "0000000000000001110011111111111001111011000011100000000000000000",
+        "0000000000000111111111100000000001111011000111111000000000000000",
+        "0000000000000111111111000000000001111011011111111100000000000000",
+        "0000000000000111111111111111111001111011111110011110000000000000",
+        "0000000000000001110001111111111001111011011100001100000000000000",
+        "0000000000000001110001111111111001111011111111111110000000000000",
+        "0000000000000001110001111110111001111011111111111110000000000000",
+        "0000000000000001110001100110111001111011111111111110000000000000",
+        "0000000000000011111001100110111001111011111111111110000000000000",
+        "0000000000000011111001101110111001111011000000001100000000000000",
+        "0000000000000011111111111111111101111011011111001100000000000000",
+        "0000000000000011111111111111111101111011011111101100000000000000",
+        "0000000000000111111111111111111101111011011111101100000000000000",
+        "0000000000000111111011101110111001111011011001101100000000000000",
+        "0000000000000111110001101100110001111111011001101100000000000000",
+        "0000000000000111110011101100110001111111011011101100000000000000",
+        "0000000000000101110011101110110001111111011111101100000000000000",
+        "0000000000000101110011111111111001100011011111101100000000000000",
+        "0000000000000001110011111111111001100011011000001100000000000000",
+        "0000000000000001110011111111111001100000011000001100000000000000",
+        "0000000000000001110011000001110000000000000000001100000000000000",
+        "0000000000000001110000000111110000000000000001111100000000000000",
+        "0000000000000001110000000111100000000000000001111100000000000000",
+        "0000000000000001110000000111100000000000000000111000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+    ],
+    "station_name_kana": [
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000010000000000000000000",
+        "0000000000000000000000000000000000000000000011000000000000000000",
+        "0000000111110000000000000011000000000001101111000000011000000000",
+        "0000000111111100000011000011000000000001100101000000011011000000",
+        "0000000111111100000011000110000000000001100100000111111111000000",
+        "0000000000000000000011001111000000111011111100000111111111000000",
+        "0000000000000000000011111111100000111111111100000111111100000000",
+        "0000000001111000000011111111110000111111111000000000001100000000",
+        "0000001111111100000011110111110000000000110000000000001111100000",
+        "0000011111111100000011100100110000000000110000001111111111100000",
+        "0000011110001110000111101100011000000000011000000111111111000000",
+        "0000001000000110000111101100011000000000011000000011110110000000",
+        "0000000000000110000110111100011000000001111000000000000110000000",
+        "0000000000000110000100111100011000111001111100000000000111000000",
+        "0000000000000110001100111000011000110001111000000110001111000000",
+        "0000000000001110001100111000011000110000000000000110001111000000",
+        "0000000000001110001100111000111000110000000000000110000000000000",
+        "0000000000011100000111111000110000110000000000000110000000000000",
+        "0000000001111100000111100011110000111000000000000111000000000000",
+        "0000000111111000000011000111100000011111111000000111111110000000",
+        "0000000011110000000000000111000000011111111000000011111110000000",
+        "0000000011000000000000000010000000000111110000000001111110000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+    ],
+}
+
+
 WALL_VARIANTS = {
     "timber": ["timber_sage", "timber_grey", "timber_worn"],
     "render": ["render_ivory", "render_grey", "render_stain"],
@@ -310,6 +455,42 @@ def atlas_pixel(style, x, y, plant=None):
     if style == "granite":
         grout = x % 16 == 0 or y % 16 == 0
         return tone("concrete", 1) if grout else tone("granite", 2 + ((x // 16 + y // 16) % 2))
+    if style == "sawmill_door_wood":
+        if min(x, 63 - x) <= 1 or x % 16 == 0:
+            return tone("wood", 1)
+        if x % 16 == 1:
+            return tone("wood", 3)
+        grain = (y + noise(x // 9, 0, 281) % 5) % 23
+        return tone("wood", 2 + (grain in (2, 7)))
+    if style in ("sawmill_tin", "sawmill_tin_alt", "sawmill_eave", "sawmill_eave_alt", "sawmill_verge", "sawmill_verge_alt"):
+        alternate = style in ("sawmill_tin_alt", "sawmill_eave_alt", "sawmill_verge_alt")
+        index = 2 + ((x // 8 + alternate) % 2)
+        if x % 8 == 0:
+            index = 1
+        elif x % 8 == 1:
+            index = 4
+        rust = False
+        if style in ("sawmill_tin", "sawmill_tin_alt"):
+            rust = min(x, 63 - x) <= 1 or (style == "sawmill_tin" and y <= 2)
+        elif style in ("sawmill_eave", "sawmill_eave_alt"):
+            rust = y >= 61 if style == "sawmill_eave" else y <= 2
+            for column, length in ((7, 18), (22, 29), (38, 13), (52, 24)):
+                if column <= x <= column + 1:
+                    if style == "sawmill_eave" and 61 - length <= y < 61:
+                        rust = True
+                    if style == "sawmill_eave_alt" and 3 <= y <= 2 + length:
+                        rust = True
+        elif style == "sawmill_verge":
+            rust = x <= 2
+        elif style == "sawmill_verge_alt":
+            rust = x >= 60
+        return tone("brick", 2) if rust else tone("stone", index)
+    if style in STATION_NAME_BITMAPS:
+        edge = min(x, y, 63 - x, 63 - y)
+        if edge < 2:
+            return tone("trim", 2)
+        sample_x = 63 - x if plant == "name_board_mirror" and style == "station_name_kana" else x
+        return tone("trim", 4) if STATION_NAME_BITMAPS[style][63 - y][sample_x] == "1" else tone("sign_blue", 1)
     if style in SIGN_GLYPHS:
         palette = "sign_blue" if style.startswith("sign_blue") else "sign_orange"
         edge = min(x, y, 63 - x, 63 - y)
@@ -330,6 +511,15 @@ def build_atlas(path, plant=None):
             if style == "glass" and min(x % 64, y % 64, 63 - x % 64, 63 - y % 64) < 5:
                 alpha = 0.34
             pixels.extend((*atlas_pixel(style, x % 64, y % 64, plant), alpha))
+    for style, rows in STATION_NAME_BITMAPS.items():
+        cell_x, cell_y = STYLES[style]
+        for y in range(64):
+            for x in range(64):
+                edge = min(x, y, 63 - x, 63 - y)
+                expected = tone("trim", 2) if edge < 2 else tone("trim", 4) if rows[63 - y][x] == "1" else tone("sign_blue", 1)
+                offset = ((cell_y * 64 + y) * ATLAS_SIZE + cell_x * 64 + x) * 4
+                if tuple(pixels[offset : offset + 3]) != expected:
+                    raise ValueError(f"{style} baked bitmap mismatch at {(x, y)}")
     image = bpy.data.images.new("buildings_atlas", width=ATLAS_SIZE, height=ATLAS_SIZE, alpha=True)
     image.colorspace_settings.name = "sRGB"
     image.pixels.foreach_set(pixels)
@@ -424,7 +614,7 @@ class MeshBuilder:
         self.styles.extend(other.styles)
         self.roles.extend(other.roles)
 
-    def face(self, origin, u_axis, v_axis, style, variants=None, normal=None):
+    def face(self, origin, u_axis, v_axis, style, variants=None, normal=None, style_for_cell=None, uv_shift_for_cell=None):
         origin = Vector(origin)
         u_axis = Vector(u_axis)
         v_axis = Vector(v_axis)
@@ -442,7 +632,9 @@ class MeshBuilder:
                 u0, u1 = u_bounds[ui : ui + 2]
                 v0, v1 = v_bounds[vi : vi + 2]
                 pick = stable_int("%.3f,%.3f,%d" % (origin.x + u0, origin.z + v0, self.seed))
-                cell_style = variants[pick % len(variants)] if variants else style
+                cell_style = style_for_cell(u0, u1, v0, v1, width, height) if style_for_cell is not None else None
+                if cell_style is None:
+                    cell_style = variants[pick % len(variants)] if variants else style
                 cell_x, cell_y = STYLES[cell_style]
                 a0, a1 = u0 % 1.0, u1 % 1.0
                 b0, b1 = v0 % 1.0, v1 % 1.0
@@ -450,6 +642,10 @@ class MeshBuilder:
                     a1 = 1.0
                 if math.isclose(b1, 0.0):
                     b1 = 1.0
+                if uv_shift_for_cell is not None:
+                    a_shift, b_shift = uv_shift_for_cell(u0, u1, v0, v1, width, height)
+                    a0, a1 = a0 + a_shift, a1 + a_shift
+                    b0, b1 = b0 + b_shift, b1 + b_shift
                 points = [
                     origin + u_axis * u0 + v_axis * v0,
                     origin + u_axis * u1 + v_axis * v0,
@@ -673,10 +869,13 @@ TEMPLATE_FINISHES = {
     "building.house.small": {"roof": "kawara", "wall": "timber"},
     "building.house.gable": {"roof": "kawara", "wall": "siding"},
     "building.arcade.retail": {"roof": "tin", "wall": "siding"},
+    "building.unit.industrial": {"roof": "tin", "wall": "siding"},
+    "building.station.small": {"roof": "tin", "wall": "timber"},
 }
 HOUSE_IDS = {"building.house.small", "building.house.gable"}
 SHOP_ID = "building.arcade.retail"
-OTHER_TEMPLATES_BASE = "6ed10b19"
+SAWMILL_ID = "building.unit.industrial"
+STATION_ID = "building.station.small"
 
 
 def finish_looks(template):
@@ -945,7 +1144,7 @@ def build_tile_trim(finish, template, x, y, plant=None):
                 if tile != 6 and side_index == 0:
                     side_quad(finish, x, y, side_index, 0, 1, 0.0, 0.06, "foundation", offset=0.009)
             else:
-                if template["id"] != SHOP_ID or tile != 6:
+                if template["id"] not in (SHOP_ID, SAWMILL_ID, STATION_ID) or tile != 6:
                     side_quad(finish, x, y, side_index, 0, 1, 0, 0.24, "foundation", offset=0.007)
                 side_quad(finish, x, y, side_index, 0, 1, 2.43, 2.55, "trim", offset=0.007)
         else:
@@ -968,7 +1167,7 @@ def build_tile_trim(finish, template, x, y, plant=None):
             side_quad(finish, x, y, side_index, 1.0 - frame, 1, low, high, casing, offset=0.014)
         head0 = frame if left_frame else 0.0
         head1 = 1.0 - frame if right_frame else 1.0
-        raised_head = template["id"] in HOUSE_IDS or template["id"] == SHOP_ID
+        raised_head = template["id"] in HOUSE_IDS or template["id"] in (SHOP_ID, SAWMILL_ID, STATION_ID)
         head_low = high if raised_head else high - frame
         head_high = high + frame if raised_head else high
         side_quad(finish, x, y, side_index, head0, head1, head_low, head_high, casing, offset=0.014)
@@ -980,11 +1179,11 @@ def build_tile_trim(finish, template, x, y, plant=None):
 
 def genkan_volumes(template):
     volumes = []
-    if template["id"] not in HOUSE_IDS:
+    if template["id"] not in HOUSE_IDS | {STATION_ID}:
         return volumes
     for door_index, door in enumerate(template.get("doors", [])):
         x, y = int(door["x"]), int(door["y"])
-        width, depth, height = (1.50, 0.90, 0.16) if door_index == 0 else (1.0, 0.40, 0.12)
+        width, depth, height = (0.90, 0.30, 0.12) if template["id"] == STATION_ID else ((1.50, 0.90, 0.16) if door_index == 0 else (1.0, 0.40, 0.12))
         for dx, dy in (offset for offset, _ in SIDES):
             if inside(template, x + dx, y + dy) and (indoors_at(template, x + dx, y + dy) or tile_at(template, x + dx, y + dy) != 0):
                 continue
@@ -1029,6 +1228,8 @@ def canopy_specs(template, plant=None):
                     specs.append({"tile": (x, y), "side": side, "u0": 0.0, "u1": 1.0, "depth": 0.40, "wall_y": 2.30, "outer_y": 2.18, "kind": "hood"})
     elif template["id"] == SHOP_ID:
         specs.append({"tile": (0, h - 1), "side": 2, "u0": 0.0, "u1": float(w), "depth": 1.05, "wall_y": 2.90, "outer_y": 2.66, "kind": "shop", "style": "tin"})
+    elif template["id"] == STATION_ID:
+        specs.append({"tile": (0, h - 1), "side": 2, "u0": 0.0, "u1": float(w), "depth": 1.10, "wall_y": 2.48, "outer_y": 2.36, "kind": "station", "style": "tin", "volume_top": 2.60})
     return specs
 
 
@@ -1224,8 +1425,21 @@ def wall_attachment_volumes(template):
     return out
 
 
+def station_volumes(template, plant=None):
+    if template["id"] != STATION_ID:
+        return []
+    ledge_depth = 0.15 if plant == "ticket_ledge_proud" else 0.09
+    volumes = [
+        {"kind": "window_attach", "min": [8.12, 0.86, 5.0], "max": [8.88, 1.00, 5.0 + ledge_depth], "tile": [8, 4], "side": 2},
+        {"kind": "window_attach", "min": [8.18, 2.10, 5.0], "max": [8.82, 2.42, 5.06], "tile": [8, 4], "side": 2},
+    ]
+    if plant == "name_board_open":
+        volumes.append({"kind": "wall_attach", "min": [5.05, 2.30, 5.0], "max": [5.95, 2.58, 5.04], "tile": [5, 4], "side": 2})
+    return volumes
+
+
 def finish_volumes(template, plant=None):
-    volumes = genkan_volumes(template) + [canopy_volume(spec) for spec in canopy_specs(template, plant)] + wall_attachment_volumes(template) + shotengai_volumes(template)
+    volumes = genkan_volumes(template) + [canopy_volume(spec) for spec in canopy_specs(template, plant)] + wall_attachment_volumes(template) + shotengai_volumes(template) + station_volumes(template, plant)
     canopies = [v for v in volumes if v.get("kind") == "canopy"]
     walls = [v for v in volumes if v.get("kind") == "wall_attach"]
     windows = [v for v in volumes if v.get("kind") == "window_attach"]
@@ -1378,6 +1592,9 @@ def measure_canopy(template, model, spec):
             top = face["style"] == roof_style and face_normal.dot(normal) > 0.1 and max(point[1] for point in face["points"]) >= 2.65
             if not top and outward <= 0.90 and not (face["style"] == "dark_wood" and outward > 0.45):
                 continue
+        elif spec["kind"] == "station":
+            if any(point[1] > 2.50 or (Vector(point) - origin).dot(normal) > 1.16 or not spec["u0"] - 0.10 <= (Vector(point) - origin).dot(u_axis) <= spec["u1"] + 0.10 for point in face["points"]):
+                continue
         elif outward < 0.02:
             continue
         points.extend(Vector(point) for point in face["points"])
@@ -1444,7 +1661,186 @@ def shotengai_character(template, model):
     )
 
 
-def character_report(template, model):
+def sampled_rust_share(pixels, faces):
+    samples = set()
+    for face in faces:
+        coords = [(uv[0] * ATLAS_SIZE, (1.0 - uv[1]) * ATLAS_SIZE) for uv in face["uv"]]
+        (x0, y0), (x1, y1), (x2, y2) = coords
+        denominator = (y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2)
+        if abs(denominator) < 0.000001:
+            continue
+        for x in range(max(0, math.floor(min(x0, x1, x2))), min(ATLAS_SIZE, math.ceil(max(x0, x1, x2)))):
+            for y in range(max(0, math.floor(min(y0, y1, y2))), min(ATLAS_SIZE, math.ceil(max(y0, y1, y2)))):
+                px, py = x + 0.5, y + 0.5
+                a = ((y1 - y2) * (px - x2) + (x2 - x1) * (py - y2)) / denominator
+                b = ((y2 - y0) * (px - x2) + (x0 - x2) * (py - y2)) / denominator
+                c = 1.0 - a - b
+                if min(a, b, c) >= -0.000001:
+                    samples.add((x, y))
+    if not samples:
+        return 0.0
+    rust_colour = tone("brick", 2)
+    rust = 0
+    for x, y in samples:
+        start = (y * ATLAS_SIZE + x) * 4
+        if all(abs(pixels[start + axis] - rust_colour[axis]) <= 0.003 for axis in range(3)):
+            rust += 1
+    return 100.0 * rust / len(samples)
+
+
+def sawmill_character(template, model, doors_clear):
+    south = template["size"]["h"] - 1
+    leaf_styles = {"sawmill_tin", "sawmill_tin_alt"}
+    boxes = model_boxes(model)
+    leaves = [box for box in boxes if box["styles"] & leaf_styles and box["min"][2] >= template["size"]["h"] and box["min"][1] < 2.20]
+    leaves.sort(key=lambda box: box["min"][0])
+    slug = template["id"].removeprefix("building.").replace(".", "_")
+    for box in leaves:
+        low, high = box["min"][0], box["max"][0]
+        tile = math.floor((low + high) * 0.5)
+        if low < tile - 0.00001 or high > tile + 1.00001:
+            raise ValueError(f"{template['id']} sliding leaf crosses tile boundary at x {low:.3f}..{high:.3f}")
+        expected = f"{slug}-wall-{tile}-{south}"
+        if window_candidate(template, tile, south) and box["node"] != expected:
+            raise ValueError(f"{template['id']} sliding leaf at tile {tile} belongs to {box['node']}, not {expected}")
+    leaf_sizes = [(box["max"][0] - box["min"][0], box["max"][1] - box["min"][1]) for box in leaves]
+    track_faces = [face for face in model.faces if face["style"] == "metal" and min(point[2] for point in face["points"]) >= template["size"]["h"] and min(point[1] for point in face["points"]) >= 2.21 and max(point[1] for point in face["points"]) <= 2.29]
+    track = max(point[0] for face in track_faces for point in face["points"]) - min(point[0] for face in track_faces for point in face["points"])
+    roof_styles = set(ROOF_VARIANTS["tin"]) | {"sawmill_eave", "sawmill_eave_alt", "sawmill_verge", "sawmill_verge_alt"}
+    roof_faces = [face for face in model.faces if face["style"] in roof_styles and max(point[1] for point in face["points"]) >= 2.50]
+    roof_points = [point for face in roof_faces for point in face["points"]]
+    eave = -min(point[2] for point in roof_points)
+    rake = -min(point[0] for point in roof_points)
+    closed = all(any(face["style"].startswith("siding_vertical") and all(abs(point[0] - x) <= 0.00001 for point in face["points"]) and max(point[1] for point in face["points"]) > WALL_TOP for face in model.faces) for x in (-0.005, template["size"]["w"] + 0.005))
+    if len(leaves) != 4 or any(abs(width - 0.90) > 0.005 or abs(height - 2.04) > 0.005 for width, height in leaf_sizes) or abs(track - 6.00) > 0.005:
+        raise ValueError(f"{template['id']} sliding leaf/track measurement {leaf_sizes}/{track}")
+    if abs(eave - 0.30) > 0.005 or abs(rake - 0.30) > 0.005 or not closed or doors_clear != 3:
+        raise ValueError(f"{template['id']} roof/gable/door measurement {eave}/{rake}/{closed}/{doors_clear}")
+    image = bpy.data.images.get("buildings_atlas")
+    if image is None:
+        raise ValueError("rust measurement cannot find the buildings atlas")
+    pixels = [0.0] * len(image.pixels)
+    image.pixels.foreach_get(pixels)
+    field_faces = [face for face in roof_faces if face["style"] in ROOF_VARIANTS["tin"]]
+    eave_north_faces = [face for face in roof_faces if face["style"] == "sawmill_eave"]
+    eave_south_faces = [face for face in roof_faces if face["style"] == "sawmill_eave_alt"]
+    verge_west_faces = [face for face in roof_faces if face["style"] == "sawmill_verge"]
+    verge_east_faces = [face for face in roof_faces if face["style"] == "sawmill_verge_alt"]
+    leaf_faces = []
+    for face in model.faces:
+        points = [Vector(point) for point in face["points"]]
+        normal = (points[1] - points[0]).cross(points[2] - points[0]).normalized()
+        if face["style"] in leaf_styles and min(point.z for point in points) >= template["size"]["h"] and min(point.y for point in points) < 2.20 and abs(normal.z) > 0.9 and max(point.x for point in points) - min(point.x for point in points) > 0.80:
+            leaf_faces.append(face)
+    field_rust = sampled_rust_share(pixels, field_faces)
+    eave_north_rust = sampled_rust_share(pixels, eave_north_faces)
+    eave_south_rust = sampled_rust_share(pixels, eave_south_faces)
+    verge_west_rust = sampled_rust_share(pixels, verge_west_faces)
+    verge_east_rust = sampled_rust_share(pixels, verge_east_faces)
+    leaf_rust = sampled_rust_share(pixels, leaf_faces)
+    edge_rust = (eave_north_rust, eave_south_rust, verge_west_rust, verge_east_rust)
+    if field_rust != 0.0 or min(edge_rust) <= 1.0 or leaf_rust <= 0.0:
+        raise ValueError(f"{template['id']} rust allocation field {field_rust:.1f}, eave north {eave_north_rust:.1f}, eave south {eave_south_rust:.1f}, verge west {verge_west_rust:.1f}, verge east {verge_east_rust:.1f}, leaf {leaf_rust:.1f}")
+    roof = sorted({face["style"] for face in roof_faces})
+    walls = sorted({face["style"] for face in model.faces if face["style"] in WALL_VARIANTS["siding"]})
+    return (
+        f"CHARACTER {template['id']}: sliding leaves {len(leaves)}, leaf {leaf_sizes[0][0]:.2f} x {leaf_sizes[0][1]:.2f} m, track {track:.2f} m; "
+        f"doors clear {doors_clear}; roof {roof}, eave {eave:.2f} m, rake {rake:.2f} m; "
+        f"roof rust: field {field_rust:.1f}%, eave north {eave_north_rust:.1f}%, eave south {eave_south_rust:.1f}%, verge west {verge_west_rust:.1f}%, verge east {verge_east_rust:.1f}%; leaf rust {leaf_rust:.1f}%; "
+        f"gable faces closed {'yes' if closed else 'no'}; walls {walls}"
+    )
+
+
+def station_character(template, model, doors_clear):
+    def ray_hit(faces, origin):
+        direction = Vector((0, 0, -1))
+        nearest = None
+        for face in faces:
+            points = [Vector(point) for point in face["points"]]
+            for order in ((0, 1, 2), (2, 1, 0)):
+                hit = intersect_ray_tri(points[order[0]], points[order[1]], points[order[2]], direction, origin, True)
+                if hit is None or (hit - origin).length <= 0.000001:
+                    continue
+                if nearest is None or (hit - origin).length < (nearest - origin).length:
+                    nearest = hit
+        return nearest
+
+    spec = next(spec for spec in canopy_specs(template) if spec["kind"] == "station")
+    canopy = measure_canopy(template, model, spec)
+    boxes = model_boxes(model)
+    metal = [box for box in boxes if "metal" in box["styles"] and box["min"][2] >= template["size"]["h"] - 0.05 and box["max"][1] > 2.10]
+    posts = [box for box in metal if box["min"][1] < 2.10 and box["max"][1] - box["min"][1] > 0.50]
+    brackets = [box for box in metal if box["min"][1] >= 2.10]
+    if posts:
+        raise ValueError(f"{template['id']} canopy has a post below 2.10 m")
+    wall_faces = [face for face in model.faces if face["style"] in WALL_VARIANTS["timber"] and (face["node"] == "spatial_bands" or "-wall-" in face["node"] or "-window-" in face["node"])]
+    foot_gaps = []
+    for bracket in brackets:
+        caps = []
+        for face in bracket["faces"]:
+            points = [Vector(point) for point in face["points"]]
+            normal = (points[1] - points[0]).cross(points[2] - points[0]).normalized()
+            if normal.z < -0.90:
+                caps.append(face)
+        if not caps:
+            raise ValueError(f"{template['id']} bracket start cap is missing")
+        cap_points = {tuple(round(value, 6) for value in point): Vector(point) for face in caps for point in face["points"]}
+        centre = sum(cap_points.values(), Vector()) / len(cap_points)
+        origin = Vector((centre.x, centre.y, 5.30))
+        bracket_hit = ray_hit(caps, origin)
+        wall_hit = ray_hit(wall_faces, origin)
+        if bracket_hit is None or wall_hit is None:
+            raise ValueError(f"{template['id']} bracket/wall ray did not hit")
+        foot_gaps.append(abs(bracket_hit.z - wall_hit.z) * 1000.0)
+    foot_gap = max(foot_gaps, default=1000.0)
+    ledge_boxes = [box for box in boxes if box["node"] == "station_small-window-8-4" and "dark_wood" in box["styles"] and box["max"][1] <= 1.01]
+    if len(ledge_boxes) != 1:
+        raise ValueError(f"{template['id']} ticket ledge is missing")
+    ledge = ledge_boxes[0]["max"][2] - ledge_boxes[0]["min"][2]
+    arch_faces = [face for face in model.faces if face["node"] == "station_small-window-8-4" and face["style"] == "trim" and min(point[1] for point in face["points"]) >= 2.10 and min(point[2] for point in face["points"]) >= 5.05]
+    arched = len(arch_faces) >= 10 and max(point[1] for face in arch_faces for point in face["points"]) >= 2.38
+    arch_body = [face for face in model.faces if face["node"] == "station_small-window-8-4" and face["style"] == "trim" and max(point[1] for point in face["points"]) >= 2.10 and max(point[2] for point in face["points"]) >= 5.059]
+    arch_return = sum(min(point[2] for point in face["points"]) <= 5.000001 and max(point[2] for point in face["points"]) >= 5.059 for face in arch_body) >= 20
+    arch_wall = ray_hit(wall_faces, Vector((8.50, 2.50, 5.30)))
+    if not arch_body or arch_wall is None:
+        raise ValueError(f"{template['id']} arch/wall measurement is missing")
+    arch_gap = abs(min(point[2] for face in arch_body for point in face["points"]) - arch_wall.z) * 1000.0
+    head_faces = [face for face in model.faces if face["node"] == "station_small-window-8-4" and face["style"] == "trim" and min(point[1] for point in face["points"]) >= 2.0 and max(point[1] for point in face["points"]) <= 2.101 and all(abs(point[2] - 5.014) <= 0.0001 for point in face["points"])]
+    head_top = max((point[1] for face in head_faces for point in face["points"]), default=0.0)
+    foot_height = min(point[1] for face in arch_body for point in face["points"])
+    feet_on_head = abs(foot_height - head_top) <= 0.001
+    boards = [box for box in boxes if "station_name" in box["styles"]]
+    board_uv = [uv for face in model.faces if face["style"] == "station_name" for uv in face["uv"]]
+    cell_x, cell_y = STYLES["station_name"]
+    expected_uv = (cell_x / ATLAS_METRES, (ATLAS_METRES - cell_y - 1) / ATLAS_METRES, (cell_x + 2) / ATLAS_METRES, (ATLAS_METRES - cell_y) / ATLAS_METRES)
+    actual_uv = (min(uv[0] for uv in board_uv), min(uv[1] for uv in board_uv), max(uv[0] for uv in board_uv), max(uv[1] for uv in board_uv)) if board_uv else ()
+    if len(actual_uv) != 4 or any(abs(actual - expected) > 0.000001 for actual, expected in zip(actual_uv, expected_uv)):
+        raise ValueError(f"{template['id']} name board UV bounds {actual_uv}, expected {expected_uv}")
+    roof_faces = [face for face in model.faces if face["style"] in ROOF_VARIANTS["tin"] and max(point[1] for point in face["points"]) >= 2.50]
+    roof_points = [point for face in roof_faces for point in face["points"]]
+    eave = -min(point[2] for point in roof_points)
+    rake = -min(point[0] for point in roof_points)
+    closed = all(any(face["style"].startswith("timber_") and all(abs(point[0] - x) <= 0.00001 for point in face["points"]) and max(point[1] for point in face["points"]) > WALL_TOP for face in model.faces) for x in (-0.005, template["size"]["w"] + 0.005))
+    if len(brackets) != 6 or foot_gap > 1.0 or canopy["lowest"] < 2.10 or canopy["depth"] > 1.20 or abs(canopy["length"] - 12.00) > 0.10 or canopy["highest"] >= 2.62:
+        raise ValueError(f"{template['id']} canopy/bracket measurement {canopy}, brackets {len(brackets)}, foot gap max {foot_gap:.1f} mm")
+    if abs(ledge - 0.09) > 0.005 or not arched or not arch_return or arch_gap > 1.0 or not feet_on_head or len(boards) != 1 or boards[0]["max"][1] >= 2.62:
+        raise ValueError(f"{template['id']} ticket/board measurement {ledge}/{arched}/return {arch_return}/gap {arch_gap:.1f} mm/feet {feet_on_head}/{len(boards)}")
+    if abs(eave - 0.60) > 0.005 or abs(rake - 0.60) > 0.005 or not closed or doors_clear != 2:
+        raise ValueError(f"{template['id']} roof/gable/door measurement {eave}/{rake}/{closed}/{doors_clear}")
+    roof = sorted({face["style"] for face in roof_faces})
+    walls = sorted({face["style"] for face in model.faces if face["style"] in WALL_VARIANTS["timber"]})
+    return (
+        f"CHARACTER {template['id']}: canopy {canopy['lowest']:.2f} m to {canopy['highest']:.2f} m, depth {canopy['depth']:.3f} m, length {canopy['length']:.2f} m, brackets {len(brackets)}, foot gap max {foot_gap:.1f} mm, posts 0; "
+        f"ticket window ledge {ledge:.2f} m proud at {ledge_boxes[0]['min'][1]:.2f} m, arched head {'yes' if arched else 'no'}, arch return {'yes' if arch_return else 'no'}, gap to wall {arch_gap:.1f} mm, feet on head {'yes' if feet_on_head else 'no'}; doors clear {doors_clear}; "
+        f"roof {roof}, eave {eave:.2f} m, rake {rake:.2f} m, gable faces closed {'yes' if closed else 'no'}; name board {len(boards)} on south canopy fascia; walls {walls}"
+    )
+
+
+def character_report(template, model, doors_clear=None):
+    if template["id"] == STATION_ID:
+        return station_character(template, model, doors_clear)
+    if template["id"] == SAWMILL_ID:
+        return sawmill_character(template, model, doors_clear)
     if template["id"] == SHOP_ID:
         return shotengai_character(template, model)
     if template["id"] not in HOUSE_IDS:
@@ -1842,6 +2238,98 @@ def build_shotengai_details(pieces, template, plant=None):
         add_canopy(finish, spec, plant)
 
 
+def sawmill_leaf(mesh, x, south, u0=0.05, u1=0.95):
+    for y0, y1, style in ((0.08, 1.08, "sawmill_tin"), (1.08, 2.08, "sawmill_tin_alt"), (2.08, 2.12, "sawmill_tin_alt")):
+        start = len(mesh.uvs)
+        side_box(mesh, x, south, 2, u0, u1, y0, y1, 0.024, style)
+        cell_x, _ = STYLES[style]
+        for index in range(start, len(mesh.uvs)):
+            points = [mesh.vertices[vertex] for vertex in mesh.faces[index]]
+            if abs(points[1][0] - points[0][0]) < 0.80:
+                continue
+            local = [uv[0] * ATLAS_METRES - cell_x for uv in mesh.uvs[index]]
+            low, high = min(local), max(local)
+            mesh.uvs[index] = tuple(((cell_x + (a - low) / (high - low)) / ATLAS_METRES, uv[1]) for a, uv in zip(local, mesh.uvs[index]))
+
+
+def build_sawmill_details(pieces, template, plant=None):
+    south = template["size"]["h"] - 1
+    for x in (4, 5, 8, 9):
+        target = pieces.piece("wall", x, south)["finish"] if window_candidate(template, x, south) else pieces.finish
+        sawmill_leaf(target, x, south, u1=1.05 if plant == "sliding_leaf_span" and x == 4 else 0.95)
+    for x in range(4, 10):
+        target = pieces.piece("wall", x, south)["finish"] if window_candidate(template, x, south) else pieces.finish
+        side_box(target, x, south, 2, 0.0, 1.0, 2.22, 2.28, 0.024, "metal")
+    if plant == "sliding_door_cross":
+        sawmill_leaf(pieces.finish, 6, south)
+    side_quad(pieces.finish, 11, 0, 0, 0.0, 0.06, 0.0, 2.20, "sawmill_door_wood", offset=0.024)
+    side_quad(pieces.finish, 11, 0, 0, 0.94, 1.0, 0.0, 2.20, "sawmill_door_wood", offset=0.024)
+    side_quad(pieces.finish, 11, 0, 0, 0.0, 1.0, 2.20, 2.28, "sawmill_door_wood", offset=0.024)
+    for y in range(template["size"]["h"]):
+        if not openable(template, 0, y):
+            continue
+        target = pieces.piece("window", 0, y)["finish"]
+        for u0, u1, y0, y1 in ((0.0, 0.06, 1.0, 2.10), (0.94, 1.0, 1.0, 2.10), (0.06, 0.94, 1.0, 1.06), (0.06, 0.94, 2.04, 2.10)):
+            side_quad(target, 0, y, 3, u0, u1, y0, y1, "metal", offset=0.024)
+
+
+def build_station_details(pieces, template, plant=None):
+    finish = pieces.finish
+    for volume in genkan_volumes(template):
+        low, high = volume["min"], volume["max"]
+        finish.box(low, [high[i] - low[i] for i in range(3)], "foundation", {"top": "granite"})
+    for spec in canopy_specs(template, plant):
+        add_canopy(finish, spec, plant)
+    for x in (1.0, 3.0, 5.0, 7.0, 9.0, 11.0):
+        foot_z = 5.02 if plant == "bracket_float" else 5.0
+        tube_between(finish, (x, 2.22, foot_z), (x, 2.34, 5.98), 0.025, "metal")
+    start = len(finish.uvs)
+    finish.box((5.55, 2.30, 6.10), (0.90, 0.28, 0.04), "dark_wood", {"south": "station_name", "top": "trim", "east": "trim", "west": "trim"})
+    cell_x, cell_y = STYLES["station_name"]
+    cell_span = 1 if plant == "name_board_one_cell" else 2
+    for index in range(start, len(finish.uvs)):
+        if finish.styles[index] != "station_name":
+            continue
+        local = [(uv[0] * ATLAS_METRES - cell_x, uv[1] * ATLAS_METRES - cell_y) for uv in finish.uvs[index]]
+        low = [min(uv[axis] for uv in local) for axis in range(2)]
+        high = [max(uv[axis] for uv in local) for axis in range(2)]
+        finish.uvs[index] = tuple(
+            (
+                (cell_x + cell_span * (a - low[0]) / (high[0] - low[0])) / ATLAS_METRES,
+                uv[1] if plant == "name_board_uv" else (cell_y + (b - low[1]) / (high[1] - low[1])) / ATLAS_METRES,
+            )
+            for (a, b), uv in zip(local, finish.uvs[index])
+        )
+    target = pieces.piece("window", 8, 4)["finish"]
+    ledge_depth = 0.15 if plant == "ticket_ledge_proud" else 0.09
+    side_box(target, 8, 4, 2, 0.12, 0.88, 0.86, 1.00, ledge_depth, "dark_wood")
+    for index in range(10):
+        a, b = math.pi * index / 10, math.pi * (index + 1) / 10
+        outer_a = (8.50 + 0.32 * math.cos(a), 2.18 + 0.24 * math.sin(a), 5.06)
+        outer_b = (8.50 + 0.32 * math.cos(b), 2.18 + 0.24 * math.sin(b), 5.06)
+        inner_a = (8.50 + 0.24 * math.cos(a), 2.18 + 0.16 * math.sin(a), 5.06)
+        inner_b = (8.50 + 0.24 * math.cos(b), 2.18 + 0.16 * math.sin(b), 5.06)
+        target.polygon([outer_a, outer_b, inner_b, inner_a], "trim", (0, 0, 1))
+        if plant == "arch_float":
+            continue
+        back_outer_a, back_outer_b = outer_a[:2] + (5.0,), outer_b[:2] + (5.0,)
+        back_inner_a, back_inner_b = inner_a[:2] + (5.0,), inner_b[:2] + (5.0,)
+        middle = (a + b) * 0.5
+        radial = (math.cos(middle), math.sin(middle), 0)
+        target.polygon([outer_a, back_outer_a, back_outer_b, outer_b], "trim", radial)
+        target.polygon([inner_a, inner_b, back_inner_b, back_inner_a], "trim", tuple(-value for value in radial))
+        if index in (0, 9):
+            target.polygon([outer_a, inner_a, back_inner_a, back_outer_a], "trim", (0, -1, 0))
+    if plant != "arch_float":
+        for x0, x1 in ((8.18, 8.26), (8.74, 8.82)):
+            target.polygon([(x0, 2.10, 5.06), (x1, 2.10, 5.06), (x1, 2.18, 5.06), (x0, 2.18, 5.06)], "trim", (0, 0, 1))
+            for x, sign in ((x0, -1), (x1, 1)):
+                target.polygon([(x, 2.10, 5.06), (x, 2.10, 5.0), (x, 2.18, 5.0), (x, 2.18, 5.06)], "trim", (sign, 0, 0))
+            target.polygon([(x0, 2.10, 5.06), (x0, 2.10, 5.0), (x1, 2.10, 5.0), (x1, 2.10, 5.06)], "trim", (0, -1, 0))
+    if plant == "canopy_post":
+        finish.box((0.45, 0.0, 5.85), (0.10, 2.34, 0.10), "metal")
+
+
 def build_pieces(template, plant=None):
     pieces = Pieces(template)
     interior = interior_spec(template)
@@ -1863,6 +2351,10 @@ def build_pieces(template, plant=None):
     build_house_details(pieces.finish, template, plant)
     if template["id"] == SHOP_ID:
         build_shotengai_details(pieces, template, plant)
+    if template["id"] == SAWMILL_ID:
+        build_sawmill_details(pieces, template, plant)
+    if template["id"] == STATION_ID:
+        build_station_details(pieces, template, plant)
     finish = pieces.finish
     if plant == "coplanar" and template["id"] == "building.house.small":
         finish._polygon([Vector(v) for v in finish.vertices[:4]], finish.uvs[0], "trim")
@@ -1936,7 +2428,7 @@ def roof_form(template):
 
 
 def eave_for(template):
-    return 0.75 if template["id"] in HOUSE_IDS else EAVE
+    return 0.60 if template["id"] == STATION_ID else 0.75 if template["id"] in HOUSE_IDS else EAVE
 
 
 def roof_peak(template):
@@ -1944,6 +2436,8 @@ def roof_peak(template):
         return 2.78
     if template["id"] == "building.house.gable":
         return 4.62
+    if template["id"] == SAWMILL_ID:
+        return 3.45
     short = min(template["size"]["w"], template["size"]["h"])
     return 2.62 + min(1.50, 0.20 * short + 0.20)
 
@@ -1994,6 +2488,35 @@ def add_house_roof_character(mesh, template, eave, peak, plant=None):
         tube_between(mesh, (-eave + 0.004, 2.56, gutter_z), (w + eave - 0.004, 2.56, gutter_z), 0.055, "dark_wood")
 
 
+def sawmill_roof_cells(north, plant=None):
+    def choose(u0, u1, v0, v1, width, height):
+        if (north and math.isclose(v1, height)) or (not north and math.isclose(v0, 0.0)):
+            if plant == "eave_north_clean" and north:
+                return "tin"
+            return "sawmill_eave" if north else "sawmill_eave_alt"
+        if math.isclose(u0, 0.0):
+            return "sawmill_verge"
+        if math.isclose(u1, width):
+            return "sawmill_verge_alt"
+        return None
+
+    return choose
+
+
+def sawmill_roof_uv(north):
+    def shift(u0, u1, v0, v1, width, height):
+        a_shift, b_shift = 0.0, 0.0
+        if math.isclose(u1, width):
+            a1 = u1 % 1.0
+            a_shift = 1.0 - (1.0 if math.isclose(a1, 0.0) else a1)
+        if north and math.isclose(v1, height):
+            b1 = v1 % 1.0
+            b_shift = 1.0 - (1.0 if math.isclose(b1, 0.0) else b1)
+        return a_shift, b_shift
+
+    return shift
+
+
 def build_roof(mesh, template, plant=None):
     roof_start = len(mesh.vertices)
     w, h = template["size"]["w"], template["size"]["h"]
@@ -2025,8 +2548,12 @@ def build_roof(mesh, template, plant=None):
     rise = peak - 2.62
     if form == "gable":
         wall_roof = 2.62 + rise * eave / (h * 0.5 + eave)
-        mesh.face((-eave, 2.62, -eave), (w + 2 * eave, 0, 0), (0, rise, h * 0.5 + eave), variants[0], variants, (0, 1, -0.4))
-        mesh.face((-eave, peak, h * 0.5), (w + 2 * eave, 0, 0), (0, -rise, h * 0.5 + eave), variants[0], variants, (0, 1, 0.4))
+        north_cells = sawmill_roof_cells(True, plant) if template["id"] == SAWMILL_ID else None
+        south_cells = sawmill_roof_cells(False, plant) if template["id"] == SAWMILL_ID else None
+        north_uv = sawmill_roof_uv(True) if template["id"] == SAWMILL_ID else None
+        south_uv = sawmill_roof_uv(False) if template["id"] == SAWMILL_ID else None
+        mesh.face((-eave, 2.62, -eave), (w + 2 * eave, 0, 0), (0, rise, h * 0.5 + eave), variants[0], variants, (0, 1, -0.4), north_cells, north_uv)
+        mesh.face((-eave, peak, h * 0.5), (w + 2 * eave, 0, 0), (0, -rise, h * 0.5 + eave), variants[0], variants, (0, 1, 0.4), south_cells, south_uv)
         mesh.role = "roof_side"
         gable_style = exterior[0] if plant == "gable_sage" or template["id"] != "building.house.small" else "mortar"
         for x, normal in ((-0.005, (-1, 0, 0)), (w + 0.005, (1, 0, 0))):
@@ -2197,11 +2724,14 @@ def validate_doors(template, model):
             if lowest is not None:
                 raise ValueError(f"door ({x},{y}) has a {lowest_face['style']} face crossing its opening at y {lowest:.3f} m")
     print(f"DOORS {template['id']}: {len(template.get('doors', []))} doors clear, lowest crossing face none")
+    return len(template.get("doors", []))
 
 
 # The commit the other templates are proved against: every building GLB and the atlas at this base must
 # be reproduced, in mesh and in the atlas cells each one touches, by this build.
-OTHER_TEMPLATES_BASE = "6ed10b19"
+# The commit the other templates are proved against: every building GLB and the atlas at this base must
+# be reproduced, in mesh and in the atlas cells each one touches, by this build.
+OTHER_TEMPLATES_BASE = "469cf886dc5bf002ffe4a17d2435978b9a8f5d57"
 
 
 def base_has(repo, relative):
@@ -2231,9 +2761,9 @@ def same_geometry(a, b):
     return True
 
 
-# Templates added after OTHER_TEMPLATES_BASE. They have no base GLB and are excluded from the proof, by name,
-# so a template missing from the base cannot shrink the proof silently.
-NEW_SINCE_BASE = {"building.konbini.road"}
+# The round's own template is excluded by name, on both sides of the comparison. Every other base GLB
+# must be proved, so a missing template cannot shrink the proof silently.
+PROOF_OWN = {STATION_ID}
 
 
 def validate_other_templates(repo, export_dir, templates, plant=None):
@@ -2241,8 +2771,7 @@ def validate_other_templates(repo, export_dir, templates, plant=None):
     # geometry of each primitive, and the atlas cells its UVs touch, are compared.
     if subprocess.run(["git", "-C", str(repo), "cat-file", "-e", f"{OTHER_TEMPLATES_BASE}^{{commit}}"], capture_output=True).returncode != 0:
         raise ValueError(f"base commit {OTHER_TEMPLATES_BASE} is not in this clone: the other-template proof cannot run")
-    # The round's own template (SHOP_ID, changed by batch B) and the templates new since the base are excluded by name.
-    others = [template for template in templates if template["id"] not in NEW_SINCE_BASE and template["id"] != SHOP_ID]
+    others = [template for template in templates if template["id"] not in PROOF_OWN]
     for template in others:
         relative = f"godot/assets/first_person/buildings/{template['id'].removeprefix('building.').replace('.', '_')}.glb"
         if not base_has(repo, relative):
@@ -2250,10 +2779,9 @@ def validate_other_templates(repo, export_dir, templates, plant=None):
     # Every GLB at the base must be one of the templates proved here: a base building the list does not name
     # would otherwise go unproved without a sound.
     base_glbs = set(subprocess.run(["git", "-C", str(repo), "ls-tree", "--name-only", f"{OTHER_TEMPLATES_BASE}:godot/assets/first_person/buildings/"], capture_output=True, text=True, check=True).stdout.split())
+    base_glbs -= {f"{template.removeprefix('building.').replace('.', '_')}.glb" for template in PROOF_OWN}
     proved = {f"{template['id'].removeprefix('building.').replace('.', '_')}.glb" for template in others}
-    # SHOP_ID's base GLB is the one this round changes, so it is named as excluded rather than proved.
-    excluded = {f"{SHOP_ID.removeprefix('building.').replace('.', '_')}.glb"}
-    if {name for name in base_glbs if name.endswith(".glb")} != proved | excluded:
+    if {name for name in base_glbs if name.endswith(".glb")} != proved:
         raise ValueError("other-template proof: the base's building GLBs and the proved templates differ")
     with tempfile.TemporaryDirectory(prefix="building-base-pixels-") as temporary:
         old_path = Path(temporary) / "base-atlas.png"
@@ -2304,7 +2832,9 @@ def source_bounds(builders):
 
 
 def validate_density(mesh, label):
-    for face_index, (face, uv) in enumerate(zip(mesh.faces, mesh.uvs)):
+    for face_index, (face, uv, style) in enumerate(zip(mesh.faces, mesh.uvs, mesh.styles)):
+        if style == "station_name":
+            continue
         for i in range(len(face)):
             j = (i + 1) % len(face)
             world = (Vector(mesh.vertices[face[j]]) - Vector(mesh.vertices[face[i]])).length
@@ -2655,9 +3185,8 @@ def build_all(export_dir, blend_path, manifest_path, plant=None, reference_manif
             reference_entry = next((item for item in reference_manifest["models"] if item["match"]["id"] == template["id"]), None)
         validate_export(output, entry, reference_entry, plant)
         model = ExportedModel(output) if template["id"] in TEMPLATE_FINISHES else None
-        if model is not None:
-            validate_doors(template, model)
-        character = character_report(template, model)
+        doors_clear = validate_doors(template, model) if model is not None else None
+        character = character_report(template, model, doors_clear)
         if character is not None:
             print(character)
         if template["id"] in HOUSE_IDS:
@@ -2712,7 +3241,7 @@ def main():
     arguments = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter"])
+    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter", "sliding_door_cross", "sliding_leaf_span", "eave_north_clean", "canopy_post", "ticket_ledge_proud", "name_board_open", "name_board_uv", "name_board_one_cell", "name_board_mirror", "arch_float", "bracket_float"])
     args = parser.parse_args(arguments)
     repo = Path(__file__).resolve().parents[3]
     try:

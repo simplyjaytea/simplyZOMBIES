@@ -832,8 +832,13 @@ static func _buildings(map: Variant, seed_val: int, district: Dictionary, templa
 	var rng: Variant = _stream(seed_val, "buildings")
 	var density: float = clampf(float(district.get("density", 0.0)), 0.0, 1.0)
 	var pool: Array = district.get("pool", []) as Array
-	var by_tag: Dictionary = _by_tag(templates)
+	var by_tag: Dictionary = _by_tag(_for_district(templates, district))
 	var placed: Array = []
+	# Stamps per template id in this district (one call is one district). A template with a
+	# `max_per_district` is dropped from the draw once its count reaches the cap, at both the tag
+	# stage and the template stage, so a lot never picks a tag whose only fitters are capped out.
+	# The civic annex stamps outside this call and is not counted here.
+	var counts: Dictionary = {}
 	for parcel in parcels:
 		var lot: Rect2i = parcel as Rect2i
 		if _rect_in_reserve(reserve, lot, RESERVE_MARGIN):
@@ -853,14 +858,14 @@ static func _buildings(map: Variant, seed_val: int, district: Dictionary, templa
 		for entry in pool:
 			var e: Dictionary = entry as Dictionary
 			var tag: String = String(e.get("tag", ""))
-			if _fitting(by_tag.get(tag, []) as Array, room).is_empty():
+			if _fitting_open(by_tag.get(tag, []) as Array, room, counts).is_empty():
 				continue
 			tags.append(tag)
 			weights.append(maxi(1, int(e.get("weight", 1))))
 		if tags.is_empty():
 			continue
 		var tag_pick: String = String(tags[_weighted(rng, weights)])
-		var fits: Array = _fitting(by_tag[tag_pick] as Array, room)
+		var fits: Array = _fitting_open(by_tag[tag_pick] as Array, room, counts)
 		var template_weights: Array = []
 		for t in fits:
 			template_weights.append(maxi(1, int((t as Dictionary).get("weight", 1))))
@@ -875,12 +880,33 @@ static func _buildings(map: Variant, seed_val: int, district: Dictionary, templa
 		for door in template.get("doors", []) as Array:
 			var d: Dictionary = door as Dictionary
 			doors.append({"x": ox + int(d.get("x", 0)), "y": oy + int(d.get("y", 0))})
+		var id: String = String(template.get("id", ""))
+		counts[id] = int(counts.get(id, 0)) + 1
 		placed.append({
-			"id": String(template.get("id", "")),
+			"id": id,
 			"x": ox, "y": oy, "w": tw, "h": th,
 			"doors": doors,
 		})
 	return placed
+
+
+# The templates a district's pool may draw. A template with no `districts` key is drawn everywhere, as
+# before, so filtering on this changes no draw for any template that does not name a district.
+# Pinned by the worldgen gate's plant only: false ignores a template's `districts` key, so the gate can
+# show that the key is what keeps a template out of a district. Shipped code never sets it.
+static var DISTRICTS_KEY_HONOURED: bool = true
+
+
+static func _for_district(templates: Array, district: Dictionary) -> Array:
+	if not DISTRICTS_KEY_HONOURED:
+		return templates
+	var here: String = String(district.get("id", ""))
+	var out: Array = []
+	for t in templates:
+		var only: Variant = (t as Dictionary).get("districts", null)
+		if only == null or (only as Array).has(here):
+			out.append(t)
+	return out
 
 
 static func _by_tag(templates: Array) -> Dictionary:
@@ -903,6 +929,25 @@ static func _fitting(templates: Array, room: Vector2i) -> Array:
 		if int(size.get("w", 0)) <= room.x and int(size.get("h", 0)) <= room.y:
 			out.append(t)
 	return out
+
+
+# `_fitting` minus the templates that have already reached their `max_per_district` in this district.
+# A template with no `max_per_district` key is unlimited, so for every uncapped template this is
+# `_fitting` exactly and no draw moves.
+static func _fitting_open(templates: Array, room: Vector2i, counts: Dictionary) -> Array:
+	var out: Array = []
+	for t in _fitting(templates, room):
+		var template: Dictionary = t as Dictionary
+		if CAPS_HONOURED and template.has("max_per_district") \
+				and int(counts.get(String(template.get("id", "")), 0)) >= int(template["max_per_district"]):
+			continue
+		out.append(t)
+	return out
+
+
+# Pinned by the worldgen gate's plant only: false ignores `max_per_district`, so the gate can show that
+# the cap is what keeps a second station or kōban out of a district. Shipped code never sets it.
+static var CAPS_HONOURED: bool = true
 
 
 static func _weighted(rng: Variant, weights: Array) -> int:
