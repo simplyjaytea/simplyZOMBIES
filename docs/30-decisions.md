@@ -8456,3 +8456,24 @@ The armour lane pins `NPC_AID_ENABLED` off: it tests what a blow wears, not who 
   dressing placer; the first-person view has none today, so in the alpha the hall stands alone. Owner cards, defaults built:
   the hall alone (option: a precinct content kind, a sim piece); the shrine pool is Hinatadai only (option: add the town centre).
   The kōban pool is the town centre only. The locker and snub revolver of docs/42 section 5 are a future loot piece.
+
+## Civic templates carry a per-district cap, 2026-11-10
+
+`building.station.small` sets `max_per_district: 1`. The kōban and shrine take the same key in
+koban-shrine-json, which is a separate piece. The key is optional: absent means unlimited, so every
+uncapped template draws exactly as it did. Worldgen's `_buildings` counts stamps per template id in one
+district's pass (one call is one district) and drops a capped template from the draw once its count
+reaches the cap. The drop happens at the tag stage and at the template stage, so a lot never picks a tag
+whose only fitters are capped out and no lot is lost after the tag draw. The count is taken where the
+template is placed. The civic annex stamps outside that pass and is not counted, so a town centre can hold
+one annex and one station. Owner card: cap 1 is the default; the option is no cap.
+
+Measured on the shipped size (256) the town centre stamps exactly one station on each of ten seeds, against
+5 to 12 with the cap ignored. At the gate size (64) the town centre stamps zero or one station on most seeds,
+so the gate size cannot show the cap; the gate judges the shipped size for the town centre and the gate size
+for every district's "at most one". The plant (the cap ignored in the shipped code) shows
+`WORLDGEN_FAIL` with the counts. Gate: `UNIQUE_CIVIC OK` in `npm run godot:check:worldgen`.
+
+Only the town centre's draws move. The WORLDGEN digest of the buildings manifest, base against head over ten
+seeds, is identical for residential, industrial and forest at both sizes and for the town centre at 64; it
+differs for the town centre at 256 on every seed, which is the change.
