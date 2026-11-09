@@ -8594,3 +8594,13 @@ doors (the convenience and grocery fronts) show a static glass panel; they do no
   centre the rule places. The box of the manifest size is the fallback for an entry with no file, or an unreadable one, so the
   fixture and a tree without the kit draw as before. No rule changed: the tall-prop, tile-class and density rules still read the
   manifest size and the tile. Gate: the DRESSING lane GLB assertions, with the plant `PLANT_IGNORE_GLB`.
+## A firearm that is not ready is drawn lowered, 2026-11-10
+
+The view-model arms show a firearm that is not ready lowered: `arms_view.gd` `ready_amount` reads the
+sim's fire state (Idle 0, Raise 0 to 0.5 over the weapon's raise, Steady 0.5 to 1 over its steady, Recover
+0.5, Reload and Clearing 0.25, no firearm 1), and the sway moves the arms by `LOWER_OFFSET` and tilts them
+by `LOWER_PITCH_DEG` in proportion. Presentation only: the sim is not written and no save field is added.
+The LOWERED lane in `godot/check_first_person.gd` samples an Idle pistol (fully lowered) and a Steady one
+at its first tick (half), and asserts the sway offset and pitch differ. Its plant (`ready_amount` returns
+1 always) turns the lane red. Default card, built: the offset values are engineering picks, not art; the
+art line may later ship a real lowered pose and this table yields to it.

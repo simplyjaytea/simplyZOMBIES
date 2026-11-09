@@ -2663,6 +2663,10 @@ not a to-do list:
   play 'aim_long', not raise_long`. Reload has no clip, so its idle is the conservative default (docs/30). The
   PLAYBOOK "Known bugs" line on the lowered weapon is removed. `SimAim.holds` still has its reader only in the
   top-down `main.gd`, not in the first-person arms.
+- **A firearm that is not ready is drawn lowered, 2026-11-10.** `arms_view.gd` `ready_amount` lowers the
+  arms in Idle (fully) and at Steady's first tick (half), via `LOWER_OFFSET` and `LOWER_PITCH_DEG` in the sway.
+  The LOWERED lane (`check_first_person.gd`) asserts the Idle and Steady offsets and pitches differ; the plant
+  (`ready_amount` always 1) turns it red. Presentation only; no save change. docs/30, 2026-11-10.
 - **The organic survivor, 2026-11-04.** The first-person survivor body is replaced: the box-segment
   `survivor.glb` gives way to an organic, smooth-skinned woman built by `organic_survivor.py` in the
   Blender character kit (`tools/blender/first_person_kit/build_characters.py`). She has 7,810 triangles,
