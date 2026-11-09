@@ -2496,6 +2496,14 @@ not a to-do list:
     the opening. `godot:smoke` and `check:routing` pass. Matched 1280x720 before/after, real-sky,
     repeat and magenta captures accompany the piece; repeat-run pixel noise is zero.
 
+- **The Ome–Okutama re-theme: prop kit A, 2026-11-10.** Thirteen street-dressing GLBs share a
+  deterministic 512 px atlas and measured placement manifest; `build_props.py -- --check` prints
+  `PROPS_CHECK_OK 13 models`, refuses ten planted faults, and the props await the separate placer.
+  Round 2: the Japanese labels are rows rasterised once from Noto Sans CJK Bold and held pixel for
+  pixel in the exported atlas; the check refuses same-facing faces within 1 mm that overlap (it
+  prints `COPLANAR_OVERLAP` per model); the guard-rail end flares back and down to a closed
+  terminal; each vending livery has its own faded body colour; the gate has 0.10 m block posts.
+
 - **The Ome–Okutama re-theme: the shotengai row, 2026-11-07.** Batch B starts with the existing
   18 x 13 m `building.arcade.retail`; `TEMPLATE_FINISHES` gives it a tin gable and siding walls without
   changing its template JSON, footprint, doors, windows, pool or weight.
