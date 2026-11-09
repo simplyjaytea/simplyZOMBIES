@@ -4729,6 +4729,8 @@ not a to-do list:
   eyes) and MIX, re-pinned for the day-7 pool over ten kinds (the feigner draws `g`, not yet in the
   fifty). The ten-seed table was not re-run; see "The ten-seed re-baseline after the zombie kinds"
   under Proof.
+- **First-person street dressing, 2026-11-09.** The first-person view draws the kit's props from the sim's tile classes (`godot/presentation/first_person/street_dressing.gd`, `street_dressing_view.gd`), presentation only, with no RNG; the rules are in docs/30 ("First-person street dressing is a picture of tiles the sim already has"). Gate: the DRESSING lane of `godot:check:first_person`, two plants. Not built: the block-wall pieces (no rule for a district Wall tile yet), and the real manifest and GLBs, which arrive with prop kit A.
+
 - **A review camera for the sheets, 2026-11-09.** F3 (testing only, not saved, listed under F1) puts a height camera 14 m
   above and 2 m behind the body, pitch -55 degrees, along its heading; `set_review_camera` places it for the sheet driver.
   Presentation only: the held weapon and HUD hide, the own body draws, the sim and the aim do not move. The game camera is

@@ -278,6 +278,26 @@ func _run() -> void:
 	ok = _lane("BODIES", _character_bodies(bodies_scene), "a walking colonist plays walk at the sim's phase, a lunging shambler plays lunge, a corpse holds death, loops loop and one-shots hold, a body the sim cannot see is hidden, a missing model falls back to the capsule, and HELD: a colonist's pistol sits in its right hand within 0.15 m, a bat swaps it, an unarmed colonist draws nothing, and the player's own body in third person carries the pistol") and ok
 	bodies_scene.queue_free()
 	await process_frame
+	# The street dressing gets two fresh boots of its own: the same seed must give the same props, and the sim must not move.
+	var dress_a: Node = packed.instantiate()
+	dress_a.set("district_tiles", SMALL_DISTRICT_TILES)
+	root.add_child(dress_a)
+	dress_a.set_process(false)
+	await process_frame
+	var dress_b: Node = packed.instantiate()
+	dress_b.set("district_tiles", SMALL_DISTRICT_TILES)
+	root.add_child(dress_b)
+	dress_b.set_process(false)
+	await process_frame
+	var dress_c: Node = packed.instantiate()
+	root.add_child(dress_c)
+	dress_c.set_process(false)
+	await process_frame
+	ok = _lane("DRESSING", _dressing(dress_a, dress_b, dress_c), "the street dressing places props from the sim's own tile classes and the manifest alone: the same seed gives the same props on two boots, a tall prop stands flush to a wall and never on a Low tile or open floor, a wall piece is at most 0.10 m proud, a noren hangs over an open door with its hem at 1.80 m or higher, wire spans join poles in range only, a missing manifest draws nothing, the drawn count is the placed count, and the sim's save is byte-identical before and after drawing") and ok
+	dress_a.queue_free()
+	dress_b.queue_free()
+	dress_c.queue_free()
+
 	# The review camera (F3) and the game-camera sequence each get a fresh scene: the review lane moves the
 	# camera and the held weapon, so the sequence lane reads a scene no other lane has touched.
 	var review_scene: Node = packed.instantiate()
@@ -310,6 +330,161 @@ func _run() -> void:
 	await process_frame
 	_finish(old_size, ok)
 
+
+# --- DRESSING (2026-11-10) -----------------------------------------------------------------
+
+const StreetDressing = preload("res://presentation/first_person/street_dressing.gd")
+const SimSave = preload("res://sim/save.gd")
+const DRESSING_FIXTURE: String = "res://fixtures/props_fixture.manifest.json"
+# Plants, flipped by hand and restored. CLOCK moves the second boot's seed with the wall clock; OPEN_FLOOR adds a
+# tall vending machine on an open-floor tile to the placements the lane judges.
+const DRESSING_PLANT_CLOCK: bool = false
+const DRESSING_PLANT_OPEN_FLOOR: bool = false
+
+
+func _dressing(dress_a: Node, dress_b: Node, dress_c: Node) -> bool:
+	var ok: bool = true
+	var entries: Array = StreetDressing.load_manifest(DRESSING_FIXTURE)
+	if entries.size() != 5:
+		return _fail("DRESSING", "the fixture manifest loads %d entries, not five" % entries.size())
+	var map_a: Variant = dress_a.get("map")
+	var map_b: Variant = dress_b.get("map")
+	var world_a: Variant = dress_a.get("world")
+	var seed_val: int = int(FirstPerson.SEED)
+	var sim_before: String = _sim_save_hash(world_a)
+
+	# Two boots, same seed: the same props at the same places. The second boot's seed is the one the clock plant moves.
+	var seed_b: int = seed_val + (int(Time.get_ticks_usec() % 1000) + 1 if DRESSING_PLANT_CLOCK else 0)
+	var placed_a: Array = StreetDressing.placements(map_a, seed_val, entries)
+	var placed_b: Array = StreetDressing.placements(map_b, seed_b, entries)
+	var digest_a: String = StreetDressing.digest_text(placed_a)
+	var digest_b: String = StreetDressing.digest_text(placed_b)
+	var kinds: Dictionary = {}
+	for p in placed_a:
+		var id: String = String((p as Dictionary)["id"])
+		kinds[id] = int(kinds.get(id, 0)) + 1
+	print("DRESSING placed %d props on boot A, %d on boot B; per kind %s; digest %s" % [
+		placed_a.size(), placed_b.size(), str(kinds), digest_a.sha256_text()])
+	var tile_keys: Dictionary = {}
+	for ty in range(int(map_a.h)):
+		for tx in range(int(map_a.w)):
+			var k: String = SimSpace.profile_key(map_a, tx, ty)
+			tile_keys[k] = int(tile_keys.get(k, 0)) + 1
+	print("DRESSING tile classes on the district: %s" % str(tile_keys))
+	if placed_a.is_empty():
+		return _fail("DRESSING", "the fixture manifest placed no props on the district")
+	if digest_a != digest_b:
+		ok = _fail("DRESSING", "two boots with the same seed placed different props (%d and %d)" % [placed_a.size(), placed_b.size()])
+
+	# The rules, judged from the map alone. A probe on open floor proves the judge can refuse what it must refuse.
+	var probe: Dictionary = _open_floor_probe(map_a, entries, seed_val)
+	if probe.is_empty():
+		return _fail("DRESSING", "the district has no open floor tile for the refusal probe")
+	if StreetDressing.validate(map_a, [probe]).is_empty():
+		ok = _fail("DRESSING", "the rule check passed a tall vending machine on open floor")
+	# Judge each kind both ways on this map: a probe the rule allows must pass, and one it refuses must fail. The small
+	# district may have no open doorway or no Low run beside floor; then that kind is judged on the refusal side only,
+	# and the print says so.
+	var wall_side: Vector2i = _probe_tile(map_a, "floor", true)
+	var bare_floor: Vector2i = _probe_tile(map_a, "floor", false)
+	var low_edge: Vector2i = _probe_tile(map_a, "low", false)
+	var closed_door: Vector2i = _probe_tile(map_a, "door.closed", false)
+	var open_door: Vector2i = _probe_tile(map_a, "door.open", false)
+	if wall_side != Vector2i(-1, -1):
+		if not StreetDressing.validate(map_a, [_probe(map_a, entries, "fixture.vending", wall_side)]).is_empty():
+			ok = _fail("DRESSING", "the rule check refused a tall machine flush to a wall")
+		if not StreetDressing.validate(map_a, [_probe(map_a, entries, "fixture.extinguisher", wall_side)]).is_empty():
+			ok = _fail("DRESSING", "the rule check refused a wall piece on a wall side")
+	if bare_floor != Vector2i(-1, -1) and StreetDressing.validate(map_a, [_probe(map_a, entries, "fixture.guard_rail", bare_floor)]).is_empty():
+		ok = _fail("DRESSING", "the rule check passed a guard rail on open floor")
+	if low_edge != Vector2i(-1, -1):
+		if not StreetDressing.validate(map_a, [_probe(map_a, entries, "fixture.guard_rail", low_edge)]).is_empty():
+			ok = _fail("DRESSING", "the rule check refused a guard rail on a Low edge beside floor")
+	if closed_door != Vector2i(-1, -1) and StreetDressing.validate(map_a, [_probe(map_a, entries, "fixture.noren", closed_door)]).is_empty():
+		ok = _fail("DRESSING", "the rule check passed a noren over a closed door")
+	if open_door != Vector2i(-1, -1):
+		if not StreetDressing.validate(map_a, [_probe(map_a, entries, "fixture.noren", open_door)]).is_empty():
+			ok = _fail("DRESSING", "the rule check refused a noren over an open door")
+	print("DRESSING judged both ways: wall side %s, bare floor %s, low edge %s, closed door %s, open door %s" % [str(wall_side), str(bare_floor), str(low_edge), str(closed_door), str(open_door)])
+	var judged: Array = placed_a.duplicate()
+	if DRESSING_PLANT_OPEN_FLOOR:
+		judged.append(probe)
+	var fails: Array = StreetDressing.validate(map_a, judged)
+	if not fails.is_empty():
+		ok = _fail("DRESSING", "the placer broke its rules: %s" % str(fails.slice(0, 3)))
+
+	# The shipped district size: the placed props must reach both halves of it, so a row-major cap cannot leave the
+	# south bare. The plant (StreetDressing.CAP_BY_RANK false) is that cap, and this assertion must fail on it.
+	var map_c: Variant = dress_c.get("map")
+	if int(map_c.h) != 256:
+		ok = _fail("DRESSING", "the default district is %d tiles, not 256" % int(map_c.h))
+	var big: Array = StreetDressing.placements(map_c, seed_val, entries)
+	var half: int = int(map_c.h) / 2
+	var north: int = 0
+	var south: int = 0
+	for p in big:
+		if int((p as Dictionary)["ty"]) < half:
+			north += 1
+		else:
+			south += 1
+	print("DRESSING 256 district: %d props (cap %d), north %d, south %d" % [big.size(), StreetDressing.PROP_CAP, north, south])
+	# Each half holds at least 40% of the props: the rank cut gives about half and half; a row-major cut gives about 70 to 30.
+	if north * 5 < big.size() * 2 or south * 5 < big.size() * 2:
+		ok = _fail("DRESSING", "the 256 district's props miss a half (each needs 40%%): north %d, south %d of %d" % [north, south, big.size()])
+	# Wire spans: a true positive (two poles 20 m apart in one row are joined) and a true negative (50 m apart are not).
+	var near_a: Dictionary = _pole_at(10, 20, 0.0)
+	var near_b: Dictionary = _pole_at(30, 20, 0.0)
+	var far_b: Dictionary = _pole_at(60, 20, 0.0)
+	var joined: Array = StreetDressing.wire_spans([near_a, near_b])
+	if joined.size() != 1:
+		ok = _fail("DRESSING", "two poles 20 m apart in one row were not joined by a wire span")
+	var apart: Array = StreetDressing.wire_spans([near_a, far_b])
+	if not apart.is_empty():
+		ok = _fail("DRESSING", "two poles 50 m apart were joined by a wire span")
+	for span in StreetDressing.wire_spans(placed_a):
+		if float((span as Dictionary)["a"].distance_to((span as Dictionary)["b"])) > StreetDressing.WIRE_MAX_SPAN_M + 0.001:
+			ok = _fail("DRESSING", "a wire span on the district is longer than %.1f m" % StreetDressing.WIRE_MAX_SPAN_M)
+
+	# Drawing: the view draws what was placed, the sim's save does not move, and a missing manifest draws nothing.
+	var street: Node = dress_a.get("_street") as Node
+	dress_a.call("rebuild_street", DRESSING_FIXTURE)
+	var drawn: int = int(street.call("prop_count"))
+	if drawn != placed_a.size():
+		ok = _fail("DRESSING", "the view drew %d props for %d placed" % [drawn, placed_a.size()])
+	if _sim_save_hash(world_a) != sim_before:
+		ok = _fail("DRESSING", "drawing the street dressing changed the sim's save")
+	dress_a.call("rebuild_street", "res://fixtures/no_such_manifest.json")
+	if street.get_child_count() != 0:
+		ok = _fail("DRESSING", "a missing manifest left %d dressing nodes" % street.get_child_count())
+	return ok
+
+
+func _sim_save_hash(world: Variant) -> String:
+	return SimSave.encode_save(SimSave.create_save(world)).sha256_text()
+
+
+# A tile of open floor with no wall beside it, carrying a tall vending machine: a placement the rules must refuse.
+func _open_floor_probe(map: Variant, entries: Array, seed_val: int) -> Dictionary:
+	var vending: Dictionary = {}
+	for e in entries:
+		if String((e as Dictionary)["id"]) == "fixture.vending":
+			vending = e as Dictionary
+	if vending.is_empty():
+		return {}
+	for ty in range(int(map.h)):
+		for tx in range(int(map.w)):
+			if SimSpace.profile_key(map, tx, ty) == "floor" and StreetDressing.wall_sides(map, tx, ty).is_empty():
+				return {"id": "fixture.vending", "placement": "kerb", "tx": tx, "ty": ty, "tile_key": "floor",
+					"pos": Vector3(float(tx) + 0.5, 0.0, float(ty) + 0.5), "yaw": 0.0,
+					"size": StreetDressing.size_of(vending), "hem": 0.0, "proud": 0.0, "anchors": {}}
+	return {}
+
+
+func _pole_at(tx: int, ty: int, yaw: float) -> Dictionary:
+	return {"id": "fixture.pole", "placement": "kerb", "tx": tx, "ty": ty, "tile_key": "floor",
+		"pos": Vector3(float(tx) + 0.5, 0.0, float(ty) + 0.5), "yaw": yaw, "size": Vector3(0.3, 10.0, 0.3),
+		"hem": 0.0, "proud": 0.0,
+		"anchors": {"wire_a": Vector3(0.15, 8.5, 0.0), "wire_b": Vector3(-0.15, 8.5, 0.0)}}
 
 # The sha256 of the game camera's global transform over 60 ticks of an untouched boot, recorded from origin/main
 # before the review camera landed. A change to the game camera moves it, and the lane fails.
@@ -5730,3 +5905,29 @@ func _hide_bench_close(scene: Node, world: Variant, player: int) -> void:
 	scene.call("step_sim_once")
 	if SimGunsmith.focus_of(world, player) >= 0:
 		push_error("HIDE: bench.close left the sim's bench focus in place")
+
+
+# The first tile of a profile class (and, when `walled`, one with a wall beside it), or (-1, -1).
+func _probe_tile(map: Variant, key: String, walled: bool) -> Vector2i:
+	for ty in range(int(map.h)):
+		for tx in range(int(map.w)):
+			if SimSpace.profile_key(map, tx, ty) != key:
+				continue
+			if walled != not StreetDressing.wall_sides(map, tx, ty).is_empty():
+				continue
+			if key == "low" and StreetDressing._floor_side(map, tx, ty) == Vector2i.ZERO:
+				continue
+			return Vector2i(tx, ty)
+	return Vector2i(-1, -1)
+
+
+# A placement of one fixture kind on one tile, for the rule check to judge. Only the tile and the size matter to it.
+func _probe(map: Variant, entries: Array, id: String, at: Vector2i) -> Dictionary:
+	var entry: Dictionary = {}
+	for e in entries:
+		if String((e as Dictionary)["id"]) == id:
+			entry = e as Dictionary
+	return {"id": id, "placement": String(entry["placement"]), "tx": at.x, "ty": at.y,
+		"tile_key": SimSpace.profile_key(map, at.x, at.y), "pos": Vector3(float(at.x) + 0.5, 0.0, float(at.y) + 0.5),
+		"yaw": 0.0, "size": StreetDressing.size_of(entry), "hem": 1.8 if String(entry["placement"]) == "door_head" else 0.0,
+		"proud": 0.0, "anchors": {}}
