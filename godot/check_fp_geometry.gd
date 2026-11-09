@@ -50,6 +50,7 @@ extends SceneTree
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
 const BuildingView = preload("res://presentation/first_person/building_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
+const DoorStyle = preload("res://presentation/first_person/door_style.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
 const SimSpace = preload("res://sim/space/space.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
@@ -58,6 +59,8 @@ const SimBoot = preload("res://sim/boot.gd")
 const SimStances = preload("res://sim/stances.gd")
 
 const SMALL_TILES: int = 64
+# The content templates `_finishes` loops over; `_finish` prints the count, not a literal.
+var _finish_count: int = 0
 const EPSILON_M: float = 0.001
 
 var _failures: Array[String] = []
@@ -75,13 +78,14 @@ func _run() -> void:
 	ok = _bodies() and ok
 	ok = _kit(fixture) and ok
 	ok = _finishes() and ok
+	ok = _doorstyle() and ok
 	ok = _flat(fixture) and ok
 	_finish(ok)
 
 
 func _finish(ok: bool) -> void:
 	if ok:
-		print("FP_GEOMETRY_OK every tile and all 22 building finishes keep their profile bands, every body keeps its cylinder, finish skins stay within 25 mm of a solid host, finish volumes are low exterior door steps, canopies are attached above 2.10 m and at most 1.20 m deep, wall and window attachments are at most 0.10 m proud on their declared tile and window boxes stay in the sill or lintel band, every sim window in four generated districts is drawn open and every indoor tile there has a ceiling, and planted wall-over-window, stripped-ceiling, band-box, window, Low-tile, module, open-tile, high-wall, indoor-volume, tall-volume, detached-volume, canopy-low, canopy-deep, canopy-detached, wall-proud, wall-open, attach-offtile, window-attach-opening, and smooth-normal box errors are refused, and every band box and the ground draw flat-shaded")
+		print("FP_GEOMETRY_OK every tile and all %d building finishes keep their profile bands, every body keeps its cylinder, finish skins stay within 25 mm of a solid host, finish volumes are low exterior door steps, canopies are attached above 2.10 m and at most 1.20 m deep, wall and window attachments are at most 0.10 m proud on their declared tile and window boxes stay in the sill or lintel band, every sim window in four generated districts is drawn open and every indoor tile there has a ceiling, and planted wall-over-window, stripped-ceiling, band-box, window, Low-tile, module, open-tile, high-wall, indoor-volume, tall-volume, detached-volume, canopy-low, canopy-deep, canopy-detached, wall-proud, wall-open, attach-offtile, window-attach-opening, and smooth-normal box errors are refused, and every band box and the ground draw flat-shaded" % _finish_count)
 		quit(0)
 		return
 	for failure in _failures:
@@ -470,6 +474,7 @@ func _size_close(a: Vector3, b: Vector3) -> bool:
 
 func _finishes() -> bool:
 	var templates: Dictionary = _building_templates()
+	_finish_count = templates.size()
 	var manifest: Dictionary = BuildingView.read_manifest()
 	var models: Array = manifest.get("models", []) as Array
 	var ok: bool = true
@@ -662,6 +667,69 @@ func _finishes() -> bool:
 				ok = _fail("FINISHES", "a window attachment in the opening was accepted")
 		ok = _finish_placement(house) and ok
 	ok = _finish_worldgen(templates) and ok
+	return ok
+
+
+# DOORSTYLE: every manifested template and the default have a door-style row; in four generated districts
+# every drawn door's leaf differs in luminance from its building's wall by at least `DoorStyle.LUMA_MIN`;
+# an open leaf and a closed one are different boxes; the planted leaf equal to its wall is refused by the
+# same luminance judge. The band boxes these leaves sit on are unchanged (WORLDGEN and BANDS prove that).
+func _doorstyle() -> bool:
+	var ok: bool = true
+	for entry_v in BuildingView.read_manifest().get("models", []) as Array:
+		var slug: String = String((entry_v as Dictionary).get("glb", "")).get_file().get_basename()
+		if not DoorStyle.has_row(slug):
+			ok = _fail("DOORSTYLE", "no door-style row for manifest template %s" % slug)
+	if not DoorStyle.has_row(DoorStyle.DEFAULT_KEY):
+		ok = _fail("DOORSTYLE", "no default door-style row")
+	var rows: PackedStringArray = []
+	for slug_v in DoorStyle.TABLE.keys():
+		var style: Dictionary = DoorStyle.style_for(String(slug_v))
+		var diff: float = absf(DoorStyle.luminance(style["leaf"] as Color) - DoorStyle.luminance(style["wall"] as Color))
+		rows.append("%s %.3f" % [slug_v, diff])
+		if not DoorStyle.contrast_ok(style):
+			ok = _fail("DOORSTYLE", "template %s: leaf and wall differ by %.3f in luminance, need %.2f" % [slug_v, diff, DoorStyle.LUMA_MIN])
+	print("DOORSTYLE leaf-to-wall luminance difference per template: " + ", ".join(rows))
+	var doors: int = 0
+	var checked: Dictionary = {}
+	var worst: float = 1.0
+	for district_id in FINISH_DISTRICTS:
+		var boot: Dictionary = SimBoot.bare(SimBoot.DISTRICT_SEED, SimTileMap.DISTRICT_TILES, district_id)
+		var map: Variant = boot["map"]
+		var view: Node3D = DistrictView.new()
+		root.add_child(view)
+		view.call("build", map, SimBoot.DISTRICT_SEED)
+		for ty in int(map.h):
+			for tx in int(map.w):
+				var key: String = SimSpace.profile_key(map, tx, ty)
+				if not key.begins_with("door."):
+					continue
+				doors += 1
+				var slug: String = String(view.call("_slug_at", tx, ty))
+				var style: Dictionary = DoorStyle.style_for(slug)
+				checked[slug] = true
+				var diff: float = absf(DoorStyle.luminance(style["leaf"] as Color) - DoorStyle.luminance(style["wall"] as Color))
+				worst = minf(worst, diff)
+				if not DoorStyle.contrast_ok(style):
+					ok = _fail("DOORSTYLE", "%s: door at %d,%d differs by %.3f from its wall" % [district_id, tx, ty, diff])
+				var along_x: bool = view.call("_runs_along_x", map, tx, ty)
+				var side: Vector2i = view.call("_open_face", map, tx, ty, along_x)
+				var closed: Array = DoorStyle.door_boxes(tx, ty, along_x, side, false, style)
+				var open: Array = DoorStyle.door_boxes(tx, ty, along_x, side, true, style)
+				if closed == open:
+					ok = _fail("DOORSTYLE", "%s: open and closed door at %d,%d are the same boxes" % [district_id, tx, ty])
+		view.free()
+	print("DOORSTYLE drawn %d doors across %d districts, %d templates used, worst leaf-to-wall luminance difference %.3f" % [doors, FINISH_DISTRICTS.size(), checked.size(), worst])
+	if doors == 0:
+		ok = _fail("DOORSTYLE", "no door tiles in the generated districts: nothing to judge")
+	var planted: Dictionary = DoorStyle.style_for(DoorStyle.DEFAULT_KEY).duplicate()
+	planted["leaf"] = planted["wall"]
+	if DoorStyle.contrast_ok(planted):
+		ok = _fail("DOORSTYLE", "a leaf planted equal to its wall was accepted")
+	else:
+		print("DOORSTYLE planted leaf equal to wall refused")
+	if ok:
+		print("DOORSTYLE OK every template has a row, every drawn door's leaf differs from its wall by at least %.2f in luminance, open and closed doors are distinct boxes, and a planted leaf equal to its wall is refused" % DoorStyle.LUMA_MIN)
 	return ok
 
 

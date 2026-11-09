@@ -2458,6 +2458,14 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Door leaves, frames and window casing per template, 2026-11-09 (alpha area 2, presentation only).**
+  `godot/presentation/first_person/door_style.gd` holds one row per manifest template and a `default`
+  row (wall reference, leaf, frame, frame width, glazed). `district_view.gd` draws each door as a leaf
+  and a frame, and each window its casing on the faces that meet open ground, as extra boxes in a
+  `Trim` mesh. The band boxes stay the collision and ray truth, unchanged. The `DOORSTYLE` lane of
+  `godot:check:fp_geometry` judges every drawn door's leaf against its wall by at least 0.20 in
+  luminance and refuses a planted leaf equal to its wall. The manifest ships no door-leaf piece, so
+  the leaves are drawn, not kit art; the art line may replace the table later.
 - **The Ome–Okutama re-theme: buildings batch A, 2026-11-05.** The first art batch of
   [docs/42](42-ome-okutama-setting.md) adds two finishes and two whole houses without moving a
   footprint, door, window, pool or weight.
@@ -3457,6 +3465,16 @@ not a to-do list:
   own; Recover; Reload; Clearing). `godot:check:fp_harm` (CLEAN, HELD, BITE, BLOOD, INFECTED, WEAPON, DIGITS) is
   green; its plant (`grabbed` ignored) is red. The panel and `lines()` draw from one list; the bleeding line, which
   `_draw()` used to omit, is drawn. Not done: a camera or screen effect (needs `first_person.gd`), a follow-up.
+- **The first-person zombie tells, 2026-11-07.** `hud.gd` tells the player a zombie is near before the swipe,
+  in prose and digit-free, from the sim: a notice in the last 3 s (a shambler that went Seek or Pursue on a
+  fresh notice, within 30 m) named by the side it is on from the look (ahead, left, right, behind); several
+  noticing at once ("Several things stir."); a Pursuing shambler within 6 m that the look does not cover (close
+  behind, or beside); and a scream from a screamer, read from its own alarm clock, for 100 ticks within 60 m. At
+  most two lines, nearest first, drawn after the harm lines and before the needs lines, one list for `lines()` and
+  `_draw()`. `godot:check:fp_tells` (QUIET, NOTICED, SIDE, CLOSE, SEVERAL, SCREAM, DIGITS) is green; its plant (the
+  notice window raised to a million) is red. Not done: a directional marker or sound (art and audio, a follow-up).
+  The shambler's reach on this branch is 3.8 m, so the notice lanes place it inside that; the 8 m daylight floor
+  is on the bundle branch, and the notice lanes can move to 7 m when it merges.
 
 - **The first-person encounter gate, 2026-11-07.** `godot/check_fp_encounter.gd`, run by
   `npm run godot:check:fp_encounter`, boots the seeded first-person district (`SimBoot.playable`,
@@ -3933,6 +3951,20 @@ not a to-do list:
     change -- those are docs/40 slices 3, 5 and 6. The viewmodel is a placeholder box.
   - **Record.** `docs/planning/first-person-fight-report.md`.
 
+- **The game boots to its title, 2026-11-09.** Advances "First-person expedition and default switch"
+  by the owner's call (docs/30, "The game boots to its title"): a plain boot of the default scene shows
+  the title first, and the title's new run starts first person. `first_person.gd` `_ready` sends a plain
+  boot to `presentation/main.tscn` before it builds any world, content or view (`SaveSlot.title_seen`
+  false, not `skip_title`, no `--skip-title`); the title's new run and continue set `title_seen`, so the
+  return to play builds one world and never bounces. The title's own backdrop is the top-down boot world
+  at the boot tick (9000), which does not move on the title. Every gate and dev launch passes
+  `--skip-title` (`scripts/run-godot.mjs`), except `--run`; `godot:smoke:exports` on Windows passes it,
+  and its web ready line accepts the title's `GODOT_R1_READY`. Gate: `npm run godot:check:fp_title`
+  (`godot/check_fp_title.gd`, `FP_TITLE_OK`; lanes BOOT at frames 1 and 8, NEW_RUN, BACK, CONTINUE,
+  REFUSE, SKIP; its plant, the redirect disabled, turns it red at BOOT). Boot-to-title measured at
+  963 ms. Also green: `check:routing`, `check:shards`, `godot:smoke`, `godot:validate`, `npm test` (594),
+  `godot:check:first_person`, `godot:check:fp_expedition`, `godot:check:fp_geometry`, `godot:check:hud`,
+  `godot:check:play`, `godot:check:fp_encounter`, `godot:m2:save`, `godot:check:shots` (PIXELS SKIP, no display).
 - **The title starts first person, 2026-11-07.** Advances "First-person expedition and default
   switch" by the owner's call (docs/30, "The title starts first person"): the game loads into first
   person, and the top-down game is on hold. The default title offers new run and quit, and new run
@@ -4722,6 +4754,18 @@ not a to-do list:
   eyes) and MIX, re-pinned for the day-7 pool over ten kinds (the feigner draws `g`, not yet in the
   fifty). The ten-seed table was not re-run; see "The ten-seed re-baseline after the zombie kinds"
   under Proof.
+- **First-person street dressing, 2026-11-09.** The first-person view draws the kit's props from the sim's tile classes (`godot/presentation/first_person/street_dressing.gd`, `street_dressing_view.gd`), presentation only, with no RNG; the rules are in docs/30 ("First-person street dressing is a picture of tiles the sim already has"). Gate: the DRESSING lane of `godot:check:first_person`, two plants. Not built: the block-wall pieces (no rule for a district Wall tile yet), and the real manifest and GLBs, which arrive with prop kit A.
+
+- **A review camera for the sheets, 2026-11-09.** F3 (testing only, not saved, listed under F1) puts a height camera 14 m
+  above and 2 m behind the body, pitch -55 degrees, along its heading; `set_review_camera` places it for the sheet driver.
+  Presentation only: the held weapon and HUD hide, the own body draws, the sim and the aim do not move. The game camera is
+  unchanged: its 60-tick transform sequence hashes to the origin/main sequence (GAMECAM lane). Gate: the REVIEWCAM and
+  GAMECAM lanes of `godot:check:first_person`; the review camera lane plants and fails when F3 writes the aim.
+
+- **Hits read, 2026-11-09.** The first-person fight shows its hits: an impact mark where a round met a surface, a blood
+  puff on the zombie's body part, and a flinch back along the shot (`godot/presentation/first_person/hit_marks.gd`, presentation
+  only, read from the drained events). Gate: the HIT lane of `godot:check:first_person`, which also plants and fails when the
+  read is dropped. The 3b frame before and after is in `sz-shared/alpha-2026-11-09/hit-feedback/`.
 - **A dead zombie lies there, 2026-11-07.** Advances the first-person survival pivot by the owner's card
   (docs/30, "A dead zombie lies where it fell"): a zombie that dies no longer vanishes the same tick.
   - **The body.** `recruits.gd` `handle_death`'s shambler arm keeps `_remember_zombie_remains` and `_drop_kit`,

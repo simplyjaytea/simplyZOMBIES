@@ -80,6 +80,8 @@ var _held: Dictionary = {}
 var _sought: Dictionary = {}
 var _prev: Dictionary = {}
 var _curr: Dictionary = {}
+# entity -> flinch offset, shared with FirstPersonHitMarks (the owner of the entries).
+var kick: Dictionary = {}
 var _colonist_material: StandardMaterial3D = null
 var _zombie_material: StandardMaterial3D = null
 var _corpse_material: StandardMaterial3D = null
@@ -252,6 +254,9 @@ func _sync_views(world: Variant, alpha: float) -> void:
 				update_held(_held[e] as Dictionary, world)
 		else:
 			_draw_capsule(view as MeshInstance3D, world, e, at)
+			# A flinch from hit_marks.gd: a presentation offset, read by the sim-free view and never written back.
+			if kick.has(e):
+				view.position += kick[e] as Vector3
 		# The screen may not know more than the sim does: a body behind a wall or beyond the player's range is
 		# not drawn, even though the 3D depth buffer would hide some of them. `vision.detail` is the same read
 		# model the top-down screen and the work read use.
