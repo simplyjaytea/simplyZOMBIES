@@ -8604,3 +8604,11 @@ The LOWERED lane in `godot/check_first_person.gd` samples an Idle pistol (fully 
 at its first tick (half), and asserts the sway offset and pitch differ. Its plant (`ready_amount` returns
 1 always) turns the lane red. Default card, built: the offset values are engineering picks, not art; the
 art line may later ship a real lowered pose and this table yields to it.
+
+- **The street placer's choice reads the high bits, and the mix is data, 2026-11-10.** `street_dressing.gd` takes the candidate from
+  the high bits of its choice hash, not the low bits, because on the real manifest the low bits moved with the density pick: only the
+  odd candidates were ever chosen (measured: indices 1, 3, 5 of six). `Dressing.hash_at` is unchanged. Weights and per-id caps are
+  presentation data in `street_dressing_mix.json` (owner card, defaults built: bus stops 0.15 weight and 6 a district, extinguisher boxes
+  0.5 and 40, vending machines 1.0 and 40, bicycles 1.0 and 60, utility poles 1.0 and priority). The file lives beside the placer, not under
+  `godot/content/`, because the content gate needs a schema per type. Tall run pieces are not candidates on Low edges. Gate: the DRESSING
+  lane choice, cap and run-height assertions; plant `CHOICE_LOW_BITS`.

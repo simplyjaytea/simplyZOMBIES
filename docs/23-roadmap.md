@@ -4807,6 +4807,11 @@ not a to-do list:
   The box stays the fallback for an entry with no file or an unreadable one, so the fixture and main without the kit draw as
   before. Gate: the DRESSING lane checks the GLB-named vending props are instanced models and the GLB-less pole is the box;
   the plant (`PLANT_IGNORE_GLB`) turns the loader off and the lane fails.
+- **The street placer's mix, 2026-11-10.** The choice reads the high bits of its hash (the low bits tracked the density pick and
+  never reached the odd partners of each candidate pair). Candidates are weighted and capped per prop id from
+  `godot/presentation/first_person/street_dressing_mix.json`; priority ids (the utility pole) are kept first past PROP_CAP. Run
+  pieces taller than the Low band are not candidates on Low edges. Not built: block-wall pieces on district Wall tiles (a wall-tile
+  rule is the follow-up). Gate: the DRESSING lane choice, cap and run-height assertions, the plant `CHOICE_LOW_BITS`.
 - **A dead zombie lies there, 2026-11-07.** Advances the first-person survival pivot by the owner's card
   (docs/30, "A dead zombie lies where it fell"): a zombie that dies no longer vanishes the same tick.
   - **The body.** `recruits.gd` `handle_death`'s shambler arm keeps `_remember_zombie_remains` and `_drop_kit`,

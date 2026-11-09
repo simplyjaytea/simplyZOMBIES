@@ -335,6 +335,7 @@ func _run() -> void:
 # --- DRESSING (2026-11-10) -----------------------------------------------------------------
 
 const StreetDressing = preload("res://presentation/first_person/street_dressing.gd")
+const Dressing = preload("res://presentation/dressing.gd")
 const SimSave = preload("res://sim/save.gd")
 const DRESSING_FIXTURE: String = "res://fixtures/props_fixture.manifest.json"
 # Plants, flipped by hand and restored. CLOCK moves the second boot's seed with the wall clock; OPEN_FLOOR adds a
@@ -432,6 +433,45 @@ func _dressing(dress_a: Node, dress_b: Node, dress_c: Node) -> bool:
 	# Each half holds at least 40% of the props: the rank cut gives about half and half; a row-major cut gives about 70 to 30.
 	if north * 5 < big.size() * 2 or south * 5 < big.size() * 2:
 		ok = _fail("DRESSING", "the 256 district's props miss a half (each needs 40%%): north %d, south %d of %d" % [north, south, big.size()])
+	# Choice: over the 256 district, the tiles that take a pick (density hash % 6 == 0) must reach every index of a
+	# six-candidate set. The old low-bit choice reached only the odd indices (measured on the real manifest). Plant: CHOICE_LOW_BITS.
+	var reached: Dictionary = {}
+	for ty in range(int(map_c.h)):
+		for tx in range(int(map_c.w)):
+			if Dressing.hash_at(seed_val, tx, ty, StreetDressing.SALT_PICK) % StreetDressing.DENSITY_MOD != 0:
+				continue
+			reached[StreetDressing.choice_of_count(seed_val, tx, ty, 6)] = true
+	print("DRESSING choice indices reached on the 256 district: %s" % str(reached.keys()))
+	if reached.size() != 6:
+		ok = _fail("DRESSING", "the choice reaches %d of 6 indices on the 256 district, not all six" % reached.size())
+	# Caps: a per-id cap holds on the 256 district, and the capped kind still places (a true positive).
+	var capped: Array = StreetDressing.placements(map_c, seed_val, entries, {"props": {"fixture.extinguisher": {"max_per_district": 5}}})
+	var boxes: int = 0
+	for p in capped:
+		if String((p as Dictionary)["id"]) == "fixture.extinguisher":
+			boxes += 1
+	print("DRESSING capped extinguisher boxes on the 256 district: %d (cap 5)" % boxes)
+	if boxes == 0 or boxes > 5:
+		ok = _fail("DRESSING", "the per-id cap did not hold: %d extinguisher boxes, cap 5" % boxes)
+	# Cap 0 is zero, not "no cap": a per-id cap of 0 places none of that id on the 256 district; with no cap the same id places.
+	var poles_free: int = 0
+	var poles_capped: int = 0
+	for p in StreetDressing.placements(map_c, seed_val, entries):
+		if String((p as Dictionary)["id"]) == "fixture.pole":
+			poles_free += 1
+	for p in StreetDressing.placements(map_c, seed_val, entries, {"props": {"fixture.pole": {"max_per_district": 0}}}):
+		if String((p as Dictionary)["id"]) == "fixture.pole":
+			poles_capped += 1
+	print("DRESSING poles with no cap %d, with cap 0 %d" % [poles_free, poles_capped])
+	if poles_free == 0 or poles_capped != 0:
+		ok = _fail("DRESSING", "cap 0 must place no fixture pole (free %d, capped %d)" % [poles_free, poles_capped])
+	# Run pieces: a 1.2 m run entry is not placed on a Low tile, so the rule check passes with it in the entries.
+	var tall_run: Array = entries.duplicate()
+	tall_run.append({"id": "fixture.block", "placement": "run", "size": [1.0, 1.2, 0.12], "origin": "floor_centre", "anchors": {}, "tris": 0})
+	var with_block: Array = StreetDressing.placements(map_c, seed_val, tall_run)
+	var block_fails: Array = StreetDressing.validate(map_c, with_block)
+	if not block_fails.is_empty():
+		ok = _fail("DRESSING", "a 1.2 m run entry on the 256 district failed the rule check: %s" % str(block_fails.slice(0, 2)))
 	# Wire spans: a true positive (two poles 20 m apart in one row are joined) and a true negative (50 m apart are not).
 	var near_a: Dictionary = _pole_at(10, 20, 0.0)
 	var near_b: Dictionary = _pole_at(30, 20, 0.0)
