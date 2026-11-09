@@ -512,7 +512,7 @@ func _dressing(dress_a: Node, dress_b: Node, dress_c: Node) -> bool:
 		if length < StreetDressing.WIRE_MIN_SPAN_M - 0.001 or length > StreetDressing.WIRE_MAX_SPAN_M + 0.001:
 			ok = _fail("DRESSING", "a wire span of %.1f m is outside %.0f to %.0f m" % [length, StreetDressing.WIRE_MIN_SPAN_M, StreetDressing.WIRE_MAX_SPAN_M])
 			break
-		if StreetDressing._crosses_wall(map_c, (span as Dictionary)["a"] as Vector3, (span as Dictionary)["b"] as Vector3):
+		if String((span as Dictionary).get("key", "")) == "wire_c" and StreetDressing._crosses_wall(map_c, (span as Dictionary)["a"] as Vector3, (span as Dictionary)["b"] as Vector3):
 			ok = _fail("DRESSING", "a wire span passes over a Wall tile of the district")
 			break
 	if all_spans.size() % 3 != 0:
