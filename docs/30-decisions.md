@@ -1448,6 +1448,7 @@ dressing changes never move the layout.
   can answer — the same "no rage meltdown" shape docs/04 already rules out for mood. 0.2 keeps a
   night in a warzone worth a fifth of a good one: real, felt the next morning in `work_mul`, and
   never a trap nothing can climb out of.
+
 ## The treatment ladder: what each rung costs, and what stays legal
 
 - **Two verbs, not three, and the record says which.** docs/05's first aid is stop it, clean it,
@@ -1498,6 +1499,7 @@ dressing changes never move the layout.
   ends the recovery window, so a wound that closes twice as fast on an unchanged regen rate would
   leave the limb permanently weaker for having been treated. The rate is derived from the same
   number in both places rather than authored twice.
+
 ## Focus drift: what moves a survivor off Auto
 
 - **A day number, never the tick the day turns over.** The cadence is
@@ -5578,6 +5580,7 @@ orchestrator ("whatever you think is best"), and the orchestrator chose it. CI's
 the full chain on every pull request and every push to main, so no workflow was added. CLAUDE.md's Verifying
 section states the policy. A change to a shared sim module or the save format still runs the full chain
 locally before its commit.
+
 ## The inventory's look, 2026-10-20
 
 Asked on 2026-10-19 (the alpha plan's Q5) about the inventory, the owner kept the grid -- "I
@@ -5594,6 +5597,7 @@ This settles the inventory's surfaces only. Typography, the anatomical diagram a
 the interface remain the recommendations "The whole interface" describes; VT323 is still the
 baseline face, not a renewed decision. The health-bar ban, the digit ban and the scarce-
 information contract are unchanged.
+
 ## The one-hour day, 2026-10-19
 
 The owner answered the alpha plan's Q2 with the Project Zomboid option: one in-game day is one real
@@ -6334,6 +6338,7 @@ them). A tune of the grade changes `day_grade.gd`'s six constants, re-measures
 same commit, and re-runs `godot:check:memory`, whose STOCKPILE lane measures the rims through
 `DayGrade.grade`. A palette change does not touch the grade, and the grade touches no palette
 lane but that one. Nothing draws over the grade except the world's words, the night, the glow and the HUD.
+
 ## Nowhere to put it, 2026-10-24
 
 The stockpile review's first two findings, taken as engineering calls while the owner's card
@@ -7910,6 +7915,7 @@ economy spends it.
 - **E offers it above the free placements.** An empty floor offers a trip alarm whether or not one is
   carried, so a rung below them is never reached on open ground. The repack takes E over a placement
   while a spent filter and its charcoal are carried.
+
 ## A reach test chooses whom, not whether, 2026-11-04
 
 The two #282 follow-ups (docs/23's first-person group: a zombie's contact target by distance
@@ -8017,6 +8023,7 @@ has the measurement table and the gate. This entry is the design and the reason 
   owed in stage 2 with the zombie arc's re-baseline. `trail` 20 is the first cut, above the
   measured self by the smallest whole margin; it is content, so retuning it is a JSON edit and
   this lane's 20 m positive (a rise of 21.7) says so the moment it is raised past it.
+
 ## The crawler is a kind, not a state, 2026-11-04
 
 A legless shambler is still a shambler. The cripple is a body state: a shambler whose legs are shot
@@ -8052,6 +8059,7 @@ so that refusal is an over-refusal, and the price of a seed-only save.
   gate now also refuses a v33 save, so the refusal is asserted rather than assumed.
 - **Why now.** The save format is not frozen until stage 4 of the release plan, and the owner's
   coordinator decided the bump (`rename-r2`), so it is taken before a player holds a region save.
+
 ## The setting cards: the defaults, and the valley is the first of several (2026-11-04)
 
 The owner's words, 2026-11-04:
@@ -8084,12 +8092,14 @@ decisions (docs/25 and the district `vehicles` block). A train that needs repair
 and it is designed with the region.
 
 \n
+
 ## The key bar sits above the bare hands, 2026-11-06
 
 The first-person key bar, the strip that names the keys along the bottom of the view, moved up to 0.69
 of the view's height so the bare hands at idle no longer sit under it. The hands are where they were; the
 bar is the thing that moved. It is one rectangle (`hud.gd`'s `help_rect`), and `godot:check:first_person`
 HANDS holds it clear at 1280x720 and 960x720.
+
 ## The lurker is a dormant kind, 2026-11-05
 
 The lurker is a zombie kind that is placed only by the dormant manifest, and wakes on a noise
@@ -8113,6 +8123,7 @@ anywhere in the indoor floor of its building. It is a kind, not a state: its con
   through its walls. The shipped default lets a noise above the threshold on any floor tile wake it,
   which is the brief's "unless it is loud enough to be heard at its tile".
 - **Balance.** The boot's dormant bodies change, and the ten-seed re-baseline is owed in stage 2.
+
 ## The feigner is a kind that reads as a corpse until it rises, 2026-11-06
 
 A feigner lies among the dead. It is a zombie kind, not a special object: its content is
@@ -8140,6 +8151,7 @@ A feigner lies among the dead. It is a zombie kind, not a special object: its co
   stream is untouched because the pool still answers without a draw on day 1.
 - **Defaults** (owner cards in the report): the rise radius 2.5 m, the lie-within 1.0 m, the lie search
   12 m, and the weight and wave.
+
 ## The bloater's gas is a tile field, 2026-11-06
 
 The bloater's cloud was a disc with an expiry: a contamination flag that was in force until its end
@@ -8209,6 +8221,7 @@ REPRESS, DRIFT, DRIFT-WALL, BREAK. Two questions are owner cards, and the sim's 
 shambler is too weak against an attentive player: DEATH-ATTENTIVE measures it (the player kills it at +1222 ticks
 in the fixture, after 5 holds broke and with 6 wounds and blood loss 17.1), and the lane passes whatever the outcome.
 DEATH-NOESCAPE is the pinned death: stamina held at 0, the player must die and hand over or end the run.
+
 ## The shot is a ray behind `SHOT_AS_RAY`, 2026-11-07
 
 The shot is a ray behind `SimRanged.SHOT_AS_RAY`, true by default (docs/40, "The shot"; docs/33 question 1 stays open,
@@ -8416,6 +8429,7 @@ exterior wall, and the ground along that face is plain outdoor tiles. It is Floo
 - **Proof.** The other 22 templates are proved against `84aef0fd` by name-blind, order-free geometry and the
   atlas cells each one touches (`OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22`). The station is excluded by name,
   as a template with no base GLB.
+
 ## Every zombie kind is driven against the first-person player, 2026-11-07
 
 - **Resolved the same day.** The two bloodhound findings below are closed by "The bloodhound lays no scent of
@@ -8482,6 +8496,7 @@ is untouched. The owner's card for this is docs/33 item 33.
   `MERGE #N <full 40-char SHA>`. The orchestrator runs `gh pr merge N --merge --match-head-commit <SHA>`
   on that line. Where the auto-mode classifier blocks that command on a seat, the owner runs it, as on
   2026-11-08 for #362.
+
 ## The harm readout says a wound and a held body in words, 2026-11-07
 
 The first-person HUD names held (F struggles free, several holders read as several things), the newest wound
@@ -8496,6 +8511,7 @@ A first-person player hears a zombie's notice as prose, by side from the look, f
 Pursuing zombie outside the look is close behind or beside; a scream is named for its 100-tick window. A Seek or Pursue
 zombie counts as a notice only on a fresh notice (`noticedAt`), so a dormant or feigning body that rises does not tell
 the player. Sound and a directional marker are the art and audio line's, later.
+
 ## A released holder presses again, 2026-11-07
 
 A grab broken by the player's struggle leaves the holder in reach; the holder re-grabs. The encounter gate's
@@ -8531,6 +8547,7 @@ wipes the headless colony by day 10 (2/3 to 0/3) with two stalkers and a bloater
 in the diagnostic, and its early losses are two shamblers and one septic death, not a stalker or the bloater. At 1 the boot
 is inert (day 2 admits no kind before day 3). The owner can dial it. Card open: how early do the boot wanderers take the
 other kinds, and is the wipe on seed 20260805 acceptable for an alpha that starts with a day-1 packet? 0 is the old behaviour.
+
 ## Colonists come to the held player's aid, 2026-11-07
 
 Card open (owner): the default is 24 m to the zombie and 4 m for a Pursuing zombie to the controlled body. An aider is
@@ -8594,6 +8611,7 @@ doors (the convenience and grocery fronts) show a static glass panel; they do no
   centre the rule places. The box of the manifest size is the fallback for an entry with no file, or an unreadable one, so the
   fixture and a tree without the kit draw as before. No rule changed: the tall-prop, tile-class and density rules still read the
   manifest size and the tile. Gate: the DRESSING lane GLB assertions, with the plant `PLANT_IGNORE_GLB`.
+
 ## A firearm that is not ready is drawn lowered, 2026-11-10
 
 The view-model arms show a firearm that is not ready lowered: `arms_view.gd` `ready_amount` reads the
