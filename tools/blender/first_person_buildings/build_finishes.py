@@ -81,6 +81,9 @@ STYLES = {
     "sawmill_door_wood": (2, 7),
     "station_name": (3, 7),
     "station_name_kana": (4, 7),
+    "konbini_name_a": (5, 7),
+    "konbini_name_b": (6, 7),
+    "konbini_livery": (7, 5),
 }
 PALETTES = {
     "siding": ["#586058", "#636a60", "#6d7367", "#777b6d", "#818474"],
@@ -103,6 +106,8 @@ PALETTES = {
     "granite": ["#62645f", "#70726c", "#7c7e77", "#898b84", "#95978f"],
     "sign_blue": ["#435761", "#50646c", "#5c7077", "#677a80", "#74868a"],
     "sign_orange": ["#765743", "#846149", "#916d50", "#9c7757", "#a68260"],
+    # The konbini's livery (card C): a faded plum, no stripes and no real chain's colours.
+    "konbini": ["#4f3c40", "#5c464a", "#684f53", "#735a5d", "#d3cbb8"],
 }
 SIGN_GLYPHS = {
     "sign_blue": ["1001110", "0101010", "0101110", "1001010", "0101110", "0101010", "0001110"],
@@ -244,6 +249,63 @@ STATION_NAME_BITMAPS = {
         "0000000000000000000000000000000000000000000000000000000000000000",
     ],
 }
+
+
+# The konbini's invented name やまびこ, rasterised once from Noto Sans CJK Bold (SIL OFL 1.1) by
+# sz-shared/fp-buildings-jp-b/konbini/rasterise_name.py: 128 x 38 px, the fascia's 2.00 x 0.59 m name
+# panel at 64 texels per metre. Rows run top-down; columns 0..63 fill `konbini_name_a`, 64..127
+# `konbini_name_b`. The build reads no font.
+KONBINI_NAME_ROWS = [
+    "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000011000000000000000000000000000000000000",
+    "00000000000000000000011100000000000000000000000000011100000000000000000000000000000000011011000000000000000000000000000000000000",
+    "00000000000000000000011111000000000000000000000000011100000000000000000000000000000000011011100000000000000000000000000000000000",
+    "00000000000000011000001111100000000000000000000000011100000010000000000000111100000111011001100000001110000000011110000000000000",
+    "00000000000001111100000111000000000000000001111111111111111110000000111111111110000111011101000000001111111111111110000000000000",
+    "00000000000000111100000011111111000000000001111111111111111110000000111111111110000111001000000000001111111111111110000000000000",
+    "00000000000000011110001111111111110000000001111111111111111110000000111111111100000111100000000000001111111111111110000000000000",
+    "00000000000000011111111111111111111000000000000000111100000000000000100001111000000111100000000000000000000000000000000000000000",
+    "00000000000000001111111111000001111000000000000000011100000000000000000011110000000011110000000000000000000000000000000000000000",
+    "00000000000000011111111000000000111100000000000000011100000000000000000111100000000011110000000000000000000000000000000000000000",
+    "00000000000011111111100000000000111100000001111111111111111111000000000111000000000011111000000000000000000000000000000000000000",
+    "00000000000111111111100000000000111100000001111111111111111111000000001111000000000011111000000000000000000000000000000000000000",
+    "00000000000111111111100000000001111100000001111111111111111110000000001110000000000011111100000000000000000000000000000000000000",
+    "00000000000011100011110001000011111000000000000000011100000000000000011110000000000011111110000000000000000000000000000000000000",
+    "00000000000000000011110001111111111000000000000000011100000000000000011110000000000011111111000000000000000000000000000000000000",
+    "00000000000000000001111011111111110000000000000000011100000000000000011100000000000011101110000000111100000000000000000000000000",
+    "00000000000000000001111001111111000000000000011111111110000000000000011100000000000111000110000000111100000000000000000000000000",
+    "00000000000000000001111000000000000000000000111111111111100000000000011100000000000111000000000000111100000000000000000000000000",
+    "00000000000000000000111100000000000000000001111111111111111000000000011100000000000111000000000000111100000000000000000000000000",
+    "00000000000000000000111100000000000000000011110000011111111100000000011100000000001111000000000000111100000000000000000000000000",
+    "00000000000000000000111100000000000000000011110000011111111111000000011110000000011111000000000000111111000000000001100000000000",
+    "00000000000000000000011110000000000000000011110000011110011111000000011111000000111110000000000000011111111111111111100000000000",
+    "00000000000000000000011110000000000000000001111111111100001110000000001111111111111100000000000000011111111111111111100000000000",
+    "00000000000000000000011110000000000000000001111111111100000000000000000111111111111100000000000000000111111111111111100000000000",
+    "00000000000000000000001110000000000000000000011111111000000000000000000011111111110000000000000000000001111111111100000000000000",
+    "00000000000000000000000000000000000000000000000000000000000000000000000000111111000000000000000000000000000000000000000000000000",
+    "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+]
+KONBINI_NAME_CELLS = {"konbini_name_a": 0, "konbini_name_b": 64}
+
+
+def konbini_name_bit(style, x, y, plant=None):
+    # y counts up from the cell's bottom edge, which a fascia face's bottom samples.
+    if y >= len(KONBINI_NAME_ROWS):
+        return False
+    column = KONBINI_NAME_CELLS[style] + x
+    if plant == "konbini_name_mirror":
+        column = 127 - column
+    return KONBINI_NAME_ROWS[len(KONBINI_NAME_ROWS) - 1 - y][column] == "1"
 
 
 WALL_VARIANTS = {
@@ -491,6 +553,10 @@ def atlas_pixel(style, x, y, plant=None):
             return tone("trim", 2)
         sample_x = 63 - x if plant == "name_board_mirror" and style == "station_name_kana" else x
         return tone("trim", 4) if STATION_NAME_BITMAPS[style][63 - y][sample_x] == "1" else tone("sign_blue", 1)
+    if style in KONBINI_NAME_CELLS:
+        return tone("konbini", 4) if konbini_name_bit(style, x, y, plant) else tone("konbini", 2)
+    if style == "konbini_livery":
+        return tone("konbini", 1 if n % 157 == 0 else 2)
     if style in SIGN_GLYPHS:
         palette = "sign_blue" if style.startswith("sign_blue") else "sign_orange"
         edge = min(x, y, 63 - x, 63 - y)
@@ -520,6 +586,14 @@ def build_atlas(path, plant=None):
                 offset = ((cell_y * 64 + y) * ATLAS_SIZE + cell_x * 64 + x) * 4
                 if tuple(pixels[offset : offset + 3]) != expected:
                     raise ValueError(f"{style} baked bitmap mismatch at {(x, y)}")
+    for style in KONBINI_NAME_CELLS:
+        cell_x, cell_y = STYLES[style]
+        for y in range(len(KONBINI_NAME_ROWS)):
+            for x in range(64):
+                expected = tone("konbini", 4) if konbini_name_bit(style, x, y) else tone("konbini", 2)
+                offset = ((cell_y * 64 + y) * ATLAS_SIZE + cell_x * 64 + x) * 4
+                if tuple(pixels[offset : offset + 3]) != expected:
+                    raise ValueError(f"{style} baked name rows mismatch at {(x, y)}")
     image = bpy.data.images.new("buildings_atlas", width=ATLAS_SIZE, height=ATLAS_SIZE, alpha=True)
     image.colorspace_settings.name = "sRGB"
     image.pixels.foreach_set(pixels)
@@ -871,11 +945,18 @@ TEMPLATE_FINISHES = {
     "building.arcade.retail": {"roof": "tin", "wall": "siding"},
     "building.unit.industrial": {"roof": "tin", "wall": "siding"},
     "building.station.small": {"roof": "tin", "wall": "timber"},
+    "building.konbini.road": {"roof": "tar", "wall": "render"},
 }
 HOUSE_IDS = {"building.house.small", "building.house.gable"}
 SHOP_ID = "building.arcade.retail"
 SAWMILL_ID = "building.unit.industrial"
 STATION_ID = "building.station.small"
+KONBINI_ID = "building.konbini.road"
+# The konbini's front: a fascia band on the canopy's outer edge, over the whole street face.
+KONBINI_CANOPY_DEPTH = 0.85
+KONBINI_FASCIA = (2.36, 2.95)
+KONBINI_PARAPET_TOP = 3.05
+KONBINI_PARAPET_INSET = 0.12
 
 
 def finish_looks(template):
@@ -1083,6 +1164,9 @@ def build_window_tile(pieces, template, x, y):
             continue
         side_quad(spatial, x, y, side_index, 0, 1, 0, WINDOW_SILL, styles[0], styles)
         side_quad(spatial, x, y, side_index, 0, 1, WINDOW_TOP, WALL_TOP, styles[0], styles)
+        if template["id"] == KONBINI_ID and outside and tile_at(template, x, y) == 2:
+            konbini_glazing(finish, x, y, side_index)
+            continue
         left = (x - 1, y) if side_index in (0, 2) else (x, y - 1)
         right = (x + 1, y) if side_index in (0, 2) else (x, y + 1)
         # A window the occluder pass opens may stand beside another, so it always frames both sides.
@@ -1110,6 +1194,22 @@ def build_window_tile(pieces, template, x, y):
         if faces_out and not outside and interior in ("residential", "cabin") and curtained:
             side_quad(finish, x, y, side_index, 0.04, 0.16, low + 0.04, high - 0.04, "curtain", offset=0.022)
             side_quad(finish, x, y, side_index, 0.84, 0.96, low + 0.04, high - 0.04, "curtain", offset=0.022)
+
+
+KONBINI_MULLION = 0.022
+
+
+def konbini_glazing(finish, x, y, side_index):
+    # A broad commercial opening: half a mullion on each tile edge, so two tiles meet on one 44 mm
+    # aluminium mullion, head and sill rails, one pane, and a low aluminium kick rail on the sill wall.
+    m = KONBINI_MULLION
+    low, high = WINDOW_SILL, WINDOW_TOP
+    side_quad(finish, x, y, side_index, 0.0, m, low, high, "alu_silver", offset=0.014)
+    side_quad(finish, x, y, side_index, 1.0 - m, 1.0, low, high, "alu_silver", offset=0.014)
+    side_quad(finish, x, y, side_index, m, 1.0 - m, high - 0.05, high, "alu_silver", offset=0.014)
+    side_quad(finish, x, y, side_index, m, 1.0 - m, low, low + 0.05, "alu_silver", offset=0.014)
+    side_quad(finish, x, y, side_index, m, 1.0 - m, low + 0.05, high - 0.05, "glass", offset=0.010)
+    side_quad(finish, x, y, side_index, 0.0, 1.0, 0.0, 0.16, "alu_silver", offset=0.012)
 
 
 def build_tile_trim(finish, template, x, y, plant=None):
@@ -1144,7 +1244,7 @@ def build_tile_trim(finish, template, x, y, plant=None):
                 if tile != 6 and side_index == 0:
                     side_quad(finish, x, y, side_index, 0, 1, 0.0, 0.06, "foundation", offset=0.009)
             else:
-                if template["id"] not in (SHOP_ID, SAWMILL_ID, STATION_ID) or tile != 6:
+                if template["id"] not in (SHOP_ID, SAWMILL_ID, STATION_ID, KONBINI_ID) or tile != 6:
                     side_quad(finish, x, y, side_index, 0, 1, 0, 0.24, "foundation", offset=0.007)
                 side_quad(finish, x, y, side_index, 0, 1, 2.43, 2.55, "trim", offset=0.007)
         else:
@@ -1159,15 +1259,15 @@ def build_tile_trim(finish, template, x, y, plant=None):
         left_frame = tile_at(template, *left) != tile
         right_frame = tile_at(template, *right) != tile
         frame = 0.065
-        casing = alu_for(template) if template["id"] in HOUSE_IDS else "trim"
-        inner_casing = alu_for(template) if template["id"] in HOUSE_IDS else "dark_wood"
+        casing = alu_for(template) if template["id"] in HOUSE_IDS else "alu_silver" if template["id"] == KONBINI_ID else "trim"
+        inner_casing = alu_for(template) if template["id"] in HOUSE_IDS else "alu_silver" if template["id"] == KONBINI_ID else "dark_wood"
         if left_frame:
             side_quad(finish, x, y, side_index, 0, frame, low, high, casing, offset=0.014)
         if right_frame:
             side_quad(finish, x, y, side_index, 1.0 - frame, 1, low, high, casing, offset=0.014)
         head0 = frame if left_frame else 0.0
         head1 = 1.0 - frame if right_frame else 1.0
-        raised_head = template["id"] in HOUSE_IDS or template["id"] in (SHOP_ID, SAWMILL_ID, STATION_ID)
+        raised_head = template["id"] in HOUSE_IDS or template["id"] in (SHOP_ID, SAWMILL_ID, STATION_ID, KONBINI_ID)
         head_low = high if raised_head else high - frame
         head_high = high + frame if raised_head else high
         side_quad(finish, x, y, side_index, head0, head1, head_low, head_high, casing, offset=0.014)
@@ -1230,6 +1330,9 @@ def canopy_specs(template, plant=None):
         specs.append({"tile": (0, h - 1), "side": 2, "u0": 0.0, "u1": float(w), "depth": 1.05, "wall_y": 2.90, "outer_y": 2.66, "kind": "shop", "style": "tin"})
     elif template["id"] == STATION_ID:
         specs.append({"tile": (0, h - 1), "side": 2, "u0": 0.0, "u1": float(w), "depth": 1.10, "wall_y": 2.48, "outer_y": 2.36, "kind": "station", "style": "tin", "volume_top": 2.60})
+    elif template["id"] == KONBINI_ID:
+        bottom = 2.20 if plant == "konbini_canopy_low" else KONBINI_FASCIA[0]
+        specs.append({"tile": (0, h - 1), "side": 2, "u0": 0.0, "u1": float(w), "depth": KONBINI_CANOPY_DEPTH, "wall_y": 2.50, "outer_y": 2.48, "kind": "konbini", "style": "metal", "volume_top": KONBINI_FASCIA[1], "volume_bottom": bottom})
     return specs
 
 
@@ -1237,6 +1340,7 @@ def canopy_volume(spec):
     depth = spec["depth"] + (0.0 if spec["kind"] == "balcony" else 0.04)
     low, high = side_bounds(spec["tile"][0], spec["tile"][1], spec["side"], spec["u0"], spec["u1"], spec["outer_y"] - 0.06, spec["wall_y"], depth)
     high[1] = max(high[1], spec.get("volume_top", high[1]))
+    low[1] = min(low[1], spec.get("volume_bottom", low[1]))
     return {"kind": "canopy", "min": low, "max": high, "tile": list(spec["tile"]), "side": spec["side"]}
 
 
@@ -1521,6 +1625,8 @@ def validate_finish_volumes(template, volumes):
             raise ValueError("canopy has a vertex below 2.10 m")
         if template["id"] == SHOP_ID and low[1] < 2.30 - 0.000001:
             raise ValueError("shop canopy has a vertex below 2.30 m")
+        if template["id"] == KONBINI_ID and low[1] < 2.30 - 0.000001:
+            raise ValueError("konbini canopy has a vertex below 2.30 m")
         if depth > 1.200001:
             raise ValueError("canopy is more than 1.20 m deep")
         overlap = min(high[along], origin + 1.0) - max(low[along], float(origin))
@@ -1836,7 +1942,89 @@ def station_character(template, model, doors_clear):
     )
 
 
+def konbini_character(template, model, doors_clear):
+    w, h = template["size"]["w"], template["size"]["h"]
+    t, top = KONBINI_PARAPET_INSET, KONBINI_PARAPET_TOP
+    exterior = set(exterior_style(template))
+
+    def normal_of(face):
+        a, b, c = (Vector(point) for point in face["points"])
+        return (b - a).cross(c - a).normalized()
+
+    def ys(face):
+        return [point[1] for point in face["points"]]
+
+    finish = [face for face in model.faces if face["node"].startswith("finish")]
+    parapet = [face for face in finish if face["style"] in exterior and min(ys(face)) >= WALL_TOP - 0.001]
+    parapet_top = max(max(ys(face)) for face in parapet) if parapet else 0.0
+    backs = set()
+    for face in parapet:
+        n = normal_of(face)
+        centre = [sum(point[axis] for point in face["points"]) / 3 for axis in range(3)]
+        for side, (inward, axis, plane) in enumerate((((0, 0, 1), 2, t), ((-1, 0, 0), 0, w - t), ((0, 0, -1), 2, h - t), ((1, 0, 0), 0, t))):
+            if n.dot(Vector(inward)) > 0.99 and abs(centre[axis] - plane) < 0.002:
+                backs.add(side)
+    caps = [face for face in finish if face["style"] == "trim" and all(abs(y - top) < 0.001 for y in ys(face)) and normal_of(face).y > 0.99]
+    front = [(x, h - 1) for x in range(w) if tile_at(template, x, h - 1) == 2]
+    open_count = 0
+    seams = {}
+    for x, y in front:
+        node = f"konbini_road-window-{x}-{y}"
+        faces = [face for face in model.faces if face["node"] == node and min(point[2] for point in face["points"]) >= h - 0.001]
+        blocking = [face for face in faces if face["style"] not in ("glass", "alu_silver") and min(ys(face)) < WINDOW_TOP - 0.06 and max(ys(face)) > WINDOW_SILL + 0.06]
+        glazed = any(face["style"] == "glass" for face in faces)
+        if glazed and not blocking:
+            open_count += 1
+        # A mullion is two 22 mm halves on one tile seam; it counts when its faces run sill to head.
+        for face in faces:
+            xs = [point[0] for point in face["points"]]
+            if face["style"] != "alu_silver" or max(xs) - min(xs) > 0.03 or min(ys(face)) < WINDOW_SILL - 0.001:
+                continue
+            seam = round((min(xs) + max(xs)) * 0.5)
+            low, high = seams.get(seam, (9.0, 0.0))
+            seams[seam] = (min(low, min(ys(face))), max(high, max(ys(face))))
+    mullions = sum(1 for low, high in seams.values() if low <= WINDOW_SILL + 0.001 and high >= WINDOW_TOP - 0.001)
+    fascia = [face for face in finish if face["style"] in ("konbini_livery", "konbini_name_a", "konbini_name_b")]
+    names = [face for face in fascia if face["style"].startswith("konbini_name") and normal_of(face).z > 0.99]
+    # The canopy plate's faces: past the door casing (centroid more than 30 mm out) and above the door head.
+    canopy = [face for face in finish if face["style"] in ("metal", "alu_silver") and sum(point[2] for point in face["points"]) / 3 >= h + 0.03 and min(ys(face)) >= DOOR_TOP + 0.10]
+    canopy_low = min(min(ys(face)) for face in canopy + fascia)
+    canopy_high = max(max(ys(face)) for face in canopy)
+    depth = max(point[2] for face in canopy + fascia for point in face["points"]) - h
+    length = max(point[0] for face in canopy for point in face["points"]) - min(point[0] for face in canopy for point in face["points"])
+    posts = [face for face in finish if min(point[2] for point in face["points"]) > h + 0.05 and min(ys(face)) < 2.0]
+    walls = sorted({face["style"] for face in model.faces if face["style"] in exterior})
+    roof = sorted({face["style"] for face in finish if face["style"] in ROOF_VARIANTS["tar"]})
+    problems = []
+    if len(backs) != 4:
+        problems.append(f"parapet back faces on {len(backs)} of 4 sides")
+    if not caps:
+        problems.append("parapet has no cap")
+    if open_count != len(front):
+        problems.append(f"front windows open {open_count} of {len(front)}")
+    if canopy_low < 2.30 - 0.0001:
+        problems.append(f"canopy or fascia bottom {canopy_low:.2f} m, below 2.30 m")
+    if depth > 1.20 + 0.0001:
+        problems.append(f"canopy {depth:.2f} m deep")
+    if posts:
+        problems.append(f"{len(posts)} faces stand under the canopy")
+    if not names:
+        problems.append("no store name on the fascia")
+    if doors_clear != 2:
+        problems.append(f"doors clear {doors_clear}, not 2")
+    if problems:
+        raise ValueError(f"{template['id']}: " + "; ".join(problems))
+    return (
+        f"CHARACTER {template['id']}: parapet {parapet_top:.2f} m, back face {'yes' if len(backs) == 4 else 'no'}, cap {'yes' if caps else 'no'}; "
+        f"front windows open {open_count} of {len(front)}, mullions {mullions}; fascia {KONBINI_FASCIA[0]:.2f} m to {KONBINI_FASCIA[1]:.2f} m, "
+        f"canopy {canopy_low:.2f} m to {canopy_high:.2f} m, depth {depth:.2f} m, length {length:.2f} m, posts {len(posts)}; "
+        f"store name {1 if names else 0} on fascia; doors clear {doors_clear}; walls {walls}; roof {roof}"
+    )
+
+
 def character_report(template, model, doors_clear=None):
+    if template["id"] == KONBINI_ID:
+        return konbini_character(template, model, doors_clear)
     if template["id"] == STATION_ID:
         return station_character(template, model, doors_clear)
     if template["id"] == SAWMILL_ID:
@@ -2330,6 +2518,30 @@ def build_station_details(pieces, template, plant=None):
         finish.box((0.45, 0.0, 5.85), (0.10, 2.34, 0.10), "metal")
 
 
+def build_konbini_details(pieces, template, plant=None):
+    finish = pieces.finish
+    w, h = template["size"]["w"], template["size"]["h"]
+    spec = canopy_specs(template, plant)[0]
+    d = spec["depth"]
+    bottom, top = spec["volume_bottom"], KONBINI_FASCIA[1]
+    # The canopy plate: 60 mm thick, a light aluminium soffit underneath, no posts.
+    plate_low = max(spec["outer_y"] - 0.04, bottom)
+    finish.box((0.0, plate_low, float(h)), (float(w), spec["wall_y"] - plate_low, d), "metal", {"bottom": "alu_silver"})
+    # The fascia band on the canopy's outer edge, the whole width of the street face, with the name over the doors.
+    z0, z1 = h + d, h + d + 0.04
+    names = {5.0: "konbini_name_a", 6.0: "konbini_name_b"}
+    finish.face((0.0, bottom, z1), (float(w), 0, 0), (0, top - bottom, 0), "konbini_livery", normal=(0, 0, 1), style_for_cell=lambda u0, u1, v0, v1, width, height: names.get(round(u0, 3)))
+    finish.face((0.0, bottom, z0), (0, top - bottom, 0), (float(w), 0, 0), "konbini_livery", normal=(0, 0, -1))
+    finish.face((0.0, top, z0), (0, 0, z1 - z0), (float(w), 0, 0), "trim", normal=(0, 1, 0))
+    finish.face((0.0, bottom, z0), (float(w), 0, 0), (0, 0, z1 - z0), "konbini_livery", normal=(0, -1, 0))
+    finish.face((0.0, bottom, z0), (0, 0, z1 - z0), (0, top - bottom, 0), "konbini_livery", normal=(-1, 0, 0))
+    finish.face((float(w), bottom, z0), (0, top - bottom, 0), (0, 0, z1 - z0), "konbini_livery", normal=(1, 0, 0))
+    if plant == "mullion_door":
+        finish.box((5.478, 0.0, float(h)), (0.044, WINDOW_TOP, 0.03), "alu_silver")
+    if plant == "front_solid":
+        side_quad(pieces.piece("window", 2, h - 1)["finish"], 2, h - 1, 2, 0.0, 1.0, WINDOW_SILL, WINDOW_TOP, "render_ivory", offset=0.020)
+
+
 def build_pieces(template, plant=None):
     pieces = Pieces(template)
     interior = interior_spec(template)
@@ -2355,6 +2567,8 @@ def build_pieces(template, plant=None):
         build_sawmill_details(pieces, template, plant)
     if template["id"] == STATION_ID:
         build_station_details(pieces, template, plant)
+    if template["id"] == KONBINI_ID:
+        build_konbini_details(pieces, template, plant)
     finish = pieces.finish
     if plant == "coplanar" and template["id"] == "building.house.small":
         finish._polygon([Vector(v) for v in finish.vertices[:4]], finish.uvs[0], "trim")
@@ -2517,6 +2731,37 @@ def sawmill_roof_uv(north):
     return shift
 
 
+def build_konbini_roof(mesh, template, plant=None):
+    # A flat tar roof behind a parapet. North and south parapets run the full width, east and west
+    # between them, so no two faces overlap at a corner. Each side has its outer face, a drawn back
+    # face, a cap from outer face to back face, and a soffit strip under the 20 mm step past the wall.
+    w, h = template["size"]["w"], template["size"]["h"]
+    variants = ROOF_VARIANTS["tar"]
+    exterior = exterior_style(template)
+    t, top, o = KONBINI_PARAPET_INSET, KONBINI_PARAPET_TOP, 0.02
+    rise = Vector((0, top - WALL_TOP, 0))
+    back = Vector((0, top - 2.66, 0))
+    mesh.role = "roof"
+    mesh.face((t, 2.66, t), (w - 2 * t, 0, 0), (0, 0, h - 2 * t), variants[0], variants, (0, 1, 0))
+    along_x, along_z = Vector((w + 2 * o, 0, 0)), Vector((0, 0, h + 2 * o))
+    sides = (
+        # outer origin, outer run, outward normal, back origin, back run, cap origin, cap run, cap across, soffit origin, soffit run
+        (Vector((-o, 0, -o)), along_x, Vector((0, 0, -1)), Vector((t, 0, t)), Vector((w - 2 * t, 0, 0)), Vector((-o, top, -o)), along_x, Vector((0, 0, o + t)), Vector((-o, WALL_TOP, -o)), along_x),
+        (Vector((w + o, 0, -o)), along_z, Vector((1, 0, 0)), Vector((w - t, 0, t)), Vector((0, 0, h - 2 * t)), Vector((w + o, top, t)), Vector((0, 0, h - 2 * t)), Vector((-(o + t), 0, 0)), Vector((w + o, WALL_TOP, 0)), Vector((0, 0, h))),
+        (Vector((-o, 0, h + o)), along_x, Vector((0, 0, 1)), Vector((t, 0, h - t)), Vector((w - 2 * t, 0, 0)), Vector((-o, top, h + o)), along_x, Vector((0, 0, -(o + t))), Vector((-o, WALL_TOP, h + o)), along_x),
+        (Vector((-o, 0, -o)), along_z, Vector((-1, 0, 0)), Vector((t, 0, t)), Vector((0, 0, h - 2 * t)), Vector((-o, top, t)), Vector((0, 0, h - 2 * t)), Vector((o + t, 0, 0)), Vector((-o, WALL_TOP, 0)), Vector((0, 0, h))),
+    )
+    for outer, run, normal, inner, inner_run, cap, cap_run, across, soffit, soffit_run in sides:
+        mesh.role = "roof_side"
+        mesh.face(outer + Vector((0, WALL_TOP, 0)), run, rise, exterior[0], exterior, normal)
+        mesh.role = ""
+        if plant != "parapet_no_back":
+            mesh.face(inner + Vector((0, 2.66, 0)), inner_run, back, exterior[0], exterior, -normal)
+        mesh.face(cap, cap_run, across, "trim", normal=(0, 1, 0))
+        mesh.face(soffit, soffit_run, -normal * o, "trim", normal=(0, -1, 0))
+    mesh.role = ""
+
+
 def build_roof(mesh, template, plant=None):
     roof_start = len(mesh.vertices)
     w, h = template["size"]["w"], template["size"]["h"]
@@ -2528,6 +2773,9 @@ def build_roof(mesh, template, plant=None):
     # Roles let `validate_roof` judge the winding: a "roof" face must face up, a "roof_down" face
     # down, and a "roof_side" face away from the building. Boxes are left out.
     mesh.role = "roof"
+    if form == "flat" and template["id"] == KONBINI_ID:
+        build_konbini_roof(mesh, template, plant)
+        return
     if form == "flat":
         e = 0.18
         mesh.face((-e, 2.66, -e), (w + 2 * e, 0, 0), (0, 0, h + 2 * e), variants[0], variants, (0, 1, 0))
@@ -2731,7 +2979,7 @@ def validate_doors(template, model):
 # be reproduced, in mesh and in the atlas cells each one touches, by this build.
 # The commit the other templates are proved against: every building GLB and the atlas at this base must
 # be reproduced, in mesh and in the atlas cells each one touches, by this build.
-OTHER_TEMPLATES_BASE = "469cf886dc5bf002ffe4a17d2435978b9a8f5d57"
+OTHER_TEMPLATES_BASE = "8185f1e9e91794f8ba256e2c7c90fa4fb4518c90"
 
 
 def base_has(repo, relative):
@@ -2763,7 +3011,7 @@ def same_geometry(a, b):
 
 # The round's own template is excluded by name, on both sides of the comparison. Every other base GLB
 # must be proved, so a missing template cannot shrink the proof silently.
-PROOF_OWN = {STATION_ID}
+PROOF_OWN = {KONBINI_ID}
 
 
 def validate_other_templates(repo, export_dir, templates, plant=None):
@@ -3241,7 +3489,7 @@ def main():
     arguments = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter", "sliding_door_cross", "sliding_leaf_span", "eave_north_clean", "canopy_post", "ticket_ledge_proud", "name_board_open", "name_board_uv", "name_board_one_cell", "name_board_mirror", "arch_float", "bracket_float"])
+    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter", "sliding_door_cross", "sliding_leaf_span", "eave_north_clean", "canopy_post", "ticket_ledge_proud", "name_board_open", "name_board_uv", "name_board_one_cell", "name_board_mirror", "arch_float", "bracket_float", "konbini_canopy_low", "front_solid", "parapet_no_back", "mullion_door", "konbini_name_mirror"])
     args = parser.parse_args(arguments)
     repo = Path(__file__).resolve().parents[3]
     try:

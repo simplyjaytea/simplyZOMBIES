@@ -280,6 +280,32 @@ If room tags are added to content later, the manifest is the place to refine thi
   both sides. New atlas cells can move isolated far-frame pixels through the smallest mips, as the
   sawmill reviews proved; those are reported rather than repainted away.
 
+### Batch B: the konbini
+
+- `building.konbini.road` is the 12 x 9 commercial template from #371, tar / render through
+  `TEMPLATE_FINISHES`, with no JSON change (no back-room door; docs/42 mentions one, it is a JSON piece).
+- The roof is flat tar behind a parapet to 3.05 m. Each side has its outer face, a drawn back face from
+  the 2.66 m roof, a cap from outer face to back face and a 20 mm soffit strip under the step past the
+  wall. North and south parapets run the full width, east and west between them, so no faces overlap
+  at a corner. `parapet_no_back` drops the back faces and is refused by the measured count.
+- The ten south window tiles are a broad commercial opening: 22 mm aluminium half-mullions on each
+  tile edge (one 44 mm mullion per seam, twelve seams), aluminium head and sill rails, one pane and a
+  0.16 m aluminium kick rail on the sill wall. Only the JSON's window tiles get it; side and back
+  windows that worldgen opens keep the generic glazing. `front_solid` fills window `(2,8)` and is
+  refused by the aperture check. The double door has aluminium casing with a raised head.
+- The canopy is a 60 mm plate 0.85 m deep with a light aluminium soffit and no posts. A 0.04 m fascia
+  band on its outer edge runs the full 12 m, 2.36 to 2.95 m, in the faded plum `konbini_livery` cell
+  `(7,5)`. `konbini_canopy_low` drops it to 2.20 m and is refused by the 2.30 m shop rule.
+  `mullion_door` puts a mullion in door `(5,8)` and is refused by the door check.
+- The invented name やまびこ sits over the doors on two 1 m fascia faces, `konbini_name_a` `(5,7)` and
+  `konbini_name_b` `(6,7)`: 128 x 38 px rows rasterised once from Noto Sans CJK Bold (SIL OFL 1.1) at
+  the panel's 64 texels per metre. The faces map at the standard density; no font is read at build
+  time. `konbini_name_mirror` mirrors the rows and is refused by the baked-row comparison.
+- `CHARACTER building.konbini.road` measures the parapet, back faces, cap, open windows, mullions,
+  fascia, canopy, posts, name, doors, walls and roof from the GLB.
+- `OTHER_TEMPLATES_PIXELS_IDENTICAL 23/23` against `OTHER_TEMPLATES_BASE = 8185f1e9`, the station's
+  signed head, excluding only the konbini by name.
+
 ## Windows
 
 Windows remain open for sim sight and shots. The glass is a 20%-alpha dark tint with 34%-alpha grime at

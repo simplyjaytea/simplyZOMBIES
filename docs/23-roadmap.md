@@ -2544,6 +2544,15 @@ not a to-do list:
     `check:routing` pass. Matched base/head, repeat, magenta and Blender captures accompany the piece;
     repeat-run pixel noise is zero.
 
+- **The Ome–Okutama re-theme: the konbini, 2026-11-10.** Batch B round B4 finishes the existing
+  `building.konbini.road` (12 x 9, tar / render) with no JSON change: a flat tar roof behind a 3.05 m
+  parapet with drawn back faces and caps, a south glass front of ten window tiles in thin aluminium
+  mullions with a kick rail, aluminium door casing, a 0.85 m canopy with no posts and a 2.36 to
+  2.95 m fascia in a faded plum livery carrying the invented name やまびこ (rows rasterised once from
+  Noto Sans CJK Bold). `build_finishes.py -- --check` prints `CHARACTER building.konbini.road` and
+  `OTHER_TEMPLATES_PIXELS_IDENTICAL 23/23`, and refuses `konbini_canopy_low`, `front_solid`,
+  `parapet_no_back`, `mullion_door` and `konbini_name_mirror`. Three atlas cells used, four left.
+
 - **The Ome–Okutama re-theme: the station, 2026-11-08.** Batch B's `building.station.small` is 12 x 5
   tiles, the waiting room only, civic and station, weight 4, drawn only in `district.town_center` (`districts`
   key, worldgen `_for_district`). Street door on the north face, platform door and ticket window on the south
