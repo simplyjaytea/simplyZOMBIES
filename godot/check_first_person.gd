@@ -1450,6 +1450,10 @@ func _hit(scene: Node) -> bool:
 			head_ok = false
 	if not head_ok:
 		ok = _fail("HIT", "the puff is not at the head's height (1.6 m) within 1.0 m of the zombie's drawn body")
+	# The puff quads billboard: the renderer turns them to the camera, so they never read as slivers.
+	var puff_mat: StandardMaterial3D = marks.get("_puff_material") as StandardMaterial3D
+	if puff_mat == null or puff_mat.billboard_mode != BaseMaterial3D.BILLBOARD_ENABLED:
+		ok = _fail("HIT", "the blood puff quads do not billboard to the camera (a sliver from the side)")
 	var kick_map: Dictionary = marks.get("kick") as Dictionary
 	if not kick_map.has(zed):
 		ok = _fail("HIT", "a published stagger through the step put no flinch on the zombie")

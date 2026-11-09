@@ -43,6 +43,9 @@ var _puff_material: StandardMaterial3D = null
 func _ready() -> void:
 	_mark_material = _unshaded(MARK_COLOUR)
 	_puff_material = _unshaded(PUFF_COLOUR)
+	# The puff quads turn to face the camera in the renderer (no transform write, no camera read here), so a
+	# puff reads as a square from every side rather than a sliver from the side. Presentation only.
+	_puff_material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 
 
 # Once per sim tick, before the tick's events are read: ages the marks and puffs and steps every flinch one tick.
