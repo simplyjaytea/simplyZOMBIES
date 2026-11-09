@@ -1,0 +1,221 @@
+{
+  "kit": "props",
+  "atlas": "res://assets/first_person/props/props_atlas.png",
+  "texels_per_metre": 64,
+  "models": [
+    {
+      "id": "prop.street.vending_ao",
+      "glb": "res://assets/first_person/props/vending_ao.glb",
+      "size": [
+        1.0,
+        1.83,
+        0.816
+      ],
+      "origin": "floor_centre",
+      "placement": "kerb",
+      "anchors": {},
+      "tris": 700
+    },
+    {
+      "id": "prop.street.vending_kawa",
+      "glb": "res://assets/first_person/props/vending_kawa.glb",
+      "size": [
+        1.0,
+        1.83,
+        0.816
+      ],
+      "origin": "floor_centre",
+      "placement": "kerb",
+      "anchors": {},
+      "tris": 700
+    },
+    {
+      "id": "prop.street.utility_pole",
+      "glb": "res://assets/first_person/props/utility_pole.glb",
+      "size": [
+        1.4,
+        10.0,
+        0.48
+      ],
+      "origin": "floor_centre",
+      "placement": "kerb",
+      "anchors": {
+        "wire_a": [
+          -0.65,
+          9.34,
+          0.0
+        ],
+        "wire_b": [
+          0.65,
+          9.34,
+          0.0
+        ],
+        "wire_c": [
+          0.0,
+          9.34,
+          0.0
+        ]
+      },
+      "tris": 496
+    },
+    {
+      "id": "prop.street.wall_block_1m",
+      "glb": "res://assets/first_person/props/wall_block_1m.glb",
+      "size": [
+        1.0,
+        1.2,
+        0.12
+      ],
+      "origin": "floor_centre",
+      "placement": "run",
+      "anchors": {},
+      "tris": 32
+    },
+    {
+      "id": "prop.street.wall_block_end",
+      "glb": "res://assets/first_person/props/wall_block_end.glb",
+      "size": [
+        1.0,
+        1.2,
+        0.12
+      ],
+      "origin": "floor_centre",
+      "placement": "run",
+      "anchors": {},
+      "tris": 52
+    },
+    {
+      "id": "prop.street.wall_block_corner",
+      "glb": "res://assets/first_person/props/wall_block_corner.glb",
+      "size": [
+        1.0,
+        1.2,
+        0.56
+      ],
+      "origin": "floor_centre",
+      "placement": "run",
+      "anchors": {},
+      "tris": 64
+    },
+    {
+      "id": "prop.street.wall_block_gate",
+      "glb": "res://assets/first_person/props/wall_block_gate.glb",
+      "size": [
+        1.0,
+        1.2,
+        0.12
+      ],
+      "origin": "floor_centre",
+      "placement": "run",
+      "anchors": {
+        "gate_centre": [
+          0.0,
+          0.43,
+          0.0
+        ]
+      },
+      "tris": 112
+    },
+    {
+      "id": "prop.street.guard_rail_2m",
+      "glb": "res://assets/first_person/props/guard_rail_2m.glb",
+      "size": [
+        2.0,
+        0.8,
+        0.16
+      ],
+      "origin": "floor_centre",
+      "placement": "run",
+      "anchors": {
+        "post": [
+          0.0,
+          0.0,
+          -0.035
+        ]
+      },
+      "tris": 80
+    },
+    {
+      "id": "prop.street.guard_rail_end",
+      "glb": "res://assets/first_person/props/guard_rail_end.glb",
+      "size": [
+        2.0,
+        0.8,
+        0.32
+      ],
+      "origin": "floor_centre",
+      "placement": "run",
+      "anchors": {},
+      "tris": 96
+    },
+    {
+      "id": "prop.street.bus_stop",
+      "glb": "res://assets/first_person/props/bus_stop.glb",
+      "size": [
+        0.5,
+        2.3,
+        0.36
+      ],
+      "origin": "floor_centre",
+      "placement": "kerb",
+      "anchors": {},
+      "tris": 168
+    },
+    {
+      "id": "prop.street.noren",
+      "glb": "res://assets/first_person/props/noren.glb",
+      "size": [
+        1.0,
+        0.298,
+        0.036
+      ],
+      "origin": "floor_centre",
+      "placement": "door_head",
+      "anchors": {
+        "rod_a": [
+          -0.5,
+          2.1,
+          0.0
+        ],
+        "rod_b": [
+          0.5,
+          2.1,
+          0.0
+        ]
+      },
+      "tris": 52
+    },
+    {
+      "id": "prop.street.extinguisher_box",
+      "glb": "res://assets/first_person/props/extinguisher_box.glb",
+      "size": [
+        0.3,
+        0.6,
+        0.2365
+      ],
+      "origin": "wall_back_centre",
+      "placement": "wall",
+      "anchors": {
+        "wall_back": [
+          0.0,
+          0.3,
+          0.0
+        ]
+      },
+      "tris": 72
+    },
+    {
+      "id": "prop.street.bicycle",
+      "glb": "res://assets/first_person/props/bicycle.glb",
+      "size": [
+        1.84626,
+        0.97197,
+        0.48
+      ],
+      "origin": "floor_centre",
+      "placement": "kerb",
+      "anchors": {},
+      "tris": 868
+    }
+  ]
+}
