@@ -8448,3 +8448,11 @@ Card open (owner): the default is 24 m to the zombie and 4 m for a Pursuing zomb
 given an attack order through the order seam; the walk and the rescue are the existing ones. Raiders and settlers do not
 aid. A colonist 12 m away is too slow to beat the player's instinct struggle (40 ticks), so the aid lands at close range.
 The armour lane pins `NPC_AID_ENABLED` off: it tests what a blow wears, not who strikes. Shipped on.
+
+- **The shrine is the hall alone, 2026-11-10.** docs/42 asks for a 14 x 12 precinct around a 5 x 4 haiden. The precinct
+  cannot be a template: its open ground would have to be flagged indoors, and the kit would roof it. So `building.shrine.village`
+  is the hall alone, 7 x 6, its walls enclosing the 5 x 4 indoor floor docs/42 names. The precinct (gravel ground, the torii at
+  the approach, stone lanterns, komainu, water basin, the great cedar) is district dressing and props, for prop kit A and a
+  dressing placer; the first-person view has none today, so in the alpha the hall stands alone. Owner cards, defaults built:
+  the hall alone (option: a precinct content kind, a sim piece); the shrine pool is Hinatadai only (option: add the town centre).
+  The kōban pool is the town centre only. The locker and snub revolver of docs/42 section 5 are a future loot piece.
