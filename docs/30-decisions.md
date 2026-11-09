@@ -8455,6 +8455,14 @@ given an attack order through the order seam; the walk and the rescue are the ex
 aid. A colonist 12 m away is too slow to beat the player's instinct struggle (40 ticks), so the aid lands at close range.
 The armour lane pins `NPC_AID_ENABLED` off: it tests what a blow wears, not who strikes. Shipped on.
 
+- **A review camera for the sheets, testing only, 2026-11-09.** F3 turns a height camera on and off (`first_person.gd`,
+  `toggle_review_camera`, `set_review_camera`): 14 m above the eye and 2 m behind the body, pitch -55 degrees, looking along
+  the body's heading by default. It is for the sheets and the art QA, testing only, listed under F1, never saved, and the
+  sim, movement, aim and the eye are unchanged. The held weapon and HUD are hidden while it is on. Owner cards, defaults
+  built: key F3 (option: none, driver only); height 14 m and pitch -55 degrees (option: a flatter 4 m street-level wide).
+  Gates: REVIEWCAM and GAMECAM lanes of `godot/check_first_person.gd`. The fog far plane is 240 m in clear weather, so a
+  60 m street reads; under fog the depth fog (30 m times the sight multiplier) clips the far street, as it does for the eye.
+
 - **Hits are marked from the sim's events, 2026-11-09.** `godot/presentation/first_person/hit_marks.gd` reads the tick's
   drained events (the `world.events.drained` read, as `anim_clock.gd` and `fx_look.gd` do; no bus subscription): an impact
   mark on the surface a round met inside reach (`weapon.fired` with no body hit), a blood puff at the body part's height
