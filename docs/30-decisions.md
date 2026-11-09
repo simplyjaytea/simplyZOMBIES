@@ -8490,3 +8490,11 @@ doors (the convenience and grocery fronts) show a static glass panel; they do no
   centre the rule places. The box of the manifest size is the fallback for an entry with no file, or an unreadable one, so the
   fixture and a tree without the kit draw as before. No rule changed: the tall-prop, tile-class and density rules still read the
   manifest size and the tile. Gate: the DRESSING lane GLB assertions, with the plant `PLANT_IGNORE_GLB`.
+
+- **The street placer's choice reads the high bits, and the mix is data, 2026-11-10.** `street_dressing.gd` takes the candidate from
+  the high bits of its choice hash, not the low bits, because on the real manifest the low bits moved with the density pick: only the
+  odd candidates were ever chosen (measured: indices 1, 3, 5 of six). `Dressing.hash_at` is unchanged. Weights and per-id caps are
+  presentation data in `street_dressing_mix.json` (owner card, defaults built: bus stops 0.15 weight and 6 a district, extinguisher boxes
+  0.5 and 40, vending machines 1.0 and 40, bicycles 1.0 and 60, utility poles 1.0 and priority). The file lives beside the placer, not under
+  `godot/content/`, because the content gate needs a schema per type. Tall run pieces are not candidates on Low edges. Gate: the DRESSING
+  lane choice, cap and run-height assertions; plant `CHOICE_LOW_BITS`.
