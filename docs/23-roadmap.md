@@ -3424,6 +3424,16 @@ not a to-do list:
   own; Recover; Reload; Clearing). `godot:check:fp_harm` (CLEAN, HELD, BITE, BLOOD, INFECTED, WEAPON, DIGITS) is
   green; its plant (`grabbed` ignored) is red. The panel and `lines()` draw from one list; the bleeding line, which
   `_draw()` used to omit, is drawn. Not done: a camera or screen effect (needs `first_person.gd`), a follow-up.
+- **The first-person zombie tells, 2026-11-07.** `hud.gd` tells the player a zombie is near before the swipe,
+  in prose and digit-free, from the sim: a notice in the last 3 s (a shambler that went Seek or Pursue on a
+  fresh notice, within 30 m) named by the side it is on from the look (ahead, left, right, behind); several
+  noticing at once ("Several things stir."); a Pursuing shambler within 6 m that the look does not cover (close
+  behind, or beside); and a scream from a screamer, read from its own alarm clock, for 100 ticks within 60 m. At
+  most two lines, nearest first, drawn after the harm lines and before the needs lines, one list for `lines()` and
+  `_draw()`. `godot:check:fp_tells` (QUIET, NOTICED, SIDE, CLOSE, SEVERAL, SCREAM, DIGITS) is green; its plant (the
+  notice window raised to a million) is red. Not done: a directional marker or sound (art and audio, a follow-up).
+  The shambler's reach on this branch is 3.8 m, so the notice lanes place it inside that; the 8 m daylight floor
+  is on the bundle branch, and the notice lanes can move to 7 m when it merges.
 
 - **The first-person encounter gate, 2026-11-07.** `godot/check_fp_encounter.gd`, run by
   `npm run godot:check:fp_encounter`, boots the seeded first-person district (`SimBoot.playable`,

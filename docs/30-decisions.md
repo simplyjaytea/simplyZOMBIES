@@ -8406,6 +8406,13 @@ The first-person HUD names held (F struggles free, several holders read as sever
 infection, and the fire state. Infection shows only for a transmitted exposure, not for every bite: the condition
 view reads every exposure as "watch", which would tell the player about a bite that did nothing. Pressing fire again
 during Steady does nothing; the Steady line says the shot fires by itself.
+
+## The zombie tells say a notice in words, 2026-11-07
+
+A first-person player hears a zombie's notice as prose, by side from the look, for three seconds after the notice; a
+Pursuing zombie outside the look is close behind or beside; a scream is named for its 100-tick window. A Seek or Pursue
+zombie counts as a notice only on a fresh notice (`noticedAt`), so a dormant or feigning body that rises does not tell
+the player. Sound and a directional marker are the art and audio line's, later.
 ## A released holder presses again, 2026-11-07
 
 A grab broken by the player's struggle leaves the holder in reach; the holder re-grabs. The encounter gate's
