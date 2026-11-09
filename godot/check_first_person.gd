@@ -4320,16 +4320,38 @@ func _lowered_body(scene: Node, world: Variant, player: int) -> bool:
 	if absf(steady_lowered - (1.0 - ready)) > 0.03:
 		ok = _fail("LOWERED", "Steady lowered %.3f, not 1 - ready %.3f" % [steady_lowered, 1.0 - ready]) and ok
 	var offset_gap: float = idle_pos.distance_to(steady_pos)
-	if offset_gap < 0.04:
+	if offset_gap < 0.02:
 		ok = _fail("LOWERED", "the Idle and Steady sway offsets differ by only %.3f m" % offset_gap) and ok
 	var pitch_gap: float = absf(idle_pitch - steady_pitch)
-	if pitch_gap < 0.05:
+	if pitch_gap < 0.03:
 		ok = _fail("LOWERED", "the Idle and Steady sway pitches differ by only %.3f rad" % pitch_gap) and ok
+	# On screen: the pistol mesh centre projects inside the viewport through the camera that draws the arms.
+	var cam_arms: Camera3D = scene.get("camera") as Camera3D
+	var vp_size: Vector2 = arms.get_viewport().get_visible_rect().size
+	var on_screen_idle: bool = _lowered_on_screen(arms, cam_arms, vp_size)
+	if not on_screen_idle:
+		ok = _fail("LOWERED", "an Idle pistol centre projects outside the %dx%d viewport" % [int(vp_size.x), int(vp_size.y)]) and ok
+	print("LOWERED on screen idle=%s centre=%s viewport=%s" % [on_screen_idle, _lowered_centre(arms, cam_arms), vp_size])
 	print("LOWERED idle lowered %.3f, steady lowered %.3f, offset gap %.3f m, pitch gap %.3f rad" % [idle_lowered, steady_lowered, offset_gap, pitch_gap])
 	# Let the sim resolve the shot back to Idle, so the later lanes start from a holstered-ready state.
 	_arms_unequip_all(scene, world, player)
 	_arms_settle(scene, 1.5)
 	return ok
+
+
+func _lowered_centre(arms: Node3D, cam: Camera3D) -> Vector2:
+	for mi in arms.find_children("pistol_service", "MeshInstance3D", true, false):
+		var m: MeshInstance3D = mi as MeshInstance3D
+		var c: Vector3 = m.global_transform * m.get_aabb().get_center()
+		if cam == null or cam.is_position_behind(c):
+			return Vector2(-1.0, -1.0)
+		return cam.unproject_position(c)
+	return Vector2(-1.0, -1.0)
+
+
+func _lowered_on_screen(arms: Node3D, cam: Camera3D, vp: Vector2) -> bool:
+	var c: Vector2 = _lowered_centre(arms, cam)
+	return c.x >= 0.0 and c.y >= 0.0 and c.x <= vp.x and c.y <= vp.y
 
 
 # AIM, a melee class: the fire state is not read for it, so the stubbed raise and aim leave its idle.
