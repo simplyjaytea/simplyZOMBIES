@@ -41,6 +41,8 @@ const SALT_PICK: int = 501
 const SALT_CHOICE: int = 502
 # The rank a placement takes when the eligible set outnumbers PROP_CAP.
 const SALT_RANK: int = 503
+# Plant (gate): true restores the old low-bit choice (hash % count); the choice gate must go red.
+const CHOICE_LOW_BITS: bool = false
 # true: keep the lowest-ranked PROP_CAP placements. false: the row-major cut (the gate's plant only).
 const CAP_BY_RANK: bool = true
 
@@ -92,7 +94,7 @@ static func _entry_ok(entry: Dictionary) -> bool:
 # PROP_CAP ranks are kept. The kept set is emitted in row-major order, so the digest is stable. A plain row-major
 # cut would leave the south of a large district bare; CAP_BY_RANK false is that cut, kept only as the plant the
 # gate proves itself against.
-static func placements(map: Variant, seed_val: int, entries: Array) -> Array:
+static func placements(map: Variant, seed_val: int, entries: Array, mix: Dictionary = {}) -> Array:
 	var out: Array = []
 	if map == null or entries.is_empty():
 		return out
@@ -108,18 +110,91 @@ static func placements(map: Variant, seed_val: int, entries: Array) -> Array:
 		for tx in range(int(map.w)):
 			if vehicle_tiles.has(Vector2i(tx, ty)):
 				continue
-			var p: Dictionary = _place_on_tile(map, seed_val, tx, ty, by_kind)
+			var p: Dictionary = _place_on_tile(map, seed_val, tx, ty, by_kind, mix)
 			if not p.is_empty():
 				all.append(p)
+	# Per-id caps, decided in hash-rank order so a capped kind spreads over the district, not the top rows.
+	if _has_caps(mix):
+		var by_rank: Array = all.duplicate()
+		by_rank.sort_custom(func(a, b): return _rank_before(a as Dictionary, b as Dictionary, seed_val, w))
+		var counts: Dictionary = {}
+		var capped: Array = []
+		for p in by_rank:
+			var id: String = String((p as Dictionary)["id"])
+			var cap: int = _cap_of(mix, id)
+			if cap >= 0 and int(counts.get(id, 0)) >= cap:
+				continue
+			counts[id] = int(counts.get(id, 0)) + 1
+			capped.append(p)
+		all = capped
 	if all.size() <= PROP_CAP:
+		all.sort_custom(func(a, b): return _tile_index(a as Dictionary, w) < _tile_index(b as Dictionary, w))
 		return all
 	if not CAP_BY_RANK:
 		return all.slice(0, PROP_CAP)
+	# Past PROP_CAP: priority placements (the poles that carry the wires) are kept first, then by hash rank.
 	var ranked: Array = all.duplicate()
-	ranked.sort_custom(func(a, b): return _rank_before(a as Dictionary, b as Dictionary, seed_val, w))
+	ranked.sort_custom(func(a, b): return _keeps_before(a as Dictionary, b as Dictionary, seed_val, w, mix))
 	var kept: Array = ranked.slice(0, PROP_CAP)
 	kept.sort_custom(func(a, b): return _tile_index(a as Dictionary, w) < _tile_index(b as Dictionary, w))
 	return kept
+
+
+# The mix: weights and caps per prop id, from the data file (street_dressing.json). Absent: every id weight 1, no caps.
+static func load_mix(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if parsed is Dictionary:
+		return parsed as Dictionary
+	return {}
+
+
+static func _props_of(mix: Dictionary) -> Dictionary:
+	var props: Variant = mix.get("props", {})
+	if props is Dictionary:
+		return props as Dictionary
+	return {}
+
+
+static func _has_caps(mix: Dictionary) -> bool:
+	for id in _props_of(mix).keys():
+		if _cap_of(mix, String(id)) >= 0:
+			return true
+	return false
+
+
+# The cap for an id, or -1 for none.
+static func _cap_of(mix: Dictionary, id: String) -> int:
+	var row: Variant = _props_of(mix).get(id, {})
+	if row is Dictionary and (row as Dictionary).has("max_per_district"):
+		return maxi(0, int((row as Dictionary)["max_per_district"]))
+	return -1
+
+
+# Weight in hundredths: the id's row, else the default row, else 1.0.
+static func _weight_of(mix: Dictionary, id: String) -> int:
+	var row: Variant = _props_of(mix).get(id, {})
+	if row is Dictionary and (row as Dictionary).has("weight"):
+		return maxi(0, roundi(float((row as Dictionary)["weight"]) * 100.0))
+	var base: Variant = mix.get("default", {})
+	if base is Dictionary and (base as Dictionary).has("weight"):
+		return maxi(0, roundi(float((base as Dictionary)["weight"]) * 100.0))
+	return 100
+
+
+static func _priority_of(mix: Dictionary, id: String) -> bool:
+	var row: Variant = _props_of(mix).get(id, {})
+	return row is Dictionary and bool((row as Dictionary).get("priority", false))
+
+
+# True when a is kept before b past the cap: priority first, then the lower hash rank.
+static func _keeps_before(a: Dictionary, b: Dictionary, seed_val: int, w: int, mix: Dictionary) -> bool:
+	var pa: bool = _priority_of(mix, String(a["id"]))
+	var pb: bool = _priority_of(mix, String(b["id"]))
+	if pa != pb:
+		return pa
+	return _rank_before(a, b, seed_val, w)
 
 
 # True when placement a outranks b: the lower hash rank wins, a tie goes to the earlier tile.
@@ -168,7 +243,7 @@ static func _floor_side(map: Variant, tx: int, ty: int) -> Vector2i:
 	return Vector2i.ZERO
 
 
-static func _place_on_tile(map: Variant, seed_val: int, tx: int, ty: int, by_kind: Dictionary) -> Dictionary:
+static func _place_on_tile(map: Variant, seed_val: int, tx: int, ty: int, by_kind: Dictionary, mix: Dictionary = {}) -> Dictionary:
 	var key: String = SimSpace.profile_key(map, tx, ty)
 	if key != "floor" and key != "low" and key != "door.open":
 		return {}
@@ -186,16 +261,55 @@ static func _place_on_tile(map: Variant, seed_val: int, tx: int, ty: int, by_kin
 			if size_of(e as Dictionary).y <= LOW_BAND_M:
 				candidates.append(e)
 		if _floor_side(map, tx, ty) != Vector2i.ZERO:
+			# A run piece taller than the Low band would be a tall prop on a Low tile: not a candidate here.
 			for e in (by_kind["run"] as Array):
-				candidates.append(e)
+				if size_of(e as Dictionary).y <= LOW_BAND_M:
+					candidates.append(e)
 	elif key == "door.open":
 		for e in (by_kind["door_head"] as Array):
 			candidates.append(e)
 	if candidates.is_empty():
 		return {}
-	var pick: int = Dressing.variant_index(seed_val, tx, ty, SALT_CHOICE, candidates.size())
+	var pick: int = choice_index(seed_val, tx, ty, candidates, mix)
+	if pick < 0:
+		return {}
 	var entry2: Dictionary = candidates[pick] as Dictionary
 	return _pose(map, entry2, tx, ty, key, walls)
+
+
+# Which candidate a tile takes: the high bits of the choice hash (the low bits move with the density pick and never
+# reach the odd candidates' even partners: measured, see the REPORT), weighted by the mix. -1 when none.
+static func choice_index(seed_val: int, tx: int, ty: int, candidates: Array, mix: Dictionary = {}) -> int:
+	if candidates.is_empty():
+		return -1
+	var total: int = 0
+	var weights: Array = []
+	for c in candidates:
+		var wt: int = _weight_of(mix, String((c as Dictionary).get("id", "")))
+		weights.append(wt)
+		total += wt
+	if total <= 0:
+		return -1
+	var point: int = _choice_word(seed_val, tx, ty) % total
+	var acc: int = 0
+	for i in range(weights.size()):
+		acc += int(weights[i])
+		if point < acc:
+			return i
+	return weights.size() - 1
+
+
+# The choice over a plain count (every weight 1): the same high-bit pick, for a gate that judges all indices.
+static func choice_of_count(seed_val: int, tx: int, ty: int, count: int) -> int:
+	if count <= 0:
+		return -1
+	return _choice_word(seed_val, tx, ty) % count
+
+
+# The word the choice reads: the high bits of the choice hash, or (the plant) its low bits.
+static func _choice_word(seed_val: int, tx: int, ty: int) -> int:
+	var h: int = Dressing.hash_at(seed_val, tx, ty, SALT_CHOICE)
+	return h if CHOICE_LOW_BITS else (h >> 16)
 
 
 # The world pose of one entry on one tile. Pure geometry; the sim is not consulted for anything but the tile.

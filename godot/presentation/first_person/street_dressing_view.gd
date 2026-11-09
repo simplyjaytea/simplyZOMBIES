@@ -7,6 +7,8 @@ const StreetDressing = preload("res://presentation/first_person/street_dressing.
 const Assets = preload("res://presentation/first_person/assets.gd")
 
 const BOX_FALLBACK_SALT: int = 17
+# The mix: weight and cap per prop id (presentation data; absent means every id weight 1, no caps).
+const MIX_PATH: String = "res://presentation/first_person/street_dressing_mix.json"
 # Plant (gate): when true the loader ignores every GLB path and the box shows instead; the DRESSING lane must go red.
 const PLANT_IGNORE_GLB: bool = false
 const WIRE_COLOUR: Color = Color(0.12, 0.12, 0.13)
@@ -25,7 +27,7 @@ func build(map_ref: Variant, seed_val: int, manifest_path: String) -> void:
 	var entries: Array = StreetDressing.load_manifest(manifest_path)
 	if entries.is_empty() or map_ref == null:
 		return
-	placed = StreetDressing.placements(map_ref, seed_val, entries)
+	placed = StreetDressing.placements(map_ref, seed_val, entries, StreetDressing.load_mix(MIX_PATH))
 	wire_spans = StreetDressing.wire_spans(placed)
 	for p in placed:
 		add_child(_prop_node(p as Dictionary))
