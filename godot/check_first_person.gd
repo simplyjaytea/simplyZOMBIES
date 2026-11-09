@@ -451,6 +451,26 @@ func _dressing(dress_a: Node, dress_b: Node, dress_c: Node) -> bool:
 	var drawn: int = int(street.call("prop_count"))
 	if drawn != placed_a.size():
 		ok = _fail("DRESSING", "the view drew %d props for %d placed" % [drawn, placed_a.size()])
+	# GLB: a prop whose entry names a file that loads is its model (a Node3D with children), not the box; an entry with no
+	# file stays the box. The fixture names barricade.glb (on main) for the vending entry and none for the pole.
+	var glb_nodes: int = 0
+	var box_nodes: int = 0
+	var glb_bad: int = 0
+	for child in street.get_children():
+		var cname: String = String(child.name)
+		if cname.begins_with("Prop_fixture_vending"):
+			if child is MeshInstance3D or child.get_child_count() == 0:
+				glb_bad += 1
+			else:
+				glb_nodes += 1
+		elif cname.begins_with("Prop_fixture_pole"):
+			if child is MeshInstance3D:
+				box_nodes += 1
+			else:
+				glb_bad += 1
+	print("DRESSING GLB instanced %d, box fallback %d, wrong kind %d" % [glb_nodes, box_nodes, glb_bad])
+	if glb_nodes == 0 or box_nodes == 0 or glb_bad > 0:
+		ok = _fail("DRESSING", "the GLB-named vending props are not instanced models, or the GLB-less pole is not the box (instanced %d, box %d, wrong %d)" % [glb_nodes, box_nodes, glb_bad])
 	if _sim_save_hash(world_a) != sim_before:
 		ok = _fail("DRESSING", "drawing the street dressing changed the sim's save")
 	dress_a.call("rebuild_street", "res://fixtures/no_such_manifest.json")
