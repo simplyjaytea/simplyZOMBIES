@@ -121,6 +121,13 @@ func _run() -> void:
 	var witnessed: Array = []
 	ok = _the_attention_field_says_how_much_of_the_map_is_solid(sweep, witnessed) and ok
 	ok = _every_expectation_the_sweep_makes_can_say_no(sweep, stash) and ok
+	# The station's `districts` key: it draws in the town centre and nowhere else, and a plant that
+	# ignores the key must put it back in a residential district.
+	ok = _the_districts_key_keeps_the_station_in_the_town_centre() and ok
+	# Every station door has a walkable approach to a street, judged on the same seeds.
+	ok = _every_station_door_has_a_walkable_approach() and ok
+	# The station's `max_per_district: 1`: one per district on every seed, and exactly one in the town centre.
+	ok = _unique_civic_holds_per_district() and ok
 	# Slice 9: terrain defaults, the forest district (if it exists yet), and the paths pass.
 	ok = _the_terrain_defaults_are_the_historical_thirteen() and ok
 	ok = _the_forest_district_generates_and_is_denser_than_the_suburb() and ok
@@ -716,6 +723,221 @@ func _terrain_values_match(got: Dictionary, want: Dictionary) -> bool:
 		if not got.has(key) or got[key] != want[key]:
 			return false
 	return true
+
+
+# --- the districts key ---------------------------------------------------------------------------
+
+const STATION_ID: String = "building.station.small"
+
+
+func _station_count(world: Variant) -> int:
+	var count: int = 0
+	for building in world.buildings as Array:
+		if String((building as Dictionary).get("id", "")) == STATION_ID:
+			count += 1
+	return count
+
+
+# The station's `districts` key, judged on the gate's own seeds at both gate sizes. True positive: the
+# town centre stamps a station somewhere, and every station stamp is in the town centre. True negative: the
+# residential district stamps none. The plant ignores the key (SimWorldgen.DISTRICTS_KEY_HONOURED, pinned
+# here and restored): the same residential seeds must then stamp a station, or the negative proves nothing.
+# The shipped size is where the ignored key reaches residential on the gate seeds; the sweep size is too
+# small for it, so both sizes are judged.
+func _station_stamps(district_id: String, size: int, seeds: Array) -> int:
+	var tree: Dictionary = _tree()
+	var stamps: int = 0
+	for seed_value in seeds:
+		stamps += _station_count(SimWorldgen.generate(int(seed_value), size, tree, district_id))
+	return stamps
+
+
+func _the_districts_key_keeps_the_station_in_the_town_centre() -> bool:
+	var ok: bool = true
+	var town: int = _station_stamps(TOWN_CENTER, GATE_SIZE, SWEEP_SEEDS) + _station_stamps(TOWN_CENTER, SHIPPED_SIZE, SHIPPED_SEEDS)
+	var residential: int = _station_stamps(RESIDENTIAL, GATE_SIZE, SWEEP_SEEDS) + _station_stamps(RESIDENTIAL, SHIPPED_SIZE, SHIPPED_SEEDS)
+	if town == 0:
+		push_error("no station stamped in %s on the gate seeds, so the key's positive case proves nothing" % TOWN_CENTER)
+		ok = false
+	if residential > 0:
+		push_error("%d station stamp(s) in %s on the gate seeds, which the districts key excludes" % [residential, RESIDENTIAL])
+		ok = false
+	if not ok:
+		return false
+
+	SimWorldgen.DISTRICTS_KEY_HONOURED = false
+	var planted: int = _station_stamps(RESIDENTIAL, SHIPPED_SIZE, SHIPPED_SEEDS)
+	SimWorldgen.DISTRICTS_KEY_HONOURED = true
+	if planted == 0:
+		push_error("with the districts key ignored no station reached %s on the shipped seeds, so the negative proves nothing" % RESIDENTIAL)
+		return false
+	print("DISTRICTS OK the station stamps %d time(s) in %s on the gate seeds and 0 in %s; ignoring the key puts %d into %s on the shipped seeds" % [
+		town, TOWN_CENTER, RESIDENTIAL, planted, RESIDENTIAL])
+	return true
+
+
+# --- the per-district cap --------------------------------------------------------------------------
+
+const DISTRICT_IDS: Array = ["district.town_center", "district.residential_suburb", "district.industrial_park", "district.forest_edge"]
+
+
+func _station_counts(district_id: String, size: int, seeds: Array) -> Array:
+	var tree: Dictionary = _tree()
+	var counts: Array = []
+	for seed_value in seeds:
+		counts.append(_station_count(SimWorldgen.generate(int(seed_value), size, tree, district_id)))
+	return counts
+
+
+# The station's `max_per_district: 1`. True negative, at the gate size for every district type: no district
+# has more than one on any sweep seed. True positive, at the shipped size where a town centre has room for
+# the station to be drawn more than once: the town centre has exactly one on every sweep seed. The plant
+# ignores the cap (SimWorldgen.CAPS_HONOURED, pinned here and restored) at the shipped size on the shipped
+# seeds: the town centre must then stamp two or more on some seed, or the negative proves nothing. At the
+# gate size the town centre stamps zero or one station on most seeds, so the gate size cannot show the cap.
+func _unique_civic_holds_per_district() -> bool:
+	var ok: bool = true
+	var gate_town: Array = []
+	for district_id in DISTRICT_IDS:
+		var counts: Array = _station_counts(String(district_id), GATE_SIZE, SWEEP_SEEDS)
+		for c in counts:
+			if int(c) > 1:
+				push_error("%d stations in %s on a gate seed, so the per-district cap does not hold" % [int(c), district_id])
+				ok = false
+		if String(district_id) == TOWN_CENTER:
+			gate_town = counts
+	var shipped_town: Array = _station_counts(TOWN_CENTER, SHIPPED_SIZE, SWEEP_SEEDS)
+	for c in shipped_town:
+		if int(c) != 1:
+			push_error("the town centre has %d stations on a shipped-size seed, not exactly one" % int(c))
+			ok = false
+	SimWorldgen.CAPS_HONOURED = false
+	var planted: Array = _station_counts(TOWN_CENTER, SHIPPED_SIZE, SHIPPED_SEEDS)
+	SimWorldgen.CAPS_HONOURED = true
+	var most: int = 0
+	for c in planted:
+		most = maxi(most, int(c))
+	if most < 2:
+		push_error("with the cap ignored no shipped seed stamps two stations in %s, so the negative proves nothing" % TOWN_CENTER)
+		ok = false
+	if ok:
+		print("UNIQUE_CIVIC OK station at most 1 per district on all %d gate seeds x %d districts (town centre at gate %d: %s); town centre exactly 1 on every shipped-size seed (%d: %s); cap ignored at %d on the shipped seeds puts up to %d into %s" % [
+			SWEEP_SEEDS.size(), DISTRICT_IDS.size(),
+			GATE_SIZE, str(gate_town),
+			SHIPPED_SIZE, str(shipped_town),
+			SHIPPED_SIZE, most, TOWN_CENTER])
+	return ok
+
+
+# Every station door needs a walkable approach: the tile outside the door is outdoor, walkable floor (not a
+# wall, not a building), and it reaches a street tile over outdoor walkable tiles.
+func _is_street(map: Variant, tx: int, ty: int) -> bool:
+	for span_v in map.streets as Array:
+		var span: Dictionary = span_v as Dictionary
+		var across: int = tx if String(span.get("axis", "x")) == "x" else ty
+		var along: int = ty if String(span.get("axis", "x")) == "x" else tx
+		var at: int = int(span.get("at", 0))
+		if across >= at and across < at + int(span.get("width", 0)) and along >= int(span.get("from", 0)) and along <= int(span.get("to", -1)):
+			return true
+	return false
+
+
+func _outdoor_walkable(map: Variant, tx: int, ty: int) -> bool:
+	if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
+		return false
+	if SimTileMap.tile_at(map, tx, ty) == SimTileMap.Tile.Wall:
+		return false
+	return not SimTileMap.is_indoors(map, tx, ty) and not SimTileMap.is_solid(map, tx, ty)
+
+
+func _reaches_street(map: Variant, start: Vector2i) -> bool:
+	var seen: Dictionary = {start: true}
+	var frontier: Array = [start]
+	while not frontier.is_empty():
+		var at: Vector2i = frontier.pop_back()
+		if _is_street(map, at.x, at.y):
+			return true
+		for step in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var next: Vector2i = at + step
+			if seen.has(next) or not _outdoor_walkable(map, next.x, next.y):
+				continue
+			seen[next] = true
+			frontier.append(next)
+	return false
+
+
+# The door failures on one map: a list of "door (x,y) outside (x,y): reason" strings, one per door that
+# lacks the approach. An empty list is the claim.
+func _station_approach_failures(map: Variant) -> Array:
+	var failures: Array = []
+	for record_v in map.buildings as Array:
+		var record: Dictionary = record_v as Dictionary
+		if String(record.get("id", "")) != STATION_ID:
+			continue
+		var x0: int = int(record["x"])
+		var y0: int = int(record["y"])
+		var x1: int = x0 + int(record["w"]) - 1
+		var y1: int = y0 + int(record["h"]) - 1
+		for door_v in record.get("doors", []) as Array:
+			var door: Dictionary = door_v as Dictionary
+			var dx: int = int(door["x"])
+			var dy: int = int(door["y"])
+			var outside: Vector2i
+			if dy == y0:
+				outside = Vector2i(dx, dy - 1)
+			elif dy == y1:
+				outside = Vector2i(dx, dy + 1)
+			elif dx == x0:
+				outside = Vector2i(dx - 1, dy)
+			else:
+				outside = Vector2i(dx + 1, dy)
+			var where: String = "station at (%d,%d) door (%d,%d) outside %s" % [x0, y0, dx, dy, str(outside)]
+			if not _outdoor_walkable(map, outside.x, outside.y):
+				failures.append("%s: not walkable outdoor floor (tile %d)" % [where, SimTileMap.tile_at(map, outside.x, outside.y)])
+			elif not _reaches_street(map, outside):
+				failures.append("%s: outdoor and walkable, but no route to a street" % where)
+	return failures
+
+
+# Every station door on the gate seeds has its walkable approach (the placement rule's claim, judged), and a
+# wall on one approach fails it (the true negative, on a generated map changed in memory, not in worldgen).
+func _every_station_door_has_a_walkable_approach() -> bool:
+	var ok: bool = true
+	var stamps: int = 0
+	for plan_value in [[GATE_SIZE, SWEEP_SEEDS], [SHIPPED_SIZE, SHIPPED_SEEDS]]:
+		var size: int = int(plan_value[0])
+		for seed_value in plan_value[1] as Array:
+			var town: Variant = SimWorldgen.generate(int(seed_value), size, _tree(), TOWN_CENTER)
+			stamps += _station_count(town)
+			for failure in _station_approach_failures(town):
+				push_error("seed %d at %d: %s" % [int(seed_value), size, String(failure)])
+				ok = false
+	if stamps == 0:
+		push_error("no station stamped in %s on the gate seeds, so the approach claim proves nothing" % TOWN_CENTER)
+		return false
+	if not ok:
+		return false
+
+	# The negative: wall off the north approach of the first shipped-size station, which must then fail.
+	var town_map: Variant = SimWorldgen.generate(BALANCE_SEEDS[0], SHIPPED_SIZE, _tree(), TOWN_CENTER)
+	for record_v in town_map.buildings as Array:
+		var record: Dictionary = record_v as Dictionary
+		if String(record.get("id", "")) != STATION_ID:
+			continue
+		var door: Dictionary = (record["doors"] as Array)[0] as Dictionary
+		var approach: Vector2i = Vector2i(int(door["x"]), int(door["y"]) - 1)
+		var index: int = approach.y * int(town_map.w) + approach.x
+		var before: int = int(town_map.tiles[index])
+		town_map.tiles[index] = SimTileMap.Tile.Wall
+		var refused: Array = _station_approach_failures(town_map)
+		town_map.tiles[index] = before
+		if refused.is_empty():
+			push_error("a wall on the approach at %s did not fail the approach lane, so the lane cannot see a blocked door" % str(approach))
+			return false
+		print("APPROACH OK %d station stamps on the gate seeds, every door with a walkable approach to a street; a wall on one approach fails it (%s)" % [stamps, String(refused[0])])
+		return true
+	push_error("the negative needs a station on seed %d at %d and none was placed" % [BALANCE_SEEDS[0], SHIPPED_SIZE])
+	return false
 
 
 func _the_terrain_defaults_are_the_historical_thirteen() -> bool:

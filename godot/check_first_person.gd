@@ -258,6 +258,7 @@ func _run() -> void:
 		ok = _lane("SUCCESSION", _succession(scene), "a death hands the camera to an heir and the dead body is drawn") and ok
 		ok = _lane("LEGEND", _legend(scene), "F1 lists every key the scene handles and the scene handles every key it lists") and ok
 		ok = _lane("ARMS", _arms(scene), "the view-model arms are the scene's own under the Eye, lower for screens and third person, follow the sim's equipped hold class, hold the weapon on grip_r at the anchor, inspect only while L is held, never cut into a wall, and raise and aim a firearm on the sim's fire state (AIM: raise at the sim's t, aim while steady, idle after the shot, a sheet lowers the aim, a stub that says idle holds idle, a melee class ignores the state)") and ok
+		ok = _lane("LOWERED", _lowered(scene), "a firearm that is not ready is drawn lowered: an Idle pistol sits fully lowered and a Steady one at about half, so the sway offset and pitch differ between them") and ok
 		ok = _lane("HANDS", await _hands(scene), "the bare hands at 16:9 and 4:3 do not reach the key bar, and the overlap test sees a bar placed on them") and ok
 		ok = _lane("THIRD", _third_person(scene), "F2 steps the camera behind the eye and back, the own body is drawn and plays the sim's clip only in third person, and a wall pulls the camera in while an open line does not") and ok
 		ok = _lane("HIDE", _held_visibility(scene), "the held weapon hides while the bench, inventory, ledger, talk and third-person screens are open and shows otherwise") and ok
@@ -4260,6 +4261,74 @@ func _arms_aim_firearm(scene: Node, world: Variant, player: int, arms: Node3D, h
 		ok = _fail("ARMS", "the %s raise clip held at %d distinct positions over %d raise ticks, not following the sim's t" % [hold_class, positions.size(), raise_frames])
 	if not resolved:
 		ok = _fail("ARMS", "the %s shot did not resolve back to Idle in 400 ticks" % hold_class)
+	return ok
+
+
+# LOWERED: a firearm that is not ready is drawn lowered (arms_view.gd ready_amount, the sway offset and
+# pitch). Idle is fully lowered; Steady at its first tick is half ready, so the sway's offset and pitch
+# sit at about half the lowered value. The sim is not stepped during the sample, so Steady holds.
+func _lowered(scene: Node) -> bool:
+	var world: Variant = scene.get("world")
+	var player: int = int(world.player)
+	var was_paused: bool = bool(scene.get("paused"))
+	scene.set("paused", true)
+	var ok: bool = _lowered_body(scene, world, player)
+	scene.set("paused", was_paused)
+	return ok
+
+
+func _lowered_body(scene: Node, world: Variant, player: int) -> bool:
+	var arms: Node3D = scene.call("arms_node") as Node3D
+	if arms == null or not _is_arms_view(arms):
+		return _fail("LOWERED", "the scene has no arms view")
+	if _arms_equip(scene, world, player, "item.pistol.service") < 0:
+		return _fail("LOWERED", "the service pistol would not equip for the LOWERED case")
+	if not _arms_load_rounds(world, player, "item.ammo.9mm", 4):
+		return _fail("LOWERED", "the pistol would not take item.ammo.9mm for the LOWERED case")
+	_arms_settle(scene, 1.5)
+	if _sim_fire_state(world, player) != int(SimRanged.FireState.Idle):
+		return _fail("LOWERED", "the pistol is not Idle before the LOWERED case")
+	_arms_settle(scene, 1.0)
+	var sway: Node3D = arms.get("_sway") as Node3D
+	var idle_lowered: float = float(arms.get("_lowered"))
+	var idle_pos: Vector3 = sway.position
+	var idle_pitch: float = sway.rotation.x
+	var ok: bool = true
+	if idle_lowered < 0.98:
+		ok = _fail("LOWERED", "an Idle pistol is lowered %.3f, not 1.0" % idle_lowered)
+	# Fire and step the raise out to its first Steady tick, then sample without stepping the sim.
+	world.commands.push({"type": "fire"})
+	scene.call("step_sim_once")
+	var reached: bool = false
+	for _i in 400:
+		if _sim_fire_state(world, player) == int(SimRanged.FireState.Steady):
+			reached = true
+			break
+		scene.call("_process", ARMS_FRAME_S)
+		scene.call("step_sim_once")
+	if not reached:
+		return _fail("LOWERED", "the pistol did not reach Steady in 400 ticks")
+	_arms_settle(scene, 1.5)
+	if _sim_fire_state(world, player) != int(SimRanged.FireState.Steady):
+		ok = _fail("LOWERED", "the pistol left Steady before the LOWERED sample") and ok
+	var ready: float = ArmsView.ready_amount(world, player)
+	var steady_lowered: float = float(arms.get("_lowered"))
+	var steady_pos: Vector3 = sway.position
+	var steady_pitch: float = sway.rotation.x
+	if absf(ready - 0.5) > 0.05:
+		ok = _fail("LOWERED", "a Steady pistol at its first tick is ready %.3f, not 0.5" % ready) and ok
+	if absf(steady_lowered - (1.0 - ready)) > 0.03:
+		ok = _fail("LOWERED", "Steady lowered %.3f, not 1 - ready %.3f" % [steady_lowered, 1.0 - ready]) and ok
+	var offset_gap: float = idle_pos.distance_to(steady_pos)
+	if offset_gap < 0.04:
+		ok = _fail("LOWERED", "the Idle and Steady sway offsets differ by only %.3f m" % offset_gap) and ok
+	var pitch_gap: float = absf(idle_pitch - steady_pitch)
+	if pitch_gap < 0.05:
+		ok = _fail("LOWERED", "the Idle and Steady sway pitches differ by only %.3f rad" % pitch_gap) and ok
+	print("LOWERED idle lowered %.3f, steady lowered %.3f, offset gap %.3f m, pitch gap %.3f rad" % [idle_lowered, steady_lowered, offset_gap, pitch_gap])
+	# Let the sim resolve the shot back to Idle, so the later lanes start from a holstered-ready state.
+	_arms_unequip_all(scene, world, player)
+	_arms_settle(scene, 1.5)
 	return ok
 
 
