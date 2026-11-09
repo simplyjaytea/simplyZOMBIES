@@ -3900,6 +3900,20 @@ not a to-do list:
     change -- those are docs/40 slices 3, 5 and 6. The viewmodel is a placeholder box.
   - **Record.** `docs/planning/first-person-fight-report.md`.
 
+- **The game boots to its title, 2026-11-09.** Advances "First-person expedition and default switch"
+  by the owner's call (docs/30, "The game boots to its title"): a plain boot of the default scene shows
+  the title first, and the title's new run starts first person. `first_person.gd` `_ready` sends a plain
+  boot to `presentation/main.tscn` before it builds any world, content or view (`SaveSlot.title_seen`
+  false, not `skip_title`, no `--skip-title`); the title's new run and continue set `title_seen`, so the
+  return to play builds one world and never bounces. The title's own backdrop is the top-down boot world
+  at the boot tick (9000), which does not move on the title. Every gate and dev launch passes
+  `--skip-title` (`scripts/run-godot.mjs`), except `--run`; `godot:smoke:exports` on Windows passes it,
+  and its web ready line accepts the title's `GODOT_R1_READY`. Gate: `npm run godot:check:fp_title`
+  (`godot/check_fp_title.gd`, `FP_TITLE_OK`; lanes BOOT at frames 1 and 8, NEW_RUN, BACK, CONTINUE,
+  REFUSE, SKIP; its plant, the redirect disabled, turns it red at BOOT). Boot-to-title measured at
+  963 ms. Also green: `check:routing`, `check:shards`, `godot:smoke`, `godot:validate`, `npm test` (594),
+  `godot:check:first_person`, `godot:check:fp_expedition`, `godot:check:fp_geometry`, `godot:check:hud`,
+  `godot:check:play`, `godot:check:fp_encounter`, `godot:m2:save`, `godot:check:shots` (PIXELS SKIP, no display).
 - **The title starts first person, 2026-11-07.** Advances "First-person expedition and default
   switch" by the owner's call (docs/30, "The title starts first person"): the game loads into first
   person, and the top-down game is on hold. The default title offers new run and quit, and new run

@@ -219,6 +219,7 @@ func _run() -> void:
 	ok = _lane("BOOT", _default_boot(), "project.godot boots the first-person scene, and a project that names the top-down scene is refused") and ok
 	var scene: Node = packed.instantiate()
 	scene.set("district_tiles", SMALL_DISTRICT_TILES)
+	scene.set("skip_title", true)
 	root.add_child(scene)
 	scene.set_process(false)
 	await process_frame
@@ -269,6 +270,7 @@ func _run() -> void:
 	ok = _lane("BOOTLEAD", _boot_lead_restored(lead_before), "the boot lead is restored when the first-person scene leaves") and ok
 	var bodies_scene: Node = packed.instantiate()
 	bodies_scene.set("district_tiles", SMALL_DISTRICT_TILES)
+	bodies_scene.set("skip_title", true)
 	root.add_child(bodies_scene)
 	bodies_scene.set_process(false)
 	await process_frame
