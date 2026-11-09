@@ -2552,6 +2552,13 @@ not a to-do list:
     `check:routing` pass. Matched base/head, repeat, magenta and Blender captures accompany the piece;
     repeat-run pixel noise is zero.
 
+- **The kōban and the shrine hall, 2026-11-10.** `building.koban.box` (5 x 5, civic and police, town centre; tar roof,
+  render walls; street door on the south face, a front window and a side window) and `building.shrine.village` (7 x 6 hall
+  alone, civic and shrine, residential suburb; shingle roof, timber walls; door on the south axis, a window on each side face,
+  none on the back). Both are JSON templates under `godot/content/buildings/`, built by `build_finishes.py`; `--check` prints
+  `BUILDINGS_CHECK_OK 26 templates` and `OTHER_TEMPLATES_PIXELS_IDENTICAL 23/23` against main 469cf886. The shrine precinct
+  (gravel, torii, lanterns, komainu, basin, cedar) is not built: it is district dressing, see docs/30. The locker and the
+  snub revolver of docs/42 section 5 are a future loot piece, not built here.
 - **The Ome–Okutama re-theme: the station, 2026-11-08.** Batch B's `building.station.small` is 12 x 5
   tiles, the waiting room only, civic and station, weight 4, drawn only in `district.town_center` (`districts`
   key, worldgen `_for_district`). Street door on the north face, platform door and ticket window on the south
