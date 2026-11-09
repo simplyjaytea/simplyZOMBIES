@@ -148,6 +148,7 @@
     "shrine"
   ],
   "weight": 2,
+  "max_per_district": 1,
   "districts": [
     "district.residential_suburb"
   ],
