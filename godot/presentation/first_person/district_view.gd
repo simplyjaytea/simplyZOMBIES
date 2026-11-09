@@ -30,6 +30,7 @@ const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const SimSpace = preload("res://sim/space/space.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
+const DoorStyle = preload("res://presentation/first_person/door_style.gd")
 const BuildingView = preload("res://presentation/first_person/building_view.gd")
 
 # Two placement variants of the wall module: as authored, and turned half a turn about its own
@@ -66,6 +67,9 @@ var map: Variant = null
 var ground: MeshInstance3D = null
 var solids: MeshInstance3D = null
 var fence: MeshInstance3D = null
+# Door leaves and frames, window casing: extra presentation boxes on the door and window tiles. The
+# band boxes stay in `solids` and `fence`; nothing here is collision or a ray.
+var trim: MeshInstance3D = null
 # The kit art this build drew: one instance record per wall tile {tile, variant, transform}, and one
 # per barricade {tile, transform}. The gate reads these to measure the drawn geometry; the lists are
 # empty when the GLBs are missing, which is how the KIT lane knows to skip.
@@ -104,6 +108,7 @@ func build(map_ref: Variant, salt: int = 0) -> void:
 	ground = _build_mesh("GroundTiles", _ground_surface(), false)
 	solids = _build_mesh("SolidTiles", _band_surface(false, wall_mesh != null), false)
 	fence = _build_mesh("FenceTiles", _band_surface(true, false), true)
+	trim = _build_mesh("Trim", _trim_surface(), false)
 	if wall_mesh != null:
 		_build_wall_modules(wall_mesh, salt)
 	_build_barricades(_loaded_mesh(Assets.BARRICADE))
@@ -164,6 +169,69 @@ func _ground_surface() -> ArrayMesh:
 				colour)
 	st.generate_normals()
 	return st.commit()
+
+
+# The door leaves and frames and the window casing, as extra boxes on their tiles. A door's style is
+# its building's (`_slug_at`); a door no manifested building owns gets the default row. A window gets
+# casing only where a finished building drew it as a window, on each face that meets open ground.
+func _trim_surface() -> ArrayMesh:
+	var st: SurfaceTool = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_smooth_group(-1)
+	var drew: bool = false
+	for ty in int(map.h):
+		for tx in int(map.w):
+			var key: String = SimSpace.profile_key(map, tx, ty)
+			if key.begins_with("door."):
+				var style: Dictionary = DoorStyle.style_for(_slug_at(tx, ty))
+				var along_x: bool = _runs_along_x(map, tx, ty)
+				var side: Vector2i = _open_face(map, tx, ty, along_x)
+				for box in DoorStyle.door_boxes(tx, ty, along_x, side, key == "door.open", style):
+					_add_box_of(st, box)
+					drew = true
+			elif key == "window" and String(_drawn.get(Vector2i(tx, ty), "")) == "window":
+				var style_w: Dictionary = DoorStyle.style_for(_slug_at(tx, ty))
+				var along_w: bool = _runs_along_x(map, tx, ty)
+				for offset in [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]:
+					var nx: int = tx + offset.x
+					var ny: int = ty + offset.y
+					if nx < 0 or ny < 0 or nx >= int(map.w) or ny >= int(map.h):
+						continue
+					var neighbour: int = SimTileMap.tile_at(map, nx, ny)
+					if neighbour in [SimTileMap.Tile.Wall, SimTileMap.Tile.Window, SimTileMap.Tile.Tree, SimTileMap.Tile.Water]:
+						continue
+					if along_w and offset.x != 0:
+						continue
+					if not along_w and offset.y != 0:
+						continue
+					for box in DoorStyle.window_boxes(tx, ty, along_w, offset, style_w):
+						_add_box_of(st, box)
+						drew = true
+	if not drew:
+		return null
+	st.generate_normals()
+	return st.commit()
+
+
+# The slug of the manifested building whose footprint holds this tile's centre: its GLB's file name
+# without the extension. `default` when no finished building owns the tile.
+func _slug_at(tx: int, ty: int) -> String:
+	if building_finishes == null:
+		return DoorStyle.DEFAULT_KEY
+	var cx: float = float(tx) + 0.5
+	var cy: float = float(ty) + 0.5
+	for instance_v in building_finishes.get("instances") as Array:
+		var instance: Dictionary = instance_v as Dictionary
+		var record: Dictionary = instance["building"] as Dictionary
+		var entry: Dictionary = instance["entry"] as Dictionary
+		var bounds: Dictionary = entry.get("bounds", {}) as Dictionary
+		var lo: Array = bounds.get("min", [0.0, 0.0, 0.0]) as Array
+		var hi: Array = bounds.get("max", [0.0, 0.0, 0.0]) as Array
+		var ox: float = float(int(record["x"]))
+		var oy: float = float(int(record["y"]))
+		if cx >= ox + float(lo[0]) and cx <= ox + float(hi[0]) and cy >= oy + float(lo[2]) and cy <= oy + float(hi[2]):
+			return String(entry.get("glb", "")).get_file().get_basename()
+	return DoorStyle.DEFAULT_KEY
 
 
 # The opaque bands (or, with `see_through`, the fence's bands) of every tile, as one mesh. Null when
