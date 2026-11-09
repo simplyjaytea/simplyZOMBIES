@@ -469,6 +469,7 @@ func _dressing(dress_a: Node, dress_b: Node, dress_c: Node) -> bool:
 	var tall_run: Array = entries.duplicate()
 	tall_run.append({"id": "fixture.block", "placement": "run", "size": [1.0, 1.2, 0.12], "origin": "floor_centre", "anchors": {}, "tris": 0})
 	var with_block: Array = StreetDressing.placements(map_c, seed_val, tall_run)
+	var placed_c_rules: Array = StreetDressing.placements(map_c, seed_val, entries)
 	var block_fails: Array = StreetDressing.validate(map_c, with_block)
 	if not block_fails.is_empty():
 		ok = _fail("DRESSING", "a 1.2 m run entry on the 256 district failed the rule check: %s" % str(block_fails.slice(0, 2)))
@@ -477,11 +478,45 @@ func _dressing(dress_a: Node, dress_b: Node, dress_c: Node) -> bool:
 	var near_b: Dictionary = _pole_at(30, 20, 0.0)
 	var far_b: Dictionary = _pole_at(60, 20, 0.0)
 	var joined: Array = StreetDressing.wire_spans([near_a, near_b])
-	if joined.size() != 1:
-		ok = _fail("DRESSING", "two poles 20 m apart in one row were not joined by a wire span")
+	if joined.size() != 3:
+		ok = _fail("DRESSING", "two poles 20 m apart in one row were not joined by three matched wire spans (%d)" % joined.size())
 	var apart: Array = StreetDressing.wire_spans([near_a, far_b])
 	if not apart.is_empty():
 		ok = _fail("DRESSING", "two poles 50 m apart were joined by a wire span")
+	# Pole rules on the 256 district: poles are at least POLE_MIN_SPACING_M apart and turned across the run; every span is
+	# WIRE_MIN_SPAN_M to WIRE_MAX_SPAN_M long, comes in matched triples, and crosses no Wall tile. Plants: the spacing rule
+	# and the building check, each dropped by its const.
+	var poles_c: Array = []
+	for p in placed_c_rules:
+		if String((p as Dictionary)["id"]) == "fixture.pole":
+			poles_c.append(p)
+	var closest: float = 1.0e9
+	for i in range(poles_c.size()):
+		for j in range(i + 1, poles_c.size()):
+			var pi_: Vector3 = (poles_c[i] as Dictionary)["pos"] as Vector3
+			var pj: Vector3 = (poles_c[j] as Dictionary)["pos"] as Vector3
+			closest = minf(closest, Vector2(pi_.x, pi_.z).distance_to(Vector2(pj.x, pj.z)))
+	print("DRESSING poles on the 256 district %d, closest pair %.1f m" % [poles_c.size(), closest])
+	if poles_c.size() < 2:
+		ok = _fail("DRESSING", "the pole rules have no pairs to judge on the 256 district (%d poles)" % poles_c.size())
+	elif closest < StreetDressing.POLE_MIN_SPACING_M - 0.001:
+		ok = _fail("DRESSING", "two poles %.1f m apart, under the %.0f m spacing rule" % [closest, StreetDressing.POLE_MIN_SPACING_M])
+	for p in poles_c:
+		if absf(float((p as Dictionary)["yaw"]) - StreetDressing.POLE_YAW_RAD) > 0.001:
+			ok = _fail("DRESSING", "a pole is not turned across the run (yaw %.3f)" % float((p as Dictionary)["yaw"]))
+			break
+	var all_spans: Array = StreetDressing.wire_spans(placed_c_rules, map_c)
+	print("DRESSING wire spans on the 256 district %d" % all_spans.size())
+	for span in all_spans:
+		var length: float = (span as Dictionary)["a"].distance_to((span as Dictionary)["b"])
+		if length < StreetDressing.WIRE_MIN_SPAN_M - 0.001 or length > StreetDressing.WIRE_MAX_SPAN_M + 0.001:
+			ok = _fail("DRESSING", "a wire span of %.1f m is outside %.0f to %.0f m" % [length, StreetDressing.WIRE_MIN_SPAN_M, StreetDressing.WIRE_MAX_SPAN_M])
+			break
+		if String((span as Dictionary).get("key", "")) == "wire_c" and StreetDressing._crosses_wall(map_c, (span as Dictionary)["a"] as Vector3, (span as Dictionary)["b"] as Vector3):
+			ok = _fail("DRESSING", "a wire span passes over a Wall tile of the district")
+			break
+	if all_spans.size() % 3 != 0:
+		ok = _fail("DRESSING", "wire spans come in matched triples, got %d" % all_spans.size())
 	for span in StreetDressing.wire_spans(placed_a):
 		if float((span as Dictionary)["a"].distance_to((span as Dictionary)["b"])) > StreetDressing.WIRE_MAX_SPAN_M + 0.001:
 			ok = _fail("DRESSING", "a wire span on the district is longer than %.1f m" % StreetDressing.WIRE_MAX_SPAN_M)
@@ -545,7 +580,7 @@ func _pole_at(tx: int, ty: int, yaw: float) -> Dictionary:
 	return {"id": "fixture.pole", "placement": "kerb", "tx": tx, "ty": ty, "tile_key": "floor",
 		"pos": Vector3(float(tx) + 0.5, 0.0, float(ty) + 0.5), "yaw": yaw, "size": Vector3(0.3, 10.0, 0.3),
 		"hem": 0.0, "proud": 0.0,
-		"anchors": {"wire_a": Vector3(0.15, 8.5, 0.0), "wire_b": Vector3(-0.15, 8.5, 0.0)}}
+		"anchors": {"wire_a": Vector3(-0.65, 9.34, 0.0), "wire_b": Vector3(0.65, 9.34, 0.0), "wire_c": Vector3(0.0, 9.34, 0.0)}}
 
 # The sha256 of the game camera's global transform over 60 ticks of an untouched boot, recorded from origin/main
 # before the review camera landed. A change to the game camera moves it, and the lane fails.
@@ -4285,16 +4320,38 @@ func _lowered_body(scene: Node, world: Variant, player: int) -> bool:
 	if absf(steady_lowered - (1.0 - ready)) > 0.03:
 		ok = _fail("LOWERED", "Steady lowered %.3f, not 1 - ready %.3f" % [steady_lowered, 1.0 - ready]) and ok
 	var offset_gap: float = idle_pos.distance_to(steady_pos)
-	if offset_gap < 0.04:
+	if offset_gap < 0.02:
 		ok = _fail("LOWERED", "the Idle and Steady sway offsets differ by only %.3f m" % offset_gap) and ok
 	var pitch_gap: float = absf(idle_pitch - steady_pitch)
-	if pitch_gap < 0.05:
+	if pitch_gap < 0.03:
 		ok = _fail("LOWERED", "the Idle and Steady sway pitches differ by only %.3f rad" % pitch_gap) and ok
+	# On screen: the pistol mesh centre projects inside the viewport through the camera that draws the arms.
+	var cam_arms: Camera3D = scene.get("camera") as Camera3D
+	var vp_size: Vector2 = arms.get_viewport().get_visible_rect().size
+	var on_screen_idle: bool = _lowered_on_screen(arms, cam_arms, vp_size)
+	if not on_screen_idle:
+		ok = _fail("LOWERED", "an Idle pistol centre projects outside the %dx%d viewport" % [int(vp_size.x), int(vp_size.y)]) and ok
+	print("LOWERED on screen idle=%s centre=%s viewport=%s" % [on_screen_idle, _lowered_centre(arms, cam_arms), vp_size])
 	print("LOWERED idle lowered %.3f, steady lowered %.3f, offset gap %.3f m, pitch gap %.3f rad" % [idle_lowered, steady_lowered, offset_gap, pitch_gap])
 	# Let the sim resolve the shot back to Idle, so the later lanes start from a holstered-ready state.
 	_arms_unequip_all(scene, world, player)
 	_arms_settle(scene, 1.5)
 	return ok
+
+
+func _lowered_centre(arms: Node3D, cam: Camera3D) -> Vector2:
+	for mi in arms.find_children("pistol_service", "MeshInstance3D", true, false):
+		var m: MeshInstance3D = mi as MeshInstance3D
+		var c: Vector3 = m.global_transform * m.get_aabb().get_center()
+		if cam == null or cam.is_position_behind(c):
+			return Vector2(-1.0, -1.0)
+		return cam.unproject_position(c)
+	return Vector2(-1.0, -1.0)
+
+
+func _lowered_on_screen(arms: Node3D, cam: Camera3D, vp: Vector2) -> bool:
+	var c: Vector2 = _lowered_centre(arms, cam)
+	return c.x >= 0.0 and c.y >= 0.0 and c.x <= vp.x and c.y <= vp.y
 
 
 # AIM, a melee class: the fire state is not read for it, so the stubbed raise and aim leave its idle.

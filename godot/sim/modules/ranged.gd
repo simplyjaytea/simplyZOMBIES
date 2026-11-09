@@ -56,8 +56,10 @@ const STREAM: String = "ranged"
 static var SHOT_AS_RAY: bool = true
 # The stream the deviation is drawn on, so no existing stream moves for it.
 const SPREAD_STREAM: String = "ranged.spread"
-# The deviation disc's radius as a multiple of the cone half-angle. One named constant, set by a measured balance slice.
-const DISPERSION: float = 1.0
+# The deviation disc's radius as a multiple of the cone half-angle. A static var so a lane can pin it (the
+# lanes that judge the cone rule pin SHOT_AS_RAY instead, and this is read only by the ray). Set by the
+# shot-dispersion slice (docs/40 slice 8): 0.25 is the built default, the owner's card open (docs/33 question 1).
+static var DISPERSION: float = 0.25
 
 
 # The three rungs of docs/09's ladder come from the weapon rather than from three constants here,
