@@ -4721,6 +4721,10 @@ not a to-do list:
   eyes) and MIX, re-pinned for the day-7 pool over ten kinds (the feigner draws `g`, not yet in the
   fifty). The ten-seed table was not re-run; see "The ten-seed re-baseline after the zombie kinds"
   under Proof.
+- **Hits read, 2026-11-09.** The first-person fight shows its hits: an impact mark where a round met a surface, a blood
+  puff on the zombie's body part, and a flinch back along the shot (`godot/presentation/first_person/hit_marks.gd`, presentation
+  only, read from the drained events). Gate: the HIT lane of `godot:check:first_person`, which also plants and fails when the
+  read is dropped. The 3b frame before and after is in `sz-shared/alpha-2026-11-09/hit-feedback/`.
 - **A dead zombie lies there, 2026-11-07.** Advances the first-person survival pivot by the owner's card
   (docs/30, "A dead zombie lies where it fell"): a zombie that dies no longer vanishes the same tick.
   - **The body.** `recruits.gd` `handle_death`'s shambler arm keeps `_remember_zombie_remains` and `_drop_kit`,
