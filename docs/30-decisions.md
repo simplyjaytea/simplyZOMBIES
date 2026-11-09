@@ -8492,6 +8492,7 @@ The armour lane pins `NPC_AID_ENABLED` off: it tests what a blow wears, not who 
   the hall alone (option: a precinct content kind, a sim piece); the shrine pool is Hinatadai only (option: add the town centre).
   The kōban pool is the town centre only. The locker and snub revolver of docs/42 section 5 are a future loot piece.
 
+
 ## Civic templates carry a per-district cap, 2026-11-10
 
 `building.station.small` sets `max_per_district: 1`. The kōban and shrine take the same key in
