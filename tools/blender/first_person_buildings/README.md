@@ -49,6 +49,14 @@ blender --background --factory-startup --python tools/blender/first_person_build
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=sliding_door_cross
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=sliding_leaf_span
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=eave_north_clean
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=canopy_post
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=ticket_ledge_proud
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=name_board_open
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=name_board_uv
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=name_board_one_cell
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=name_board_mirror
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=arch_float
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=bracket_float
 ```
 
 `winding` reverses one hip-roof face; `aperture` draws a wall across house_small's first window. The
@@ -57,7 +65,10 @@ canopy plants put it at 1.90 m, make it 1.40 m deep, or detach it; the wall plan
 at 2.20 m, `shutter` draws a shutter down over an openable shop window, and `sliding_door_cross`
 puts a sawmill leaf across the south doorway. `sliding_leaf_span` draws one leaf across the x 4–5
 boundary and is refused by the one-tile leaf assertion. `eave_north_clean` paints the north eave
-with plain tin and is refused by the per-region rust measurement.
+with plain tin and is refused by the per-region rust measurement. The station plants put a post under
+the canopy, make the ticket ledge 0.15 m proud, put the name board on an openable wall tile, leave its
+vertical UVs unfitted or fit only one cell, remove the arch's return, and restore the bracket feet's
+round-1 stand-off.
 
 ## Data and runtime
 
@@ -237,10 +248,37 @@ If room tags are added to content later, the manifest is the place to refine thi
   the course depth. Leaf cells `(4,6)` / `(5,6)` keep rust to their vertical edges and lowest bottom
   course. `CHARACTER building.unit.industrial` measures the exported geometry and samples each eave
   and verge separately: every edge must exceed 1.0% rust and the field must be exactly 0.0%.
-- `OTHER_TEMPLATES_PIXELS_IDENTICAL 21/21` compares every other template, the shotengai and both houses
-  included, with `OTHER_TEMPLATES_BASE = 1d2063b9`. At extreme minification, new atlas cells can still
+- `OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22` compares every other template, the shotengai, the sawmill and both
+  houses included, name-blind, with `OTHER_TEMPLATES_BASE = 84aef0fd`; the station is excluded by name as new since base. At extreme minification, new atlas cells can still
   move isolated pixels in other templates through mip levels 8 and 9; round 1's render and byte proofs
   identified that effect separately from the unchanged meshes and base-level cells.
+
+### Batch B: the station
+
+- `building.station.small` is the 12 x 5 waiting room only, with tin / timber through
+  `TEMPLATE_FINISHES`. The platform surface, kerb and tactile line belong to the rail piece. Both doors
+  have low exterior steps and clear openings; the ticket window is `(8,4)` on the track side.
+- The south canopy measures 12.00 m long, 2.30 to 2.48 m high and 1.140 m deep, including its front
+  roll. Six bracket start caps are ray-measured against the wall, with a maximum allowed gap of 1 mm;
+  there are no posts. Its underside and both ends are closed, and its top stays below the roof eave.
+  `canopy_post` and `bracket_float` prove the post and contact failures.
+- The ticket window's counter ledge is 0.09 m proud at 0.86 m and its arched head reaches 2.42 m.
+  The arch has returns to the wall and legs seated on the 2.10 m casing head. Both attachments are
+  `window_attach` in the sill/lintel bands and leave the aperture open. `ticket_ledge_proud` and
+  `arch_float` prove the projection and missing-return failures.
+- One 0.90 m board on the canopy fascia carries the invented 梅崎 / うめざき name across
+  `station_name` cell `(3,7)` and `station_name_kana` cell `(4,7)`. The name cells are bitmaps
+  rasterised once from Noto Sans CJK Bold (SIL OFL 1.1); no font is read at build time. The face UVs
+  fit both whole cells on both axes instead of repeating by metre. `name_board_open` refuses a
+  wall-mounted board on an openable tile; `name_board_uv` leaves the vertical fit out and
+  `name_board_one_cell` fits only one cell, both refused by the measured UV bounds. `name_board_mirror`
+  mirrors the kana cell and is refused by the baked-cell comparison against the literal rows.
+- The tin gable uses shared `tin` / `tin_alt`, with 0.60 m eaves and rakes, closed timber gables,
+  soffits and barge boards. `CHARACTER building.station.small` measures every value above from the GLB.
+- `OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22` is name-blind and node-order-free against
+  `OTHER_TEMPLATES_BASE = 0f510604e010f2d26bb338bb8f2c0120f7bf8068`, excluding only the station on
+  both sides. New atlas cells can move isolated far-frame pixels through the smallest mips, as the
+  sawmill reviews proved; those are reported rather than repainted away.
 
 ## Windows
 
@@ -256,8 +294,9 @@ curtains do not cover the central aperture. Template window counts are unchanged
 
 `buildings_atlas.png` is 512 × 512 px: 8 × 8 one-metre cells at **64 texels per metre**. UVs are clipped
 at metre boundaries, including sloped hip-roof polygons, so no face samples a neighbouring cell. The
-builder measures every polygon edge and requires 48–80 texels/m; the generated assets measure 64. GLBs
-request nearest magnification and Godot applies nearest-with-mipmaps filtering for distance.
+builder measures every polygon edge and requires 48–80 texels/m; the generated assets measure 64,
+except the station name's one fitted signage face, whose two-cell UVs intentionally override that
+range. GLBs request nearest magnification and Godot applies nearest-with-mipmaps filtering for distance.
 
 The opaque `BuildingsAtlas` and transparent `WindowGlass` materials reference the same atlas. The palette
 is faded sage timber, warm grey render, brown brick, charcoal roofs, cool grey kawara, darkened
