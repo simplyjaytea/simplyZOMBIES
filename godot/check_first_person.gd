@@ -452,6 +452,18 @@ func _dressing(dress_a: Node, dress_b: Node, dress_c: Node) -> bool:
 	print("DRESSING capped extinguisher boxes on the 256 district: %d (cap 5)" % boxes)
 	if boxes == 0 or boxes > 5:
 		ok = _fail("DRESSING", "the per-id cap did not hold: %d extinguisher boxes, cap 5" % boxes)
+	# Cap 0 is zero, not "no cap": a per-id cap of 0 places none of that id on the 256 district; with no cap the same id places.
+	var poles_free: int = 0
+	var poles_capped: int = 0
+	for p in StreetDressing.placements(map_c, seed_val, entries):
+		if String((p as Dictionary)["id"]) == "fixture.pole":
+			poles_free += 1
+	for p in StreetDressing.placements(map_c, seed_val, entries, {"props": {"fixture.pole": {"max_per_district": 0}}}):
+		if String((p as Dictionary)["id"]) == "fixture.pole":
+			poles_capped += 1
+	print("DRESSING poles with no cap %d, with cap 0 %d" % [poles_free, poles_capped])
+	if poles_free == 0 or poles_capped != 0:
+		ok = _fail("DRESSING", "cap 0 must place no fixture pole (free %d, capped %d)" % [poles_free, poles_capped])
 	# Run pieces: a 1.2 m run entry is not placed on a Low tile, so the rule check passes with it in the entries.
 	var tall_run: Array = entries.duplicate()
 	tall_run.append({"id": "fixture.block", "placement": "run", "size": [1.0, 1.2, 0.12], "origin": "floor_centre", "anchors": {}, "tris": 0})
