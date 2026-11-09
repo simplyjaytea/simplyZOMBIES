@@ -1,11 +1,77 @@
 {
   "note": "Fixture for the first-person street dressing gate. Box stand-ins at the real manifest's shape; not art. One entry per placement kind, plus an anchored pole.",
   "models": [
-    {"id": "fixture.vending", "size": [1.00, 1.83, 0.75], "origin": "floor_centre", "placement": "kerb", "anchors": {}, "tris": 0},
-    {"id": "fixture.extinguisher", "size": [0.30, 0.60, 0.20], "origin": "wall_back_centre", "placement": "wall", "anchors": {}, "tris": 0},
-    {"id": "fixture.guard_rail", "size": [1.00, 0.80, 0.10], "origin": "floor_centre", "placement": "run", "anchors": {}, "tris": 0},
-    {"id": "fixture.noren", "size": [0.90, 0.60, 0.02], "origin": "floor_centre", "placement": "door_head", "anchors": {}, "tris": 0},
-    {"id": "fixture.pole", "size": [0.30, 10.00, 0.30], "origin": "floor_centre", "placement": "kerb",
-     "anchors": {"wire_a": [0.15, 8.50, 0.00], "wire_b": [-0.15, 8.50, 0.00]}, "tris": 0}
+    {
+      "id": "fixture.vending",
+      "size": [
+        1.0,
+        1.83,
+        0.75
+      ],
+      "origin": "floor_centre",
+      "placement": "kerb",
+      "anchors": {},
+      "tris": 0,
+      "glb": "res://assets/first_person/barricade.glb"
+    },
+    {
+      "id": "fixture.extinguisher",
+      "size": [
+        0.3,
+        0.6,
+        0.2
+      ],
+      "origin": "wall_back_centre",
+      "placement": "wall",
+      "anchors": {},
+      "tris": 0
+    },
+    {
+      "id": "fixture.guard_rail",
+      "size": [
+        1.0,
+        0.8,
+        0.1
+      ],
+      "origin": "floor_centre",
+      "placement": "run",
+      "anchors": {},
+      "tris": 0
+    },
+    {
+      "id": "fixture.noren",
+      "size": [
+        0.9,
+        0.6,
+        0.02
+      ],
+      "origin": "floor_centre",
+      "placement": "door_head",
+      "anchors": {},
+      "tris": 0
+    },
+    {
+      "id": "fixture.pole",
+      "size": [
+        0.3,
+        10.0,
+        0.3
+      ],
+      "origin": "floor_centre",
+      "placement": "kerb",
+      "anchors": {
+        "wire_a": [
+          0.15,
+          8.5,
+          0.0
+        ],
+        "wire_b": [
+          -0.15,
+          8.5,
+          0.0
+        ]
+      },
+      "tris": 0
+    }
   ]
 }
