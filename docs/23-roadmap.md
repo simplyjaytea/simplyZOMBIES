@@ -4666,6 +4666,7 @@ not a to-do list:
   eyes) and MIX, re-pinned for the day-7 pool over ten kinds (the feigner draws `g`, not yet in the
   fifty). The ten-seed table was not re-run; see "The ten-seed re-baseline after the zombie kinds"
   under Proof.
+- **First-person street dressing, 2026-11-09.** The first-person view draws the kit's props from the sim's tile classes (`godot/presentation/first_person/street_dressing.gd`, `street_dressing_view.gd`), presentation only, with no RNG; the rules are in docs/30 ("First-person street dressing is a picture of tiles the sim already has"). Gate: the DRESSING lane of `godot:check:first_person`, two plants. Not built: the block-wall pieces (no rule for a district Wall tile yet), and the real manifest and GLBs, which arrive with prop kit A.
 - **A dead zombie lies there, 2026-11-07.** Advances the first-person survival pivot by the owner's card
   (docs/30, "A dead zombie lies where it fell"): a zombie that dies no longer vanishes the same tick.
   - **The body.** `recruits.gd` `handle_death`'s shambler arm keeps `_remember_zombie_remains` and `_drop_kit`,

@@ -35,6 +35,9 @@ const Legend = preload("res://ui/legend.gd")
 const SessionRes = preload("res://presentation/session.gd")
 const RenderInterp = preload("res://presentation/interp.gd")
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
+const StreetDressingView = preload("res://presentation/first_person/street_dressing_view.gd")
+# The kit's manifest, once prop kit A lands. Absent until then, and an absent manifest draws no dressing.
+const STREET_MANIFEST_PATH: String = "res://assets/first_person/props.manifest.json"
 const BodyView = preload("res://presentation/first_person/body_view.gd")
 const OwnBody = preload("res://presentation/first_person/own_body.gd")
 const ArmsView = preload("res://presentation/first_person/arms_view.gd")
@@ -125,6 +128,8 @@ var talk_open: bool = false
 
 var _rig: Node3D = null
 var _district: Node3D = null
+# The street dressing's drawing node (street_dressing_view.gd). Presentation only.
+var _street: Node3D = null
 var _bodies: Node3D = null
 var _props: Node3D = null
 var _containers: Node3D = null
@@ -272,11 +277,23 @@ func _build_environment() -> void:
 	add_child(_sky)
 
 
+# Rebuilds the street dressing from another manifest (the gates and the sheet driver). Presentation only.
+func rebuild_street(manifest_path: String) -> void:
+	if _street != null:
+		_street.call("build", map, SEED, manifest_path)
+
+
 func _build_views() -> void:
 	_district = DistrictView.new()
 	_district.name = "District"
 	add_child(_district)
 	_district.call("build", map, SEED)
+
+	# The street dressing: pictures of tiles the sim already has (street_dressing.gd). Nothing here reaches the sim.
+	_street = StreetDressingView.new()
+	_street.name = "StreetDressing"
+	add_child(_street)
+	_street.call("build", map, SEED, STREET_MANIFEST_PATH)
 
 	_props = PropView.new()
 	_props.name = "SafeSpawnProps"
