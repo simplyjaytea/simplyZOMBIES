@@ -80,6 +80,7 @@ STYLES = {
     "sawmill_verge_alt": (1, 7),
     "sawmill_door_wood": (2, 7),
     "station_name": (3, 7),
+    "station_name_kana": (4, 7),
 }
 PALETTES = {
     "siding": ["#586058", "#636a60", "#6d7367", "#777b6d", "#818474"],
@@ -128,40 +129,45 @@ STATION_STROKES = (
         ((0.80, 0.56), (0.72, 0.74)), ((0.72, 0.74), (0.54, 0.88)), ((0.54, 0.88), (0.30, 0.94)),
     ),
     (
-        ((0.14, 0.32), (0.74, 0.62)),
-        ((0.64, 0.06), (0.50, 0.28)), ((0.50, 0.28), (0.34, 0.48)), ((0.34, 0.48), (0.26, 0.66)),
-        ((0.26, 0.66), (0.34, 0.82)), ((0.34, 0.82), (0.54, 0.88)), ((0.54, 0.88), (0.72, 0.76)),
-        ((0.72, 0.76), (0.80, 0.58)), ((0.80, 0.58), (0.70, 0.44)), ((0.70, 0.44), (0.52, 0.42)),
-        ((0.52, 0.42), (0.40, 0.54)),
+        ((0.14, 0.76), (0.34, 0.56)),
+        ((0.72, 0.94), (0.60, 0.72)), ((0.60, 0.72), (0.43, 0.48)), ((0.43, 0.48), (0.30, 0.24)),
+        ((0.30, 0.24), (0.34, 0.10)), ((0.34, 0.10), (0.52, 0.06)), ((0.52, 0.06), (0.72, 0.14)),
+        ((0.72, 0.14), (0.84, 0.32)), ((0.84, 0.32), (0.82, 0.48)), ((0.82, 0.48), (0.70, 0.56)),
+        ((0.70, 0.56), (0.56, 0.50)), ((0.56, 0.50), (0.56, 0.38)), ((0.56, 0.38), (0.68, 0.32)),
     ),
     (
-        ((0.14, 0.26), (0.66, 0.26)), ((0.44, 0.08), (0.28, 0.52)),
-        ((0.18, 0.58), (0.58, 0.56)), ((0.58, 0.56), (0.70, 0.64)), ((0.70, 0.64), (0.66, 0.76)),
-        ((0.66, 0.76), (0.50, 0.88)), ((0.50, 0.88), (0.30, 0.92)), ((0.30, 0.92), (0.18, 0.84)),
-        ((0.80, 0.04), (0.80, 0.14)), ((0.94, 0.04), (0.94, 0.14)),
+        ((0.12, 0.68), (0.66, 0.68)), ((0.28, 0.90), (0.48, 0.48)),
+        ((0.62, 0.44), (0.42, 0.46)), ((0.42, 0.46), (0.24, 0.34)), ((0.24, 0.34), (0.22, 0.18)),
+        ((0.22, 0.18), (0.36, 0.08)), ((0.36, 0.08), (0.62, 0.12)),
+        ((0.80, 0.96), (0.80, 0.84)), ((0.94, 0.96), (0.94, 0.84)),
     ),
     (
-        ((0.16, 0.24), (0.82, 0.24)), ((0.14, 0.46), (0.78, 0.46)), ((0.56, 0.10), (0.42, 0.62)),
-        ((0.22, 0.74), (0.66, 0.74)), ((0.66, 0.74), (0.64, 0.86)), ((0.64, 0.86), (0.50, 0.95)),
-        ((0.50, 0.95), (0.32, 0.96)), ((0.32, 0.96), (0.22, 0.88)),
+        ((0.10, 0.74), (0.80, 0.74)), ((0.12, 0.52), (0.78, 0.52)), ((0.30, 0.94), (0.50, 0.40)),
+        ((0.62, 0.34), (0.42, 0.36)), ((0.42, 0.36), (0.24, 0.26)), ((0.24, 0.26), (0.22, 0.14)),
+        ((0.22, 0.14), (0.36, 0.06)), ((0.36, 0.06), (0.66, 0.10)),
     ),
 )
-STATION_NAME_PIXELS = None
+STATION_NAME_PIXELS = {}
 
 
-def station_name_pixels():
-    global STATION_NAME_PIXELS
-    if STATION_NAME_PIXELS is not None:
-        return STATION_NAME_PIXELS
+def station_name_pixels(style):
+    if style in STATION_NAME_PIXELS:
+        return STATION_NAME_PIXELS[style]
+    kana = style == "station_name_kana"
+    strokes_by_glyph = STATION_STROKES[2:] if kana else STATION_STROKES[:2]
+    origin, stride, width = (1, 15, 14) if kana else (2, 30, 26)
+    top, height = (16, 32) if kana else (12, 40)
     pixels = set()
-    for glyph, strokes in enumerate(STATION_STROKES):
+    for glyph, strokes in enumerate(strokes_by_glyph):
         for a, b in strokes:
-            x0, y0 = 2 + glyph * 10 + a[0] * 8, 18 + (1.0 - a[1]) * 28
-            x1, y1 = 2 + glyph * 10 + b[0] * 8, 18 + (1.0 - b[1]) * 28
+            x0, y0 = origin + glyph * stride + a[0] * width, top + (1.0 - a[1]) * height
+            x1, y1 = origin + glyph * stride + b[0] * width, top + (1.0 - b[1]) * height
             steps = max(1, math.ceil(max(abs(x1 - x0), abs(y1 - y0)) * 2))
             for step in range(steps + 1):
-                pixels.add((round(x0 + (x1 - x0) * step / steps), round(y0 + (y1 - y0) * step / steps)))
-    STATION_NAME_PIXELS = pixels
+                x = round(x0 + (x1 - x0) * step / steps)
+                y = round(y0 + (y1 - y0) * step / steps)
+                pixels.update(((x, y), (x + 1, y), (x, y + 1), (x + 1, y + 1)))
+    STATION_NAME_PIXELS[style] = pixels
     return pixels
 
 
@@ -404,11 +410,11 @@ def atlas_pixel(style, x, y, plant=None):
         elif style == "sawmill_verge_alt":
             rust = x >= 60
         return tone("brick", 2) if rust else tone("stone", index)
-    if style == "station_name":
+    if style in ("station_name", "station_name_kana"):
         edge = min(x, y, 63 - x, 63 - y)
         if edge < 2:
             return tone("trim", 2)
-        return tone("trim", 4) if (x, y) in station_name_pixels() else tone("sign_blue", 1)
+        return tone("trim", 4) if (x, y) in station_name_pixels(style) else tone("sign_blue", 1)
     if style in SIGN_GLYPHS:
         palette = "sign_blue" if style.startswith("sign_blue") else "sign_orange"
         edge = min(x, y, 63 - x, 63 - y)
@@ -1756,7 +1762,7 @@ def station_character(template, model, doors_clear):
     boards = [box for box in boxes if "station_name" in box["styles"]]
     board_uv = [uv for face in model.faces if face["style"] == "station_name" for uv in face["uv"]]
     cell_x, cell_y = STYLES["station_name"]
-    expected_uv = (cell_x / ATLAS_METRES, (ATLAS_METRES - cell_y - 1) / ATLAS_METRES, (cell_x + 1) / ATLAS_METRES, (ATLAS_METRES - cell_y) / ATLAS_METRES)
+    expected_uv = (cell_x / ATLAS_METRES, (ATLAS_METRES - cell_y - 1) / ATLAS_METRES, (cell_x + 2) / ATLAS_METRES, (ATLAS_METRES - cell_y) / ATLAS_METRES)
     actual_uv = (min(uv[0] for uv in board_uv), min(uv[1] for uv in board_uv), max(uv[0] for uv in board_uv), max(uv[1] for uv in board_uv)) if board_uv else ()
     if len(actual_uv) != 4 or any(abs(actual - expected) > 0.000001 for actual, expected in zip(actual_uv, expected_uv)):
         raise ValueError(f"{template['id']} name board UV bounds {actual_uv}, expected {expected_uv}")
@@ -2230,6 +2236,7 @@ def build_station_details(pieces, template, plant=None):
     start = len(finish.uvs)
     finish.box((5.55, 2.30, 6.10), (0.90, 0.28, 0.04), "dark_wood", {"south": "station_name", "top": "trim", "east": "trim", "west": "trim"})
     cell_x, cell_y = STYLES["station_name"]
+    cell_span = 1 if plant == "name_board_one_cell" else 2
     for index in range(start, len(finish.uvs)):
         if finish.styles[index] != "station_name":
             continue
@@ -2238,7 +2245,7 @@ def build_station_details(pieces, template, plant=None):
         high = [max(uv[axis] for uv in local) for axis in range(2)]
         finish.uvs[index] = tuple(
             (
-                (cell_x + (a - low[0]) / (high[0] - low[0])) / ATLAS_METRES,
+                (cell_x + cell_span * (a - low[0]) / (high[0] - low[0])) / ATLAS_METRES,
                 uv[1] if plant == "name_board_uv" else (cell_y + (b - low[1]) / (high[1] - low[1])) / ATLAS_METRES,
             )
             for (a, b), uv in zip(local, finish.uvs[index])
@@ -3145,7 +3152,7 @@ def main():
     arguments = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter", "sliding_door_cross", "sliding_leaf_span", "eave_north_clean", "canopy_post", "ticket_ledge_proud", "name_board_open", "name_board_uv", "arch_float", "bracket_float"])
+    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter", "sliding_door_cross", "sliding_leaf_span", "eave_north_clean", "canopy_post", "ticket_ledge_proud", "name_board_open", "name_board_uv", "name_board_one_cell", "arch_float", "bracket_float"])
     args = parser.parse_args(arguments)
     repo = Path(__file__).resolve().parents[3]
     try:

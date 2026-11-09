@@ -2535,12 +2535,13 @@ not a to-do list:
   - **Finish.** The south canopy measures 12.00 m long, 2.30 to 2.48 m high and 1.140 m deep, with six
     wall-fixed brackets and no posts. The ticket window has a 0.09 m counter ledge and an arched head,
     both attached in the legal window bands with the aperture open. One fascia board carries 梅崎 /
-    うめざき in the single new `station_name` cell. The shared-tin gable has 0.60 m eaves/rakes, closed
-    timber gables, soffits and barge boards. Both doors have low steps and clear openings.
-  - **Verified.** `CHARACTER building.station.small` measures those values and the board's full-cell UV
+    うめざき across `station_name` cells `(3,7)` and `(4,7)`, each fitted whole with no repeat.
+    The shared-tin gable has 0.60 m eaves/rakes, closed timber gables, soffits and barge boards.
+    Both doors have low steps and clear openings.
+  - **Verified.** `CHARACTER building.station.small` measures those values and the board's two-cell UV
     bounds on the GLB, plus the arch's return, wall gap and head contact and the six bracket caps' ray
-    gap to the wall. All 34 plants are refused, including `canopy_post`, `ticket_ledge_proud`,
-    `name_board_open`, `name_board_uv`, `arch_float` and `bracket_float`. The name-blind,
+    gap to the wall. All 35 plants are refused, including `canopy_post`, `ticket_ledge_proud`,
+    `name_board_open`, `name_board_uv`, `name_board_one_cell`, `arch_float` and `bracket_float`. The name-blind,
     order-free other-template proof is `OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22` against `0f510604`.
     `BUILDINGS_CHECK_OK 23 templates`, `godot:check:fp_geometry`, `godot:smoke` and `check:routing`
     pass. Matched base/head, repeat, magenta, other-template and four close-up captures accompany it;

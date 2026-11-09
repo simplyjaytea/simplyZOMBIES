@@ -53,6 +53,7 @@ blender --background --factory-startup --python tools/blender/first_person_build
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=ticket_ledge_proud
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=name_board_open
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=name_board_uv
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=name_board_one_cell
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=arch_float
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=bracket_float
 ```
@@ -65,7 +66,8 @@ puts a sawmill leaf across the south doorway. `sliding_leaf_span` draws one leaf
 boundary and is refused by the one-tile leaf assertion. `eave_north_clean` paints the north eave
 with plain tin and is refused by the per-region rust measurement. The station plants put a post under
 the canopy, make the ticket ledge 0.15 m proud, put the name board on an openable wall tile, leave its
-vertical UVs unfitted, remove the arch's return, and restore the bracket feet's round-1 stand-off.
+vertical UVs unfitted or fit only one cell, remove the arch's return, and restore the bracket feet's
+round-1 stand-off.
 
 ## Data and runtime
 
@@ -261,11 +263,12 @@ If room tags are added to content later, the manifest is the place to refine thi
   The arch has returns to the wall and legs seated on the 2.10 m casing head. Both attachments are
   `window_attach` in the sill/lintel bands and leave the aperture open. `ticket_ledge_proud` and
   `arch_float` prove the projection and missing-return failures.
-- One 0.90 m board on the canopy fascia carries the invented 梅崎 / うめざき name, using only
-  `station_name` cell `(3,7)`. Round 2 redraws the four kana's individual strokes, leaving the kanji
-  unchanged. The face UVs fit the whole cell on both axes instead of repeating by metre.
-  `name_board_open` refuses a wall-mounted board on an openable tile; `name_board_uv` leaves the
-  vertical fit out and is refused by the measured full-cell UV bounds.
+- One 0.90 m board on the canopy fascia carries the invented 梅崎 / うめざき name across
+  `station_name` cell `(3,7)` and `station_name_kana` cell `(4,7)`. The kanji strokes are unchanged;
+  round 3 corrects the kana's stroke direction and open curves. The face UVs fit both whole cells on
+  both axes instead of repeating by metre. `name_board_open` refuses a wall-mounted board on an
+  openable tile; `name_board_uv` leaves the vertical fit out and `name_board_one_cell` fits only one
+  cell, both refused by the measured UV bounds.
 - The tin gable uses shared `tin` / `tin_alt`, with 0.60 m eaves and rakes, closed timber gables,
   soffits and barge boards. `CHARACTER building.station.small` measures every value above from the GLB.
 - `OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22` is name-blind and node-order-free against
@@ -288,7 +291,7 @@ curtains do not cover the central aperture. Template window counts are unchanged
 `buildings_atlas.png` is 512 × 512 px: 8 × 8 one-metre cells at **64 texels per metre**. UVs are clipped
 at metre boundaries, including sloped hip-roof polygons, so no face samples a neighbouring cell. The
 builder measures every polygon edge and requires 48–80 texels/m; the generated assets measure 64,
-except the station name's one fitted signage face, whose whole-cell UVs intentionally override that
+except the station name's one fitted signage face, whose two-cell UVs intentionally override that
 range. GLBs request nearest magnification and Godot applies nearest-with-mipmaps filtering for distance.
 
 The opaque `BuildingsAtlas` and transparent `WindowGlass` materials reference the same atlas. The palette
