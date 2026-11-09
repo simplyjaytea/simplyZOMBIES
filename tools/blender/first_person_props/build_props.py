@@ -70,26 +70,135 @@ BASE = {
     "moss": "#4d6250", "paper": "#b7b69f", "blue_sign": "#4f6f79", "orange_faded": "#9b765a",
     "sole": "#333a38", "chrome": "#a8afaa", "label_noren_b": "#273d50",
 }
-GLYPHS = {
-    "青": (0x000, 0x000, 0x000, 0x7fe, 0x3fc, 0x020, 0x7fe, 0x000, 0x3fc, 0x3fc, 0x204, 0x3fc),
-    "谷": (0x000, 0x000, 0x080, 0x108, 0x204, 0x462, 0x0f0, 0x198, 0x70c, 0x5fa, 0x108, 0x108),
-    "飲": (0x000, 0x088, 0x094, 0x7ab, 0x448, 0x55e, 0x51e, 0x112, 0x11e, 0x282, 0x292, 0x45e),
-    "料": (0x000, 0x000, 0x204, 0x2d6, 0x296, 0x206, 0x21e, 0x2cc, 0x20c, 0xf16, 0x2f6, 0x205),
-    "川": (0x000, 0x000, 0x000, 0x404, 0x444, 0x444, 0x444, 0x444, 0x444, 0x444, 0x444, 0x442),
-    "灯": (0x000, 0x000, 0x008, 0xfe8, 0x108, 0x11a, 0x116, 0x106, 0x104, 0x104, 0x10c, 0x114),
-    "加": (0x000, 0x000, 0x004, 0x004, 0x7be, 0x4a4, 0x4a4, 0x4a4, 0x4a4, 0x4a4, 0x4a4, 0x4a2),
-    "瀬": (0x000, 0x000, 0xfa2, 0x226, 0x278, 0x720, 0x77e, 0x4e8, 0x778, 0x4b4, 0x774, 0x16a),
-    "バ": (0x000, 0x000, 0x000, 0x400, 0x200, 0x090, 0x108, 0x108, 0x308, 0x20c, 0x204, 0x606),
-    "ス": (0x000, 0x000, 0x000, 0x3fc, 0x100, 0x180, 0x080, 0x040, 0x0e0, 0x130, 0x218, 0x606),
-    "消": (0x000, 0x000, 0x082, 0x4a4, 0x2a0, 0x080, 0x7e3, 0x414, 0x7e0, 0x418, 0x7e4, 0x414),
-    "火": (0x000, 0x000, 0x000, 0x020, 0x020, 0x424, 0x424, 0x224, 0x162, 0x060, 0x090, 0x098),
-    "器": (0x000, 0x000, 0x000, 0x39c, 0x252, 0x39c, 0x1a0, 0x7fe, 0x188, 0x304, 0x79e, 0x252),
-    "風": (0x000, 0x000, 0x000, 0x3fc, 0x284, 0x27c, 0x2fc, 0x2ac, 0x2ac, 0x2fc, 0x2a2, 0xb22),
-    "庵": (0x000, 0x040, 0x7fe, 0x002, 0x7fa, 0x122, 0x252, 0x7fa, 0x3f2, 0x252, 0x3f2, 0x452),
-    "時": (0x000, 0x000, 0x080, 0x08e, 0x7ea, 0x08a, 0xfee, 0x20a, 0x7ea, 0x20a, 0x24e, 0x2c2),
-    "刻": (0x000, 0x000, 0x408, 0x410, 0x57e, 0x508, 0x524, 0x51e, 0x558, 0x52c, 0x532, 0x438),
-    "表": (0x000, 0x000, 0x000, 0x7fe, 0x020, 0x3fc, 0x020, 0x7fe, 0x050, 0x288, 0x18e, 0x108),
-    "電": (0x000, 0x000, 0x3fc, 0x020, 0x7fe, 0x7be, 0x422, 0x39c, 0x3fc, 0x224, 0x3fc, 0x3fc),
+BAKED_TEXT = {
+    "label_ao": [
+        "000000000001100000000010010000001100110000001000001000000000",
+        "000000001111111110000110001100011110100000101111101000000000",
+        "000000000111111100011101100110111110111110111100101000000000",
+        "000000000001110000000011110000011111111110011100001000000000",
+        "000000001111111110000110011000011111011100111111101000000000",
+        "000000000111111100001100001100011110011000011000101000000000",
+        "000000000110001100011111111110011110011000011100001100000000",
+        "000000000111111100000100001000010100011000111111111100000000",
+        "000000000111111100000100001000010110101100101000001000000000",
+        "000000000100000100000111111000111111100110001000001000000000",
+        "000000000100011100000111111000000001000000001000001000000000",
+    ],
+    "label_kawa": [
+        "000000000000000000000100000000001100010000001000001000000000",
+        "000000000100100010000100111111011110110000101010101000000000",
+        "000000000100110010000100001100011110111110111100011000000000",
+        "000000000100110010011110001100011111111110011000001000000000",
+        "000000000100110010010110001100011011111110111111101000000000",
+        "000000000100110010010100001100011110011000011000101000000000",
+        "000000000100110010000100001100011110011000011100001110000000",
+        "000000001100110010001110001100010010011100111111111100000000",
+        "000000001100110010001011001100011110110100101000001000000000",
+        "000000001000100010011000011100011111100110001000001000000000",
+        "000000001000000010000000011000000001000010001000001000000000",
+    ],
+    "label_bus": [
+        "000100000000000100110011110",
+        "000100001111000111111111110",
+        "001111101111100001111011000",
+        "001111101001100000111111100",
+        "000100101001101101111111100",
+        "000100101001100101011111100",
+        "000100101001100001111111100",
+        "000100101001100100110010100",
+        "001101101001100111111111100",
+        "001001101111100111111010100",
+        "011011101111101101110110110",
+        "000011001001000000010100010",
+    ],
+    "label_pole": [
+        "0001000000",
+        "0001110000",
+        "0001010000",
+        "0001110000",
+        "0000101000",
+        "0001101000",
+        "0000111000",
+        "0000111000",
+        "0001111000",
+        "0000100000",
+        "0001111000",
+        "0000111000",
+        "0001111000",
+        "0001111000",
+        "0000011000",
+    ],
+    "label_extinguisher": [
+        "0010000010000",
+        "0011011010110",
+        "0000011010100",
+        "0000011111100",
+        "0110011111110",
+        "0010011000110",
+        "0000011111110",
+        "0001010000110",
+        "0011011111110",
+        "0010011000110",
+        "0110010001110",
+        "0000011001000",
+        "0000001000000",
+        "0000001000000",
+        "0011001000100",
+        "0011001000100",
+        "0010001001100",
+        "0110011101000",
+        "0000011100000",
+        "0000110110000",
+        "0001100011000",
+        "0011000001100",
+        "0110000000110",
+        "0011100111100",
+        "0111110111100",
+        "0110110100100",
+        "0111110111100",
+        "0000011000000",
+        "0111111111110",
+        "0001100011000",
+        "0111100011110",
+        "0111110111110",
+        "0010010100100",
+        "0011110111100",
+        "0011110111100",
+    ],
+    "label_noren": [
+        "000000000111111111111000000000",
+        "000000000111111111111000000000",
+        "000000000110000011011000000000",
+        "000000000111111111011000000000",
+        "000000000110001100011000000000",
+        "000000000110111111011000000000",
+        "000000000111111111011000000000",
+        "000000000111101101011000000000",
+        "000000000111101111011000000000",
+        "000000000111111111011000000000",
+        "000000001100001101011000000000",
+        "000000001100001111011000000000",
+        "000000001101111111111110000000",
+        "000000011001110001101110000000",
+        "000000001000000000001100000000",
+    ],
+    "label_noren_b": [
+        "000000000000000100000000000000",
+        "000000000111111111111100000000",
+        "000000000111111111111100000000",
+        "000000000100001100000000000000",
+        "000000000101111111111100000000",
+        "000000000101111111111100000000",
+        "000000000100111010011000000000",
+        "000000000101111111111100000000",
+        "000000000111110111011100000000",
+        "000000001101111111111000000000",
+        "000000001100110110011000000000",
+        "000000001100111111111000000000",
+        "000000001100110111000100000000",
+        "000000001000000011111100000000",
+        "000000001000000011111100000000",
+    ],
 }
 
 
@@ -107,24 +216,27 @@ def hash2(x, y, seed=0):
     return (value ^ (value >> 16)) & 0xFFFFFFFF
 
 
-def draw_glyph(pixels, char, left, top, scale, colour):
-    rows = GLYPHS[char]
-    for gy, bits in enumerate(rows):
-        for gx in range(12):
-            if bits & (1 << gx):
-                for dy in range(scale):
-                    for dx in range(scale):
-                        x, y = left + gx * scale + dx, top + gy * scale + dy
-                        if 0 <= x < CELL and 0 <= y < CELL:
-                            pixels[y * CELL + x] = colour
+def text_ink(name):
+    return rgb("#d2cfb4") if name in {"label_noren", "label_noren_b"} else rgb("#343e3d")
 
 
-def draw_text(pixels, text, left, top, scale, colour):
-    for index, char in enumerate(text):
-        draw_glyph(pixels, char, left + index * 13 * scale, top, scale, colour)
+def text_index(name, row, x):
+    # Cell rows run top-down and a face's bottom edge samples row CELL - 1, so the bitmap's top row
+    # sits CELL - height rows down and the text stands upright on the face.
+    return (CELL - len(BAKED_TEXT[name]) + row) * CELL + x
 
 
-def cell_pixels(name):
+def draw_baked_text(pixels, name, plant=None):
+    rows = BAKED_TEXT[name]
+    colour = text_ink(name)
+    for row, bits in enumerate(rows):
+        for x in range(len(bits)):
+            sample_x = len(bits) - 1 - x if plant == "text_mirror" and name == "label_kawa" else x
+            if bits[sample_x] == "1":
+                pixels[text_index(name, row, x)] = colour
+
+
+def cell_pixels(name, plant=None, text=True):
     base = rgb(BASE[name])
     pixels = [base] * (CELL * CELL)
     for y in range(CELL):
@@ -168,24 +280,10 @@ def cell_pixels(name):
             elif name == "wire":
                 value = rgb("#606967") if abs(y - 32) <= 1 else base
             pixels[y * CELL + x] = value
+    if text and name in BAKED_TEXT:
+        draw_baked_text(pixels, name, plant)
     ink = rgb("#343e3d")
-    pale = rgb("#d2cfb4")
-    if name == "label_ao":
-        draw_text(pixels, "青谷飲料", 5, 52, 1, ink)
-    elif name == "label_kawa":
-        draw_text(pixels, "川灯飲料", 5, 52, 1, ink)
-    elif name == "label_bus":
-        draw_text(pixels, "加瀬", 2, 52, 1, ink)
-    elif name == "label_pole":
-        draw_glyph(pixels, "瀬", 0, 52, 1, ink)
-    elif name == "label_extinguisher":
-        for index, char in enumerate("消火器"):
-            draw_glyph(pixels, char, 0, 27 + index * 12, 1, ink)
-    elif name == "label_noren":
-        draw_glyph(pixels, "風", 8, 52, 1, pale)
-    elif name == "label_noren_b":
-        draw_glyph(pixels, "庵", 8, 52, 1, pale)
-    elif name == "label_timetable":
+    if name == "label_timetable":
         for y in (48, 52, 56, 60):
             for x in range(0, 15, 4):
                 for dx in range(3):
@@ -198,9 +296,9 @@ def cell_pixels(name):
     return pixels
 
 
-def build_atlas(path):
+def build_atlas(path, plant=None):
     pixels = []
-    painted = {name: cell_pixels(name) for name in CELL_NAMES}
+    painted = {name: cell_pixels(name, plant) for name in CELL_NAMES}
     for y in range(ATLAS_SIZE - 1, -1, -1):
         cell_y = y // CELL
         for x in range(ATLAS_SIZE):
@@ -373,7 +471,7 @@ class MeshBuilder:
 
 def vending(mesh, livery):
     label = "label_ao" if livery == "vending_ao" else "label_kawa"
-    mesh.box((0, 0, 0.915), (1.0, 0.75, 1.83), livery, {"front": "metal_dark"})
+    mesh.box((0, 0, 0.915), (1.0, 0.75, 1.83), livery)
     mesh.box((0, -0.382, 1.72), (0.94, 0.016, 0.17), label)
     mesh.box((-0.12, -0.365, 1.22), (0.68, 0.035, 0.72), "black")
     mesh.box((-0.12, -0.388, 1.22), (0.64, 0.012, 0.68), "glass")
@@ -396,8 +494,6 @@ def vending(mesh, livery):
     mesh.box((-0.10, -0.393, 0.35), (0.62, 0.035, 0.22), "black")
     mesh.box((-0.10, -0.42, 0.37), (0.54, 0.025, 0.13), livery)
     mesh.box((0.34, -0.405, 0.35), (0.15, 0.025, 0.17), "metal_dark")
-    for x in (-0.39, 0.39):
-        mesh.box((x, 0, 0.035), (0.10, 0.58, 0.07), "metal_dark")
 
 
 def utility_pole(mesh):
@@ -415,43 +511,78 @@ def utility_pole(mesh):
     mesh.box((0, -0.153, 1.52), (0.16, 0.012, 0.23), "label_pole")
 
 
-def wall(mesh, kind):
+def wall(mesh, kind, plant=None):
     if kind == "wall_block_gate":
-        for x in (-0.475, 0.475):
-            mesh.box((x, 0, 0.60), (0.05, 0.12, 1.20), "block", {"top": "tile_cap"})
-        for x in (-0.435, 0.435):
+        for x in (-0.45, 0.45):
+            mesh.box((x, 0, 0.60), (0.10, 0.12, 1.20), "block", {"top": "tile_cap"})
+        for x in (-0.385, 0.385):
             mesh.box((x, 0, 0.43), (0.03, 0.035, 0.82), "aluminium")
         for z in (0.04, 0.82):
-            mesh.box((0, 0, z), (0.90, 0.035, 0.035), "aluminium")
-        for x in (-0.22, 0.22):
-            mesh.box((x, 0, 0.43), (0.025, 0.03, 0.76), "aluminium")
+            mesh.box((0, 0, z), (0.74, 0.03, 0.035), "aluminium")
+        for x in (-0.18, 0.18):
+            mesh.box((x, 0, 0.43), (0.025, 0.025, 0.745), "aluminium")
+        return
+    if kind == "wall_block_end":
+        if plant == "coplanar":
+            mesh.box((0, 0, 0.58), (1.0, 0.12, 1.16), "block")
+            mesh.box((0, 0, 1.18), (1.0, 0.12, 0.04), "tile_cap")
+            mesh.box((0.46, 0, 0.58), (0.08, 0.12, 1.16), "concrete_dark", {"right": "block"})
+            return
+        mesh.box((-0.04, 0, 0.58), (0.92, 0.12, 1.16), "block")
+        mesh.box((-0.04, 0, 1.18), (0.92, 0.12, 0.04), "tile_cap")
+        mesh.box((0.46, 0, 0.58), (0.08, 0.12, 1.16), "block")
+        mesh.box((0.46, 0, 1.18), (0.08, 0.12, 0.04), "tile_cap")
+        return
+    if kind == "wall_block_corner":
+        for x0, x1 in ((-0.50, 0.36), (0.48, 0.50)):
+            mesh.box(((x0 + x1) / 2, 0, 0.58), (x1 - x0, 0.12, 1.16), "block")
+            mesh.box(((x0 + x1) / 2, 0, 1.18), (x1 - x0, 0.12, 0.04), "tile_cap")
+        mesh.box((0.42, 0.22, 0.58), (0.12, 0.56, 1.16), "block")
+        mesh.box((0.42, 0.22, 1.18), (0.12, 0.56, 0.04), "tile_cap")
         return
     mesh.box((0, 0, 0.58), (1.0, 0.12, 1.16), "block")
     mesh.box((0, 0, 1.18), (1.0, 0.12, 0.04), "tile_cap")
-    if kind == "wall_block_end":
-        mesh.box((0.46, 0, 0.58), (0.08, 0.12, 1.16), "concrete_dark", {"right": "block"})
-    elif kind == "wall_block_corner":
-        mesh.box((0.42, 0.22, 0.58), (0.12, 0.56, 1.16), "block")
-        mesh.box((0.42, 0.22, 1.18), (0.12, 0.56, 0.04), "tile_cap")
 
 
-def profile_beam(mesh, x0, x1, y0, y1):
+def unfolded_uv(points):
+    """Isometric UVs for a planar quad, shifted so the smallest u and v are 0."""
+    u_axis = (points[1] - points[0]).normalized()
+    normal = u_axis.cross(points[3] - points[0]).normalized()
+    v_axis = normal.cross(u_axis).normalized()
+    raw = [((p - points[0]).dot(u_axis), (p - points[0]).dot(v_axis)) for p in points]
+    low_u, low_v = min(u for u, _ in raw), min(v for _, v in raw)
+    return [(u - low_u, v - low_v) for u, v in raw]
+
+
+def profile_beam(mesh, x0, x1, y0, y1, drop0=0.0, drop1=0.0, caps=(True, True)):
     line = [(-0.045, 0.59), (-0.010, 0.625), (-0.045, 0.695), (-0.010, 0.765), (-0.045, 0.80)]
     profile = line + [(y + 0.012, z) for y, z in reversed(line)]
-    left = [Vector((x0, y0 + y, z)) for y, z in profile]
-    right = [Vector((x1, y1 + y, z)) for y, z in profile]
-    mesh.poly(list(reversed(left)), "guardrail")
-    mesh.poly(right, "guardrail")
+    left = [Vector((x0, y0 + y, z - drop0)) for y, z in profile]
+    right = [Vector((x1, y1 + y, z - drop1)) for y, z in profile]
+    if caps[0]:
+        mesh.poly(list(reversed(left)), "guardrail")
+    if caps[1]:
+        mesh.poly(right, "guardrail")
+    sheared = abs(y1 - y0) > 1e-9 or abs(drop1 - drop0) > 1e-9
     for i in range(len(profile)):
         j = (i + 1) % len(profile)
-        mesh.surface((left[i], right[i] - left[i], left[j] - left[i], x1 - x0, (left[j] - left[i]).length), "guardrail")
+        if sheared:
+            quad = [left[i], right[i], right[j], left[j]]
+            mesh.poly(quad, "guardrail", unfolded_uv(quad))
+        else:
+            mesh.surface((left[i], right[i] - left[i], left[j] - left[i], (right[i] - left[i]).length, (left[j] - left[i]).length), "guardrail")
 
 
-def guard(mesh, flared):
-    spans = ((-1.0, 0.0, -0.16, 0.0), (0.0, 1.0, 0.0, -0.16)) if flared else ((-1.0, 1.0, 0.0, 0.0),)
-    for x0, x1, y0, y1 in spans:
-        profile_beam(mesh, x0, x1, y0, y1)
-    mesh.box((0, 0.035, 0.375), (0.075, 0.075, 0.75), "metal")
+def guard(mesh, flared, plant=None):
+    if flared and plant == "end_both_ways":
+        spans = ((-1.0, 0.0, -0.16, 0.0, 0.0, 0.0), (0.0, 1.0, 0.0, -0.16, 0.0, 0.0))
+    elif flared:
+        spans = ((-1.0, 0.30, 0.0, 0.0, 0.0, 0.0), (0.30, 1.0, 0.0, 0.24, 0.0, 0.32))
+    else:
+        spans = ((-1.0, 1.0, 0.0, 0.0, 0.0, 0.0),)
+    for index, (x0, x1, y0, y1, drop0, drop1) in enumerate(spans):
+        profile_beam(mesh, x0, x1, y0, y1, drop0, drop1, (index == 0, index == len(spans) - 1))
+    mesh.box((0, 0.035, 0.40), (0.075, 0.075, 0.70), "metal")
     mesh.box((0, 0.035, 0.025), (0.20, 0.16, 0.05), "concrete")
 
 
@@ -485,10 +616,11 @@ def bicycle(mesh):
         mesh.cylinder((x, -0.045, 0.34), (x, 0.045, 0.34), 0.04, "chrome", 4)
         for i in range(8):
             angle = i * math.tau / 8
+            start = (x + 0.04 * math.cos(angle), 0, 0.34 - 0.04 * math.sin(angle))
             end = (x + 0.275 * math.cos(angle), 0, 0.34 - 0.275 * math.sin(angle))
-            mesh.cylinder((x, 0, 0.34), end, 0.004, "chrome", 4)
+            mesh.cylinder(start, end, 0.004, "chrome", 4)
     rear, front, crank, seat, head = Vector((-0.58, 0, 0.34)), Vector((0.58, 0, 0.34)), Vector((-0.08, 0, 0.34)), Vector((-0.25, 0, 0.76)), Vector((0.35, 0, 0.78))
-    for a, b in ((rear, crank), (rear, seat), (seat, crank), (seat, head), (head, crank), (head, front), (seat, (-0.25, 0, 0.88)), (head, (0.35, 0, 0.94))):
+    for a, b in ((rear, crank), (rear, seat), (seat, crank), (seat, head), (head, crank), (head, front), (seat, (-0.25, 0, 0.88)), (head, (0.35, 0, 0.82))):
         mesh.cylinder(a, b, 0.014, "chain_guard", 4)
     for x in (-0.58, 0.58):
         for i in range(6):
@@ -509,7 +641,7 @@ def bicycle(mesh):
             mesh.cylinder((0.51, y, z), (0.80, y, z), 0.008, "basket", 4)
         for x in (0.51, 0.80):
             mesh.cylinder((x, -0.20, z), (x, 0.20, z), 0.008, "basket", 4)
-    mesh.box((0.655, 0, 0.735), (0.29, 0.40, 0.018), "basket")
+    mesh.box((0.655, 0, 0.735), (0.28, 0.39, 0.018), "basket")
     for y in (-0.09, 0.09):
         mesh.cylinder((-0.88, y, 0.70), (-0.30, y, 0.70), 0.009, "chrome", 4)
     mesh.cylinder((-0.83, -0.09, 0.70), (-0.83, 0.09, 0.70), 0.009, "chrome", 4)
@@ -520,12 +652,6 @@ BUILDERS = {
     "vending_ao": lambda m: vending(m, "vending_ao"),
     "vending_kawa": lambda m: vending(m, "vending_kawa"),
     "utility_pole": utility_pole,
-    "wall_block_1m": lambda m: wall(m, "wall_block_1m"),
-    "wall_block_end": lambda m: wall(m, "wall_block_end"),
-    "wall_block_corner": lambda m: wall(m, "wall_block_corner"),
-    "wall_block_gate": lambda m: wall(m, "wall_block_gate"),
-    "guard_rail_2m": lambda m: guard(m, False),
-    "guard_rail_end": lambda m: guard(m, True),
     "bus_stop": bus_stop,
     "noren": noren,
     "extinguisher_box": extinguisher,
@@ -533,16 +659,18 @@ BUILDERS = {
 }
 
 
-def normalise(obj, placement):
-    points = [v.co for v in obj.data.vertices]
-    lo = [min(p[i] for p in points) for i in range(3)]
-    hi = [max(p[i] for p in points) for i in range(3)]
-    shift = Vector((-(lo[0] + hi[0]) / 2, 0 if placement == "wall" else -(lo[1] + hi[1]) / 2, 0))
-    if placement in {"kerb", "run", "wall"}:
-        shift.z = -lo[2]
+def normalise(obj, placement, shift=None):
+    if shift is None:
+        points = [v.co for v in obj.data.vertices]
+        lo = [min(p[i] for p in points) for i in range(3)]
+        hi = [max(p[i] for p in points) for i in range(3)]
+        shift = Vector((-(lo[0] + hi[0]) / 2, 0 if placement == "wall" else -(lo[1] + hi[1]) / 2, 0))
+        if placement in {"kerb", "run", "wall"}:
+            shift.z = -lo[2]
     for vertex in obj.data.vertices:
         vertex.co += shift
     obj.data.update()
+    return shift.copy()
 
 
 def export_object(obj, path):
@@ -630,13 +758,19 @@ def build_all(asset_root, blend_path=None, plant=None):
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
     bpy.context.preferences.filepaths.save_version = 0
-    image = build_atlas(export_dir / "props_atlas.png")
+    image = build_atlas(export_dir / "props_atlas.png", plant)
     material = build_material(image)
     second = build_material(image, "PropsAtlasSecond") if plant == "two_materials" else None
     objects = []
+    shifts = {}
     for name in MODEL_ORDER:
         mesh = MeshBuilder()
-        BUILDERS[name](mesh)
+        if name.startswith("wall_block"):
+            wall(mesh, name, plant)
+        elif name.startswith("guard_rail"):
+            guard(mesh, name == "guard_rail_end", plant)
+        else:
+            BUILDERS[name](mesh)
         if plant == "run_gap" and name == "wall_block_1m":
             mesh.vertices = [(x * 0.98, y, z) for x, y, z in mesh.vertices]
         if plant == "noren_low" and name == "noren":
@@ -644,7 +778,7 @@ def build_all(asset_root, blend_path=None, plant=None):
         if plant == "tri_over" and name == "bicycle":
             mesh.cylinder((-1.0, 0, 0.1), (-0.8, 0, 0.1), 0.1, "metal", 64)
         obj = mesh.object(name, material, second if name == "vending_ao" else None)
-        normalise(obj, PLACEMENT[name])
+        shifts[name] = normalise(obj, PLACEMENT[name], shifts.get("guard_rail_2m") if name == "guard_rail_end" else None)
         if plant == "float" and name == "vending_ao":
             for vertex in obj.data.vertices:
                 vertex.co.z += 0.02
@@ -693,10 +827,128 @@ def density_errors(tris):
     return bad
 
 
+def cross2(a, b):
+    return a[0] * b[1] - a[1] * b[0]
+
+
+def polygon_area(points):
+    return sum(cross2(points[i], points[(i + 1) % len(points)]) for i in range(len(points))) * 0.5 if points else 0.0
+
+
+def projected_triangle(points, axis):
+    return [(point[(axis + 1) % 3], point[(axis + 2) % 3]) for point in points]
+
+
+def triangle_intersection_area(subject, clip):
+    if polygon_area(clip) < 0:
+        clip = list(reversed(clip))
+    output = subject
+    for index, a in enumerate(clip):
+        b = clip[(index + 1) % len(clip)]
+        edge = (b[0] - a[0], b[1] - a[1])
+
+        def inside(point):
+            return cross2(edge, (point[0] - a[0], point[1] - a[1])) >= -1e-10
+
+        source = output
+        output = []
+        if not source:
+            break
+        previous = source[-1]
+        for current in source:
+            if inside(current):
+                if not inside(previous):
+                    segment = (current[0] - previous[0], current[1] - previous[1])
+                    denominator = cross2(edge, segment)
+                    if abs(denominator) > 1e-14:
+                        t = cross2((previous[0] - a[0], previous[1] - a[1]), segment) / denominator
+                        output.append((a[0] + t * edge[0], a[1] + t * edge[1]))
+                output.append(current)
+            elif inside(previous):
+                segment = (current[0] - previous[0], current[1] - previous[1])
+                denominator = cross2(edge, segment)
+                if abs(denominator) > 1e-14:
+                    t = cross2((previous[0] - a[0], previous[1] - a[1]), segment) / denominator
+                    output.append((a[0] + t * edge[0], a[1] + t * edge[1]))
+            previous = current
+    return abs(polygon_area(output))
+
+
+PLANE_TOL = 0.001
+OVERLAP_MIN_AREA = 1e-6
+
+
+def coplanar_overlaps(tris):
+    """Pairs of same-facing triangles whose planes agree within 1 mm and whose areas overlap.
+
+    Two such faces z-fight. Faces that only share an edge clip to a float32 sliver far below
+    1 mm^2, so overlaps under OVERLAP_MIN_AREA are round-off, not area.
+    """
+    faces = []
+    for index, (points, _) in enumerate(tris):
+        normal = (points[1] - points[0]).cross(points[2] - points[0])
+        if normal.length < 1e-12:
+            continue
+        faces.append((index, points, normal.normalized()))
+    overlaps = []
+    for n, (i, a, normal) in enumerate(faces):
+        axis = max(range(3), key=lambda k: abs(normal[k]))
+        projected_a = projected_triangle(a, axis)
+        for j, b, other in faces[n + 1:]:
+            if normal.dot(other) < 0.99:
+                continue
+            if any(abs((p - a[0]).dot(normal)) > PLANE_TOL for p in b) or any(abs((p - b[0]).dot(other)) > PLANE_TOL for p in a):
+                continue
+            area = triangle_intersection_area(projected_a, projected_triangle(b, axis))
+            if area > OVERLAP_MIN_AREA:
+                overlaps.append((i, j, area))
+    return overlaps
+
+
+def end_profile(tris, x):
+    return sorted({(round(p[1], 5), round(p[2], 5)) for tri in tris for p in tri[0] if abs(p[0] - x) < 1e-5})
+
+
+def guard_terminal(tris):
+    lo = min(p[0] for tri in tris for p in tri[0])
+    hi = max(p[0] for tri in tris for p in tri[0])
+    joining = end_profile(tris, lo)
+    free = end_profile(tris, hi)
+    flare = sum(p[1] for p in joining) / len(joining) - sum(p[1] for p in free) / len(free)
+    drop = sum(p[0] for p in joining) / len(joining) - sum(p[0] for p in free) / len(free)
+    joining_set = set(joining)
+    straight_x = max((p[0] for tri in tris for p in tri[0] if (round(p[1], 5), round(p[2], 5)) in joining_set), default=lo)
+    closed = any(all(abs(p[0] - hi) < 1e-5 for p in points) and (points[1] - points[0]).cross(points[2] - points[0]).length > 1e-10 for points, _ in tris)
+    return flare, drop, hi - straight_x, closed
+
+
+def front_frame_colour(name, tris):
+    candidates = []
+    for points, uvs in tris:
+        normal = (points[1] - points[0]).cross(points[2] - points[0])
+        if normal.length < 1e-12:
+            continue
+        normal.normalize()
+        if normal.z > 0.999999:
+            candidates.append((normal.length, points, uvs))
+    largest = max(candidates, key=lambda row: (row[1][1] - row[1][0]).cross(row[1][2] - row[1][0]).length)
+    uvs = largest[2]
+    u = sum(uv[0] for uv in uvs) / 3
+    v = sum(uv[1] for uv in uvs) / 3
+    cell_x = min(CELLS - 1, int(u * CELLS + 1e-6))
+    cell_y = min(CELLS - 1, int(v * CELLS + 1e-6))
+    style = CELL_NAMES[cell_y * CELLS + cell_x]
+    pixels = cell_pixels(style)
+    mean = tuple(round(sum(pixel[channel] for pixel in pixels) / len(pixels)) for channel in range(3))
+    return style, mean, (cell_x, cell_y)
+
+
 def validate(asset_root):
     failures = []
     report = []
+    profiles = {}
     manifest = json.loads((asset_root / "props.manifest.json").read_text(encoding="utf-8"))
+    failures.extend(text_errors(asset_root / "props" / "props_atlas.png"))
     rows = {entry["glb"].rsplit("/", 1)[-1][:-4]: entry for entry in manifest["models"]}
     for name in MODEL_ORDER:
         path = asset_root / "props" / (name + ".glb")
@@ -719,9 +971,19 @@ def validate(asset_root):
             half = 1.0 if name.startswith("guard_rail") else 0.5
             if abs(lo[0] + half) > 1e-5 or abs(hi[0] - half) > 1e-5:
                 failures.append(f"{name}: run ends are {lo[0]:.5f} and {hi[0]:.5f}, expected +/-{half}")
-            left = sorted({(round(p[1], 5), round(p[2], 5)) for tri in tris for p in tri[0] if abs(p[0] - lo[0]) < 1e-5})
-            right = sorted({(round(p[1], 5), round(p[2], 5)) for tri in tris for p in tri[0] if abs(p[0] - hi[0]) < 1e-5})
-            if left != right:
+            left = end_profile(tris, lo[0])
+            right = end_profile(tris, hi[0])
+            profiles[name] = left
+            if name == "guard_rail_end":
+                flare, drop, flare_length, closed = guard_terminal(tris)
+                print(f"GUARD_RAIL_END flare back {flare:.3f} m, drop {drop:.3f} m, flare run {flare_length:.3f} m, closed terminal {'yes' if closed else 'no'}")
+                if not (0.10 <= flare <= 0.50 and 0.15 <= drop <= 0.50 and 0.60 - 1e-5 <= flare_length <= 0.80 + 1e-5 and closed):
+                    failures.append(f"{name}: free end flare back {flare:.3f} m, drop {drop:.3f} m, flare run {flare_length:.3f} m, closed terminal {closed}")
+            if name.endswith("_end"):
+                base = "guard_rail_2m" if name == "guard_rail_end" else "wall_block_1m"
+                if left != profiles[base]:
+                    failures.append(f"{name}: joining-end profile does not match {base}")
+            elif left != right:
                 failures.append(f"{name}: run end profiles do not match vertex for vertex")
         if name == "noren" and lo[1] < 1.80 - 1e-5:
             failures.append(f"noren: hem is {lo[1]:.3f} m, below 1.80 m")
@@ -741,8 +1003,47 @@ def validate(asset_root):
         bad = density_errors(tris)
         if bad:
             failures.append(f"{name}: {len(bad)} triangles violate 64 texels/m or cross an atlas cell")
+        overlaps = coplanar_overlaps(tris)
+        print(f"COPLANAR_OVERLAP {name} {len(overlaps)}")
+        if overlaps:
+            i, j, area = max(overlaps, key=lambda row: row[2])
+            failures.append(f"{name}: {len(overlaps)} coplanar overlapping triangle pairs, largest {i} and {j}, area {area:.8f} m^2")
+        if name in {"vending_ao", "vending_kawa"}:
+            style, mean, cell = front_frame_colour(name, tris)
+            print(f"LIVERY {name} front-frame mean #{mean[0]:02x}{mean[1]:02x}{mean[2]:02x} from atlas cell {cell} ({style})")
+            if style != name:
+                failures.append(f"{name}: front frame uses {style}, expected {name}")
         report.append((name, size, len(tris), entry["placement"], sorted(entry["anchors"])))
     return failures, report
+
+
+def text_errors(atlas_path):
+    """Read the exported atlas and hold every label cell to its baked rows, pixel for pixel."""
+    image = bpy.data.images.load(str(atlas_path), check_existing=False)
+    try:
+        width, height = image.size
+        values = list(image.pixels)
+        channels = image.channels
+    finally:
+        bpy.data.images.remove(image)
+    errors = []
+    for name, rows in BAKED_TEXT.items():
+        cell_x, cell_y = CELLS_BY_NAME[name]
+        ink = text_ink(name)
+        wrong = 0
+        for row, bits in enumerate(rows):
+            for x, bit in enumerate(bits):
+                index = text_index(name, row, x)
+                top_down = cell_y * CELL + index // CELL
+                column = cell_x * CELL + index % CELL
+                start = ((height - 1 - top_down) * width + column) * channels
+                pixel = tuple(round(values[start + c] * 255) for c in range(3))
+                if (pixel == ink) != (bit == "1"):
+                    wrong += 1
+        print(f"TEXT {name}: {len(rows[0])} x {len(rows)} px, {sum(bits.count('1') for bits in rows)} ink, {wrong} differ from the baked rows")
+        if wrong:
+            errors.append(f"{name}: {wrong} atlas pixels differ from its baked text rows")
+    return errors
 
 
 def sha256(path):
@@ -835,7 +1136,7 @@ def main():
     arguments = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--plant", choices=("float", "sink", "size_lie", "run_gap", "noren_low", "tri_over", "two_materials"))
+    parser.add_argument("--plant", choices=("float", "sink", "size_lie", "run_gap", "noren_low", "tri_over", "two_materials", "text_mirror", "coplanar", "end_both_ways"))
     parser.add_argument("--render-dir", type=Path)
     args = parser.parse_args(arguments)
     repo = Path(__file__).resolve().parents[3]

@@ -31,16 +31,26 @@ contact, run length and matching end-profile vertices, the noren's 1.80 m minimu
 budgets, one single-sided `PropsAtlas` material, NEAREST magnification, identity node transforms,
 64 texels per metre on every triangle, and UVs confined to their 64 px atlas cells.
 
+It also refuses coplanar overlap: within one model, two same-facing triangles whose planes agree
+within 1 mm and whose areas overlap by more than 1 mm^2 (faces that only share an edge clip to a
+float32 sliver far below that). It prints `COPLANAR_OVERLAP <id> <pairs>` per model. A run piece
+named `*_end` matches its straight piece only at its joining end (x = -0.50 or -1.00); the rail
+end prints its free end's measured flare (`GUARD_RAIL_END flare back .. m, drop .. m`). Each
+vending model prints the mean colour of the atlas cell its front frame uses (`LIVERY`), and every
+label cell in the exported atlas is compared pixel for pixel with its baked rows (`TEXT`).
+
 Every planted defect must be refused with `PROPS_PLANT_REFUSED`:
 
 ```bash
-for plant in float sink size_lie run_gap noren_low tri_over two_materials; do
+for plant in float sink size_lie run_gap noren_low tri_over two_materials text_mirror coplanar end_both_ways; do
   blender --background --factory-startup --python tools/blender/first_person_props/build_props.py -- --plant "$plant"
 done
 ```
 
 The plants lift a vending machine 2 cm, sink the pole 2 cm, lie about size by 5 cm, shorten a wall
-to 0.98 m, lower the noren hem to 1.60 m, put the bicycle over budget, and add a second material.
+to 0.98 m, lower the noren hem to 1.60 m, put the bicycle over budget, add a second material,
+mirror the 川灯飲料 label, restore round 1's buried dark box in the wall end, and restore round 1's
+rail end with the run profile at both ends.
 
 Optional 640 px front three-quarter and detail renders:
 
@@ -68,24 +78,26 @@ restrained and deterministic: block courses are 390 x 190 mm, the wall caps are 
 base has a faded yellow/black sleeve, and the extinguisher box is muted red rather than a saturated
 accent.
 
-The builder embeds its small Japanese glyph masks, so rebuilding needs no font or image input.
-Invented signage reads 青谷飲料 and 川灯飲料 on the vending machines, 加瀬バス at the bus stop,
-加瀬電 on the pole, 風庵 on the noren, and 消火器 on the extinguisher box. No real maker or logo is
-used.
+Every kanji is a bitmap rasterised once from Noto Sans CJK Bold
+(`/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc`, SIL Open Font License 1.1) at its face's texel
+size and aspect, box-filtered down and thresholded, and baked into `build_props.py` as literal rows
+(`BAKED_TEXT`). The build reads no font, and rebuilding needs no font or image input. Invented
+signage reads 青谷飲料 and 川灯飲料 on the vending machines, 加瀬 at the bus stop, 加瀬電 on the pole,
+風庵 on the noren, and 消火器 on the extinguisher box. No real maker or logo is used.
 
 ## Measured models
 
 | GLB | Placement | Size x/y/z (m) | Triangles | Budget |
 |---|---|---|---:|---:|
-| `vending_ao` | kerb | 1.000 x 1.830 x 0.816 | 700 | 700 |
-| `vending_kawa` | kerb | 1.000 x 1.830 x 0.816 | 700 | 700 |
+| `vending_ao` | kerb | 1.000 x 1.830 x 0.816 | 676 | 700 |
+| `vending_kawa` | kerb | 1.000 x 1.830 x 0.816 | 676 | 700 |
 | `utility_pole` | kerb | 1.400 x 10.000 x 0.480 | 496 | 500 |
 | `wall_block_1m` | run | 1.000 x 1.200 x 0.120 | 32 | 120 |
-| `wall_block_end` | run | 1.000 x 1.200 x 0.120 | 52 | 120 |
-| `wall_block_corner` | run | 1.000 x 1.200 x 0.560 | 64 | 120 |
+| `wall_block_end` | run | 1.000 x 1.200 x 0.120 | 64 | 120 |
+| `wall_block_corner` | run | 1.000 x 1.200 x 0.560 | 96 | 120 |
 | `wall_block_gate` | run | 1.000 x 1.200 x 0.120 | 112 | 120 |
 | `guard_rail_2m` | run | 2.000 x 0.800 x 0.160 | 80 | 120 |
-| `guard_rail_end` | run | 2.000 x 0.800 x 0.320 | 96 | 120 |
+| `guard_rail_end` | run | 2.000 x 0.800 x 0.287 | 100 | 120 |
 | `bus_stop` | kerb | 0.500 x 2.300 x 0.360 | 168 | 200 |
 | `noren` | door_head | 1.000 x 0.298 x 0.036 | 52 | 80 |
 | `extinguisher_box` | wall | 0.300 x 0.600 x 0.237 | 72 | 100 |

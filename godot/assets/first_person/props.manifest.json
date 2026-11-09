@@ -14,7 +14,7 @@
       "origin": "floor_centre",
       "placement": "kerb",
       "anchors": {},
-      "tris": 700
+      "tris": 676
     },
     {
       "id": "prop.street.vending_kawa",
@@ -27,7 +27,7 @@
       "origin": "floor_centre",
       "placement": "kerb",
       "anchors": {},
-      "tris": 700
+      "tris": 676
     },
     {
       "id": "prop.street.utility_pole",
@@ -82,7 +82,7 @@
       "origin": "floor_centre",
       "placement": "run",
       "anchors": {},
-      "tris": 52
+      "tris": 64
     },
     {
       "id": "prop.street.wall_block_corner",
@@ -95,7 +95,7 @@
       "origin": "floor_centre",
       "placement": "run",
       "anchors": {},
-      "tris": 64
+      "tris": 96
     },
     {
       "id": "prop.street.wall_block_gate",
@@ -141,12 +141,12 @@
       "size": [
         2.0,
         0.8,
-        0.32
+        0.287
       ],
       "origin": "floor_centre",
       "placement": "run",
       "anchors": {},
-      "tris": 96
+      "tris": 100
     },
     {
       "id": "prop.street.bus_stop",
