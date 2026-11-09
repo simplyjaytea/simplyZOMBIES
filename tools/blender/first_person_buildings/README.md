@@ -301,8 +301,12 @@ If room tags are added to content later, the manifest is the place to refine thi
   `konbini_name_b` `(6,7)`: 128 x 38 px rows rasterised once from Noto Sans CJK Bold (SIL OFL 1.1) at
   the panel's 64 texels per metre. The faces map at the standard density; no font is read at build
   time. `konbini_name_mirror` mirrors the rows and is refused by the baked-row comparison.
+- Rain streaks run down the rendered side and back walls from 2.42 m: one per tile where a per-tile hash
+  allows, with its own place, width (35 to 83 mm) and length (0.35 to 1.23 m), so no 1 m course
+  repeats. A tile the occluder pass may open carries its streak in its wall piece, so an opened window
+  shows none. They reuse `mortar_stain`.
 - `CHARACTER building.konbini.road` measures the parapet, back faces, cap, open windows, mullions,
-  fascia, canopy, posts, name, doors, walls and roof from the GLB.
+  fascia, canopy, posts, name, doors, walls, streaks and roof from the GLB.
 - `OTHER_TEMPLATES_PIXELS_IDENTICAL 23/23` against `OTHER_TEMPLATES_BASE = 8185f1e9`, the station's
   signed head, excluding only the konbini by name.
 

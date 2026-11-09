@@ -2549,7 +2549,7 @@ not a to-do list:
   parapet with drawn back faces and caps, a south glass front of ten window tiles in thin aluminium
   mullions with a kick rail, aluminium door casing, a 0.85 m canopy with no posts and a 2.36 to
   2.95 m fascia in a faded plum livery carrying the invented name やまびこ (rows rasterised once from
-  Noto Sans CJK Bold). `build_finishes.py -- --check` prints `CHARACTER building.konbini.road` and
+  Noto Sans CJK Bold), and per-tile rain streaks on the side and back walls that never repeat by course. `build_finishes.py -- --check` prints `CHARACTER building.konbini.road` and
   `OTHER_TEMPLATES_PIXELS_IDENTICAL 23/23`, and refuses `konbini_canopy_low`, `front_solid`,
   `parapet_no_back`, `mullion_door` and `konbini_name_mirror`. Three atlas cells used, four left.
 

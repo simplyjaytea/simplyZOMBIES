@@ -1994,6 +1994,9 @@ def konbini_character(template, model, doors_clear):
     length = max(point[0] for face in canopy for point in face["points"]) - min(point[0] for face in canopy for point in face["points"])
     posts = [face for face in finish if min(point[2] for point in face["points"]) > h + 0.05 and min(ys(face)) < 2.0]
     walls = sorted({face["style"] for face in model.faces if face["style"] in exterior})
+    # Each streak is one quad, exported as two triangles; its places are counted distinct.
+    streak_places = {(round(min(point[0] for point in face["points"]), 3), round(min(point[2] for point in face["points"]), 3), round(min(ys(face)), 3)) for face in model.faces if face["style"] == "mortar_stain"}
+    streak_lengths = sorted({round(2.42 - min(ys(face)), 2) for face in model.faces if face["style"] == "mortar_stain"})
     roof = sorted({face["style"] for face in finish if face["style"] in ROOF_VARIANTS["tar"]})
     problems = []
     if len(backs) != 4:
@@ -2018,7 +2021,7 @@ def konbini_character(template, model, doors_clear):
         f"CHARACTER {template['id']}: parapet {parapet_top:.2f} m, back face {'yes' if len(backs) == 4 else 'no'}, cap {'yes' if caps else 'no'}; "
         f"front windows open {open_count} of {len(front)}, mullions {mullions}; fascia {KONBINI_FASCIA[0]:.2f} m to {KONBINI_FASCIA[1]:.2f} m, "
         f"canopy {canopy_low:.2f} m to {canopy_high:.2f} m, depth {depth:.2f} m, length {length:.2f} m, posts {len(posts)}; "
-        f"store name {1 if names else 0} on fascia; doors clear {doors_clear}; walls {walls}; roof {roof}"
+        f"store name {1 if names else 0} on fascia; doors clear {doors_clear}; walls {walls}, streaks {len(streak_places)} ({len(streak_lengths)} lengths); roof {roof}"
     )
 
 
@@ -2536,6 +2539,24 @@ def build_konbini_details(pieces, template, plant=None):
     finish.face((0.0, bottom, z0), (float(w), 0, 0), (0, 0, z1 - z0), "konbini_livery", normal=(0, -1, 0))
     finish.face((0.0, bottom, z0), (0, 0, z1 - z0), (0, top - bottom, 0), "konbini_livery", normal=(-1, 0, 0))
     finish.face((float(w), bottom, z0), (0, top - bottom, 0), (0, 0, z1 - z0), "konbini_livery", normal=(1, 0, 0))
+    # Rain streaks on the rendered side and back walls, below the parapet: one per tile where the hash
+    # allows, its place, width and length drawn per tile, so no 1 m course repeats. A tile the occluder
+    # pass may open carries its streak in its wall piece, so an opened window shows none.
+    for y in range(h):
+        for x in range(w):
+            if tile_at(template, x, y) != 1:
+                continue
+            for side_index, ((dx, dy), _) in enumerate(SIDES):
+                if side_index == 2 or tile_at(template, x + dx, y + dy) != 0 or indoors_at(template, x + dx, y + dy) or inside(template, x + dx, y + dy):
+                    continue
+                pick = stable_int(f"{template['id']}:streak:{x}:{y}:{side_index}")
+                if pick % 5 == 0:
+                    continue
+                u0 = 0.12 + (pick % 61) / 100.0
+                width = 0.035 + (pick // 61 % 5) * 0.012
+                length = 0.35 + (pick // 305 % 9) * 0.11
+                target = pieces.piece("wall", x, y)["finish"] if window_candidate(template, x, y) else finish
+                side_quad(target, x, y, side_index, u0, u0 + width, 2.42 - length, 2.42, "mortar_stain", offset=0.002)
     if plant == "mullion_door":
         finish.box((5.478, 0.0, float(h)), (0.044, WINDOW_TOP, 0.03), "alu_silver")
     if plant == "front_solid":
