@@ -83,8 +83,8 @@ const BREATH_M: float = 0.0025
 const BREATH_RAD: float = 0.004
 # A weapon that is not ready is drawn lowered: moved by LOWER_OFFSET and tilted by LOWER_PITCH_DEG at no ready
 # (ready_amount 0), and level at a steady aim. Presentation only; the sim's cone already says it.
-const LOWER_OFFSET: Vector3 = Vector3(0.04, -0.10, 0.05)
-const LOWER_PITCH_DEG: float = -18.0
+const LOWER_OFFSET: Vector3 = Vector3(0.04, -0.03, 0.05)
+const LOWER_PITCH_DEG: float = -4.0
 
 enum Phase { HIDDEN, DRAW, IDLE, INSPECT, LOWER, LOWERED, RAISE, AIM }
 
