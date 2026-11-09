@@ -876,41 +876,6 @@ HOUSE_IDS = {"building.house.small", "building.house.gable"}
 SHOP_ID = "building.arcade.retail"
 SAWMILL_ID = "building.unit.industrial"
 STATION_ID = "building.station.small"
-# The commit the other templates are proved against: every building GLB and the atlas at this base must
-# be reproduced, in mesh and in the atlas cells each one touches, by this build.
-OTHER_TEMPLATES_BASE = "0f510604e010f2d26bb338bb8f2c0120f7bf8068"
-
-
-def base_has(repo, relative):
-    return subprocess.run(["git", "-C", str(repo), "cat-file", "-e", f"{OTHER_TEMPLATES_BASE}:{relative}"], capture_output=True).returncode == 0
-
-
-def geometry_key(arrays):
-    positions = arrays["positions"]
-    low = tuple(round(min(p[axis] for p in positions), 4) for axis in range(3))
-    high = tuple(round(max(p[axis] for p in positions), 4) for axis in range(3))
-    return (len(positions), len(arrays["indices"]), low, high)
-
-
-def same_geometry(a, b):
-    if len(a) != len(b):
-        return False
-    key_a = sorted(a, key=lambda arrays: geometry_key(arrays))
-    key_b = sorted(b, key=lambda arrays: geometry_key(arrays))
-    for x, y in zip(key_a, key_b):
-        if geometry_key(x) != geometry_key(y):
-            return False
-        for name in ("positions", "normals", "uvs"):
-            if len(x[name]) != len(y[name]) or any(abs(u - v) > 1e-6 for p, q in zip(x[name], y[name]) for u, v in zip(p, q)):
-                return False
-        if x["indices"] != y["indices"]:
-            return False
-    return True
-
-
-# The round's own template is excluded by name, on both sides of the comparison. Every other base GLB
-# must be proved, so a missing template cannot shrink the proof silently.
-PROOF_OWN = {STATION_ID}
 
 
 def finish_looks(template):
@@ -2760,6 +2725,45 @@ def validate_doors(template, model):
                 raise ValueError(f"door ({x},{y}) has a {lowest_face['style']} face crossing its opening at y {lowest:.3f} m")
     print(f"DOORS {template['id']}: {len(template.get('doors', []))} doors clear, lowest crossing face none")
     return len(template.get("doors", []))
+
+
+# The commit the other templates are proved against: every building GLB and the atlas at this base must
+# be reproduced, in mesh and in the atlas cells each one touches, by this build.
+# The commit the other templates are proved against: every building GLB and the atlas at this base must
+# be reproduced, in mesh and in the atlas cells each one touches, by this build.
+OTHER_TEMPLATES_BASE = "469cf886dc5bf002ffe4a17d2435978b9a8f5d57"
+
+
+def base_has(repo, relative):
+    return subprocess.run(["git", "-C", str(repo), "cat-file", "-e", f"{OTHER_TEMPLATES_BASE}:{relative}"], capture_output=True).returncode == 0
+
+
+def geometry_key(arrays):
+    positions = arrays["positions"]
+    low = tuple(round(min(p[axis] for p in positions), 4) for axis in range(3))
+    high = tuple(round(max(p[axis] for p in positions), 4) for axis in range(3))
+    return (len(positions), len(arrays["indices"]), low, high)
+
+
+def same_geometry(a, b):
+    if len(a) != len(b):
+        return False
+    key_a = sorted(a, key=lambda arrays: geometry_key(arrays))
+    key_b = sorted(b, key=lambda arrays: geometry_key(arrays))
+    for x, y in zip(key_a, key_b):
+        if geometry_key(x) != geometry_key(y):
+            return False
+        for name in ("positions", "normals", "uvs"):
+            if len(x[name]) != len(y[name]) or any(abs(u - v) > 1e-6 for p, q in zip(x[name], y[name]) for u, v in zip(p, q)):
+                return False
+        if x["indices"] != y["indices"]:
+            return False
+    return True
+
+
+# The round's own template is excluded by name, on both sides of the comparison. Every other base GLB
+# must be proved, so a missing template cannot shrink the proof silently.
+PROOF_OWN = {STATION_ID}
 
 
 def validate_other_templates(repo, export_dir, templates, plant=None):

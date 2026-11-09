@@ -8200,6 +8200,148 @@ the noise entry.
   red with `M2_MATERIALS_FAIL`. `godot:check:grade` stows one wire before the scene is set up, since
   the E keycap that the grade lane counts is the free alarm rung.
 
+## The first-person encounter gate is green, with owner cards, 2026-11-07
+
+`godot:check:fp_encounter` ends green: no FAIL, with FINDING and INFO lines for the facts it measures. Its
+lanes: SIGHT-NEAR, SIGHT (7 m by day, acquires and closes), NOISE, CONTACT, DEATH-NOESCAPE, DEATH-ATTENTIVE,
+REPRESS, DRIFT, DRIFT-WALL, BREAK. Two questions are owner cards, and the sim's current answer is the default:
+(a) the shambler's daylight sight reach, 6 m built (`SIGHT_REACH_FLOOR_METRES`, its own decision; the card is 8 m, which wipes seed 20260805, see below); (b) whether a lone
+shambler is too weak against an attentive player: DEATH-ATTENTIVE measures it (the player kills it at +1222 ticks
+in the fixture, after 5 holds broke and with 6 wounds and blood loss 17.1), and the lane passes whatever the outcome.
+DEATH-NOESCAPE is the pinned death: stamina held at 0, the player must die and hand over or end the run.
+## The shot is a ray behind `SHOT_AS_RAY`, 2026-11-07
+
+The shot is a ray behind `SimRanged.SHOT_AS_RAY`, true by default (docs/40, "The shot"; docs/33 question 1 stays open,
+and the switch is what the owner's pick would flip).
+
+- **The round.** The origin is the shooter's eye at its own position. The direction is the aim deviated within a disc
+  of radius `cone × DISPERSION`, drawn as two uniform draws on the new `ranged.spread` stream. The first contact out to
+  the weapon's reach decides: a living body's cylinder (`SimSpace.body_of`), or a tile whose bands stop a shot.
+- **Consequences.** A round can miss a body the old rule hit for certain, and can hit a body nobody saw in the line.
+  Falloff takes the ray's distance to contact. A body contact applies the hit exactly as before, on the same `ranged`
+  rolls. A tile contact or no contact hits nobody; a tile contact marks the tile it struck.
+- **Built defaults.** `DISPERSION` is 1.0 until the balance slice measures it. A round that hits nobody marks the tile at
+  its end only if that tile has a surface (the card's default: yes, at the ray's end within reach).
+- **The switch off** is today's cone rule, unchanged; the lanes that measure the cone's outcome pin it false.
+
+## The arms raise and aim with the sim's fire state, 2026-11-07
+
+The what's-left dead socket "the raise and aim clips have no reader" is closed. The record is in
+[docs/23](23-roadmap.md#the-record-by-system), under the first-person arms.
+
+- **The clip follows the sim, not the clock.** The raise is held at the sim's own progress through
+  the weapon's raise, so a heavy gun's longer raise stretches the 0.40 s clip rather than finishing
+  it early. The aim loops while the sim is steady.
+- **Reload has no clip, so it plays the idle.** The arms return to `idle_<class>` while the sim
+  reloads. This is the conservative default: a player sees the gun stay in the idle position during
+  a reload. A reload clip from the art lead would replace it.
+- **Recover is the idle too.** After the shot the arms blend back to `idle_<class>`, not to a
+  separate settle clip. A settle clip would be a new picture, and none is drawn.
+- **A melee class ignores the fire state.** A bat or a knife has no raise or aim clip, and its
+  idle is the whole picture.
+
+## The held weapon on a body is turned a half turn from the hand, 2026-11-07
+
+The bodies in the first-person world now carry what they hold (docs/23, "Held items on the first-person
+bodies, 2026-11-07"). The weapon is mounted on the rig's `hand.R`, and one constant turns it from the hand's
+rest frame to the grip's: a half turn about the hand's X, the body's right side.
+
+- **Why a turn.** The hand bone's Y runs down the arm, and its -Z points the bore backwards: a weapon mounted
+  with identity points into the body's back. The half turn sends the bore forward (dot with the body's forward
+  +0.960) and the weapon's top up.
+- **What is left.** The grip's top sits 16 degrees above the body's up (dot 0.960). That is the hand bone's own
+  rest roll. It is left as it is: a pistol held a little high at rest reads as a body's hand, and correcting it
+  would be a per-weapon or per-pose table, which the spec rules out.
+- **Where it is judged.** `godot:check:first_person` BODIES, HELD: the bore and top are asserted above 0.9 each
+  (`HELD_FORWARD_DOT`), and the model is asserted within 0.15 m of `hand.R`, read by name from the skeleton.
+
+## The Reports read mark rides beside the first-person slot, 2026-11-07
+
+The Reports page's read mark is presentation state, and the sim is never written for it. A load that
+restored the record but not the mark would mark every old report new, so the mark is saved with the slot.
+
+- **Where it lives.** Under a sibling key, `<slot>.reads`, beside the first-person save (`save_slot.gd`). The
+  sim's save text and `SAVE_VERSION` do not move, so the top-down slot and the sim's save gate are untouched.
+- **What an old save does.** A slot with no sibling key loads as mark 0: the same as before the mark was kept.
+- **What the page shows.** Entries are marked new by their own index against the mark, wherever their page is. The
+  "since you last looked" banner shows while the record holds unread entries, not only on the page showing.
+- **The epitaph.** Offered only once the run is over, and then every epitaph line, paged. The sim writes nothing.
+
+## Orders in first person are the sim's order kinds through the conversation, 2026-11-07
+
+The conversation with a colonist offers the orders the sim already takes: go, hold, haul, attack, and stand down,
+built by the same function the top-down menu uses (`SimContext.orders_for`, the one `_order_rows`). Nothing new is
+written by the scene: a chosen row pushes its own `colonist.order` command through the command queue.
+
+- **Why the same rows.** The menu and the conversation read one answer, so an order that one offers is one the other
+  offers, and the sim's `accepts` decides both.
+- **Why nothing is filtered for routes.** A go within REACH ends as an arrival and a go with no route ends as
+  "no-route" in the same tick. The rows follow `accepts` only, as the menu's rows do; the sim ends the order.
+- **No foreman.** docs/39's foreman stays undecided: the colonist takes one order at a time from the player, and
+  nothing stands in for the player.
+
+
+## A dead zombie lies where it fell (2026-11-07)
+
+The owner, in the first-person pass: a zombie that dies vanished the same tick, which reads as broken when
+the body you just put down disappears mid-fall. A zombie's body now stays where it fell.
+
+- **The body.** `ZOMBIE_CORPSE_SHEDS` names what it sheds; `corpse` is marked `zombie` and carries its kind.
+  The kind's model and tint stay, and it plays `death` held in first person.
+- **The lying time.** `ZOMBIE_CORPSE_TICKS` = 6000 (five minutes at 20 Hz). Owner card: the lying time.
+- **Not buried, no scent, no loot.** Owner cards: burial is not built for zombie bodies; scent is none; the
+  kit still drops as before and nothing is looted from the body.
+- **The gates.** `godot:m2:roster`'s ZOMBIE CORPSE lane; `godot:check:first_person`'s BODIES case; and
+  `godot:check:zombie_art`'s REMAINS lane, which holds the new contract (death = the drop and the shed list
+  and `corpse`; nothing else in the world moves).
+- **Two places the spec named that are not components here.** The dormant, lurker, feigner, gas, shove and
+  crawler states are not components of their own: they live in the `shambler` component (a feigner's keys,
+  a dormant body's state) or in the content. Removing `shambler` is what covers them.
+- **The cap (2026-11-07, the owner's budget card).** `ZOMBIE_CORPSE_CAP` = 60 bodies at once. A death that
+  would make 61 takes the oldest body first, the way decals bound their marks; ties on the tick go to the
+  lower entity id. The gate is `godot:m2:roster`'s ZOMBIE CORPSE CAP lane (61 deaths, 60 stand, the oldest
+  taken, the newest kept); its plant (the bound call removed) stands 61 and turns the lane red. The tick cost
+  of the cap is measured in the PR body and REPORT.md: a throwaway driver, 100 kills and 600 ticks, three
+  process runs of three worlds each, on origin/main (which despawns them) and on this head.
+  **Measured (2026-11-07), 100 zombies killed, 600 ticks timed, world = `SimBoot.playable(20260805, 64)`.**
+  Three process runs of three worlds each, per tree, alternating so both see the same load drift (machine
+  load 6 to 9, other sessions' Godot runs on it).
+  - origin/main at 3190fc5a (the zombies despawn, 0 bodies): mean tick median 1.830 ms (range 1.798 to 1.836),
+    worst-tick median 13.27 ms.
+  - this head with the cap (60 bodies stand): mean tick median 2.740 ms (range 2.715 to 2.778), worst-tick
+    median 14.35 ms.
+  - Mean delta at 60 bodies: 0.91 ms, under the 1 ms line. The worst tick is noisy on both trees (13 to 15 ms)
+    and is not judged here. origin/main has moved since (3e4440c5, #355, no sim files), so the baseline is the
+    last sim-identical commit.
+
+## The title starts first person; the top-down game hides behind `--topdown` (2026-11-07)
+
+The owner, 2026-11-07: "Let's hide the top down mode. The game should automatically load into first
+person view." Minutes later, the same session: "Everything should be working on the first person part
+of the game. The top down is cancelled/put on hold for now."
+
+- **The title.** The default title offers new run and quit. New run changes scene to the first-person
+  scene (`main.gd`'s `new_run_scene`, a pure function the gate asks). The first-person row is off the
+  default title. So is continue: the first-person scene does not load its slot on boot, so a continue
+  row would start a fresh run under that name. The first-person save is loaded with F9 in the game. A
+  continue row on the default title is a later piece, if the owner wants one.
+- **Legacy by argument, not by row.** `-- --topdown` opens the top-down title with its four rows (new
+  run, continue, first person, quit), and its new run plays in place. `npm run godot:run:topdown` passes
+  the argument, and `npm run godot:check:play` passes it too. `main.gd` hands the mode to the shell as
+  `legacy` in its context. Nothing in the first-person scene leads to the top-down game.
+- **Hidden, not deleted.** The top-down game, its scenes and its gates stay. The rows and the argument
+  are the whole switch. The over screen's and the pause menu's rows are unchanged; the over screen's new
+  run follows the same rule as the title's.
+- **The gate.** `npm run godot:check:hud` prints `TITLE OK` (lane `TITLE` in `godot/check_hud.gd`): the
+  default rows are new run and quit, no word on the default title names the top-down game, the top-down
+  rows are the four above, and the default title's new run asks for the first-person scene. The SHELL
+  lane's title screens now name `legacy` where they expect today's rows, and the default case is added.
+  The plant: `first person` put back into the default rows turns the gate red with
+  `TITLE: the default title offers ["new run", "first person", "quit"], not new run and quit`.
+- **The frame bench carries `-- --topdown`.** `bench/runtime_frame.gd` loads `presentation/main.tscn` and
+  times the top-down street, so its `new_run` must play in place; the runner and the budget contract's
+  expected args (`scripts/check-runtime-budget.mjs`) both pass it. (2026-11-07)
+
 ## The juggernaut shoves barricades, 2026-11-06
 
 The what's-left entry "The juggernaut" is closed. Its record, with the numbers, is in
@@ -8246,3 +8388,63 @@ exterior wall, and the ground along that face is plain outdoor tiles. It is Floo
 - **Proof.** The other 22 templates are proved against `84aef0fd` by name-blind, order-free geometry and the
   atlas cells each one touches (`OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22`). The station is excluded by name,
   as a template with no base GLB.
+
+## The roster is nine terminals in three workspaces, and the merge line (2026-11-08)
+
+- **The roster.** Nine terminals in herdr, in three workspaces: "simplyZOMBIES / Main Code" (the
+  orchestrator, the lead engineer and three workers), "simplyZOMBIES / Modeling and Art" (the art lead
+  and its QA), and "simplyZOMBIES / Claude Code" (the NPC and zombie lead and its worker). The table in
+  [The team](../PLAYBOOK.md#the-team) is the record of who does what.
+- **The merge line runs from the orchestrator's seat.** The lead engineer reviews a head, checks it
+  contains `origin/main`, reads its merge diff and confirms CI on that head, then sends the orchestrator
+  `MERGE #N <full 40-char SHA>`. The orchestrator runs `gh pr merge N --merge --match-head-commit <SHA>`
+  on that line. Where the auto-mode classifier blocks that command on a seat, the owner runs it, as on
+  2026-11-08 for #362.
+## The harm readout says a wound and a held body in words, 2026-11-07
+
+The first-person HUD names held (F struggles free, several holders read as several things), the newest wound
+(the sim's presentation word, so a bite that presents as a scratch reads as a scratch), the blood-loss words, and
+infection, and the fire state. Infection shows only for a transmitted exposure, not for every bite: the condition
+view reads every exposure as "watch", which would tell the player about a bite that did nothing. Pressing fire again
+during Steady does nothing; the Steady line says the shot fires by itself.
+## A released holder presses again, 2026-11-07
+
+A grab broken by the player's struggle leaves the holder in reach; the holder re-grabs. The encounter gate's
+REPRESS lane measured the one case that did not: the player walked off at BREAK_AWAY_SPEED (2.1 m/s) after the
+shove, because the shove's velocity stayed on the controlled body when the shove ended. Decision: a controlled body
+the shove leaves comes to rest when its record expires (or the victim is grabbed again), axis by axis (a wall hit zeroes one axis
+and leaves the other, so both-axes equality was the wrong test); t1v's DRIFT.md measured the same stale velocity from a pistol fight. NPCs keep the velocity their errand
+sets (the escape lane depends on it). The stagger-to-Pursue variant was tried and dropped: REPRESS passes without it.
+Balance on four seeds is unchanged by this decision. The attentive player now kills a lone shambler (about 1200 ticks),
+so the DEATH lane's question is answered, and that lane stays red on the answer.
+
+## The shambler's daylight sight reach has a floor, 2026-11-07
+
+Default built, owner card open: a shambler's daylight reach is 6 m, not 3.8 m. The owner chose 8 m as the
+default; on top of main be4c058e (the hunting rifle) it wipes seed 20260805, the first-person default, in the
+compressed campaign, and `godot:m2:balance` fails. Built 6 m, measured over ten seeds (floor 8: one wipe; floor 6:
+none; the result is not monotonic in the floor, floor 7 wiped seed 90210 instead). 8 m is the card. The reach was observer range
+times sqrt(lightSense), 12 x sqrt(0.1), so it was blind past 4 m by day. The floor is `SIGHT_REACH_FLOOR_METRES`
+in `shambler.gd`, applied as `max(own, floor) * fog`; the fog and the night rule in `visibility.gd` still limit what
+is seen, and a kind with no light sense keeps none. Under fog the floor falls to 1.5 m, a hair inside the
+1.6 m contact radius. The card is the owner's to change; the floor is one constant, and 8 m needs a balance answer
+for seed 20260805 first.
+`check_fp_aid.gd` NOIN keeps Ellis marked a recruit for the whole lane: with the re-pursuit the hold lasts, and an unmarked Ellis
+aids, which is not the kind under test (a settler and a raider, Mara); the plant (the colony gate in `npc_combat.gd` removed) still goes red.
+`check_first_person.gd` runs its scene lanes with the floor at 0, as m2:roster and m2:fog do: at the floor the TALK lane lets a zombie
+grab the player, and the break-away shove outlives into the ANIM lane's "standing reads idle"; fp_encounter judges the floor.
+
+## Outdoor boot wanderers are judged ahead; the boot ships at lead 0, 2026-11-07
+
+Option B (t1n). `BOOT_WAVE_LEAD_DAYS` ships 0: the boot, and every balance gate, is unchanged. The recommended alpha default
+is 2, to be set by the first-person scene once #361 is on main. At 2, seed 20260805, the first-person default district seed,
+wipes the headless colony by day 10 (2/3 to 0/3) with two stalkers and a bloater outdoors; the colony is down to 0 by day 6
+in the diagnostic, and its early losses are two shamblers and one septic death, not a stalker or the bloater. At 1 the boot
+is inert (day 2 admits no kind before day 3). The owner can dial it. Card open: how early do the boot wanderers take the
+other kinds, and is the wipe on seed 20260805 acceptable for an alpha that starts with a day-1 packet? 0 is the old behaviour.
+## Colonists come to the held player's aid, 2026-11-07
+
+Card open (owner): the default is 24 m to the zombie and 4 m for a Pursuing zombie to the controlled body. An aider is
+given an attack order through the order seam; the walk and the rescue are the existing ones. Raiders and settlers do not
+aid. A colonist 12 m away is too slow to beat the player's instinct struggle (40 ticks), so the aid lands at close range.
+The armour lane pins `NPC_AID_ENABLED` off: it tests what a blow wears, not who strikes. Shipped on.

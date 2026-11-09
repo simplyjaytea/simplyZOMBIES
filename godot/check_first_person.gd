@@ -41,8 +41,9 @@ extends SceneTree
 #   HELD      the equipped weapon in the lower right is the item's own model, assembled from the
 #             sim's installed visible parts, each under its socket: a service pistol shows its
 #             receiver, barrel and magazine; fitting the suppressor through `item.attach` puts it on
-#             the barrel's socket_muzzle; a view that no longer matches the sim fails its own check;
-#             bare hands show nothing; the bat is drawn whole with no added head.
+#             the barrel's socket_muzzle; the hunting rifle draws its longer barrel and full stock;
+#             a view that no longer matches the sim fails its own check; bare hands show nothing;
+#             the bat is drawn whole with no added head.
 #   BENCH     a gunsmith bench is drawn where the sim has one; E at it in reach and on the aim opens
 #             the sim's own assembly screen on the held pistol, a part fitted through the screen
 #             moves the sim's installed parts and the held view, a refused recipe leaves the parts
@@ -112,7 +113,12 @@ extends SceneTree
 #             while L is held (it goes round while held and is idle a frame after the release), never
 #             with bare hands and never through a screen. Every view-model surface draws with the view
 #             model's own lens and pulled-in depth, and a planted plain mesh in the hand is refused.
-#   MODELS    every weapons-manifest entry loads and its box is its sizeM within 1 cm; an id match beats a class match and an unknown id resolves to null; two GLBs that embed the atlas share one mipmapped texture; a loose bat the sim drops is drawn with its model at its resting position, and an item with no model has no node.
+#   MODELS    every weapons-manifest entry loads and its box is its sizeM within 1 cm; a
+#             receiver-qualified id beats an unqualified id, which beats a class, and a qualified
+#             part never leaks to another receiver; an unknown id resolves to null; two GLBs that
+#             embed the atlas share one mipmapped texture; a loose bat the sim drops is drawn with
+#             its model at its resting position, and an item with no model has no node. A loose rifle
+#             draws its installed visible parts, lies on its side at least 1 m long and rests on the floor.
 
 
 const SCENE_PATH: String = "res://presentation/first_person/first_person.tscn"
@@ -136,6 +142,8 @@ const SimMelee = preload("res://sim/modules/melee.gd")
 const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimItems = preload("res://sim/modules/items.gd")
+const SimOrders = preload("res://sim/modules/orders.gd")
+const SimContext = preload("res://sim/context.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
@@ -187,14 +195,26 @@ func _init() -> void:
 	call_deferred("_run")
 
 
+# The scene lanes stage their own fixtures (a talker beside the player, an open area to stand in) and read
+# the sim after a fixed number of ticks, so they run with the shambler's daylight reach floor off, as
+# m2:roster and m2:fog do for the content reach: at the 8 m default a district shambler sees the player
+# during the TALK lane, grabs and is shaken off, and the shove it leaves runs into the ANIM lane's "standing
+# reads idle". What a shambler does to the first-person player at the floor is fp_encounter's to judge.
+var _floor_was: float = 0.0
+
+
 func _run() -> void:
 	var old_size: Vector2i = root.size
 	root.size = Vector2i(1280, 720)
+	_floor_was = SimShambler.SIGHT_REACH_FLOOR_METRES
+	# Floor off for the scene lanes: TALK lets a zombie at 8 m grab the player and the break-away shove outlives into ANIM.
+	SimShambler.SIGHT_REACH_FLOOR_METRES = 0.0
 	var packed: PackedScene = load(SCENE_PATH) as PackedScene
 	if packed == null:
 		_fail("SCENE", "could not load %s" % SCENE_PATH)
 		_finish(old_size)
 		return
+	var lead_before: int = SimBoot.BOOT_WAVE_LEAD_DAYS
 	var ok: bool = _lane("DISTRICT", _district_default(packed), "the scene boots the shipped district size and seed by default and the gate walks a smaller one")
 	ok = _lane("BOOT", _default_boot(), "project.godot boots the first-person scene, and a project that names the top-down scene is refused") and ok
 	var scene: Node = packed.instantiate()
@@ -204,6 +224,7 @@ func _run() -> void:
 	await process_frame
 
 	ok = _lane("SHAPE", _scene_shape(scene), "the scene is the opt-in scene with a district, a HUD and no physics body") and ok
+	ok = _lane("BOOTKINDS", _boot_kinds(scene), "the first-person boot carries an outdoor wanderer that is not a shambler, and the tally is printed") and ok
 	if ok:
 		ok = _district(scene) and ok
 		var spawn: Vector2 = scene.call("rendered_player_position")
@@ -223,7 +244,7 @@ func _run() -> void:
 		ok = _lane("SPEECH", _speech(scene), "the HUD is digit-free prose with no progress bar") and ok
 		ok = _lane("VERBS", _verbs(scene), "E on a door uses the sim's own verb and a plain wall offers none") and ok
 		ok = _lane("STANCE", _stance(scene), "the stance keys change the sim's posture and the eye eases to it") and ok
-		ok = _lane("REPORTS", _reports(scene), "the ledger's Reports page reads the chronicle's own lines and moves the read mark") and ok
+		ok = _lane("REPORTS", _reports(scene), "the ledger's Reports page reads the chronicle's own lines and moves the read mark, and PAGES: the record turns in twelves with older and newer, a twelve-line record shows no paging, every shown line is the chronicle's, the read mark rides the save slot, and the epitaph page is offered only once the run is over") and ok
 		# The speed lane reads keys, so it runs before the run-over lane, which leaves input swallowed.
 		# Save before the lanes that kill the colony: the run-over lane leaves input swallowed.
 		ok = _lane("SPEED", _speed(scene), "the top-down speed keys step the clock 1x and 3x and P holds it, with the ledger refusing them") and ok
@@ -234,30 +255,71 @@ func _run() -> void:
 		ok = _lane("LIGHT", _light(scene), "noon is bright and midnight dark, and a carried torch lights the eye") and ok
 		ok = _lane("SUCCESSION", _succession(scene), "a death hands the camera to an heir and the dead body is drawn") and ok
 		ok = _lane("LEGEND", _legend(scene), "F1 lists every key the scene handles and the scene handles every key it lists") and ok
-		ok = _lane("ARMS", _arms(scene), "the view-model arms are the scene's own under the Eye, lower for screens and third person, follow the sim's equipped hold class, hold the weapon on grip_r at the anchor, inspect only while L is held and never cut into a wall") and ok
+		ok = _lane("ARMS", _arms(scene), "the view-model arms are the scene's own under the Eye, lower for screens and third person, follow the sim's equipped hold class, hold the weapon on grip_r at the anchor, inspect only while L is held, never cut into a wall, and raise and aim a firearm on the sim's fire state (AIM: raise at the sim's t, aim while steady, idle after the shot, a sheet lowers the aim, a stub that says idle holds idle, a melee class ignores the state)") and ok
 		ok = _lane("HANDS", await _hands(scene), "the bare hands at 16:9 and 4:3 do not reach the key bar, and the overlap test sees a bar placed on them") and ok
 		ok = _lane("THIRD", _third_person(scene), "F2 steps the camera behind the eye and back, the own body is drawn and plays the sim's clip only in third person, and a wall pulls the camera in while an open line does not") and ok
 		ok = _lane("HIDE", _held_visibility(scene), "the held weapon hides while the bench, inventory, ledger, talk and third-person screens are open and shows otherwise") and ok
-		ok = _lane("TALK", _talk(scene), "a colonist in reach talks in the read models' own words") and ok
+		ok = _lane("TALK", _talk(scene), "a colonist in reach talks in the read models' own words, and ORDERS: the conversation offers the sim's own order rows for the aim (go, haul, attack, stand down, a refused colonist none), digit-free, and choosing one pushes the sim's command") and ok
 		ok = _lane("ANIM", _anim(scene), "every body names its animation state from the sim with a phase in 0..1") and ok
 		ok = _lane("RUN-OVER", _run_over(scene), "killing the colony opens the end panel and W sends nothing") and ok
 	scene.queue_free()
 	await process_frame
 	# The body lane runs its own 300 ticks, so it gets a fresh scene of its own: the colony the other lanes read
 	# is not changed by it, and the lane reads a colony that is all there.
+	ok = _lane("BOOTLEAD", _boot_lead_restored(lead_before), "the boot lead is restored when the first-person scene leaves") and ok
 	var bodies_scene: Node = packed.instantiate()
 	bodies_scene.set("district_tiles", SMALL_DISTRICT_TILES)
 	root.add_child(bodies_scene)
 	bodies_scene.set_process(false)
 	await process_frame
-	ok = _lane("BODIES", _character_bodies(bodies_scene), "a walking colonist plays walk at the sim's phase, a lunging shambler plays lunge, a corpse holds death, loops loop and one-shots hold, a body the sim cannot see is hidden, and a missing model falls back to the capsule") and ok
+	ok = _lane("BODIES", _character_bodies(bodies_scene), "a walking colonist plays walk at the sim's phase, a lunging shambler plays lunge, a corpse holds death, loops loop and one-shots hold, a body the sim cannot see is hidden, a missing model falls back to the capsule, and HELD: a colonist's pistol sits in its right hand within 0.15 m, a bat swaps it, an unarmed colonist draws nothing, and the player's own body in third person carries the pistol") and ok
 	bodies_scene.queue_free()
 	await process_frame
 	_finish(old_size, ok)
 
 
+# --- BOOTKINDS (2026-11-08) -----------------------------------------------------------------
+
+# True positive: the first-person boot judges its outdoor wanderers two days on (first_person.gd sets
+# BOOT_WAVE_LEAD_DAYS = 2), so day 3's wave admits a stalker, screamer or bloater. The tally of outdoor
+# wanderers that are not shamblers is printed. Plant: remove the first_person.gd line and the boot judges at
+# lead 0, where day 1 admits the shambler alone, so the tally is 0 and this lane fails.
+func _boot_kinds(scene: Node) -> bool:
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	if world == null or map == null:
+		return _fail("BOOTKINDS", "the scene has no sim world or map to tally")
+	var outdoor: int = 0
+	var non_shambler: int = 0
+	for ent in world.components.query(["position", "zombieType"]):
+		var e: int = int(ent)
+		if not world.entities.is_alive(e):
+			continue
+		var pos: Dictionary = world.components.get_component(e, "position") as Dictionary
+		var tx: int = int(floorf(float(pos["x"])))
+		var ty: int = int(floorf(float(pos["y"])))
+		if SimTileMap.is_indoors(map, tx, ty):
+			continue
+		outdoor += 1
+		var kind: String = String((world.components.get_component(e, "zombieType") as Dictionary).get("id", ""))
+		if kind != SimRoster.TYPE_SHAMBLER:
+			non_shambler += 1
+	print("FIRST_PERSON_BOOTKINDS lead %d: %d outdoor wanderers, %d not a shambler" % [SimBoot.BOOT_WAVE_LEAD_DAYS, outdoor, non_shambler])
+	if non_shambler < 1:
+		return _fail("BOOTKINDS", "the first-person boot has %d outdoor wanderers and none is a stalker, screamer or bloater" % outdoor)
+	return true
+
+
+# The static lead is the scene's to set and to give back: a scene that leaves it changed would tilt every boot after it.
+func _boot_lead_restored(lead_before: int) -> bool:
+	if SimBoot.BOOT_WAVE_LEAD_DAYS != lead_before:
+		return _fail("BOOTLEAD", "the boot lead is %d after the scene left, not %d" % [SimBoot.BOOT_WAVE_LEAD_DAYS, lead_before])
+	return true
+
+
 func _finish(old_size: Vector2i, ok: bool = false) -> void:
 	root.size = old_size
+	SimShambler.SIGHT_REACH_FLOOR_METRES = _floor_was
 	if ok:
 		for skip in _skips:
 			print("FIRST_PERSON_SKIP " + skip)
@@ -1309,7 +1371,6 @@ func _body_total(body: Dictionary) -> float:
 # equipped through `SimInventory.equip`; the sim's equip handler builds `rangedWeapon` with its
 # `source`. The muzzle swap goes through the sim's own `item.attach` command. The negative detaches
 # the part in the sim and asks the view's own `verify` before it repaints.
-const HELD_HIDDEN_SLOTS: Array[String] = ["internal", "spring", "sear", "extractor"]
 
 func _held(scene: Node) -> bool:
 	var ok: bool = true
@@ -1385,10 +1446,44 @@ func _held(scene: Node) -> bool:
 	# Nothing hidden and nothing uninstalled is ever drawn.
 	for slot_v in held.call("drawn_slots") as Array:
 		var slot: String = String(slot_v)
-		if HELD_HIDDEN_SLOTS.has(slot):
+		if Models.HIDDEN_SLOTS.has(slot):
 			ok = _fail("HELD", "a hidden slot %s was drawn" % slot)
 		if not (held.call("socket_name", slot) as String).begins_with("socket_"):
 			ok = _fail("HELD", "slot %s is not on a socket node" % slot)
+
+	# The hunting rifle uses its own parts on the same shared content ids, not the pistol-scale models.
+	var rifle: int = int(SimItems.spawn_item(world, "item.rifle.hunting", {"tier": "scavenged"}))
+	if rifle < 0:
+		return _fail("HELD", "the hunting rifle would not spawn")
+	if not SimInventory.equip(world, player, rifle):
+		return _fail("HELD", "the hunting rifle would not equip")
+	scene.call("step_sim_once")
+	scene.call("_process", TICK_SECONDS)
+	want = _held_visible_parts(world, rifle)
+	drawn = held.call("drawn") as Dictionary
+	if String(drawn.get("receiver", "")) != "item.rifle.hunting":
+		ok = _fail("HELD", "the rifle drew receiver '%s'" % String(drawn.get("receiver", "")))
+	slots = held.call("drawn_slots") as Array
+	want_slots = want.keys()
+	want_slots.sort()
+	if slots != want_slots:
+		ok = _fail("HELD", "the rifle drew slots %s, not the sim's visible %s" % [slots, want_slots])
+	for slot_v in want.keys():
+		var slot: String = String(slot_v)
+		ok = _held_socket_ok(held, slot, String(want[slot_v]), "socket_%s" % slot) and ok
+	if not (held.call("missing_parts") as Array).is_empty():
+		ok = _fail("HELD", "the default rifle has parts with no model: %s" % str(held.call("missing_parts")))
+	var rifle_barrel: Node3D = held.call("part_node", "barrel") as Node3D
+	var rifle_stock: Node3D = held.call("part_node", "furniture") as Node3D
+	if rifle_barrel == null or absf(Models.bounds(rifle_barrel).size.z - 0.570) > 0.001:
+		ok = _fail("HELD", "the rifle barrel is not the 570 mm rifle model")
+	if rifle_stock == null or absf(Models.bounds(rifle_stock).size.z - 0.8575) > 0.001:
+		ok = _fail("HELD", "the rifle stock is not the full-length 857.5 mm rifle model")
+	if not bool(held.call("verify", world)):
+		ok = _fail("HELD", "the rifle view does not match the sim's installed parts")
+	SimInventory.unequip(world, player, "primary")
+	scene.call("step_sim_once")
+	scene.call("_process", TICK_SECONDS)
 
 	# Bare hands again, then the bat whole.
 	SimInventory.unequip(world, player, "secondary")
@@ -1423,7 +1518,7 @@ func _held_visible_parts(world: Variant, host: int) -> Dictionary:
 	var fitted: Dictionary = SimAttachments.attached(world, host)
 	for slot_v in fitted.keys():
 		var slot: String = String(slot_v)
-		if HELD_HIDDEN_SLOTS.has(slot):
+		if Models.HIDDEN_SLOTS.has(slot):
 			continue
 		var base: Variant = SimItems.item_base_of(world, int(fitted[slot_v]))
 		if base is Dictionary:
@@ -2510,7 +2605,188 @@ func _reports(scene: Node) -> bool:
 	var after: String = _joined_hud(scene)
 	if after.contains("new reports"):
 		ok = _fail("REPORTS", "the prompt still asks about new reports after reading")
+	ok = _reports_pages(scene, world) and ok
 	return ok
+
+
+# PAGES: the record turns in twelves, newest first, and "older" and "newer" move a page and stop at the ends. A
+# record of twelve shows no paging. Every line a page holds is one the chronicle holds, and an invented line is
+# refused by the same check. The read mark rides the slot: a load does not mark old entries new, and a slot with no
+# mark loads as 0. The epitaph is offered only once the run is over, and then it holds every epitaph line. The
+# case writes its own records through the chronicle's writer and puts the record back as it was at the end.
+const PAGE_NAMES: Array[String] = ["Ash", "Brook", "Cole", "Dana", "Eli", "Fenn", "Gray", "Hale", "Iris", "Jude",
+	"Kit", "Lark", "Mae", "Nell", "Orla", "Pax", "Quill", "Rhea", "Sol", "Tam", "Ula", "Vale", "Wren", "Xan",
+	"Yara", "Zed", "Bram", "Cass", "Dov", "Esme"]
+const GATE_REPORTS_KEY: String = "first_person_reports_gate.slot"
+
+
+func _reports_pages(scene: Node, world: Variant) -> bool:
+	var ok: bool = true
+	var record: Array = world.chronicle as Array
+	var kept: Array = record.duplicate(true)
+	var kept_read: int = int(scene.get("_reports_read"))
+	var was_over: bool = bool(world.runOver)
+	if bool(scene.get("menu_open")):
+		scene.call("close_ledger_menu")
+
+	# Thirty entries, newest last, through the chronicle's own writer.
+	record.clear()
+	for name in PAGE_NAMES:
+		SimChronicle._write(world, "joined", name, -1)
+	var expected: Array[String] = []
+	for i in range(record.size() - 1, -1, -1):
+		expected.append(SimChronicle._line_of(world, record[i] as Dictionary))
+	scene.call("open_ledger_menu")
+	scene.call("open_reports")
+	var page: Control = scene.call("reports_node") as Control
+	if page == null or not page.visible:
+		_restore_record(world, kept, kept_read, scene)
+		return _fail("REPORTS", "the Reports page is not up for the PAGES case")
+
+	# The page opens on the newest twelve.
+	if int(page.call("page")) != 0 or not _same_texts(page.call("shown"), expected.slice(0, 12)):
+		ok = _fail("REPORTS", "the record does not open on its newest twelve lines")
+	var older: Control = page.call("older_button") as Control
+	if older == null or not older.visible:
+		_restore_record(world, kept, kept_read, scene)
+		return _fail("REPORTS", "a thirty-line record offers no 'older' button")
+
+	# "older", by a real click on the button, shows the next twelve, then the last six.
+	_click_at(older.get_global_rect().get_center())
+	if int(page.call("page")) != 1 or not _same_texts(page.call("shown"), expected.slice(12, 24)):
+		ok = _fail("REPORTS", "'older' did not show the next twelve lines (page %d)" % int(page.call("page")))
+	older = page.call("older_button") as Control
+	_click_at(older.get_global_rect().get_center())
+	if int(page.call("page")) != 2 or not _same_texts(page.call("shown"), expected.slice(24, 30)):
+		ok = _fail("REPORTS", "'older' did not show the last six lines (page %d)" % int(page.call("page")))
+	if older.visible:
+		ok = _fail("REPORTS", "'older' is still offered on the last page")
+
+	# "newer" goes back a page at a time, and stops at the newest.
+	var newer: Control = page.call("newer_button") as Control
+	_click_at(newer.get_global_rect().get_center())
+	if int(page.call("page")) != 1 or not _same_texts(page.call("shown"), expected.slice(12, 24)):
+		ok = _fail("REPORTS", "'newer' did not return to the middle page (page %d)" % int(page.call("page")))
+	newer = page.call("newer_button") as Control
+	_click_at(newer.get_global_rect().get_center())
+	if int(page.call("page")) != 0 or not _same_texts(page.call("shown"), expected.slice(0, 12)):
+		ok = _fail("REPORTS", "'newer' did not return to the newest twelve (page %d)" % int(page.call("page")))
+	if newer.visible:
+		ok = _fail("REPORTS", "'newer' is still offered on the newest page")
+
+	# Every line on every page is one the chronicle holds, and none has a digit.
+	for row in page.call("all_lines") as Array:
+		var text: String = String((row as Dictionary)["text"])
+		if _has_digit(text):
+			ok = _fail("REPORTS", "a paged line shows a digit: %s" % text)
+		if not _page_holds(world, text):
+			ok = _fail("REPORTS", "a paged line is not one the chronicle holds: %s" % text)
+	# The true negative: the same check refuses a line the chronicle never wrote.
+	if _page_holds(world, "Ash has walked out of the valley."):
+		ok = _fail("REPORTS", "the held-line check accepts a line the chronicle never wrote")
+
+	# A record of twelve shows no paging.
+	record.clear()
+	for i in 12:
+		SimChronicle._write(world, "joined", PAGE_NAMES[i], -1)
+	page.call("show_reports", world, 0)
+	if int(page.call("pages")) != 1 or bool(page.call("paging_visible")) or (page.call("shown") as Array).size() != 12:
+		ok = _fail("REPORTS", "a record of twelve lines shows paging rows")
+
+	# The read mark rides the slot: write it, change the record, load, and the old entries are not new; a slot with
+	# no mark loads as 0.
+	record.clear()
+	for name in PAGE_NAMES:
+		SimChronicle._write(world, "joined", name, -1)
+	var saved_key: String = SaveSlot.slot_key
+	SaveSlot.slot_key = GATE_REPORTS_KEY
+	SaveSlot.remove()
+	scene.set("_reports_read", 30)
+	if not bool(scene.call("save_game")):
+		ok = _fail("REPORTS", "the save did not write for the read-mark case")
+	SimChronicle._write(world, "joined", "Oda", -1)
+	SimChronicle._write(world, "joined", "Pim", -1)
+	if not bool(scene.call("load_game")):
+		ok = _fail("REPORTS", "the load did not read the slot back")
+	record = world.chronicle as Array
+	if (world.chronicle as Array).size() != 30:
+		ok = _fail("REPORTS", "the load did not restore the saved record (%d lines, not 30)" % (world.chronicle as Array).size())
+	if int(scene.get("_reports_read")) != 30:
+		ok = _fail("REPORTS", "the read mark did not come back from the slot (%d, not 30)" % int(scene.get("_reports_read")))
+	page.call("show_reports", world, int(scene.get("_reports_read")))
+	if int(page.call("unread_count")) != 0 or _any_new(page.call("shown")):
+		ok = _fail("REPORTS", "old entries are marked new after a load")
+	SaveSlot.remove_reads()
+	if not bool(scene.call("load_game")):
+		ok = _fail("REPORTS", "the load of a slot with no mark did not read the slot")
+	record = world.chronicle as Array
+	if int(scene.get("_reports_read")) != 0:
+		ok = _fail("REPORTS", "a slot with no read mark loaded as %d, not 0" % int(scene.get("_reports_read")))
+	SaveSlot.remove()
+	SaveSlot.slot_key = saved_key
+
+	# The epitaph: not offered while the colony lives; once the run is over, every line of it, paged.
+	record.clear()
+	for name in PAGE_NAMES:
+		SimChronicle._write(world, "joined", name, -1)
+	world.runOver = false
+	page.call("show_reports", world, 30)
+	if bool(page.call("epitaph_available")) or bool(page.call("show_epitaph")) or String(page.call("mode_name")) != "record":
+		ok = _fail("REPORTS", "the epitaph is offered while the colony lives")
+	world.runOver = true
+	page.call("show_reports", world, 30)
+	var mode_button: Control = page.call("mode_button") as Control
+	if not bool(page.call("epitaph_available")) or mode_button == null or not mode_button.visible:
+		ok = _fail("REPORTS", "the run is over and the record offers no epitaph")
+	if not bool(page.call("show_epitaph")) or String(page.call("mode_name")) != "epitaph":
+		ok = _fail("REPORTS", "the epitaph did not open once the run was over")
+	var want: Array[String] = SimChronicle.epitaph(world, 1000000)
+	if not _same_texts(page.call("all_lines"), want):
+		ok = _fail("REPORTS", "the epitaph page holds %d lines, not the %d the epitaph reads" % [(page.call("all_lines") as Array).size(), want.size()])
+	if int(page.call("pages")) != 3 or (page.call("shown") as Array).size() != 12:
+		ok = _fail("REPORTS", "the epitaph does not page like the record (%d pages)" % int(page.call("pages")))
+	world.runOver = was_over
+	page.call("show_reports", world, 30)
+	if bool(page.call("epitaph_available")) or bool(page.call("show_epitaph")):
+		ok = _fail("REPORTS", "the epitaph is offered after the run is back to live")
+
+	_restore_record(world, kept, kept_read, scene)
+	return ok
+
+
+func _restore_record(world: Variant, kept: Array, kept_read: int, scene: Node) -> void:
+	var record: Array = world.chronicle as Array
+	record.clear()
+	record.append_array(kept)
+	scene.set("_reports_read", kept_read)
+	if bool(scene.get("menu_open")):
+		scene.call("close_ledger_menu")
+
+
+# The rows a page holds, as texts, against the texts wanted, in order.
+func _same_texts(rows: Variant, texts: Array) -> bool:
+	var got: Array = rows as Array
+	if got.size() != texts.size():
+		return false
+	for i in got.size():
+		if String((got[i] as Dictionary)["text"]) != String(texts[i]):
+			return false
+	return true
+
+
+func _any_new(rows: Variant) -> bool:
+	for row in rows as Array:
+		if bool((row as Dictionary)["new"]):
+			return true
+	return false
+
+
+# Whether the chronicle holds a line with this text.
+func _page_holds(world: Variant, text: String) -> bool:
+	for rec in world.chronicle as Array:
+		if SimChronicle._line_of(world, rec as Dictionary) == text:
+			return true
+	return false
 
 
 # --- SAVE -----------------------------------------------------------------------------------
@@ -3003,7 +3279,7 @@ const KEY_NAMES: Dictionary = {
 	"KEY_F": KEY_F, "KEY_F1": KEY_F1, "KEY_F2": KEY_F2, "KEY_F5": KEY_F5, "KEY_F9": KEY_F9, "KEY_G": KEY_G,
 	"KEY_KP_ENTER": KEY_KP_ENTER, "KEY_P": KEY_P, "KEY_R": KEY_R, "KEY_S": KEY_S, "KEY_SHIFT": KEY_SHIFT,
 	"KEY_W": KEY_W, "KEY_MINUS": KEY_MINUS, "KEY_KP_SUBTRACT": KEY_KP_SUBTRACT, "KEY_EQUAL": KEY_EQUAL,
-	"KEY_KP_ADD": KEY_KP_ADD, "KEY_L": KEY_L,
+	"KEY_KP_ADD": KEY_KP_ADD, "KEY_L": KEY_L, "KEY_UP": KEY_UP, "KEY_DOWN": KEY_DOWN,
 }
 
 
@@ -3253,12 +3529,167 @@ func _arms_body(scene: Node, world: Variant, player: int, camera: Camera3D) -> b
 	_arms_settle(scene, 1.5)
 	ok = _arms_shows(arms, "long", "the hunting rifle") and ok
 
+	# AIM: the raise and aim clips follow the sim's fire state for a firearm, and a melee class ignores it.
+	# The rifle is held now; then the service pistol; then the knife under the same stubbed fire state.
+	ok = _arms_aim_firearm(scene, world, player, arms, "long", "item.ammo.rifle") and ok
+	_arms_unequip_all(scene, world, player)
+	if _arms_equip(scene, world, player, "item.pistol.service") < 0:
+		return _fail("ARMS", "the service pistol would not equip again for the AIM case")
+	_arms_settle(scene, 1.5)
+	ok = _arms_aim_firearm(scene, world, player, arms, "pistol", "item.ammo.9mm") and ok
+	_arms_unequip_all(scene, world, player)
+	if _arms_equip(scene, world, player, "item.knife.kitchen") < 0:
+		return _fail("ARMS", "the kitchen knife would not equip for the AIM case")
+	_arms_settle(scene, 1.5)
+	ok = _arms_aim_melee_ignores(scene, arms) and ok
+
 	# Back to bare hands for the lanes after this one.
 	_arms_unequip_all(scene, world, player)
 	_arms_settle(scene, 1.5)
 	ok = _arms_shows(arms, "unarmed", "bare hands again") and ok
 	ok = _arms_clip_order(arms) and ok
 	return ok
+
+
+# AIM, a firearm: the raise and aim clips follow the sim's fire state. Each tick the sim steps and then
+# the frame runs, and the view's clip must be what the sim's state says: Raise plays raise_<class> at
+# the sim's own progress t through the weapon's raise; Steady plays aim_<class>; Recover, Clearing,
+# Reload and Idle play idle_<class>. The first shot runs with the read model stubbed to idle, and the
+# arms must never leave idle (the true negative). The second shot runs with the real read model; a
+# sheet opened in the aim lowers the arms, and closing it brings them back to aim.
+func _arms_aim_firearm(scene: Node, world: Variant, player: int, arms: Node3D, hold_class: String, round_id: String) -> bool:
+	var ok: bool = true
+	var idle_clip: String = "idle_" + hold_class
+	var raise_clip: String = "raise_" + hold_class
+	var aim_clip: String = "aim_" + hold_class
+	var lower_clip: String = "lower_" + hold_class
+	var clips: AnimationPlayer = _arms_first(arms, "AnimationPlayer") as AnimationPlayer
+	if clips == null or not clips.has_animation(raise_clip) or not clips.has_animation(aim_clip):
+		return _fail("ARMS", "the %s has no %s or %s clip for the AIM case" % [hold_class, raise_clip, aim_clip])
+	# A fed gun fires only from rounds it holds: two shots' worth in the pocket, loaded the way a raider arrives.
+	if not _arms_load_rounds(world, player, round_id, 4):
+		return _fail("ARMS", "the %s would not take %s into its magazine for the AIM case" % [hold_class, round_id])
+	var raise_len: float = clips.get_animation(raise_clip).length
+	if String(arms.call("clip_playing")) != idle_clip:
+		ok = _fail("ARMS", "before the AIM shot the %s arms play '%s', not %s" % [hold_class, String(arms.call("clip_playing")), idle_clip])
+
+	# The true negative: the read model stubbed to idle, the whole shot, the arms never leave idle.
+	arms.set("fire_stub", {"phase": "idle", "t": 0.0})
+	world.commands.push({"type": "fire"})
+	scene.call("step_sim_once")
+	if _sim_fire_state(world, player) != int(SimRanged.FireState.Raise):
+		arms.set("fire_stub", {})
+		return _fail("ARMS", "the fire command did not put the %s into Raise (state %d)" % [hold_class, _sim_fire_state(world, player)])
+	for _i in 400:
+		scene.call("_process", ARMS_FRAME_S)
+		if String(arms.call("clip_playing")) != idle_clip:
+			ok = _fail("ARMS", "with the read model stubbed to idle the %s arms play '%s'" % [hold_class, String(arms.call("clip_playing"))])
+			break
+		if _sim_fire_state(world, player) == int(SimRanged.FireState.Idle):
+			break
+		scene.call("step_sim_once")
+	arms.set("fire_stub", {})
+	if _sim_fire_state(world, player) != int(SimRanged.FireState.Idle):
+		return _fail("ARMS", "the %s shot did not resolve back to Idle in 400 ticks" % hold_class)
+
+	# The real read model: one shot, with the sim's state checked against the clip every tick.
+	_arms_settle(scene, 1.0)
+	if String(arms.call("clip_playing")) != idle_clip:
+		ok = _fail("ARMS", "after the stubbed shot the %s arms play '%s', not %s" % [hold_class, String(arms.call("clip_playing")), idle_clip])
+	world.commands.push({"type": "fire"})
+	scene.call("step_sim_once")
+	if _sim_fire_state(world, player) != int(SimRanged.FireState.Raise):
+		return _fail("ARMS", "the second %s shot did not enter Raise (state %d)" % [hold_class, _sim_fire_state(world, player)])
+	var positions: Array[float] = []
+	var raise_frames: int = 0
+	var aim_seen: bool = false
+	var sheet_checked: bool = false
+	var resolved: bool = false
+	for _i in 400:
+		scene.call("_process", ARMS_FRAME_S)
+		var state_now: int = _sim_fire_state(world, player)
+		var clip_now: String = String(arms.call("clip_playing"))
+		if state_now == int(SimRanged.FireState.Raise):
+			var r: Dictionary = _sim_ranged(world, player)
+			var t: float = clampf(1.0 - float(r.get("ticksLeft", 0)) / float(maxi(1, SimRanged._raise_of(r))), 0.0, 1.0)
+			if clip_now != raise_clip:
+				ok = _fail("ARMS", "in Raise the %s arms play '%s', not %s" % [hold_class, clip_now, raise_clip])
+				break
+			var at: float = float(arms.call("clip_seconds"))
+			if absf(at - t * raise_len) > 0.005:
+				ok = _fail("ARMS", "the %s raise clip is at %.3f s, not the sim's t %.3f of %.3f s" % [hold_class, at, t, raise_len])
+				break
+			raise_frames += 1
+			if positions.is_empty() or absf(at - positions[positions.size() - 1]) > 0.0005:
+				positions.append(at)
+		elif state_now == int(SimRanged.FireState.Steady):
+			if clip_now != aim_clip:
+				ok = _fail("ARMS", "in Steady the %s arms play '%s', not %s" % [hold_class, clip_now, aim_clip])
+				break
+			aim_seen = true
+			if not sheet_checked:
+				sheet_checked = true
+				scene.call("open_inventory")
+				scene.call("_process", ARMS_FRAME_S)
+				if String(arms.call("clip_playing")) != lower_clip:
+					ok = _fail("ARMS", "a sheet opened in the %s aim plays '%s', not %s" % [hold_class, String(arms.call("clip_playing")), lower_clip])
+				_arms_settle(scene, 0.5)
+				if bool(arms.call("arms_shown")):
+					ok = _fail("ARMS", "the %s arms are drawn behind the sheet during the aim" % hold_class)
+				scene.call("close_inventory")
+				_arms_settle(scene, 1.5)
+				if String(arms.call("clip_playing")) != aim_clip:
+					ok = _fail("ARMS", "after the sheet closed the %s aim plays '%s', not %s" % [hold_class, String(arms.call("clip_playing")), aim_clip])
+		else:
+			# Recover, Clearing, Reload, Idle: the shot is over and the arms are back on idle.
+			if clip_now != idle_clip:
+				ok = _fail("ARMS", "after the shot (sim state %d) the %s arms play '%s', not %s" % [state_now, hold_class, clip_now, idle_clip])
+				break
+			if state_now == int(SimRanged.FireState.Idle):
+				resolved = true
+				break
+		scene.call("step_sim_once")
+	if not aim_seen:
+		ok = _fail("ARMS", "the %s arms never reached the aim clip during the shot" % hold_class)
+	if positions.size() < 2:
+		ok = _fail("ARMS", "the %s raise clip held at %d distinct positions over %d raise ticks, not following the sim's t" % [hold_class, positions.size(), raise_frames])
+	if not resolved:
+		ok = _fail("ARMS", "the %s shot did not resolve back to Idle in 400 ticks" % hold_class)
+	return ok
+
+
+# AIM, a melee class: the fire state is not read for it, so the stubbed raise and aim leave its idle.
+func _arms_aim_melee_ignores(scene: Node, arms: Node3D) -> bool:
+	var ok: bool = true
+	var hold_class: String = String(arms.call("shown_class"))
+	var idle_clip: String = "idle_" + hold_class
+	for fire in [{"phase": "raise", "t": 0.5}, {"phase": "aim", "t": 0.0}]:
+		arms.set("fire_stub", fire)
+		_arms_settle(scene, 1.0)
+		if String(arms.call("clip_playing")) != idle_clip:
+			ok = _fail("ARMS", "a %s under the %s fire state plays '%s', not %s" % [hold_class, String((fire as Dictionary)["phase"]), String(arms.call("clip_playing")), idle_clip])
+	arms.set("fire_stub", {})
+	return ok
+
+
+# Rounds put in the player's pocket, and the held firearm's magazine loaded from them: the sim's own load.
+func _arms_load_rounds(world: Variant, player: int, round_id: String, count: int) -> bool:
+	var stack: int = int(SimItems.spawn_item(world, round_id, {"tier": "scavenged", "count": count}))
+	if stack < 0 or not SimInventory.store_anywhere(world, stack, player):
+		return false
+	SimRanged.load_held(world, player)
+	return true
+
+
+func _sim_ranged(world: Variant, player: int) -> Dictionary:
+	var rw: Variant = world.components.get_component(player, "rangedWeapon")
+	if rw is Dictionary:
+		return rw as Dictionary
+	return {}
+
+
+func _sim_fire_state(world: Variant, player: int) -> int:
+	return int(_sim_ranged(world, player).get("state", int(SimRanged.FireState.Idle)))
 
 
 # Review N1: a clip's pose must not depend on the clip before it. GLTFDocument drops every track equal to
@@ -3724,6 +4155,10 @@ func _talk(scene: Node) -> bool:
 				ok = _fail("TALK", "a hungry colonist says '%s', not one of the mutter lines %s" % [said, hungry])
 			_key(KEY_ESCAPE, true)
 
+	# ORDERS: the conversation offers the sim's own order rows for the aim it opened on, and choosing one pushes
+	# the sim's command.
+	ok = _talk_orders(scene, world, ent, area) and ok
+
 	# True negatives. Out of reach.
 	_place_talker(world, ent, area + Vector2(0.0, -3.0))
 	scene.call("look_toward", Vector3(area.x, _eye_of_m(world, ent), area.y - 3.0))
@@ -3793,6 +4228,210 @@ func _talk(scene: Node) -> bool:
 
 # A healthy, fed, rested, comfortable colonist: the steady case's fixture. The body is set to its own
 # maxima and the wounds are cleared; the caller restores both.
+# ORDERS, the conversation's orders. Open ground: E on the colonist with the aim on open ground past them lists go and
+# hold, and no haul or attack. Choosing "go" by a real click pushes the sim's `go` to the aimed tile. A loose item in
+# the aim lists haul; a shambler in the aim lists attack; once holding, "stand down" lists and `clear` lands; a colonist
+# that takes no orders lists none. Down and Enter choose, Escape is Goodbye. Every row is the sim's (`SimContext`),
+# digit-free, and the plant (a panel that pushes hold for go) turns the case red.
+func _talk_orders(scene: Node, world: Variant, ent: int, area: Vector2) -> bool:
+	var ok: bool = true
+	var who: String = TalkPanel.name_of(world, ent)
+	var go_text: String = "have %s go here" % who
+	var hold_text: String = "have %s hold here" % who
+	_steady(world, ent)
+	world.components.remove(ent, SimJobs.ORDER_COMPONENT)
+
+	# Open ground. The colonist stands off the aim, more than a reach beyond the aimed tile, so a `go` there is a walk
+	# and not an arrival (the sim ends a go within REACH at once). E opens the panel only with the aim on a colonist,
+	# so the panel is opened with `open_talk` here, and TALK above covers E.
+	_place_player(scene, area)
+	scene.call("set_look", 0.0, 0.0)
+	_settle_vision(scene, 6)
+	_place_talker(world, ent, area + Vector2(2.0, 0.0))
+	scene.call("look_toward", Vector3(area.x, _eye_of_m(world, ent), area.y - 10.0))
+	scene.call("open_talk", ent)
+	if not bool(scene.get("talk_open")):
+		return _fail("TALK", "the orders panel did not open on open ground")
+	var panel: Control = scene.call("talk_panel_node") as Control
+	var hit: Dictionary = scene.call("talk_aim_hit") as Dictionary
+	var p: Vector2 = _player_pos(world)
+	var ground: Vector2i = Vector2i(floori(p.x), floori(p.y - LEDGER_REACH_GATE))
+	if String(hit.get("kind", "")) != "ground" or int(hit.get("entity", 0)) != -1 or (hit.get("tile", Vector2i.ZERO) as Vector2i) != ground:
+		ok = _fail("TALK", "the aim on open ground reads %s, not the ground tile %s" % [str(hit), str(ground)])
+	var texts: Array[String] = _texts(panel.call("order_texts"))
+	if not texts.has(go_text) or not texts.has(hold_text):
+		ok = _fail("TALK", "open ground lists %s, not '%s' and '%s'" % [str(texts), go_text, hold_text])
+	for text in texts:
+		if text.contains("haul") or text.contains("attack") or text.begins_with("stand "):
+			ok = _fail("TALK", "open ground lists '%s', which needs an item, a zombie or a hold" % text)
+	var built: Array[String] = _texts(SimContext.orders_for(world, ent, "ground", -1, ground))
+	if not _same_list(texts, built):
+		ok = _fail("TALK", "the panel's rows %s are not the sim's rows %s" % [str(texts), str(built)])
+	if _built_by_sim(["have %s fly here" % who], built):
+		ok = _fail("TALK", "the row check accepts a row the sim never built")
+	for line in panel.call("lines") as Array:
+		if _has_digit(String(line)):
+			ok = _fail("TALK", "the orders panel drew a digit: %s" % String(line))
+
+	# A real click on "go" closes the panel, and the sim has the colonist walking to the aimed tile.
+	_click_order_row(panel, texts.find(go_text))
+	if bool(scene.get("talk_open")):
+		ok = _fail("TALK", "a click on the order row did not close the panel")
+	scene.call("step_sim_once")
+	var order: Variant = world.components.get_component(ent, SimJobs.ORDER_COMPONENT)
+	if not (order is Dictionary) or String((order as Dictionary).get("kind", "")) != "go":
+		ok = _fail("TALK", "choosing 'go' did not give the colonist a go order (%s)" % str(order))
+	elif SimOrders.destination(world, ent) != ground:
+		ok = _fail("TALK", "the go order's tile is %s, not the aimed %s" % [str(SimOrders.destination(world, ent)), str(ground)])
+	if not bool(scene.call("mouse_captured")):
+		ok = _fail("TALK", "closing the orders left the mouse free")
+
+	# Holding, the same ground: "stand down" lists, and choosing it lands `clear`.
+	scene.call("open_talk", ent)
+	var stand_panel: Control = scene.call("talk_panel_node") as Control
+	var stand_texts: Array[String] = _texts(stand_panel.call("order_texts"))
+	var stand_row: int = _index_containing(stand_texts, "stand ")
+	if stand_row < 0:
+		ok = _fail("TALK", "a colonist holding an order lists no 'stand down' row (%s)" % str(stand_texts))
+	else:
+		_click_order_row(stand_panel, stand_row)
+		scene.call("step_sim_once")
+		if SimOrders.holds(world, ent):
+			ok = _fail("TALK", "'stand down' did not clear the colonist's order")
+
+	# Down and Enter: the second row (hold) is chosen from the keys, and the panel closes.
+	scene.call("open_talk", ent)
+	var keyed: Control = scene.call("talk_panel_node") as Control
+	_key(KEY_DOWN, true)
+	if int(keyed.call("selected")) != 1:
+		ok = _fail("TALK", "Down moved the choice to %d, not 1" % int(keyed.call("selected")))
+	_key(KEY_ENTER, true)
+	if bool(scene.get("talk_open")):
+		ok = _fail("TALK", "Enter on a row did not close the orders panel")
+	scene.call("step_sim_once")
+	var held: Variant = world.components.get_component(ent, SimJobs.ORDER_COMPONENT)
+	if not (held is Dictionary) or String((held as Dictionary).get("kind", "")) != "hold":
+		ok = _fail("TALK", "Enter on the second row did not give a hold (%s)" % str(held))
+	world.components.remove(ent, SimJobs.ORDER_COMPONENT)
+
+	# A loose item in the aim: haul. The aim names the item it lists, and the order must be for that item.
+	var item: int = int(SimItems.spawn_item(world, "item.bat.wood", {"tier": "scavenged"}))
+	var at: Vector2 = p + Vector2(0.0, -0.7)
+	world.components.set_component(item, "position", {"x": at.x, "y": at.y})
+	scene.call("look_toward", Vector3(at.x, LOOSE_AIM_HEIGHT_M_GATE, at.y))
+	scene.call("open_talk", ent)
+	var haul_panel: Control = scene.call("talk_panel_node") as Control
+	var haul_hit: Dictionary = scene.call("talk_aim_hit") as Dictionary
+	var haul_texts: Array[String] = _texts(haul_panel.call("order_texts"))
+	var haul_row: int = _index_containing(haul_texts, "haul")
+	if String(haul_hit.get("kind", "")) != "item" or haul_row < 0:
+		ok = _fail("TALK", "a loose item in the aim is not listed to haul (hit %s, rows %s)" % [str(haul_hit), str(haul_texts)])
+	else:
+		var aimed: int = int(haul_hit["entity"])
+		_click_order_row(haul_panel, haul_row)
+		scene.call("step_sim_once")
+		var haul_order: Variant = world.components.get_component(ent, SimJobs.ORDER_COMPONENT)
+		if not (haul_order is Dictionary) or String((haul_order as Dictionary).get("kind", "")) != "haul" or int((haul_order as Dictionary).get("target", -1)) != aimed:
+			ok = _fail("TALK", "choosing haul did not give the colonist a haul order for the aimed item (%s)" % str(haul_order))
+		world.components.remove(ent, SimJobs.ORDER_COMPONENT)
+	world.despawn(item)
+
+	# A shambler in the aim: attack. The aim names the shambler, and the order must be on that shambler. The shambler
+	# stands beyond a grab's reach, and the grab state of both bodies is put back as it was once it is gone.
+	var rng: Variant = world.rng.stream("shambler")
+	var grab_before: Array = [
+		world.components.get_component(int(world.player), "grabbed"),
+		world.components.get_component(int(world.player), "grabState"),
+		world.components.get_component(ent, "grabbed"),
+		world.components.get_component(ent, "grabState"),
+	]
+	var zed_at: Vector2 = p + Vector2(0.0, -1.6)
+	var zed: int = int(SimRoster.spawn_zombie(world, zed_at.x, zed_at.y, SimRoster.TYPE_SHAMBLER, rng))
+	_zero_shambler(world, zed)
+	scene.call("look_toward", scene.call("_talk_point", zed) as Vector3)
+	scene.call("open_talk", ent)
+	var attack_panel: Control = scene.call("talk_panel_node") as Control
+	var attack_hit: Dictionary = scene.call("talk_aim_hit") as Dictionary
+	var attack_texts: Array[String] = _texts(attack_panel.call("order_texts"))
+	var attack_row: int = _index_containing(attack_texts, "attack")
+	if String(attack_hit.get("kind", "")) != "zombie" or int(attack_hit.get("entity", -1)) != zed or attack_row < 0:
+		ok = _fail("TALK", "a shambler in the aim is not listed to attack (hit %s, rows %s)" % [str(attack_hit), str(attack_texts)])
+	else:
+		_click_order_row(attack_panel, attack_row)
+		scene.call("step_sim_once")
+		var attack_order: Variant = world.components.get_component(ent, SimJobs.ORDER_COMPONENT)
+		if not (attack_order is Dictionary) or String((attack_order as Dictionary).get("kind", "")) != "attack" or int((attack_order as Dictionary).get("target", -1)) != zed:
+			ok = _fail("TALK", "choosing attack did not give the colonist an attack order on the shambler (%s)" % str(attack_order))
+	world.despawn(zed)
+	world.components.remove(ent, SimJobs.ORDER_COMPONENT)
+	_restore(world, int(world.player), "grabbed", grab_before[0])
+	_restore(world, int(world.player), "grabState", grab_before[1])
+	_restore(world, ent, "grabbed", grab_before[2])
+	_restore(world, ent, "grabState", grab_before[3])
+
+	# A colonist that takes no orders lists none: only Goodbye.
+	world.components.set_component(ent, "leaving", {"tick": int(world.tick)})
+	scene.call("open_talk", ent)
+	var refused: Control = scene.call("talk_panel_node") as Control
+	if not _texts(refused.call("order_texts")).is_empty():
+		ok = _fail("TALK", "a colonist that takes no orders lists rows: %s" % str(refused.call("order_texts")))
+	_key(KEY_ESCAPE, true)
+	world.components.remove(ent, "leaving")
+	if bool(scene.get("talk_open")):
+		ok = _fail("TALK", "Escape did not close the orders panel")
+	return ok
+
+
+const LEDGER_REACH_GATE: float = 1.8
+
+
+const LOOSE_AIM_HEIGHT_M_GATE: float = 0.25
+
+
+func _texts(value: Variant) -> Array[String]:
+	var out: Array[String] = []
+	for t in value as Array:
+		if t is Dictionary:
+			out.append(String((t as Dictionary)["text"]))
+		else:
+			out.append(String(t))
+	return out
+
+
+func _same_list(a: Array[String], b: Array) -> bool:
+	if a.size() != b.size():
+		return false
+	for i in a.size():
+		var right: String = String((b[i] as Dictionary)["text"]) if b[i] is Dictionary else String(b[i])
+		if a[i] != right:
+			return false
+	return true
+
+
+# Whether every text is one of the rows the sim built.
+func _built_by_sim(texts: Array, built: Array) -> bool:
+	var words: Array[String] = _texts(built)
+	for t in texts:
+		if not words.has(String(t)):
+			return false
+	return true
+
+
+func _index_containing(texts: Array[String], word: String) -> int:
+	for i in texts.size():
+		if texts[i].contains(word):
+			return i
+	return -1
+
+
+# A real click on an order row of the panel: its global rect's centre, through the viewport.
+func _click_order_row(panel: Control, index: int) -> void:
+	if index < 0:
+		return
+	var local: Rect2 = panel.call("order_rect", index) as Rect2
+	_click_at(panel.get_global_rect().position + local.get_center())
+
+
 func _steady(world: Variant, ent: int) -> void:
 	var needs: Dictionary = world.components.get_component(ent, "needs") as Dictionary
 	for key in ["thirst", "hunger", "rest", "relief"]:
@@ -4075,6 +4714,31 @@ func _models(scene: Node) -> bool:
 		ok = _fail("MODELS", "an unknown id and class resolved to a model")
 	if Models.resolve_in(fabricated, "", "") != null:
 		ok = _fail("MODELS", "an empty id and class resolved to a model")
+
+	# Receiver-qualified ids beat generic ids on the real kit, and never leak onto another receiver.
+	var weapon_manifest: Array = [{"models": weapons}]
+	var qualified_only: Array = [{"models": [
+		{"match": {"id": "item.part.barrel.standard", "receiver": "item.rifle.hunting"}, "glb": "rifle.glb"},
+	]}]
+	if Models.resolve_in(qualified_only, "item.part.barrel.standard", "attachment", "item.pistol.service") != null:
+		ok = _fail("MODELS", "a rifle-qualified part resolved on the pistol")
+	var rifle_parts: Dictionary = {
+		"item.part.barrel.standard": "rifle_barrel_standard",
+		"item.part.magazine.standard": "rifle_magazine_standard",
+		"item.part.action.standard": "rifle_action_standard",
+		"item.part.spring.standard": "rifle_spring_standard",
+		"item.part.sear.standard": "rifle_sear_standard",
+		"item.part.extractor.standard": "rifle_extractor_standard",
+		"item.part.stock.standard": "rifle_stock_standard",
+	}
+	for part_id in rifle_parts:
+		var entry: Variant = Models.resolve_in(weapon_manifest, String(part_id), "attachment", "item.rifle.hunting")
+		var suffix: String = String(rifle_parts[part_id]) + ".glb"
+		if not (entry is Dictionary) or not String((entry as Dictionary)["glb"]).ends_with(suffix):
+			ok = _fail("MODELS", "%s on the rifle did not resolve to %s" % [part_id, suffix])
+	var pistol_barrel: Variant = Models.resolve_in(weapon_manifest, "item.part.barrel.standard", "attachment", "item.pistol.service")
+	if not (pistol_barrel is Dictionary) or not String((pistol_barrel as Dictionary)["glb"]).ends_with("pistol_barrel_standard.glb"):
+		ok = _fail("MODELS", "the pistol no longer resolves its own barrel")
 	var real_bat: Variant = Models.resolve("item.bat.wood", "weapon.melee")
 	if not (real_bat is Dictionary) or not String((real_bat as Dictionary)["glb"]).ends_with("bat_wood.glb"):
 		ok = _fail("MODELS", "the committed kit does not resolve item.bat.wood to bat_wood.glb")
@@ -4100,6 +4764,26 @@ func _models(scene: Node) -> bool:
 		var bat_size: Array = (real_bat as Dictionary)["sizeM"] as Array
 		if absf(box.size.y - float(bat_size[1])) > MODEL_TOLERANCE_M:
 			ok = _fail("MODELS", "the loose bat's drawn height %.4f m is not its model's %.4f m" % [box.size.y, float(bat_size[1])])
+
+	# A dropped rifle carries its installed visible parts and lies on its side, on the floor.
+	var rifle: int = SimItems.spawn_item(world, "item.rifle.hunting")
+	SimInventory.drop_at_feet(world, player, rifle)
+	scene.call("_process", TICK_SECONDS)
+	var rifle_node: Node3D = scene.call("loose_node_for", rifle) as Node3D
+	if rifle_node == null:
+		ok = _fail("MODELS", "a loose rifle has no node")
+	else:
+		var rifle_box: AABB = _world_aabb(rifle_node)
+		var rifle_length: float = maxf(rifle_box.size.x, rifle_box.size.z)
+		print("LOOSE_RIFLE world AABB size=%s lowest=%.4f m" % [str(rifle_box.size), rifle_box.position.y])
+		if rifle_length < 1.0:
+			ok = _fail("MODELS", "the loose rifle is only %.4f m long" % rifle_length)
+		if rifle_box.size.y > 0.25:
+			ok = _fail("MODELS", "the loose rifle is upright, with height %.4f m" % rifle_box.size.y)
+		if absf(rifle_box.position.y) > 0.005:
+			ok = _fail("MODELS", "the loose rifle's lowest point is %.4f m, not on the floor" % rifle_box.position.y)
+	world.despawn(rifle)
+	scene.call("_process", TICK_SECONDS)
 	# True negative: an item the merged manifests do not name is drawn with no node, so it keeps the
 	# scene's placeholder. The item is found in the merged content, not assumed: the loot-item kit
 	# draws canned food now, so a hard-coded id would stop being a no-model case.
@@ -4259,6 +4943,32 @@ func _character_bodies(scene: Node) -> bool:
 		if absf(dead_player.current_animation_position - death_length) > PHASE_EPSILON:
 			ok = _fail("BODIES", "death is at %.3f s after 300 ticks, not held at its last frame %.3f s" % [dead_player.current_animation_position, death_length])
 
+	# A zombie that dies lies where it fell (docs/30, 2026-11-07): the sim's own death path leaves a zombie corpse,
+	# which draws the kind's model playing death, held. Once its lying time is up the sim takes the body away and
+	# its view goes with it. The lying time is aged by setting `sinceTick` back, not by running the ticks.
+	var fallen: int = int(SimRoster.spawn_zombie(world, spot.x, spot.y + 1.6, SimRoster.TYPE_SHAMBLER, rng))
+	SimHealth.finish_death(world, fallen)
+	bodies.call("end_tick", world)
+	bodies.call("apply", world, 1.0)
+	var fallen_player: AnimationPlayer = scene.call("body_player_for", fallen) as AnimationPlayer
+	if fallen_player == null:
+		ok = _fail("BODIES", "a zombie corpse has no character model")
+	else:
+		if fallen_player.current_animation != "death":
+			ok = _fail("BODIES", "a zombie corpse plays %s, not death" % fallen_player.current_animation)
+		for i in 300:
+			scene.call("_process", TICK_SECONDS)
+		var fallen_length: float = fallen_player.get_animation("death").length
+		if fallen_player.current_animation != "death" or absf(fallen_player.current_animation_position - fallen_length) > PHASE_EPSILON:
+			ok = _fail("BODIES", "a zombie corpse is on %s at %.3f s after 300 ticks, not death held at %.3f s" % [fallen_player.current_animation, fallen_player.current_animation_position, fallen_length])
+		var due: Dictionary = (world.components.get_component(fallen, "corpse") as Dictionary).duplicate()
+		due["sinceTick"] = int(world.tick) - SimRecruits.ZOMBIE_CORPSE_TICKS
+		world.components.set_component(fallen, "corpse", due)
+		for i in 3:
+			scene.call("_process", TICK_SECONDS)
+		if world.entities.is_alive(fallen) or scene.call("body_node_for", fallen) != null:
+			ok = _fail("BODIES", "a zombie corpse is still in the world or drawn after ZOMBIE_CORPSE_TICKS")
+
 	# Loops loop and one-shots do not: the flags on the shared clips, and a one-shot seeked past its end stays
 	# at its last frame rather than wrapping.
 	for clip in ["idle", "walk", "crouch_idle"]:
@@ -4304,9 +5014,161 @@ func _character_bodies(scene: Node) -> bool:
 		ok = _fail("BODIES", "a missing model still gave the body an animation player")
 	fallback.queue_free()
 
+	ok = _held_on_bodies(scene, world, bodies, colonist) and ok
+
 	world.despawn(dead)
 	scene.call("_process", TICK_SECONDS)
 	return ok
+
+
+# HELD: the bodies in the first-person world carry what the sim says they hold. A colonist given a pistol shows
+# the pistol's model under its right hand, within 0.15 m of the hand bone; a bat swaps it; an unarmed colonist
+# draws nothing under the hand; the player's own body carries the pistol the arms hold in third person. The
+# negative is a body with nothing in hand (the grip stays under the hand, hidden, with no model in it), and the
+# plant is the attachment on the left hand, which must fail the distance check.
+func _held_on_bodies(scene: Node, world: Variant, bodies: Node3D, colonist: int) -> bool:
+	var ok: bool = true
+	# A colonist boots holding what it carries: the case empties its hands and puts the same items back at the end.
+	var kept: Array[int] = []
+	for item in SimInventory.equipped_items(world, colonist):
+		kept.append(int(item))
+		SimInventory.unequip_item(world, int(item))
+	scene.call("step_sim_once")
+	var held: Node3D = bodies.call("held_for", colonist) as Node3D
+	var hand: BoneAttachment3D = bodies.call("hand_for", colonist) as BoneAttachment3D
+	if held == null or hand == null:
+		return _fail("HELD", "the colonist's model has no held-weapon mount under its right hand")
+
+	# Unarmed: nothing drawn in the hand.
+	bodies.call("apply", world, 1.0)
+	if not _held_receiver(held).is_empty() or held.call("visible_any"):
+		ok = _fail("HELD", "an unarmed colonist draws a weapon")
+	if hand.find_child("WeaponModel", true, false) != null:
+		ok = _fail("HELD", "an unarmed colonist has a weapon model under its hand")
+
+	# A pistol: its model, under the right hand, on the hand.
+	var pistol: int = _held_spawn_equip(scene, world, colonist, "item.pistol.service")
+	if pistol < 0:
+		return _fail("HELD", "the pistol would not equip on the colonist")
+	bodies.call("apply", world, 1.0)
+	var pistol_model: Node3D = held.call("receiver_node") as Node3D
+	if _held_receiver(held) != "item.pistol.service" or pistol_model == null:
+		ok = _fail("HELD", "a colonist holding the pistol draws '%s', not the pistol" % _held_receiver(held))
+	elif not hand.is_ancestor_of(pistol_model):
+		ok = _fail("HELD", "the pistol's model is not under the colonist's right hand")
+	else:
+		var gap: float = pistol_model.global_position.distance_to(_hand_r_at(hand))
+		print("HELD gap: pistol model to hand.R %.3f m" % gap)
+		if gap > HELD_HAND_M:
+			ok = _fail("HELD", "the pistol sits %.3f m from the hand bone, not within %.2f m" % [gap, HELD_HAND_M])
+		ok = _held_measure(bodies, colonist, hand, held) and ok
+
+	# A swap: the pistol goes, the bat comes, and only the bat is drawn.
+	SimInventory.unequip_item(world, pistol)
+	scene.call("step_sim_once")
+	var bat: int = _held_spawn_equip(scene, world, colonist, "item.bat.wood")
+	if bat < 0:
+		return _fail("HELD", "the bat would not equip on the colonist")
+	bodies.call("apply", world, 1.0)
+	var bat_model: Node3D = held.call("receiver_node") as Node3D
+	if bat_model != null:
+		print("HELD gap: bat model to hand.R %.3f m" % bat_model.global_position.distance_to(_hand_r_at(hand)))
+	if _held_receiver(held) != "item.bat.wood" or bat_model == null:
+		ok = _fail("HELD", "after the swap the colonist draws '%s', not the bat" % _held_receiver(held))
+	elif not hand.is_ancestor_of(bat_model) or bat_model.global_position.distance_to(_hand_r_at(hand)) > HELD_HAND_M:
+		ok = _fail("HELD", "the bat is not in the colonist's right hand")
+	SimInventory.unequip_item(world, bat)
+	scene.call("step_sim_once")
+	if not _held_receiver(held).is_empty():
+		ok = _fail("HELD", "the bat is still drawn after it was put away")
+	world.despawn(pistol)
+	world.despawn(bat)
+
+	# The player's own body in third person: the pistol the arms hold is drawn in the hand there.
+	var own: Node3D = scene.get("own_body") as Node3D
+	if own == null or own.call("held_node") == null or own.call("hand_node") == null:
+		return _fail("HELD", "the player's own body has no held-weapon mount")
+	var was_third: bool = bool(scene.get("third_person"))
+	if not was_third:
+		scene.call("toggle_view")
+	var mine: int = _held_spawn_equip(scene, world, int(world.player), "item.pistol.service")
+	if mine < 0:
+		return _fail("HELD", "the pistol would not equip on the player for the own-body case")
+	scene.call("_process", ARMS_FRAME_S)
+	var own_held: Node3D = own.call("held_node") as Node3D
+	var own_hand: BoneAttachment3D = own.call("hand_node") as BoneAttachment3D
+	var own_receiver: Node3D = own_held.call("receiver_node") as Node3D
+	if own_receiver != null:
+		print("HELD gap: own-body pistol model to hand.R %.3f m" % own_receiver.global_position.distance_to(_hand_r_at(own_hand)))
+	if _held_receiver(own_held) != "item.pistol.service" or own_receiver == null:
+		ok = _fail("HELD", "the player's own body in third person draws '%s', not the pistol the arms hold" % _held_receiver(own_held))
+	elif not own_hand.is_ancestor_of(own_receiver) or own_receiver.global_position.distance_to(_hand_r_at(own_hand)) > HELD_HAND_M:
+		ok = _fail("HELD", "the pistol is not in the player's right hand in third person")
+	SimInventory.unequip_item(world, mine)
+	scene.call("step_sim_once")
+	if not was_third:
+		scene.call("toggle_view")
+	world.despawn(mine)
+	for item in kept:
+		if not SimInventory.equip(world, colonist, item):
+			ok = _fail("HELD", "the colonist's %s would not go back in its hand after the case" % String(SimItems.item_base_of(world, item).get("id", "")))
+	scene.call("step_sim_once")
+	return ok
+
+
+const HELD_HAND_M: float = 0.15
+
+
+# The drawn receiver's base id, or "" when nothing is drawn.
+func _held_receiver(held: Node3D) -> String:
+	var drawn: Dictionary = held.call("drawn") as Dictionary
+	return String(drawn.get("receiver", ""))
+
+
+# The right hand bone's world position, read from the skeleton by name, not from the attachment: the attachment is
+# the thing under test, so a check against it would pass for any bone it sits on.
+func _hand_r_at(attachment: BoneAttachment3D) -> Vector3:
+	var skeleton: Skeleton3D = attachment.get_parent() as Skeleton3D
+	if skeleton == null or skeleton.find_bone("hand.R") < 0:
+		return Vector3(1.0e9, 1.0e9, 1.0e9)
+	skeleton.force_update_all_bone_transforms()
+	var index: int = skeleton.find_bone("hand.R")
+	return skeleton.global_transform * skeleton.get_bone_global_pose(index).origin
+
+
+# Spawns `base_id` and equips it on `actor`, then steps the tick so the sim's equip event reaches the weapon's
+# state; returns the item, or -1 when it would not equip.
+func _held_spawn_equip(scene: Node, world: Variant, actor: int, base_id: String) -> int:
+	var item: int = int(SimItems.spawn_item(world, base_id, {"tier": "scavenged"}))
+	if item < 0:
+		return -1
+	if not SimInventory.equip(world, actor, item):
+		world.despawn(item)
+		return -1
+	scene.call("step_sim_once")
+	return item
+
+
+# Measures the weapon's bore and the hand bone against the body, for the orientation call: the grip's -Z (the bore)
+# against the body's own forward (-Z of its root), and the hand's basis in the body's frame. Printed, not judged.
+func _held_measure(bodies: Node3D, colonist: int, hand: BoneAttachment3D, held: Node3D) -> bool:
+	var root: Node3D = bodies.call("node_for", colonist) as Node3D
+	var grip: Node3D = held.call("grip_node") as Node3D
+	var bore: Vector3 = (-grip.global_transform.basis.z).normalized()
+	var top: Vector3 = grip.global_transform.basis.y.normalized()
+	var forward: Vector3 = (-root.global_transform.basis.z).normalized()
+	var up: Vector3 = Vector3.UP
+	var rel: Basis = root.global_transform.basis.inverse() * hand.global_transform.basis
+	print("HELD measure: bore %s, body forward %s, dot %.3f; grip top %s, dot up %.3f; hand.R in body frame x %s y %s z %s" % [str(bore), str(forward), bore.dot(forward), str(top), top.dot(up), str(rel.x), str(rel.y), str(rel.z)])
+	var ok: bool = true
+	if bore.dot(forward) < HELD_FORWARD_DOT:
+		ok = _fail("HELD", "the pistol's bore points %.3f along the body's forward, not forward (%.2f)" % [bore.dot(forward), HELD_FORWARD_DOT])
+	if top.dot(up) < HELD_FORWARD_DOT:
+		ok = _fail("HELD", "the pistol's top points %.3f up, not up" % top.dot(up))
+	return ok
+
+
+const HELD_FORWARD_DOT: float = 0.9
 
 
 # Puts a component back the way the lane found it: a value that was there is written back, and one that was
