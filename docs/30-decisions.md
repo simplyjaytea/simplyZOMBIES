@@ -8342,6 +8342,34 @@ of the game. The top down is cancelled/put on hold for now."
   times the top-down street, so its `new_run` must play in place; the runner and the budget contract's
   expected args (`scripts/check-runtime-budget.mjs`) both pass it. (2026-11-07)
 
+## The game boots to its title, 2026-11-09
+
+The owner, 2026-11-09: "SHOW THE TITLE FIRST." The default boot shows the title before first person, the
+way the 2026-11-07 entry above wanted the title to exist but did not yet show it on boot.
+
+- **The boot.** `project.godot` still names `first_person.tscn` as the main scene, so every launch path
+  and the boot lane hold. Its `_ready` checks `_redirect_to_title` before it builds anything: a plain boot
+  (not `skip_title`, no `--skip-title`, `SaveSlot.title_seen` false) changes scene to `presentation/main.tscn`
+  and returns. The title's own backdrop is the top-down boot world at the boot tick (`Clock.tick_at_time_of_day(DAY_BEGINS)`,
+  9000); the clock runs only while playing, so that tick does not move on the title. No first-person world exists
+  until the player chooses.
+- **The title's rows** are unchanged: new run, continue when a first-person slot exists, quit. New run
+  and continue set `SaveSlot.title_seen` before they change scene, so the first-person boot after them
+  builds one world and does not return to the title. `title_seen` is process-level: Esc to the title and
+  a new run from it, or a continue, never bounce; a relaunch shows the title once.
+- **Esc** from first person still returns to the title (`return_to_title`). `--topdown` is unchanged.
+- **Gates and dev launches** pass `--skip-title` (`scripts/run-godot.mjs`, every mode except `--run`, the
+  editor and the exports) or set `skip_title` before they enter the tree (`check_first_person.gd`,
+  `check_fp_expedition.gd`). The Windows export smoke passes it too, so it still proves the first-person
+  boot; its web smoke accepts the title's ready line.
+- **Gate.** `npm run godot:check:fp_title` (`godot/check_fp_title.gd`). Plant: disable the redirect; BOOT
+  fails with "the plain boot did not reach the title". Measured: boot to title 963 ms.
+- **Doc correction.** The 2026-11-07 entry's claim that the default boot draws no title was a finding of
+  fact, true at that time, and this entry supersedes it. The shell's header comment now says the game
+  boots to its title.
+- **Owner card (default built).** The title shows first on boot. Flip `SaveSlot.title_seen`'s default
+  to `true` to boot straight into play as before.
+
 ## The juggernaut shoves barricades, 2026-11-06
 
 The what's-left entry "The juggernaut" is closed. Its record, with the numbers, is in
