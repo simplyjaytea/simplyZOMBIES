@@ -69,6 +69,7 @@ export const M2_SHARDS = [
   [
     "godot:m2:needs",
     "godot:check:fp_expedition",
+    "godot:check:fp_kinds",
     "godot:check:fp_harm",
     "godot:check:fp_tells",
     "godot:check:fp_encounter",
