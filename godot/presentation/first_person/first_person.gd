@@ -35,6 +35,9 @@ const Legend = preload("res://ui/legend.gd")
 const SessionRes = preload("res://presentation/session.gd")
 const RenderInterp = preload("res://presentation/interp.gd")
 const DistrictView = preload("res://presentation/first_person/district_view.gd")
+const StreetDressingView = preload("res://presentation/first_person/street_dressing_view.gd")
+# The kit's manifest, once prop kit A lands. Absent until then, and an absent manifest draws no dressing.
+const STREET_MANIFEST_PATH: String = "res://assets/first_person/props.manifest.json"
 const BodyView = preload("res://presentation/first_person/body_view.gd")
 const HitMarks = preload("res://presentation/first_person/hit_marks.gd")
 const OwnBody = preload("res://presentation/first_person/own_body.gd")
@@ -72,6 +75,12 @@ const THIRD_UP_M: float = 0.4
 const THIRD_RIGHT_M: float = 0.25
 const THIRD_RAY_STEPS: int = 30
 const VIEW_KEY: int = KEY_F2
+# The review camera (F3, testing only, for the sheets): a height view over the street. Metres above the eye and
+# behind the body, in the rig's frame; the pitch is radians, positive up, -55 degrees looking down.
+const REVIEW_KEY: int = KEY_F3
+const REVIEW_UP_M: float = 14.0
+const REVIEW_BACK_M: float = 2.0
+const REVIEW_PITCH_RAD: float = -0.9599311
 
 # The camera's eye eases to the sim's eye height (`SimSpace.eye_of`) with this time constant, so a
 # crouch is not a teleport: within 1 cm of its target in about 0.15 s.
@@ -115,6 +124,13 @@ var camera: Camera3D = null
 # The testing view's flag. Presentation only: the sim never reads it and the save never holds it, so a
 # fresh boot is always first person.
 var third_person: bool = false
+# The review camera's flag (F3). Presentation only, never saved. `_review_set` is true once a sheet driver
+# has placed the camera with `set_review_camera`; otherwise the camera follows the body with the defaults.
+var review_camera: bool = false
+var _review_set: bool = false
+var _review_pos: Vector3 = Vector3.ZERO
+var _review_yaw: float = 0.0
+var _review_pitch: float = 0.0
 # The player's own body, drawn only in third person (`own_body.gd`). Null only if the scene never built.
 var own_body: Node3D = null
 var yaw: float = 0.0
@@ -133,6 +149,8 @@ var talk_open: bool = false
 
 var _rig: Node3D = null
 var _district: Node3D = null
+# The street dressing's drawing node (street_dressing_view.gd). Presentation only.
+var _street: Node3D = null
 var _bodies: Node3D = null
 var _hit_marks: Node3D = null
 var _props: Node3D = null
@@ -298,11 +316,23 @@ func _build_environment() -> void:
 	add_child(_sky)
 
 
+# Rebuilds the street dressing from another manifest (the gates and the sheet driver). Presentation only.
+func rebuild_street(manifest_path: String) -> void:
+	if _street != null:
+		_street.call("build", map, SEED, manifest_path)
+
+
 func _build_views() -> void:
 	_district = DistrictView.new()
 	_district.name = "District"
 	add_child(_district)
 	_district.call("build", map, SEED)
+
+	# The street dressing: pictures of tiles the sim already has (street_dressing.gd). Nothing here reaches the sim.
+	_street = StreetDressingView.new()
+	_street.name = "StreetDressing"
+	add_child(_street)
+	_street.call("build", map, SEED, STREET_MANIFEST_PATH)
 
 	_props = PropView.new()
 	_props.name = "SafeSpawnProps"
@@ -553,11 +583,14 @@ func _update_render(alpha: float) -> void:
 		_rig.position = Vector3(at.x, 0.0, at.y)
 		_rig.rotation = Vector3(0.0, yaw, 0.0)
 	if camera != null:
-		camera.rotation = Vector3(pitch + _kick, 0.0, 0.0)
-		camera.position = _camera_local()
+		if review_camera:
+			camera.global_transform = _review_transform()
+		else:
+			camera.rotation = Vector3(pitch + _kick, 0.0, 0.0)
+			camera.position = _camera_local()
 	if own_body != null:
 		own_body.call("update", world, int(world.player), at)
-		own_body.visible = third_person
+		own_body.visible = third_person or review_camera
 	if _bodies != null:
 		_bodies.call("apply", world, alpha)
 
@@ -588,8 +621,46 @@ func _camera_local() -> Vector3:
 ## are unchanged, because they still come from the eye.
 func toggle_view() -> void:
 	third_person = not third_person
+	_apply_review_visibility()
+
+
+## The review camera (F3): a height view over the street for the sheets and the art QA. Testing only; movement,
+## aim, interaction and the eye are unchanged, and nothing here is saved or reaches the sim.
+func toggle_review_camera() -> void:
+	review_camera = not review_camera
+	if not review_camera:
+		_review_set = false
+	_apply_review_visibility()
+
+
+## Places the review camera at a world position, yaw and pitch (radians; pitch positive up), and turns it on.
+## The sheet driver calls this. The camera stays there until F3 turns the review view off.
+func set_review_camera(pos: Vector3, yaw_rad: float, pitch_rad: float) -> void:
+	review_camera = true
+	_review_set = true
+	_review_pos = pos
+	_review_yaw = yaw_rad
+	_review_pitch = pitch_rad
+	_apply_review_visibility()
+
+
+# The review camera's pose: the placed one, or the default 14 m above and 2 m behind the body, looking down at
+# -55 degrees along the body's heading. The rig's frame carries the heading, so the default follows the body.
+func _review_transform() -> Transform3D:
+	if _review_set:
+		return Transform3D(Basis.from_euler(Vector3(_review_pitch, _review_yaw, 0.0)), _review_pos)
+	var rig_xf: Transform3D = _rig.global_transform if _rig != null else Transform3D.IDENTITY
+	var pos: Vector3 = rig_xf * Vector3(0.0, _eye_m + REVIEW_UP_M, REVIEW_BACK_M)
+	return Transform3D(Basis.from_euler(Vector3(REVIEW_PITCH_RAD, yaw, 0.0)), pos)
+
+
+# The body and the held weapon follow the review flag: the own body is drawn as in third person, and the
+# arms (the held weapon) are hidden. The HUD is hidden in `_update_hud`.
+func _apply_review_visibility() -> void:
 	if own_body != null:
-		own_body.visible = third_person
+		own_body.visible = third_person or review_camera
+	if _arms != null:
+		_arms.visible = not review_camera
 
 
 func _update_hud() -> void:
@@ -640,7 +711,7 @@ func _update_hud() -> void:
 				prompt = "The ledger stands near."
 	_hud.set("time_words", SessionRes.speed_words(speed, paused, world))
 	_hud.call("set_state", world, int(world.player), prompt, _live_alert(), menu_open, paused, inventory_open, _live_news())
-	_hud.visible = not inventory_open and not talk_open and not bench_open
+	_hud.visible = not inventory_open and not talk_open and not bench_open and not review_camera
 
 
 # --- input ----------------------------------------------------------------------------------
@@ -695,6 +766,10 @@ func _input(event: InputEvent) -> void:
 		return
 	if ke.pressed and code == VIEW_KEY:
 		toggle_view()
+		get_viewport().set_input_as_handled()
+		return
+	if ke.pressed and code == REVIEW_KEY:
+		toggle_review_camera()
 		get_viewport().set_input_as_handled()
 		return
 	if inventory_open:
@@ -2399,6 +2474,7 @@ const KEY_REFERENCE: Array = [
 		["P", "hold the world still", [KEY_P]],
 		["F5 / F9", "save and load, in the first-person slot", [KEY_F5, KEY_F9]],
 		["F2", "testing only: step the camera back behind your own body, and back to your eye; first person is the game, and this view is not saved", [KEY_F2]],
+		["F3", "testing only: a height camera over the street, for the sheets; first person is the game, and this view is not saved", [KEY_F3]],
 		["Esc", "free the pointer, then back to the title; in the ledger or the sheet, back a step; in a conversation, goodbye", [KEY_ESCAPE]],
 		["Up / Down", "in a conversation, move the choice through the orders and goodbye", [KEY_UP, KEY_DOWN]],
 		["Enter", "on the end panel, back to the title; in a conversation, choose the order at the cursor", [KEY_ENTER, KEY_KP_ENTER]],

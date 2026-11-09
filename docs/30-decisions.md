@@ -8510,6 +8510,16 @@ given an attack order through the order seam; the walk and the rescue are the ex
 aid. A colonist 12 m away is too slow to beat the player's instinct struggle (40 ticks), so the aid lands at close range.
 The armour lane pins `NPC_AID_ENABLED` off: it tests what a blow wears, not who strikes. Shipped on.
 
+- **First-person street dressing is a picture of tiles the sim already has, 2026-11-09.** `godot/presentation/first_person/street_dressing.gd` (the rules, pure statics) and `street_dressing_view.gd` (the drawing node) place the kit's props from the sim's tile classes and the manifest alone. Tall props (over the Low band, 1.1 m) stand flush to a wall, never on a Low tile or open floor; Low props stand on Low tiles or flush to a wall; wall pieces are at most 0.10 m proud on a wall side; the guard rail sits on a Low edge beside open floor; the noren hangs over an open door with its hem at 1.80 m or higher; wire spans join consecutive poles on a row or column at most 40 m apart. No RNG: every choice is the top-down dresser's hash of the map seed and the tile. Nothing is written to the sim or saved. Until prop kit A lands, the manifest is absent and nothing is drawn; the gate builds against `godot/fixtures/props_fixture.manifest.json` (five box stand-ins). Owner cards, defaults built: tall props never on Low tiles (option: a sim "tall prop" class that lets a machine stand free); wire spans drawn (option: none); one prop per six eligible tiles (option: denser). Gate: the DRESSING lane of `godot/check_first_person.gd`, with two plants (open-floor machine; wall clock in the second boot), both fail when planted. Block-wall pieces are not placed yet: no rule for a district Wall tile apart from a building wall was settled; the kit's block wall waits for that call.
+
+- **A review camera for the sheets, testing only, 2026-11-09.** F3 turns a height camera on and off (`first_person.gd`,
+  `toggle_review_camera`, `set_review_camera`): 14 m above the eye and 2 m behind the body, pitch -55 degrees, looking along
+  the body's heading by default. It is for the sheets and the art QA, testing only, listed under F1, never saved, and the
+  sim, movement, aim and the eye are unchanged. The held weapon and HUD are hidden while it is on. Owner cards, defaults
+  built: key F3 (option: none, driver only); height 14 m and pitch -55 degrees (option: a flatter 4 m street-level wide).
+  Gates: REVIEWCAM and GAMECAM lanes of `godot/check_first_person.gd`. The fog far plane is 240 m in clear weather, so a
+  60 m street reads; under fog the depth fog (30 m times the sight multiplier) clips the far street, as it does for the eye.
+
 - **Hits are marked from the sim's events, 2026-11-09.** `godot/presentation/first_person/hit_marks.gd` reads the tick's
   drained events (the `world.events.drained` read, as `anim_clock.gd` and `fx_look.gd` do; no bus subscription): an impact
   mark on the surface a round met inside reach (`weapon.fired` with no body hit), a blood puff at the body part's height
