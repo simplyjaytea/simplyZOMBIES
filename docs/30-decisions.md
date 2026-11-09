@@ -1448,6 +1448,7 @@ dressing changes never move the layout.
   can answer — the same "no rage meltdown" shape docs/04 already rules out for mood. 0.2 keeps a
   night in a warzone worth a fifth of a good one: real, felt the next morning in `work_mul`, and
   never a trap nothing can climb out of.
+
 ## The treatment ladder: what each rung costs, and what stays legal
 
 - **Two verbs, not three, and the record says which.** docs/05's first aid is stop it, clean it,
@@ -1498,6 +1499,7 @@ dressing changes never move the layout.
   ends the recovery window, so a wound that closes twice as fast on an unchanged regen rate would
   leave the limb permanently weaker for having been treated. The rate is derived from the same
   number in both places rather than authored twice.
+
 ## Focus drift: what moves a survivor off Auto
 
 - **A day number, never the tick the day turns over.** The cadence is
@@ -5578,6 +5580,7 @@ orchestrator ("whatever you think is best"), and the orchestrator chose it. CI's
 the full chain on every pull request and every push to main, so no workflow was added. CLAUDE.md's Verifying
 section states the policy. A change to a shared sim module or the save format still runs the full chain
 locally before its commit.
+
 ## The inventory's look, 2026-10-20
 
 Asked on 2026-10-19 (the alpha plan's Q5) about the inventory, the owner kept the grid -- "I
@@ -5594,6 +5597,7 @@ This settles the inventory's surfaces only. Typography, the anatomical diagram a
 the interface remain the recommendations "The whole interface" describes; VT323 is still the
 baseline face, not a renewed decision. The health-bar ban, the digit ban and the scarce-
 information contract are unchanged.
+
 ## The one-hour day, 2026-10-19
 
 The owner answered the alpha plan's Q2 with the Project Zomboid option: one in-game day is one real
@@ -6334,6 +6338,7 @@ them). A tune of the grade changes `day_grade.gd`'s six constants, re-measures
 same commit, and re-runs `godot:check:memory`, whose STOCKPILE lane measures the rims through
 `DayGrade.grade`. A palette change does not touch the grade, and the grade touches no palette
 lane but that one. Nothing draws over the grade except the world's words, the night, the glow and the HUD.
+
 ## Nowhere to put it, 2026-10-24
 
 The stockpile review's first two findings, taken as engineering calls while the owner's card
@@ -7910,6 +7915,7 @@ economy spends it.
 - **E offers it above the free placements.** An empty floor offers a trip alarm whether or not one is
   carried, so a rung below them is never reached on open ground. The repack takes E over a placement
   while a spent filter and its charcoal are carried.
+
 ## A reach test chooses whom, not whether, 2026-11-04
 
 The two #282 follow-ups (docs/23's first-person group: a zombie's contact target by distance
@@ -8017,6 +8023,7 @@ has the measurement table and the gate. This entry is the design and the reason 
   owed in stage 2 with the zombie arc's re-baseline. `trail` 20 is the first cut, above the
   measured self by the smallest whole margin; it is content, so retuning it is a JSON edit and
   this lane's 20 m positive (a rise of 21.7) says so the moment it is raised past it.
+
 ## The crawler is a kind, not a state, 2026-11-04
 
 A legless shambler is still a shambler. The cripple is a body state: a shambler whose legs are shot
@@ -8052,6 +8059,7 @@ so that refusal is an over-refusal, and the price of a seed-only save.
   gate now also refuses a v33 save, so the refusal is asserted rather than assumed.
 - **Why now.** The save format is not frozen until stage 4 of the release plan, and the owner's
   coordinator decided the bump (`rename-r2`), so it is taken before a player holds a region save.
+
 ## The setting cards: the defaults, and the valley is the first of several (2026-11-04)
 
 The owner's words, 2026-11-04:
@@ -8084,12 +8092,14 @@ decisions (docs/25 and the district `vehicles` block). A train that needs repair
 and it is designed with the region.
 
 \n
+
 ## The key bar sits above the bare hands, 2026-11-06
 
 The first-person key bar, the strip that names the keys along the bottom of the view, moved up to 0.69
 of the view's height so the bare hands at idle no longer sit under it. The hands are where they were; the
 bar is the thing that moved. It is one rectangle (`hud.gd`'s `help_rect`), and `godot:check:first_person`
 HANDS holds it clear at 1280x720 and 960x720.
+
 ## The lurker is a dormant kind, 2026-11-05
 
 The lurker is a zombie kind that is placed only by the dormant manifest, and wakes on a noise
@@ -8113,6 +8123,7 @@ anywhere in the indoor floor of its building. It is a kind, not a state: its con
   through its walls. The shipped default lets a noise above the threshold on any floor tile wake it,
   which is the brief's "unless it is loud enough to be heard at its tile".
 - **Balance.** The boot's dormant bodies change, and the ten-seed re-baseline is owed in stage 2.
+
 ## The feigner is a kind that reads as a corpse until it rises, 2026-11-06
 
 A feigner lies among the dead. It is a zombie kind, not a special object: its content is
@@ -8140,6 +8151,7 @@ A feigner lies among the dead. It is a zombie kind, not a special object: its co
   stream is untouched because the pool still answers without a draw on day 1.
 - **Defaults** (owner cards in the report): the rise radius 2.5 m, the lie-within 1.0 m, the lie search
   12 m, and the weight and wave.
+
 ## The bloater's gas is a tile field, 2026-11-06
 
 The bloater's cloud was a disc with an expiry: a contamination flag that was in force until its end
@@ -8209,6 +8221,7 @@ REPRESS, DRIFT, DRIFT-WALL, BREAK. Two questions are owner cards, and the sim's 
 shambler is too weak against an attentive player: DEATH-ATTENTIVE measures it (the player kills it at +1222 ticks
 in the fixture, after 5 holds broke and with 6 wounds and blood loss 17.1), and the lane passes whatever the outcome.
 DEATH-NOESCAPE is the pinned death: stamina held at 0, the player must die and hand over or end the run.
+
 ## The shot is a ray behind `SHOT_AS_RAY`, 2026-11-07
 
 The shot is a ray behind `SimRanged.SHOT_AS_RAY`, true by default (docs/40, "The shot"; docs/33 question 1 stays open,
@@ -8417,6 +8430,61 @@ exterior wall, and the ground along that face is plain outdoor tiles. It is Floo
   atlas cells each one touches (`OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22`). The station is excluded by name,
   as a template with no base GLB.
 
+## Every zombie kind is driven against the first-person player, 2026-11-07
+
+- **Resolved the same day.** The two bloodhound findings below are closed by "The bloodhound lays no scent of
+  its own, and its trail is 5.0", 2026-11-07.
+- **A measurement, with findings kept out of FAIL.** `godot/check_fp_kinds.gd` (`npm run godot:check:fp_kinds`)
+  prints a line per kind. A mechanic the spec claims that does not hold is a FINDING with its numbers, and
+  a claim the gate itself cannot judge is said so; the gate is green at 0 FAIL. The findings for the owner
+  or t23: a walker never makes a scent rise that Track needs; a sprint at 40 m turns the stalker and the
+  shambler at the same distance (10.9 m, under one tick apart; the cause is not measured); the crawl speed the sim
+  applies is the crawler's own content value.
+- **Colonists come out of the lane.** A colonist standing on a zombie's path draws its pursuit off the
+  player (a runner closed at zero for that reason), so the boot removes every identity but the player.
+- **Sight waits for the view.** Vision casts a few quadrants a tick, so a fresh observer sees nothing for
+  a few ticks; the placement steps until the cast lands before it judges sight.
+- **Hearing is measured without eyes.** The stalker and the shambler approach with their `observer`
+  component removed, so no turn in that lane can be a turn by sight (sight at 4 to 11 m had masked the
+  first measurement).
+- **The bloodhound's trail starts 2 m from it, not 25 m.** It has no eyes or ears (content: noise 0,
+  light 0), so sight is not what brings it. A trail laid 25 m off is only a level at its cell; the lane
+  keeps the 40 m rifle for the deafness check.
+- **Sprint noise needs the sprint posture.** The lane sets the player's `posture` to Sprint, because the
+  attention emitter reads the posture, not the speed, for a controlled body.
+- **Crawl speed.** The sim applies each kind's own content `crawl`: the crawler's 0.45 (measured 0.76 m/s).
+  The 0.25 in `m2:variance` is the shambler default, for a shambler whose legs are gone. The two are
+  different kinds, not one number.
+
+## The bloodhound lays no scent of its own, and its trail is 5.0, 2026-11-07
+
+Content only, `godot/content/zombies/bloodhound.json`: `"emits": []` (the bloodhound writes nothing to the
+scent field; every other kind keeps the `base.json` scent 1) and `sensory.trail` 5.0 (was 20). `shambler.gd`
+is untouched. The owner's card for this is docs/33 item 33.
+
+- **Why the own residue mattered.** A bloodhound lays scent on the cell it stands on, and its neighbours
+  are lower, so `uphill_scent` is null at its own cell: it sat on a summit of its own residue and could
+  not climb to a walker's trail. Measured with the emitter on: no `trail` from 0.1 to 20 reached a walking
+  player within 3 m. With it off, Track reaches at 0.1 to 5.
+- **Why 5.0.** Measured on 8 seeds (20260805, 404, 31337, 90210, 1, 2, 3, 4), 8 spawn points, 2000 ticks each:
+  Track false starts 0/8 on every seed, with no player emitter (a wandering bloodhound enters Track 8/8 at
+  trail 5 and below only while it emits its own residue, so the emitter is what makes trail 5 safe to set);
+  a 30 burst (the bloater's) at 6 m is reached within 3 m on all 8 seeds, with Track entered (+30 to +40
+  ticks); a 40 m walk from 2 m in front of the bloodhound reaches the player by Track on 6 of 8 seeds (+1054,
+  +1118, +1277, +1309, +1364, +1543 ticks from the walk start) and not within 1200 ticks on seeds 404 and 1.
+  Trail 20 is above the level a walker's field ever reaches, so it never tracks anyone; trail 5 is the
+  largest value in the sweep that keeps the false starts at zero with the emitter off.
+- **A limit kept as a limit.** On seeds 404 and 1 the bloodhound does not reach a walker within the 1200 ticks.
+  The gate's own seed (20260805) reaches at +749 ticks after the walk, inside its 800-tick window.
+- **Other kinds.** `godot:m2:balance`, `m2:lethality`, `m2:variance`, `m2:director`, `m2:roster`, `m2:dormant`,
+  `m2:contact` and `m2:noise` print the same lines before and after. `m2:district` keeps every line OK; its
+  TRAIL and SCENT-ONLY lanes print different numbers, because they read the content value and the bloodhound
+  now lays nothing.
+- **Plants.** Trail back to 20: the walker and the 2 m burst lanes go red. Emitter back on: the walker goes red,
+  and the deaf lane too, because the bloodhound's own residue makes it turn to a rifle shot 40 m away.
+- **Schema.** `emits` and `sensory.trail` are both existing keys in `zombie.schema.json`; `godot:validate` passes
+  with the empty `emits`, so nothing widened.
+
 ## The roster is nine terminals in three workspaces, and the merge line (2026-11-08)
 
 - **The roster.** Nine terminals in herdr, in three workspaces: "simplyZOMBIES / Main Code" (the
@@ -8428,6 +8496,7 @@ exterior wall, and the ground along that face is plain outdoor tiles. It is Floo
   `MERGE #N <full 40-char SHA>`. The orchestrator runs `gh pr merge N --merge --match-head-commit <SHA>`
   on that line. Where the auto-mode classifier blocks that command on a seat, the owner runs it, as on
   2026-11-08 for #362.
+
 ## The harm readout says a wound and a held body in words, 2026-11-07
 
 The first-person HUD names held (F struggles free, several holders read as several things), the newest wound
@@ -8442,6 +8511,7 @@ A first-person player hears a zombie's notice as prose, by side from the look, f
 Pursuing zombie outside the look is close behind or beside; a scream is named for its 100-tick window. A Seek or Pursue
 zombie counts as a notice only on a fresh notice (`noticedAt`), so a dormant or feigning body that rises does not tell
 the player. Sound and a directional marker are the art and audio line's, later.
+
 ## A released holder presses again, 2026-11-07
 
 A grab broken by the player's struggle leaves the holder in reach; the holder re-grabs. The encounter gate's
@@ -8477,12 +8547,34 @@ wipes the headless colony by day 10 (2/3 to 0/3) with two stalkers and a bloater
 in the diagnostic, and its early losses are two shamblers and one septic death, not a stalker or the bloater. At 1 the boot
 is inert (day 2 admits no kind before day 3). The owner can dial it. Card open: how early do the boot wanderers take the
 other kinds, and is the wipe on seed 20260805 acceptable for an alpha that starts with a day-1 packet? 0 is the old behaviour.
+
 ## Colonists come to the held player's aid, 2026-11-07
 
 Card open (owner): the default is 24 m to the zombie and 4 m for a Pursuing zombie to the controlled body. An aider is
 given an attack order through the order seam; the walk and the rescue are the existing ones. Raiders and settlers do not
 aid. A colonist 12 m away is too slow to beat the player's instinct struggle (40 ticks), so the aid lands at close range.
 The armour lane pins `NPC_AID_ENABLED` off: it tests what a blow wears, not who strikes. Shipped on.
+
+## Civic templates carry a per-district cap, 2026-11-10
+
+`building.station.small` sets `max_per_district: 1`. The kōban and shrine take the same key in
+koban-shrine-json, which is a separate piece. The key is optional: absent means unlimited, so every
+uncapped template draws exactly as it did. Worldgen's `_buildings` counts stamps per template id in one
+district's pass (one call is one district) and drops a capped template from the draw once its count
+reaches the cap. The drop happens at the tag stage and at the template stage, so a lot never picks a tag
+whose only fitters are capped out and no lot is lost after the tag draw. The count is taken where the
+template is placed. The civic annex stamps outside that pass and is not counted, so a town centre can hold
+one annex and one station. Owner card: cap 1 is the default; the option is no cap.
+
+Measured on the shipped size (256) the town centre stamps exactly one station on each of ten seeds, against
+5 to 12 with the cap ignored. At the gate size (64) the town centre stamps zero or one station on most seeds,
+so the gate size cannot show the cap; the gate judges the shipped size for the town centre and the gate size
+for every district's "at most one". The plant (the cap ignored in the shipped code) shows
+`WORLDGEN_FAIL` with the counts. Gate: `UNIQUE_CIVIC OK` in `npm run godot:check:worldgen`.
+
+Only the town centre's draws move. The WORLDGEN digest of the buildings manifest, base against head over ten
+seeds, is identical for residential, industrial and forest at both sizes and for the town centre at 64; it
+differs for the town centre at 256 on every seed, which is the change.
 
 - **First-person street dressing is a picture of tiles the sim already has, 2026-11-09.** `godot/presentation/first_person/street_dressing.gd` (the rules, pure statics) and `street_dressing_view.gd` (the drawing node) place the kit's props from the sim's tile classes and the manifest alone. Tall props (over the Low band, 1.1 m) stand flush to a wall, never on a Low tile or open floor; Low props stand on Low tiles or flush to a wall; wall pieces are at most 0.10 m proud on a wall side; the guard rail sits on a Low edge beside open floor; the noren hangs over an open door with its hem at 1.80 m or higher; wire spans join consecutive poles on a row or column at most 40 m apart. No RNG: every choice is the top-down dresser's hash of the map seed and the tile. Nothing is written to the sim or saved. Until prop kit A lands, the manifest is absent and nothing is drawn; the gate builds against `godot/fixtures/props_fixture.manifest.json` (five box stand-ins). Owner cards, defaults built: tall props never on Low tiles (option: a sim "tall prop" class that lets a machine stand free); wire spans drawn (option: none); one prop per six eligible tiles (option: denser). Gate: the DRESSING lane of `godot/check_first_person.gd`, with two plants (open-floor machine; wall clock in the second boot), both fail when planted. Block-wall pieces are not placed yet: no rule for a district Wall tile apart from a building wall was settled; the kit's block wall waits for that call.
 
@@ -8512,3 +8604,29 @@ and the frame by 0.14, the leaf darker on a light wall and lighter on a dark one
 is refused by the DOORSTYLE lane. Default card, built: colours by luminance contrast, not art. Option
 for the owner: wait for real leaf pieces from the art line, and this table yields to them. Glazed shop
 doors (the convenience and grocery fronts) show a static glass panel; they do not light up at night.
+
+- **The street placer draws the kit's GLBs, not boxes, 2026-11-10.** A placed prop whose manifest entry names a `glb` that
+  loads is drawn as that model, instanced at its base point and yaw (`street_dressing_view.gd`, through `Assets.load_model`, the
+  building kit's loader, nearest filtering). A wall_back_centre model is placed at its wall-facing back, half its depth from the
+  centre the rule places. The box of the manifest size is the fallback for an entry with no file, or an unreadable one, so the
+  fixture and a tree without the kit draw as before. No rule changed: the tall-prop, tile-class and density rules still read the
+  manifest size and the tile. Gate: the DRESSING lane GLB assertions, with the plant `PLANT_IGNORE_GLB`.
+
+## A firearm that is not ready is drawn lowered, 2026-11-10
+
+The view-model arms show a firearm that is not ready lowered: `arms_view.gd` `ready_amount` reads the
+sim's fire state (Idle 0, Raise 0 to 0.5 over the weapon's raise, Steady 0.5 to 1 over its steady, Recover
+0.5, Reload and Clearing 0.25, no firearm 1), and the sway moves the arms by `LOWER_OFFSET` and tilts them
+by `LOWER_PITCH_DEG` in proportion. Presentation only: the sim is not written and no save field is added.
+The LOWERED lane in `godot/check_first_person.gd` samples an Idle pistol (fully lowered) and a Steady one
+at its first tick (half), and asserts the sway offset and pitch differ. Its plant (`ready_amount` returns
+1 always) turns the lane red. Default card, built: the offset values are engineering picks, not art; the
+art line may later ship a real lowered pose and this table yields to it.
+
+- **The street placer's choice reads the high bits, and the mix is data, 2026-11-10.** `street_dressing.gd` takes the candidate from
+  the high bits of its choice hash, not the low bits, because on the real manifest the low bits moved with the density pick: only the
+  odd candidates were ever chosen (measured: indices 1, 3, 5 of six). `Dressing.hash_at` is unchanged. Weights and per-id caps are
+  presentation data in `street_dressing_mix.json` (owner card, defaults built: bus stops 0.15 weight and 6 a district, extinguisher boxes
+  0.5 and 40, vending machines 1.0 and 40, bicycles 1.0 and 60, utility poles 1.0 and priority). The file lives beside the placer, not under
+  `godot/content/`, because the content gate needs a schema per type. Tall run pieces are not candidates on Low edges. Gate: the DRESSING
+  lane choice, cap and run-height assertions; plant `CHOICE_LOW_BITS`.

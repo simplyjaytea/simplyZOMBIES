@@ -78,6 +78,11 @@
       "items": { "type": "string" },
       "description": "Optional. The district ids (\"district.town_center\") whose pools may draw this template. Absent means every district, as before; worldgen's _buildings filters the pool on it and no other draw moves."
     },
+    "max_per_district": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Optional. The most copies of this template one district's buildings pass may stamp. Absent means unlimited, as before. Counted per district by worldgen's `_buildings`; the civic annex stamps outside that pass and is not counted. A capped template drops out of the draw at both the tag and the template stage once it has reached its cap."
+    },
     "weight": {
       "type": "integer",
       "minimum": 1,
