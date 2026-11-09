@@ -223,7 +223,10 @@ static func _pole_pass(all: Array, seed_val: int, w: int) -> Array:
 
 static func _is_pole(p: Dictionary) -> bool:
 	var anchors: Dictionary = p.get("anchors", {}) as Dictionary
-	return anchors.has("wire_a") and anchors.has("wire_b")
+	for k in WIRE_KEYS:
+		if not anchors.has(k):
+			return false
+	return true
 
 
 static func _pole_clear(p: Dictionary, kept: Array) -> bool:
@@ -456,12 +459,17 @@ static func wire_spans(poles_all: Array, map: Variant = null) -> Array:
 			var gap: float = anchor_world(pa, "wire_a").distance_to(anchor_world(pb, "wire_b"))
 			if gap > WIRE_MAX_SPAN_M or gap < WIRE_MIN_SPAN_M:
 				continue
+			# A pair's three wires stand or fall together: one crossing a Wall tile drops the whole triple.
+			var triple: Array = []
+			var crosses: bool = false
 			for k in WIRE_KEYS:
 				var a: Vector3 = anchor_world(pa, k)
 				var b: Vector3 = anchor_world(pb, k)
 				if map != null and not PLANT_NO_WIRE_BUILDING_CHECK and _crosses_wall(map, a, b):
-					continue
-				out.append({"a": a, "b": b, "points": _catenary(a, b), "key": k})
+					crosses = true
+				triple.append({"a": a, "b": b, "points": _catenary(a, b), "key": k})
+			if not crosses:
+				out.append_array(triple)
 	return out
 
 
