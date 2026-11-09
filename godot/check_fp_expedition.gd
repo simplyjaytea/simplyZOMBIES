@@ -139,6 +139,7 @@ func _fail(lane: String, message: String) -> bool:
 func _boot(packed: PackedScene) -> Node:
 	var scene: Node = packed.instantiate()
 	scene.set("district_tiles", SMALL_DISTRICT_TILES)
+	scene.set("skip_title", true)
 	root.add_child(scene)
 	scene.set_process(false)
 	await process_frame

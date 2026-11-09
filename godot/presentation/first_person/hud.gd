@@ -15,6 +15,8 @@ const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimStances = preload("res://sim/stances.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
+const SimShambler = preload("res://sim/modules/shambler.gd")
+const SimAim = preload("res://sim/aim.gd")
 
 const TITLE_SIZE: int = 25
 const BODY_SIZE: int = 25
@@ -39,6 +41,30 @@ const BLEEDING_LINE: String = "You are bleeding."
 # wounds.gd's own first-person bleeding clause, which the line above already says; not repeated.
 const BLEEDING_CLAUSE_FIRST: String = "You're bleeding."
 const INFECTED_LINE: String = "You have been bitten and the wound is wrong."
+# The zombie tells: prose cues from the sim's own readers (no sound, no marker). A notice is a zombie that went
+# Seek or Pursue on a fresh notice (shambler.gd `_notice`, its noticedAt), within TELL_NOTICE_METRES, for
+# TELL_NOTICE_TICKS (3 s). "Ahead", "left", "right" and "behind" are measured from the player's look (its aim).
+const TELL_NOTICE_TICKS: int = 60
+const TELL_NOTICE_METRES: float = 30.0
+const TELL_CLOSE_METRES: float = 6.0
+const TELL_SCREAM_TICKS: int = 100
+const TELL_SCREAM_METRES: float = 60.0
+const TELL_MAX_LINES: int = 2
+const TELL_AHEAD_HALF: float = PI / 4.0
+const TELL_BEHIND_FROM: float = 3.0 * PI / 4.0
+const NOTICE_LINES: Dictionary = {
+	"ahead": "Something groans ahead.",
+	"left": "Something groans to your left.",
+	"right": "Something groans to your right.",
+	"behind": "Something groans behind you.",
+}
+const CLOSE_LINES: Dictionary = {
+	"left": "Something is close to your left.",
+	"right": "Something is close to your right.",
+	"behind": "Something is close behind you.",
+}
+const SEVERAL_STIR_LINE: String = "Several things stir."
+const SCREAM_LINE: String = "A scream carries across the district."
 
 var world: Variant = null
 var player: int = -1
@@ -98,6 +124,7 @@ func _state_lines() -> Array[String]:
 	var out: Array[String] = []
 	if world != null and player >= 0:
 		out.append_array(_body_lines())
+		out.append_array(_tell_lines())
 		var needs: String = SimNeeds.hud_clause(world, player)
 		out.append(needs if needs != "" else "You feel steady.")
 		# The posture word the top-down paper doll shows under the figure (`SimStances.name_of`).
@@ -111,6 +138,73 @@ func _state_lines() -> Array[String]:
 	if news != "":
 		out.append(news)
 	return out
+
+
+# The tells the player can hear about, nearest first, at most TELL_MAX_LINES. Read only from the sim.
+func _tell_lines() -> Array[String]:
+	var out: Array[String] = []
+	if world == null or player < 0:
+		return out
+	var ppos: Vector2 = _pos_of(player)
+	var yaw: float = SimAim.radians_of(world.components, player)
+	var now: int = int(world.tick)
+	var candidates: Array = []
+	var noticers: Array = []
+	for zed in world.components.query(["shambler", "position"]):
+		var sd: Dictionary = world.components.get_component(int(zed), "shambler") as Dictionary
+		var st: int = int(sd.get("state", -1))
+		var zp: Vector2 = _pos_of(int(zed))
+		var d: float = ppos.distance_to(zp)
+		var rel: float = _relative(ppos, zp, yaw)
+		var fresh: bool = now - int(sd.get("noticedAt", -100000)) < TELL_NOTICE_TICKS
+		if (st == SimShambler.ShamblerState["Seek"] or st == SimShambler.ShamblerState["Pursue"]) and fresh and d <= TELL_NOTICE_METRES:
+			noticers.append({"d": d, "sector": _sector(rel)})
+		if st == SimShambler.ShamblerState["Pursue"] and d <= TELL_CLOSE_METRES and absf(rel) > TELL_AHEAD_HALF:
+			candidates.append({"d": d, "line": CLOSE_LINES[_sector(rel)]})
+	if noticers.size() == 1:
+		var one: Dictionary = noticers[0] as Dictionary
+		candidates.append({"d": float(one["d"]), "line": NOTICE_LINES[String(one["sector"])]})
+	elif noticers.size() > 1:
+		var nearest: float = INF
+		for n in noticers:
+			nearest = minf(nearest, float((n as Dictionary)["d"]))
+		candidates.append({"d": nearest, "line": SEVERAL_STIR_LINE})
+	for sc in world.components.query(["alarm", "position"]):
+		var ad: Dictionary = world.components.get_component(int(sc), "alarm") as Dictionary
+		var ready: int = int(ad.get("ticksUntilReady", 0))
+		var cooldown: int = int(ad.get("cooldownTicks", 600))
+		var sd_dist: float = ppos.distance_to(_pos_of(int(sc)))
+		# A scream is the alarm's own clock: set to the cooldown when it fires, counted down since.
+		if ready > 0 and cooldown - ready <= TELL_SCREAM_TICKS and sd_dist <= TELL_SCREAM_METRES:
+			candidates.append({"d": sd_dist, "line": SCREAM_LINE})
+	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["d"]) < float(b["d"]))
+	for c in candidates:
+		if out.size() >= TELL_MAX_LINES:
+			break
+		out.append(String((c as Dictionary)["line"]))
+	return out
+
+
+func _pos_of(ent: int) -> Vector2:
+	var pos: Variant = world.components.get_component(ent, "position")
+	if not (pos is Dictionary):
+		return Vector2.ZERO
+	return Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
+
+
+# The angle from `from` to `to`, measured from the look (`yaw`). Positive is to the right: a look at (cos r, sin r)
+# has its right hand at r + 90 degrees (the scene's _push_aim and _right_horizontal).
+static func _relative(from: Vector2, to: Vector2, yaw: float) -> float:
+	var a: float = atan2(to.y - from.y, to.x - from.x)
+	return wrapf(a - yaw, -PI, PI)
+
+
+static func _sector(rel: float) -> String:
+	if absf(rel) <= TELL_AHEAD_HALF:
+		return "ahead"
+	if absf(rel) >= TELL_BEHIND_FROM:
+		return "behind"
+	return "right" if rel > 0.0 else "left"
 
 
 func _body_lines() -> Array[String]:
