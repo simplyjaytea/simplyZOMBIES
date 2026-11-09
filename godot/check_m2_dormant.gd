@@ -345,11 +345,14 @@ const ASLEEP_TICKS: int = 200
 
 func _stays_asleep() -> bool:
 	var lane: String = "ASLEEP"
-	var boot: Dictionary = SimBoot.playable(31337, GATE_TILES)
+	# Seed 42, not 31337: the police box and the village shrine joined the district pools (koban-shrine-json),
+	# which moved the draws, and 31337 at 64 now holds no dormant body. A fixture choice, not a re-pin of a
+	# measured number: main's own 31337 passed this lane, and 42 is the first seed tried that holds a dormant copy.
+	var boot: Dictionary = SimBoot.playable(42, GATE_TILES)
 	var w: Variant = boot["world"]
 	var records: Array = boot["map"].dormant as Array
 	if records.is_empty():
-		push_error("%s: seed 31337 at %d is the fixture for this lane and its manifest is empty" % [lane, GATE_TILES])
+		push_error("%s: seed 42 at %d is the fixture for this lane and its manifest is empty" % [lane, GATE_TILES])
 		return false
 	var before: Dictionary = {}
 	for e in _dormant_ids(w):
