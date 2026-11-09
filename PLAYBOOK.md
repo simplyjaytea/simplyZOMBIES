@@ -54,8 +54,8 @@ directly. Agents do the rest, each on its own model.
 |---|---|---|---|
 | Orchestrator | Claude Code, Fable 5.1 | Plans and orchestrates: reads the state, writes the specs, dispatches the lead engineer, the workers and the art lead, makes the harder judgement calls, and talks to the art QA for anything that crosses the two workspaces. The owner gives it tasks directly. Runs the merge command when the lead engineer sends `MERGE #N <full SHA>` after its review | Write the work; merge a head the lead engineer has not reviewed |
 | Lead engineer | Claude Code, Sonnet 5.5 | Reviews every worker change against the diff before the orchestrator sees it; runs the merge train: checks the head contains `origin/main`, CI is green on that head and the merge diff is read, then sends the orchestrator `MERGE #N <full 40-char SHA>`; writes `REPORT-<N>.md`; opens PRs; small fixes to docs and records | Plan the rounds; touch art |
-| Art lead | Kimi Code, K3.1 Pro, thinking high, in "Never Ask" mode | Every 3D model, rig, clip, UV layout and painted texture | Edit another worker's worktree |
-| Art QA | Claude Code, Opus 5.5, a standing terminal beside Kimi | Plans Kimi's rounds, reviews every art batch independently and writes the verdict to `sz-shared/reviews/<piece>/`; the strong tier for a piece that needs higher thinking (a new gate, a shared sim module, the save format) when the coordinator asks | Merge; routine work, which stays with the workers |
+| Art lead | Claude Code, Opus 5.5 (since 2026-11-10; Kimi Code is retired), briefed from `sz-shared/ART_LEAD.md` | Every 3D model, rig, clip, UV layout and painted texture | Edit another worker's worktree |
+| Art QA | Claude Code, Opus 5.5, a standing terminal beside the art lead | Plans the art lead's rounds, reviews every art batch independently and writes the verdict to `sz-shared/reviews/<piece>/`; the strong tier for a piece that needs higher thinking (a new gate, a shared sim module, the save format) when the coordinator asks | Merge; routine work, which stays with the workers |
 | Workers (three) | Claude Code, Haiku 5.5 | Every piece of work that is not art: code, gates, docs, keeping pull requests current with main, and independent reviews of code they did not make. The two merge-train queue workers (head and tail) keep the open PRs current with main and run each PR's named gates after every re-merge | Merge |
 | NPC and zombie lead | Claude Code, Sonnet 5.5 | Surveys, writes the specs and reviews every change in the NPC and zombie workspace, reruns its gates, and hands reviewed heads to the orchestrator for the train | Merge; plan outside its workspace |
 | NPC and zombie worker | Claude Code, Haiku 5.5 | The code, gates and re-merges that the NPC and zombie lead dispatches | Merge |
@@ -64,8 +64,9 @@ The roster may name models, because it says who runs what. Authorship never does
 title or body, code comment or doc does not say which model wrote it (the owner's call, 2026-11-01,
 docs/30).
 
-Kimi has priority for models; if Kimi runs out of usage, a worker takes over its worktree from its
-HANDOFF.md (see [When a worker runs out](#when-a-worker-runs-out)).
+The art lead has priority for models; if it runs out of usage, a worker takes over its worktree from its
+HANDOFF.md. The owner retired Kimi Code on 2026-11-10; older notes and branch names (`kimi/...`) still say Kimi
+and mean the art lead (see [When a worker runs out](#when-a-worker-runs-out)).
 
 ## The dispatch workflow
 
@@ -580,75 +581,101 @@ Ome–Okutama (brief docs/42, on `main`; the owner took every card's default on 
 For what is open, `gh pr list`; for the last session's handoff, the newest entry in
 [docs/43](docs/43-session-log.md).
 
-**Team** (the owner's call, 2026-11-05). Claude Fable orchestrates and plans, and the owner gives it
-tasks directly. Claude Sonnet is the lead engineer: it reviews every worker change, runs the merge
-train and merges. Kimi does all 3D and art; a standing Claude Opus terminal beside it plans Kimi's
-rounds and signs every art batch off before its PR. Two Claude Code Haiku workers do everything else.
-On 2026-11-04 Fable coordinated and Opus was a subagent; the OpenCode workers were retired that day.
+**Team** (the owner's call, 2026-11-05, extended 2026-11-07): the orchestrator plans, dispatches, approves
+every spec and runs the merge command; the lead engineer reviews every worker change and prepares the train;
+two workers build in the main workspace; the NPC and zombie workspace has its own lead and worker; the art
+lead does all 3D and painted art and the art QA plans its rounds and signs each batch off before its PR.
+Nine terminals in three herdr workspaces; the roster and the merge line are in [The team](#the-team).
 
-**Merged this session (2026-11-05 to 06):** #338 (arms art), #348 (this roster), #329 (crawler), #331 (arms
-view in the game, retargeted to `main` before `claude/fp-arms` was deleted), #336 (bloodhound's scent-led
-Seek), #327 (purifier refill), #328 (clothing layers note, docs/44), #349 (the trip alarm and noisemaker priced, the last merge of the night). #346 (the renames R1 to R11) and #347
-merged just before. #322 was closed as a no-op by the owner. Fourteen merged remote branches were deleted by
-the owner; the rest of the merged `claude/*` branches are still on the remote. R4 was never built.
+**The alpha plan (2026-11-09).** The owner was offered three areas toward a playable first-person alpha and
+picked two, in this order: **the fight reads** (hit marks and blood, the lowered weapon, shot dispersion) and
+**the town is a place** (the station, prop kit A, the konbini, the kōban and the shrine from the art line;
+door and window trim per template, a street dressing placer and a review camera in code). Not picked, parked:
+the first hour's stakes (early zombie kinds, follow orders, day-0 reports), clothing round 2, the rail, the
+bolt and bottles, a downed state. The plan, the builder queue and one approved spec per piece live in
+`sz-shared/alpha-2026-11-09/` (`PLAN.md`, `QUEUE.md`, `<piece>/task-haiku.md`, reports and handoffs beside them).
 
-**The merge train.** A PR merges only when its head contains `origin/main` and CI is green on that head; each
-merge voids every head behind it, so the next merges `main` in and waits for CI again. After a merge, check
-`gh pr view N --json state,mergeCommit`: a GitHub error once made a "merged" report false, and a PR's head
-view lagged a pushed branch until an empty commit push refreshed it. Docs-only merges wait until the code
-queue drains (one early docs merge voided every queued head). Two docs PRs that append `docs/33` cards collide
-on numbers: number against the queue, not `main`. State of the train: `sz-shared/merge-train-2026-11-05/TRAIN.md`.
+**Merged 2026-11-09 and 2026-11-10, in order:** #374, #366, #367, #373 (2026-11-09); then on 2026-11-10 #376 the
+sawmill, #377 the title first on boot, #378 the zombie tells, #380 door and window trim per template, #381 hit
+feedback (marks, a billboarded blood puff, a flinch), #382 the review camera (F3), #383 the street dressing
+placer, #384 the small station (Umezaki Ekimae), and the rollup #391, which carried six reviewed pieces in one
+CI run: #385 one station per district (`max_per_district`), #386 the zombie kinds gate and a bloodhound that
+tracks, #388 the placer draws the kit's models and not boxes, #390 the placer's mix, #389 the lowered weapon,
+#387 prop kit A. Last, #395 alone: the lowered pistol kept on screen. `main` is `35b0c5d1`.
 
-**Open pull requests at the pause (the train, in order; heads and CI in TRAIN.md):** #350 the lurker (a dormant
-kind, 20% of declared dormant slots, wakes on indoor noise); #351 the sedan is a Kei Car; #352 the bloater's gas
-decays (the owner changed card 2: a survivor in the cloud is rolled again every 10 s; re-review the reworked
-head); #353 the feigner (reads as a corpse in the sight memory until a living body comes within 2.5 m; every
-settled corpse is now a memory record); #354 docs/45, the wider world by rail (the owner changed card 37: home
-is simulated at a coarse tier while away; re-review the reworked head); #355 arms polish (the key bar clears
-the hands, a HANDS lane, the pistol inspect axis; the art QA cleared it on `67492b7a`, see the ruling under the
-merge train). The owner answered all 18 cards on #349, #350, #352, #353, #354 (16 kept, two changed;
-`sz-shared/owner-calls-2026-11-06/DECISIONS.md`); one docs PR after the train marks them decided in docs/33.
+**Decisions of 2026-11-10** (docs/30 entries ride with their PRs):
 
-**Art line.** Japanese buildings batch A: the art QA signed off round 4 at `db64d031`, the owner saw it
-(`sz-shared/reviews/fp-buildings-jp/round-4/OWNER_SHEET.png`) and sent it back for a fifth, full character
-round before any PR (deeper eaves, amado, aluminium sashes, genkan, pent roof, balcony, kiso). Round 5 was in
-progress at the pause: `sz-shared/fp-buildings-jp/task-kimi-round5.md`, checkpoint `HANDOFF_round5.md` there
-(not yet written when this was). The art QA reviews it as a full round, the owner sees it, then the PR. R4
-(kawara and siding retag) and batch B (`task-kimi-batchB.md`, drafted, six templates) wait on batch A. The
-hunting rifle's round 2 is done on `kimi/fp-rifle` (`sz-shared/fp-rifle/REPORT_round2.md`) and waits for its
-independent review. Arms: the skin tone at the UV seams (n1) stays open. The art QA's method is
-`sz-shared/reviews/fp-buildings-jp/METHOD.md`; its handoff is `sz-shared/art-qa/HANDOFF.md`.
+- **The owner's standing merge go.** The orchestrator merges on the lead engineer's MERGE line without asking
+  again. The art rule and the CI rule are unchanged.
+- **Kimi Code is retired; the art lead is Claude Code on Opus 5.5** (terminal name `art-lead`), briefed from
+  `sz-shared/ART_LEAD.md`. The art QA stays a separate terminal and still signs every batch.
+- **Lettering in art is a font bitmap.** Every kanji and kana is rasterised from Noto Sans CJK Bold (SIL OFL
+  1.1) and baked as literal rows; never hand strokes (`WORKER_RULES.md`, "Art"). The station's name board
+  failed three rounds until this.
+- **A rollup PR is allowed** when the clock is short: one branch off `main` with every reviewed head merged in,
+  one CI run on the exact final tree, the lead engineer reads the merge resolution (#391; precedent #289).
+- **The placer's choice reads the high bits of its hash.** The choice and density hashes moved together in
+  their low bits, so half the kit was never placed. `Dressing.hash_at` is unchanged.
+- **Utility poles follow rules** (#394, open): street runs about 25 m apart, the crossarm across the run, three
+  parallel wires, no centre wire over a building. Before the rules the mix held the pole out by data (106 poles
+  at a 7 m median spacing, 10 of 44 spans over a building). 28 of 34 poles still carry no wire: a follow-up.
+- **The lowered pistol is a small drop** (#395: offset (0.04, -0.03, 0.05), pitch -4 degrees). #389's first
+  values put the idle pistol and both arms below the screen; its gate proved the pose differed, not that the
+  weapon was visible. A view-model gate must assert what the player sees.
+- The balance gate's full run is 4 seeds by 3 arms, not ten seeds.
+- **#395 merged without a MERGE line.** The lead engineer had passed its diff and its own CI was green on a head
+  containing `main`; the rollup that carried it had just gone red on another member and the clock was at the
+  cutoff. The orchestrator merged it alone because it fixed a fault on `main`. Recorded here for the owner.
 
-**Code in flight.** The juggernaut (`claude/juggernaut`, `sz-shared/juggernaut/HANDOFF.md`) waited behind #349 (both touch
-`fortify.gd`); #349 is on `main`, so it can resume.
+**Open at the pause.** In this order. **#392 shot dispersion** (`claude/fp-shot-dispersion` `fe82ea6f`) is RED: CI shard 2 fails on it
+alone, though the builder's full chain passed on the head before its last main re-merge. Read shard 2's log
+first. **#394 the utility pole rules** (`claude/fp-pole-rules` `baa0f0f6`) was green on its own and passed by the
+art QA; it needs a `main` re-merge and a CI run, then it merges and the pole's cap of 0 goes. **#393 the kōban
+and shrine templates** (`claude/koban-shrine-json` `a882ae34`): three lanes took new fixture seeds (dormant
+ASLEEP 31337 to 42, settlers 31337 to 7, trees STOCK 20260805 to 42); its head carries #392, so its red shard 2
+is probably #392's: rebuild it on `main` without #392 and let CI judge. The rollup #396 that carried #392, #394
+and #395 was closed red. The konbini round 1 (`kimi/fp-bldg-konbini` `039d85ff`) has no verdict: the art QA's
+interim notes name an unexplained 138 px drift in the hybrid render.
 
-**Waiting on the owner:** docs/33's firearms card (default rare); docs/44's five clothing cards (28 to 32);
-the survivor concept image for `/home/jtf/sz-shared/concept/`. Every one has a default built.
+**Art line.** The station and prop kit A are on `main`. The konbini (B4) round is under way on
+`kimi/fp-bldg-konbini` (the art lead; handoff in `sz-shared/fp-buildings-jp-b/konbini/`). Then the kōban and
+the shrine (their JSON piece first), then the arms reload and settle clips. The owner sees the sheet before
+every art PR. Clothing round 1 is not signed; round 2 is parked.
+
+**Waiting on the owner** (defaults built): the station sheet and the prop kit sheet, both merged under the
+standing go and worth a look by eye; the prop mix weights and caps (bus stop cap 6, each vending livery 40,
+bicycle 60, extinguisher box 40); the lowered pistol's pose (`alpha-2026-11-09/lowered-weapon/frames/2a_onscreen_idle.png`); the dispersion value (0.25, with 0.5 and 1.0 and the measured table in #392); fire on the first
+press versus the raise; docs/33's firearms card; docs/44's clothing cards.
 
 **Next session, start here**, in order:
 
-1. `hc ls`; read `sz-shared/merge-train-2026-11-05/TRAIN.md` and every `HANDOFF.md` or `REPORT.md` it and the
-   art line name.
-2. Run the train: merge `main` into #350, CI, merge; then down the list. (#349 landed with the owner's card (a): E lays the alarm only where a wall cannot go up.) #352 and #354 only on their reworked
-   heads after the lead engineer's re-review; #355 only with the art QA's written verdict (or an empty diff
-   on the covered paths).
-3. Art: Kimi resumes round 5 from its handoff, the art QA reviews it as a full round, the owner sees it, then
-   the PR; then R4, batch B and the rifle round 2.
-4. The juggernaut, now that #349 is on `main`.
-5. After the train: the docs/33 decided-cards sweep, then the ten-seed re-baseline (stage 2) for the crawler,
-   lurker, bloater gas, feigner and juggernaut, on a quiet machine. The burner waits on fire; raiders'
-   archetypes follow the zombie kinds.
+1. `hc ls`; read `sz-shared/RESUME-2026-11-11.md`, TRAIN.md's STATE AT PAUSE and every HANDOFF.md they name.
+   The standing merge go holds.
+2. Whatever is listed under "Open at the pause", in that order.
+3. The street: wires for the 28 bare poles; a wall-tile rule for the block-wall pieces, which place nowhere
+   today; the owner's card on the mix. All after #394 merges.
+4. The lowered weapon's gate: project with the camera that draws the arms, so the old values turn the lane red;
+   the sheet driver waits 0.15 s after the fire press before panel 2b (`lowered-weapon/STEADY-FINDING.md`).
+5. The konbini art round to a signed sheet; then the kōban and the shrine art rounds once #393 is in.
 
-**To do:** crossbow bolt, fuel, oil and canteen bottles (Kimi); the shambler and the remaining zombie kinds
-on the organic base, with a lighter horde version; the clothing layers' first cut after the cards; the wider
-world by rail's first cut after docs/45.
+**To do, parked:** the first hour's stakes (early zombie kinds, follow orders, day-0 reports); crossbow bolt,
+fuel, oil and canteen bottles; the shambler and the remaining zombie kinds on the organic base; clothing round 2;
+the wider world by rail's first cut.
 
 **Known bugs**
 
+- The street placer places no utility pole until #394 merges (held out by data), and no block-wall piece (no
+  wall-tile rule yet). With #394, 28 of 34 poles carry no wire.
+- The LOWERED lane's on-screen check does not go red on the old off-screen values; it is not yet a proven gate.
+- Three gate fixtures depend on what a seed happens to draw at size 64 (dormant ASLEEP, settlers, trees STOCK);
+  a new building template can empty them (#393).
+- Appending to `docs/30` and `docs/23` conflicts on every parallel branch; keep both sides.
 - `godot:check:fp_geometry` takes about 13 s; its real-worldgen lane is most of it. The next speed-up
   is caching the four worldgen districts.
 - The survivor review scene's light is flat grey, so colour judgements there run dark.
 - R2's save bump refuses every v33 save, district saves included, because a save carries only its seed.
+- A both-kept merge of a `switch` in `scripts/run-godot.mjs` can drop a `break;` (it did on #367: the harm gate
+  silently ran the aid gate). After such a merge, run the gate and its plant before pushing.
 
 ## The docs map
 
