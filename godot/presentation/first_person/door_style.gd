@@ -53,6 +53,7 @@ const TABLE: Dictionary = {
 	"shed_lockup": {"wall": Color(0.203, 0.171, 0.143), "leaf": Color(0.474, 0.453, 0.434), "frame": Color(0.338, 0.312, 0.289), "frame_w": 0.06, "glazed": false},
 	"shed_tin": {"wall": Color(0.203, 0.171, 0.143), "leaf": Color(0.474, 0.453, 0.434), "frame": Color(0.338, 0.312, 0.289), "frame_w": 0.06, "glazed": false},
 	"shop_corner": {"wall": Color(0.746, 0.715, 0.631), "leaf": Color(0.454, 0.435, 0.384), "frame": Color(0.6, 0.575, 0.508), "frame_w": 0.10, "glazed": true},
+	"station_small": {"wall": Color(0.531, 0.502, 0.437), "leaf": Color(0.236, 0.223, 0.194), "frame": Color(0.383, 0.362, 0.315), "frame_w": 0.07, "glazed": false},
 	"store_grocery": {"wall": Color(0.531, 0.502, 0.437), "leaf": Color(0.236, 0.223, 0.194), "frame": Color(0.383, 0.362, 0.315), "frame_w": 0.10, "glazed": true},
 	"terrace_pair": {"wall": Color(0.746, 0.715, 0.631), "leaf": Color(0.454, 0.435, 0.384), "frame": Color(0.6, 0.575, 0.508), "frame_w": 0.07, "glazed": false},
 	"unit_industrial": {"wall": Color(0.203, 0.171, 0.143), "leaf": Color(0.474, 0.453, 0.434), "frame": Color(0.338, 0.312, 0.289), "frame_w": 0.06, "glazed": false},
