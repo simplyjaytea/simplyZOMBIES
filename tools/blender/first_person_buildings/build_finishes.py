@@ -876,6 +876,8 @@ HOUSE_IDS = {"building.house.small", "building.house.gable"}
 SHOP_ID = "building.arcade.retail"
 SAWMILL_ID = "building.unit.industrial"
 STATION_ID = "building.station.small"
+KOBAN_ID = "building.koban.box"
+SHRINE_ID = "building.shrine.village"
 
 
 def finish_looks(template):
@@ -2763,7 +2765,7 @@ def same_geometry(a, b):
 
 # The round's own template is excluded by name, on both sides of the comparison. Every other base GLB
 # must be proved, so a missing template cannot shrink the proof silently.
-PROOF_OWN = {STATION_ID}
+PROOF_OWN = {STATION_ID, KOBAN_ID}
 
 
 def validate_other_templates(repo, export_dir, templates, plant=None):

@@ -3252,6 +3252,45 @@
     {
       "bounds": {
         "max": [
+          5.18,
+          2.81,
+          5.18
+        ],
+        "min": [
+          -0.18,
+          0.0,
+          -0.18
+        ]
+      },
+      "floor": [
+        "tile",
+        "tile_alt"
+      ],
+      "glb": "res://assets/first_person/buildings/koban_box.glb",
+      "interior": "civic",
+      "interiorWall": [
+        "render_ivory"
+      ],
+      "match": {
+        "id": "building.koban.box"
+      },
+      "pieces": {
+        "jamb": 18,
+        "wall": 9,
+        "window": 11
+      },
+      "roof": "tar",
+      "roofForm": "flat",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "render"
+    },
+    {
+      "bounds": {
+        "max": [
           12.18,
           2.81,
           9.18
