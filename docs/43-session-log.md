@@ -3,6 +3,41 @@
 Each entry is the handoff a session wrote when it stopped, moved here from PLAYBOOK.md so the
 playbook stays current. Read the newest entry first. Links are relative to this folder.
 
+## Where we left off (2026-11-10, the owner asleep, the machine set to shut down at 07:00 KST)
+
+**What the session did.** Fifteen pull requests merged: #376, #377, #378, #380, #381, #382, #383, #384 one
+at a time on the train, then the rollup #391 with #385, #386, #387, #388, #389 and #390 inside it. Then #395
+alone (the lowered pistol kept on screen). A second rollup, #396, went red on shot dispersion (#392) and was
+closed; #394 (utility pole rules) was green alone and stays open for a re-merge. Both of the
+owner's alpha areas moved: the fight reads (hit marks and blood, the lowered weapon, the title on boot, the
+zombie tells; shot dispersion measured and in review) and the town is a place (the sawmill, the station, door
+and window trim, the review camera, the street placer and prop kit A drawn on the street).
+
+**Changes to how we work.** The owner gave a standing merge go. Kimi Code was retired; the art lead is now
+Claude Code on Opus 5.5 (`art-lead`, brief `sz-shared/ART_LEAD.md`). Lettering in art comes from a font
+bitmap. A rollup PR is allowed when the clock is short.
+
+**What went wrong, and what it taught.**
+
+- The street placer shipped drawing boxes: its gate used a fixture with no model files. The art QA found it
+  when the real kit first met the placer. A gate on a fixture must still cover the real path.
+- The placer's two hashes were perfectly anti-correlated in parity, so only three of six candidates were ever
+  placed. The per-kind counts on the real kit showed it at once; print the counts.
+- A builder said the scale was right from frames that could not show it, then corrected itself. The art QA's
+  in-engine measure settled it. Frames show place; a measure shows size.
+- One piece was dispatched to two builders for a minute. One owner per worktree.
+- The lowered weapon merged with its idle pose below the screen. Its gate proved the transform differed; no one
+  had looked at a frame. The first frame taken showed it. Look before the merge, not after.
+- A rollup is only as green as its reddest member. The second one failed on #392 and took two green pieces
+  down with it at the deadline; each member's own CI run named the culprit at once. Keep member PRs open and
+  running beside a rollup.
+- Two new building templates emptied three gate fixtures that each lean on what one seed draws. The seed hunt
+  fixed them locally and CI still failed. Fixtures that matter should be built, not drawn.
+- Serial CI at 13 minutes a head would have landed four pieces before the shutdown; the rollup landed six.
+- Usage ran out on four terminals at 05:15. Handoffs were written first because the pause order had gone out.
+
+**State at the pause** is in PLAYBOOK.md, "Where we are", and `sz-shared/RESUME-2026-11-11.md`.
+
 ## Where we left off (2026-11-09, paused by the owner at night)
 
 The owner resumed the project in the morning, asked for a review of what was built and what remained, and
