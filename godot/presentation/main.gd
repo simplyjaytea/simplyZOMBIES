@@ -1196,8 +1196,10 @@ func _continue_first_person() -> void:
 		_show_shell(refusal)
 		return
 	FirstPersonSlot.load_on_boot = true
+	FirstPersonSlot.title_seen = true
 	if get_tree().change_scene_to_file(FIRST_PERSON_SCENE) != OK:
 		FirstPersonSlot.load_on_boot = false
+		FirstPersonSlot.title_seen = false
 		_show_shell("the first-person scene could not be opened")
 
 
@@ -1227,6 +1229,8 @@ func _on_shell_action(id: String) -> void:
 			# so its world is never played unless `--topdown` asked for it. A failed swap stays here.
 			var target: String = new_run_scene(legacy_mode)
 			if target != "":
+				# The title has been shown: the first-person boot plays rather than returning here (docs/30, 2026-11-09).
+				FirstPersonSlot.title_seen = true
 				if get_tree().change_scene_to_file(target) != OK:
 					_show_shell("the first-person scene could not be opened")
 				return
@@ -1269,6 +1273,7 @@ func _on_shell_action(id: String) -> void:
 		"first_person":
 			# The way back to the default boot: it swaps the whole scene for the first-person one. A
 			# failed swap stays here and says so rather than leaving a blank window.
+			FirstPersonSlot.title_seen = true
 			if get_tree().change_scene_to_file(FIRST_PERSON_SCENE) != OK:
 				_show_shell("the first-person scene could not be opened")
 		"quit":

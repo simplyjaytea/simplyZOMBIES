@@ -104,6 +104,13 @@ var map: Variant = null
 var _boot_lead_was: int = -1
 # The district size this scene boots. Set before the scene enters the tree (the gate's small override).
 var district_tiles: int = DISTRICT_TILES
+# A gate or tool that boots this scene on purpose sets this before it enters the tree, or passes
+# `--skip-title` after `--` (scripts/run-godot.mjs does for every mode but the default run). A plain boot
+# of the process goes to the title first (docs/30, 2026-11-09); see _redirect_to_title.
+var skip_title: bool = false
+# How many times a world has been booted in this process: the title-first gate reads it to show that a
+# redirected boot builds nothing, and that a return from the title builds exactly one world.
+static var boot_count: int = 0
 var camera: Camera3D = null
 # The testing view's flag. Presentation only: the sim never reads it and the save never holds it, so a
 # fresh boot is always first person.
@@ -200,6 +207,11 @@ var _verb_row: Dictionary = {}
 
 
 func _ready() -> void:
+	# The title comes first on a plain boot (docs/30, 2026-11-09). This runs before any world, content or
+	# view is built: a redirected scene has no sim, so its tick is 0 by construction, and nothing here
+	# runs again when the title's new run or continue brings the player back (SaveSlot.title_seen).
+	if _redirect_to_title():
+		return
 	_boot()
 	_build_environment()
 	_build_views()
@@ -219,6 +231,17 @@ func _ready() -> void:
 	# The export smoke's readiness line for the default boot (scripts/smoke-godot-exports.mjs). The
 	# top-down scene prints GODOT_R1_READY; this is the first-person scene's own marker.
 	print("GODOT_FIRST_PERSON_READY")
+
+
+func _redirect_to_title() -> bool:
+	if SaveSlot.title_seen or skip_title or "--skip-title" in OS.get_cmdline_user_args():
+		return false
+	set_process(false)
+	set_process_input(false)
+	set_process_unhandled_input(false)
+	set_physics_process(false)
+	get_tree().change_scene_to_file.call_deferred(TITLE_SCENE)
+	return true
 
 
 func _exit_tree() -> void:
@@ -244,6 +267,7 @@ func _notification(what: int) -> void:
 # --- boot and views -------------------------------------------------------------------------
 
 func _boot() -> void:
+	boot_count += 1
 	# The outdoor boot wanderers are judged two days on, so a stalker, screamer or bloater can stand outdoors at the
 	# boot (boot.gd BOOT_WAVE_LEAD_DAYS; the owner card records seed 20260805 wiping at lead 2). Restored on exit.
 	_boot_lead_was = SimBoot.BOOT_WAVE_LEAD_DAYS
