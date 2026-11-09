@@ -126,6 +126,8 @@ func _run() -> void:
 	ok = _the_districts_key_keeps_the_station_in_the_town_centre() and ok
 	# Every station door has a walkable approach to a street, judged on the same seeds.
 	ok = _every_station_door_has_a_walkable_approach() and ok
+	# The station's `max_per_district: 1`: one per district on every seed, and exactly one in the town centre.
+	ok = _unique_civic_holds_per_district() and ok
 	# Slice 9: terrain defaults, the forest district (if it exists yet), and the paths pass.
 	ok = _the_terrain_defaults_are_the_historical_thirteen() and ok
 	ok = _the_forest_district_generates_and_is_denser_than_the_suburb() and ok
@@ -772,6 +774,59 @@ func _the_districts_key_keeps_the_station_in_the_town_centre() -> bool:
 	print("DISTRICTS OK the station stamps %d time(s) in %s on the gate seeds and 0 in %s; ignoring the key puts %d into %s on the shipped seeds" % [
 		town, TOWN_CENTER, RESIDENTIAL, planted, RESIDENTIAL])
 	return true
+
+
+# --- the per-district cap --------------------------------------------------------------------------
+
+const DISTRICT_IDS: Array = ["district.town_center", "district.residential_suburb", "district.industrial_park", "district.forest_edge"]
+
+
+func _station_counts(district_id: String, size: int, seeds: Array) -> Array:
+	var tree: Dictionary = _tree()
+	var counts: Array = []
+	for seed_value in seeds:
+		counts.append(_station_count(SimWorldgen.generate(int(seed_value), size, tree, district_id)))
+	return counts
+
+
+# The station's `max_per_district: 1`. True negative, at the gate size for every district type: no district
+# has more than one on any sweep seed. True positive, at the shipped size where a town centre has room for
+# the station to be drawn more than once: the town centre has exactly one on every sweep seed. The plant
+# ignores the cap (SimWorldgen.CAPS_HONOURED, pinned here and restored) at the shipped size on the shipped
+# seeds: the town centre must then stamp two or more on some seed, or the negative proves nothing. At the
+# gate size the town centre stamps zero or one station on most seeds, so the gate size cannot show the cap.
+func _unique_civic_holds_per_district() -> bool:
+	var ok: bool = true
+	var gate_town: Array = []
+	for district_id in DISTRICT_IDS:
+		var counts: Array = _station_counts(String(district_id), GATE_SIZE, SWEEP_SEEDS)
+		for c in counts:
+			if int(c) > 1:
+				push_error("%d stations in %s on a gate seed, so the per-district cap does not hold" % [int(c), district_id])
+				ok = false
+		if String(district_id) == TOWN_CENTER:
+			gate_town = counts
+	var shipped_town: Array = _station_counts(TOWN_CENTER, SHIPPED_SIZE, SWEEP_SEEDS)
+	for c in shipped_town:
+		if int(c) != 1:
+			push_error("the town centre has %d stations on a shipped-size seed, not exactly one" % int(c))
+			ok = false
+	SimWorldgen.CAPS_HONOURED = false
+	var planted: Array = _station_counts(TOWN_CENTER, SHIPPED_SIZE, SHIPPED_SEEDS)
+	SimWorldgen.CAPS_HONOURED = true
+	var most: int = 0
+	for c in planted:
+		most = maxi(most, int(c))
+	if most < 2:
+		push_error("with the cap ignored no shipped seed stamps two stations in %s, so the negative proves nothing" % TOWN_CENTER)
+		ok = false
+	if ok:
+		print("UNIQUE_CIVIC OK station at most 1 per district on all %d gate seeds x %d districts (town centre at gate %d: %s); town centre exactly 1 on every shipped-size seed (%d: %s); cap ignored at %d on the shipped seeds puts up to %d into %s" % [
+			SWEEP_SEEDS.size(), DISTRICT_IDS.size(),
+			GATE_SIZE, str(gate_town),
+			SHIPPED_SIZE, str(shipped_town),
+			SHIPPED_SIZE, most, TOWN_CENTER])
+	return ok
 
 
 # Every station door needs a walkable approach: the tile outside the door is outdoor, walkable floor (not a

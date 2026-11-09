@@ -8,6 +8,7 @@
   "doors": [{"x": 6, "y": 0}, {"x": 6, "y": 4}],
   "tags": ["civic", "station"],
   "weight": 4,
+  "max_per_district": 1,
   "districts": ["district.town_center"],
   "look": {"roof": "tin", "wall": "timber"}
 }

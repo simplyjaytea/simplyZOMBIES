@@ -2554,6 +2554,11 @@ not a to-do list:
     `name_board_open`, `name_board_uv`, `name_board_one_cell`, `name_board_mirror`, `arch_float` and
     `bracket_float`. The name-blind,
     order-free other-template proof is `OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22` against `0f510604`.
+- **The civic cap: one station per district, 2026-11-10.** `building.station.small` carries
+  `max_per_district: 1` (optional key in `building.schema.json`; worldgen `_buildings` counts stamps per
+  district and drops a capped template at both draw stages). At the shipped size the town centre has exactly one
+  station on each of ten seeds, where it had five to twelve. Gated by `UNIQUE_CIVIC OK` in
+  `npm run godot:check:worldgen`, with a plant that goes red (docs/30, 2026-11-10).
     `BUILDINGS_CHECK_OK 23 templates`, `godot:check:fp_geometry`, `godot:smoke` and `check:routing`
     pass. Matched base/head, repeat, magenta, other-template and four close-up captures accompany it;
     repeat-run pixel noise is zero.
