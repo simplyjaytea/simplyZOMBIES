@@ -8419,3 +8419,11 @@ Card open (owner): the default is 24 m to the zombie and 4 m for a Pursuing zomb
 given an attack order through the order seam; the walk and the rescue are the existing ones. Raiders and settlers do not
 aid. A colonist 12 m away is too slow to beat the player's instinct struggle (40 ticks), so the aid lands at close range.
 The armour lane pins `NPC_AID_ENABLED` off: it tests what a blow wears, not who strikes. Shipped on.
+
+- **A review camera for the sheets, testing only, 2026-11-09.** F3 turns a height camera on and off (`first_person.gd`,
+  `toggle_review_camera`, `set_review_camera`): 14 m above the eye and 2 m behind the body, pitch -55 degrees, looking along
+  the body's heading by default. It is for the sheets and the art QA, testing only, listed under F1, never saved, and the
+  sim, movement, aim and the eye are unchanged. The held weapon and HUD are hidden while it is on. Owner cards, defaults
+  built: key F3 (option: none, driver only); height 14 m and pitch -55 degrees (option: a flatter 4 m street-level wide).
+  Gates: REVIEWCAM and GAMECAM lanes of `godot/check_first_person.gd`. The fog far plane is 240 m in clear weather, so a
+  60 m street reads; under fog the depth fog (30 m times the sight multiplier) clips the far street, as it does for the eye.

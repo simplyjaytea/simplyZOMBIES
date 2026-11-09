@@ -4666,6 +4666,11 @@ not a to-do list:
   eyes) and MIX, re-pinned for the day-7 pool over ten kinds (the feigner draws `g`, not yet in the
   fifty). The ten-seed table was not re-run; see "The ten-seed re-baseline after the zombie kinds"
   under Proof.
+- **A review camera for the sheets, 2026-11-09.** F3 (testing only, not saved, listed under F1) puts a height camera 14 m
+  above and 2 m behind the body, pitch -55 degrees, along its heading; `set_review_camera` places it for the sheet driver.
+  Presentation only: the held weapon and HUD hide, the own body draws, the sim and the aim do not move. The game camera is
+  unchanged: its 60-tick transform sequence hashes to the origin/main sequence (GAMECAM lane). Gate: the REVIEWCAM and
+  GAMECAM lanes of `godot:check:first_person`; the review camera lane plants and fails when F3 writes the aim.
 - **A dead zombie lies there, 2026-11-07.** Advances the first-person survival pivot by the owner's card
   (docs/30, "A dead zombie lies where it fell"): a zombie that dies no longer vanishes the same tick.
   - **The body.** `recruits.gd` `handle_death`'s shambler arm keeps `_remember_zombie_remains` and `_drop_kit`,
