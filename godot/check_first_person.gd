@@ -141,6 +141,7 @@ const SimRoster = preload("res://sim/modules/roster.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
 const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
+const HitMarks = preload("res://presentation/first_person/hit_marks.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimOrders = preload("res://sim/modules/orders.gd")
 const SimContext = preload("res://sim/context.gd")
@@ -257,6 +258,7 @@ func _run() -> void:
 		ok = _lane("SUCCESSION", _succession(scene), "a death hands the camera to an heir and the dead body is drawn") and ok
 		ok = _lane("LEGEND", _legend(scene), "F1 lists every key the scene handles and the scene handles every key it lists") and ok
 		ok = _lane("ARMS", _arms(scene), "the view-model arms are the scene's own under the Eye, lower for screens and third person, follow the sim's equipped hold class, hold the weapon on grip_r at the anchor, inspect only while L is held, never cut into a wall, and raise and aim a firearm on the sim's fire state (AIM: raise at the sim's t, aim while steady, idle after the shot, a sheet lowers the aim, a stub that says idle holds idle, a melee class ignores the state)") and ok
+		ok = _lane("LOWERED", _lowered(scene), "a firearm that is not ready is drawn lowered: an Idle pistol sits fully lowered and a Steady one at about half, so the sway offset and pitch differ between them") and ok
 		ok = _lane("HANDS", await _hands(scene), "the bare hands at 16:9 and 4:3 do not reach the key bar, and the overlap test sees a bar placed on them") and ok
 		ok = _lane("THIRD", _third_person(scene), "F2 steps the camera behind the eye and back, the own body is drawn and plays the sim's clip only in third person, and a wall pulls the camera in while an open line does not") and ok
 		ok = _lane("HIDE", _held_visibility(scene), "the held weapon hides while the bench, inventory, ledger, talk and third-person screens are open and shows otherwise") and ok
@@ -277,7 +279,398 @@ func _run() -> void:
 	ok = _lane("BODIES", _character_bodies(bodies_scene), "a walking colonist plays walk at the sim's phase, a lunging shambler plays lunge, a corpse holds death, loops loop and one-shots hold, a body the sim cannot see is hidden, a missing model falls back to the capsule, and HELD: a colonist's pistol sits in its right hand within 0.15 m, a bat swaps it, an unarmed colonist draws nothing, and the player's own body in third person carries the pistol") and ok
 	bodies_scene.queue_free()
 	await process_frame
+	# The street dressing gets two fresh boots of its own: the same seed must give the same props, and the sim must not move.
+	var dress_a: Node = packed.instantiate()
+	dress_a.set("district_tiles", SMALL_DISTRICT_TILES)
+	root.add_child(dress_a)
+	dress_a.set_process(false)
+	await process_frame
+	var dress_b: Node = packed.instantiate()
+	dress_b.set("district_tiles", SMALL_DISTRICT_TILES)
+	root.add_child(dress_b)
+	dress_b.set_process(false)
+	await process_frame
+	var dress_c: Node = packed.instantiate()
+	root.add_child(dress_c)
+	dress_c.set_process(false)
+	await process_frame
+	ok = _lane("DRESSING", _dressing(dress_a, dress_b, dress_c), "the street dressing places props from the sim's own tile classes and the manifest alone: the same seed gives the same props on two boots, a tall prop stands flush to a wall and never on a Low tile or open floor, a wall piece is at most 0.10 m proud, a noren hangs over an open door with its hem at 1.80 m or higher, wire spans join poles in range only, a missing manifest draws nothing, the drawn count is the placed count, and the sim's save is byte-identical before and after drawing") and ok
+	dress_a.queue_free()
+	dress_b.queue_free()
+	dress_c.queue_free()
+
+	# The review camera (F3) and the game-camera sequence each get a fresh scene: the review lane moves the
+	# camera and the held weapon, so the sequence lane reads a scene no other lane has touched.
+	var review_scene: Node = packed.instantiate()
+	review_scene.set("district_tiles", SMALL_DISTRICT_TILES)
+	root.add_child(review_scene)
+	review_scene.set_process(false)
+	await process_frame
+	ok = _lane("REVIEWCAM", _review_camera(review_scene), "F3 puts the review camera at the default height and pitch behind the body along its heading and turns it off to the eye, the sim's tick, position, aim are unchanged by pressing it, the held weapon and the HUD are hidden while it is on, the own body is drawn, and set_review_camera places it") and ok
+	review_scene.queue_free()
+	await process_frame
+	var seq_scene: Node = packed.instantiate()
+	seq_scene.set("district_tiles", SMALL_DISTRICT_TILES)
+	root.add_child(seq_scene)
+	seq_scene.set_process(false)
+	await process_frame
+	ok = _lane("GAMECAM", _game_camera_sequence(seq_scene), "with F3 never pressed the game camera's transforms over 60 ticks match the recorded origin/main sequence") and ok
+	seq_scene.queue_free()
+
+	# The HIT lane fires and spawns, so it gets a fresh scene of its own, the way BODIES does: the colony the lanes
+	# above read is not shot at or moved by it.
+	var hit_scene: Node = packed.instantiate()
+	hit_scene.set("district_tiles", SMALL_DISTRICT_TILES)
+	# No title redirect in a gate scene (title-first-frame, t1p): the boot is the game.
+	hit_scene.set("skip_title", true)
+	root.add_child(hit_scene)
+	hit_scene.set_process(false)
+	await process_frame
+	ok = _lane("HIT", _hit(hit_scene), "a weapon.fired hit puts a blood puff on the body part and a flinch on the body, a miss puts an impact mark on the tile the ray met, all within a tile of the event") and ok
+	hit_scene.queue_free()
+	await process_frame
 	_finish(old_size, ok)
+
+
+# --- DRESSING (2026-11-10) -----------------------------------------------------------------
+
+const StreetDressing = preload("res://presentation/first_person/street_dressing.gd")
+const Dressing = preload("res://presentation/dressing.gd")
+const SimSave = preload("res://sim/save.gd")
+const DRESSING_FIXTURE: String = "res://fixtures/props_fixture.manifest.json"
+# Plants, flipped by hand and restored. CLOCK moves the second boot's seed with the wall clock; OPEN_FLOOR adds a
+# tall vending machine on an open-floor tile to the placements the lane judges.
+const DRESSING_PLANT_CLOCK: bool = false
+const DRESSING_PLANT_OPEN_FLOOR: bool = false
+
+
+func _dressing(dress_a: Node, dress_b: Node, dress_c: Node) -> bool:
+	var ok: bool = true
+	var entries: Array = StreetDressing.load_manifest(DRESSING_FIXTURE)
+	if entries.size() != 5:
+		return _fail("DRESSING", "the fixture manifest loads %d entries, not five" % entries.size())
+	var map_a: Variant = dress_a.get("map")
+	var map_b: Variant = dress_b.get("map")
+	var world_a: Variant = dress_a.get("world")
+	var seed_val: int = int(FirstPerson.SEED)
+	var sim_before: String = _sim_save_hash(world_a)
+
+	# Two boots, same seed: the same props at the same places. The second boot's seed is the one the clock plant moves.
+	var seed_b: int = seed_val + (int(Time.get_ticks_usec() % 1000) + 1 if DRESSING_PLANT_CLOCK else 0)
+	var placed_a: Array = StreetDressing.placements(map_a, seed_val, entries)
+	var placed_b: Array = StreetDressing.placements(map_b, seed_b, entries)
+	var digest_a: String = StreetDressing.digest_text(placed_a)
+	var digest_b: String = StreetDressing.digest_text(placed_b)
+	var kinds: Dictionary = {}
+	for p in placed_a:
+		var id: String = String((p as Dictionary)["id"])
+		kinds[id] = int(kinds.get(id, 0)) + 1
+	print("DRESSING placed %d props on boot A, %d on boot B; per kind %s; digest %s" % [
+		placed_a.size(), placed_b.size(), str(kinds), digest_a.sha256_text()])
+	var tile_keys: Dictionary = {}
+	for ty in range(int(map_a.h)):
+		for tx in range(int(map_a.w)):
+			var k: String = SimSpace.profile_key(map_a, tx, ty)
+			tile_keys[k] = int(tile_keys.get(k, 0)) + 1
+	print("DRESSING tile classes on the district: %s" % str(tile_keys))
+	if placed_a.is_empty():
+		return _fail("DRESSING", "the fixture manifest placed no props on the district")
+	if digest_a != digest_b:
+		ok = _fail("DRESSING", "two boots with the same seed placed different props (%d and %d)" % [placed_a.size(), placed_b.size()])
+
+	# The rules, judged from the map alone. A probe on open floor proves the judge can refuse what it must refuse.
+	var probe: Dictionary = _open_floor_probe(map_a, entries, seed_val)
+	if probe.is_empty():
+		return _fail("DRESSING", "the district has no open floor tile for the refusal probe")
+	if StreetDressing.validate(map_a, [probe]).is_empty():
+		ok = _fail("DRESSING", "the rule check passed a tall vending machine on open floor")
+	# Judge each kind both ways on this map: a probe the rule allows must pass, and one it refuses must fail. The small
+	# district may have no open doorway or no Low run beside floor; then that kind is judged on the refusal side only,
+	# and the print says so.
+	var wall_side: Vector2i = _probe_tile(map_a, "floor", true)
+	var bare_floor: Vector2i = _probe_tile(map_a, "floor", false)
+	var low_edge: Vector2i = _probe_tile(map_a, "low", false)
+	var closed_door: Vector2i = _probe_tile(map_a, "door.closed", false)
+	var open_door: Vector2i = _probe_tile(map_a, "door.open", false)
+	if wall_side != Vector2i(-1, -1):
+		if not StreetDressing.validate(map_a, [_probe(map_a, entries, "fixture.vending", wall_side)]).is_empty():
+			ok = _fail("DRESSING", "the rule check refused a tall machine flush to a wall")
+		if not StreetDressing.validate(map_a, [_probe(map_a, entries, "fixture.extinguisher", wall_side)]).is_empty():
+			ok = _fail("DRESSING", "the rule check refused a wall piece on a wall side")
+	if bare_floor != Vector2i(-1, -1) and StreetDressing.validate(map_a, [_probe(map_a, entries, "fixture.guard_rail", bare_floor)]).is_empty():
+		ok = _fail("DRESSING", "the rule check passed a guard rail on open floor")
+	if low_edge != Vector2i(-1, -1):
+		if not StreetDressing.validate(map_a, [_probe(map_a, entries, "fixture.guard_rail", low_edge)]).is_empty():
+			ok = _fail("DRESSING", "the rule check refused a guard rail on a Low edge beside floor")
+	if closed_door != Vector2i(-1, -1) and StreetDressing.validate(map_a, [_probe(map_a, entries, "fixture.noren", closed_door)]).is_empty():
+		ok = _fail("DRESSING", "the rule check passed a noren over a closed door")
+	if open_door != Vector2i(-1, -1):
+		if not StreetDressing.validate(map_a, [_probe(map_a, entries, "fixture.noren", open_door)]).is_empty():
+			ok = _fail("DRESSING", "the rule check refused a noren over an open door")
+	print("DRESSING judged both ways: wall side %s, bare floor %s, low edge %s, closed door %s, open door %s" % [str(wall_side), str(bare_floor), str(low_edge), str(closed_door), str(open_door)])
+	var judged: Array = placed_a.duplicate()
+	if DRESSING_PLANT_OPEN_FLOOR:
+		judged.append(probe)
+	var fails: Array = StreetDressing.validate(map_a, judged)
+	if not fails.is_empty():
+		ok = _fail("DRESSING", "the placer broke its rules: %s" % str(fails.slice(0, 3)))
+
+	# The shipped district size: the placed props must reach both halves of it, so a row-major cap cannot leave the
+	# south bare. The plant (StreetDressing.CAP_BY_RANK false) is that cap, and this assertion must fail on it.
+	var map_c: Variant = dress_c.get("map")
+	if int(map_c.h) != 256:
+		ok = _fail("DRESSING", "the default district is %d tiles, not 256" % int(map_c.h))
+	var big: Array = StreetDressing.placements(map_c, seed_val, entries)
+	var half: int = int(map_c.h) / 2
+	var north: int = 0
+	var south: int = 0
+	for p in big:
+		if int((p as Dictionary)["ty"]) < half:
+			north += 1
+		else:
+			south += 1
+	print("DRESSING 256 district: %d props (cap %d), north %d, south %d" % [big.size(), StreetDressing.PROP_CAP, north, south])
+	# Each half holds at least 40% of the props: the rank cut gives about half and half; a row-major cut gives about 70 to 30.
+	if north * 5 < big.size() * 2 or south * 5 < big.size() * 2:
+		ok = _fail("DRESSING", "the 256 district's props miss a half (each needs 40%%): north %d, south %d of %d" % [north, south, big.size()])
+	# Choice: over the 256 district, the tiles that take a pick (density hash % 6 == 0) must reach every index of a
+	# six-candidate set. The old low-bit choice reached only the odd indices (measured on the real manifest). Plant: CHOICE_LOW_BITS.
+	var reached: Dictionary = {}
+	for ty in range(int(map_c.h)):
+		for tx in range(int(map_c.w)):
+			if Dressing.hash_at(seed_val, tx, ty, StreetDressing.SALT_PICK) % StreetDressing.DENSITY_MOD != 0:
+				continue
+			reached[StreetDressing.choice_of_count(seed_val, tx, ty, 6)] = true
+	print("DRESSING choice indices reached on the 256 district: %s" % str(reached.keys()))
+	if reached.size() != 6:
+		ok = _fail("DRESSING", "the choice reaches %d of 6 indices on the 256 district, not all six" % reached.size())
+	# Caps: a per-id cap holds on the 256 district, and the capped kind still places (a true positive).
+	var capped: Array = StreetDressing.placements(map_c, seed_val, entries, {"props": {"fixture.extinguisher": {"max_per_district": 5}}})
+	var boxes: int = 0
+	for p in capped:
+		if String((p as Dictionary)["id"]) == "fixture.extinguisher":
+			boxes += 1
+	print("DRESSING capped extinguisher boxes on the 256 district: %d (cap 5)" % boxes)
+	if boxes == 0 or boxes > 5:
+		ok = _fail("DRESSING", "the per-id cap did not hold: %d extinguisher boxes, cap 5" % boxes)
+	# Cap 0 is zero, not "no cap": a per-id cap of 0 places none of that id on the 256 district; with no cap the same id places.
+	var poles_free: int = 0
+	var poles_capped: int = 0
+	for p in StreetDressing.placements(map_c, seed_val, entries):
+		if String((p as Dictionary)["id"]) == "fixture.pole":
+			poles_free += 1
+	for p in StreetDressing.placements(map_c, seed_val, entries, {"props": {"fixture.pole": {"max_per_district": 0}}}):
+		if String((p as Dictionary)["id"]) == "fixture.pole":
+			poles_capped += 1
+	print("DRESSING poles with no cap %d, with cap 0 %d" % [poles_free, poles_capped])
+	if poles_free == 0 or poles_capped != 0:
+		ok = _fail("DRESSING", "cap 0 must place no fixture pole (free %d, capped %d)" % [poles_free, poles_capped])
+	# Run pieces: a 1.2 m run entry is not placed on a Low tile, so the rule check passes with it in the entries.
+	var tall_run: Array = entries.duplicate()
+	tall_run.append({"id": "fixture.block", "placement": "run", "size": [1.0, 1.2, 0.12], "origin": "floor_centre", "anchors": {}, "tris": 0})
+	var with_block: Array = StreetDressing.placements(map_c, seed_val, tall_run)
+	var block_fails: Array = StreetDressing.validate(map_c, with_block)
+	if not block_fails.is_empty():
+		ok = _fail("DRESSING", "a 1.2 m run entry on the 256 district failed the rule check: %s" % str(block_fails.slice(0, 2)))
+	# Wire spans: a true positive (two poles 20 m apart in one row are joined) and a true negative (50 m apart are not).
+	var near_a: Dictionary = _pole_at(10, 20, 0.0)
+	var near_b: Dictionary = _pole_at(30, 20, 0.0)
+	var far_b: Dictionary = _pole_at(60, 20, 0.0)
+	var joined: Array = StreetDressing.wire_spans([near_a, near_b])
+	if joined.size() != 1:
+		ok = _fail("DRESSING", "two poles 20 m apart in one row were not joined by a wire span")
+	var apart: Array = StreetDressing.wire_spans([near_a, far_b])
+	if not apart.is_empty():
+		ok = _fail("DRESSING", "two poles 50 m apart were joined by a wire span")
+	for span in StreetDressing.wire_spans(placed_a):
+		if float((span as Dictionary)["a"].distance_to((span as Dictionary)["b"])) > StreetDressing.WIRE_MAX_SPAN_M + 0.001:
+			ok = _fail("DRESSING", "a wire span on the district is longer than %.1f m" % StreetDressing.WIRE_MAX_SPAN_M)
+
+	# Drawing: the view draws what was placed, the sim's save does not move, and a missing manifest draws nothing.
+	var street: Node = dress_a.get("_street") as Node
+	dress_a.call("rebuild_street", DRESSING_FIXTURE)
+	var drawn: int = int(street.call("prop_count"))
+	if drawn != placed_a.size():
+		ok = _fail("DRESSING", "the view drew %d props for %d placed" % [drawn, placed_a.size()])
+	# GLB: a prop whose entry names a file that loads is its model (a Node3D with children), not the box; an entry with no
+	# file stays the box. The fixture names barricade.glb (on main) for the vending entry and none for the pole.
+	var glb_nodes: int = 0
+	var box_nodes: int = 0
+	var glb_bad: int = 0
+	for child in street.get_children():
+		var cname: String = String(child.name)
+		if cname.begins_with("Prop_fixture_vending"):
+			if child is MeshInstance3D or child.get_child_count() == 0:
+				glb_bad += 1
+			else:
+				glb_nodes += 1
+		elif cname.begins_with("Prop_fixture_pole"):
+			if child is MeshInstance3D:
+				box_nodes += 1
+			else:
+				glb_bad += 1
+	print("DRESSING GLB instanced %d, box fallback %d, wrong kind %d" % [glb_nodes, box_nodes, glb_bad])
+	if glb_nodes == 0 or box_nodes == 0 or glb_bad > 0:
+		ok = _fail("DRESSING", "the GLB-named vending props are not instanced models, or the GLB-less pole is not the box (instanced %d, box %d, wrong %d)" % [glb_nodes, box_nodes, glb_bad])
+	if _sim_save_hash(world_a) != sim_before:
+		ok = _fail("DRESSING", "drawing the street dressing changed the sim's save")
+	dress_a.call("rebuild_street", "res://fixtures/no_such_manifest.json")
+	if street.get_child_count() != 0:
+		ok = _fail("DRESSING", "a missing manifest left %d dressing nodes" % street.get_child_count())
+	return ok
+
+
+func _sim_save_hash(world: Variant) -> String:
+	return SimSave.encode_save(SimSave.create_save(world)).sha256_text()
+
+
+# A tile of open floor with no wall beside it, carrying a tall vending machine: a placement the rules must refuse.
+func _open_floor_probe(map: Variant, entries: Array, seed_val: int) -> Dictionary:
+	var vending: Dictionary = {}
+	for e in entries:
+		if String((e as Dictionary)["id"]) == "fixture.vending":
+			vending = e as Dictionary
+	if vending.is_empty():
+		return {}
+	for ty in range(int(map.h)):
+		for tx in range(int(map.w)):
+			if SimSpace.profile_key(map, tx, ty) == "floor" and StreetDressing.wall_sides(map, tx, ty).is_empty():
+				return {"id": "fixture.vending", "placement": "kerb", "tx": tx, "ty": ty, "tile_key": "floor",
+					"pos": Vector3(float(tx) + 0.5, 0.0, float(ty) + 0.5), "yaw": 0.0,
+					"size": StreetDressing.size_of(vending), "hem": 0.0, "proud": 0.0, "anchors": {}}
+	return {}
+
+
+func _pole_at(tx: int, ty: int, yaw: float) -> Dictionary:
+	return {"id": "fixture.pole", "placement": "kerb", "tx": tx, "ty": ty, "tile_key": "floor",
+		"pos": Vector3(float(tx) + 0.5, 0.0, float(ty) + 0.5), "yaw": yaw, "size": Vector3(0.3, 10.0, 0.3),
+		"hem": 0.0, "proud": 0.0,
+		"anchors": {"wire_a": Vector3(0.15, 8.5, 0.0), "wire_b": Vector3(-0.15, 8.5, 0.0)}}
+
+# The sha256 of the game camera's global transform over 60 ticks of an untouched boot, recorded from origin/main
+# before the review camera landed. A change to the game camera moves it, and the lane fails.
+const MAIN_GAME_CAMERA_SHA: String = "cc3359c230036a98b98b69f22bdf3ec55630246295754861167e2d717df61511"
+
+
+# --- REVIEWCAM (2026-11-10) ----------------------------------------------------------------
+
+# The review camera (F3, testing only). Every case reads the sim and the scene, never the key alone.
+func _review_camera(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var camera: Camera3D = scene.get("camera") as Camera3D
+	var rig: Node3D = scene.get("_rig") as Node3D
+	if world == null or camera == null or rig == null:
+		return _fail("REVIEWCAM", "the scene built no world, no camera or no rig")
+	var area: Vector2 = _find_open_area(map, 3)
+	if area == Vector2(-1.0, -1.0):
+		return _fail("REVIEWCAM", "the district has no open area for the review camera")
+	var player: int = int(world.player)
+	_place_player(scene, area)
+	scene.call("set_look", 0.0, 0.0)
+	_settle_eye(scene)
+	if _arms_equip(scene, world, player, "item.pistol.service") < 0:
+		return _fail("REVIEWCAM", "the pistol would not equip for the review camera lane")
+	_arms_settle(scene, 1.5)
+	scene.call("_update_render", 1.0)
+	scene.call("_update_hud")
+	var hud: CanvasItem = scene.get("_hud") as CanvasItem
+	if not bool(scene.call("held_weapon_drawn")) or hud == null or not hud.visible:
+		return _fail("REVIEWCAM", "precondition failed: held weapon or HUD not shown with the review camera off")
+	var eye_before: Transform3D = camera.transform
+	var eye_m: float = float(scene.get("_eye_m"))
+	var tick_before: int = int(world.tick)
+	var pos_before: Dictionary = (world.components.get_component(player, "position") as Dictionary).duplicate()
+	var yaw_before: float = float(scene.get("yaw"))
+	var pitch_before: float = float(scene.get("pitch"))
+
+	# F3 on: the default pose, and the sim is where it was.
+	_key(FirstPerson.REVIEW_KEY, true)
+	_key(FirstPerson.REVIEW_KEY, false)
+	scene.call("_update_render", 1.0)
+	scene.call("_update_hud")
+	var tick_after: int = int(world.tick)
+	var pos_after: Dictionary = world.components.get_component(player, "position") as Dictionary
+	var yaw_after: float = float(scene.get("yaw"))
+	var pitch_after: float = float(scene.get("pitch"))
+	print("REVIEWCAM sim before tick %d pos (%.4f, %.4f) yaw %.4f pitch %.4f; after tick %d pos (%.4f, %.4f) yaw %.4f pitch %.4f" % [
+		tick_before, float(pos_before["x"]), float(pos_before["y"]), yaw_before, pitch_before,
+		tick_after, float(pos_after["x"]), float(pos_after["y"]), yaw_after, pitch_after])
+	if not bool(scene.get("review_camera")):
+		return _fail("REVIEWCAM", "F3 did not turn the review camera on")
+	if tick_after != tick_before or float(pos_after["x"]) != float(pos_before["x"]) or float(pos_after["y"]) != float(pos_before["y"]):
+		ok = _fail("REVIEWCAM", "pressing F3 moved the sim's tick or the player's position")
+	if yaw_after != yaw_before or pitch_after != pitch_before:
+		ok = _fail("REVIEWCAM", "pressing F3 changed the aim (yaw or pitch)")
+	var rig_xf: Transform3D = rig.global_transform
+	var expect_pos: Vector3 = rig_xf * Vector3(0.0, eye_m + FirstPerson.REVIEW_UP_M, FirstPerson.REVIEW_BACK_M)
+	var cam_xf: Transform3D = camera.global_transform
+	print("REVIEWCAM default pose camera %s expected %s" % [str(cam_xf.origin), str(expect_pos)])
+	if cam_xf.origin.distance_to(expect_pos) > 0.01:
+		ok = _fail("REVIEWCAM", "the default review camera is at %s, not 14 m above and 2 m behind the body (%s)" % [str(cam_xf.origin), str(expect_pos)])
+	var fwd: Vector3 = -cam_xf.basis.z
+	if absf(fwd.y - sin(FirstPerson.REVIEW_PITCH_RAD)) > 0.001:
+		ok = _fail("REVIEWCAM", "the default review camera does not pitch -55 degrees (forward y %.4f)" % fwd.y)
+	var heading: Vector2 = Vector2(-sin(yaw_after), -cos(yaw_after))
+	if Vector2(fwd.x, fwd.z).normalized().distance_to(heading) > 0.01:
+		ok = _fail("REVIEWCAM", "the default review camera does not look along the body's heading")
+	if not (scene.get("own_body") as Node3D).visible:
+		ok = _fail("REVIEWCAM", "the own body is not drawn with the review camera on")
+	if bool(scene.call("held_weapon_drawn")):
+		ok = _fail("REVIEWCAM", "the held weapon is still drawn with the review camera on")
+	if hud.visible:
+		ok = _fail("REVIEWCAM", "the HUD is still visible with the review camera on")
+
+	# F3 off: the camera is back at the eye, and the held weapon and HUD return.
+	_key(FirstPerson.REVIEW_KEY, true)
+	_key(FirstPerson.REVIEW_KEY, false)
+	scene.call("_update_render", 1.0)
+	scene.call("_update_hud")
+	if bool(scene.get("review_camera")):
+		return _fail("REVIEWCAM", "F3 did not turn the review camera off")
+	if not camera.transform.is_equal_approx(eye_before):
+		ok = _fail("REVIEWCAM", "F3 off did not return the camera to the eye (%s, not %s)" % [str(camera.transform), str(eye_before)])
+	if not bool(scene.call("held_weapon_drawn")) or not hud.visible:
+		ok = _fail("REVIEWCAM", "the held weapon or HUD did not return with the review camera off")
+	if (scene.get("own_body") as Node3D).visible:
+		ok = _fail("REVIEWCAM", "the own body is drawn in first person after F3 off")
+
+	# The public method: a placed pose is kept, and F3 off clears it.
+	var placed: Vector3 = Vector3(area.x, 20.0, area.y)
+	scene.call("set_review_camera", placed, 0.0, -1.0)
+	scene.call("_update_render", 1.0)
+	if not bool(scene.get("review_camera")):
+		ok = _fail("REVIEWCAM", "set_review_camera did not turn the review camera on")
+	if camera.global_transform.origin.distance_to(placed) > 0.01 or absf((-camera.global_transform.basis.z).y - sin(-1.0)) > 0.001:
+		ok = _fail("REVIEWCAM", "set_review_camera did not place the camera at the given position and pitch")
+	_key(FirstPerson.REVIEW_KEY, true)
+	_key(FirstPerson.REVIEW_KEY, false)
+	scene.call("_update_render", 1.0)
+	if bool(scene.get("review_camera")) or bool(scene.get("_review_set")):
+		ok = _fail("REVIEWCAM", "F3 off did not clear the placed review pose")
+	return ok
+
+
+# The game camera's transform on each of 60 ticks of an untouched boot, hashed. F3 is never pressed here.
+func _game_camera_sequence(scene: Node) -> bool:
+	var camera: Camera3D = scene.get("camera") as Camera3D
+	if camera == null:
+		return _fail("GAMECAM", "the scene built no camera")
+	var lines: PackedStringArray = PackedStringArray()
+	for _i in range(60):
+		scene.call("_process", TICK_SECONDS)
+		var xf: Transform3D = camera.global_transform
+		lines.append("%.5f %.5f %.5f | %.5f %.5f %.5f | %.5f %.5f %.5f | %.5f %.5f %.5f" % [
+			xf.origin.x, xf.origin.y, xf.origin.z,
+			xf.basis.x.x, xf.basis.x.y, xf.basis.x.z,
+			xf.basis.y.x, xf.basis.y.y, xf.basis.y.z,
+			xf.basis.z.x, xf.basis.z.y, xf.basis.z.z])
+	var digest: String = "\n".join(lines).sha256_text()
+	print("GAMECAM sequence sha256 %s over 60 ticks" % digest)
+	if MAIN_GAME_CAMERA_SHA == "__RECORD_FROM_MAIN__" or digest != MAIN_GAME_CAMERA_SHA:
+		return _fail("GAMECAM", "the game camera sequence %s is not the origin/main sequence %s" % [digest, MAIN_GAME_CAMERA_SHA])
+	return true
 
 
 # --- BOOTKINDS (2026-11-08) -----------------------------------------------------------------
@@ -1343,6 +1736,182 @@ func _fight(scene: Node) -> bool:
 	if String(scene.get("_alert")) != "":
 		ok = _fail("FIGHT", "the scene invented a reload refusal: %s" % String(scene.get("_alert")))
 	scene.set("_kick", 0.0)
+	return ok
+
+
+func _hit(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var marks: Variant = scene.get("_hit_marks")
+	var bodies: Variant = scene.get("_bodies")
+	if marks == null or bodies == null:
+		return _fail("HIT", "the scene has no hit marks node or no body views")
+	var area: Vector2 = _find_open_area(map, 3)
+	if area == Vector2(-1.0, -1.0):
+		return _fail("HIT", "the district has no open area for a shot")
+	_place_player(scene, area)
+	scene.call("set_look", 0.0, 0.0)
+	scene.call("_process", TICK_SECONDS)
+	var player: int = int(world.player)
+	world.components.remove(player, "meleeWeapon")
+	SimRanged.make_ranged_armed(world, player, {"magSize": 6, "rangeMetres": 12.0, "damage": 12.0, "weight": 1.0, "handling": 1.0, "reloadTicks": 20})
+	var rng: Variant = world.rng.stream("shambler")
+	# Inside the 1.5 m the dispersion lets a round reach (docs/40): the zombie stands 1.2 m ahead, on the shot line.
+	var zed: int = int(SimRoster.spawn_zombie(world, area.x + 1.2, area.y, SimRoster.TYPE_SHAMBLER, rng))
+	_zero_shambler(world, zed)
+	scene.call("_process", TICK_SECONDS)
+	var zp: Variant = world.components.get_component(zed, "position")
+	if not (zp is Dictionary):
+		return _fail("HIT", "the placed zombie has no position")
+	var zx: float = float((zp as Dictionary)["x"])
+	var zy: float = float((zp as Dictionary)["y"])
+	var view: Node3D = bodies.call("node_for", zed) as Node3D
+	scene.call("_process", TICK_SECONDS)
+	if view == null:
+		return _fail("HIT", "the placed zombie has no drawn body")
+
+	# Real path: a hit through the sim's own shot, the events drained by the scene's step. The shot is not
+	# forced to hit (the spread is the sim's), so this lane counts what happened and checks each hit it saw.
+	if not bool(scene.call("mouse_captured")):
+		_click_mouse()
+	var fired: int = 0
+	var real_hits: int = 0
+	var real_misses: int = 0
+	for i in range(60):
+		if i % 10 == 0:
+			_click_mouse()
+		var marks_before: int = int(marks.call("mark_count"))
+		scene.call("_process", TICK_SECONDS)
+		for event in world.events.drained:
+			var e: Dictionary = event as Dictionary
+			match String(e.get("type", "")):
+				"weapon.fired":
+					fired += 1
+					if int(e.get("hit", -1)) >= 0:
+						real_hits += 1
+					else:
+						real_misses += 1
+						if int(marks.call("mark_count")) <= marks_before and int(e.get("oz", -1)) >= 0 and e.has("ex"):
+							var shooter: Vector3 = Vector3(float(e["x"]), float(int(e["oz"])) / 1000.0, float(e["y"]))
+							var contact: Vector3 = Vector3(float(e["ex"]), float(int(e["ez"])) / 1000.0, float(e["ey"]))
+							if shooter.distance_to(contact) < float(e["reach"]) - 0.01:
+								ok = _fail("HIT", "a real miss that met a surface put no impact mark")
+				"attack.connected":
+					if int(e.get("target", -1)) == zed:
+						var puffs: Array = marks.call("puff_positions") as Array
+						if puffs.is_empty():
+							ok = _fail("HIT", "a real hit on the zombie put no blood puff")
+						var kick_map: Dictionary = marks.get("kick") as Dictionary
+						if not kick_map.has(zed):
+							ok = _fail("HIT", "a real hit on the zombie put no flinch on its body")
+	print("HIT real shot: fired %d, hits %d, misses %d" % [fired, real_hits, real_misses])
+	if fired == 0:
+		ok = _fail("HIT", "no round was fired in the real shot")
+
+	# Synthetic path through the step: the same events published on the bus, then one real step, so the scene's
+	# own read of the drained record is what makes the puff, the flinch and the mark. A plant that drops the read
+	# fails here whatever the dispersion did.
+	var shooter_pos: Vector2 = area
+	world.events.publish({"type": "weapon.fired", "entity": player, "item": -1, "x": shooter_pos.x, "y": shooter_pos.y,
+		"dx": 1.0, "dy": 0.0, "reach": 12.0, "hit": zed, "oz": 1620, "pitch": 0.0, "ex": zx, "ey": zy, "ez": 1200})
+	world.events.publish({"type": "attack.connected", "attacker": player, "target": zed, "bodyPart": "head", "damage": 20.0, "item": -1})
+	world.events.publish({"type": "entity.staggered", "entity": zed, "ticks": 8})
+	var puffs_before: int = int(marks.call("puff_count"))
+	scene.call("step_sim_once")
+	if int(marks.call("puff_count")) != puffs_before + 1:
+		ok = _fail("HIT", "a published hit through the step made no blood puff (%d -> %d)" % [puffs_before, int(marks.call("puff_count"))])
+	var puff_at: Array = marks.call("puff_positions") as Array
+	var head_ok: bool = not puff_at.is_empty()
+	for p in puff_at:
+		var pv: Vector3 = p as Vector3
+		if absf(pv.y - 1.6) > 0.001:
+			head_ok = false
+		var flat: Vector2 = Vector2(pv.x - view.global_position.x, pv.z - view.global_position.z)
+		if flat.length() > 1.0:
+			head_ok = false
+	if not head_ok:
+		ok = _fail("HIT", "the puff is not at the head's height (1.6 m) within 1.0 m of the zombie's drawn body")
+	# The puff quads billboard: the renderer turns them to the camera, so they never read as slivers.
+	var puff_mat: StandardMaterial3D = marks.get("_puff_material") as StandardMaterial3D
+	if puff_mat == null or puff_mat.billboard_mode != BaseMaterial3D.BILLBOARD_ENABLED:
+		ok = _fail("HIT", "the blood puff quads do not billboard to the camera (a sliver from the side)")
+	var kick_map: Dictionary = marks.get("kick") as Dictionary
+	if not kick_map.has(zed):
+		ok = _fail("HIT", "a published stagger through the step put no flinch on the zombie")
+	else:
+		var off: Vector3 = kick_map[zed] as Vector3
+		if off.x <= 0.0 or absf(off.length() - 0.15) > 0.001:
+			ok = _fail("HIT", "the flinch is not 0.15 m back along the shot (%s)" % str(off))
+	for _i in range(7):
+		marks.call("tick_once")
+	if not (marks.get("kick") as Dictionary).has(zed):
+		ok = _fail("HIT", "the flinch ended before its 8 ticks")
+	for _i in range(13):
+		marks.call("tick_once")
+	if (marks.get("kick") as Dictionary).has(zed):
+		ok = _fail("HIT", "the flinch is still on 20 ticks after the stagger")
+	if int(marks.call("puff_count")) != 0:
+		ok = _fail("HIT", "a blood puff outlived its 8 ticks")
+
+	# A miss that met a surface: an impact mark on that surface, within a tile of the contact, facing the shooter.
+	var before_miss: int = int(marks.call("mark_count"))
+	var contact_pos: Vector3 = Vector3(area.x + 3.0, 1.2, area.y)
+	world.events.publish({"type": "weapon.fired", "entity": player, "item": -1, "x": area.x, "y": area.y,
+		"dx": 1.0, "dy": 0.0, "reach": 12.0, "hit": -1, "oz": 1620, "pitch": 0.0, "ex": area.x + 3.0, "ey": area.y, "ez": 1200})
+	scene.call("step_sim_once")
+	if int(marks.call("mark_count")) != before_miss + 1:
+		ok = _fail("HIT", "a published miss that met a wall made no impact mark")
+	else:
+		var nodes: Array = marks.call("mark_nodes") as Array
+		var mark: Node3D = nodes[nodes.size() - 1]
+		if mark.global_position.distance_to(contact_pos) > 1.0:
+			ok = _fail("HIT", "the impact mark is more than a tile from the contact")
+		var toward: Vector3 = (Vector3(area.x, 1.62, area.y) - mark.global_position).normalized()
+		if mark.global_transform.basis.z.dot(toward) < 0.99:
+			ok = _fail("HIT", "the impact mark does not face the shooter")
+
+	# True negatives: a ray that met nothing within reach, and a hit on a body, put no impact mark.
+	var before_none: int = int(marks.call("mark_count"))
+	world.events.publish({"type": "weapon.fired", "entity": player, "item": -1, "x": area.x, "y": area.y,
+		"dx": 1.0, "dy": 0.0, "reach": 12.0, "hit": -1, "oz": 1620, "pitch": 0.0, "ex": area.x + 12.0, "ey": area.y, "ez": 1620})
+	world.events.publish({"type": "weapon.fired", "entity": player, "item": -1, "x": area.x, "y": area.y,
+		"dx": 1.0, "dy": 0.0, "reach": 12.0, "hit": zed, "oz": 1620, "pitch": 0.0, "ex": zx, "ey": zy, "ez": 1200})
+	scene.call("step_sim_once")
+	if int(marks.call("mark_count")) != before_none:
+		ok = _fail("HIT", "a ray that met nothing, or a body hit, put an impact mark")
+
+	# The cap: a hundred misses leave at most MARK_CAP marks, the newest kept.
+	for i in range(100):
+		world.events.publish({"type": "weapon.fired", "entity": player, "item": -1, "x": area.x, "y": area.y,
+			"dx": 1.0, "dy": 0.0, "reach": 12.0, "hit": -1, "oz": 1620, "pitch": 0.0, "ex": area.x + 2.0 + float(i) * 0.02, "ey": area.y, "ez": 1200})
+	scene.call("step_sim_once")
+	var cap: int = HitMarks.MARK_CAP
+	if int(marks.call("mark_count")) > cap or int(marks.call("mark_count")) < 1:
+		ok = _fail("HIT", "the impact marks passed the cap (%d > %d)" % [int(marks.call("mark_count")), cap])
+
+	# The same events twice give the same transforms: a second instance fed the same three misses.
+	var twin: Node3D = HitMarks.new()
+	scene.add_child(twin)
+	var sequence: Array = [area.x + 2.0, area.x + 4.0, area.x + 6.0]
+	for x in sequence:
+		var ev: Dictionary = {"type": "weapon.fired", "entity": player, "item": -1, "x": area.x, "y": area.y,
+			"dx": 1.0, "dy": 0.0, "reach": 12.0, "hit": -1, "oz": 1620, "pitch": 0.0, "ex": float(x), "ey": area.y, "ez": 1200}
+		twin.call("from_events", world, [ev])
+	# Replay the same three on the scene's own marks, one per step, and compare the last three transforms.
+	for x in sequence:
+		var replay: Dictionary = {"type": "weapon.fired", "entity": player, "item": -1, "x": area.x, "y": area.y,
+			"dx": 1.0, "dy": 0.0, "reach": 12.0, "hit": -1, "oz": 1620, "pitch": 0.0, "ex": float(x), "ey": area.y, "ez": 1200}
+		marks.call("from_events", world, [replay])
+	var mine: Array = marks.call("mark_nodes") as Array
+	var theirs: Array = twin.call("mark_nodes") as Array
+	for i in range(3):
+		var a: Transform3D = mine[mine.size() - 3 + i].global_transform
+		var b: Transform3D = theirs[theirs.size() - 3 + i].global_transform
+		if not a.is_equal_approx(b):
+			ok = _fail("HIT", "the same events gave different mark transforms")
+	scene.remove_child(twin)
+	twin.queue_free()
 	return ok
 
 
@@ -3278,7 +3847,7 @@ func _write_wrong_glb() -> String:
 # this map is a failure, so a new key cannot slip past the check unnamed.
 const KEY_NAMES: Dictionary = {
 	"KEY_A": KEY_A, "KEY_D": KEY_D, "KEY_E": KEY_E, "KEY_ENTER": KEY_ENTER, "KEY_ESCAPE": KEY_ESCAPE,
-	"KEY_F": KEY_F, "KEY_F1": KEY_F1, "KEY_F2": KEY_F2, "KEY_F5": KEY_F5, "KEY_F9": KEY_F9, "KEY_G": KEY_G,
+	"KEY_F": KEY_F, "KEY_F1": KEY_F1, "KEY_F2": KEY_F2, "KEY_F3": KEY_F3, "KEY_F5": KEY_F5, "KEY_F9": KEY_F9, "KEY_G": KEY_G,
 	"KEY_KP_ENTER": KEY_KP_ENTER, "KEY_P": KEY_P, "KEY_R": KEY_R, "KEY_S": KEY_S, "KEY_SHIFT": KEY_SHIFT,
 	"KEY_W": KEY_W, "KEY_MINUS": KEY_MINUS, "KEY_KP_SUBTRACT": KEY_KP_SUBTRACT, "KEY_EQUAL": KEY_EQUAL,
 	"KEY_KP_ADD": KEY_KP_ADD, "KEY_L": KEY_L, "KEY_UP": KEY_UP, "KEY_DOWN": KEY_DOWN,
@@ -3657,6 +4226,74 @@ func _arms_aim_firearm(scene: Node, world: Variant, player: int, arms: Node3D, h
 		ok = _fail("ARMS", "the %s raise clip held at %d distinct positions over %d raise ticks, not following the sim's t" % [hold_class, positions.size(), raise_frames])
 	if not resolved:
 		ok = _fail("ARMS", "the %s shot did not resolve back to Idle in 400 ticks" % hold_class)
+	return ok
+
+
+# LOWERED: a firearm that is not ready is drawn lowered (arms_view.gd ready_amount, the sway offset and
+# pitch). Idle is fully lowered; Steady at its first tick is half ready, so the sway's offset and pitch
+# sit at about half the lowered value. The sim is not stepped during the sample, so Steady holds.
+func _lowered(scene: Node) -> bool:
+	var world: Variant = scene.get("world")
+	var player: int = int(world.player)
+	var was_paused: bool = bool(scene.get("paused"))
+	scene.set("paused", true)
+	var ok: bool = _lowered_body(scene, world, player)
+	scene.set("paused", was_paused)
+	return ok
+
+
+func _lowered_body(scene: Node, world: Variant, player: int) -> bool:
+	var arms: Node3D = scene.call("arms_node") as Node3D
+	if arms == null or not _is_arms_view(arms):
+		return _fail("LOWERED", "the scene has no arms view")
+	if _arms_equip(scene, world, player, "item.pistol.service") < 0:
+		return _fail("LOWERED", "the service pistol would not equip for the LOWERED case")
+	if not _arms_load_rounds(world, player, "item.ammo.9mm", 4):
+		return _fail("LOWERED", "the pistol would not take item.ammo.9mm for the LOWERED case")
+	_arms_settle(scene, 1.5)
+	if _sim_fire_state(world, player) != int(SimRanged.FireState.Idle):
+		return _fail("LOWERED", "the pistol is not Idle before the LOWERED case")
+	_arms_settle(scene, 1.0)
+	var sway: Node3D = arms.get("_sway") as Node3D
+	var idle_lowered: float = float(arms.get("_lowered"))
+	var idle_pos: Vector3 = sway.position
+	var idle_pitch: float = sway.rotation.x
+	var ok: bool = true
+	if idle_lowered < 0.98:
+		ok = _fail("LOWERED", "an Idle pistol is lowered %.3f, not 1.0" % idle_lowered)
+	# Fire and step the raise out to its first Steady tick, then sample without stepping the sim.
+	world.commands.push({"type": "fire"})
+	scene.call("step_sim_once")
+	var reached: bool = false
+	for _i in 400:
+		if _sim_fire_state(world, player) == int(SimRanged.FireState.Steady):
+			reached = true
+			break
+		scene.call("_process", ARMS_FRAME_S)
+		scene.call("step_sim_once")
+	if not reached:
+		return _fail("LOWERED", "the pistol did not reach Steady in 400 ticks")
+	_arms_settle(scene, 1.5)
+	if _sim_fire_state(world, player) != int(SimRanged.FireState.Steady):
+		ok = _fail("LOWERED", "the pistol left Steady before the LOWERED sample") and ok
+	var ready: float = ArmsView.ready_amount(world, player)
+	var steady_lowered: float = float(arms.get("_lowered"))
+	var steady_pos: Vector3 = sway.position
+	var steady_pitch: float = sway.rotation.x
+	if absf(ready - 0.5) > 0.05:
+		ok = _fail("LOWERED", "a Steady pistol at its first tick is ready %.3f, not 0.5" % ready) and ok
+	if absf(steady_lowered - (1.0 - ready)) > 0.03:
+		ok = _fail("LOWERED", "Steady lowered %.3f, not 1 - ready %.3f" % [steady_lowered, 1.0 - ready]) and ok
+	var offset_gap: float = idle_pos.distance_to(steady_pos)
+	if offset_gap < 0.04:
+		ok = _fail("LOWERED", "the Idle and Steady sway offsets differ by only %.3f m" % offset_gap) and ok
+	var pitch_gap: float = absf(idle_pitch - steady_pitch)
+	if pitch_gap < 0.05:
+		ok = _fail("LOWERED", "the Idle and Steady sway pitches differ by only %.3f rad" % pitch_gap) and ok
+	print("LOWERED idle lowered %.3f, steady lowered %.3f, offset gap %.3f m, pitch gap %.3f rad" % [idle_lowered, steady_lowered, offset_gap, pitch_gap])
+	# Let the sim resolve the shot back to Idle, so the later lanes start from a holstered-ready state.
+	_arms_unequip_all(scene, world, player)
+	_arms_settle(scene, 1.5)
 	return ok
 
 
@@ -5397,3 +6034,29 @@ func _hide_bench_close(scene: Node, world: Variant, player: int) -> void:
 	scene.call("step_sim_once")
 	if SimGunsmith.focus_of(world, player) >= 0:
 		push_error("HIDE: bench.close left the sim's bench focus in place")
+
+
+# The first tile of a profile class (and, when `walled`, one with a wall beside it), or (-1, -1).
+func _probe_tile(map: Variant, key: String, walled: bool) -> Vector2i:
+	for ty in range(int(map.h)):
+		for tx in range(int(map.w)):
+			if SimSpace.profile_key(map, tx, ty) != key:
+				continue
+			if walled != not StreetDressing.wall_sides(map, tx, ty).is_empty():
+				continue
+			if key == "low" and StreetDressing._floor_side(map, tx, ty) == Vector2i.ZERO:
+				continue
+			return Vector2i(tx, ty)
+	return Vector2i(-1, -1)
+
+
+# A placement of one fixture kind on one tile, for the rule check to judge. Only the tile and the size matter to it.
+func _probe(map: Variant, entries: Array, id: String, at: Vector2i) -> Dictionary:
+	var entry: Dictionary = {}
+	for e in entries:
+		if String((e as Dictionary)["id"]) == id:
+			entry = e as Dictionary
+	return {"id": id, "placement": String(entry["placement"]), "tx": at.x, "ty": at.y,
+		"tile_key": SimSpace.profile_key(map, at.x, at.y), "pos": Vector3(float(at.x) + 0.5, 0.0, float(at.y) + 0.5),
+		"yaw": 0.0, "size": StreetDressing.size_of(entry), "hem": 1.8 if String(entry["placement"]) == "door_head" else 0.0,
+		"proud": 0.0, "anchors": {}}
