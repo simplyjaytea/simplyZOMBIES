@@ -8342,6 +8342,34 @@ of the game. The top down is cancelled/put on hold for now."
   times the top-down street, so its `new_run` must play in place; the runner and the budget contract's
   expected args (`scripts/check-runtime-budget.mjs`) both pass it. (2026-11-07)
 
+## The game boots to its title, 2026-11-09
+
+The owner, 2026-11-09: "SHOW THE TITLE FIRST." The default boot shows the title before first person, the
+way the 2026-11-07 entry above wanted the title to exist but did not yet show it on boot.
+
+- **The boot.** `project.godot` still names `first_person.tscn` as the main scene, so every launch path
+  and the boot lane hold. Its `_ready` checks `_redirect_to_title` before it builds anything: a plain boot
+  (not `skip_title`, no `--skip-title`, `SaveSlot.title_seen` false) changes scene to `presentation/main.tscn`
+  and returns. The title's own backdrop is the top-down boot world at the boot tick (`Clock.tick_at_time_of_day(DAY_BEGINS)`,
+  9000); the clock runs only while playing, so that tick does not move on the title. No first-person world exists
+  until the player chooses.
+- **The title's rows** are unchanged: new run, continue when a first-person slot exists, quit. New run
+  and continue set `SaveSlot.title_seen` before they change scene, so the first-person boot after them
+  builds one world and does not return to the title. `title_seen` is process-level: Esc to the title and
+  a new run from it, or a continue, never bounce; a relaunch shows the title once.
+- **Esc** from first person still returns to the title (`return_to_title`). `--topdown` is unchanged.
+- **Gates and dev launches** pass `--skip-title` (`scripts/run-godot.mjs`, every mode except `--run`, the
+  editor and the exports) or set `skip_title` before they enter the tree (`check_first_person.gd`,
+  `check_fp_expedition.gd`). The Windows export smoke passes it too, so it still proves the first-person
+  boot; its web smoke accepts the title's ready line.
+- **Gate.** `npm run godot:check:fp_title` (`godot/check_fp_title.gd`). Plant: disable the redirect; BOOT
+  fails with "the plain boot did not reach the title". Measured: boot to title 963 ms.
+- **Doc correction.** The 2026-11-07 entry's claim that the default boot draws no title was a finding of
+  fact, true at that time, and this entry supersedes it. The shell's header comment now says the game
+  boots to its title.
+- **Owner card (default built).** The title shows first on boot. Flip `SaveSlot.title_seen`'s default
+  to `true` to boot straight into play as before.
+
 ## The juggernaut shoves barricades, 2026-11-06
 
 The what's-left entry "The juggernaut" is closed. Its record, with the numbers, is in
@@ -8378,6 +8406,13 @@ The first-person HUD names held (F struggles free, several holders read as sever
 infection, and the fire state. Infection shows only for a transmitted exposure, not for every bite: the condition
 view reads every exposure as "watch", which would tell the player about a bite that did nothing. Pressing fire again
 during Steady does nothing; the Steady line says the shot fires by itself.
+
+## The zombie tells say a notice in words, 2026-11-07
+
+A first-person player hears a zombie's notice as prose, by side from the look, for three seconds after the notice; a
+Pursuing zombie outside the look is close behind or beside; a scream is named for its 100-tick window. A Seek or Pursue
+zombie counts as a notice only on a fresh notice (`noticedAt`), so a dormant or feigning body that rises does not tell
+the player. Sound and a directional marker are the art and audio line's, later.
 ## A released holder presses again, 2026-11-07
 
 A grab broken by the player's struggle leaves the holder in reach; the holder re-grabs. The encounter gate's
