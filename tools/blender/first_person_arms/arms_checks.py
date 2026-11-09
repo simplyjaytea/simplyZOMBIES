@@ -6,7 +6,9 @@ Each check returns a list of failure strings; the caller tags them `[<check>]`.
 
 import json
 import math
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import bpy
@@ -24,6 +26,7 @@ from gltf_read import Glb, sample
 FPS = 60
 V_HALF = math.radians(75) / 2
 ASPECTS = {"4:3": 4 / 3, "21:9": 21 / 9}
+OTHER_HOLDS_BASE = "cbb1fb00"
 # grip_r at idle frame 0, in camera space (game frame): position (m) and Godot rotation_degrees.
 # Pistol and melee1 are the contract's (today's held weapon); long, melee2 and unarmed were tuned
 # in review and frozen here.
@@ -283,8 +286,100 @@ def check_wrap(ex):
     return fails
 
 
+def long_surface_tree(weapon, label, bounds=None):
+    triangles = []
+    for triangle, owner in zip(weapon.triangles, weapon.labels):
+        if owner != label:
+            continue
+        centre = weapon.vertices[list(triangle)].mean(0)
+        if bounds is not None:
+            low, high = bounds
+            if any(centre[axis] < low[axis] or centre[axis] > high[axis] for axis in range(3)):
+                continue
+        triangles.append(triangle)
+    return BVHTree.FromPolygons([tuple(point) for point in weapon.vertices], triangles)
+
+
+def nearest_surface(tree, points):
+    return min(tree.find_nearest(Vector(point))[3] for point in points)
+
+
+def check_long_hands(ex):
+    weapon = poses.Weapon(poses.REFERENCE["long"])
+    grip_tree = long_surface_tree(weapon, "furniture", ((-1.0, -0.065, -0.045), (1.0, 0.055, 0.050)))
+    fore_tree = long_surface_tree(weapon, "furniture", ((-1.0, -1.0, -1.0), (1.0, 1.0, -0.080)))
+    trigger_tree = long_surface_tree(weapon, "receiver", ((-0.004, -0.052, -0.060), (0.004, 0.010, -0.043)))
+    dominant = ex.dominant(ex.skin)
+    masks = {side: side_hand_mask(ex, ex.skin, side) for side in ("R", "L")}
+    worst = {side: {"inside": 0.0, "palm": 0.0, "proximal": 0.0, "distal": 0.0, "thumb": 0.0, "index": 0.0} for side in ("R", "L")}
+    fails = []
+    for clip in ("idle_long", "aim_long", "raise_long"):
+        count = ex.clip_frames(clip)
+        for frame in sorted({0, count // 2, count}):
+            globals_, skin, _ = ex.state(clip, frame)
+            grip = ex.node(globals_, "grip_r")
+            local = (np.c_[skin, np.ones(len(skin))] @ np.linalg.inv(grip).T)[:, :3]
+            for side in ("R", "L"):
+                inside = max(0.0, -float(weapon.signed(local[masks[side]]).min()))
+                palm = nearest_surface(grip_tree if side == "R" else fore_tree, local[dominant == f"hand.{side}"])
+                proximal = max(nearest_surface(fore_tree if side == "L" else grip_tree, local[dominant == f"{digit}_01.{side}"]) for digit in body.DIGITS)
+                distal = max(nearest_surface(fore_tree, local[dominant == f"{digit}_03.{side}"]) for digit in body.DIGITS) if side == "L" else max(nearest_surface(grip_tree, local[dominant == f"{digit}_03.R"]) for digit in WRAPPING)
+                thumb = np.abs(weapon.signed(local[dominant == f"thumb_03.{side}"])).min()
+                index = nearest_surface(trigger_tree, local[dominant == "index_03.R"]) if side == "R" else 0.0
+                for key, value in (("inside", inside), ("palm", palm), ("proximal", proximal), ("distal", distal), ("thumb", thumb), ("index", index)):
+                    worst[side][key] = max(worst[side][key], value)
+                if inside > 0.002:
+                    fails.append(f"{clip} f{frame}: {side} skin is {inside * 1000:.1f} mm inside the rifle")
+                if palm > (0.004 if side == "R" else 0.003):
+                    fails.append(f"{clip} f{frame}: {side} palm is {palm * 1000:.1f} mm off its supporting wood")
+                if side == "L" and proximal > 0.006:
+                    fails.append(f"{clip} f{frame}: {side} proximal pad is {proximal * 1000:.1f} mm off the rifle")
+                if distal > 0.002:
+                    fails.append(f"{clip} f{frame}: {side} distal pad is {distal * 1000:.1f} mm off the rifle")
+                if thumb > 0.004:
+                    fails.append(f"{clip} f{frame}: {side} thumb is {thumb * 1000:.1f} mm off the wood or receiver")
+                if side == "R" and index > 0.003:
+                    fails.append(f"{clip} f{frame}: right index is {index * 1000:.1f} mm off the trigger")
+    for side, name in (("L", "left"), ("R", "right")):
+        values = worst[side]
+        suffix = f", index-to-trigger {values['index'] * 1000:.1f} mm" if side == "R" else ""
+        print(f"LONG_HANDS {name} inside {values['inside'] * 1000:.1f} mm, palm {values['palm'] * 1000:.1f} mm, proximal max {values['proximal'] * 1000:.1f} mm{suffix}")
+    return fails
+
+
+def check_other_holds(ex):
+    fails = []
+    count = 0
+    with tempfile.TemporaryDirectory(prefix="arms-main-") as temporary:
+        path = Path(temporary) / "arms_base.glb"
+        path.write_bytes(subprocess.check_output(["git", "-C", str(body.REPO), "show", f"{OTHER_HOLDS_BASE}:godot/assets/first_person/arms/arms_base.glb"]))
+        main = Glb(path)
+        for name in clips_.clip_names():
+            if name.endswith("_long"):
+                continue
+            count += 1
+            old = main.clip_tracks(name)
+            new = ex.glb.clip_tracks(name)
+            for node in set(old) | set(new):
+                node_name = ex.glb.nodes[node].get("name", str(node))
+                old_paths = old.get(node, {})
+                new_paths = new.get(node, {})
+                for path_name in set(old_paths) | set(new_paths):
+                    if path_name not in old_paths or path_name not in new_paths:
+                        fails.append(f"{name}: {node_name} loses its {path_name} track")
+                        continue
+                    old_times, old_values = old_paths[path_name]
+                    new_times, new_values = new_paths[path_name]
+                    if not np.array_equal(old_times, new_times) or not np.array_equal(old_values, new_values):
+                        fails.append(f"{name}: {node_name} {path_name} differs from {OTHER_HOLDS_BASE}")
+    if not fails:
+        print(f"OTHER_HOLDS_IDENTICAL {count} clips")
+    return fails
+
+
 def check_sight_line(ex):
     fails = []
+    long_worst = None
     for cls in ("pistol", "long"):
         weapon = poses.Weapon(poses.REFERENCE[cls])
         sight = weapon.points["sight"][:3, 3]
@@ -296,9 +391,13 @@ def check_sight_line(ex):
             off = math.hypot(point[0], point[1])
             bore = -grip[:3, 2]
             tilt = math.degrees(math.acos(max(-1.0, min(1.0, -bore[2]))))
+            if cls == "long" and (long_worst is None or off > long_worst[0]):
+                long_worst = (off, tilt)
             if off > 0.003 or tilt > 1.0:
                 fails.append(f"{clip} f{frame}: the sight is {off * 1000:.1f} mm off the axis, the bore {tilt:.2f} deg off -Z")
                 break
+    if long_worst is not None:
+        print(f"SIGHT_LINE long aim {long_worst[0] * 1000:.1f} mm off axis, bore {long_worst[1]:.2f} deg")
     return fails
 
 
@@ -799,7 +898,7 @@ def check_budget(ex):
     return fails
 
 
-CHECKS = ["names", "anchor", "bone-length", "grip-land", "wrap", "sight-line", "pistol-turn", "near-plane", "stump", "in-frame", "chain", "smooth", "weights", "cuff", "density", "background", "paint-match", "body-match", "budget"]
+CHECKS = ["names", "anchor", "bone-length", "grip-land", "wrap", "long-hands", "sight-line", "other-holds", "pistol-turn", "near-plane", "stump", "in-frame", "chain", "smooth", "weights", "cuff", "density", "background", "paint-match", "body-match", "budget"]
 
 
 def run(folder, survivor, survivor_paint, blender_objects=None):

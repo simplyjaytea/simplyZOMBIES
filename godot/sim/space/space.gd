@@ -281,6 +281,17 @@ static func sight_points(world: Variant, entity: int) -> Array[int]:
 
 
 static func _walk(map: Variant, a: Dictionary, b: Dictionary, purpose: int, partial_only: bool) -> bool:
+	return _scan(map, a, b, purpose, partial_only, false).is_empty()
+
+
+# The tiles the walk from `a` to `b` meets that stop `purpose`, in walk order (the walk runs from the lesser
+# endpoint to the greater, so the order is that one's). With `collect` false the walk returns at the first stop,
+# which is all `_walk` needs. Each stop is {tx, ty, in_n, in_d, out_n, out_d}: the tile is crossed between
+# t = in_n/in_d and t = out_n/out_d along the walk, where t is the same parameter on either endpoint order.
+# A walk that runs out before its end tile is reported as a stop with tx -1, so the segment is refused and not
+# passed.
+static func _scan(map: Variant, a: Dictionary, b: Dictionary, purpose: int, partial_only: bool, collect: bool) -> Array:
+	var stops: Array = []
 	var p: Array[int] = _mm_point(a)
 	var q: Array[int] = _mm_point(b)
 	if _after(p, q):
@@ -361,14 +372,20 @@ static func _walk(map: Variant, a: Dictionary, b: Dictionary, purpose: int, part
 				else:
 					ask = SIGHT_PARTIAL_CLASS[tiles[idx]]
 		if ask and _tile_stops(map, tx, ty, purpose, ah, rise, in_n, in_d, out_n, out_d, ends):
-			return false
+			stops.append({"tx": tx, "ty": ty, "in_n": in_n, "in_d": in_d, "out_n": out_n, "out_d": out_d})
+			if not collect:
+				return stops
 		if leaves == 0:
-			return true
+			return stops
 		if leaves == 3:
 			if _tile_stops(map, tx + step_x, ty, purpose, ah, rise, out_n, out_d, out_n, out_d, ends, partial_only):
-				return false
+				stops.append({"tx": tx + step_x, "ty": ty, "in_n": out_n, "in_d": out_d, "out_n": out_n, "out_d": out_d})
+				if not collect:
+					return stops
 			if _tile_stops(map, tx, ty + step_y, purpose, ah, rise, out_n, out_d, out_n, out_d, ends, partial_only):
-				return false
+				stops.append({"tx": tx, "ty": ty + step_y, "in_n": out_n, "in_d": out_d, "out_n": out_n, "out_d": out_d})
+				if not collect:
+					return stops
 		if leaves != 2:
 			tx += step_x
 			num_x += TILE_MM
@@ -380,7 +397,103 @@ static func _walk(map: Variant, a: Dictionary, b: Dictionary, purpose: int, part
 	# Unreachable: the integer walk always arrives at the end tile within its bound. Refuse rather than
 	# pass a segment whose last tile was never tested.
 	push_error("SimSpace.segment_clear: the walk from %s to %s ran out before its end tile" % [str(p), str(q)])
-	return false
+	stops.append({"tx": -1, "ty": -1, "in_n": 0, "in_d": 1, "out_n": 0, "out_d": 1})
+	return stops
+
+
+## The first thing a round meets from `from` along `dir` within `reach_m` metres (docs/40, "The shot"): a tile
+## whose bands stop a SHOT, or a living body's cylinder (`body_of`), the shooter (`ignore_entity`) excepted. `from`
+## is {"x", "y"} in metres and "h" in millimetres. `dir` is the unit direction: x and y across the ground, z up.
+## Returns {"kind": "tile" | "body" | "none", "entity", "tx", "ty", "x", "y", "z" (millimetres), "dist" (metres
+## along the ray)}. A tile is met at the middle of the stretch the walk crosses it in, so the contact is inside it.
+## The first contact wins: a body whose cylinder the ray enters before the tile it meets is the body. A ray with no
+## contact ends at its reach, with kind "none". Pure: the tile walk is `segment_clear`'s integer walk, and the
+## cylinder is the quadratic a vertical cylinder gives.
+static func ray_first_hit(world: Variant, from: Dictionary, dir: Vector3, reach_m: float, ignore_entity: int) -> Dictionary:
+	var fx: float = float(from["x"])
+	var fy: float = float(from["y"])
+	var fh: int = int(from.get("h", 0))
+	var length: float = dir.length()
+	if length < 0.000001 or reach_m <= 0.0:
+		return {"kind": "none", "entity": -1, "tx": -1, "ty": -1, "x": fx, "y": fy, "z": fh, "dist": 0.0}
+	var u: Vector3 = dir / length
+	var end_h: int = fh + roundi(u.z * reach_m * 1000.0)
+	var a: Dictionary = {"x": fx, "y": fy, "h": fh}
+	var b: Dictionary = {"x": fx + u.x * reach_m, "y": fy + u.y * reach_m, "h": end_h}
+	var swapped: bool = _after(_mm_point(a), _mm_point(b))
+	var map: Variant = map_of(world)
+	var tile: Dictionary = {}
+	for stop_v in _scan(map, a, b, SHOT, false, true):
+		var stop: Dictionary = stop_v as Dictionary
+		if int(stop["tx"]) < 0:
+			continue
+		var lo: float = float(stop["in_n"]) / float(stop["in_d"])
+		var hi: float = float(stop["out_n"]) / float(stop["out_d"])
+		var entry: float = (1.0 - hi if swapped else lo) * reach_m
+		if tile.is_empty() or entry < float(tile["entry"]):
+			var mid: float = (1.0 - (lo + hi) * 0.5 if swapped else (lo + hi) * 0.5) * reach_m
+			tile = {"entry": entry, "mid": mid, "tx": int(stop["tx"]), "ty": int(stop["ty"])}
+	var fz: float = float(fh) / 1000.0
+	var body_entity: int = -1
+	var body_s: float = -1.0
+	for e in world.components.query(["body", "position"]):
+		var ent: int = int(e)
+		if ent == ignore_entity:
+			continue
+		var body: Variant = world.components.get_component(ent, "body")
+		if body == null or not SimHealth.is_alive(body as Dictionary):
+			continue
+		var at: Variant = world.components.get_component(ent, "position")
+		if at == null:
+			continue
+		var cylinder: Dictionary = body_of(world, ent)
+		var s: float = _ray_cylinder_entry(fx, fy, fz, u, reach_m, float((at as Dictionary)["x"]), float((at as Dictionary)["y"]),
+			float(int(cylinder["radius"])) / 1000.0, float(int(cylinder["height"])) / 1000.0)
+		if s >= 0.0 and (body_entity < 0 or s < body_s):
+			body_entity = ent
+			body_s = s
+	if body_entity >= 0 and (tile.is_empty() or body_s < float(tile["entry"])):
+		return {"kind": "body", "entity": body_entity, "tx": -1, "ty": -1,
+			"x": fx + u.x * body_s, "y": fy + u.y * body_s, "z": roundi((fz + u.z * body_s) * 1000.0), "dist": body_s}
+	if not tile.is_empty():
+		var mid: float = float(tile["mid"])
+		return {"kind": "tile", "entity": -1, "tx": int(tile["tx"]), "ty": int(tile["ty"]),
+			"x": fx + u.x * mid, "y": fy + u.y * mid, "z": roundi((fz + u.z * mid) * 1000.0), "dist": mid}
+	return {"kind": "none", "entity": -1, "tx": -1, "ty": -1,
+		"x": b["x"], "y": b["y"], "z": end_h, "dist": reach_m}
+
+
+# The distance along a ray (metres) at which it enters a vertical cylinder of `radius` and `height` (metres) standing
+# at (cx, cy), or -1 if it never does within [0, reach]. The ray starts at (fx, fy, fz) and has unit direction `u`.
+static func _ray_cylinder_entry(fx: float, fy: float, fz: float, u: Vector3, reach: float, cx: float, cy: float, radius: float, height: float) -> float:
+	var lo: float = 0.0
+	var hi: float = reach
+	var ox: float = fx - cx
+	var oy: float = fy - cy
+	var qa: float = u.x * u.x + u.y * u.y
+	var qc: float = ox * ox + oy * oy - radius * radius
+	if qa < 0.000000001:
+		if qc > 0.0:
+			return -1.0
+	else:
+		var qb: float = 2.0 * (ox * u.x + oy * u.y)
+		var disc: float = qb * qb - 4.0 * qa * qc
+		if disc < 0.0:
+			return -1.0
+		var root: float = sqrt(disc)
+		lo = maxf(lo, (-qb - root) / (2.0 * qa))
+		hi = minf(hi, (-qb + root) / (2.0 * qa))
+	if absf(u.z) < 0.000000001:
+		if fz < 0.0 or fz > height:
+			return -1.0
+	else:
+		var s0: float = (0.0 - fz) / u.z
+		var s1: float = (height - fz) / u.z
+		lo = maxf(lo, minf(s0, s1))
+		hi = minf(hi, maxf(s0, s1))
+	if lo > hi:
+		return -1.0
+	return lo
 
 
 ## Whether a blow from `attacker` standing at `from` arrives at `target` standing at `to`: the segment

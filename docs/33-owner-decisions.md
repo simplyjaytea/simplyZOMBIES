@@ -35,7 +35,8 @@ ray, and a ray can miss everything. The recommended default is the ray, with the
 spread tuned by measurement so a steady, skilled shot at a standing torso at
 fifteen metres usually lands. The trade-off: a careful player can miss a body the
 old rule would have hit, and a sloppy shot can hit a body nobody saw in the line.
-(docs/40 question 1.)
+(docs/40 question 1.) The default is built behind `SimRanged.SHOT_AS_RAY` (true: the ray; false: the
+nearest body in the cone); the card stays open until the owner picks.
 
 **Does aim choose the body part?** The recommended default is yes for shots, with
 the part read from where the ray meets the body (head, torso, arm or leg, by height

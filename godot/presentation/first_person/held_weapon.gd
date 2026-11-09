@@ -26,10 +26,10 @@ extends Node3D
 # Materials come from the manifest loader (`models.gd`): one shared, mipmapped texture per atlas.
 #
 # THE MODEL SEAM. `godot/presentation/first_person/models.gd` (the manifest loader) is the only
-# loader. This file calls `Models.resolve(item_id, item_class)` for the manifest entry (sockets and
-# grip) and `Models.model_for(item_id, item_class)` for a fresh instance; the item's class is read
-# from its content base, exactly as `loose_view.gd` reads it. There is no second loader here, and no
-# fallback: an item the manifests do not name keeps the placeholder box.
+# loader. `_weapon_entry` resolves the manifest entry, passing the host receiver for a part, and
+# `Models.instance_of` creates the instance. The item's class is read from its content base, exactly
+# as `loose_view.gd` reads it. There is no second loader here, and no fallback: an item the manifests
+# do not name keeps the placeholder box.
 
 const SimItems = preload("res://sim/modules/items.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
@@ -46,10 +46,6 @@ const PLACEHOLDER_ROTATION_DEG: Vector3 = Vector3(-6.0, 14.0, 0.0)
 # A little sway so a still body is not a welded prop; the camera kick moves this with the view.
 const SWAY_POSITION_M: float = 0.003
 const SWAY_ROTATION_RAD: float = 0.004
-
-# Slots whose parts are inside the receiver and never seen in hand. A default pistol's internals
-# are 324 of its 1,430 triangles; the held view does not pay for them.
-const HIDDEN_SLOTS: Array[String] = ["internal", "spring", "sear", "extractor"]
 
 var _pivot: Node3D = null
 # Between the grip node and what is drawn: the arms hide it while a copy of the old model is lowered.
@@ -71,6 +67,9 @@ var _missing: Array[String] = []
 var _signature: String = ""
 var _armed: bool = false
 var _ranged_drawn: bool = false
+# The entity whose hand this is. -1 is the player, whose weapon the arms hold; a body's hand sets its own
+# entity, so the same assembly draws what that body holds (`body_view.gd`, `own_body.gd`).
+var holder: int = -1
 
 
 func _ready() -> void:
@@ -146,7 +145,7 @@ func update(world: Variant, now: float, hide: bool = false) -> void:
 	if world == null or hide:
 		_set_shown(false)
 		return
-	var player: int = int(world.player)
+	var player: int = _holder(world)
 	if SimMelee.is_unarmed(world, player):
 		_set_shown(false)
 		return
@@ -221,9 +220,9 @@ func set_view_visible(shown: bool) -> void:
 ## True when the assembly drawn is the assembly the sim holds now. The gate's mismatch negative uses
 ## it: draw, change the sim's parts, and the drawn set no longer answers true until `update` runs.
 func verify(world: Variant) -> bool:
-	if not visible_any() or world == null or world.player < 0:
+	if not visible_any() or world == null or _holder(world) < 0:
 		return false
-	var expected: Dictionary = _expected(world, int(world.player))
+	var expected: Dictionary = _expected(world, _holder(world))
 	if expected.is_empty():
 		return false
 	if not _drawn.has("receiver") or String(_drawn["receiver"]) != String(expected["receiver"]):
@@ -314,7 +313,7 @@ func _rebuild(world: Variant, item: int, base_id: String, is_ranged: bool) -> vo
 	slots.sort()
 	for slot_v in slots:
 		var slot: String = String(slot_v)
-		if slot == "barrel" or HIDDEN_SLOTS.has(slot):
+		if slot == "barrel" or Models.HIDDEN_SLOTS.has(slot):
 			continue
 		var part_item: int = int(installed[slot])
 		var muzzle_host: Node3D = null
@@ -329,11 +328,12 @@ func _place_part(world: Variant, host: int, slot: String, part_item: int, receiv
 	if part_id == "":
 		_missing.append("slot:%s" % slot)
 		return null
-	var part_spec: Dictionary = _resolve(world, part_item, part_id)
+	var receiver_id: String = _base_id(world, host)
+	var part_spec: Dictionary = _resolve(world, part_item, part_id, receiver_id)
 	if part_spec.is_empty():
 		_missing.append(part_id)
 		return null
-	var part: Node3D = _instance(world, part_item, part_id)
+	var part: Node3D = _instance(world, part_item, part_id, receiver_id)
 	if part == null:
 		_missing.append(part_id)
 		return null
@@ -380,7 +380,7 @@ func _expected(world: Variant, player: int) -> Dictionary:
 		var fitted: Dictionary = SimAttachments.attached(world, item)
 		for slot_v in fitted.keys():
 			var slot: String = String(slot_v)
-			if HIDDEN_SLOTS.has(slot):
+			if Models.HIDDEN_SLOTS.has(slot):
 				continue
 			var part_id: String = _base_id(world, int(fitted[slot_v]))
 			if part_id != "":
@@ -394,12 +394,16 @@ func _assembly_signature(world: Variant, item: int, base_id: String, is_ranged: 
 	var sig: String = "ranged" if is_ranged else "melee"
 	sig += "|" + base_id
 	if is_ranged and item >= 0:
-		var parts: Dictionary = _expected(world, int(world.player))["parts"] as Dictionary
+		var parts: Dictionary = _expected(world, _holder(world))["parts"] as Dictionary
 		var names: Array = parts.keys()
 		names.sort()
 		for slot in names:
 			sig += "|%s=%s" % [slot, String(parts[slot])]
 	return sig
+
+
+func _holder(world: Variant) -> int:
+	return holder if holder >= 0 else int(world.player)
 
 
 func _base_id(world: Variant, item: int) -> String:
@@ -444,23 +448,23 @@ func _size_placeholder(is_ranged: bool, range_metres: float, reach: float) -> vo
 const WEAPON_KIT: String = "weapons"
 
 
-func _weapon_entry(item_id: String, item_class: String) -> Variant:
+func _weapon_entry(item_id: String, item_class: String, receiver_id: String = "") -> Variant:
 	for manifest in Models.manifests():
 		if String((manifest as Dictionary).get("kit", "")) != WEAPON_KIT:
 			continue
-		var found: Variant = Models.resolve_in([manifest], item_id, item_class)
+		var found: Variant = Models.resolve_in([manifest], item_id, item_class, receiver_id)
 		if found is Dictionary:
 			return found
-	return Models.resolve(item_id, item_class)
+	return Models.resolve(item_id, item_class, receiver_id)
 
 
-func _resolve(world: Variant, item: int, item_id: String) -> Dictionary:
-	var entry: Variant = _weapon_entry(item_id, _class_of(world, item))
+func _resolve(world: Variant, item: int, item_id: String, receiver_id: String = "") -> Dictionary:
+	var entry: Variant = _weapon_entry(item_id, _class_of(world, item), receiver_id)
 	return entry as Dictionary if entry is Dictionary else {}
 
 
-func _instance(world: Variant, item: int, item_id: String) -> Node3D:
-	var entry: Variant = _weapon_entry(item_id, _class_of(world, item))
+func _instance(world: Variant, item: int, item_id: String, receiver_id: String = "") -> Node3D:
+	var entry: Variant = _weapon_entry(item_id, _class_of(world, item), receiver_id)
 	if not (entry is Dictionary):
 		return null
 	return Models.instance_of(String((entry as Dictionary).get("glb", "")))

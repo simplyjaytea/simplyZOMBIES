@@ -22,7 +22,7 @@ bash scripts/setup-web-session.sh   # verify or install the pinned engine and np
 npm run godot:smoke                 # the project boots
 npm run check:routing               # the routing table below, and every gate reachable
 npm run godot:run                   # play it, first person (DISPLAY=:1 on a headless VM; docs/34)
-npm run godot:run:topdown           # the top-down testing game
+npm run godot:run:topdown           # the top-down testing game (on hold; its title is reached only by this, with --topdown)
 npm run godot:m2:needs              # one gate while iterating: any godot:m2:<name> or godot:check:<name>
 npm run godot:m2 -- --shard=1/4     # one of CI's four shards of the full chain
 npx vitest run test/unit/<file>     # one test file of the frozen oracle
@@ -44,18 +44,21 @@ Then read, in order:
 
 ## The team
 
-**Linux, since 2026-11-04; this roster since 2026-11-05.** The owner's machine runs six terminals in
-herdr, not Orca, in two workspaces: "simplyZOMBIES / Main Code" (the orchestrator, the lead engineer, the two
-workers) and "simplyZOMBIES / Modeling and Art" (the art lead and its QA). The owner decides and gives
-tasks to the orchestrator directly. Agents do the rest, each on its own model.
+**Linux, since 2026-11-04; this roster since 2026-11-07.** The owner's machine runs nine terminals in
+herdr, not Orca, in three workspaces: "simplyZOMBIES / Main Code" (the orchestrator, the lead engineer, the
+three workers), "simplyZOMBIES / Modeling and Art" (the art lead and its QA), and "simplyZOMBIES / Claude Code"
+(the NPC and zombie mechanics lead and its worker). The owner decides and gives tasks to the orchestrator
+directly. Agents do the rest, each on its own model.
 
 | Role | Agent | Does | Does not |
 |---|---|---|---|
-| Orchestrator | Claude Code, Fable 5.1 | Plans and orchestrates: reads the state, writes the specs, dispatches the lead engineer, the workers and the art lead, makes the harder judgement calls, and talks to the art QA for anything that crosses the two workspaces. The owner gives it tasks directly | Write the work, merge, or run the merge train |
-| Lead engineer | Claude Code, Sonnet 5.5 | Reviews every worker change against the diff before the orchestrator sees it; runs the merge train and merges; opens PRs; small fixes to docs and records | Plan the rounds; touch art |
+| Orchestrator | Claude Code, Fable 5.1 | Plans and orchestrates: reads the state, writes the specs, dispatches the lead engineer, the workers and the art lead, makes the harder judgement calls, and talks to the art QA for anything that crosses the two workspaces. The owner gives it tasks directly. Runs the merge command when the lead engineer sends `MERGE #N <full SHA>` after its review | Write the work; merge a head the lead engineer has not reviewed |
+| Lead engineer | Claude Code, Sonnet 5.5 | Reviews every worker change against the diff before the orchestrator sees it; runs the merge train: checks the head contains `origin/main`, CI is green on that head and the merge diff is read, then sends the orchestrator `MERGE #N <full 40-char SHA>`; writes `REPORT-<N>.md`; opens PRs; small fixes to docs and records | Plan the rounds; touch art |
 | Art lead | Kimi Code, K3.1 Pro, thinking high, in "Never Ask" mode | Every 3D model, rig, clip, UV layout and painted texture | Edit another worker's worktree |
 | Art QA | Claude Code, Opus 5.5, a standing terminal beside Kimi | Plans Kimi's rounds, reviews every art batch independently and writes the verdict to `sz-shared/reviews/<piece>/`; the strong tier for a piece that needs higher thinking (a new gate, a shared sim module, the save format) when the coordinator asks | Merge; routine work, which stays with the workers |
-| Workers (two) | Claude Code, Haiku 5.5 | Every piece of work that is not art: code, gates, docs, keeping pull requests current with main, and independent reviews of code they did not make | Merge |
+| Workers (three) | Claude Code, Haiku 5.5 | Every piece of work that is not art: code, gates, docs, keeping pull requests current with main, and independent reviews of code they did not make. The two merge-train queue workers (head and tail) keep the open PRs current with main and run each PR's named gates after every re-merge | Merge |
+| NPC and zombie lead | Claude Code, Sonnet 5.5 | Surveys, writes the specs and reviews every change in the NPC and zombie workspace, reruns its gates, and hands reviewed heads to the orchestrator for the train | Merge; plan outside its workspace |
+| NPC and zombie worker | Claude Code, Haiku 5.5 | The code, gates and re-merges that the NPC and zombie lead dispatches | Merge |
 
 The roster may name models, because it says who runs what. Authorship never does: a commit, PR
 title or body, code comment or doc does not say which model wrote it (the owner's call, 2026-11-01,
@@ -78,8 +81,8 @@ never share a worktree at the same time, and nobody switches branches in the mai
    (or off the PR it stacks on). Worktrees sit under `.claude/worktrees/`, on branches named
    `<agent>/<piece>`. Symlink `node_modules` from the main checkout; the symlink is excluded in
    `.git/info/exclude`.
-4. **Dispatch.** `hc ls` lists the terminals in both workspaces, "simplyZOMBIES / Main Code" and
-   "simplyZOMBIES / Modeling and Art". Addresses such as `t1p` change between runs: Kimi is the `kimi-code`
+4. **Dispatch.** `hc ls` lists the terminals in all three workspaces, "simplyZOMBIES / Main Code",
+   "simplyZOMBIES / Modeling and Art" and "simplyZOMBIES / Claude Code". Addresses such as `t1p` change between runs: Kimi is the `kimi-code`
    row, the art QA is the Claude row beside it, and the workers are the Haiku rows (`hc read <t>` shows
    the model on each screen). Start one
    with `hc run --bg --name <n> --cwd <worktree> --outlive-parent <cmd>`, then
@@ -143,7 +146,8 @@ never share a worktree at the same time, and nobody switches branches in the mai
    handoff and the original task.
 
 A worker revived after days can wake with stale context, so brief it on the current `main` first. Push
-at a clean point before a long run.
+at a clean point before a long run. When herdr restarts, every agent exits and the shells keep their
+addresses; the orchestrator relaunches each agent in its shell and briefs it from `sz-shared/RESUME-<date>.md`.
 
 **Briefing a worker.** docs/23 and docs/30 are too large to read whole. A brief names the parts that
 bear on the piece: its entry in docs/23's what's left, its row in the [routing table](#routing-table),
@@ -185,7 +189,7 @@ file; this section is the same rules as the repository holds them.
 Read [docs/39](docs/39-first-person-pivot.md) before new presentation or art work.
 The owner has superseded the flat-top-down art direction for the conversion;
 the default boot has been first person since the owner's call of 2026-11-01 (docs/30); the
-top-down game remains as the testing build (`npm run godot:run:topdown`).
+top-down game remains as the testing build, on hold since 2026-11-07 (`npm run godot:run:topdown`, whose title opens only with `-- --topdown`).
 The existing game is preserved by the GitHub source archive linked in docs/39.
 Colony systems, skills, authored/generated people and the captive roadmap remain.
 Management moves to physical ledgers and conversations. Earlier projection and
@@ -270,7 +274,7 @@ matter every session:
 
 - **First person is the game; top-down is legacy** (2026-11-04, docs/30): first person is the
   default boot and every new piece is first person; the top-down game stays, boots with
-  `npm run godot:run:topdown`, and keeps its gates, but gets no new features or UI slices unless
+  `npm run godot:run:topdown` (its title opens only with `-- --topdown`, docs/30, 2026-11-07), and keeps its gates, but gets no new features or UI slices unless
   the owner asks. Shared sim modules serve both. The top-down rules in docs/30 and docs/32 govern
   only the legacy build.
 - **The setting is Japan (Ome–Okutama), 2026-11-04** (docs/30): inspired by the real Ome–Okutama
@@ -641,13 +645,9 @@ world by rail's first cut after docs/45.
 
 **Known bugs**
 
-- In the third-person testing view the held weapon is not drawn in the body's hand. The view
-  model hides there (`claude/fp-arms-view`), which ends it floating beside the body (#313's
-  capture), but nothing draws it on the body yet.
 - `godot:check:fp_geometry` takes about 13 s; its real-worldgen lane is most of it. The next speed-up
   is caching the four worldgen districts.
 - The survivor review scene's light is flat grey, so colour judgements there run dark.
-- No presentation code draws a lowered weapon yet (`SimAim.holds`, `FireState` have no reader).
 - R2's save bump refuses every v33 save, district saves included, because a save carries only its seed.
 
 ## The docs map
@@ -703,7 +703,13 @@ row when a system gains a home; the gate goes red when a route stops being true.
 | The first-person loot-item kit: world-pose models for the things a player picks up | [the item kit's README](tools/blender/first_person_items/README.md) | `tools/blender/first_person_items/build_items.py`, `godot/assets/first_person/items/`, `godot/assets/first_person/items.manifest.json` | `blender --background --factory-startup --python tools/blender/first_person_items/build_items.py -- --check` proves bounds, origins, bodies resting on the floor, item ids and coverage, every item within 2x of its expected size, no laddered item drawn as another item's own model, one single-sided closed material per model, no coplanar faces, texel density per face and byte reproducibility; each check has a `--plant` that turns it red | the record |
 | The first-person view-model arms: hands, sleeves, rig and clips for every hold class | [the arms kit's README](tools/blender/first_person_arms/README.md), which carries the contract | `tools/blender/first_person_arms/build_arms.py`, `godot/assets/first_person/arms/`; `godot/assets/first_person/arms/arms.json` stays in that directory so `Models.manifests()` does not register it as loot | `blender --background --factory-startup --python tools/blender/first_person_arms/build_arms.py -- --check` prints `ARMS_CHECK_OK` (bytes, names, anchor, bone-length, grip-land, wrap, sight-line, near-plane, stump, in-frame, chain, smooth, weights, cuff, density, background, paint-match, body-match, budget, measured on the exported GLB); `-- --plant <name>` turns each check red | the record |
 | Zombie kinds against the first-person player: every kind driven once, measured | [docs/14](docs/14-zombies.md), [docs/40](docs/40-first-person-spatial-contract.md) | `godot/content/zombies/`, `godot/sim/modules/shambler.gd`, `godot/sim/modules/bloater.gd`, `godot/sim/modules/screamer.gd`, `godot/sim/modules/melee.gd`, `godot/sim/modules/health.gd` | `npm run godot:check:fp_kinds` (`godot/check_fp_kinds.gd`) boots the district, drives one body of each kind against the controlled player and prints an OK, FAIL or FINDING line per kind with its numbers | the record |
+| The first-person zombie tells: a notice (ahead, left, right, behind), a close Pursuer, several noticing, a scream, on the HUD | [docs/14](docs/14-zombies.md), [docs/01](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) | `godot/presentation/first_person/hud.gd` (`_tell_lines`, `_relative`, `_sector`), the sim readers `godot/sim/modules/shambler.gd` (`noticedAt`, `ShamblerState`), `godot/sim/aim.gd` (`radians_of`), the screamer `godot/sim/modules/screamer.gd` (`alarm`) | `npm run godot:check:fp_tells` (`godot/check_fp_tells.gd`): QUIET, NOTICED, SIDE, CLOSE, SEVERAL, SCREAM, DIGITS | the record |
+| The first-person harm readout: held, the newest wound, bleeding, blood loss, infection, the fire state, on the HUD | [docs/05](docs/05-health-injury.md#the-condition-view), [docs/01](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) | `godot/presentation/first_person/hud.gd` (`_state_lines`, `_body_lines`, `_weapon_line`), the sim readers `godot/sim/modules/wounds.gd` (`hud_clause`), `godot/sim/condition.gd`, `godot/sim/modules/ranged.gd` (`FireState`) | `npm run godot:check:fp_harm` (`godot/check_fp_harm.gd`): CLEAN, HELD, BITE, BLOOD, INFECTED, WEAPON, DIGITS | the record |
 | First-person presentation | [the foundation report](docs/planning/first-person-foundation-report.md), [docs/37](docs/37-traps.md) | `godot/presentation/first_person/`, `godot/check_first_person.gd`, `godot/check_fp_expedition.gd` | `npm run godot:check:first_person` runs the headless gate, whose MODELS lane holds the manifest loader (`godot/presentation/first_person/models.gd`) and the loose items it draws (`godot/presentation/first_person/loose_view.gd`), and whose BODIES lane holds the character bodies (`godot/presentation/first_person/body_view.gd`), and whose ARMS lane holds the view-model arms and the weapon in their hand (`godot/presentation/first_person/arms_view.gd`); `npm run godot:check:fp_expedition` runs the one-run expedition gate (ledger, door, container take, F5/F9, a shambler struck, and two true negatives); `npm run godot:run:first_person` launches the opt-in scene | the report |
+| The title and the boot: a plain boot shows the title first, its new run, continue and Esc | [docs/30, 2026-11-09](docs/30-decisions.md#the-game-boots-to-its-title-2026-11-09) | `godot/presentation/first_person/first_person.gd` (`_redirect_to_title`, `skip_title`, `boot_count`), `godot/presentation/first_person/save_slot.gd` (`title_seen`), `godot/presentation/main.gd` (`_on_shell_action`, `_continue_first_person`), `godot/ui/shell.gd` (`TITLE_ROWS`) | `npm run godot:check:fp_title` (`godot/check_fp_title.gd`): BOOT at frames 1 and 8, NEW_RUN, BACK, CONTINUE, REFUSE, SKIP; every gate and dev launch passes `--skip-title` (`scripts/run-godot.mjs`) | the record |
+| The first-person encounter: one zombie against the first-person player, from sight or sound to the grab, the wound, the death and the break | [docs/40](docs/40-first-person-spatial-contract.md), [docs/14](docs/14-zombies.md) | `godot/sim/modules/shambler.gd` (`_seen_target`, `sight_reach`, `_clear_contact`, the struggle), `godot/sim/modules/melee.gd` (`try_begin_swing`), `godot/sim/modules/attention_emitter.gd` | `npm run godot:check:fp_encounter` (`godot/check_fp_encounter.gd`): SIGHT-NEAR, SIGHT, NOISE, CONTACT, DEATH-NOESCAPE, DEATH-ATTENTIVE, REPRESS, DRIFT, DRIFT-WALL, BREAK; green, with owner cards for the sight floor and the attentive player | the report |
+
+| A colonist comes to the held player's aid: an attack order through the order seam, the rescue or the blow that breaks the hold | [docs/09](docs/09-combat.md), [docs/08](docs/08-skill-web.md) | `godot/sim/modules/npc_combat.gd` (`_aid_colonists`, `_aid_target`), the order seam `godot/sim/modules/orders.gd` (`issue`) | `npm run godot:check:fp_aid` (`godot/check_fp_aid.gd`): AID-12 (a finding: the instinct breaks first), AID-5, FAR, NOIN, RESUME, ONCE | the record |
 | Art somebody drew for us | [the brief](godot/assets/sprites/README.md), [art we did not generate](docs/30-decisions.md#art-we-did-not-generate-2026-09-09) | `godot/assets/sprites/authored.json` declares it; the PNG sits beside it | `npm run godot:check:authored` holds it to the published bounds and refuses art nothing reads; `npm run sprites:check` proves it is present at the canvas it declares | the record |
 | Art from the outpost pack | [the pack's own README](godot/art/simplyzombies/README.md), [the outpost pack, adopted](docs/30-decisions.md#the-outpost-pack-adopted-2026-09-17) | `godot/assets/sprites/authored.json` declares it, with a `source` (a path, optional `crop`/`pad`) under `godot/art/simplyzombies/`, or as a member of a `source`-carrying `members` family | `npm run sprites:check` reproduces the committed PNG from its source and compares decoded pixels; `npm run godot:check:authored`'s MANIFEST, TIER and SOURCE lanes hold the declaration to shape and the READS lane to a real reader; the look gate of whichever family it lands in (`godot:check:<look>`) once that piece exists | the record |
 | The screens' frames, glyphs, cursors and motion: the UI Field Kit | [the kit's own README](godot/art/simplyzombies-ui/README.md), [the UI Field Kit, live](docs/30-decisions.md#the-ui-field-kit-live-2026-09-25) | the approved kit under `godot/art/simplyzombies-ui/` (`godot/art/simplyzombies-ui/manifest.json` and `godot/art/simplyzombies-ui/styles/*.tres` are the spec, read as text; the game never loads a kit `.tres`), resolved by `godot/ui/kit.gd` and worn through `godot/ui/chrome.gd`'s helpers | `npm run godot:check:ui_skin` (`godot/check_ui_skin.gd`): KIT holds `Kit.NINE` to the manifest and the `.tres`, RESOLVE proves every consumed PNG loads headless, PANEL follows `Chrome.panel` to the kit, HELPERS refuses a chrome helper nothing calls, FONT holds every screen to `Chrome.font()` (the kit's VT323, `godot/art/simplyzombies-ui/fonts/VT323-Pixel.res`) and every text size to `Chrome.LADDER` | the record |
@@ -716,7 +722,7 @@ row when a system gains a home; the gate goes red when a route stops being true.
 | Shipped runtime performance | [docs/22](docs/22-performance.md#shipped-godot-runtime-measurements) | `godot/bench/runtime_tick.gd`, `godot/bench/runtime_frame.gd`, `godot/bench/measured_main.gd`, `scripts/runtime-budget.mjs`, `scripts/run-godot.mjs` | `npm run check:runtime-budget` judges the production runner contract; `npm run godot:m2:tick` (`godot/check_m2_tick.gd`) holds each tick speed-up to the slow answer it replaced; `npm run godot:bench:runtime` and `npm run godot:bench:frame` measure actual timing on a quiet machine (frame needs a display). Existing overruns remain product debt; the real timing commands are not yet CI shipping gates. | docs/22's dated measurements and the record |
 | Driving a pull request | `.claude/skills/steward/SKILL.md`, then [Pushing and pull requests](PLAYBOOK.md#pushing-and-pull-requests) | -- | whatever CI reports; the touched gates before every push, per [Verifying a change](PLAYBOOK.md#verifying-a-change) | the PR itself |
 | The survivor body in the game's renderer: a candidate GLB under the first-person scene's sky, lens and eye, beside the concept | The header of `godot/review/survivor_shots.gd`, then the first-person loader `godot/presentation/first_person/models.gd` | `godot/review/survivor_shots.gd` (the driver; `--glb=` or `SURVIVOR_GLB` picks the model, `--out=` the folder), `godot/presentation/first_person/sky_view.gd` (the light the shots use) | `npm run godot:shots:survivor` renders and composes the sheet; it is a render, not a gate, and needs a display | the PR itself |
-| Playing it, or a screenshot | [Running the game](docs/34-agents-and-environment.md#running-the-game-gui) below | `godot/presentation/first_person/first_person.tscn` (the default boot), `godot/presentation/main.tscn` (the top-down testing game) | `npm run godot:run` (first person), `npm run godot:run:topdown` | -- |
+| Playing it, or a screenshot | [Running the game](docs/34-agents-and-environment.md#running-the-game-gui) below | `godot/presentation/first_person/first_person.tscn` (the default boot), `godot/presentation/main.tscn` (the top-down testing game) | `npm run godot:run` (first person), `npm run godot:run:topdown` (the top-down title, on hold; it passes `-- --topdown`) | -- |
 | Art review: before and after screenshots of fixed scenes at both windows | the header of `godot/review/shots.gd`, then `godot/review/scenes.gd` | `godot/review/scenes.gd` (each scene and its verify), `godot/review/shots.gd` (the capture driver, run with `DISPLAY=:1 npm run godot:shots`) | `npm run godot:check:shots` (`godot/check_shots.gd`); its PIXELS lane skips without a display | the record |
 
 **By system** -- the spec, the code, and the gate that proves it. Where a row names several

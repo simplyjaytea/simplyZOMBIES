@@ -56,9 +56,12 @@ const ROW_MARKER_X: float = 14.0
 # what the screen says; they are not the same string because "quit to title" is two words the
 # player reads and `quit_to_title` is one token main.gd matches on.
 #
-# The game boots into first person (project.godot's main scene, docs/39). This title is the top-down
-# testing screen: first person is its row, and quit stays last.
-const TITLE_ROWS: Array = [["new_run", "new run"], ["continue", "continue"], ["first_person", "first person"], ["quit", "quit"]]
+# The game boots to this title (docs/30, 2026-11-09: first person's scene sends a plain boot here first,
+# before any world exists). Its rows are a new run, which starts first person, a continue when a
+# first-person slot exists, then quit. The top-down game is on hold (docs/30, 2026-11-07): its title is
+# the four rows below, reached only with `--topdown`, which main.gd passes as `legacy`.
+const TITLE_ROWS: Array = [["new_run", "new run"], ["continue", "continue"], ["quit", "quit"]]
+const LEGACY_TITLE_ROWS: Array = [["new_run", "new run"], ["continue", "continue"], ["first_person", "first person"], ["quit", "quit"]]
 const PAUSE_ROWS: Array = [
 	["resume", "resume"],
 	["save", "save"],
@@ -103,8 +106,8 @@ func _ready() -> void:
 
 # Raise one of the three screens. `ctx` carries what the shell cannot work out for itself:
 # `has_continue` (a save exists and is not a finished run), `epitaph` (the chronicle's last
-# lines), `is_web` (the browser owns the tab, so there is nothing for "quit" to do) and `notice`
-# (one fixed sentence when a save would not load).
+# lines), `is_web` (the browser owns the tab, so there is nothing for "quit" to do), `notice`
+# (one fixed sentence when a save would not load) and `legacy` (the top-down game's title, `--topdown`).
 func show_state(next_state: int, ctx: Dictionary) -> void:
 	state = next_state
 	_notice = String(ctx.get("notice", ""))
@@ -114,7 +117,8 @@ func show_state(next_state: int, ctx: Dictionary) -> void:
 		TITLE:
 			var has_continue: bool = bool(ctx.get("has_continue", false))
 			var is_web: bool = bool(ctx.get("is_web", false))
-			for row in TITLE_ROWS:
+			var title_rows: Array = LEGACY_TITLE_ROWS if bool(ctx.get("legacy", false)) else TITLE_ROWS
+			for row in title_rows:
 				var id: String = String((row as Array)[0])
 				if id == "continue" and not has_continue:
 					continue
