@@ -28,7 +28,7 @@ func build(map_ref: Variant, seed_val: int, manifest_path: String) -> void:
 	if entries.is_empty() or map_ref == null:
 		return
 	placed = StreetDressing.placements(map_ref, seed_val, entries, StreetDressing.load_mix(MIX_PATH))
-	wire_spans = StreetDressing.wire_spans(placed)
+	wire_spans = StreetDressing.wire_spans(placed, map_ref)
 	for p in placed:
 		add_child(_prop_node(p as Dictionary))
 	if not wire_spans.is_empty():

@@ -575,3 +575,11 @@ on the first-person bodies (2026-11-04). Each default is what gets built if the 
     shows nothing until the art pass, and the inventory and inspect text still say it is worn, as
     with the gap the owner accepted on 2026-09-25. The alternative is to hold the whole system
     until every family has art.
+
+33. **The bloodhound's own scent and its trail (2026-11-07).** Default, built: the bloodhound lays no scent
+    of its own (`emits` empty) and follows a trail that rises by 5.0 over a cell (`sensory.trail` 5.0, was
+    20). Without the first, no trail value lets it reach a walking player (docs/30, "The bloodhound lays no
+    scent of its own"). The cost to know about: on seeds 404 and 1 it does not reach a walker within 1200
+    ticks, and on the other six it reaches in +1054 to +1543. The alternative is to keep its residue and
+    accept that a bloodhound cannot find a walker at all, which is what the finding said before this change.
+

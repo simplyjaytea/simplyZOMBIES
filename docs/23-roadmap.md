@@ -174,8 +174,8 @@ The source baseline is archived on GitHub at
   draw on, a fictional map of the valley, building types, and the item and district renames. See
   [docs/30](30-decisions.md#the-setting-is-japan-the-omeokutama-valley-2026-11-04).
   The brief is [docs/42](42-ome-okutama-setting.md); its section 6 is the order of the work.
-  Building batch A and batch B's shotengai row and sawmill shed have landed; the remaining art
-  batches, templates, props and renames stay planned.
+  Building batch A and batch B's shotengai row, sawmill shed and station have landed; the remaining
+  art batches, templates, props and renames stay planned.
 - **The wider world by rail.** Other districts and cities reached by a train the colony repairs
   first. The design exists as [docs/45](45-wider-world-by-rail.md), a note like docs/42, under the
   region and streaming work; the sizing does not. See [docs/30](30-decisions.md#the-setting-cards-the-defaults-and-the-valley-is-the-first-of-several-2026-11-04).
@@ -2552,6 +2552,32 @@ not a to-do list:
     `check:routing` pass. Matched base/head, repeat, magenta and Blender captures accompany the piece;
     repeat-run pixel noise is zero.
 
+- **The Ome–Okutama re-theme: the station, 2026-11-08.** Batch B's `building.station.small` is 12 x 5
+  tiles, the waiting room only, civic and station, weight 4, drawn only in `district.town_center` (`districts`
+  key, worldgen `_for_district`). Street door on the north face, platform door and ticket window on the south
+  face; tin roof, timber walls. The platform is outside the footprint, Floor-level ground with no cover
+  (docs/30, 2026-11-08); its surface, kerb and tactile line belong to the rail piece.
+  - **Finish.** The south canopy measures 12.00 m long, 2.30 to 2.48 m high and 1.140 m deep, with six
+    wall-fixed brackets and no posts. The ticket window has a 0.09 m counter ledge and an arched head,
+    both attached in the legal window bands with the aperture open. One fascia board carries 梅崎 /
+    うめざき across `station_name` cells `(3,7)` and `(4,7)`, each fitted whole with no repeat.
+    Both cells are baked bitmaps rasterised once from Noto Sans CJK Bold (SIL OFL 1.1). The shared-tin
+    gable has 0.60 m eaves/rakes, closed timber gables, soffits and barge boards. Both doors have low
+    steps and clear openings.
+  - **Verified.** `CHARACTER building.station.small` measures those values and the board's two-cell UV
+    bounds on the GLB, plus the arch's return, wall gap and head contact and the six bracket caps' ray
+    gap to the wall. All 36 plants are refused, including `canopy_post`, `ticket_ledge_proud`,
+    `name_board_open`, `name_board_uv`, `name_board_one_cell`, `name_board_mirror`, `arch_float` and
+    `bracket_float`. The name-blind,
+    order-free other-template proof is `OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22` against `0f510604`.
+- **The civic cap: one station per district, 2026-11-10.** `building.station.small` carries
+  `max_per_district: 1` (optional key in `building.schema.json`; worldgen `_buildings` counts stamps per
+  district and drops a capped template at both draw stages). At the shipped size the town centre has exactly one
+  station on each of ten seeds, where it had five to twelve. Gated by `UNIQUE_CIVIC OK` in
+  `npm run godot:check:worldgen`, with a plant that goes red (docs/30, 2026-11-10).
+    `BUILDINGS_CHECK_OK 23 templates`, `godot:check:fp_geometry`, `godot:smoke` and `check:routing`
+    pass. Matched base/head, repeat, magenta, other-template and four close-up captures accompany it;
+    repeat-run pixel noise is zero.
 - **The purifier refill: a carried material repacks a spent filter, 2026-11-04.** The pump filter
   (`item.filter.pump`) has a `refill` block in `godot/content/items/kitchen.json`: one lump of
   `charcoal` restores forty uses, up to its `purifies` of forty. The block is in
@@ -2645,6 +2671,10 @@ not a to-do list:
   play 'aim_long', not raise_long`. Reload has no clip, so its idle is the conservative default (docs/30). The
   PLAYBOOK "Known bugs" line on the lowered weapon is removed. `SimAim.holds` still has its reader only in the
   top-down `main.gd`, not in the first-person arms.
+- **A firearm that is not ready is drawn lowered, 2026-11-10.** `arms_view.gd` `ready_amount` lowers the
+  arms in Idle (fully) and at Steady's first tick (half), via `LOWER_OFFSET` and `LOWER_PITCH_DEG` in the sway.
+  The LOWERED lane (`check_first_person.gd`) asserts the Idle and Steady offsets and pitches differ; the plant
+  (`ready_amount` always 1) turns it red. Presentation only; no save change. docs/30, 2026-11-10.
 - **The organic survivor, 2026-11-04.** The first-person survivor body is replaced: the box-segment
   `survivor.glb` gives way to an organic, smooth-skinned woman built by `organic_survivor.py` in the
   Blender character kit (`tools/blender/first_person_kit/build_characters.py`). She has 7,810 triangles,
@@ -3415,6 +3445,28 @@ not a to-do list:
     manifest JSON is outside the filter `assets/first_person/*.glb`, and the export build was not
     run. CI has no Blender, so the check is run by hand, like the starter kit's.
 
+- **Every zombie kind against the first-person player, 2026-11-07.** `godot/check_fp_kinds.gd`, run by
+  `npm run godot:check:fp_kinds` (about 9 s), boots the district and drives one body of each kind against
+  the controlled player, printing OK, FAIL, FINDING or INFO lines with their numbers. Gate only, no sim
+  change, and green: 0 FAIL. Four findings are open for the owner and t23. STALKER: a sprint turns the
+  stalker by hearing at 10.9 m from 40 m, and so does the shambler (the two differ by under one tick of
+  approach, 0.32 m; the cause is not measured), walking at 2.0 m and jogging at 6.6 m against the shambler's none.
+  BLOODHOUND: a walking player never produces a scent rise of 20 over a neighbour cell (largest 0.00; the
+  cells are 4 m), so Track never starts from a walker. A bloater-sized 30 burst does produce a rise (30)
+  when it lies in a neighbour cell, and Track is entered, but the bloodhound does not reach it; in its own
+  cell the burst is a level and Track brings it to the burst by +184 ticks. (Both BLOODHOUND findings are resolved on `claude/bloodhound-trail`, 2026-11-07: see "The bloodhound
+  follows a walker" below.) CRAWLER: the crawler closes at
+  0.55 of the shambler's speed in the same lane; the sim applies the crawler's own content crawl (0.45: 0.76
+  m/s measured, 0.8 x 2.1 x 0.45), and the 0.25 that `m2:variance` pins is the shambler default for a body
+  with its legs gone. OK, measured: the runner closes at 2.94 m/s, is caught walking at +173 ticks and not
+  sprinting (gap 26.7 m after 100 ticks); the screamer screams once in its cooldown; the bloater's cloud
+  exposes a body with an open wound at 4 m and none at 8 m; the heavy closes at 1.26 m/s with grab 0.5, and
+  one swing takes 4.0% of its body against the shambler's 7.6%, neither dying; the armored body takes 14 of
+  a 20-point torso hit (the shambler 20); the crawler is born legless and bites the legs 0.70 of the time;
+  the bloodhound is deaf to a rifle shot 40 m away; the lurker wakes to a rifle shot and not to a walker;
+  the feigner rises at 2.34 m; the juggernaut's three shoves take 30 each from timber. Plants: the runner
+  at the shambler's speed turns RUNNER red (1.68 m/s), and the bloater without `blooms_on_death` turns
+  BLOATER red; both files restored byte-identical.
 - **The first-person expedition gate, 2026-11-01.** The scripted start of docs/39's "End-to-end
   conversion and default switch" proof. `godot/check_fp_expedition.gd`, run by
   `npm run godot:check:fp_expedition`, boots the real first-person scene on the small district and
@@ -4609,6 +4661,15 @@ not a to-do list:
   drifted at 0.7. docs/30's "The bloodhound's nose is a gradient, not a level, 2026-11-04" has the
   design, the rejected one, and why.
   bloodhound's nose as a seek" under what's left, and docs/30's entry has the arithmetic.
+- **The bloodhound follows a walker, 2026-11-07.** Content only: `emits` empty (the bloodhound lays no scent
+  of its own) and `sensory.trail` 5.0. The kinds gate's two bloodhound findings are now OK lanes:
+  `godot:check:fp_kinds` walks a player 40 m from 2 m in front of the bloodhound and gets Track within 2 m at
+  +749 ticks after the walk (its seed), and a 30 burst 6 m away is reached within 3 m at +32 ticks, Track
+  entered; the own-cell burst keeps its 1 m test (+184). Eight seeds (docs/30): Track reaches a walker on six
+  (+1054 to +1543), not within 1200 ticks on two (404, 1); 6 m bursts reached on all eight; false Track
+  starts 0/8 on each seed over 2000 ticks. Balance lines identical in `godot:m2:balance`, `m2:lethality`,
+  `m2:variance`, `m2:director`, `m2:roster`, `m2:dormant`, `m2:contact`, `m2:noise`; `m2:district` OK with its
+  bloodhound numbers changed. Owner card: docs/33 item 33.
 - **The crawler, 2026-11-04.** Zombie kind nine: `godot/content/zombies/crawler.json`, wave 2,
   weight 3, speed 0.8 with `crawl` 0.45, `sensory` noise 0.5, light 0.2, scent 0.9, and
   `variance.crawlers` 1.0, so every spawn is born legless (`roster.gd`'s `bool_chance(1.0)` is
