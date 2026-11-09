@@ -141,6 +141,7 @@ const SimRoster = preload("res://sim/modules/roster.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
 const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
+const HitMarks = preload("res://presentation/first_person/hit_marks.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimOrders = preload("res://sim/modules/orders.gd")
 const SimContext = preload("res://sim/context.gd")
@@ -219,6 +220,7 @@ func _run() -> void:
 	ok = _lane("BOOT", _default_boot(), "project.godot boots the first-person scene, and a project that names the top-down scene is refused") and ok
 	var scene: Node = packed.instantiate()
 	scene.set("district_tiles", SMALL_DISTRICT_TILES)
+	scene.set("skip_title", true)
 	root.add_child(scene)
 	scene.set_process(false)
 	await process_frame
@@ -269,6 +271,7 @@ func _run() -> void:
 	ok = _lane("BOOTLEAD", _boot_lead_restored(lead_before), "the boot lead is restored when the first-person scene leaves") and ok
 	var bodies_scene: Node = packed.instantiate()
 	bodies_scene.set("district_tiles", SMALL_DISTRICT_TILES)
+	bodies_scene.set("skip_title", true)
 	root.add_child(bodies_scene)
 	bodies_scene.set_process(false)
 	await process_frame
@@ -294,6 +297,18 @@ func _run() -> void:
 	dress_a.queue_free()
 	dress_b.queue_free()
 	dress_c.queue_free()
+
+	# The HIT lane fires and spawns, so it gets a fresh scene of its own, the way BODIES does: the colony the lanes
+	# above read is not shot at or moved by it.
+	var hit_scene: Node = packed.instantiate()
+	hit_scene.set("district_tiles", SMALL_DISTRICT_TILES)
+	# No title redirect in a gate scene (title-first-frame, t1p): the boot is the game.
+	hit_scene.set("skip_title", true)
+	root.add_child(hit_scene)
+	hit_scene.set_process(false)
+	await process_frame
+	ok = _lane("HIT", _hit(hit_scene), "a weapon.fired hit puts a blood puff on the body part and a flinch on the body, a miss puts an impact mark on the tile the ray met, all within a tile of the event") and ok
+	hit_scene.queue_free()
 	await process_frame
 	_finish(old_size, ok)
 
@@ -1517,6 +1532,182 @@ func _fight(scene: Node) -> bool:
 	if String(scene.get("_alert")) != "":
 		ok = _fail("FIGHT", "the scene invented a reload refusal: %s" % String(scene.get("_alert")))
 	scene.set("_kick", 0.0)
+	return ok
+
+
+func _hit(scene: Node) -> bool:
+	var ok: bool = true
+	var world: Variant = scene.get("world")
+	var map: Variant = scene.get("map")
+	var marks: Variant = scene.get("_hit_marks")
+	var bodies: Variant = scene.get("_bodies")
+	if marks == null or bodies == null:
+		return _fail("HIT", "the scene has no hit marks node or no body views")
+	var area: Vector2 = _find_open_area(map, 3)
+	if area == Vector2(-1.0, -1.0):
+		return _fail("HIT", "the district has no open area for a shot")
+	_place_player(scene, area)
+	scene.call("set_look", 0.0, 0.0)
+	scene.call("_process", TICK_SECONDS)
+	var player: int = int(world.player)
+	world.components.remove(player, "meleeWeapon")
+	SimRanged.make_ranged_armed(world, player, {"magSize": 6, "rangeMetres": 12.0, "damage": 12.0, "weight": 1.0, "handling": 1.0, "reloadTicks": 20})
+	var rng: Variant = world.rng.stream("shambler")
+	# Inside the 1.5 m the dispersion lets a round reach (docs/40): the zombie stands 1.2 m ahead, on the shot line.
+	var zed: int = int(SimRoster.spawn_zombie(world, area.x + 1.2, area.y, SimRoster.TYPE_SHAMBLER, rng))
+	_zero_shambler(world, zed)
+	scene.call("_process", TICK_SECONDS)
+	var zp: Variant = world.components.get_component(zed, "position")
+	if not (zp is Dictionary):
+		return _fail("HIT", "the placed zombie has no position")
+	var zx: float = float((zp as Dictionary)["x"])
+	var zy: float = float((zp as Dictionary)["y"])
+	var view: Node3D = bodies.call("node_for", zed) as Node3D
+	scene.call("_process", TICK_SECONDS)
+	if view == null:
+		return _fail("HIT", "the placed zombie has no drawn body")
+
+	# Real path: a hit through the sim's own shot, the events drained by the scene's step. The shot is not
+	# forced to hit (the spread is the sim's), so this lane counts what happened and checks each hit it saw.
+	if not bool(scene.call("mouse_captured")):
+		_click_mouse()
+	var fired: int = 0
+	var real_hits: int = 0
+	var real_misses: int = 0
+	for i in range(60):
+		if i % 10 == 0:
+			_click_mouse()
+		var marks_before: int = int(marks.call("mark_count"))
+		scene.call("_process", TICK_SECONDS)
+		for event in world.events.drained:
+			var e: Dictionary = event as Dictionary
+			match String(e.get("type", "")):
+				"weapon.fired":
+					fired += 1
+					if int(e.get("hit", -1)) >= 0:
+						real_hits += 1
+					else:
+						real_misses += 1
+						if int(marks.call("mark_count")) <= marks_before and int(e.get("oz", -1)) >= 0 and e.has("ex"):
+							var shooter: Vector3 = Vector3(float(e["x"]), float(int(e["oz"])) / 1000.0, float(e["y"]))
+							var contact: Vector3 = Vector3(float(e["ex"]), float(int(e["ez"])) / 1000.0, float(e["ey"]))
+							if shooter.distance_to(contact) < float(e["reach"]) - 0.01:
+								ok = _fail("HIT", "a real miss that met a surface put no impact mark")
+				"attack.connected":
+					if int(e.get("target", -1)) == zed:
+						var puffs: Array = marks.call("puff_positions") as Array
+						if puffs.is_empty():
+							ok = _fail("HIT", "a real hit on the zombie put no blood puff")
+						var kick_map: Dictionary = marks.get("kick") as Dictionary
+						if not kick_map.has(zed):
+							ok = _fail("HIT", "a real hit on the zombie put no flinch on its body")
+	print("HIT real shot: fired %d, hits %d, misses %d" % [fired, real_hits, real_misses])
+	if fired == 0:
+		ok = _fail("HIT", "no round was fired in the real shot")
+
+	# Synthetic path through the step: the same events published on the bus, then one real step, so the scene's
+	# own read of the drained record is what makes the puff, the flinch and the mark. A plant that drops the read
+	# fails here whatever the dispersion did.
+	var shooter_pos: Vector2 = area
+	world.events.publish({"type": "weapon.fired", "entity": player, "item": -1, "x": shooter_pos.x, "y": shooter_pos.y,
+		"dx": 1.0, "dy": 0.0, "reach": 12.0, "hit": zed, "oz": 1620, "pitch": 0.0, "ex": zx, "ey": zy, "ez": 1200})
+	world.events.publish({"type": "attack.connected", "attacker": player, "target": zed, "bodyPart": "head", "damage": 20.0, "item": -1})
+	world.events.publish({"type": "entity.staggered", "entity": zed, "ticks": 8})
+	var puffs_before: int = int(marks.call("puff_count"))
+	scene.call("step_sim_once")
+	if int(marks.call("puff_count")) != puffs_before + 1:
+		ok = _fail("HIT", "a published hit through the step made no blood puff (%d -> %d)" % [puffs_before, int(marks.call("puff_count"))])
+	var puff_at: Array = marks.call("puff_positions") as Array
+	var head_ok: bool = not puff_at.is_empty()
+	for p in puff_at:
+		var pv: Vector3 = p as Vector3
+		if absf(pv.y - 1.6) > 0.001:
+			head_ok = false
+		var flat: Vector2 = Vector2(pv.x - view.global_position.x, pv.z - view.global_position.z)
+		if flat.length() > 1.0:
+			head_ok = false
+	if not head_ok:
+		ok = _fail("HIT", "the puff is not at the head's height (1.6 m) within 1.0 m of the zombie's drawn body")
+	# The puff quads billboard: the renderer turns them to the camera, so they never read as slivers.
+	var puff_mat: StandardMaterial3D = marks.get("_puff_material") as StandardMaterial3D
+	if puff_mat == null or puff_mat.billboard_mode != BaseMaterial3D.BILLBOARD_ENABLED:
+		ok = _fail("HIT", "the blood puff quads do not billboard to the camera (a sliver from the side)")
+	var kick_map: Dictionary = marks.get("kick") as Dictionary
+	if not kick_map.has(zed):
+		ok = _fail("HIT", "a published stagger through the step put no flinch on the zombie")
+	else:
+		var off: Vector3 = kick_map[zed] as Vector3
+		if off.x <= 0.0 or absf(off.length() - 0.15) > 0.001:
+			ok = _fail("HIT", "the flinch is not 0.15 m back along the shot (%s)" % str(off))
+	for _i in range(7):
+		marks.call("tick_once")
+	if not (marks.get("kick") as Dictionary).has(zed):
+		ok = _fail("HIT", "the flinch ended before its 8 ticks")
+	for _i in range(13):
+		marks.call("tick_once")
+	if (marks.get("kick") as Dictionary).has(zed):
+		ok = _fail("HIT", "the flinch is still on 20 ticks after the stagger")
+	if int(marks.call("puff_count")) != 0:
+		ok = _fail("HIT", "a blood puff outlived its 8 ticks")
+
+	# A miss that met a surface: an impact mark on that surface, within a tile of the contact, facing the shooter.
+	var before_miss: int = int(marks.call("mark_count"))
+	var contact_pos: Vector3 = Vector3(area.x + 3.0, 1.2, area.y)
+	world.events.publish({"type": "weapon.fired", "entity": player, "item": -1, "x": area.x, "y": area.y,
+		"dx": 1.0, "dy": 0.0, "reach": 12.0, "hit": -1, "oz": 1620, "pitch": 0.0, "ex": area.x + 3.0, "ey": area.y, "ez": 1200})
+	scene.call("step_sim_once")
+	if int(marks.call("mark_count")) != before_miss + 1:
+		ok = _fail("HIT", "a published miss that met a wall made no impact mark")
+	else:
+		var nodes: Array = marks.call("mark_nodes") as Array
+		var mark: Node3D = nodes[nodes.size() - 1]
+		if mark.global_position.distance_to(contact_pos) > 1.0:
+			ok = _fail("HIT", "the impact mark is more than a tile from the contact")
+		var toward: Vector3 = (Vector3(area.x, 1.62, area.y) - mark.global_position).normalized()
+		if mark.global_transform.basis.z.dot(toward) < 0.99:
+			ok = _fail("HIT", "the impact mark does not face the shooter")
+
+	# True negatives: a ray that met nothing within reach, and a hit on a body, put no impact mark.
+	var before_none: int = int(marks.call("mark_count"))
+	world.events.publish({"type": "weapon.fired", "entity": player, "item": -1, "x": area.x, "y": area.y,
+		"dx": 1.0, "dy": 0.0, "reach": 12.0, "hit": -1, "oz": 1620, "pitch": 0.0, "ex": area.x + 12.0, "ey": area.y, "ez": 1620})
+	world.events.publish({"type": "weapon.fired", "entity": player, "item": -1, "x": area.x, "y": area.y,
+		"dx": 1.0, "dy": 0.0, "reach": 12.0, "hit": zed, "oz": 1620, "pitch": 0.0, "ex": zx, "ey": zy, "ez": 1200})
+	scene.call("step_sim_once")
+	if int(marks.call("mark_count")) != before_none:
+		ok = _fail("HIT", "a ray that met nothing, or a body hit, put an impact mark")
+
+	# The cap: a hundred misses leave at most MARK_CAP marks, the newest kept.
+	for i in range(100):
+		world.events.publish({"type": "weapon.fired", "entity": player, "item": -1, "x": area.x, "y": area.y,
+			"dx": 1.0, "dy": 0.0, "reach": 12.0, "hit": -1, "oz": 1620, "pitch": 0.0, "ex": area.x + 2.0 + float(i) * 0.02, "ey": area.y, "ez": 1200})
+	scene.call("step_sim_once")
+	var cap: int = HitMarks.MARK_CAP
+	if int(marks.call("mark_count")) > cap or int(marks.call("mark_count")) < 1:
+		ok = _fail("HIT", "the impact marks passed the cap (%d > %d)" % [int(marks.call("mark_count")), cap])
+
+	# The same events twice give the same transforms: a second instance fed the same three misses.
+	var twin: Node3D = HitMarks.new()
+	scene.add_child(twin)
+	var sequence: Array = [area.x + 2.0, area.x + 4.0, area.x + 6.0]
+	for x in sequence:
+		var ev: Dictionary = {"type": "weapon.fired", "entity": player, "item": -1, "x": area.x, "y": area.y,
+			"dx": 1.0, "dy": 0.0, "reach": 12.0, "hit": -1, "oz": 1620, "pitch": 0.0, "ex": float(x), "ey": area.y, "ez": 1200}
+		twin.call("from_events", world, [ev])
+	# Replay the same three on the scene's own marks, one per step, and compare the last three transforms.
+	for x in sequence:
+		var replay: Dictionary = {"type": "weapon.fired", "entity": player, "item": -1, "x": area.x, "y": area.y,
+			"dx": 1.0, "dy": 0.0, "reach": 12.0, "hit": -1, "oz": 1620, "pitch": 0.0, "ex": float(x), "ey": area.y, "ez": 1200}
+		marks.call("from_events", world, [replay])
+	var mine: Array = marks.call("mark_nodes") as Array
+	var theirs: Array = twin.call("mark_nodes") as Array
+	for i in range(3):
+		var a: Transform3D = mine[mine.size() - 3 + i].global_transform
+		var b: Transform3D = theirs[theirs.size() - 3 + i].global_transform
+		if not a.is_equal_approx(b):
+			ok = _fail("HIT", "the same events gave different mark transforms")
+	scene.remove_child(twin)
+	twin.queue_free()
 	return ok
 
 
