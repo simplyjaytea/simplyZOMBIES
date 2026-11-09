@@ -54,6 +54,7 @@ blender --background --factory-startup --python tools/blender/first_person_build
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=name_board_open
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=name_board_uv
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=name_board_one_cell
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=name_board_mirror
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=arch_float
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=bracket_float
 ```
@@ -264,11 +265,12 @@ If room tags are added to content later, the manifest is the place to refine thi
   `window_attach` in the sill/lintel bands and leave the aperture open. `ticket_ledge_proud` and
   `arch_float` prove the projection and missing-return failures.
 - One 0.90 m board on the canopy fascia carries the invented 梅崎 / うめざき name across
-  `station_name` cell `(3,7)` and `station_name_kana` cell `(4,7)`. The kanji strokes are unchanged;
-  round 3 corrects the kana's stroke direction and open curves. The face UVs fit both whole cells on
-  both axes instead of repeating by metre. `name_board_open` refuses a wall-mounted board on an
-  openable tile; `name_board_uv` leaves the vertical fit out and `name_board_one_cell` fits only one
-  cell, both refused by the measured UV bounds.
+  `station_name` cell `(3,7)` and `station_name_kana` cell `(4,7)`. The name cells are bitmaps
+  rasterised once from Noto Sans CJK Bold (SIL OFL 1.1); no font is read at build time. The face UVs
+  fit both whole cells on both axes instead of repeating by metre. `name_board_open` refuses a
+  wall-mounted board on an openable tile; `name_board_uv` leaves the vertical fit out and
+  `name_board_one_cell` fits only one cell, both refused by the measured UV bounds. `name_board_mirror`
+  mirrors the kana cell and is refused by the baked-cell comparison against the literal rows.
 - The tin gable uses shared `tin` / `tin_alt`, with 0.60 m eaves and rakes, closed timber gables,
   soffits and barge boards. `CHARACTER building.station.small` measures every value above from the GLB.
 - `OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22` is name-blind and node-order-free against
