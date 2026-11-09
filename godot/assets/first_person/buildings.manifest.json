@@ -3485,6 +3485,45 @@
     {
       "bounds": {
         "max": [
+          7.305,
+          4.02,
+          6.305
+        ],
+        "min": [
+          -0.305,
+          0.0,
+          -0.305
+        ]
+      },
+      "floor": [
+        "tile",
+        "tile_alt"
+      ],
+      "glb": "res://assets/first_person/buildings/shrine_village.glb",
+      "interior": "civic",
+      "interiorWall": [
+        "render_ivory"
+      ],
+      "match": {
+        "id": "building.shrine.village"
+      },
+      "pieces": {
+        "jamb": 28,
+        "wall": 15,
+        "window": 17
+      },
+      "roof": "shingle",
+      "roofForm": "gable",
+      "variation": [
+        "#f5f2e9",
+        "#e8eee8",
+        "#eee8e2"
+      ],
+      "wall": "timber"
+    },
+    {
+      "bounds": {
+        "max": [
           12.605,
           3.82,
           6.14

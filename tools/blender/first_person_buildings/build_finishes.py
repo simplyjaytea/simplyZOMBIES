@@ -2765,7 +2765,7 @@ def same_geometry(a, b):
 
 # The round's own template is excluded by name, on both sides of the comparison. Every other base GLB
 # must be proved, so a missing template cannot shrink the proof silently.
-PROOF_OWN = {STATION_ID, KOBAN_ID}
+PROOF_OWN = {STATION_ID, KOBAN_ID, SHRINE_ID}
 
 
 def validate_other_templates(repo, export_dir, templates, plant=None):
