@@ -3,6 +3,80 @@
 Each entry is the handoff a session wrote when it stopped, moved here from PLAYBOOK.md so the
 playbook stays current. Read the newest entry first. Links are relative to this folder.
 
+## Where we left off (2026-11-10, the owner asleep, the machine set to shut down at 07:00 KST)
+
+**What the session did.** Fifteen pull requests merged: #376, #377, #378, #380, #381, #382, #383, #384 one
+at a time on the train, then the rollup #391 with #385, #386, #387, #388, #389 and #390 inside it. Then #395
+alone (the lowered pistol kept on screen). A second rollup, #396, went red on shot dispersion (#392) and was
+closed; #394 (utility pole rules) was green alone and stays open for a re-merge. Both of the
+owner's alpha areas moved: the fight reads (hit marks and blood, the lowered weapon, the title on boot, the
+zombie tells; shot dispersion measured and in review) and the town is a place (the sawmill, the station, door
+and window trim, the review camera, the street placer and prop kit A drawn on the street).
+
+**Changes to how we work.** The owner gave a standing merge go. Kimi Code was retired; the art lead is now
+Claude Code on Opus 5.5 (`art-lead`, brief `sz-shared/ART_LEAD.md`). Lettering in art comes from a font
+bitmap. A rollup PR is allowed when the clock is short.
+
+**What went wrong, and what it taught.**
+
+- The street placer shipped drawing boxes: its gate used a fixture with no model files. The art QA found it
+  when the real kit first met the placer. A gate on a fixture must still cover the real path.
+- The placer's two hashes were perfectly anti-correlated in parity, so only three of six candidates were ever
+  placed. The per-kind counts on the real kit showed it at once; print the counts.
+- A builder said the scale was right from frames that could not show it, then corrected itself. The art QA's
+  in-engine measure settled it. Frames show place; a measure shows size.
+- One piece was dispatched to two builders for a minute. One owner per worktree.
+- The lowered weapon merged with its idle pose below the screen. Its gate proved the transform differed; no one
+  had looked at a frame. The first frame taken showed it. Look before the merge, not after.
+- A rollup is only as green as its reddest member. The second one failed on #392 and took two green pieces
+  down with it at the deadline; each member's own CI run named the culprit at once. Keep member PRs open and
+  running beside a rollup.
+- Two new building templates emptied three gate fixtures that each lean on what one seed draws. The seed hunt
+  fixed them locally and CI still failed. Fixtures that matter should be built, not drawn.
+- Serial CI at 13 minutes a head would have landed four pieces before the shutdown; the rollup landed six.
+- Usage ran out on four terminals at 05:15. Handoffs were written first because the pause order had gone out.
+
+**State at the pause** is in PLAYBOOK.md, "Where we are", and `sz-shared/RESUME-2026-11-11.md`.
+
+## Where we left off (2026-11-09, paused by the owner at night)
+
+The owner resumed the project in the morning, asked for a review of what was built and what remained, and
+chose two of three proposed alpha areas: **the fight reads** and **the town is a place** (the third, the first
+hour's stakes, is parked). `PLAYBOOK.md`'s "Where we are" carries the state; `sz-shared/alpha-2026-11-09/PLAN.md`
+and `QUEUE.md` the plan and the builder queue; `sz-shared/merge-train-2026-11-07/TRAIN.md` "STATE AT PAUSE" the
+open heads.
+
+**Merged, in order:** #374 (the boot judges its outdoor wanderers), #366 (the first-person encounter, the 6 m
+daylight sight floor, the end of the break-away drift), #367 (the harm readout and the weapon line), #373
+(the roster). Two PRs opened: #377 the title first on boot, #378 the zombie tells.
+
+**Found.** The alpha sheet re-captured on `main` showed the shambler surviving 30 pistol presses where the
+previous head killed it in four rounds. The diagnosis: the #364 ray deviates each round within the whole aim
+cone, so past 2 m most rounds miss a 0.3 m body. Not a bug; `DISPERSION` is the named dial docs/40 left for a
+measured slice, and that slice (`claude/fp-shot-dispersion`, 0.25) is built and awaits its ten-seed re-baseline.
+
+**Decisions.** The title shows first on boot (the owner's call, reversing #362's boot). Dispersion 0.25 built,
+owner card open. Street dressing never puts a tall prop on a Low tile. The shrine is a hall with a closed
+perimeter. The raise readout piece was dropped as already shipped by #367.
+
+**Built, not yet PRs:** door and window trim per template (`14bdf03c`, reviewed sound), hit feedback
+(`a0140a2a`, one shard red), shot dispersion (`284a026c`, re-baseline pending), the lowered weapon (WIP).
+Specced: street dressing, the kōban and shrine JSON, the review camera.
+
+**Art.** Station round 1 not signed off (unreadable kana, a floating ticket-window arch, canopy brackets off
+the wall; the art lead's report had claimed otherwise); round 2 committed at `eea12f6a`, unreviewed. Sawmill
+#376 queued. Prop kit A, the konbini, the kōban, the shrine and the arms clips are drafted in order.
+
+**Lessons.**
+
+- A both-kept merge of a `switch` can drop a `break;`; #367's merge made the harm gate run the aid gate. Run the
+  gate and its plant after every such merge.
+- Measure the art lead's claims on the GLB: "readable" and "meets the wall" were 46 mm and 17 mm off.
+- One owner per worktree, named in every hand-off: a worker nearly pushed another's local re-merge.
+- A new `--skip-title` style flag that `run-godot.mjs` appends to every mode breaks modes with an exact
+  engine-args contract (the runtime budget); exempt them explicitly.
+- The ten-seed re-baseline needs a quiet box and over an hour; schedule it, do not start it an hour before a pause.
+
 ## Where we left off (2026-11-05 to 06, paused by the owner at night)
 
 The first session with the afternoon roster: the orchestrator plans and dispatches, the lead engineer
