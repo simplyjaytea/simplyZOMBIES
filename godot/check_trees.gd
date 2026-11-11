@@ -3744,29 +3744,38 @@ static func _stock_by_room(block: Dictionary, map: Variant, seed_val: int) -> Ve
 	return Vector2i(living_most, storage_many)
 
 
-# The STOCK lane's own seed. It judged CANON_SEED (20260805) until the police box and the village shrine joined
-# the district pools (koban-shrine-json): that moved the draws and no storage room there keeps several barrels,
-# so the lane had nothing to show. 42 keeps 3 storage rooms with several; a fixture choice, no number re-pinned.
-# Every other lane still uses CANON_SEED.
-const STOCK_SEED: int = 42
+# The STOCK lane's seeds, tried in order. It judged CANON_SEED (20260805) until the police box and the village shrine
+# joined the district pools (koban-shrine-json): that moved the draws and no storage room there kept several barrels,
+# so the lane had nothing to show. A new template can do that to any one seed, so the lane takes the first seed on
+# this list whose judged maps hold a storage room with several, and fails naming the list only when none does. A
+# fixture list, no number re-pinned. Every other lane still uses CANON_SEED.
+const STOCK_SEEDS: Array[int] = [42, 20260805, 31337, 7, 404, 90210]
 
 
 func _the_stock_stays_in_storage() -> bool:
 	var tree: Dictionary = ContentLoader.load_tree()
-	var boot: Dictionary = SimBoot.playable(STOCK_SEED, GATE_SIZE)
-	var block: Dictionary = Dressing.block_of(boot["world"])
-	var maps: Array = [["the boot map", boot["map"], int(boot["world"].seed)]]
-	for district_id in FURNISH_DISTRICTS:
-		maps.append([district_id, SimWorldgen.generate(STOCK_SEED, GATE_SIZE, tree, district_id), STOCK_SEED])
+	var maps: Array = []
+	var block: Dictionary = {}
 	var storage_many: int = 0
-	for row in maps:
-		var got: Vector2i = _stock_by_room(block, row[1], int(row[2]))
-		if got.x > 1:
-			push_error("STOCK: %s has a living room with %d barrels or pallets; a living room keeps one of each" % [String(row[0]), got.x])
-			return false
-		storage_many += got.y
-	if storage_many == 0:
-		push_error("STOCK: no storage room on the judged maps keeps more than one barrel or pallet; the storage rule has nothing to show")
+	var stock_seed: int = -1
+	for candidate in STOCK_SEEDS:
+		var boot: Dictionary = SimBoot.playable(int(candidate), GATE_SIZE)
+		block = Dressing.block_of(boot["world"])
+		maps = [["the boot map", boot["map"], int(boot["world"].seed)]]
+		for district_id in FURNISH_DISTRICTS:
+			maps.append([district_id, SimWorldgen.generate(int(candidate), GATE_SIZE, tree, district_id), int(candidate)])
+		storage_many = 0
+		for row in maps:
+			var got: Vector2i = _stock_by_room(block, row[1], int(row[2]))
+			if got.x > 1:
+				push_error("STOCK: seed %d, %s has a living room with %d barrels or pallets; a living room keeps one of each" % [int(candidate), String(row[0]), got.x])
+				return false
+			storage_many += got.y
+		if storage_many > 0:
+			stock_seed = int(candidate)
+			break
+	if stock_seed < 0:
+		push_error("STOCK: on none of the seeds %s does a storage room on the judged maps keep more than one barrel or pallet; the storage rule has nothing to show" % [str(STOCK_SEEDS)])
 		return false
 	# TN: the same entries with no `rooms` and no cap put several in a living room.
 	var loose: Dictionary = block.duplicate(true)
@@ -3782,7 +3791,7 @@ func _the_stock_stays_in_storage() -> bool:
 	if loose_most <= 1:
 		push_error("STOCK: without the room rule no living room took more than one barrel or pallet; the rule is not proved")
 		return false
-	print("STOCK_OK living rooms keep at most one barrel and one pallet on %d maps, %d storage rooms keep several; without the rule a living room takes %d" % [maps.size(), storage_many, loose_most])
+	print("STOCK_OK living rooms keep at most one barrel and one pallet on %d maps (seed %d), %d storage rooms keep several; without the rule a living room takes %d" % [maps.size(), stock_seed, storage_many, loose_most])
 	return true
 
 
