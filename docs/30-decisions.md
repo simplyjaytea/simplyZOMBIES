@@ -8633,13 +8633,18 @@ art line may later ship a real lowered pose and this table yields to it.
 
 ## The DISPERSION table is a measurement, outside the chain, 2026-11-11
 
-`DISPERSION` is 0.25, the built default of the shot-dispersion slice (docs/40 slice 8); the owner's
-card (docs/33 question 1) stays open with 0.5 and 1.0 as the alternatives. The `godot:m2:ranged`
-DISPERSION lane in the chain fires only the ten cells its assertions read at 0.25 (Steady at 2, 4, 6
-and 10 m, Idle from 4 m, the repeat of Steady 6 m, and two plants: 1.0 at Steady 6 m and 2.0 at Steady
-2 m), 200 rounds each. A round whose target cannot be forced into its posture fails the lane. The full table behind the card, every cell at 0.25, 0.5 and 1.0 and the crawler line, is opt-in
-by `RANGED_FULL=1` (`npm run godot:m2:ranged:full`), the same shape as `godot:m2:balance:full`. Its
-cells are the same rounds the lane fires, so the two cannot disagree.
+`DISPERSION` is 0.25, the built default of the shot-dispersion slice (docs/40 slice 8), with 0.5 and 1.0
+measured beside it. The value is the open half of docs/33's ray card (docs/40 question 1), whose default
+asks that a steady, skilled shot at a standing torso at fifteen metres usually lands. Measured at 0.25
+with the fixture's unskilled shooter, Steady at 15 m hits 0.530 (0.140 at 0.5, 0.040 at 1.0).
+
+The `godot:m2:ranged` DISPERSION lane in the chain fires only the eleven cells its assertions read at
+0.25: Steady at 2, 4, 6 and 10 m, Idle from 4 m, the repeat of Steady 6 m, and three plants (1.0 at
+Steady 6 m, 2.0 at Steady 2 m, and Idle at 0.0 at 4 m against the Idle-below-Steady comparison), 200
+rounds each. A round whose target cannot be forced into its posture fails the lane. The full table
+behind the card, every cell at 0.25, 0.5 and 1.0, the crawler line and Steady at 15 m, is opt-in by
+`RANGED_FULL=1` (`npm run godot:m2:ranged:full`), the same shape as `godot:m2:balance:full`. Its cells
+are the same rounds the lane fires, so the two cannot disagree.
 
 Why: the first version built a fresh world per round, 5,600 rounds, each loading the content tree and
 none freed (docs/37). The process reached 19 GB, and CI shard 2 stalled until its timeout. The rounds

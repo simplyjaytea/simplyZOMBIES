@@ -42,10 +42,10 @@ func _run() -> void:
 # `half * DISPERSION`. A fresh fixture per round, seeds 1..200, a pistol shooter at x 2 m and a shambler
 # standing at 2, 4, 6 and 10 m, on an open map. At the built default 0.25: Steady hits at least 0.80 at
 # 6 m and 0.95 at 2 m; Idle hits less than Steady at every distance from 4 m. Same seed, same answer. A
-# plant at 1.0 must fail the Steady 6 m assertion, and one at 2.0 the Steady 2 m one. The pin is restored
-# before return.
+# plant at 1.0 must fail the Steady 6 m assertion, one at 2.0 the Steady 2 m one, and an Idle shot at 0.0
+# the Idle-below-Steady one. The pin is restored before return.
 #
-# The chain fires only the cells those assertions read and the two plants (ten cells, 2,000 rounds). The measurement table
+# The chain fires only the cells those assertions read and the three plants (eleven cells, 2,200 rounds). The measurement table
 # behind the owner's card (docs/33 question 1) -- Steady and Idle at 0.25, 0.5 and 1.0, and a crawler aimed
 # at its chest -- is opt-in by RANGED_FULL=1 (`npm run godot:m2:ranged:full`): it is a measurement for
 # the owner's card, not a gate, and the chain asserts nothing it adds.
@@ -81,6 +81,11 @@ func _dispersion_world(seed_val: int) -> Variant:
 	SimHealth.make_stamina(w, w.player)
 	SimInventory.make_inventory(w, w.player)
 	return w
+
+
+# The Idle-below-Steady comparison, one function so the plant judges the same code as the assertion.
+func _idle_below_steady(idle_rate: float, steady_rate: float) -> bool:
+	return idle_rate < steady_rate
 
 
 # Drops the World's reference cycle so it frees when the round lets go of it.
@@ -187,6 +192,12 @@ func _dispersion() -> bool:
 			crawl_line += "  %.0f m %.3f" % [float(d_c), rate_c]
 		print(crawl_line)
 		SimRanged.DISPERSION = was
+		# Printed only: docs/33's ray card asks that a steady, skilled shot at a standing torso at fifteen
+		# metres usually lands. This is the Steady 15 m cell at each value.
+		var far_line: String = "DISPERSION Steady 15 m"
+		for value_f in DISPERSION_VALUES:
+			far_line += "  %.2f %.3f" % [float(value_f), _dispersion_rate(float(value_f), steady_half, 15.0)]
+		print(far_line)
 	# The assertions at the built default.
 	var steady: Array = table["0.25|Steady"] as Array
 	var idle: Array = table["0.25|Idle"] as Array
@@ -195,8 +206,10 @@ func _dispersion() -> bool:
 	if float(steady[0]) < 0.95:
 		ok = _fail_lane(lane, "Steady at 2 m hits %.3f of rounds, need at least 0.95" % float(steady[0]))
 	for i in range(1, DISPERSION_DISTANCES.size()):
-		if float(idle[i]) >= float(steady[i]):
+		if not _idle_below_steady(float(idle[i]), float(steady[i])):
 			ok = _fail_lane(lane, "Idle at %.0f m hits %.3f, not less than Steady %.3f" % [float(DISPERSION_DISTANCES[i]), float(idle[i]), float(steady[i])])
+	# The repeat and the restore check below have no plant: only a leak between rounds or a lost pin can
+	# turn them red, and the posture flag only a roster change.
 	# Same seeds, same table: one cell asked again gives the same count.
 	var again: float = _dispersion_rate(0.25, steady_half, 6.0)
 	if again != float(steady[2]):
@@ -212,13 +225,19 @@ func _dispersion() -> bool:
 		ok = _fail_lane(lane, "a planted DISPERSION 2.0 passed the Steady 2 m assertion (%.3f)" % planted_near)
 	else:
 		print("DISPERSION planted 2.0 refused: Steady 2 m hits %.3f, below 0.95" % planted_near)
+	# The Idle plant: an Idle shot with no disc at 4 m hits as often as Steady, and the comparison refuses it.
+	var planted_idle: float = _dispersion_rate(0.0, idle_half, 4.0)
+	if _idle_below_steady(planted_idle, float(steady[1])):
+		ok = _fail_lane(lane, "a planted Idle at DISPERSION 0.0 passed as below Steady at 4 m (%.3f against %.3f)" % [planted_idle, float(steady[1])])
+	else:
+		print("DISPERSION planted Idle at 0.0 refused: 4 m hits %.3f, not below Steady %.3f" % [planted_idle, float(steady[1])])
 	if _dispersion_posture_failed:
 		ok = _fail_lane(lane, "a target could not be forced into the posture its cell asks for")
 	if SimRanged.DISPERSION != was:
 		SimRanged.DISPERSION = was
 		ok = _fail_lane(lane, "the DISPERSION pin was not restored")
 	if ok:
-		print("DISPERSION OK at 0.25 Steady hits %.3f at 6 m and %.3f at 2 m, Idle hits less than Steady from 4 m, the table repeats, and DISPERSION 1.0 and 2.0 are refused" % [float(steady[2]), float(steady[0])])
+		print("DISPERSION OK at 0.25 Steady hits %.3f at 6 m and %.3f at 2 m, Idle hits less than Steady from 4 m, the table repeats, and the three plants are refused" % [float(steady[2]), float(steady[0])])
 	return ok
 
 
