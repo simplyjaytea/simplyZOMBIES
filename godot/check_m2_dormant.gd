@@ -342,18 +342,27 @@ func _boot() -> bool:
 # cell at t+20 against a threshold of 0.00556, and all nineteen awake at t+21. So this lane boots a
 # real district, lets it run, and requires the bodies to still be where they were, still asleep.
 const ASLEEP_TICKS: int = 200
+# Seeds tried in order for a district with a dormant body at the gates' size. A fixture list, no measured number.
+const ASLEEP_SEEDS: Array[int] = [42, 31337, 7, 20260805, 404, 90210]
 
 func _stays_asleep() -> bool:
 	var lane: String = "ASLEEP"
-	# Seed 42, not 31337: the police box and the village shrine joined the district pools (koban-shrine-json),
-	# which moved the draws, and 31337 at 64 now holds no dormant body. A fixture choice, not a re-pin of a
-	# measured number: main's own 31337 passed this lane, and 42 is the first seed tried that holds a dormant copy.
-	var boot: Dictionary = SimBoot.playable(42, GATE_TILES)
+	# The fixture is the first seed that holds a dormant body at this size. A new building template moves the
+	# draws and can empty any one seed, so the lane looks for what it needs instead of pinning a seed; it fails,
+	# naming every seed tried, only when none holds one.
+	var seed_used: int = -1
+	var boot: Dictionary = {}
+	for candidate in ASLEEP_SEEDS:
+		var tried: Dictionary = SimBoot.playable(int(candidate), GATE_TILES)
+		if not (tried["map"].dormant as Array).is_empty():
+			seed_used = int(candidate)
+			boot = tried
+			break
+	if seed_used < 0:
+		push_error("%s: none of the seeds %s at %d holds a dormant body, so the lane has nothing to judge" % [lane, str(ASLEEP_SEEDS), GATE_TILES])
+		return false
 	var w: Variant = boot["world"]
 	var records: Array = boot["map"].dormant as Array
-	if records.is_empty():
-		push_error("%s: seed 42 at %d is the fixture for this lane and its manifest is empty" % [lane, GATE_TILES])
-		return false
 	var before: Dictionary = {}
 	for e in _dormant_ids(w):
 		var pos: Dictionary = w.components.get_component(int(e), "position") as Dictionary
