@@ -85,7 +85,7 @@ func _run() -> void:
 
 func _finish(ok: bool) -> void:
 	if ok:
-		print("FP_GEOMETRY_OK every tile and all %d building finishes keep their profile bands, every body keeps its cylinder, finish skins stay within 25 mm of a solid host, finish volumes are low exterior door steps, canopies are attached above 2.10 m and at most 1.20 m deep, wall and window attachments are at most 0.10 m proud on their declared tile and window boxes stay in the sill or lintel band, every sim window in four generated districts is drawn open and every indoor tile there has a ceiling, and planted wall-over-window, stripped-ceiling, band-box, window, Low-tile, module, open-tile, high-wall, indoor-volume, tall-volume, detached-volume, canopy-low, canopy-deep, canopy-detached, wall-proud, wall-open, attach-offtile, window-attach-opening, and smooth-normal box errors are refused, and every band box and the ground draw flat-shaded" % _finish_count)
+		print("FP_GEOMETRY_OK every tile and all %d building finishes keep their profile bands, every body keeps its cylinder, finish skins stay within 25 mm of a solid host, finish volumes are low exterior door steps, canopies are attached above 2.10 m and at most 1.20 m deep, wall and window attachments are at most 0.10 m proud on their declared tile and window boxes stay in the sill or lintel band, every sim window in four generated districts is drawn open and every indoor tile there has a ceiling, a storefront window draws no casing while every other window keeps one, and planted wall-over-window, stripped-ceiling, band-box, window, Low-tile, module, open-tile, high-wall, indoor-volume, tall-volume, detached-volume, canopy-low, canopy-deep, canopy-detached, wall-proud, wall-open, attach-offtile, window-attach-opening, and smooth-normal box errors are refused, and every band box and the ground draw flat-shaded" % _finish_count)
 		quit(0)
 		return
 	for failure in _failures:
@@ -693,6 +693,9 @@ func _doorstyle() -> bool:
 	var doors: int = 0
 	var checked: Dictionary = {}
 	var worst: float = 1.0
+	var storefront: int = 0
+	var cased: int = 0
+	var planted_cased: int = 0
 	for district_id in FINISH_DISTRICTS:
 		var boot: Dictionary = SimBoot.bare(SimBoot.DISTRICT_SEED, SimTileMap.DISTRICT_TILES, district_id)
 		var map: Variant = boot["map"]
@@ -718,10 +721,33 @@ func _doorstyle() -> bool:
 				var open: Array = DoorStyle.door_boxes(tx, ty, along_x, side, true, style)
 				if closed == open:
 					ok = _fail("DOORSTYLE", "%s: open and closed door at %d,%d are the same boxes" % [district_id, tx, ty])
+		# STOREFRONT: a window the manifest lists as a building's storefront draws no casing (its GLB draws
+		# the glazing), every other window keeps its casing, and the plant, the same tile with the
+		# storefront ignored, draws the casing again.
+		for ty in int(map.h):
+			for tx in int(map.w):
+				if SimSpace.profile_key(map, tx, ty) != "window":
+					continue
+				var casing: Array = view.call("window_casing", map, tx, ty) as Array
+				if bool(view.call("storefront_at", tx, ty)):
+					storefront += 1
+					if not casing.is_empty():
+						ok = _fail("STOREFRONT", "%s: storefront window at %d,%d draws %d casing boxes" % [district_id, tx, ty, casing.size()])
+					if not (view.call("window_casing", map, tx, ty, true) as Array).is_empty():
+						planted_cased += 1
+				elif not casing.is_empty():
+					cased += 1
 		view.free()
 	print("DOORSTYLE drawn %d doors across %d districts, %d templates used, worst leaf-to-wall luminance difference %.3f" % [doors, FINISH_DISTRICTS.size(), checked.size(), worst])
 	if doors == 0:
 		ok = _fail("DOORSTYLE", "no door tiles in the generated districts: nothing to judge")
+	print("STOREFRONT %d storefront windows drew no casing, %d other windows drew theirs, %d storefront windows cased again with the storefront ignored" % [storefront, cased, planted_cased])
+	if storefront == 0:
+		ok = _fail("STOREFRONT", "no storefront window in the generated districts: nothing to judge")
+	if cased == 0:
+		ok = _fail("STOREFRONT", "no other window drew a casing: the skip would pass if it skipped everything")
+	if planted_cased != storefront:
+		ok = _fail("STOREFRONT", "the plant, the storefront ignored, cased only %d of %d storefront windows" % [planted_cased, storefront])
 	var planted: Dictionary = DoorStyle.style_for(DoorStyle.DEFAULT_KEY).duplicate()
 	planted["leaf"] = planted["wall"]
 	if DoorStyle.contrast_ok(planted):

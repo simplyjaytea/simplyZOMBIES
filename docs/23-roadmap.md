@@ -862,6 +862,21 @@ not a to-do list:
     `check:routing` pass. Matched base/head, repeat, magenta and Blender captures accompany the piece;
     repeat-run pixel noise is zero.
 
+- **The Ome–Okutama re-theme: the konbini, 2026-11-10.** Batch B round B4 finishes the existing
+  `building.konbini.road` (12 x 9, tar / render) with no JSON change: a flat tar roof behind a 3.05 m
+  parapet with drawn back faces and caps, a south glass front of ten window tiles in thin aluminium
+  mullions with a kick rail, aluminium door casing, a 0.85 m canopy with no posts and a 2.36 to
+  2.95 m fascia in a faded plum livery carrying the invented name やまびこ (rows rasterised once from
+  Noto Sans CJK Bold), and per-tile rain streaks on the side and back walls that never repeat by course. `build_finishes.py -- --check` prints `CHARACTER building.konbini.road` and
+  `OTHER_TEMPLATES_PIXELS_IDENTICAL 25/25` against main 6c3f81a9, and all 45 plants are refused, the
+  konbini's `konbini_canopy_low`, `front_solid`, `parapet_no_back`, `mullion_door`,
+  `konbini_name_mirror`, `konbini_name_swap`, `konbini_name_reversed`, `streak_pale` and
+  `storefront_empty` among them. The streaks have their own stain cell, darker than the render. The
+  front's window tiles are the manifest's `storefront`, on which the district draws no generic casing
+  (`godot:check:fp_geometry`, STOREFRONT). Four atlas cells used, three left. Rendered, other templates move
+  by 37 px over 624 frames, from REPEAT sampling at the atlas's outer edges and one template's faces
+  ending on a konbini cell's edge, not from mips: the atlas loads without them (the builder README).
+
 - **The kōban and the shrine hall, 2026-11-10.** `building.koban.box` (5 x 5, civic and police, town centre; tar roof,
   render walls; street door on the south face, a front window and a side window) and `building.shrine.village` (7 x 6 hall
   alone, civic and shrine, residential suburb; shingle roof, timber walls; door on the south axis, a window on each side face,

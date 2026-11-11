@@ -57,6 +57,15 @@ blender --background --factory-startup --python tools/blender/first_person_build
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=name_board_mirror
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=arch_float
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=bracket_float
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=konbini_canopy_low
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=front_solid
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=parapet_no_back
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=mullion_door
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=konbini_name_mirror
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=konbini_name_swap
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=konbini_name_reversed
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=streak_pale
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=storefront_empty
 ```
 
 `winding` reverses one hip-roof face; `aperture` draws a wall across house_small's first window. The
@@ -279,6 +288,65 @@ If room tags are added to content later, the manifest is the place to refine thi
   `OTHER_TEMPLATES_BASE = 0f510604e010f2d26bb338bb8f2c0120f7bf8068`, excluding only the station on
   both sides. New atlas cells can move isolated far-frame pixels through the smallest mips, as the
   sawmill reviews proved; those are reported rather than repainted away.
+
+### Batch B: the konbini
+
+- `building.konbini.road` is the 12 x 9 commercial template from #371, tar / render through
+  `TEMPLATE_FINISHES`, with no JSON change (no back-room door; docs/42 mentions one, it is a JSON piece).
+- The roof is flat tar behind a parapet to 3.05 m. Each side has its outer face, a drawn back face from
+  the 2.66 m roof, a cap from outer face to back face and a 20 mm soffit strip under the step past the
+  wall. North and south parapets run the full width, east and west between them, so no faces overlap
+  at a corner. `parapet_no_back` drops the back faces and is refused by the measured count.
+- The ten south window tiles are a broad commercial opening: 22 mm aluminium half-mullions on each
+  tile edge (one 44 mm mullion per seam, twelve seams), aluminium head and sill rails, one pane and a
+  0.16 m aluminium kick rail on the sill wall. Only the JSON's window tiles get it; side and back
+  windows that worldgen opens keep the generic glazing. `front_solid` fills window `(2,8)` and is
+  refused by the aperture check. The double door has aluminium casing with a raised head.
+- The canopy is a 60 mm plate 0.85 m deep with a light aluminium soffit and no posts. A 0.04 m fascia
+  band on its outer edge runs the full 12 m, 2.36 to 2.95 m, in the faded plum `konbini_livery` cell
+  `(7,5)`. `konbini_canopy_low` drops it to 2.20 m and is refused by the 2.30 m shop rule.
+  `mullion_door` puts a mullion in door `(5,8)` and is refused by the door check.
+- The invented name やまびこ sits over the doors on two 1 m fascia faces, `konbini_name_a` `(5,7)` and
+  `konbini_name_b` `(6,7)`: 128 x 38 px rows rasterised once from Noto Sans CJK Bold (SIL OFL 1.1) at
+  the panel's 64 texels per metre. The faces map at the standard density; no font is read at build
+  time. `konbini_name_mirror` mirrors the rows and is refused by the baked-row comparison. The faces
+  are judged on the GLB too: name_a over x 5 to 6 and name_b over 6 to 7, and on every triangle u rises
+  with +x and v falls with height, so the sign reads left to right and upright. `konbini_name_swap`
+  swaps the two cells and `konbini_name_reversed` builds the fascia face from its east end; both are
+  refused.
+- Rain streaks run down the rendered side and back walls from 2.42 m: one per tile where a per-tile hash
+  allows, with its own place, width (35 to 83 mm) and length (0.35 to 1.23 m), so no 1 m course
+  repeats. A tile the occluder pass may open carries its streak in its wall piece, so an opened window
+  shows none. They draw from their own `konbini_streak` cell `(5,4)`, a grey-brown stain whose mean
+  luminance is at least 0.06 below the darkest render cell (0.142 today); the shared `mortar_stain`
+  is lighter than render and read as pale sticks. `streak_pale` gives the cell the mortar tone and is
+  refused.
+- The front's window tiles are listed in the manifest entry as `storefront`. The first-person district
+  draws no generic window casing on them (`district_view.gd` `window_casing`), so the GLB's thin
+  aluminium front is what shows; every other window keeps its casing (`godot:check:fp_geometry`,
+  STOREFRONT). `storefront_empty` leaves the list out and is refused by the manifest check. The
+  konbini's door-style row is a dark glass leaf in a 60 mm silver frame, but it does not show from the
+  street yet: `district_view.gd` `_open_face` picks the inner face for a door in a south or east wall,
+  so the styled leaf is drawn indoors and the street sees the brown closed-door band box. That holds
+  for every manifested building and is a separate presentation fix.
+- `CHARACTER building.konbini.road` measures from the GLB and asserts the parapet top, back faces, cap,
+  open windows, twelve mullions, the fascia's height and length, the canopy, posts, the name's place
+  and direction, doors, streak tone and variety, walls and roof.
+- `OTHER_TEMPLATES_PIXELS_IDENTICAL 25/25` against `OTHER_TEMPLATES_BASE = 6c3f81a9` (main with the
+  koban and the shrine hall), excluding only the konbini by name.
+- Rendered, the other templates move by single pixels, and not through mips. A throwaway driver drew
+  every manifest template from 8 bearings at 3 distances (624 frames at 1280x720) twice: from main, and
+  from main with this head's atlas and every GLB but the konbini's. The GLBs agree in JSON and mesh
+  data, and their embedded atlases differ only in the four konbini cells. 23 frames differ by 37 px,
+  all near the building, and a repeat render of main differs by 0. The atlas a GLB carries is loaded
+  at run time without mipmaps (`has_mipmaps()` is false, and a no-mipmap filter changes no frame), so
+  every texel is read at the base level. 32 px come from REPEAT sampling: faces end exactly on the
+  atlas's outer edges (v = 1 under cells (5,7) and (6,7), u = 0 in row 5), and nearest sampling at
+  the edge wraps into the konbini's new cells across the atlas; with repeat off they vanish. The other
+  5 px are on `building.unit.industrial` (4) and `building.house.gable` (1): both have faces ending on
+  the edge of the name cells `(5,7)`, `(6,7)` or the livery cell `(7,5)` inside the atlas (148 and 96
+  triangles), and nearest sampling at the shared edge picks the konbini's texel. The streak cell
+  `(5,4)` is inside the atlas, and no other template's face reaches its edges, wrapped or not.
 
 ## Windows
 

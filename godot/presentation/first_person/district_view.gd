@@ -189,28 +189,57 @@ func _trim_surface() -> ArrayMesh:
 				for box in DoorStyle.door_boxes(tx, ty, along_x, side, key == "door.open", style):
 					_add_box_of(st, box)
 					drew = true
-			elif key == "window" and String(_drawn.get(Vector2i(tx, ty), "")) == "window":
-				var style_w: Dictionary = DoorStyle.style_for(_slug_at(tx, ty))
-				var along_w: bool = _runs_along_x(map, tx, ty)
-				for offset in [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]:
-					var nx: int = tx + offset.x
-					var ny: int = ty + offset.y
-					if nx < 0 or ny < 0 or nx >= int(map.w) or ny >= int(map.h):
-						continue
-					var neighbour: int = SimTileMap.tile_at(map, nx, ny)
-					if neighbour in [SimTileMap.Tile.Wall, SimTileMap.Tile.Window, SimTileMap.Tile.Tree, SimTileMap.Tile.Water]:
-						continue
-					if along_w and offset.x != 0:
-						continue
-					if not along_w and offset.y != 0:
-						continue
-					for box in DoorStyle.window_boxes(tx, ty, along_w, offset, style_w):
-						_add_box_of(st, box)
-						drew = true
+			elif key == "window":
+				for box in window_casing(map, tx, ty):
+					_add_box_of(st, box)
+					drew = true
 	if not drew:
 		return null
 	st.generate_normals()
 	return st.commit()
+
+
+## The casing boxes of one window tile: the door-style casing on each face that meets open ground, for
+## a window a finished building drew as one. None on a storefront tile, whose glazing the building's
+## GLB draws itself (the manifest's `storefront`); `ignore_storefront` is the gate's plant.
+func window_casing(map: Variant, tx: int, ty: int, ignore_storefront: bool = false) -> Array:
+	var out: Array = []
+	if String(_drawn.get(Vector2i(tx, ty), "")) != "window":
+		return out
+	if not ignore_storefront and storefront_at(tx, ty):
+		return out
+	var style_w: Dictionary = DoorStyle.style_for(_slug_at(tx, ty))
+	var along_w: bool = _runs_along_x(map, tx, ty)
+	for offset in [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]:
+		var nx: int = tx + offset.x
+		var ny: int = ty + offset.y
+		if nx < 0 or ny < 0 or nx >= int(map.w) or ny >= int(map.h):
+			continue
+		var neighbour: int = SimTileMap.tile_at(map, nx, ny)
+		if neighbour in [SimTileMap.Tile.Wall, SimTileMap.Tile.Window, SimTileMap.Tile.Tree, SimTileMap.Tile.Water]:
+			continue
+		if along_w and offset.x != 0:
+			continue
+		if not along_w and offset.y != 0:
+			continue
+		out.append_array(DoorStyle.window_boxes(tx, ty, along_w, offset, style_w))
+	return out
+
+
+## Whether a tile is one of a finished building's storefront tiles: listed, building-local, in its
+## manifest entry's `storefront`.
+func storefront_at(tx: int, ty: int) -> bool:
+	if building_finishes == null:
+		return false
+	for instance_v in building_finishes.get("instances") as Array:
+		var instance: Dictionary = instance_v as Dictionary
+		var record: Dictionary = instance["building"] as Dictionary
+		var local: Array = [tx - int(record["x"]), ty - int(record["y"])]
+		for tile_v in (instance["entry"] as Dictionary).get("storefront", []) as Array:
+			var tile: Array = tile_v as Array
+			if int(tile[0]) == int(local[0]) and int(tile[1]) == int(local[1]):
+				return true
+	return false
 
 
 # The slug of the manifested building whose footprint holds this tile's centre: its GLB's file name
