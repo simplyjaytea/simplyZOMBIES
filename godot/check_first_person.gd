@@ -258,7 +258,7 @@ func _run() -> void:
 		ok = _lane("SUCCESSION", _succession(scene), "a death hands the camera to an heir and the dead body is drawn") and ok
 		ok = _lane("LEGEND", _legend(scene), "F1 lists every key the scene handles and the scene handles every key it lists") and ok
 		ok = _lane("ARMS", _arms(scene), "the view-model arms are the scene's own under the Eye, lower for screens and third person, follow the sim's equipped hold class, hold the weapon on grip_r at the anchor, inspect only while L is held, never cut into a wall, and raise and aim a firearm on the sim's fire state (AIM: raise at the sim's t, aim while steady, idle after the shot, a sheet lowers the aim, a stub that says idle holds idle, a melee class ignores the state)") and ok
-		ok = _lane("LOWERED", _lowered(scene), "a firearm that is not ready is drawn lowered: an Idle pistol sits fully lowered and a Steady one at about half, so the sway offset and pitch differ between them") and ok
+		ok = _lane("LOWERED", _lowered(scene), "a firearm that is not ready is drawn lowered: an Idle pistol sits fully lowered and a Steady one at about half, so the sway offset and pitch differ between them, and at Idle the pistol and both hands are drawn on screen through the view-model lens while #389's first pose reads off it") and ok
 		ok = _lane("HANDS", await _hands(scene), "the bare hands at 16:9 and 4:3 do not reach the key bar, and the overlap test sees a bar placed on them") and ok
 		ok = _lane("THIRD", _third_person(scene), "F2 steps the camera behind the eye and back, the own body is drawn and plays the sim's clip only in third person, and a wall pulls the camera in while an open line does not") and ok
 		ok = _lane("HIDE", _held_visibility(scene), "the held weapon hides while the bench, inventory, ledger, talk and third-person screens are open and shows otherwise") and ok
@@ -4374,6 +4374,8 @@ func _lowered_body(scene: Node, world: Variant, player: int) -> bool:
 	var ok: bool = true
 	if idle_lowered < 0.98:
 		ok = _fail("LOWERED", "an Idle pistol is lowered %.3f, not 1.0" % idle_lowered)
+	# On screen, judged at the Idle pose itself, before the shot raises it.
+	ok = _lowered_screen(scene, arms, sway) and ok
 	# Fire and step the raise out to its first Steady tick, then sample without stepping the sim.
 	world.commands.push({"type": "fire"})
 	scene.call("step_sim_once")
@@ -4403,13 +4405,6 @@ func _lowered_body(scene: Node, world: Variant, player: int) -> bool:
 	var pitch_gap: float = absf(idle_pitch - steady_pitch)
 	if pitch_gap < 0.03:
 		ok = _fail("LOWERED", "the Idle and Steady sway pitches differ by only %.3f rad" % pitch_gap) and ok
-	# On screen: the pistol mesh centre projects inside the viewport through the camera that draws the arms.
-	var cam_arms: Camera3D = scene.get("camera") as Camera3D
-	var vp_size: Vector2 = arms.get_viewport().get_visible_rect().size
-	var on_screen_idle: bool = _lowered_on_screen(arms, cam_arms, vp_size)
-	if not on_screen_idle:
-		ok = _fail("LOWERED", "an Idle pistol centre projects outside the %dx%d viewport" % [int(vp_size.x), int(vp_size.y)]) and ok
-	print("LOWERED on screen idle=%s centre=%s viewport=%s" % [on_screen_idle, _lowered_centre(arms, cam_arms), vp_size])
 	print("LOWERED idle lowered %.3f, steady lowered %.3f, offset gap %.3f m, pitch gap %.3f rad" % [idle_lowered, steady_lowered, offset_gap, pitch_gap])
 	# Let the sim resolve the shot back to Idle, so the later lanes start from a holstered-ready state.
 	_arms_unequip_all(scene, world, player)
@@ -4417,19 +4412,129 @@ func _lowered_body(scene: Node, world: Variant, player: int) -> bool:
 	return ok
 
 
-func _lowered_centre(arms: Node3D, cam: Camera3D) -> Vector2:
-	for mi in arms.find_children("pistol_service", "MeshInstance3D", true, false):
-		var m: MeshInstance3D = mi as MeshInstance3D
-		var c: Vector3 = m.global_transform * m.get_aabb().get_center()
-		if cam == null or cam.is_position_behind(c):
-			return Vector2(-1.0, -1.0)
-		return cam.unproject_position(c)
-	return Vector2(-1.0, -1.0)
+# LOWERED, on screen. At the Idle pose the held weapon's bounds centre must be drawn inside the viewport, and
+# some of each hand: its hand and finger bones, each padded by HAND_RADIUS_M as the HANDS lane pads them, make
+# a rectangle that must meet the viewport. Everything is projected the way the view model is drawn: through the
+# Eye at the view model's own lens (ArmsView.view_model_to_screen). The detector is proved in place: #389's
+# first pose, offset y -0.10 and pitch -18 degrees, drew the pistol and both hands below the frame, and set
+# on the sway it must read off screen on all three. The sampled pose is put back before the lane goes on.
+const LOWERED_OFF_OFFSET: Vector3 = Vector3(0.04, -0.10, 0.05)
+const LOWERED_OFF_PITCH_DEG: float = -18.0
+const LOWERED_PARTS: Array[String] = ["weapon", "right hand", "left hand"]
 
 
-func _lowered_on_screen(arms: Node3D, cam: Camera3D, vp: Vector2) -> bool:
-	var c: Vector2 = _lowered_centre(arms, cam)
-	return c.x >= 0.0 and c.y >= 0.0 and c.x <= vp.x and c.y <= vp.y
+func _lowered_screen(scene: Node, arms: Node3D, sway: Node3D) -> bool:
+	var eye: Camera3D = scene.get("camera") as Camera3D
+	var held: Node3D = scene.call("held_weapon_node") as Node3D
+	var receiver: Node3D = held.call("receiver_node") as Node3D if held != null else null
+	if eye == null or receiver == null or not receiver.is_visible_in_tree():
+		return _fail("LOWERED", "there is no Eye or no drawn pistol in the hand to project")
+	if String(arms.call("clip_playing")) != "idle_pistol":
+		return _fail("LOWERED", "the on-screen sample plays '%s', not idle_pistol" % String(arms.call("clip_playing")))
+	var view: Vector2 = arms.get_viewport().get_visible_rect().size
+	var ok: bool = true
+	# The lens agrees with the Eye's own projection while the Eye shares the view model's field of view.
+	var probe: Vector3 = _lowered_weapon_centre(receiver)
+	if absf(eye.fov - ArmsView.VIEW_MODEL_FOV_DEG) < 0.001:
+		var gap: float = ArmsView.view_model_to_screen(eye, probe, view).distance_to(eye.unproject_position(probe))
+		if gap > 1.0:
+			ok = _fail("LOWERED", "the view-model lens and the Eye's own projection differ by %.1f px at the same field of view" % gap) and ok
+	var idle: Dictionary = _lowered_project(arms, receiver, eye, view)
+	for part in LOWERED_PARTS:
+		if not idle.has(part):
+			ok = _fail("LOWERED", "at Idle the %s has nothing to project" % part) and ok
+		elif not _lowered_shown(idle[part], view):
+			ok = _fail("LOWERED", "at Idle the %s is drawn at %s, outside the %dx%d viewport" % [part, str(idle[part]), int(view.x), int(view.y)]) and ok
+	# The plant: #389's first pose must read off screen, or the check above proves nothing.
+	var kept_pos: Vector3 = sway.position
+	var kept_rot: Vector3 = sway.rotation
+	sway.position = LOWERED_OFF_OFFSET
+	sway.rotation = Vector3(deg_to_rad(LOWERED_OFF_PITCH_DEG), 0.0, 0.0)
+	var planted: Dictionary = _lowered_project(arms, receiver, eye, view)
+	sway.position = kept_pos
+	sway.rotation = kept_rot
+	for part in LOWERED_PARTS:
+		if not planted.has(part) or _lowered_shown(planted[part], view):
+			ok = _fail("LOWERED", "the #389 pose (offset y -0.10, pitch -18) does not read the %s off screen: %s" % [part, str(planted.get(part))]) and ok
+	print("LOWERED on screen at Idle: %s; the #389 pose: %s; viewport %s" % [_lowered_text(idle), _lowered_text(planted), view])
+	return ok
+
+
+# The drawn weapon's bounds centre in world space: every visible mesh under the receiver, merged.
+func _lowered_weapon_centre(receiver: Node3D) -> Vector3:
+	var meshes: Array[Node] = receiver.find_children("*", "MeshInstance3D", true, false)
+	if receiver is MeshInstance3D:
+		meshes.append(receiver)
+	var box: AABB = AABB()
+	var any: bool = false
+	for node in meshes:
+		var m: MeshInstance3D = node as MeshInstance3D
+		if not m.is_visible_in_tree():
+			continue
+		var b: AABB = m.global_transform * m.get_aabb()
+		box = b if not any else box.merge(b)
+		any = true
+	return box.get_center() if any else receiver.global_position
+
+
+# The weapon's centre as a screen point, and each hand as the screen rectangle of its hand and finger bones,
+# each padded by HAND_RADIUS_M at its own depth. A hand with no bone in front of the eye is left out.
+func _lowered_project(arms: Node3D, receiver: Node3D, eye: Camera3D, view: Vector2) -> Dictionary:
+	var out: Dictionary = {"weapon": ArmsView.view_model_to_screen(eye, _lowered_weapon_centre(receiver), view)}
+	var skeleton: Skeleton3D = arms.get("_skeleton") as Skeleton3D
+	if skeleton == null:
+		return out
+	var focal: float = (view.y * 0.5) / tan(deg_to_rad(ArmsView.VIEW_MODEL_FOV_DEG) * 0.5)
+	var to_eye: Transform3D = eye.global_transform.affine_inverse()
+	for side in [["right hand", ".R"], ["left hand", ".L"]]:
+		var lo: Vector2 = Vector2(INF, INF)
+		var hi: Vector2 = Vector2(-INF, -INF)
+		var any: bool = false
+		for index in skeleton.get_bone_count():
+			var bone: String = skeleton.get_bone_name(index)
+			if not bone.ends_with(String(side[1])):
+				continue
+			var is_hand: bool = false
+			for prefix in HAND_BONE_PREFIXES:
+				if bone.begins_with(prefix):
+					is_hand = true
+					break
+			if not is_hand:
+				continue
+			var at: Vector3 = skeleton.global_transform * skeleton.get_bone_global_pose(index).origin
+			var depth: float = -(to_eye * at).z
+			if depth <= 0.01:
+				continue
+			var pad: float = HAND_RADIUS_M * focal / depth
+			var point: Vector2 = ArmsView.view_model_to_screen(eye, at, view)
+			lo = Vector2(minf(lo.x, point.x - pad), minf(lo.y, point.y - pad))
+			hi = Vector2(maxf(hi.x, point.x + pad), maxf(hi.y, point.y + pad))
+			any = true
+		if any:
+			out[String(side[0])] = Rect2(lo, hi - lo)
+	return out
+
+
+# A point is shown inside the viewport; a hand's rectangle is shown when it meets the viewport.
+func _lowered_shown(at: Variant, view: Vector2) -> bool:
+	var screen: Rect2 = Rect2(Vector2.ZERO, view)
+	if at is Rect2:
+		return (at as Rect2).intersects(screen)
+	var p: Vector2 = at as Vector2
+	return p.x >= 0.0 and p.y >= 0.0 and p.x <= view.x and p.y <= view.y
+
+
+func _lowered_text(parts: Dictionary) -> String:
+	var out: Array[String] = []
+	for part in LOWERED_PARTS:
+		var v: Variant = parts.get(part)
+		if v is Rect2:
+			out.append("%s y %.0f..%.0f" % [part, (v as Rect2).position.y, (v as Rect2).end.y])
+		elif v is Vector2:
+			out.append("%s %s" % [part, str((v as Vector2).round())])
+		else:
+			out.append("%s none" % part)
+	return ", ".join(out)
 
 
 # AIM, a melee class: the fire state is not read for it, so the stubbed raise and aim leave its idle.
