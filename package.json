@@ -43,6 +43,7 @@
     "godot:m2:region": "node scripts/run-godot.mjs --m2-region",
     "godot:m2:camp": "node scripts/run-godot.mjs --m2-camp",
     "godot:m2:ranged": "node scripts/run-godot.mjs --m2-ranged",
+    "godot:m2:ranged:full": "RANGED_FULL=1 node scripts/run-godot.mjs --m2-ranged",
     "godot:m2:sight": "node scripts/run-godot.mjs --m2-sight",
     "godot:m2:attach": "node scripts/run-godot.mjs --m2-attach",
     "godot:m2:armor": "node scripts/run-godot.mjs --m2-armor",

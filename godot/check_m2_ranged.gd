@@ -13,6 +13,9 @@ const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimStances = preload("res://sim/stances.gd")
+const SimAim = preload("res://sim/aim.gd")
+const SimSpace = preload("res://sim/space/space.gd")
+const ContentLoader = preload("res://platform/content_loader.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -27,12 +30,229 @@ func _run() -> void:
 	ok = _a_gun_with_no_barrel_does_not_fire_and_says_so() and ok
 	ok = _the_affix_that_names_noise_quiets_the_shot() and ok
 	ok = _the_affix_that_names_condition_loss_wears_the_gun_faster() and ok
+	ok = _dispersion() and ok
 	if ok:
 		print("M2_RANGED_OK bow pistol jam sprint blocked quiet ruin")
 		quit(0)
 	else:
 		push_error("M2_RANGED_FAIL")
 		quit(1)
+
+# DISPERSION (docs/40 slice 8): the round is a ray along the aim deviated within a disc of radius
+# `half * DISPERSION`. A fresh fixture per round, seeds 1..200, a pistol shooter at x 2 m and a shambler
+# standing at 2, 4, 6 and 10 m, on an open map. At the shipped value (0.25 built): Steady hits at least
+# 0.80 at 6 m and 0.95 at 2 m; Idle hits less than Steady at every distance from 4 m. Same seed, same
+# answer. A
+# plant at 1.0 must fail the Steady 6 m assertion, one at 2.0 the Steady 2 m one, and an Idle shot at 0.0
+# the Idle-below-Steady one. The pin is restored before return.
+#
+# The chain fires only the cells those assertions read and the three plants (eleven cells, 2,200 rounds). The measurement table
+# behind the owner's card (docs/33 question 1) -- Steady and Idle at 0.25, 0.5 and 1.0, and a crawler aimed
+# at its chest -- is opt-in by RANGED_FULL=1 (`npm run godot:m2:ranged:full`): it is a measurement for
+# the owner's card, not a gate, and the chain asserts nothing it adds.
+#
+# Memory: a World never frees on its own. Its system registry and event bus hold Callables bound to it,
+# a reference cycle, and each World.new loads the whole content tree. Thousands of rounds held that way
+# reached 19 GB and stalled a CI runner, so the rounds share one content tree and each drops its cycle.
+const DISPERSION_DISTANCES: Array = [2.0, 4.0, 6.0, 10.0]
+const DISPERSION_VALUES: Array = [0.25, 0.5, 1.0]
+const DISPERSION_ROUNDS: int = 200
+const DISPERSION_REACH: float = 30.0
+
+var _dispersion_full: bool = OS.get_environment("RANGED_FULL") == "1"
+var _dispersion_content: Variant = null
+# Set when a round's target could not be put in the posture it was asked for, so the lane fails rather than
+# measuring the wrong body.
+var _dispersion_posture_failed: bool = false
+
+func _dispersion_world(seed_val: int) -> Variant:
+	if _dispersion_content == null:
+		_dispersion_content = ContentLoader.load_tree()
+	var f: Dictionary = {"seed": seed_val, "tick_hz": 20, "content_tree": _dispersion_content, "map": {"width": 24, "height": 24, "walls": []}, "player": {"id": 0, "x": 2.0, "y": 12.0, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
+	var w: Variant = World.new(f)
+	w.tick = Clock.tick_at_time_of_day(Clock.DAY_BEGINS)
+	var map: Variant = SimTileMap.blank_map(24, 24)
+	SimBoot.attach_kernel(w, map)
+	SimHealth.register_module(w)
+	SimMelee.register_module(w)
+	SimRanged.register_module(w)
+	SimInventory.register_module(w)
+	w.components.set_component(w.player, "facing", {"radians": 0.0})
+	SimHealth.make_survivor_body(w, w.player)
+	SimHealth.make_stamina(w, w.player)
+	SimInventory.make_inventory(w, w.player)
+	return w
+
+
+# The Idle-below-Steady comparison, one function so the plant judges the same code as the assertion.
+func _idle_below_steady(idle_rate: float, steady_rate: float) -> bool:
+	return idle_rate < steady_rate
+
+
+# Drops the World's reference cycle so it frees when the round lets go of it.
+func _dispersion_release(w: Variant) -> void:
+	w.systems = null
+	w.events = null
+
+
+# The cone half-angle a pistol fires with in a state, as `_refresh_cone` sets it on the live weapon.
+func _dispersion_half(state: int) -> float:
+	var w: Variant = _dispersion_world(1)
+	var pistol: int = SimItems.spawn_item(w, "item.pistol.service", {"tier": "scavenged"})
+	SimInventory.equip(w, w.player, pistol)
+	# The equip event builds the weapon profile; publish only queues, so drain before reading it.
+	w.events.drain()
+	var r: Variant = w.components.get_component(w.player, "rangedWeapon")
+	var half: float = -1.0
+	if r is Dictionary:
+		var rw: Dictionary = r as Dictionary
+		rw["state"] = state
+		SimRanged._refresh_cone(w, w.player, rw)
+		half = float(rw["coneHalf"])
+	_dispersion_release(w)
+	return half
+
+
+# Forces the spawn's posture: a standing body keeps the legs its max says it has, a crawler has none.
+func _dispersion_posture(w: Variant, target: int, crawler: bool) -> void:
+	var body: Dictionary = w.components.get_component(target, "body") as Dictionary
+	var max_body: Dictionary = w.components.get_component(target, "bodyMax") as Dictionary
+	if crawler:
+		body["legs"] = 0.0
+	else:
+		body["legs"] = float(max_body.get("legs", 1.0))
+	if SimHealth.is_crawling(body) != crawler:
+		_dispersion_posture_failed = true
+
+
+# Hits out of DISPERSION_ROUNDS for one distance, state and disc value.
+# A standing shambler (legs intact) unless `crawler`: a body with its legs gone, as a crawl-rolled spawn is.
+# The shooter's camera pitches at `aim_mm` above the floor, the way a player's camera does.
+func _dispersion_hits(distance: float, half: float, crawler: bool = false, aim_mm: int = 900) -> int:
+	var hits: int = 0
+	for seed_val in range(1, DISPERSION_ROUNDS + 1):
+		var w: Variant = _dispersion_world(seed_val)
+		var rng: Variant = w.rng.stream("shambler")
+		var target: int = SimRoster.spawn_zombie(w, 2.0 + distance, 12.0, SimRoster.TYPE_SHAMBLER, rng)
+		w.events.drain()
+		_dispersion_posture(w, target, crawler)
+		var rise: int = aim_mm - SimSpace.eye_of(w, int(w.player))
+		SimAim.set_pitch(w.components, int(w.player), SimAim.pitch_toward(rise, distance))
+		var contact: Dictionary = SimRanged._shot_ray(w, int(w.player), half, DISPERSION_REACH, 0.0, 2.0, 12.0)
+		if int(contact["hit"]) == target:
+			hits += 1
+		_dispersion_release(w)
+	return hits
+
+
+# The hit rate of one cell at disc value `value`; the pin is restored before return.
+func _dispersion_rate(value: float, half: float, distance: float) -> float:
+	var was: float = SimRanged.DISPERSION
+	SimRanged.DISPERSION = value
+	var hits: int = _dispersion_hits(distance, half)
+	SimRanged.DISPERSION = was
+	return float(hits) / float(DISPERSION_ROUNDS)
+
+
+func _dispersion() -> bool:
+	var lane: String = "DISPERSION"
+	var ok: bool = true
+	var was: float = SimRanged.DISPERSION
+	var steady_half: float = _dispersion_half(SimRanged.FireState.Steady)
+	var idle_half: float = _dispersion_half(SimRanged.FireState.Idle)
+	if steady_half <= 0.0 or idle_half <= 0.0:
+		return _fail_lane(lane, "no pistol cone to judge (steady %.3f, idle %.3f)" % [steady_half, idle_half])
+	# Rows of hit rates by distance, keyed "value|state". The assertions judge the value the game ships
+	# (`was`), so a changed DISPERSION in ranged.gd is judged too. The chain fills the shipped cells it
+	# asserts on (Idle from 4 m only); RANGED_FULL fills every cell of every value. An unfilled cell prints
+	# a dash.
+	var values: Array = [was]
+	if _dispersion_full:
+		values = DISPERSION_VALUES.duplicate()
+		if not values.has(was):
+			values.push_front(was)
+	var table: Dictionary = {}
+	print("DISPERSION hit rate out of %d rounds (cone steady %.3f rad, idle %.3f rad)%s" % [DISPERSION_ROUNDS, steady_half, idle_half, "" if _dispersion_full else "; RANGED_FULL=1 for every value"])
+	print("DISPERSION   value  state   2 m    4 m    6 m   10 m")
+	for value_v in values:
+		var value: float = float(value_v)
+		for state_name in ["Steady", "Idle"]:
+			var half: float = steady_half if state_name == "Steady" else idle_half
+			var row: Array = []
+			var line: String = "DISPERSION   %.2f   %-6s" % [value, state_name]
+			for i in range(DISPERSION_DISTANCES.size()):
+				if state_name == "Idle" and i == 0 and not _dispersion_full:
+					row.append(-1.0)
+					line += "    -  "
+					continue
+				var rate: float = _dispersion_rate(value, half, float(DISPERSION_DISTANCES[i]))
+				row.append(rate)
+				line += "  %.3f" % rate
+			table["%.2f|%s" % [value, state_name]] = row
+			print(line)
+	if _dispersion_full:
+		# Printed only, not asserted: a crawler (legs gone) aimed at its own chest, 250 mm, at the shipped value.
+		var crawl_line: String = "DISPERSION crawler %.2f Steady aimed 250 mm" % was
+		for d_c in [2.0, 6.0]:
+			var rate_c: float = float(_dispersion_hits(float(d_c), steady_half, true, 250)) / float(DISPERSION_ROUNDS)
+			crawl_line += "  %.0f m %.3f" % [float(d_c), rate_c]
+		print(crawl_line)
+		SimRanged.DISPERSION = was
+		# Printed only: docs/33's ray card asks that a steady, skilled shot at a standing torso at fifteen
+		# metres usually lands. This is the Steady 15 m cell at each value.
+		var far_line: String = "DISPERSION Steady 15 m"
+		for value_f in DISPERSION_VALUES:
+			far_line += "  %.2f %.3f" % [float(value_f), _dispersion_rate(float(value_f), steady_half, 15.0)]
+		print(far_line)
+	# The assertions at the built default.
+	var steady: Array = table["%.2f|Steady" % was] as Array
+	var idle: Array = table["%.2f|Idle" % was] as Array
+	if float(steady[2]) < 0.80:
+		ok = _fail_lane(lane, "Steady at 6 m hits %.3f of rounds, need at least 0.80" % float(steady[2]))
+	if float(steady[0]) < 0.95:
+		ok = _fail_lane(lane, "Steady at 2 m hits %.3f of rounds, need at least 0.95" % float(steady[0]))
+	for i in range(1, DISPERSION_DISTANCES.size()):
+		if not _idle_below_steady(float(idle[i]), float(steady[i])):
+			ok = _fail_lane(lane, "Idle at %.0f m hits %.3f, not less than Steady %.3f" % [float(DISPERSION_DISTANCES[i]), float(idle[i]), float(steady[i])])
+	# The repeat and the restore check below have no plant: only a leak between rounds or a lost pin can
+	# turn them red, and the posture flag only a roster change.
+	# Same seeds, same table: one cell asked again gives the same count. Steady 10 m, because a cell that
+	# always hits would hide a leak between rounds.
+	var again: float = _dispersion_rate(was, steady_half, 10.0)
+	if again != float(steady[3]):
+		ok = _fail_lane(lane, "the Steady 10 m cell is not repeatable (%.3f then %.3f)" % [float(steady[3]), again])
+	# The plants: at 1.0 the Steady 6 m assertion must fail, and at 2.0 the Steady 2 m one.
+	var planted: float = _dispersion_rate(1.0, steady_half, 6.0)
+	if planted >= 0.80:
+		ok = _fail_lane(lane, "a planted DISPERSION 1.0 passed the Steady 6 m assertion (%.3f)" % planted)
+	else:
+		print("DISPERSION planted 1.0 refused: Steady 6 m hits %.3f, below 0.80" % planted)
+	var planted_near: float = _dispersion_rate(2.0, steady_half, 2.0)
+	if planted_near >= 0.95:
+		ok = _fail_lane(lane, "a planted DISPERSION 2.0 passed the Steady 2 m assertion (%.3f)" % planted_near)
+	else:
+		print("DISPERSION planted 2.0 refused: Steady 2 m hits %.3f, below 0.95" % planted_near)
+	# The Idle plant: an Idle shot with no disc at 4 m hits as often as Steady, and the comparison refuses it.
+	var planted_idle: float = _dispersion_rate(0.0, idle_half, 4.0)
+	if _idle_below_steady(planted_idle, float(steady[1])):
+		ok = _fail_lane(lane, "a planted Idle at DISPERSION 0.0 passed as below Steady at 4 m (%.3f against %.3f)" % [planted_idle, float(steady[1])])
+	else:
+		print("DISPERSION planted Idle at 0.0 refused: 4 m hits %.3f, not below Steady %.3f" % [planted_idle, float(steady[1])])
+	if _dispersion_posture_failed:
+		ok = _fail_lane(lane, "a target could not be forced into the posture its cell asks for")
+	if SimRanged.DISPERSION != was:
+		SimRanged.DISPERSION = was
+		ok = _fail_lane(lane, "the DISPERSION pin was not restored")
+	if ok:
+		print("DISPERSION OK at the shipped %.2f Steady hits %.3f at 6 m and %.3f at 2 m, Idle hits less than Steady from 4 m, the table repeats, and the three plants are refused" % [was, float(steady[2]), float(steady[0])])
+	return ok
+
+
+func _fail_lane(lane: String, message: String) -> bool:
+	push_error("%s_FAIL %s" % [lane, message])
+	print("%s_FAIL %s" % [lane, message])
+	return false
+
 
 func _world() -> Variant:
 	var f: Dictionary = {"seed": 21, "tick_hz": 20, "map": {"width": 24, "height": 24, "walls": []}, "player": {"id": 0, "x": 8.0, "y": 12.0, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
