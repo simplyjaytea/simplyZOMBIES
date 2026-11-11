@@ -199,8 +199,6 @@ func _trim_surface() -> ArrayMesh:
 	return st.commit()
 
 
-# The slug of the manifested building whose footprint holds this tile's centre: its GLB's file name
-# without the extension. `default` when no finished building owns the tile.
 ## The casing boxes of one window tile: the door-style casing on each face that meets open ground, for
 ## a window a finished building drew as one. None on a storefront tile, whose glazing the building's
 ## GLB draws itself (the manifest's `storefront`); `ignore_storefront` is the gate's plant.
@@ -244,6 +242,8 @@ func storefront_at(tx: int, ty: int) -> bool:
 	return false
 
 
+# The slug of the manifested building whose footprint holds this tile's centre: its GLB's file name
+# without the extension. `default` when no finished building owns the tile.
 func _slug_at(tx: int, ty: int) -> String:
 	if building_finishes == null:
 		return DoorStyle.DEFAULT_KEY

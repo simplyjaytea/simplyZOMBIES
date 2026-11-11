@@ -325,7 +325,10 @@ If room tags are added to content later, the manifest is the place to refine thi
   draws no generic window casing on them (`district_view.gd` `window_casing`), so the GLB's thin
   aluminium front is what shows; every other window keeps its casing (`godot:check:fp_geometry`,
   STOREFRONT). `storefront_empty` leaves the list out and is refused by the manifest check. The
-  konbini's door-style row is a dark glass leaf in a 60 mm silver frame.
+  konbini's door-style row is a dark glass leaf in a 60 mm silver frame, but it does not show from the
+  street yet: `district_view.gd` `_open_face` picks the inner face for a door in a south or east wall,
+  so the styled leaf is drawn indoors and the street sees the brown closed-door band box. That holds
+  for every manifested building and is a separate presentation fix.
 - `CHARACTER building.konbini.road` measures from the GLB and asserts the parapet top, back faces, cap,
   open windows, twelve mullions, the fascia's height and length, the canopy, posts, the name's place
   and direction, doors, streak tone and variety, walls and roof.
@@ -340,9 +343,10 @@ If room tags are added to content later, the manifest is the place to refine thi
   every texel is read at the base level. 32 px come from REPEAT sampling: faces end exactly on the
   atlas's outer edges (v = 1 under cells (5,7) and (6,7), u = 0 in row 5), and nearest sampling at
   the edge wraps into the konbini's new cells across the atlas; with repeat off they vanish. The other
-  5 px are on `building.unit.industrial` (4) and `building.house.gable` (1), whose faces end on a
-  konbini cell's edge inside the atlas. The streak cell `(5,4)` is inside the atlas, and no other
-  template's face reaches its edges.
+  5 px are on `building.unit.industrial` (4) and `building.house.gable` (1): both have faces ending on
+  the edge of the name cells `(5,7)`, `(6,7)` or the livery cell `(7,5)` inside the atlas (148 and 96
+  triangles), and nearest sampling at the shared edge picks the konbini's texel. The streak cell
+  `(5,4)` is inside the atlas, and no other template's face reaches its edges, wrapped or not.
 
 ## Windows
 
