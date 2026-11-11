@@ -40,8 +40,9 @@ func _run() -> void:
 
 # DISPERSION (docs/40 slice 8): the round is a ray along the aim deviated within a disc of radius
 # `half * DISPERSION`. A fresh fixture per round, seeds 1..200, a pistol shooter at x 2 m and a shambler
-# standing at 2, 4, 6 and 10 m, on an open map. At the built default 0.25: Steady hits at least 0.80 at
-# 6 m and 0.95 at 2 m; Idle hits less than Steady at every distance from 4 m. Same seed, same answer. A
+# standing at 2, 4, 6 and 10 m, on an open map. At the shipped value (0.25 built): Steady hits at least
+# 0.80 at 6 m and 0.95 at 2 m; Idle hits less than Steady at every distance from 4 m. Same seed, same
+# answer. A
 # plant at 1.0 must fail the Steady 6 m assertion, one at 2.0 the Steady 2 m one, and an Idle shot at 0.0
 # the Idle-below-Steady one. The pin is restored before return.
 #
@@ -161,9 +162,15 @@ func _dispersion() -> bool:
 	var idle_half: float = _dispersion_half(SimRanged.FireState.Idle)
 	if steady_half <= 0.0 or idle_half <= 0.0:
 		return _fail_lane(lane, "no pistol cone to judge (steady %.3f, idle %.3f)" % [steady_half, idle_half])
-	# Rows of hit rates by distance, keyed "value|state". The chain fills the 0.25 cells it asserts on
-	# (Idle from 4 m only); RANGED_FULL fills every cell of every value. An unfilled cell prints a dash.
-	var values: Array = DISPERSION_VALUES if _dispersion_full else [0.25]
+	# Rows of hit rates by distance, keyed "value|state". The assertions judge the value the game ships
+	# (`was`), so a changed DISPERSION in ranged.gd is judged too. The chain fills the shipped cells it
+	# asserts on (Idle from 4 m only); RANGED_FULL fills every cell of every value. An unfilled cell prints
+	# a dash.
+	var values: Array = [was]
+	if _dispersion_full:
+		values = DISPERSION_VALUES.duplicate()
+		if not values.has(was):
+			values.push_front(was)
 	var table: Dictionary = {}
 	print("DISPERSION hit rate out of %d rounds (cone steady %.3f rad, idle %.3f rad)%s" % [DISPERSION_ROUNDS, steady_half, idle_half, "" if _dispersion_full else "; RANGED_FULL=1 for every value"])
 	print("DISPERSION   value  state   2 m    4 m    6 m   10 m")
@@ -184,9 +191,8 @@ func _dispersion() -> bool:
 			table["%.2f|%s" % [value, state_name]] = row
 			print(line)
 	if _dispersion_full:
-		# Printed only, not asserted: a crawler (legs gone) aimed at its own chest, 250 mm, at the built default.
-		SimRanged.DISPERSION = 0.25
-		var crawl_line: String = "DISPERSION crawler 0.25 Steady aimed 250 mm"
+		# Printed only, not asserted: a crawler (legs gone) aimed at its own chest, 250 mm, at the shipped value.
+		var crawl_line: String = "DISPERSION crawler %.2f Steady aimed 250 mm" % was
 		for d_c in [2.0, 6.0]:
 			var rate_c: float = float(_dispersion_hits(float(d_c), steady_half, true, 250)) / float(DISPERSION_ROUNDS)
 			crawl_line += "  %.0f m %.3f" % [float(d_c), rate_c]
@@ -199,8 +205,8 @@ func _dispersion() -> bool:
 			far_line += "  %.2f %.3f" % [float(value_f), _dispersion_rate(float(value_f), steady_half, 15.0)]
 		print(far_line)
 	# The assertions at the built default.
-	var steady: Array = table["0.25|Steady"] as Array
-	var idle: Array = table["0.25|Idle"] as Array
+	var steady: Array = table["%.2f|Steady" % was] as Array
+	var idle: Array = table["%.2f|Idle" % was] as Array
 	if float(steady[2]) < 0.80:
 		ok = _fail_lane(lane, "Steady at 6 m hits %.3f of rounds, need at least 0.80" % float(steady[2]))
 	if float(steady[0]) < 0.95:
@@ -210,10 +216,11 @@ func _dispersion() -> bool:
 			ok = _fail_lane(lane, "Idle at %.0f m hits %.3f, not less than Steady %.3f" % [float(DISPERSION_DISTANCES[i]), float(idle[i]), float(steady[i])])
 	# The repeat and the restore check below have no plant: only a leak between rounds or a lost pin can
 	# turn them red, and the posture flag only a roster change.
-	# Same seeds, same table: one cell asked again gives the same count.
-	var again: float = _dispersion_rate(0.25, steady_half, 6.0)
-	if again != float(steady[2]):
-		ok = _fail_lane(lane, "the Steady 6 m cell is not repeatable (%.3f then %.3f)" % [float(steady[2]), again])
+	# Same seeds, same table: one cell asked again gives the same count. Steady 10 m, because a cell that
+	# always hits would hide a leak between rounds.
+	var again: float = _dispersion_rate(was, steady_half, 10.0)
+	if again != float(steady[3]):
+		ok = _fail_lane(lane, "the Steady 10 m cell is not repeatable (%.3f then %.3f)" % [float(steady[3]), again])
 	# The plants: at 1.0 the Steady 6 m assertion must fail, and at 2.0 the Steady 2 m one.
 	var planted: float = _dispersion_rate(1.0, steady_half, 6.0)
 	if planted >= 0.80:
@@ -237,7 +244,7 @@ func _dispersion() -> bool:
 		SimRanged.DISPERSION = was
 		ok = _fail_lane(lane, "the DISPERSION pin was not restored")
 	if ok:
-		print("DISPERSION OK at 0.25 Steady hits %.3f at 6 m and %.3f at 2 m, Idle hits less than Steady from 4 m, the table repeats, and the three plants are refused" % [float(steady[2]), float(steady[0])])
+		print("DISPERSION OK at the shipped %.2f Steady hits %.3f at 6 m and %.3f at 2 m, Idle hits less than Steady from 4 m, the table repeats, and the three plants are refused" % [was, float(steady[2]), float(steady[0])])
 	return ok
 
 

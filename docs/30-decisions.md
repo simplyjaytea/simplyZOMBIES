@@ -8639,7 +8639,8 @@ asks that a steady, skilled shot at a standing torso at fifteen metres usually l
 with the fixture's unskilled shooter, Steady at 15 m hits 0.530 (0.140 at 0.5, 0.040 at 1.0).
 
 The `godot:m2:ranged` DISPERSION lane in the chain fires only the eleven cells its assertions read at
-0.25: Steady at 2, 4, 6 and 10 m, Idle from 4 m, the repeat of Steady 6 m, and three plants (1.0 at
+the value `ranged.gd` ships (0.25), so a changed value is judged too: Steady at 2, 4, 6 and 10 m, Idle
+from 4 m, the repeat of Steady 10 m (a cell that does not always hit), and three plants (1.0 at
 Steady 6 m, 2.0 at Steady 2 m, and Idle at 0.0 at 4 m against the Idle-below-Steady comparison), 200
 rounds each. A round whose target cannot be forced into its posture fails the lane. The full table
 behind the card, every cell at 0.25, 0.5 and 1.0, the crawler line and Steady at 15 m, is opt-in by
