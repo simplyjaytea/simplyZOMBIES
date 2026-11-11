@@ -90,7 +90,7 @@ export function collectGateTimes(text) {
  *  On success, returns the table sorted slowest first plus the total. On failure -- a gate whose
  *  GATE_TIME line never arrived, or an extra one nothing asked for -- returns the mismatch
  *  instead of a table, which is the true negative: a table that cannot detect a missing row is
- *  worse than no table (PLAYBOOK.md's "a gate that cannot fail"). */
+ *  worse than no table (CLAUDE.md's "a gate that cannot fail"). */
 export function buildTable(expectedModes, rows) {
   const seenCounts = new Map();
   for (const r of rows) seenCounts.set(r.mode, (seenCounts.get(r.mode) ?? 0) + 1);
