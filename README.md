@@ -171,5 +171,5 @@ Godot executable if `godot` is not on your `PATH`. The scripts refuse any other 
 ## Contributing
 
 The project is built mostly by AI agents working with its owner. Start with
-[PLAYBOOK.md](PLAYBOOK.md): it is the entry point for anyone changing the code, person or agent, and
+[CLAUDE.md](CLAUDE.md): it is the entry point for anyone changing the code, person or agent, and
 leads to the design documents, the roadmap and the checks every change must pass.

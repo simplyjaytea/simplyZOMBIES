@@ -286,7 +286,7 @@ their coat, so that you know who they were, is a small sim change and an owner c
 ## The gate
 
 Two halves, the house shape: the kit proves the art, and the scene proves the picture follows the
-sim. Every assertion has a planted failure that turns it red (PLAYBOOK.md, "A gate that cannot
+sim. Every assertion has a planted failure that turns it red (CLAUDE.md, "A gate that cannot
 fail").
 
 **The kit**, `blender --background --factory-startup --python

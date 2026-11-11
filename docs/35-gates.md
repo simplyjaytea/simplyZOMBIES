@@ -1,6 +1,6 @@
 # Gates
 
-The full gate list, its timings, and what CI runs. PLAYBOOK.md's Verifying a change section holds the
+The full gate list, its timings, and what CI runs. CLAUDE.md's Verifying a change section holds the
 policy; this file holds the commands. Moved out of CLAUDE.md on 2026-10-19.
 
 ## The gate list
@@ -105,7 +105,7 @@ that package generates — it re-renders every registry key and compares decoded
 the committed file, so a palette edited without regenerating is a red build.
 
 `check:routing` is the other gate outside `godot:m2`, and the one that judges the desk rather
-than the game: it reads the routing table in PLAYBOOK.md and fails on any path, npm script or
+than the game: it reads the routing table in ROUTING.md and fails on any path, npm script or
 doc anchor that no longer resolves, then asks the dead-socket question of the gates themselves
 (every `godot/check_*.gd` reachable from `scripts/run-godot.mjs`, every runner mode reachable
 from `package.json`, every `godot:m2:*` / `godot:check:*` / `godot:ban:*` script inside the
