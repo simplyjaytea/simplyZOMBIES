@@ -28,12 +28,41 @@ const HEM_MIN_M: float = 1.80
 const WALL_PROUD_MAX_M: float = 0.10
 const WIRE_SAG_M: float = 0.4
 const WIRE_MAX_SPAN_M: float = 40.0
+# Pole rules (follow-up to t1x's VERDICT): poles at least POLE_MIN_SPACING_M apart, a span at least WIRE_MIN_SPAN_M long,
+# and three parallel wires per pair (a to a, b to b, c to c) across a crossarm set at POLE_YAW_RAD (across the run).
+const POLE_MIN_SPACING_M: float = 25.0
+const WIRE_MIN_SPAN_M: float = 10.0
+const POLE_YAW_RAD: float = PI * 0.5
+const WIRE_KEYS: Array = ["wire_a", "wire_b", "wire_c"]
+# Plants (gate): true drops the spacing rule; true drops the building-crossing rule.
+const PLANT_NO_POLE_SPACING: bool = false
+const PLANT_NO_WIRE_BUILDING_CHECK: bool = false
+const SALT_POLE: int = 504
 const WIRE_SEGMENTS: int = 8
 const PROP_CAP: int = 400
 # One prop per this many eligible tiles, on average: the density the owner card sets.
 const DENSITY_MOD: int = 6
 
 const PLACEMENTS: Array = ["kerb", "wall", "run", "door_head"]
+# The block-wall rule (lot_edge). A mix row with `"rule": "lot_edge"` takes its manifest entry out of the kinds
+# above and gives it to the wall-tile rule: the piece stands on the open ground just off a street, along the
+# street, in runs of WALL_SEGMENT tiles that come and go by hash, so a lot edge has gaps a body walks through.
+# `"role": "end"` marks the piece that caps a run; any other role is the body piece.
+# A tile is a wall tile only when all of these hold: it is open outdoor floor (no Low, door, window, tree, water,
+# overlay, vehicle or other prop), a street tile is on one side of it, no door tile (and no building door record)
+# is within WALL_DOOR_CLEAR tiles of it, and neither gate anchor is within WALL_GATE_CLEAR. A street tile itself
+# is never a wall tile. WALL_CAP pieces at most a district, kept by hash rank.
+const LOT_EDGE_RULE: String = "lot_edge"
+const LOT_EDGE: String = "lot_edge"
+const WALL_SEGMENT: int = 6
+const WALL_SEGMENT_ONE_IN: int = 3
+const WALL_DOOR_CLEAR: int = 2
+const WALL_GATE_CLEAR: int = 4
+const WALL_CAP: int = 160
+const SALT_WALL_SEG: int = 506
+const SALT_WALL_RANK: int = 507
+# Plant (gate): true ignores the door and gate clearance, so a wall can stand across a door; the gate must go red.
+const WALL_IGNORE_DOORS: bool = false
 # Sim sides in the order a tile looks for its wall and its floor: north, east, south, west.
 const SIDES: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
 
@@ -41,6 +70,8 @@ const SALT_PICK: int = 501
 const SALT_CHOICE: int = 502
 # The rank a placement takes when the eligible set outnumbers PROP_CAP.
 const SALT_RANK: int = 503
+# Plant (gate): true restores the old low-bit choice (hash % count); the choice gate must go red.
+const CHOICE_LOW_BITS: bool = false
 # true: keep the lowest-ranked PROP_CAP placements. false: the row-major cut (the gate's plant only).
 const CAP_BY_RANK: bool = true
 
@@ -92,7 +123,18 @@ static func _entry_ok(entry: Dictionary) -> bool:
 # PROP_CAP ranks are kept. The kept set is emitted in row-major order, so the digest is stable. A plain row-major
 # cut would leave the south of a large district bare; CAP_BY_RANK false is that cut, kept only as the plant the
 # gate proves itself against.
-static func placements(map: Variant, seed_val: int, entries: Array) -> Array:
+static func placements(map: Variant, seed_val: int, entries: Array, mix: Dictionary = {}) -> Array:
+	var base: Array = _base_placements(map, seed_val, entries, mix)
+	var edge: Array = lot_edge_placements(map, seed_val, entries, mix, base)
+	if edge.is_empty():
+		return base
+	var merged: Array = base + edge
+	var w: int = int(map.w)
+	merged.sort_custom(func(a, b): return _tile_index(a as Dictionary, w) < _tile_index(b as Dictionary, w))
+	return merged
+
+
+static func _base_placements(map: Variant, seed_val: int, entries: Array, mix: Dictionary) -> Array:
 	var out: Array = []
 	if map == null or entries.is_empty():
 		return out
@@ -100,6 +142,8 @@ static func placements(map: Variant, seed_val: int, entries: Array) -> Array:
 	for kind in PLACEMENTS:
 		by_kind[kind] = []
 	for entry in entries:
+		if _is_lot_edge(mix, String((entry as Dictionary)["id"])):
+			continue
 		(by_kind[String((entry as Dictionary)["placement"])] as Array).append(entry)
 	var vehicle_tiles: Dictionary = _vehicle_tiles(map)
 	var w: int = int(map.w)
@@ -108,18 +152,137 @@ static func placements(map: Variant, seed_val: int, entries: Array) -> Array:
 		for tx in range(int(map.w)):
 			if vehicle_tiles.has(Vector2i(tx, ty)):
 				continue
-			var p: Dictionary = _place_on_tile(map, seed_val, tx, ty, by_kind)
+			var p: Dictionary = _place_on_tile(map, seed_val, tx, ty, by_kind, mix)
 			if not p.is_empty():
 				all.append(p)
+	# Per-id caps, decided in hash-rank order so a capped kind spreads over the district, not the top rows.
+	if _has_caps(mix):
+		var by_rank: Array = all.duplicate()
+		by_rank.sort_custom(func(a, b): return _rank_before(a as Dictionary, b as Dictionary, seed_val, w))
+		var counts: Dictionary = {}
+		var capped: Array = []
+		for p in by_rank:
+			var id: String = String((p as Dictionary)["id"])
+			var cap: int = _cap_of(mix, id)
+			if cap >= 0 and int(counts.get(id, 0)) >= cap:
+				continue
+			counts[id] = int(counts.get(id, 0)) + 1
+			capped.append(p)
+		all = capped
+	all = _pole_pass(all, seed_val, w)
 	if all.size() <= PROP_CAP:
+		all.sort_custom(func(a, b): return _tile_index(a as Dictionary, w) < _tile_index(b as Dictionary, w))
 		return all
 	if not CAP_BY_RANK:
 		return all.slice(0, PROP_CAP)
+	# Past PROP_CAP: priority placements (the poles that carry the wires) are kept first, then by hash rank.
 	var ranked: Array = all.duplicate()
-	ranked.sort_custom(func(a, b): return _rank_before(a as Dictionary, b as Dictionary, seed_val, w))
+	ranked.sort_custom(func(a, b): return _keeps_before(a as Dictionary, b as Dictionary, seed_val, w, mix))
 	var kept: Array = ranked.slice(0, PROP_CAP)
 	kept.sort_custom(func(a, b): return _tile_index(a as Dictionary, w) < _tile_index(b as Dictionary, w))
 	return kept
+
+
+# The mix: weights and caps per prop id, from the data file (street_dressing.json). Absent: every id weight 1, no caps.
+static func load_mix(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if parsed is Dictionary:
+		return parsed as Dictionary
+	return {}
+
+
+static func _props_of(mix: Dictionary) -> Dictionary:
+	var props: Variant = mix.get("props", {})
+	if props is Dictionary:
+		return props as Dictionary
+	return {}
+
+
+# True when the id's mix row hands it to the wall-tile rule.
+static func _is_lot_edge(mix: Dictionary, id: String) -> bool:
+	var row: Variant = _props_of(mix).get(id, {})
+	return row is Dictionary and String((row as Dictionary).get("rule", "")) == LOT_EDGE_RULE
+
+
+static func _has_caps(mix: Dictionary) -> bool:
+	for id in _props_of(mix).keys():
+		if _cap_of(mix, String(id)) >= 0:
+			return true
+	return false
+
+
+# The cap for an id, or -1 for none.
+static func _cap_of(mix: Dictionary, id: String) -> int:
+	var row: Variant = _props_of(mix).get(id, {})
+	if row is Dictionary and (row as Dictionary).has("max_per_district"):
+		return maxi(0, int((row as Dictionary)["max_per_district"]))
+	return -1
+
+
+# Weight in hundredths: the id's row, else the default row, else 1.0.
+static func _weight_of(mix: Dictionary, id: String) -> int:
+	var row: Variant = _props_of(mix).get(id, {})
+	if row is Dictionary and (row as Dictionary).has("weight"):
+		return maxi(0, roundi(float((row as Dictionary)["weight"]) * 100.0))
+	var base: Variant = mix.get("default", {})
+	if base is Dictionary and (base as Dictionary).has("weight"):
+		return maxi(0, roundi(float((base as Dictionary)["weight"]) * 100.0))
+	return 100
+
+
+static func _priority_of(mix: Dictionary, id: String) -> bool:
+	var row: Variant = _props_of(mix).get(id, {})
+	return row is Dictionary and bool((row as Dictionary).get("priority", false))
+
+
+# Poles: those placed wall-side on the district, taken in hash order and kept only where no other kept pole is within
+# POLE_MIN_SPACING_M (greedy). A kept pole's crossarm is set across the run (POLE_YAW_RAD). Other props pass through.
+static func _pole_pass(all: Array, seed_val: int, w: int) -> Array:
+	var poles: Array = []
+	var others: Array = []
+	for p in all:
+		if _is_pole(p as Dictionary):
+			poles.append(p)
+		else:
+			others.append(p)
+	poles.sort_custom(func(a, b): return _rank_before(a as Dictionary, b as Dictionary, seed_val, w))
+	var kept: Array = []
+	for p in poles:
+		var d: Dictionary = p as Dictionary
+		if not PLANT_NO_POLE_SPACING and not _pole_clear(d, kept):
+			continue
+		d["yaw"] = POLE_YAW_RAD
+		kept.append(d)
+	others.append_array(kept)
+	return others
+
+
+static func _is_pole(p: Dictionary) -> bool:
+	var anchors: Dictionary = p.get("anchors", {}) as Dictionary
+	for k in WIRE_KEYS:
+		if not anchors.has(k):
+			return false
+	return true
+
+
+static func _pole_clear(p: Dictionary, kept: Array) -> bool:
+	var at: Vector3 = p["pos"] as Vector3
+	for q in kept:
+		var other: Vector3 = (q as Dictionary)["pos"] as Vector3
+		if Vector2(at.x, at.z).distance_to(Vector2(other.x, other.z)) < POLE_MIN_SPACING_M:
+			return false
+	return true
+
+
+# True when a is kept before b past the cap: priority first, then the lower hash rank.
+static func _keeps_before(a: Dictionary, b: Dictionary, seed_val: int, w: int, mix: Dictionary) -> bool:
+	var pa: bool = _priority_of(mix, String(a["id"]))
+	var pb: bool = _priority_of(mix, String(b["id"]))
+	if pa != pb:
+		return pa
+	return _rank_before(a, b, seed_val, w)
 
 
 # True when placement a outranks b: the lower hash rank wins, a tie goes to the earlier tile.
@@ -168,7 +331,7 @@ static func _floor_side(map: Variant, tx: int, ty: int) -> Vector2i:
 	return Vector2i.ZERO
 
 
-static func _place_on_tile(map: Variant, seed_val: int, tx: int, ty: int, by_kind: Dictionary) -> Dictionary:
+static func _place_on_tile(map: Variant, seed_val: int, tx: int, ty: int, by_kind: Dictionary, mix: Dictionary = {}) -> Dictionary:
 	var key: String = SimSpace.profile_key(map, tx, ty)
 	if key != "floor" and key != "low" and key != "door.open":
 		return {}
@@ -186,16 +349,55 @@ static func _place_on_tile(map: Variant, seed_val: int, tx: int, ty: int, by_kin
 			if size_of(e as Dictionary).y <= LOW_BAND_M:
 				candidates.append(e)
 		if _floor_side(map, tx, ty) != Vector2i.ZERO:
+			# A run piece taller than the Low band would be a tall prop on a Low tile: not a candidate here.
 			for e in (by_kind["run"] as Array):
-				candidates.append(e)
+				if size_of(e as Dictionary).y <= LOW_BAND_M:
+					candidates.append(e)
 	elif key == "door.open":
 		for e in (by_kind["door_head"] as Array):
 			candidates.append(e)
 	if candidates.is_empty():
 		return {}
-	var pick: int = Dressing.variant_index(seed_val, tx, ty, SALT_CHOICE, candidates.size())
+	var pick: int = choice_index(seed_val, tx, ty, candidates, mix)
+	if pick < 0:
+		return {}
 	var entry2: Dictionary = candidates[pick] as Dictionary
 	return _pose(map, entry2, tx, ty, key, walls)
+
+
+# Which candidate a tile takes: the high bits of the choice hash (the low bits move with the density pick and never
+# reach the odd candidates' even partners: measured, see the REPORT), weighted by the mix. -1 when none.
+static func choice_index(seed_val: int, tx: int, ty: int, candidates: Array, mix: Dictionary = {}) -> int:
+	if candidates.is_empty():
+		return -1
+	var total: int = 0
+	var weights: Array = []
+	for c in candidates:
+		var wt: int = _weight_of(mix, String((c as Dictionary).get("id", "")))
+		weights.append(wt)
+		total += wt
+	if total <= 0:
+		return -1
+	var point: int = _choice_word(seed_val, tx, ty) % total
+	var acc: int = 0
+	for i in range(weights.size()):
+		acc += int(weights[i])
+		if point < acc:
+			return i
+	return weights.size() - 1
+
+
+# The choice over a plain count (every weight 1): the same high-bit pick, for a gate that judges all indices.
+static func choice_of_count(seed_val: int, tx: int, ty: int, count: int) -> int:
+	if count <= 0:
+		return -1
+	return _choice_word(seed_val, tx, ty) % count
+
+
+# The word the choice reads: the high bits of the choice hash, or (the plant) its low bits.
+static func _choice_word(seed_val: int, tx: int, ty: int) -> int:
+	var h: int = Dressing.hash_at(seed_val, tx, ty, SALT_CHOICE)
+	return h if CHOICE_LOW_BITS else (h >> 16)
 
 
 # The world pose of one entry on one tile. Pure geometry; the sim is not consulted for anything but the tile.
@@ -238,6 +440,9 @@ static func _pose(map: Variant, entry: Dictionary, tx: int, ty: int, key: String
 		"hem": hem,
 		"proud": proud,
 		"anchors": _anchors_of(entry),
+		"glb": String(entry.get("glb", "")),
+		"origin": String(entry.get("origin", "floor_centre")),
+		"wall_dir": Vector2(float(walls[0].x), float(walls[0].y)) if not walls.is_empty() else Vector2.ZERO,
 	}
 
 
@@ -269,32 +474,52 @@ static func anchor_world(p: Dictionary, name: String) -> Vector3:
 # Wire spans: consecutive poles on one row (same tile y) or one column (same tile x), at most WIRE_MAX_SPAN_M
 # apart, drawn from one pole's wire_a to the next pole's wire_b, sagging WIRE_SAG_M at the middle. A pole with no
 # neighbour in range has none. Each span is {a, b, points}.
-static func wire_spans(poles_all: Array) -> Array:
+# Spans join consecutive poles on one row (same tile y), three matched wires per pair: a to a, b to b, c to c. A pair
+# farther than WIRE_MAX_SPAN_M or nearer than WIRE_MIN_SPAN_M draws none; a span over a Wall tile of `map` is dropped.
+static func wire_spans(poles_all: Array, map: Variant = null) -> Array:
 	var poles: Array = []
 	for p in poles_all:
-		var d: Dictionary = p as Dictionary
-		if (d["anchors"] as Dictionary).has("wire_a") and (d["anchors"] as Dictionary).has("wire_b"):
-			poles.append(d)
+		if _is_pole(p as Dictionary):
+			poles.append(p)
 	var out: Array = []
-	for axis in [0, 1]:
-		var groups: Dictionary = {}
-		for p in poles:
-			var key: int = int((p as Dictionary)["ty"]) if axis == 0 else int((p as Dictionary)["tx"])
-			if not groups.has(key):
-				groups[key] = []
-			(groups[key] as Array).append(p)
-		for key in groups.keys():
-			var line: Array = groups[key] as Array
-			line.sort_custom(func(a, b): return _along(a as Dictionary, axis) < _along(b as Dictionary, axis))
-			for i in range(line.size() - 1):
-				var pa: Dictionary = line[i] as Dictionary
-				var pb: Dictionary = line[i + 1] as Dictionary
-				var a: Vector3 = anchor_world(pa, "wire_a")
-				var b: Vector3 = anchor_world(pb, "wire_b")
-				if a.distance_to(b) > WIRE_MAX_SPAN_M:
-					continue
-				out.append({"a": a, "b": b, "points": _catenary(a, b)})
+	var groups: Dictionary = {}
+	for p in poles:
+		var key: int = int((p as Dictionary)["ty"])
+		if not groups.has(key):
+			groups[key] = []
+		(groups[key] as Array).append(p)
+	for key in groups.keys():
+		var line: Array = groups[key] as Array
+		line.sort_custom(func(a, b): return _along(a as Dictionary, 1) < _along(b as Dictionary, 1))
+		for i in range(line.size() - 1):
+			var pa: Dictionary = line[i] as Dictionary
+			var pb: Dictionary = line[i + 1] as Dictionary
+			var gap: float = anchor_world(pa, "wire_a").distance_to(anchor_world(pb, "wire_b"))
+			if gap > WIRE_MAX_SPAN_M or gap < WIRE_MIN_SPAN_M:
+				continue
+			# A pair's three wires stand or fall together: one crossing a Wall tile drops the whole triple.
+			var triple: Array = []
+			var crosses: bool = false
+			for k in WIRE_KEYS:
+				var a: Vector3 = anchor_world(pa, k)
+				var b: Vector3 = anchor_world(pb, k)
+				# Only the centre wire is judged: an outer wire may overhang the wall line a flush pole stands on.
+				if map != null and not PLANT_NO_WIRE_BUILDING_CHECK and k == "wire_c" and _crosses_wall(map, a, b):
+					crosses = true
+				triple.append({"a": a, "b": b, "points": _catenary(a, b), "key": k})
+			if not crosses:
+				out.append_array(triple)
 	return out
+
+
+# True when the segment a to b (Godot x and z are the sim's x and y) passes over a Wall tile of the map.
+static func _crosses_wall(map: Variant, a: Vector3, b: Vector3) -> bool:
+	for i in range(WIRE_SEGMENTS + 1):
+		var t: float = float(i) / float(WIRE_SEGMENTS)
+		var p: Vector3 = a.lerp(b, t)
+		if int(SimTileMap.tile_at(map, int(floor(p.x)), int(floor(p.z)))) == SimTileMap.Tile.Wall:
+			return true
+	return false
 
 
 static func _along(p: Dictionary, axis: int) -> float:
@@ -315,8 +540,10 @@ static func _catenary(a: Vector3, b: Vector3) -> PackedVector3Array:
 # rule allows. Used by the gate on the placer's output and on a planted bad placement.
 static func validate(map: Variant, placed: Array) -> Array:
 	var fails: Array = []
-	if placed.size() > PROP_CAP:
-		fails.append("%d props, over the cap of %d" % [placed.size(), PROP_CAP])
+	var wall_streets: Dictionary = street_tiles(map)
+	var wall_doors: Dictionary = _door_clear(map)
+	if placed.size() > PROP_CAP + WALL_CAP:
+		fails.append("%d props, over the cap of %d" % [placed.size(), PROP_CAP + WALL_CAP])
 	for p in placed:
 		var d: Dictionary = p as Dictionary
 		var tx: int = int(d["tx"])
@@ -348,6 +575,9 @@ static func validate(map: Variant, placed: Array) -> Array:
 					fails.append("%s (%d,%d): a noren not over an open door, on %s" % [id, tx, ty, key])
 				if float(d["hem"]) < HEM_MIN_M - 0.0001:
 					fails.append("%s (%d,%d): hem %.3f m, under %.2f m" % [id, tx, ty, float(d["hem"]), HEM_MIN_M])
+			"lot_edge":
+				if not is_wall_tile(map, wall_streets, wall_doors, tx, ty):
+					fails.append("%s (%d,%d): a block wall off a wall tile (across a door, a gate or a road, or not beside a street)" % [id, tx, ty])
 			_:
 				fails.append("%s (%d,%d): unknown placement %s" % [id, tx, ty, placement])
 	return fails
@@ -362,3 +592,146 @@ static func digest_text(placed: Array) -> String:
 		lines.append("%s %s %d %d %.4f %.4f %.4f %.4f" % [String(d["id"]), String(d["placement"]), int(d["tx"]), int(d["ty"]),
 			pos.x, pos.y, pos.z, float(d["yaw"])])
 	return "\n".join(lines)
+
+
+# --- the wall-tile rule ---------------------------------------------------------------------
+
+# Every street tile of the map, from its street records. Empty on a map with no records (a fixture map).
+static func street_tiles(map: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	var records: Variant = map.get("streets")
+	if not (records is Array):
+		return out
+	for rec in (records as Array):
+		if not (rec is Dictionary):
+			continue
+		var r: Dictionary = rec as Dictionary
+		var at: int = int(r.get("at", 0))
+		var width: int = int(r.get("width", 1))
+		for along in range(int(r.get("from", 0)), int(r.get("to", -1)) + 1):
+			for k in range(width):
+				if String(r.get("axis", "")) == "x":
+					out[Vector2i(at + k, along)] = true
+				else:
+					out[Vector2i(along, at + k)] = true
+	return out
+
+
+# The tiles a wall may not stand within reach of: every building door and both gate anchors, as
+# {tile: clearance in tiles}. Door tiles are read off the map too, so a door the records miss still counts.
+static func _door_clear(map: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	for b in (map.get("buildings") as Array if map.get("buildings") is Array else []):
+		for d in ((b as Dictionary).get("doors", []) as Array):
+			out[Vector2i(int((d as Dictionary).get("x", -1)), int((d as Dictionary).get("y", -1)))] = WALL_DOOR_CLEAR
+	for g in [SimTileMap.gate_a(map), SimTileMap.gate_b(map)]:
+		if (g as Vector2i).x >= 0 and (g as Vector2i).y >= 0:
+			out[g as Vector2i] = WALL_GATE_CLEAR
+	return out
+
+
+static func _near_door(map: Variant, doors: Dictionary, tx: int, ty: int) -> bool:
+	for c in doors.keys():
+		var clear: int = int(doors[c])
+		if absi((c as Vector2i).x - tx) <= clear and absi((c as Vector2i).y - ty) <= clear:
+			return true
+	for dy in range(-WALL_DOOR_CLEAR, WALL_DOOR_CLEAR + 1):
+		for dx in range(-WALL_DOOR_CLEAR, WALL_DOOR_CLEAR + 1):
+			if SimSpace.profile_key(map, tx + dx, ty + dy).begins_with("door"):
+				return true
+	return false
+
+
+# The street side of a wall tile (a sim offset), or Vector2i.ZERO when no side is a street tile. The wall runs
+# along the street, so it stands across this offset.
+static func _street_side(streets: Dictionary, tx: int, ty: int) -> Vector2i:
+	for d in SIDES:
+		if streets.has(Vector2i(tx + d.x, ty + d.y)):
+			return d
+	return Vector2i.ZERO
+
+
+# True when (tx, ty) may take a block-wall piece. The one rule, used by the placer and by the gate's refusals.
+static func is_wall_tile(map: Variant, streets: Dictionary, doors: Dictionary, tx: int, ty: int) -> bool:
+	if streets.has(Vector2i(tx, ty)):
+		return false
+	if SimSpace.profile_key(map, tx, ty) != "floor" or SimTileMap.is_indoors(map, tx, ty):
+		return false
+	if _street_side(streets, tx, ty) == Vector2i.ZERO:
+		return false
+	if not WALL_IGNORE_DOORS and _near_door(map, doors, tx, ty):
+		return false
+	return true
+
+
+# The block-wall pieces of a district. `taken` is the base placements: a tile that holds a prop is skipped.
+static func lot_edge_placements(map: Variant, seed_val: int, entries: Array, mix: Dictionary, taken: Array) -> Array:
+	var body: Dictionary = {}
+	var cap_end: Dictionary = {}
+	for e in entries:
+		var row: Variant = _props_of(mix).get(String((e as Dictionary)["id"]), {})
+		if row is Dictionary and String((row as Dictionary).get("rule", "")) == LOT_EDGE_RULE:
+			if String((row as Dictionary).get("role", "")) == "end":
+				cap_end = e as Dictionary
+			else:
+				body = e as Dictionary
+	var out: Array = []
+	if map == null or body.is_empty():
+		return out
+	var streets: Dictionary = street_tiles(map)
+	if streets.is_empty():
+		return out
+	var doors: Dictionary = _door_clear(map)
+	var used: Dictionary = {}
+	for p in taken:
+		used[Vector2i(int((p as Dictionary)["tx"]), int((p as Dictionary)["ty"]))] = true
+	for v in _vehicle_tiles(map).keys():
+		used[v] = true
+	var cands: Array = []
+	for ty in range(int(map.h)):
+		for tx in range(int(map.w)):
+			if used.has(Vector2i(tx, ty)) or not is_wall_tile(map, streets, doors, tx, ty):
+				continue
+			var side: Vector2i = _street_side(streets, tx, ty)
+			# The run axis: along the street, so perpendicular to the street side.
+			var run_x: bool = side.x == 0
+			var seg_key: int = (tx if run_x else ty) / WALL_SEGMENT
+			var seg_other: int = ty if run_x else tx
+			if Dressing.hash_at(seed_val, seg_key, seg_other, SALT_WALL_SEG) % WALL_SEGMENT_ONE_IN != 0:
+				continue
+			cands.append({"tx": tx, "ty": ty, "run_x": run_x, "side": side})
+	var kept: Dictionary = {}
+	for c in cands:
+		kept[Vector2i(int((c as Dictionary)["tx"]), int((c as Dictionary)["ty"]))] = c
+	for c in cands:
+		var d: Dictionary = c as Dictionary
+		var tx2: int = int(d["tx"])
+		var ty2: int = int(d["ty"])
+		var step: Vector2i = Vector2i(1, 0) if bool(d["run_x"]) else Vector2i(0, 1)
+		var open_a: bool = not kept.has(Vector2i(tx2, ty2) - step)
+		var open_b: bool = not kept.has(Vector2i(tx2, ty2) + step)
+		var entry: Dictionary = cap_end if ((open_a or open_b) and not cap_end.is_empty()) else body
+		var size: Vector3 = size_of(entry)
+		var yaw: float = 0.0 if bool(d["run_x"]) else PI * 0.5
+		if entry == cap_end and open_a and not open_b:
+			yaw += PI
+		out.append({
+			"id": String(entry["id"]), "placement": LOT_EDGE, "tx": tx2, "ty": ty2, "tile_key": "floor",
+			"pos": Vector3(float(tx2) + 0.5, 0.0, float(ty2) + 0.5), "yaw": yaw, "size": size, "hem": 0.0, "proud": 0.0,
+			"anchors": _anchors_of(entry), "glb": String(entry.get("glb", "")),
+			"origin": String(entry.get("origin", "floor_centre")), "wall_dir": Vector2.ZERO,
+		})
+	if out.size() > WALL_CAP:
+		var w: int = int(map.w)
+		out.sort_custom(func(a, b): return _wall_rank_before(a as Dictionary, b as Dictionary, seed_val, w))
+		out = out.slice(0, WALL_CAP)
+		out.sort_custom(func(a, b): return _tile_index(a as Dictionary, w) < _tile_index(b as Dictionary, w))
+	return out
+
+
+static func _wall_rank_before(a: Dictionary, b: Dictionary, seed_val: int, w: int) -> bool:
+	var ra: int = Dressing.hash_at(seed_val, int(a["tx"]), int(a["ty"]), SALT_WALL_RANK)
+	var rb: int = Dressing.hash_at(seed_val, int(b["tx"]), int(b["ty"]), SALT_WALL_RANK)
+	if ra != rb:
+		return ra < rb
+	return _tile_index(a, w) < _tile_index(b, w)

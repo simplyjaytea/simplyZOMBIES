@@ -154,3 +154,11 @@ Each of these was found the expensive way. They are not style opinions.
   phrased as "run a few campaigns" is an overnight job — check the arithmetic before promising a
   grid.
 
+- **A World never frees, and each one loads the whole content tree.** `World.new` calls
+  `ContentLoader.load_tree()` unless the fixture carries `content_tree`, and its system registry
+  and event bus hold Callables bound to the world, a reference cycle, so dropping the last
+  variable frees nothing. A gate that builds a fresh world per round held about 3.5 MB a round:
+  the DISPERSION lane's 5,600 rounds reached 19 GB on 2026-11-11, and on a 16 GB CI runner the
+  shard went silent until its 25-minute timeout ("The operation was canceled", not a failure
+  line). Build many worlds with one shared `content_tree`, and drop the cycle after each
+  (`w.systems = null; w.events = null`, as `check_m2_ranged.gd` `_dispersion_release` does).

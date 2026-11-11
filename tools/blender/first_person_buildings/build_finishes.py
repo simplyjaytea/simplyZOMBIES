@@ -951,6 +951,8 @@ HOUSE_IDS = {"building.house.small", "building.house.gable"}
 SHOP_ID = "building.arcade.retail"
 SAWMILL_ID = "building.unit.industrial"
 STATION_ID = "building.station.small"
+KOBAN_ID = "building.koban.box"
+SHRINE_ID = "building.shrine.village"
 KONBINI_ID = "building.konbini.road"
 # The konbini's front: a fascia band on the canopy's outer edge, over the whole street face.
 KONBINI_CANOPY_DEPTH = 0.85
@@ -2998,9 +3000,7 @@ def validate_doors(template, model):
 
 # The commit the other templates are proved against: every building GLB and the atlas at this base must
 # be reproduced, in mesh and in the atlas cells each one touches, by this build.
-# The commit the other templates are proved against: every building GLB and the atlas at this base must
-# be reproduced, in mesh and in the atlas cells each one touches, by this build.
-OTHER_TEMPLATES_BASE = "8185f1e9e91794f8ba256e2c7c90fa4fb4518c90"
+OTHER_TEMPLATES_BASE = "6c3f81a943e6868e89c5778418e7a787cd17521f"
 
 
 def base_has(repo, relative):

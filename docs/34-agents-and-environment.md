@@ -5,51 +5,21 @@ and how to run the game and its headless gates. Moved out of CLAUDE.md on 2026-1
 
 ## Working alongside other agents
 
-More than one assistant works on this repository — Claude, ChatGPT, Astra, Sol, or a person —
-sometimes at the same time. Nothing in this section is specific to any of them; where a tool's
-own wrapper exists it is named as a wrapper around the plain command, never as the command.
+The seats, how a piece runs, who merges and how a session starts and pauses are in
+[CLAUDE.md, The workflow](../CLAUDE.md#the-workflow); each seat's own rules are its file under
+`.claude/agents/`. What this section adds is how several checkouts share one machine:
 
-- **Orient the same way regardless of who you are.** `PLAYBOOK.md` top to bottom (it is the
-  project's rules, not a Claude-only file), then docs/23's
-  [what's left](23-roadmap.md#whats-left-in-milestone-2). The [routing table](../PLAYBOOK.md#routing-table)
-  below is the map of which files belong to which system and which gate judges them; `npm run
-  check:routing` keeps it true.
-- **Claim a piece by branch name and separate checkout.** `<agent>/<piece-slug>` — `astra/dev-menu-raiders`,
-  `sol/per-gate-timing`, `claude/<anything>` — pushed early, so `git branch -r` is the live list
-  of who is on what. There is deliberately **no claim ledger in any file**: a list of who holds
-  what is status, this file carries none, and the checkbox ledger this project retired drifted
-  four times for exactly that reason. A pushed branch cannot drift. Use `git worktree add -b
-  <agent>/<piece-slug> <path> <base>` for each simultaneous worker and inspect `git worktree list`
-  as well as remote branches. A local worktree does not imply its branch has been pushed.
 - **Share tools, isolate runtime state.** `GODOT_BIN` may point to the same pinned executable
-  across worktrees; dependencies may share an unchanged `node_modules`. Each checkout keeps its
-  own `godot/.godot` imports. Give workers separate `XDG_DATA_HOME` and `XDG_CACHE_HOME` directories
-  and separate displays so captures and save/load checks cannot overwrite another worker's
-  state. Reserve quiet machine time for performance measurements. Each piece writes its own
-  record into docs/23 in its own commit (`PLAYBOOK.md`'s workflow, step 7). One coordinator owns
-  the README and the order pieces merge in, one by one as each goes green (PLAYBOOK.md, How work
-  flows); worker evidence is a handoff to that coordinator, not a second status ledger.
-- **Stay on disjoint files.** Pick a piece whose *files* line (each entry in the alpha-shell
-  group names its files; other groups name their system, and the routing table names the system's
-  files) does not overlap a branch already pushed. Some tracks are serial by construction — the
-  alpha shell's pieces two to five all edit `godot/presentation/main.gd` and land one after
-  another on one branch — and a second agent takes a piece beside them rather than one of them.
-- **The gates are the same for everyone.** Before any commit: the gates for what you touched, as [Verifying a change](../PLAYBOOK.md#verifying-a-change) lists them; the full `npm run godot:m2` chain runs in CI on every pull request; `npm test` as
-  well for anything under `godot/content/`; `npm run check:routing` for anything touching
-  `package.json` scripts, `scripts/run-godot.mjs`, a `godot/check_*.gd` or this table;
-  `npm run sprites:check` after touching `tools/sprites/` or a PNG it generates. The engine
-  install is `bash scripts/setup-web-session.sh` — `.claude/hooks/session-start.sh` is only the
-  wrapper Claude Code on the web runs around it. Expected-noise notes are in
-  [Headless verification](#headless-verification-no-display-needed).
-- **The record discipline is the same for everyone.** A piece lands with its record: deleted from
-  what's left and written into [the record, by
-  system](23-roadmap.md#the-record-by-system) in the same commit, named, gated, measured.
-  Nothing under [Waiting on the owner](33-owner-decisions.md#waiting-on-the-owner) is decided by any agent; a piece that needs one of those
-  decisions stops and asks.
-- **Handing a piece over mid-flight.** Push the branch. Say in the last commit message whether
-  the gate is red or green and which lane. Put the next step in the pull request body, not in a
-  status file. The next agent starts from the branch and that body, and from nothing else.
-
+  across worktrees, and each worktree symlinks `node_modules` from the main checkout. Each
+  checkout keeps its own `godot/.godot` imports. Give simultaneous runs separate `XDG_DATA_HOME`
+  and `XDG_CACHE_HOME` directories and their own `xvfb-run -a` display, so captures and
+  save/load checks cannot overwrite each other. Reserve quiet machine time for performance
+  measurements.
+- **Stay on disjoint files.** Two pieces that edit the same file land one after the other, not
+  side by side: the second waits as an issue. [ROUTING.md](../ROUTING.md#routing-table) names
+  each system's files.
+- **The gates are the same for everyone,** as [Verifying a change](../CLAUDE.md#verifying-a-change)
+  lists them. The engine pin is exact; `scripts/run-godot.mjs` refuses any other version.
 
 ## Jev delegation
 
@@ -135,7 +105,7 @@ or CI touches it. Never paste the literal token into `.mcp.json`; a committed ke
 Correctness gates run headless through `scripts/run-godot.mjs`; the runtime frame benchmark
 needs a real display and renderer. The full chain is **`npm run godot:m2`**, which CI runs on every pull request and which chains every Milestone 2 gate (count them off
 the script in `package.json`; every number written here has drifted); `npm run godot:r6` adds
-parity, coverage, mutation and soak on top. `PLAYBOOK.md` names the gates worth knowing by name; the
+parity, coverage, mutation and soak on top. `ROUTING.md` names each system's gates; the
 authoritative list is the `godot:m2` script in `package.json`, and every gate has a
 `godot:m2:<name>` script of its own for iterating.
 

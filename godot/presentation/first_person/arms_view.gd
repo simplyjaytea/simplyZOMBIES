@@ -50,6 +50,7 @@ extends Node3D
 const SimMelee = preload("res://sim/modules/melee.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
+const SimAim = preload("res://sim/aim.gd")
 const Models = preload("res://presentation/first_person/models.gd")
 const HeldWeapon = preload("res://presentation/first_person/held_weapon.gd")
 
@@ -80,6 +81,10 @@ const BOB_Y_M: float = 0.008
 const BOB_FULL_SPEED_MPS: float = 2.0
 const BREATH_M: float = 0.0025
 const BREATH_RAD: float = 0.004
+# A weapon that is not ready is drawn lowered: moved by LOWER_OFFSET and tilted by LOWER_PITCH_DEG at no ready
+# (ready_amount 0), and level at a steady aim. Presentation only; the sim's cone already says it.
+const LOWER_OFFSET: Vector3 = Vector3(0.04, -0.03, 0.05)
+const LOWER_PITCH_DEG: float = -4.0
 
 enum Phase { HIDDEN, DRAW, IDLE, INSPECT, LOWER, LOWERED, RAISE, AIM }
 
@@ -112,6 +117,8 @@ var _sway_rot: Vector3 = Vector3.ZERO
 var _bob_phase: float = 0.0
 var _bob_amount: float = 0.0
 var _clock: float = 0.0
+# 0 ready .. 1 lowered, smoothed toward the sim's ready amount with the sway time constant.
+var _lowered: float = 0.0
 
 static var _view_materials: Dictionary = {}
 
@@ -364,9 +371,15 @@ func _update_sway(world: Variant, delta: float, look: Vector2, speed_mps: float)
 	var breath: float = 1.0
 	if world != null and int(world.player) >= 0:
 		breath = clampf(SimRanged.cone_half(world, int(world.player)) / SimRanged.WIDE_HALF, 0.3, 1.5)
+	var target_lowered: float = 0.0
+	if world != null and int(world.player) >= 0:
+		target_lowered = 1.0 - ready_amount(world, int(world.player))
+	_lowered = lerpf(_lowered, target_lowered, k)
 	var offset: Vector3 = Vector3(sin(_bob_phase) * BOB_X_M * _bob_amount, -absf(cos(_bob_phase)) * BOB_Y_M * _bob_amount, 0.0)
+	offset += LOWER_OFFSET * _lowered
 	offset += Vector3(sin(_clock * 0.9) * BREATH_M, sin(_clock * 1.7) * BREATH_M * 0.6, 0.0) * breath
 	var rot: Vector3 = _sway_rot + Vector3(sin(_clock * 1.1) * BREATH_RAD, cos(_clock * 1.3) * BREATH_RAD, 0.0) * breath
+	rot.x += deg_to_rad(LOWER_PITCH_DEG) * _lowered
 	_sway.position = offset * sway_scale
 	_sway.rotation = rot * sway_scale
 
@@ -407,6 +420,33 @@ static func hold_class_of(world: Variant, entity: int) -> String:
 				return "melee2"
 		return "melee1"
 	return "unarmed"
+
+
+## How ready the entity's hand is, 0 lowered .. 1 steady, read from the `ranged` component only. Idle is
+## 0; a raise climbs 0 to 0.5 through the weapon's own raise; a steady aim climbs 0.5 to 1 through its
+## settle; Recover is 0.5; Reload and Clearing 0.25. A body that cannot hold an aim apart from its heading
+## (`SimAim.holds` false) is 0. No firearm in hand (melee, bare hands) is 1: nothing to lower.
+static func ready_amount(world: Variant, entity: int) -> float:
+	var rw: Variant = world.components.get_component(entity, "rangedWeapon")
+	if not (rw is Dictionary):
+		return 1.0
+	if not SimAim.holds(world.components, entity):
+		return 0.0
+	var r: Dictionary = rw as Dictionary
+	var state: int = int(r.get("state", SimRanged.FireState.Idle))
+	if state == SimRanged.FireState.Idle:
+		return 0.0
+	if state == SimRanged.FireState.Raise:
+		var raise: float = float(maxi(1, SimRanged._raise_of(r)))
+		return 0.5 * clampf(1.0 - float(r.get("ticksLeft", 0)) / raise, 0.0, 1.0)
+	if state == SimRanged.FireState.Steady:
+		var steady: float = float(maxi(1, SimRanged._steady_of(world, r)))
+		return 0.5 + 0.5 * clampf(1.0 - float(r.get("ticksLeft", 0)) / steady, 0.0, 1.0)
+	if state == SimRanged.FireState.Recover:
+		return 0.5
+	if state == SimRanged.FireState.Reload or state == SimRanged.FireState.Clearing:
+		return 0.25
+	return 1.0
 
 
 ## The fire phase the sim is in for an entity, as the arms show it: `{"phase": "idle"|"raise"|"aim"|

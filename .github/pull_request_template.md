@@ -1,27 +1,30 @@
-## The piece
+Closes #
 
-Which named piece from [what's left](../docs/23-roadmap.md#whats-left-in-milestone-2) this lands,
-or which defect or debt entry it closes. Work not on that list is named there first.
+## What changed
+
+The piece in two or three sentences: what is different, and anything the issue did not settle
+and the default that was built.
 
 ## The gate
 
-The `npm run` script that can fail it, its `_OK` line, and the true negative it carries. A
-mechanism names the assertion that something *reads* it.
+The `npm run` script that can fail it, its exact `_OK` line, and the planted failure that turned
+it red. A mechanism names the assertion that something *reads* it.
 
 ## Measured
 
-Any balance claim, with the before and after from the same driver. Leave empty rather than
-theorise.
+Any balance or performance claim, with the before and after from the same driver. Leave empty
+rather than theorise.
 
-## Recorded
+## Review
 
-The docs/23 record entry (and the docs/30 entry, if a call was taken) in this same diff.
-docs/33-owner-decisions.md only if what waits on the owner changed.
+For art, a shared sim module or the save format: the independent reviewer's verdict, the head it
+judged, and which findings were taken. Otherwise delete this section.
 
 ## Verified
 
-- [ ] The gates for what the change touched, run locally (PLAYBOOK.md, Verifying a change); `npm run godot:m2` runs in CI on every PR
+- [ ] The gates for what the change touched, rerun on this head (CLAUDE.md, Verifying a change)
+- [ ] The planted failure goes red
 - [ ] `npm test` (any content edit; the oracle's Ajv recurses)
 - [ ] `npm run typecheck && npm run lint && npm run format:check` (any `.ts`, `.mjs`, `.json`, `.yml`)
-- [ ] `npm run check:routing` (any script, runner mode, `check_*.gd`, or the routing table)
-- [ ] `npm run sprites:check` (anything under `tools/sprites/`)
+- [ ] `npm run check:routing` (any script, runner mode, `check_*.gd`, or ROUTING.md)
+- [ ] A decision taken has its own file under `docs/decisions/`

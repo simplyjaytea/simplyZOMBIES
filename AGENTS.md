@@ -1,10 +1,9 @@
 # AGENTS.md
 
-The fast on-ramp for any agent: Claude, Codex, Cursor, Kimi, or a person. Read
-[PLAYBOOK.md](PLAYBOOK.md) first, top to bottom. It is the one entry point: what the project is,
-the team and the dispatch workflow, the rules of the repository, how a change is verified and pushed,
-the standing bans, what is open, and the routing table that maps every system to its code and
-its gate. This file carries no rules and no status, so it cannot drift.
+The fast on-ramp for any agent or person. The rules of the repository are in
+[CLAUDE.md](CLAUDE.md): what the project is, the commands, how the code fits together, how a
+change is verified, and the standing bans. [ROUTING.md](ROUTING.md) maps every system to its
+code and its gate. This file carries no rules and no status, so it cannot drift.
 
 ## First commands
 

@@ -2496,6 +2496,14 @@ not a to-do list:
     the opening. `godot:smoke` and `check:routing` pass. Matched 1280x720 before/after, real-sky,
     repeat and magenta captures accompany the piece; repeat-run pixel noise is zero.
 
+- **The Ome–Okutama re-theme: prop kit A, 2026-11-10.** Thirteen street-dressing GLBs share a
+  deterministic 512 px atlas and measured placement manifest; `build_props.py -- --check` prints
+  `PROPS_CHECK_OK 13 models`, refuses ten planted faults, and the props await the separate placer.
+  Round 2: the Japanese labels are rows rasterised once from Noto Sans CJK Bold and held pixel for
+  pixel in the exported atlas; the check refuses same-facing faces within 1 mm that overlap (it
+  prints `COPLANAR_OVERLAP` per model); the guard-rail end flares back and down to a closed
+  terminal; each vending livery has its own faded body colour; the gate has 0.10 m block posts.
+
 - **The Ome–Okutama re-theme: the shotengai row, 2026-11-07.** Batch B starts with the existing
   18 x 13 m `building.arcade.retail`; `TEMPLATE_FINISHES` gives it a tin gable and siding walls without
   changing its template JSON, footprint, doors, windows, pool or weight.
@@ -2553,6 +2561,13 @@ not a to-do list:
   `OTHER_TEMPLATES_PIXELS_IDENTICAL 23/23`, and refuses `konbini_canopy_low`, `front_solid`,
   `parapet_no_back`, `mullion_door` and `konbini_name_mirror`. Three atlas cells used, four left.
 
+- **The kōban and the shrine hall, 2026-11-10.** `building.koban.box` (5 x 5, civic and police, town centre; tar roof,
+  render walls; street door on the south face, a front window and a side window) and `building.shrine.village` (7 x 6 hall
+  alone, civic and shrine, residential suburb; shingle roof, timber walls; door on the south axis, a window on each side face,
+  none on the back). Both are JSON templates under `godot/content/buildings/`, built by `build_finishes.py`; `--check` prints
+  `BUILDINGS_CHECK_OK 26 templates` and `OTHER_TEMPLATES_PIXELS_IDENTICAL 23/23` against main 469cf886. The shrine precinct
+  (gravel, torii, lanterns, komainu, basin, cedar) is not built: it is district dressing, see docs/30. The locker and the
+  snub revolver of docs/42 section 5 are a future loot piece, not built here.
 - **The Ome–Okutama re-theme: the station, 2026-11-08.** Batch B's `building.station.small` is 12 x 5
   tiles, the waiting room only, civic and station, weight 4, drawn only in `district.town_center` (`districts`
   key, worldgen `_for_district`). Street door on the north face, platform door and ticket window on the south
@@ -2571,6 +2586,11 @@ not a to-do list:
     `name_board_open`, `name_board_uv`, `name_board_one_cell`, `name_board_mirror`, `arch_float` and
     `bracket_float`. The name-blind,
     order-free other-template proof is `OTHER_TEMPLATES_PIXELS_IDENTICAL 22/22` against `0f510604`.
+- **The civic cap: one station per district, 2026-11-10.** `building.station.small` carries
+  `max_per_district: 1` (optional key in `building.schema.json`; worldgen `_buildings` counts stamps per
+  district and drops a capped template at both draw stages). At the shipped size the town centre has exactly one
+  station on each of ten seeds, where it had five to twelve. Gated by `UNIQUE_CIVIC OK` in
+  `npm run godot:check:worldgen`, with a plant that goes red (docs/30, 2026-11-10).
     `BUILDINGS_CHECK_OK 23 templates`, `godot:check:fp_geometry`, `godot:smoke` and `check:routing`
     pass. Matched base/head, repeat, magenta, other-template and four close-up captures accompany it;
     repeat-run pixel noise is zero.
@@ -2667,6 +2687,10 @@ not a to-do list:
   play 'aim_long', not raise_long`. Reload has no clip, so its idle is the conservative default (docs/30). The
   PLAYBOOK "Known bugs" line on the lowered weapon is removed. `SimAim.holds` still has its reader only in the
   top-down `main.gd`, not in the first-person arms.
+- **A firearm that is not ready is drawn lowered, 2026-11-10.** `arms_view.gd` `ready_amount` lowers the
+  arms in Idle (fully) and at Steady's first tick (half), via `LOWER_OFFSET` and `LOWER_PITCH_DEG` in the sway.
+  The LOWERED lane (`check_first_person.gd`) asserts the Idle and Steady offsets and pitches differ; the plant
+  (`ready_amount` always 1) turns it red. Presentation only; no save change. docs/30, 2026-11-10.
 - **The organic survivor, 2026-11-04.** The first-person survivor body is replaced: the box-segment
   `survivor.glb` gives way to an organic, smooth-skinned woman built by `organic_survivor.py` in the
   Blender character kit (`tools/blender/first_person_kit/build_characters.py`). She has 7,810 triangles,
@@ -3437,6 +3461,28 @@ not a to-do list:
     manifest JSON is outside the filter `assets/first_person/*.glb`, and the export build was not
     run. CI has no Blender, so the check is run by hand, like the starter kit's.
 
+- **Every zombie kind against the first-person player, 2026-11-07.** `godot/check_fp_kinds.gd`, run by
+  `npm run godot:check:fp_kinds` (about 9 s), boots the district and drives one body of each kind against
+  the controlled player, printing OK, FAIL, FINDING or INFO lines with their numbers. Gate only, no sim
+  change, and green: 0 FAIL. Four findings are open for the owner and t23. STALKER: a sprint turns the
+  stalker by hearing at 10.9 m from 40 m, and so does the shambler (the two differ by under one tick of
+  approach, 0.32 m; the cause is not measured), walking at 2.0 m and jogging at 6.6 m against the shambler's none.
+  BLOODHOUND: a walking player never produces a scent rise of 20 over a neighbour cell (largest 0.00; the
+  cells are 4 m), so Track never starts from a walker. A bloater-sized 30 burst does produce a rise (30)
+  when it lies in a neighbour cell, and Track is entered, but the bloodhound does not reach it; in its own
+  cell the burst is a level and Track brings it to the burst by +184 ticks. (Both BLOODHOUND findings are resolved on `claude/bloodhound-trail`, 2026-11-07: see "The bloodhound
+  follows a walker" below.) CRAWLER: the crawler closes at
+  0.55 of the shambler's speed in the same lane; the sim applies the crawler's own content crawl (0.45: 0.76
+  m/s measured, 0.8 x 2.1 x 0.45), and the 0.25 that `m2:variance` pins is the shambler default for a body
+  with its legs gone. OK, measured: the runner closes at 2.94 m/s, is caught walking at +173 ticks and not
+  sprinting (gap 26.7 m after 100 ticks); the screamer screams once in its cooldown; the bloater's cloud
+  exposes a body with an open wound at 4 m and none at 8 m; the heavy closes at 1.26 m/s with grab 0.5, and
+  one swing takes 4.0% of its body against the shambler's 7.6%, neither dying; the armored body takes 14 of
+  a 20-point torso hit (the shambler 20); the crawler is born legless and bites the legs 0.70 of the time;
+  the bloodhound is deaf to a rifle shot 40 m away; the lurker wakes to a rifle shot and not to a walker;
+  the feigner rises at 2.34 m; the juggernaut's three shoves take 30 each from timber. Plants: the runner
+  at the shambler's speed turns RUNNER red (1.68 m/s), and the bloater without `blooms_on_death` turns
+  BLOATER red; both files restored byte-identical.
 - **The first-person expedition gate, 2026-11-01.** The scripted start of docs/39's "End-to-end
   conversion and default switch" proof. `godot/check_fp_expedition.gd`, run by
   `npm run godot:check:fp_expedition`, boots the real first-person scene on the small district and
@@ -4631,6 +4677,15 @@ not a to-do list:
   drifted at 0.7. docs/30's "The bloodhound's nose is a gradient, not a level, 2026-11-04" has the
   design, the rejected one, and why.
   bloodhound's nose as a seek" under what's left, and docs/30's entry has the arithmetic.
+- **The bloodhound follows a walker, 2026-11-07.** Content only: `emits` empty (the bloodhound lays no scent
+  of its own) and `sensory.trail` 5.0. The kinds gate's two bloodhound findings are now OK lanes:
+  `godot:check:fp_kinds` walks a player 40 m from 2 m in front of the bloodhound and gets Track within 2 m at
+  +749 ticks after the walk (its seed), and a 30 burst 6 m away is reached within 3 m at +32 ticks, Track
+  entered; the own-cell burst keeps its 1 m test (+184). Eight seeds (docs/30): Track reaches a walker on six
+  (+1054 to +1543), not within 1200 ticks on two (404, 1); 6 m bursts reached on all eight; false Track
+  starts 0/8 on each seed over 2000 ticks. Balance lines identical in `godot:m2:balance`, `m2:lethality`,
+  `m2:variance`, `m2:director`, `m2:roster`, `m2:dormant`, `m2:contact`, `m2:noise`; `m2:district` OK with its
+  bloodhound numbers changed. Owner card: docs/33 item 33.
 - **The crawler, 2026-11-04.** Zombie kind nine: `godot/content/zombies/crawler.json`, wave 2,
   weight 3, speed 0.8 with `crawl` 0.45, `sensory` noise 0.5, light 0.2, scent 0.9, and
   `variance.crawlers` 1.0, so every spawn is born legless (`roster.gd`'s `bool_chance(1.0)` is
@@ -4753,6 +4808,8 @@ not a to-do list:
   under Proof.
 - **First-person street dressing, 2026-11-09.** The first-person view draws the kit's props from the sim's tile classes (`godot/presentation/first_person/street_dressing.gd`, `street_dressing_view.gd`), presentation only, with no RNG; the rules are in docs/30 ("First-person street dressing is a picture of tiles the sim already has"). Gate: the DRESSING lane of `godot:check:first_person`, two plants. Not built: the block-wall pieces (no rule for a district Wall tile yet), and the real manifest and GLBs, which arrive with prop kit A.
 
+- **Block walls place, 2026-11-11 (#401).** The placer's wall-tile rule (mix `"rule": "lot_edge"`) stands the kit's block-wall body and end pieces along the street frontage on open outdoor floor, clear of every door, gate and road, on all four generated districts (160 a district at 128 tiles). Proven by the WALLTILE lane of `npm run godot:check:first_person`, with refusal probes and the `WALL_IGNORE_DOORS` plant. The gate and corner pieces stay unplaced; see docs/30.
+
 - **A review camera for the sheets, 2026-11-09.** F3 (testing only, not saved, listed under F1) puts a height camera 14 m
   above and 2 m behind the body, pitch -55 degrees, along its heading; `set_review_camera` places it for the sheet driver.
   Presentation only: the held weapon and HUD hide, the own body draws, the sim and the aim do not move. The game camera is
@@ -4763,6 +4820,16 @@ not a to-do list:
   puff on the zombie's body part, and a flinch back along the shot (`godot/presentation/first_person/hit_marks.gd`, presentation
   only, read from the drained events). Gate: the HIT lane of `godot:check:first_person`, which also plants and fails when the
   read is dropped. The 3b frame before and after is in `sz-shared/alpha-2026-11-09/hit-feedback/`.
+- **The street placer draws the kit's GLBs, 2026-11-10.** `street_dressing_view.gd` instances each placed entry's own `glb`
+  (cached per path, duplicated per prop) at its base point and yaw; a wall_back_centre model is placed by its back face.
+  The box stays the fallback for an entry with no file or an unreadable one, so the fixture and main without the kit draw as
+  before. Gate: the DRESSING lane checks the GLB-named vending props are instanced models and the GLB-less pole is the box;
+  the plant (`PLANT_IGNORE_GLB`) turns the loader off and the lane fails.
+- **The street placer's mix, 2026-11-10.** The choice reads the high bits of its hash (the low bits tracked the density pick and
+  never reached the odd partners of each candidate pair). Candidates are weighted and capped per prop id from
+  `godot/presentation/first_person/street_dressing_mix.json`; priority ids (the utility pole) are kept first past PROP_CAP. Run
+  pieces taller than the Low band are not candidates on Low edges. Not built: block-wall pieces on district Wall tiles (a wall-tile
+  rule is the follow-up). Gate: the DRESSING lane choice, cap and run-height assertions, the plant `CHOICE_LOW_BITS`.
 - **A dead zombie lies there, 2026-11-07.** Advances the first-person survival pivot by the owner's card
   (docs/30, "A dead zombie lies where it fell"): a zombie that dies no longer vanishes the same tick.
   - **The body.** `recruits.gd` `handle_death`'s shambler arm keeps `_remember_zombie_remains` and `_drop_kit`,
