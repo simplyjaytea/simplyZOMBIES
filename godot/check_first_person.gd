@@ -4439,6 +4439,8 @@ func _lowered_screen(scene: Node, arms: Node3D, sway: Node3D) -> bool:
 		var gap: float = ArmsView.view_model_to_screen(eye, probe, view).distance_to(eye.unproject_position(probe))
 		if gap > 1.0:
 			ok = _fail("LOWERED", "the view-model lens and the Eye's own projection differ by %.1f px at the same field of view" % gap) and ok
+	else:
+		print("LOWERED skips the lens cross-check: the Eye's fov %.1f is not the view model's %.1f" % [eye.fov, ArmsView.VIEW_MODEL_FOV_DEG])
 	var idle: Dictionary = _lowered_project(arms, receiver, eye, view)
 	for part in LOWERED_PARTS:
 		if not idle.has(part):
@@ -4455,7 +4457,7 @@ func _lowered_screen(scene: Node, arms: Node3D, sway: Node3D) -> bool:
 	sway.rotation = kept_rot
 	for part in LOWERED_PARTS:
 		if not planted.has(part) or _lowered_shown(planted[part], view):
-			ok = _fail("LOWERED", "the #389 pose (offset y -0.10, pitch -18) does not read the %s off screen: %s" % [part, str(planted.get(part))]) and ok
+			ok = _fail("LOWERED", "the #389 pose (offset %s, pitch %.0f degrees) does not read the %s off screen: %s" % [str(LOWERED_OFF_OFFSET), LOWERED_OFF_PITCH_DEG, part, str(planted.get(part))]) and ok
 	print("LOWERED on screen at Idle: %s; the #389 pose: %s; viewport %s" % [_lowered_text(idle), _lowered_text(planted), view])
 	return ok
 
