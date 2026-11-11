@@ -84,6 +84,9 @@ STYLES = {
     "konbini_name_a": (5, 7),
     "konbini_name_b": (6, 7),
     "konbini_livery": (7, 5),
+    # Rain streaks on render: darker than every render cell. Inside the atlas, away from its outer
+    # edges, so no face ending on an edge samples it through REPEAT.
+    "konbini_streak": (5, 4),
 }
 PALETTES = {
     "siding": ["#586058", "#636a60", "#6d7367", "#777b6d", "#818474"],
@@ -108,6 +111,7 @@ PALETTES = {
     "sign_orange": ["#765743", "#846149", "#916d50", "#9c7757", "#a68260"],
     # The konbini's livery (card C): a faded plum, no stripes and no real chain's colours.
     "konbini": ["#4f3c40", "#5c464a", "#684f53", "#735a5d", "#d3cbb8"],
+    "streak": ["#5b5850", "#625e56", "#69655c"],
 }
 SIGN_GLYPHS = {
     "sign_blue": ["1001110", "0101010", "0101110", "1001010", "0101110", "0101010", "0001110"],
@@ -557,6 +561,10 @@ def atlas_pixel(style, x, y, plant=None):
         return tone("konbini", 4) if konbini_name_bit(style, x, y, plant) else tone("konbini", 2)
     if style == "konbini_livery":
         return tone("konbini", 1 if n % 157 == 0 else 2)
+    if style == "konbini_streak":
+        if plant == "streak_pale":
+            return tone("mortar", 2)
+        return tone("streak", noise(x // 3, 0, 311) % 3)
     if style in SIGN_GLYPHS:
         palette = "sign_blue" if style.startswith("sign_blue") else "sign_orange"
         edge = min(x, y, 63 - x, 63 - y)
@@ -959,6 +967,8 @@ KONBINI_CANOPY_DEPTH = 0.85
 KONBINI_FASCIA = (2.36, 2.95)
 KONBINI_PARAPET_TOP = 3.05
 KONBINI_PARAPET_INSET = 0.12
+# How much darker in mean luminance the streak cell is than the darkest render cell, at least.
+KONBINI_STREAK_DARKER = 0.06
 
 
 def finish_looks(template):
@@ -1944,7 +1954,7 @@ def station_character(template, model, doors_clear):
     )
 
 
-def konbini_character(template, model, doors_clear):
+def konbini_character(template, model, doors_clear, plant=None):
     w, h = template["size"]["w"], template["size"]["h"]
     t, top = KONBINI_PARAPET_INSET, KONBINI_PARAPET_TOP
     exterior = set(exterior_style(template))
@@ -1997,10 +2007,53 @@ def konbini_character(template, model, doors_clear):
     posts = [face for face in finish if min(point[2] for point in face["points"]) > h + 0.05 and min(ys(face)) < 2.0]
     walls = sorted({face["style"] for face in model.faces if face["style"] in exterior})
     # Each streak is one quad, exported as two triangles; its places are counted distinct.
-    streak_places = {(round(min(point[0] for point in face["points"]), 3), round(min(point[2] for point in face["points"]), 3), round(min(ys(face)), 3)) for face in model.faces if face["style"] == "mortar_stain"}
-    streak_lengths = sorted({round(2.42 - min(ys(face)), 2) for face in model.faces if face["style"] == "mortar_stain"})
+    streak_places = {(round(min(point[0] for point in face["points"]), 3), round(min(point[2] for point in face["points"]), 3), round(min(ys(face)), 3)) for face in model.faces if face["style"] == "konbini_streak"}
+    streak_lengths = sorted({round(2.42 - min(ys(face)), 2) for face in model.faces if face["style"] == "konbini_streak"})
     roof = sorted({face["style"] for face in finish if face["style"] in ROOF_VARIANTS["tar"]})
+    fascia_front = [face for face in fascia if normal_of(face).z > 0.99]
+    fascia_low = min((min(ys(face)) for face in fascia_front), default=0.0)
+    fascia_high = max((max(ys(face)) for face in fascia_front), default=0.0)
+    fascia_length = max((point[0] for face in fascia_front for point in face["points"]), default=0.0) - min((point[0] for face in fascia_front for point in face["points"]), default=0.0)
     problems = []
+    # The name reads left to right and upright on the street face: name_a over x 5..6, name_b over
+    # 6..7; on every triangle u rises with +x and v (glTF, down the image) falls with height.
+    spans = {"konbini_name_a": (5.0, 6.0), "konbini_name_b": (6.0, 7.0)}
+    if {face["style"] for face in names} != set(spans):
+        problems.append(f"store name cells {sorted({face['style'] for face in names})}, not both halves")
+    for face in names:
+        xs = [point[0] for point in face["points"]]
+        low_x, high_x = spans[face["style"]]
+        if min(xs) < low_x - 0.001 or max(xs) > high_x + 0.001:
+            problems.append(f"{face['style']} spans x {min(xs):.2f} to {max(xs):.2f}, not {low_x:.0f} to {high_x:.0f}")
+        points, uvs = face["points"], face["uv"]
+        for i in range(3):
+            for j in range(i + 1, 3):
+                dx, dy = points[j][0] - points[i][0], points[j][1] - points[i][1]
+                du, dv = uvs[j][0] - uvs[i][0], uvs[j][1] - uvs[i][1]
+                if abs(dx) > 0.01 and abs(dy) < 0.001 and du * dx <= 0.0:
+                    problems.append(f"{face['style']} is mirrored: u does not rise with x")
+                if abs(dy) > 0.01 and abs(dx) < 0.001 and dv * dy >= 0.0:
+                    problems.append(f"{face['style']} is upside down: v does not fall with height")
+    # The streaks are stains: their cell is darker than every render cell the walls draw from.
+    def cell_luma(style):
+        total = 0.0
+        for y in range(TEXELS_PER_METRE):
+            for x in range(TEXELS_PER_METRE):
+                r, g, b = atlas_pixel(style, x, y, plant)[:3]
+                total += 0.2126 * r + 0.7152 * g + 0.0722 * b
+        return total / (TEXELS_PER_METRE * TEXELS_PER_METRE)
+    streak_luma = cell_luma("konbini_streak")
+    wall_luma = min(cell_luma(style) for style in WALL_VARIANTS["render"])
+    if streak_luma > wall_luma - KONBINI_STREAK_DARKER:
+        problems.append(f"streaks {streak_luma:.3f} in luminance against the darkest render {wall_luma:.3f}, not {KONBINI_STREAK_DARKER} darker")
+    if not streak_places or len(streak_lengths) < 2:
+        problems.append(f"streaks {len(streak_places)} in {len(streak_lengths)} lengths")
+    if abs(parapet_top - KONBINI_PARAPET_TOP) > 0.001:
+        problems.append(f"parapet top {parapet_top:.3f} m, not {KONBINI_PARAPET_TOP} m")
+    if mullions != len(front) + 2:
+        problems.append(f"mullions {mullions}, not {len(front) + 2}")
+    if abs(fascia_low - KONBINI_FASCIA[0]) > 0.001 or abs(fascia_high - KONBINI_FASCIA[1]) > 0.001 or abs(fascia_length - w) > 0.001:
+        problems.append(f"fascia {fascia_low:.3f} to {fascia_high:.3f} m over {fascia_length:.2f} m, not {KONBINI_FASCIA[0]} to {KONBINI_FASCIA[1]} m over {w} m")
     if len(backs) != 4:
         problems.append(f"parapet back faces on {len(backs)} of 4 sides")
     if not caps:
@@ -2021,15 +2074,15 @@ def konbini_character(template, model, doors_clear):
         raise ValueError(f"{template['id']}: " + "; ".join(problems))
     return (
         f"CHARACTER {template['id']}: parapet {parapet_top:.2f} m, back face {'yes' if len(backs) == 4 else 'no'}, cap {'yes' if caps else 'no'}; "
-        f"front windows open {open_count} of {len(front)}, mullions {mullions}; fascia {KONBINI_FASCIA[0]:.2f} m to {KONBINI_FASCIA[1]:.2f} m, "
+        f"front windows open {open_count} of {len(front)}, mullions {mullions}; fascia {fascia_low:.2f} m to {fascia_high:.2f} m over {fascia_length:.2f} m, "
         f"canopy {canopy_low:.2f} m to {canopy_high:.2f} m, depth {depth:.2f} m, length {length:.2f} m, posts {len(posts)}; "
-        f"store name {1 if names else 0} on fascia; doors clear {doors_clear}; walls {walls}, streaks {len(streak_places)} ({len(streak_lengths)} lengths); roof {roof}"
+        f"store name {1 if names else 0} on fascia, reading left to right; doors clear {doors_clear}; walls {walls}, streaks {len(streak_places)} ({len(streak_lengths)} lengths, {wall_luma - streak_luma:.3f} darker than the darkest render); roof {roof}"
     )
 
 
-def character_report(template, model, doors_clear=None):
+def character_report(template, model, doors_clear=None, plant=None):
     if template["id"] == KONBINI_ID:
-        return konbini_character(template, model, doors_clear)
+        return konbini_character(template, model, doors_clear, plant)
     if template["id"] == STATION_ID:
         return station_character(template, model, doors_clear)
     if template["id"] == SAWMILL_ID:
@@ -2535,7 +2588,12 @@ def build_konbini_details(pieces, template, plant=None):
     # The fascia band on the canopy's outer edge, the whole width of the street face, with the name over the doors.
     z0, z1 = h + d, h + d + 0.04
     names = {5.0: "konbini_name_a", 6.0: "konbini_name_b"}
-    finish.face((0.0, bottom, z1), (float(w), 0, 0), (0, top - bottom, 0), "konbini_livery", normal=(0, 0, 1), style_for_cell=lambda u0, u1, v0, v1, width, height: names.get(round(u0, 3)))
+    if plant == "konbini_name_swap":
+        names = {5.0: "konbini_name_b", 6.0: "konbini_name_a"}
+    if plant == "konbini_name_reversed":
+        finish.face((float(w), bottom, z1), (-float(w), 0, 0), (0, top - bottom, 0), "konbini_livery", normal=(0, 0, 1), style_for_cell=lambda u0, u1, v0, v1, width, height: names.get(round(u0, 3)))
+    else:
+        finish.face((0.0, bottom, z1), (float(w), 0, 0), (0, top - bottom, 0), "konbini_livery", normal=(0, 0, 1), style_for_cell=lambda u0, u1, v0, v1, width, height: names.get(round(u0, 3)))
     finish.face((0.0, bottom, z0), (0, top - bottom, 0), (float(w), 0, 0), "konbini_livery", normal=(0, 0, -1))
     finish.face((0.0, top, z0), (0, 0, z1 - z0), (float(w), 0, 0), "trim", normal=(0, 1, 0))
     finish.face((0.0, bottom, z0), (float(w), 0, 0), (0, 0, z1 - z0), "konbini_livery", normal=(0, -1, 0))
@@ -2558,7 +2616,7 @@ def build_konbini_details(pieces, template, plant=None):
                 width = 0.035 + (pick // 61 % 5) * 0.012
                 length = 0.35 + (pick // 305 % 9) * 0.11
                 target = pieces.piece("wall", x, y)["finish"] if window_candidate(template, x, y) else finish
-                side_quad(target, x, y, side_index, u0, u0 + width, 2.42 - length, 2.42, "mortar_stain", offset=0.002)
+                side_quad(target, x, y, side_index, u0, u0 + width, 2.42 - length, 2.42, "konbini_streak", offset=0.002)
     if plant == "mullion_door":
         finish.box((5.478, 0.0, float(h)), (0.044, WINDOW_TOP, 0.03), "alu_silver")
     if plant == "front_solid":
@@ -3340,7 +3398,20 @@ def make_entry(template, pieces, plant=None):
     volumes = finish_volumes(template, plant)
     if volumes:
         entry["finishVolumes"] = volumes
+    storefront = storefront_tiles(template)
+    if storefront and plant != "storefront_empty":
+        entry["storefront"] = storefront
     return entry
+
+
+# The window tiles whose glazing the GLB draws as its own storefront (the konbini's south front: thin
+# aluminium mullions, rails and a kick rail). The first-person district draws no generic casing on
+# them (`district_view.gd` window_casing); every other window keeps it.
+def storefront_tiles(template):
+    if template["id"] != KONBINI_ID:
+        return []
+    h = template["size"]["h"]
+    return [[x, h - 1] for x in range(template["size"]["w"]) if tile_at(template, x, h - 1) == 2]
 
 
 def validate_manifest(manifest, templates, plant):
@@ -3420,6 +3491,8 @@ def build_all(export_dir, blend_path, manifest_path, plant=None, reference_manif
             windows += validate_apertures(spatial, finish, template, kind, label)
         entry = make_entry(template, pieces, plant)
         validate_finish_volumes(template, entry.get("finishVolumes", []))
+        if entry.get("storefront", []) != storefront_tiles(template):
+            raise ValueError(f"{template['id']} manifest storefront {entry.get('storefront', [])}, not {storefront_tiles(template)}")
         manifest["models"].append(entry)
         slug = template["id"].removeprefix("building.").replace(".", "_")
         objects = [pieces.spatial.object("spatial_bands", material), pieces.finish.object("finish", material, glass_material)]
@@ -3455,7 +3528,7 @@ def build_all(export_dir, blend_path, manifest_path, plant=None, reference_manif
         validate_export(output, entry, reference_entry, plant)
         model = ExportedModel(output) if template["id"] in TEMPLATE_FINISHES else None
         doors_clear = validate_doors(template, model) if model is not None else None
-        character = character_report(template, model, doors_clear)
+        character = character_report(template, model, doors_clear, plant)
         if character is not None:
             print(character)
         if template["id"] in HOUSE_IDS:
@@ -3510,7 +3583,7 @@ def main():
     arguments = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter", "sliding_door_cross", "sliding_leaf_span", "eave_north_clean", "canopy_post", "ticket_ledge_proud", "name_board_open", "name_board_uv", "name_board_one_cell", "name_board_mirror", "arch_float", "bracket_float", "konbini_canopy_low", "front_solid", "parapet_no_back", "mullion_door", "konbini_name_mirror"])
+    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter", "sliding_door_cross", "sliding_leaf_span", "eave_north_clean", "canopy_post", "ticket_ledge_proud", "name_board_open", "name_board_uv", "name_board_one_cell", "name_board_mirror", "arch_float", "bracket_float", "konbini_canopy_low", "front_solid", "parapet_no_back", "mullion_door", "konbini_name_mirror", "konbini_name_swap", "konbini_name_reversed", "streak_pale", "storefront_empty"])
     args = parser.parse_args(arguments)
     repo = Path(__file__).resolve().parents[3]
     try:

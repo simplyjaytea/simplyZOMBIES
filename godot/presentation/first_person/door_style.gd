@@ -49,7 +49,9 @@ const TABLE: Dictionary = {
 	"house_small": {"wall": Color(0.531, 0.502, 0.437), "leaf": Color(0.236, 0.223, 0.194), "frame": Color(0.383, 0.362, 0.315), "frame_w": 0.07, "glazed": false},
 	"kiosk_corner": {"wall": Color(0.531, 0.502, 0.437), "leaf": Color(0.236, 0.223, 0.194), "frame": Color(0.383, 0.362, 0.315), "frame_w": 0.10, "glazed": true},
 	"koban_box": {"wall": Color(0.531, 0.502, 0.437), "leaf": Color(0.236, 0.223, 0.194), "frame": Color(0.383, 0.362, 0.315), "frame_w": 0.07, "glazed": false},
-	"konbini_road": {"wall": Color(0.531, 0.502, 0.437), "leaf": Color(0.236, 0.223, 0.194), "frame": Color(0.383, 0.362, 0.315), "frame_w": 0.10, "glazed": true},
+	# The konbini's doors are glass in thin aluminium, as its storefront is: a dark glass leaf and a silver
+	# frame, lighter than the wall rather than darker. Its front windows draw no casing (storefront).
+	"konbini_road": {"wall": Color(0.531, 0.502, 0.437), "leaf": Color(0.205, 0.245, 0.262), "frame": Color(0.737, 0.745, 0.741), "frame_w": 0.06, "glazed": false},
 	"shed_garage": {"wall": Color(0.203, 0.171, 0.143), "leaf": Color(0.474, 0.453, 0.434), "frame": Color(0.338, 0.312, 0.289), "frame_w": 0.06, "glazed": false},
 	"shed_lockup": {"wall": Color(0.203, 0.171, 0.143), "leaf": Color(0.474, 0.453, 0.434), "frame": Color(0.338, 0.312, 0.289), "frame_w": 0.06, "glazed": false},
 	"shed_tin": {"wall": Color(0.203, 0.171, 0.143), "leaf": Color(0.474, 0.453, 0.434), "frame": Color(0.338, 0.312, 0.289), "frame_w": 0.06, "glazed": false},
