@@ -40,12 +40,6 @@ const CORRUPT_NOTICE: String = "that save could not be read"
 
 var state: int = State.TITLE
 var world: Variant = null
-# The map object `SimBoot` hands back beside the world. **Nothing reads it** -- it was `main.gd`'s
-# `_map`, written by every boot since the district landed and read by no line of the game, and it
-# is carried across rather than quietly deleted because that is a separate decision from this
-# slice's. Named here so it is a socket somebody can see, not one somebody has to find again; the
-# drawing reaches the same map through `world.tilemap`.
-var map: Variant = null
 var fixture: Dictionary = {}
 var district_id: String = SimBoot.DEFAULT_DISTRICT
 var region_id: String = ""
@@ -67,7 +61,6 @@ func boot(seed_val: int, district: String, region: String = "") -> void:
 	region_id = region
 	var booted: Dictionary = SimBoot.playable_region(seed_val, region) if not region.is_empty() else SimBoot.playable(seed_val, SimTileMap.DISTRICT_TILES, district)
 	world = booted["world"]
-	map = booted["map"]
 	fixture = {"seed": int(world.seed), "tick_hz": TICK_HZ}
 	district_id = district
 	seed = seed_val
