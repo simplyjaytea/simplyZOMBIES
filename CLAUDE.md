@@ -173,6 +173,38 @@ quietly amend them.
 - `CONTEXT.md` is the domain vocabulary (Need, Job, Focus, Stockpile and so on). Use its terms
   and avoid the words it lists as wrong.
 
+## The workflow
+
+Three standing seats, each a Claude Code terminal in herdr (`hc ls`). The roster names models
+because it says who runs what; nothing else in the repository does.
+
+| Seat | Model | Takes | Never |
+|---|---|---|---|
+| Orchestrator | Fable | Plans with the owner, writes each piece as an issue, assigns it, reads the final diff, merges | Writes the piece |
+| Architect | Opus | Shared sim modules, the save format, new gates, art builders, the design of a hard piece | Merges; routine work |
+| Builder | Sonnet | Everything else: features, gate upkeep, docs, keeping pull requests current with `main`. Fans work out to Haiku subagents, at most three pieces open at once | Merges; passes on a claim it has not reproduced |
+
+- **GitHub is the record.** One issue per piece is its spec: the change, the files, the gate
+  that judges it, what done means. The label says whose it is (`architect`, `builder`,
+  `orchestrator`); the milestone says which goal it serves. The pull request is the report and
+  closes the issue. `gh issue list --milestone <name>` is where we are; no file carries status.
+- **One piece, one worktree, one branch, one pull request.**
+  `git worktree add -b claude/<piece> .claude/worktrees/<piece> origin/main`, with `node_modules`
+  symlinked from the main checkout. The main checkout stays on `main`; nobody switches branches
+  in it. Remove the worktree when its pull request merges.
+- **Reports are reproduced, not trusted.** The builder reruns the named gates itself on every
+  subagent's work before it pushes. The orchestrator reads the diff and CI before it merges.
+- **The architect's work gets an independent read.** A fresh subagent, briefed with the pull
+  request and its base and head only, never the author's account, reviews every art change and
+  every change to a shared sim module or the save format. A push after a review voids it.
+- **Merging.** A pull request merges when its head contains `origin/main`, CI is green on that
+  head, and the diff is read: `gh pr merge <n> --merge --match-head-commit <full SHA>`. Merge
+  commits only. Never rebase or force-push a pushed branch, and never push to `main`.
+- **Design questions go to the owner once, with a default.** Build the default, say so in the
+  pull request, and keep going. A step that cannot be undone waits for the owner's own words.
+- **Blocked or out of usage:** commit, push, and say what works, what fails and what is next in
+  a comment on the issue.
+
 ## Traps
 
 The traps that have already cost someone a session are in [docs/37](docs/37-traps.md). Read them
