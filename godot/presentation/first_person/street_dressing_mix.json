@@ -25,7 +25,6 @@
     },
     "prop.street.utility_pole": {
       "weight": 1.0,
-      "max_per_district": 0,
       "priority": true
     },
     "prop.street.wall_block_1m": {

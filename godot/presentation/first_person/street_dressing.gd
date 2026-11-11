@@ -28,6 +28,16 @@ const HEM_MIN_M: float = 1.80
 const WALL_PROUD_MAX_M: float = 0.10
 const WIRE_SAG_M: float = 0.4
 const WIRE_MAX_SPAN_M: float = 40.0
+# Pole rules (follow-up to t1x's VERDICT): poles at least POLE_MIN_SPACING_M apart, a span at least WIRE_MIN_SPAN_M long,
+# and three parallel wires per pair (a to a, b to b, c to c) across a crossarm set at POLE_YAW_RAD (across the run).
+const POLE_MIN_SPACING_M: float = 25.0
+const WIRE_MIN_SPAN_M: float = 10.0
+const POLE_YAW_RAD: float = PI * 0.5
+const WIRE_KEYS: Array = ["wire_a", "wire_b", "wire_c"]
+# Plants (gate): true drops the spacing rule; true drops the building-crossing rule.
+const PLANT_NO_POLE_SPACING: bool = false
+const PLANT_NO_WIRE_BUILDING_CHECK: bool = false
+const SALT_POLE: int = 504
 const WIRE_SEGMENTS: int = 8
 const PROP_CAP: int = 400
 # One prop per this many eligible tiles, on average: the density the owner card sets.
@@ -159,6 +169,7 @@ static func _base_placements(map: Variant, seed_val: int, entries: Array, mix: D
 			counts[id] = int(counts.get(id, 0)) + 1
 			capped.append(p)
 		all = capped
+	all = _pole_pass(all, seed_val, w)
 	if all.size() <= PROP_CAP:
 		all.sort_custom(func(a, b): return _tile_index(a as Dictionary, w) < _tile_index(b as Dictionary, w))
 		return all
@@ -224,6 +235,45 @@ static func _weight_of(mix: Dictionary, id: String) -> int:
 static func _priority_of(mix: Dictionary, id: String) -> bool:
 	var row: Variant = _props_of(mix).get(id, {})
 	return row is Dictionary and bool((row as Dictionary).get("priority", false))
+
+
+# Poles: those placed wall-side on the district, taken in hash order and kept only where no other kept pole is within
+# POLE_MIN_SPACING_M (greedy). A kept pole's crossarm is set across the run (POLE_YAW_RAD). Other props pass through.
+static func _pole_pass(all: Array, seed_val: int, w: int) -> Array:
+	var poles: Array = []
+	var others: Array = []
+	for p in all:
+		if _is_pole(p as Dictionary):
+			poles.append(p)
+		else:
+			others.append(p)
+	poles.sort_custom(func(a, b): return _rank_before(a as Dictionary, b as Dictionary, seed_val, w))
+	var kept: Array = []
+	for p in poles:
+		var d: Dictionary = p as Dictionary
+		if not PLANT_NO_POLE_SPACING and not _pole_clear(d, kept):
+			continue
+		d["yaw"] = POLE_YAW_RAD
+		kept.append(d)
+	others.append_array(kept)
+	return others
+
+
+static func _is_pole(p: Dictionary) -> bool:
+	var anchors: Dictionary = p.get("anchors", {}) as Dictionary
+	for k in WIRE_KEYS:
+		if not anchors.has(k):
+			return false
+	return true
+
+
+static func _pole_clear(p: Dictionary, kept: Array) -> bool:
+	var at: Vector3 = p["pos"] as Vector3
+	for q in kept:
+		var other: Vector3 = (q as Dictionary)["pos"] as Vector3
+		if Vector2(at.x, at.z).distance_to(Vector2(other.x, other.z)) < POLE_MIN_SPACING_M:
+			return false
+	return true
 
 
 # True when a is kept before b past the cap: priority first, then the lower hash rank.
@@ -424,32 +474,52 @@ static func anchor_world(p: Dictionary, name: String) -> Vector3:
 # Wire spans: consecutive poles on one row (same tile y) or one column (same tile x), at most WIRE_MAX_SPAN_M
 # apart, drawn from one pole's wire_a to the next pole's wire_b, sagging WIRE_SAG_M at the middle. A pole with no
 # neighbour in range has none. Each span is {a, b, points}.
-static func wire_spans(poles_all: Array) -> Array:
+# Spans join consecutive poles on one row (same tile y), three matched wires per pair: a to a, b to b, c to c. A pair
+# farther than WIRE_MAX_SPAN_M or nearer than WIRE_MIN_SPAN_M draws none; a span over a Wall tile of `map` is dropped.
+static func wire_spans(poles_all: Array, map: Variant = null) -> Array:
 	var poles: Array = []
 	for p in poles_all:
-		var d: Dictionary = p as Dictionary
-		if (d["anchors"] as Dictionary).has("wire_a") and (d["anchors"] as Dictionary).has("wire_b"):
-			poles.append(d)
+		if _is_pole(p as Dictionary):
+			poles.append(p)
 	var out: Array = []
-	for axis in [0, 1]:
-		var groups: Dictionary = {}
-		for p in poles:
-			var key: int = int((p as Dictionary)["ty"]) if axis == 0 else int((p as Dictionary)["tx"])
-			if not groups.has(key):
-				groups[key] = []
-			(groups[key] as Array).append(p)
-		for key in groups.keys():
-			var line: Array = groups[key] as Array
-			line.sort_custom(func(a, b): return _along(a as Dictionary, axis) < _along(b as Dictionary, axis))
-			for i in range(line.size() - 1):
-				var pa: Dictionary = line[i] as Dictionary
-				var pb: Dictionary = line[i + 1] as Dictionary
-				var a: Vector3 = anchor_world(pa, "wire_a")
-				var b: Vector3 = anchor_world(pb, "wire_b")
-				if a.distance_to(b) > WIRE_MAX_SPAN_M:
-					continue
-				out.append({"a": a, "b": b, "points": _catenary(a, b)})
+	var groups: Dictionary = {}
+	for p in poles:
+		var key: int = int((p as Dictionary)["ty"])
+		if not groups.has(key):
+			groups[key] = []
+		(groups[key] as Array).append(p)
+	for key in groups.keys():
+		var line: Array = groups[key] as Array
+		line.sort_custom(func(a, b): return _along(a as Dictionary, 1) < _along(b as Dictionary, 1))
+		for i in range(line.size() - 1):
+			var pa: Dictionary = line[i] as Dictionary
+			var pb: Dictionary = line[i + 1] as Dictionary
+			var gap: float = anchor_world(pa, "wire_a").distance_to(anchor_world(pb, "wire_b"))
+			if gap > WIRE_MAX_SPAN_M or gap < WIRE_MIN_SPAN_M:
+				continue
+			# A pair's three wires stand or fall together: one crossing a Wall tile drops the whole triple.
+			var triple: Array = []
+			var crosses: bool = false
+			for k in WIRE_KEYS:
+				var a: Vector3 = anchor_world(pa, k)
+				var b: Vector3 = anchor_world(pb, k)
+				# Only the centre wire is judged: an outer wire may overhang the wall line a flush pole stands on.
+				if map != null and not PLANT_NO_WIRE_BUILDING_CHECK and k == "wire_c" and _crosses_wall(map, a, b):
+					crosses = true
+				triple.append({"a": a, "b": b, "points": _catenary(a, b), "key": k})
+			if not crosses:
+				out.append_array(triple)
 	return out
+
+
+# True when the segment a to b (Godot x and z are the sim's x and y) passes over a Wall tile of the map.
+static func _crosses_wall(map: Variant, a: Vector3, b: Vector3) -> bool:
+	for i in range(WIRE_SEGMENTS + 1):
+		var t: float = float(i) / float(WIRE_SEGMENTS)
+		var p: Vector3 = a.lerp(b, t)
+		if int(SimTileMap.tile_at(map, int(floor(p.x)), int(floor(p.z)))) == SimTileMap.Tile.Wall:
+			return true
+	return false
 
 
 static func _along(p: Dictionary, axis: int) -> float:
