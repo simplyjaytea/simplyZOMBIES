@@ -87,6 +87,9 @@ STYLES = {
     # Rain streaks on render: darker than every render cell. Inside the atlas, away from its outer
     # edges, so no face ending on an edge samples it through REPEAT.
     "konbini_streak": (5, 4),
+    # The koban's one cell, inside the atlas: its lower half is the red lamp's glass, its upper half
+    # the 交番 board (the board face is shifted half a cell up).
+    "koban_sign": (6, 4),
 }
 PALETTES = {
     "siding": ["#586058", "#636a60", "#6d7367", "#777b6d", "#818474"],
@@ -112,6 +115,9 @@ PALETTES = {
     # The konbini's livery (card C): a faded plum, no stripes and no real chain's colours.
     "konbini": ["#4f3c40", "#5c464a", "#684f53", "#735a5d", "#d3cbb8"],
     "streak": ["#5b5850", "#625e56", "#69655c"],
+    # The koban's red lamp, faded, with a lit band; and its sign board: navy letters on cream.
+    "koban_red": ["#5e1a17", "#7d231e", "#9a2c25", "#bf4b40"],
+    "koban": ["#25303a", "#8c8576", "#d8d2c2"],
 }
 SIGN_GLYPHS = {
     "sign_blue": ["1001110", "0101010", "0101110", "1001010", "0101110", "0101010", "0001110"],
@@ -300,6 +306,51 @@ KONBINI_NAME_ROWS = [
     "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 ]
 KONBINI_NAME_CELLS = {"konbini_name_a": 0, "konbini_name_b": 64}
+
+# The koban's 交番 board, rasterised once from Noto Sans CJK JP Bold (face 0 of
+# NotoSansCJK-Bold.ttc, SIL OFL 1.1) at 24 px on a 64 x 32 canvas, the text's ink box centred
+# (PIL `textbbox`), threshold 128: the 1.00 x 0.50 m board at 64 texels per metre. Rows run
+# top-down. The build reads no font.
+KOBAN_SIGN_ROWS = [
+    "0000000000000000000000000000000000000000000000000000000000000000",
+    "0000000000000000000000000000000000000000000000000000000000000000",
+    "0000000000000000000000000000000000000000000000000000000000000000",
+    "0000000000000000000000000000000000000000000000000000000000000000",
+    "0000000000000000000110000000000000000000000000000000000000000000",
+    "0000000000000000001110000000000000000000000011111111000000000000",
+    "0000000000000000001110000000000000011111111111111111100000000000",
+    "0000000001111111111111111111111000011111111111101100000000000000",
+    "0000000001111111111111111111111000000111001110001111000000000000",
+    "0000000001111111111111111111111000000111001110001110000000000000",
+    "0000000000000001000000001000000000000011001110011100000000000000",
+    "0000000000000011110000011110000001111111111111111111111000000000",
+    "0000000000000111100000011111000001111111111111111111111000000000",
+    "0000000000001111000000001111100000000001111111111000000000000000",
+    "0000000000111110000000000011110000000011111111111100000000000000",
+    "0000000001111101110000111101111000000111101110011111000000000000",
+    "0000000000111001110000111000100000111111001110001111110000000000",
+    "0000000000000001111001111000000001111110000110000111111000000000",
+    "0000000000000000111001110000000000111111111111111111110000000000",
+    "0000000000000000011111110000000000001111111111111111000000000000",
+    "0000000000000000011111100000000000001110001110000111000000000000",
+    "0000000000000000011111100000000000001111111111111111000000000000",
+    "0000000000000000111111110000000000001111111111111111000000000000",
+    "0000000000000011111111111100000000001110000110000111000000000000",
+    "0000000000111111110001111111100000001110001110000111000000000000",
+    "0000000001111111100000011111111000001111111111111111000000000000",
+    "0000000000111100000000000111110000001111111111111111000000000000",
+    "0000000000100000000000000000100000001110000000000111000000000000",
+    "0000000000000000000000000000000000000000000000000000000000000000",
+    "0000000000000000000000000000000000000000000000000000000000000000",
+    "0000000000000000000000000000000000000000000000000000000000000000",
+    "0000000000000000000000000000000000000000000000000000000000000000",
+]
+
+
+def koban_sign_bit(x, y, plant=None):
+    # y counts up from the board's bottom edge (the cell's row 32).
+    column = 63 - x if plant == "koban_sign_mirror" else x
+    return KOBAN_SIGN_ROWS[len(KOBAN_SIGN_ROWS) - 1 - y][column] == "1"
 
 
 def konbini_name_bit(style, x, y, plant=None):
@@ -561,6 +612,21 @@ def atlas_pixel(style, x, y, plant=None):
         return tone("konbini", 4) if konbini_name_bit(style, x, y, plant) else tone("konbini", 2)
     if style == "konbini_livery":
         return tone("konbini", 1 if n % 157 == 0 else 2)
+    if style == "koban_sign":
+        # The outermost texel ring keeps the fill this cell had before it was used (render_ivory), so a
+        # neighbouring cell's face that ends on the shared edge and samples across it under nearest
+        # filtering draws exactly what it drew before.
+        if min(x, y, 63 - x, 63 - y) == 0:
+            return atlas_pixel("render_ivory", x, y, plant)
+        if y < 32:
+            # The lamp's glass: a rim, a lit band and the faded red.
+            if y < 2 or y > 29:
+                return tone("koban_red", 1)
+            return tone("koban_red", 3 if x % 16 in (5, 6) else 2)
+        edge = min(x, y - 32, 63 - x, 63 - y)
+        if edge < 2:
+            return tone("koban", 1)
+        return tone("koban", 0) if koban_sign_bit(x, y - 32, plant) else tone("koban", 2)
     if style == "konbini_streak":
         if plant == "streak_pale":
             return tone("mortar", 2)
@@ -602,6 +668,15 @@ def build_atlas(path, plant=None):
                 offset = ((cell_y * 64 + y) * ATLAS_SIZE + cell_x * 64 + x) * 4
                 if tuple(pixels[offset : offset + 3]) != expected:
                     raise ValueError(f"{style} baked name rows mismatch at {(x, y)}")
+    cell_x, cell_y = STYLES["koban_sign"]
+    for y in range(len(KOBAN_SIGN_ROWS)):
+        for x in range(64):
+            if min(x, y, 63 - x, 31 - y) < 2:
+                continue
+            expected = tone("koban", 0) if koban_sign_bit(x, y) else tone("koban", 2)
+            offset = ((cell_y * 64 + 32 + y) * ATLAS_SIZE + cell_x * 64 + x) * 4
+            if tuple(pixels[offset : offset + 3]) != expected:
+                raise ValueError(f"koban_sign baked board rows mismatch at {(x, y)}")
     image = bpy.data.images.new("buildings_atlas", width=ATLAS_SIZE, height=ATLAS_SIZE, alpha=True)
     image.colorspace_settings.name = "sRGB"
     image.pixels.foreach_set(pixels)
@@ -954,6 +1029,8 @@ TEMPLATE_FINISHES = {
     "building.unit.industrial": {"roof": "tin", "wall": "siding"},
     "building.station.small": {"roof": "tin", "wall": "timber"},
     "building.konbini.road": {"roof": "tar", "wall": "render"},
+    "building.koban.box": {"roof": "tar", "wall": "render"},
+    "building.shrine.village": {"roof": "shingle", "wall": "timber"},
 }
 HOUSE_IDS = {"building.house.small", "building.house.gable"}
 SHOP_ID = "building.arcade.retail"
@@ -969,13 +1046,35 @@ KONBINI_PARAPET_TOP = 3.05
 KONBINI_PARAPET_INSET = 0.12
 # How much darker in mean luminance the streak cell is than the darkest render cell, at least.
 KONBINI_STREAK_DARKER = 0.06
+# The koban: a 0.50 m sign board standing on the flat roof's front cap, a slab canopy over the
+# door and window, and the red lamp on the canopy.
+KOBAN_BOARD = (2.81, 3.31)
+KOBAN_CANOPY = {"x": (1.0, 4.0), "depth": 0.70, "y": (2.32, 2.42)}
+KOBAN_LAMP = {"x": 2.5, "z": 0.55, "y": (2.42, 2.56), "radius": 0.08}
+# The shrine hall: deep eaves, chigi at both gable ends, three katsuogi on the ridge, a shimenawa
+# over the entrance with four shide, and unpainted wood: the dark vertical cedar boards, not the
+# painted timber the JSON's look names.
+SHRINE_EAVE = 0.90
+SHRINE_CHIGI_RISE = 0.45
+SHRINE_KATSUOGI = 3
+SHRINE_WALLS = ["siding_vertical", "siding_vertical_alt"]
+SHRINE_ROPE = {"x": (2.15, 4.85), "y": 2.47, "sag": 0.07, "radius": 0.055, "z": 0.042}
+SHRINE_SHIDE_X = (2.60, 3.20, 3.80, 4.40)
 
 
 def finish_looks(template):
     return TEMPLATE_FINISHES.get(template["id"], template["look"])
 
 
+def trim_for(template):
+    # The shrine's casings and cornice are dark wood, as its verges are; every other template's trim
+    # is the aged cream.
+    return "dark_wood" if template["id"] == SHRINE_ID else "trim"
+
+
 def exterior_style(template):
+    if template["id"] == SHRINE_ID:
+        return SHRINE_WALLS
     return WALL_VARIANTS[finish_looks(template)["wall"]]
 
 
@@ -1190,18 +1289,18 @@ def build_window_tile(pieces, template, x, y):
         elif interior in ("industrial", "shed"):
             frame = 0.10
         if left_frame:
-            side_quad(finish, x, y, side_index, 0, frame, low, high, "trim", offset=0.014)
+            side_quad(finish, x, y, side_index, 0, frame, low, high, trim_for(template), offset=0.014)
         if right_frame:
-            side_quad(finish, x, y, side_index, 1.0 - frame, 1, low, high, "trim", offset=0.014)
+            side_quad(finish, x, y, side_index, 1.0 - frame, 1, low, high, trim_for(template), offset=0.014)
         head0 = frame if left_frame else 0.0
         head1 = 1.0 - frame if right_frame else 1.0
-        side_quad(finish, x, y, side_index, head0, head1, high - frame, high, "trim", offset=0.014)
-        side_quad(finish, x, y, side_index, head0, head1, low, low + frame, "trim", offset=0.014)
+        side_quad(finish, x, y, side_index, head0, head1, high - frame, high, trim_for(template), offset=0.014)
+        side_quad(finish, x, y, side_index, head0, head1, low, low + frame, trim_for(template), offset=0.014)
         glass0 = frame if left_frame else 0.025
         glass1 = 1.0 - frame if right_frame else 0.975
         side_quad(finish, x, y, side_index, glass0, 0.4875, low + frame, high - frame, "glass", offset=0.010)
         side_quad(finish, x, y, side_index, 0.5125, glass1, low + frame, high - frame, "glass", offset=0.010)
-        side_quad(finish, x, y, side_index, 0.4875, 0.5125, low + frame, high - frame, "trim", offset=0.018)
+        side_quad(finish, x, y, side_index, 0.4875, 0.5125, low + frame, high - frame, trim_for(template), offset=0.018)
         curtained = stable_int("%s:%d:%d:%d" % (template["id"], x, y, side_index)) % 3 != 0
         if faces_out and not outside and interior in ("residential", "cabin") and curtained:
             side_quad(finish, x, y, side_index, 0.04, 0.16, low + 0.04, high - 0.04, "curtain", offset=0.022)
@@ -1256,9 +1355,9 @@ def build_tile_trim(finish, template, x, y, plant=None):
                 if tile != 6 and side_index == 0:
                     side_quad(finish, x, y, side_index, 0, 1, 0.0, 0.06, "foundation", offset=0.009)
             else:
-                if template["id"] not in (SHOP_ID, SAWMILL_ID, STATION_ID, KONBINI_ID) or tile != 6:
+                if template["id"] not in (SHOP_ID, SAWMILL_ID, STATION_ID, KONBINI_ID, KOBAN_ID, SHRINE_ID) or tile != 6:
                     side_quad(finish, x, y, side_index, 0, 1, 0, 0.24, "foundation", offset=0.007)
-                side_quad(finish, x, y, side_index, 0, 1, 2.43, 2.55, "trim", offset=0.007)
+                side_quad(finish, x, y, side_index, 0, 1, 2.43, 2.55, trim_for(template), offset=0.007)
         else:
             finish.role = "interior"
             side_quad(finish, x, y, side_index, 0, 1, 0.02, 0.12, "trim", offset=0.007)
@@ -1271,7 +1370,7 @@ def build_tile_trim(finish, template, x, y, plant=None):
         left_frame = tile_at(template, *left) != tile
         right_frame = tile_at(template, *right) != tile
         frame = 0.065
-        casing = alu_for(template) if template["id"] in HOUSE_IDS else "alu_silver" if template["id"] == KONBINI_ID else "trim"
+        casing = alu_for(template) if template["id"] in HOUSE_IDS else "alu_silver" if template["id"] == KONBINI_ID else trim_for(template)
         inner_casing = alu_for(template) if template["id"] in HOUSE_IDS else "alu_silver" if template["id"] == KONBINI_ID else "dark_wood"
         if left_frame:
             side_quad(finish, x, y, side_index, 0, frame, low, high, casing, offset=0.014)
@@ -1279,7 +1378,7 @@ def build_tile_trim(finish, template, x, y, plant=None):
             side_quad(finish, x, y, side_index, 1.0 - frame, 1, low, high, casing, offset=0.014)
         head0 = frame if left_frame else 0.0
         head1 = 1.0 - frame if right_frame else 1.0
-        raised_head = template["id"] in HOUSE_IDS or template["id"] in (SHOP_ID, SAWMILL_ID, STATION_ID, KONBINI_ID)
+        raised_head = template["id"] in HOUSE_IDS or template["id"] in (SHOP_ID, SAWMILL_ID, STATION_ID, KONBINI_ID, KOBAN_ID, SHRINE_ID)
         head_low = high if raised_head else high - frame
         head_high = high + frame if raised_head else high
         side_quad(finish, x, y, side_index, head0, head1, head_low, head_high, casing, offset=0.014)
@@ -1291,11 +1390,14 @@ def build_tile_trim(finish, template, x, y, plant=None):
 
 def genkan_volumes(template):
     volumes = []
-    if template["id"] not in HOUSE_IDS | {STATION_ID}:
+    if template["id"] not in HOUSE_IDS | {STATION_ID, SHRINE_ID}:
         return volumes
     for door_index, door in enumerate(template.get("doors", [])):
         x, y = int(door["x"]), int(door["y"])
-        width, depth, height = (0.90, 0.30, 0.12) if template["id"] == STATION_ID else ((1.50, 0.90, 0.16) if door_index == 0 else (1.0, 0.40, 0.12))
+        if template["id"] == SHRINE_ID:
+            width, depth, height = 1.50, 0.60, 0.16
+        else:
+            width, depth, height = (0.90, 0.30, 0.12) if template["id"] == STATION_ID else ((1.50, 0.90, 0.16) if door_index == 0 else (1.0, 0.40, 0.12))
         for dx, dy in (offset for offset, _ in SIDES):
             if inside(template, x + dx, y + dy) and (indoors_at(template, x + dx, y + dy) or tile_at(template, x + dx, y + dy) != 0):
                 continue
@@ -1342,6 +1444,10 @@ def canopy_specs(template, plant=None):
         specs.append({"tile": (0, h - 1), "side": 2, "u0": 0.0, "u1": float(w), "depth": 1.05, "wall_y": 2.90, "outer_y": 2.66, "kind": "shop", "style": "tin"})
     elif template["id"] == STATION_ID:
         specs.append({"tile": (0, h - 1), "side": 2, "u0": 0.0, "u1": float(w), "depth": 1.10, "wall_y": 2.48, "outer_y": 2.36, "kind": "station", "style": "tin", "volume_top": 2.60})
+    elif template["id"] == KOBAN_ID:
+        x0, x1 = KOBAN_CANOPY["x"]
+        y0, y1 = KOBAN_CANOPY["y"]
+        specs.append({"tile": (int(x0), h - 1), "side": 2, "u0": 0.0, "u1": x1 - x0, "depth": KOBAN_CANOPY["depth"], "wall_y": y1, "outer_y": y1, "kind": "koban", "style": "concrete", "volume_top": KOBAN_LAMP["y"][1] + 0.02, "volume_bottom": y0})
     elif template["id"] == KONBINI_ID:
         bottom = 2.20 if plant == "konbini_canopy_low" else KONBINI_FASCIA[0]
         specs.append({"tile": (0, h - 1), "side": 2, "u0": 0.0, "u1": float(w), "depth": KONBINI_CANOPY_DEPTH, "wall_y": 2.50, "outer_y": 2.48, "kind": "konbini", "style": "metal", "volume_top": KONBINI_FASCIA[1], "volume_bottom": bottom})
@@ -1554,8 +1660,18 @@ def station_volumes(template, plant=None):
     return volumes
 
 
+# The shimenawa hangs over the shrine's entrance, across the open door tile: an overhead volume, as a
+# hood is, hosted on the wall tile west of the door, 0.10 m deep and above 2.20 m.
+def shrine_volumes(template, plant=None):
+    if template["id"] != SHRINE_ID:
+        return []
+    h = template["size"]["h"]
+    x0, x1 = SHRINE_ROPE["x"]
+    return [{"kind": "canopy", "min": [round(x0 - 0.15, 5), 2.20, float(h)], "max": [round(x1 + 0.15, 5), 2.56, float(h) + 0.10], "tile": [int(x0), h - 1], "side": 2}]
+
+
 def finish_volumes(template, plant=None):
-    volumes = genkan_volumes(template) + [canopy_volume(spec) for spec in canopy_specs(template, plant)] + wall_attachment_volumes(template) + shotengai_volumes(template) + station_volumes(template, plant)
+    volumes = genkan_volumes(template) + [canopy_volume(spec) for spec in canopy_specs(template, plant)] + wall_attachment_volumes(template) + shotengai_volumes(template) + station_volumes(template, plant) + shrine_volumes(template, plant)
     canopies = [v for v in volumes if v.get("kind") == "canopy"]
     walls = [v for v in volumes if v.get("kind") == "wall_attach"]
     windows = [v for v in volumes if v.get("kind") == "window_attach"]
@@ -2080,9 +2196,156 @@ def konbini_character(template, model, doors_clear, plant=None):
     )
 
 
+def name_faces_read(faces, spans, label):
+    # Faces of a sign read left to right and upright on a street face: each style spans its x range,
+    # and on every triangle u rises with +x and v (glTF, down the image) falls with height.
+    problems = []
+    for face in faces:
+        xs = [point[0] for point in face["points"]]
+        low_x, high_x = spans[face["style"]]
+        if min(xs) < low_x - 0.001 or max(xs) > high_x + 0.001:
+            problems.append(f"{label} spans x {min(xs):.2f} to {max(xs):.2f}, not {low_x:.0f} to {high_x:.0f}")
+        points, uvs = face["points"], face["uv"]
+        for i in range(3):
+            for j in range(i + 1, 3):
+                dx, dy = points[j][0] - points[i][0], points[j][1] - points[i][1]
+                du, dv = uvs[j][0] - uvs[i][0], uvs[j][1] - uvs[i][1]
+                if abs(dx) > 0.01 and abs(dy) < 0.001 and du * dx <= 0.0:
+                    problems.append(f"{label} is mirrored: u does not rise with x")
+                if abs(dy) > 0.01 and abs(dx) < 0.001 and dv * dy >= 0.0:
+                    problems.append(f"{label} is upside down: v does not fall with height")
+    return sorted(set(problems))
+
+
+def koban_character(template, model, doors_clear, plant=None):
+    w, h = template["size"]["w"], template["size"]["h"]
+    finish = [face for face in model.faces if face["node"].startswith("finish")]
+
+    def ys(face):
+        return [point[1] for point in face["points"]]
+
+    def zs(face):
+        return [point[2] for point in face["points"]]
+
+    door_x = float(template["doors"][0]["x"])
+    board = [face for face in finish if face["style"] == "koban_sign" and min(ys(face)) >= KOBAN_BOARD[0] - 0.001]
+    lamp = [face for face in finish if face["style"] == "koban_sign" and max(ys(face)) <= KOBAN_LAMP["y"][1] + 0.001]
+    board_top = max((max(ys(face)) for face in finish if min(zs(face)) >= h - 0.09 and max(ys(face)) > 3.0), default=0.0)
+    slab = [face for face in finish if face["style"] in ("concrete", "render_ivory") and min(zs(face)) >= h - 0.001 and min(ys(face)) >= KOBAN_CANOPY["y"][0] - 0.001 and max(ys(face)) <= KOBAN_CANOPY["y"][1] + 0.001]
+    canopy_low = min((min(ys(face)) for face in slab), default=0.0)
+    depth = max((max(zs(face)) for face in slab), default=float(h)) - h
+    posts = [face for face in finish if min(zs(face)) > h + 0.05 and min(ys(face)) < 2.0]
+    lamp_x = sum(point[0] for face in lamp for point in face["points"]) / max(1, 3 * len(lamp))
+    lamp_z = sum(point[2] for face in lamp for point in face["points"]) / max(1, 3 * len(lamp)) - h
+    lamp_seat = min((min(ys(face)) for face in finish if face["style"] == "metal" and min(zs(face)) > h + 0.3 and all(abs(point[0] - KOBAN_LAMP["x"]) <= 0.15 for point in face["points"])), default=9.0) - KOBAN_CANOPY["y"][1]
+    problems = name_faces_read(board, {"koban_sign": (door_x, door_x + 1.0)}, "the koban board")
+    if not board:
+        problems.append("no 交番 board on the street face")
+    if abs(board_top - KOBAN_BOARD[1]) > 0.001:
+        problems.append(f"sign board top {board_top:.3f} m, not {KOBAN_BOARD[1]} m")
+    if not lamp:
+        problems.append("no red lamp")
+    elif abs(lamp_x - KOBAN_LAMP["x"]) > 0.02 or abs(lamp_z - KOBAN_LAMP["z"]) > 0.02 or abs(lamp_seat) > 0.001:
+        problems.append(f"red lamp at x {lamp_x:.2f}, {lamp_z:.2f} m out, {lamp_seat * 1000:.0f} mm off the canopy, not over the door on it")
+    if not slab or canopy_low < 2.30 - 0.0001 or abs(depth - KOBAN_CANOPY["depth"]) > 0.001:
+        problems.append(f"canopy from {canopy_low:.2f} m, {depth:.2f} m deep")
+    if posts:
+        problems.append(f"{len(posts)} faces stand under the canopy")
+    if doors_clear != 1:
+        problems.append(f"doors clear {doors_clear}, not 1")
+    if problems:
+        raise ValueError(f"{template['id']}: " + "; ".join(problems))
+    walls = sorted({face["style"] for face in model.faces if face["style"] in exterior_style(template)})
+    return (
+        f"CHARACTER {template['id']}: sign board to {board_top:.2f} m with 交番 over the door, reading left to right; "
+        f"red lamp at x {lamp_x:.2f}, {lamp_z:.2f} m out on the canopy; canopy {canopy_low:.2f} m, {depth:.2f} m deep, posts {len(posts)}; "
+        f"doors clear {doors_clear}; walls {walls}"
+    )
+
+
+def shrine_character(template, model, doors_clear, plant=None):
+    w, h = template["size"]["w"], template["size"]["h"]
+    finish = [face for face in model.faces if face["node"].startswith("finish")]
+    eave, peak = eave_for(template), roof_peak(template)
+
+    def ys(face):
+        return [point[1] for point in face["points"]]
+
+    def xs(face):
+        return [point[0] for point in face["points"]]
+
+    def zs(face):
+        return [point[2] for point in face["points"]]
+
+    roof = [face for face in model.faces if face["style"] in ROOF_VARIANTS["shingle"]]
+    measured_eave = -min(min(zs(face)) for face in roof)
+    above = [face for face in finish if face["style"] == "dark_wood" and max(ys(face)) > peak + 0.20]
+    chigi_ends = {side for face in above for side in (("west",) if max(xs(face)) < 0.0 else ("east",) if min(xs(face)) > w else ())}
+    chigi_rise = max((max(ys(face)) for face in above if max(xs(face)) < 0.0 or min(xs(face)) > w), default=peak) - peak
+    # The logs: dark-wood faces on the ridge, inside the gable ends, clustered by x (a log is 0.14 m
+    # across, the logs 1.6 m apart).
+    clusters = []
+    for face in sorted((face for face in finish if face["style"] == "dark_wood" and 0.0 < min(xs(face)) and max(xs(face)) < w and min(ys(face)) >= peak - 0.001), key=lambda face: sum(xs(face))):
+        centre = sum(xs(face)) / 3
+        if clusters and centre - clusters[-1]["x"] < 0.30:
+            cluster = clusters[-1]
+        else:
+            cluster = {"x": centre, "low": 9.0, "z0": 9.0, "z1": -9.0}
+            clusters.append(cluster)
+        cluster["low"] = min(cluster["low"], min(ys(face)))
+        cluster["z0"] = min(cluster["z0"], min(zs(face)))
+        cluster["z1"] = max(cluster["z1"], max(zs(face)))
+    katsuogi = {round(c["x"], 2): (c["low"], c["z1"] - c["z0"]) for c in clusters if c["z1"] - c["z0"] > 0.5}
+    seat = max((abs(low - peak) for low, _ in katsuogi.values()), default=9.0)
+    # The rope: trim faces standing more than 60 mm off the front wall (the cornice and casings do not)
+    # within its ends, between 2.20 and 2.60 m.
+    rope_x0, rope_x1 = SHRINE_ROPE["x"]
+    rope = [face for face in finish if face["style"] == "trim" and max(zs(face)) > h + 0.06 and min(zs(face)) >= h - 0.001 and 2.20 <= min(ys(face)) and max(ys(face)) <= 2.60 and min(xs(face)) >= rope_x0 - 0.10 and max(xs(face)) <= rope_x1 + 0.10]
+    rope_span = (max(max(xs(face)) for face in rope) - min(min(xs(face)) for face in rope)) if rope else 0.0
+    rope_gap = (min(min(zs(face)) for face in rope) - h) if rope else 9.0
+    rope_proud = (max(max(zs(face)) for face in rope) - h) if rope else 9.0
+    shide = [face for face in finish if face["style"] == "mortar" and min(zs(face)) > h]
+    shide_count = len({round(sum(xs(face)) / 3, 1) for face in shide if max(ys(face)) > 2.30})
+    shide_low = min((min(ys(face)) for face in shide), default=0.0)
+    step = [face for face in finish if face["style"] == "granite" and min(zs(face)) >= h - 0.001]
+    # Exterior wall styles only: the civic interior's render is the room's, not the street's.
+    every_wall = {style for styles in WALL_VARIANTS.values() for style in styles} - set(interior_spec(template)["wall"])
+    walls = sorted({face["style"] for face in model.faces if face["style"] in every_wall})
+    problems = []
+    if abs(measured_eave - SHRINE_EAVE) > 0.01:
+        problems.append(f"eave {measured_eave:.2f} m, not {SHRINE_EAVE} m")
+    if chigi_ends != {"west", "east"}:
+        problems.append(f"chigi at {sorted(chigi_ends)}, not both gable ends")
+    if chigi_rise < SHRINE_CHIGI_RISE - 0.05:
+        problems.append(f"chigi rise {chigi_rise:.2f} m above the ridge")
+    if len(katsuogi) != SHRINE_KATSUOGI or seat > 0.001:
+        problems.append(f"katsuogi {len(katsuogi)}, seated within {seat * 1000:.0f} mm of the ridge")
+    if rope_span < 2.5 or rope_gap > 0.025 or rope_proud > 0.10 + 0.0001:
+        problems.append(f"shimenawa {rope_span:.2f} m wide, {rope_gap * 1000:.0f} mm off the wall, {rope_proud:.3f} m proud")
+    if shide_count != len(SHRINE_SHIDE_X) or shide_low < 2.22:
+        problems.append(f"shide {shide_count}, lowest {shide_low:.2f} m")
+    if not step:
+        problems.append("no granite step at the door")
+    if not set(walls) <= set(SHRINE_WALLS):
+        problems.append(f"walls {walls}, not only the unpainted boards {SHRINE_WALLS}")
+    if doors_clear != 1:
+        problems.append(f"doors clear {doors_clear}, not 1")
+    if problems:
+        raise ValueError(f"{template['id']}: " + "; ".join(problems))
+    return (
+        f"CHARACTER {template['id']}: eave {measured_eave:.2f} m; chigi at both gable ends, {chigi_rise:.2f} m above the ridge; "
+        f"katsuogi {len(katsuogi)} on the ridge; shimenawa {rope_span:.2f} m wide, {rope_proud:.3f} m proud, shide {shide_count} down to {shide_low:.2f} m; "
+        f"granite step; doors clear {doors_clear}; walls {walls}; roof {sorted({face['style'] for face in roof})}"
+    )
+
+
 def character_report(template, model, doors_clear=None, plant=None):
     if template["id"] == KONBINI_ID:
         return konbini_character(template, model, doors_clear, plant)
+    if template["id"] == KOBAN_ID:
+        return koban_character(template, model, doors_clear, plant)
+    if template["id"] == SHRINE_ID:
+        return shrine_character(template, model, doors_clear, plant)
     if template["id"] == STATION_ID:
         return station_character(template, model, doors_clear)
     if template["id"] == SAWMILL_ID:
@@ -2623,6 +2886,114 @@ def build_konbini_details(pieces, template, plant=None):
         side_quad(pieces.piece("window", 2, h - 1)["finish"], 2, h - 1, 2, 0.0, 1.0, WINDOW_SILL, WINDOW_TOP, "render_ivory", offset=0.020)
 
 
+def plank(mesh, a, b, across, width, x0, x1, style):
+    # A flat board from `a` to `b` (points in the y-z plane), `width` deep along `across` (a unit
+    # vector in the y-z plane), spanning x0..x1. Six faces, each wound outward.
+    a, b, across = Vector(a), Vector(b), Vector(across)
+    run = (b - a).normalized()
+    corners = []
+    for x in (x0, x1):
+        for along in (a, b):
+            for off in (0.0, width):
+                p = along + across * off
+                corners.append(Vector((x, p.y, p.z)))
+    # corners[i]: x index (0,1) * 4 + along (0,1) * 2 + off (0,1)
+    def c(xi, ai, oi):
+        return corners[xi * 4 + ai * 2 + oi]
+    mesh.polygon([c(0, 0, 0), c(0, 1, 0), c(0, 1, 1), c(0, 0, 1)], style, (-1, 0, 0))
+    mesh.polygon([c(1, 0, 0), c(1, 0, 1), c(1, 1, 1), c(1, 1, 0)], style, (1, 0, 0))
+    mesh.polygon([c(0, 0, 0), c(1, 0, 0), c(1, 1, 0), c(0, 1, 0)], style, tuple(-across))
+    mesh.polygon([c(0, 0, 1), c(0, 1, 1), c(1, 1, 1), c(1, 0, 1)], style, tuple(across))
+    mesh.polygon([c(0, 0, 0), c(0, 0, 1), c(1, 0, 1), c(1, 0, 0)], style, tuple(-run))
+    mesh.polygon([c(0, 1, 0), c(1, 1, 0), c(1, 1, 1), c(0, 1, 1)], style, tuple(run))
+
+
+def build_koban_details(pieces, template, plant=None):
+    finish = pieces.finish
+    w, h = template["size"]["w"], template["size"]["h"]
+    x0, x1 = KOBAN_CANOPY["x"]
+    y0, y1 = KOBAN_CANOPY["y"]
+    d = KOBAN_CANOPY["depth"]
+    # The canopy: a 0.10 m concrete slab over the door and the front window, a render soffit, no posts.
+    finish.box((x0, y0, float(h)), (x1 - x0, y1 - y0, d), "concrete", {"bottom": "render_ivory"})
+    # The red lamp on the slab over the door: a short glass drum between a metal base and cap.
+    if plant != "koban_lamp_missing":
+        lx, lz, r = KOBAN_LAMP["x"], h + KOBAN_LAMP["z"], KOBAN_LAMP["radius"]
+        ly0, ly1 = KOBAN_LAMP["y"]
+        finish.box((lx - 0.06, ly0, lz - 0.06), (0.12, 0.02, 0.12), "metal")
+        tube_between(finish, (lx, ly0 + 0.02, lz), (lx, ly1 - 0.02, lz), r, "koban_sign", segments=10)
+        finish.box((lx - r - 0.01, ly1 - 0.02, lz - r - 0.01), (2 * r + 0.02, 0.02, 2 * r + 0.02), "metal")
+    # The sign board standing on the roof's front cap, the street face's whole width, with the 交番
+    # board over the door: render elsewhere, the board's cell shifted half a cell up.
+    b0, b1 = KOBAN_BOARD
+    door_x = float(template["doors"][0]["x"])
+    exterior = exterior_style(template)
+    z_front, z_back = h + 0.02, h - 0.08
+
+    def board_cell(u0, u1, v0, v1, width, height):
+        return "koban_sign" if round(u0, 3) == door_x else None
+
+    def board_shift(u0, u1, v0, v1, width, height):
+        return (0.0, 0.5) if round(u0, 3) == door_x else (0.0, 0.0)
+
+    if plant == "koban_sign_reversed":
+        finish.face((float(w), b0, z_front), (-float(w), 0, 0), (0, b1 - b0, 0), exterior[0], exterior, normal=(0, 0, 1), style_for_cell=lambda u0, u1, v0, v1, width, height: board_cell(w - 1 - u0, 0, 0, 0, 0, 0), uv_shift_for_cell=lambda u0, u1, v0, v1, width, height: board_shift(w - 1 - u0, 0, 0, 0, 0, 0))
+    else:
+        finish.face((0.0, b0, z_front), (float(w), 0, 0), (0, b1 - b0, 0), exterior[0], exterior, normal=(0, 0, 1), style_for_cell=board_cell, uv_shift_for_cell=board_shift)
+    finish.face((0.0, 2.66, z_back), (0, b1 - 2.66, 0), (float(w), 0, 0), exterior[0], exterior, normal=(0, 0, -1))
+    finish.face((0.0, b1, z_back), (0, 0, z_front - z_back), (float(w), 0, 0), "trim", normal=(0, 1, 0))
+    finish.face((0.0, 2.66, z_back), (0, 0, z_front - z_back), (0, b1 - 2.66, 0), exterior[0], exterior, normal=(-1, 0, 0))
+    finish.face((float(w), 2.66, z_back), (0, b1 - 2.66, 0), (0, 0, z_front - z_back), exterior[0], exterior, normal=(1, 0, 0))
+    if plant == "koban_canopy_post":
+        finish.box((x0 + 0.05, 0.0, h + d - 0.12), (0.10, y0, 0.10), "metal")
+
+
+def build_shrine_details(pieces, template, plant=None):
+    finish = pieces.finish
+    w, h = template["size"]["w"], template["size"]["h"]
+    for volume in genkan_volumes(template):
+        low, high = volume["min"], volume["max"]
+        finish.box(low, [high[i] - low[i] for i in range(3)], "foundation", {"top": "granite"})
+    eave, peak = eave_for(template), roof_peak(template)
+    rise, half = peak - 2.62, h * 0.5 + eave
+    ridge = Vector((0.0, peak, h * 0.5))
+    # Chigi: at each gable end two boards follow the slopes past the ridge and cross above it, the
+    # north board outside the south one so their faces never share a plane.
+    for end in ((-eave, 1.0), (w + eave, -1.0)):
+        if plant == "chigi_missing" and end[1] < 0:
+            continue
+        edge, inward = end
+        for index, slope in enumerate((1.0, -1.0)):
+            run = Vector((0.0, rise, slope * half)).normalized()
+            across = Vector((0.0, half, -slope * rise)).normalized()
+            reach = SHRINE_CHIGI_RISE / run.y
+            start, tip = ridge - run * 0.90, ridge + run * reach
+            xa = edge + inward * (0.01 + 0.052 * index)
+            xb = xa + inward * 0.05
+            plank(finish, start, tip, across, 0.16, min(xa, xb), max(xa, xb), "dark_wood")
+    # Katsuogi: logs across the ridge, resting on the ridge board.
+    lift = 0.06 if plant == "katsuogi_float" else 0.0
+    for index in range(SHRINE_KATSUOGI):
+        x = w * 0.5 + (index - (SHRINE_KATSUOGI - 1) * 0.5) * 1.6
+        tube_between(finish, (x, peak + 0.07 + lift, h * 0.5 - 0.45), (x, peak + 0.07 + lift, h * 0.5 + 0.45), 0.07, "dark_wood")
+    # The shimenawa over the entrance: a straw rope sagging between its ends, four paper shide.
+    x0, x1 = SHRINE_ROPE["x"]
+    ry, sag, rr = SHRINE_ROPE["y"], SHRINE_ROPE["sag"], SHRINE_ROPE["radius"]
+    rz = h + (0.20 if plant == "shimenawa_proud" else SHRINE_ROPE["z"])
+    points = [(x0 + (x1 - x0) * k / 10, ry - sag * math.sin(math.pi * k / 10), rz) for k in range(11)]
+    tube_path(finish, points, rr, "trim")
+    drop = 0.30 if plant == "shide_low" else 0.13
+    for sx in SHRINE_SHIDE_X:
+        t = (sx - x0) / (x1 - x0)
+        top = ry - sag * math.sin(math.pi * t) - rr + 0.01
+        step = drop / 3.0
+        for k, (a, b) in enumerate(((-0.025, 0.025), (-0.005, 0.045), (-0.045, 0.005))):
+            y_hi, y_lo = top - step * k, top - step * (k + 1)
+            finish.polygon([(sx + a, y_lo, rz), (sx + b, y_lo, rz), (sx + b, y_hi, rz), (sx + a, y_hi, rz)], "mortar", (0, 0, 1))
+    if plant == "shrine_sage":
+        side_quad(finish, 0, 0, 3, 0.1, 0.9, 0.3, 2.3, "timber_sage", offset=0.004)
+
+
 def build_pieces(template, plant=None):
     pieces = Pieces(template)
     interior = interior_spec(template)
@@ -2650,6 +3021,10 @@ def build_pieces(template, plant=None):
         build_station_details(pieces, template, plant)
     if template["id"] == KONBINI_ID:
         build_konbini_details(pieces, template, plant)
+    if template["id"] == KOBAN_ID:
+        build_koban_details(pieces, template, plant)
+    if template["id"] == SHRINE_ID:
+        build_shrine_details(pieces, template, plant)
     finish = pieces.finish
     if plant == "coplanar" and template["id"] == "building.house.small":
         finish._polygon([Vector(v) for v in finish.vertices[:4]], finish.uvs[0], "trim")
@@ -2723,6 +3098,8 @@ def roof_form(template):
 
 
 def eave_for(template):
+    if template["id"] == SHRINE_ID:
+        return SHRINE_EAVE
     return 0.60 if template["id"] == STATION_ID else 0.75 if template["id"] in HOUSE_IDS else EAVE
 
 
@@ -2916,7 +3293,7 @@ def build_roof(mesh, template, plant=None):
             mesh.polygon([(x0, peak - 0.09, h * 0.5), (x1, peak - 0.09, h * 0.5), (x1, 2.53, h + eave), (x0, 2.53, h + eave)], "dark_wood", (0, -1, 0))
         mesh.role = "roof_side"
         for x, normal in ((-eave - 0.005, (-1, 0, 0)), (w + eave + 0.005, (1, 0, 0))):
-            style = "kawara" if template["id"] in HOUSE_IDS else "trim"
+            style = "kawara" if template["id"] in HOUSE_IDS else "dark_wood" if template["id"] == SHRINE_ID else "trim"
             mesh.polygon([(x, 2.62, -eave), (x, peak, h * 0.5), (x, peak - 0.14, h * 0.5), (x, 2.51, -eave)], style, normal)
             mesh.polygon([(x, peak, h * 0.5), (x, 2.62, h + eave), (x, 2.51, h + eave), (x, peak - 0.14, h * 0.5)], style, normal)
     mesh.role = "roof_side"
@@ -2933,7 +3310,7 @@ def build_roof(mesh, template, plant=None):
         if template["id"] in HOUSE_IDS:
             continue
         normal = Vector((SIDES[side_index][0][0], 0, SIDES[side_index][0][1]))
-        mesh.face(origin + Vector((0, 2.53, 0)), u_axis * length, Vector((0, 0.14, 0)), "trim", normal=normal)
+        mesh.face(origin + Vector((0, 2.53, 0)), u_axis * length, Vector((0, 0.14, 0)), "dark_wood" if template["id"] == SHRINE_ID else "trim", normal=normal)
     mesh.role = ""
     if "residential" in template.get("tags", []) and roof_style == "shingle":
         cx, cz = w * 0.72, h * 0.28
@@ -3058,7 +3435,7 @@ def validate_doors(template, model):
 
 # The commit the other templates are proved against: every building GLB and the atlas at this base must
 # be reproduced, in mesh and in the atlas cells each one touches, by this build.
-OTHER_TEMPLATES_BASE = "6c3f81a943e6868e89c5778418e7a787cd17521f"
+OTHER_TEMPLATES_BASE = "5151ed31b736514e62834a0c4dd0e594a445a069"
 
 
 def base_has(repo, relative):
@@ -3090,7 +3467,7 @@ def same_geometry(a, b):
 
 # The round's own template is excluded by name, on both sides of the comparison. Every other base GLB
 # must be proved, so a missing template cannot shrink the proof silently.
-PROOF_OWN = {KONBINI_ID}
+PROOF_OWN = {KOBAN_ID, SHRINE_ID}
 
 
 def validate_other_templates(repo, export_dir, templates, plant=None):
@@ -3583,7 +3960,7 @@ def main():
     arguments = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter", "sliding_door_cross", "sliding_leaf_span", "eave_north_clean", "canopy_post", "ticket_ledge_proud", "name_board_open", "name_board_uv", "name_board_one_cell", "name_board_mirror", "arch_float", "bracket_float", "konbini_canopy_low", "front_solid", "parapet_no_back", "mullion_door", "konbini_name_mirror", "konbini_name_swap", "konbini_name_reversed", "streak_pale", "storefront_empty"])
+    parser.add_argument("--plant", choices=["bounds", "coplanar", "density", "contact", "look", "template", "winding", "aperture", "canopy_low", "canopy_deep", "canopy_detached", "wall_proud", "wall_open", "door_cross", "other_template", "downpipe_short", "attach_offtile", "window_attach_opening", "rail_low", "hood_low", "gable_sage", "hood_candidate", "onigawara_spire", "shop_canopy_low", "shutter", "sliding_door_cross", "sliding_leaf_span", "eave_north_clean", "canopy_post", "ticket_ledge_proud", "name_board_open", "name_board_uv", "name_board_one_cell", "name_board_mirror", "arch_float", "bracket_float", "konbini_canopy_low", "front_solid", "parapet_no_back", "mullion_door", "konbini_name_mirror", "konbini_name_swap", "konbini_name_reversed", "streak_pale", "storefront_empty", "koban_sign_mirror", "koban_sign_reversed", "koban_lamp_missing", "koban_canopy_post", "chigi_missing", "katsuogi_float", "shimenawa_proud", "shide_low", "shrine_sage"])
     args = parser.parse_args(arguments)
     repo = Path(__file__).resolve().parents[3]
     try:
