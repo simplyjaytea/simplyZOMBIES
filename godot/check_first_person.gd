@@ -378,6 +378,7 @@ func _wall_tiles() -> bool:
 		var fails: Array = StreetDressing.validate(map, placed)
 		if not fails.is_empty():
 			ok = _fail("WALLTILE", "%s: %s" % [district_id, str(fails.slice(0, 3))])
+		ok = _pole_runs(map, placed, String(district_id)) and ok
 		# An independent read of the same rule: no wall within reach of a door or a gate, none on a street tile.
 		var streets: Dictionary = StreetDressing.street_tiles(map)
 		var gates: Array = [SimTileMap.gate_a(map), SimTileMap.gate_b(map)]
@@ -419,6 +420,66 @@ func _wall_tiles() -> bool:
 				print("WALLTILE judged both ways: refused a wall on a door %s, a road %s and a tile off any street %s" % [str(door_tile), str(road_tile), str(far_tile)])
 	if not refused_probe:
 		ok = _fail("WALLTILE", "no district gave a door and an off-street tile for the refusal probes")
+	return ok
+
+
+# Every pole in a run is wired. A run is two poles in one lane (tile rows or columns within POLE_LANE_TILES), WIRE_MIN_SPAN_M
+# to WIRE_MAX_SPAN_M apart, with no Wall tile between; the lane test and the wall test are written out here, not taken from
+# the placer. Each such pole must be the end of a drawn span, the district must wire at least one pole, and no centre wire
+# may pass over a Wall tile. A pole with no partner is a run of one and carries no wire.
+func _pole_runs(map: Variant, placed: Array, district_id: String) -> bool:
+	var ok: bool = true
+	var poles: Array = placed.filter(func(p): return StreetDressing._is_pole(p as Dictionary))
+	var spans: Array = StreetDressing.wire_spans(placed, map)
+	var ends: Dictionary = {}
+	for span in spans:
+		if String((span as Dictionary)["key"]) == "wire_c":
+			ends[((span as Dictionary)["a"] as Vector3).snapped(Vector3(0.001, 0.001, 0.001))] = true
+			ends[((span as Dictionary)["b"] as Vector3).snapped(Vector3(0.001, 0.001, 0.001))] = true
+		var a: Vector3 = (span as Dictionary)["a"] as Vector3
+		var b: Vector3 = (span as Dictionary)["b"] as Vector3
+		if String((span as Dictionary)["key"]) == "wire_c":
+			for i in range(65):
+				var q: Vector3 = a.lerp(b, float(i) / 64.0)
+				if int(SimTileMap.tile_at(map, int(floor(q.x)), int(floor(q.z)))) == SimTileMap.Tile.Wall:
+					ok = _fail("POLERUN", "%s: a centre wire passes over a Wall tile near (%.0f, %.0f)" % [district_id, q.x, q.z])
+					break
+	var wired: int = 0
+	var unwired_in_run: int = 0
+	for i in range(poles.size()):
+		var pi_: Dictionary = poles[i] as Dictionary
+		var is_wired: bool = ends.has(StreetDressing.anchor_world(pi_, "wire_c").snapped(Vector3(0.001, 0.001, 0.001)))
+		if is_wired:
+			wired += 1
+		var has_partner: bool = false
+		for j in range(poles.size()):
+			if i == j:
+				continue
+			var pj: Dictionary = poles[j] as Dictionary
+			var dx: int = absi(int(pj["tx"]) - int(pi_["tx"]))
+			var dy: int = absi(int(pj["ty"]) - int(pi_["ty"]))
+			var in_lane: bool = (dy <= StreetDressing.POLE_LANE_TILES and dx >= dy) or dx <= StreetDressing.POLE_LANE_TILES
+			var a2: Vector3 = pi_["pos"] as Vector3
+			var b2: Vector3 = pj["pos"] as Vector3
+			var reach: float = Vector2(a2.x, a2.z).distance_to(Vector2(b2.x, b2.z))
+			if not in_lane or reach < StreetDressing.WIRE_MIN_SPAN_M or reach > StreetDressing.WIRE_MAX_SPAN_M:
+				continue
+			var over_wall: bool = false
+			for k in range(65):
+				var q2: Vector3 = a2.lerp(b2, float(k) / 64.0)
+				if int(SimTileMap.tile_at(map, int(floor(q2.x)), int(floor(q2.z)))) == SimTileMap.Tile.Wall:
+					over_wall = true
+					break
+			if not over_wall:
+				has_partner = true
+				break
+		if has_partner and not is_wired:
+			unwired_in_run += 1
+	print("POLERUN %s: %d poles, %d wired, %d spans, %d poles with a partner and no wire" % [district_id, poles.size(), wired, spans.size() / 3, unwired_in_run])
+	if wired == 0:
+		ok = _fail("POLERUN", "%s wired no pole (%d poles)" % [district_id, poles.size()])
+	if unwired_in_run > 0:
+		ok = _fail("POLERUN", "%s: %d poles with a partner in range carry no wire" % [district_id, unwired_in_run])
 	return ok
 
 
@@ -561,7 +622,7 @@ func _dressing(dress_a: Node, dress_b: Node, dress_c: Node) -> bool:
 	var apart: Array = StreetDressing.wire_spans([near_a, far_b])
 	if not apart.is_empty():
 		ok = _fail("DRESSING", "two poles 50 m apart were joined by a wire span")
-	# Pole rules on the 256 district: poles are at least POLE_MIN_SPACING_M apart and turned across the run; every span is
+	# Pole rules on the 256 district: poles are at least POLE_MIN_SPACING_M apart and turned across their run; every span is
 	# WIRE_MIN_SPAN_M to WIRE_MAX_SPAN_M long, comes in matched triples, and crosses no Wall tile. Plants: the spacing rule
 	# and the building check, each dropped by its const.
 	var poles_c: Array = []
@@ -580,8 +641,9 @@ func _dressing(dress_a: Node, dress_b: Node, dress_c: Node) -> bool:
 	elif closest < StreetDressing.POLE_MIN_SPACING_M - 0.001:
 		ok = _fail("DRESSING", "two poles %.1f m apart, under the %.0f m spacing rule" % [closest, StreetDressing.POLE_MIN_SPACING_M])
 	for p in poles_c:
-		if absf(float((p as Dictionary)["yaw"]) - StreetDressing.POLE_YAW_RAD) > 0.001:
-			ok = _fail("DRESSING", "a pole is not turned across the run (yaw %.3f)" % float((p as Dictionary)["yaw"]))
+		var pyaw: float = float((p as Dictionary)["yaw"])
+		if absf(pyaw) > 0.001 and absf(pyaw - StreetDressing.POLE_YAW_RAD) > 0.001:
+			ok = _fail("DRESSING", "a pole is not turned across a run, along x or along z (yaw %.3f)" % pyaw)
 			break
 	var all_spans: Array = StreetDressing.wire_spans(placed_c_rules, map_c)
 	print("DRESSING wire spans on the 256 district %d" % all_spans.size())
