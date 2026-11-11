@@ -59,8 +59,8 @@ const WALL_SEGMENT_ONE_IN: int = 3
 const WALL_DOOR_CLEAR: int = 2
 const WALL_GATE_CLEAR: int = 4
 const WALL_CAP: int = 160
-const SALT_WALL_SEG: int = 504
-const SALT_WALL_RANK: int = 505
+const SALT_WALL_SEG: int = 506
+const SALT_WALL_RANK: int = 507
 # Plant (gate): true ignores the door and gate clearance, so a wall can stand across a door; the gate must go red.
 const WALL_IGNORE_DOORS: bool = false
 # Sim sides in the order a tile looks for its wall and its floor: north, east, south, west.
