@@ -4799,6 +4799,8 @@ not a to-do list:
   under Proof.
 - **First-person street dressing, 2026-11-09.** The first-person view draws the kit's props from the sim's tile classes (`godot/presentation/first_person/street_dressing.gd`, `street_dressing_view.gd`), presentation only, with no RNG; the rules are in docs/30 ("First-person street dressing is a picture of tiles the sim already has"). Gate: the DRESSING lane of `godot:check:first_person`, two plants. Not built: the block-wall pieces (no rule for a district Wall tile yet), and the real manifest and GLBs, which arrive with prop kit A.
 
+- **Block walls place, 2026-11-11 (#401).** The placer's wall-tile rule (mix `"rule": "lot_edge"`) stands the kit's block-wall body and end pieces along the street frontage on open outdoor floor, clear of every door, gate and road, on all four generated districts (160 a district at 128 tiles). Proven by the WALLTILE lane of `npm run godot:check:first_person`, with refusal probes and the `WALL_IGNORE_DOORS` plant. The gate and corner pieces stay unplaced; see docs/30.
+
 - **A review camera for the sheets, 2026-11-09.** F3 (testing only, not saved, listed under F1) puts a height camera 14 m
   above and 2 m behind the body, pitch -55 degrees, along its heading; `set_review_camera` places it for the sheet driver.
   Presentation only: the held weapon and HUD hide, the own body draws, the sim and the aim do not move. The game camera is
