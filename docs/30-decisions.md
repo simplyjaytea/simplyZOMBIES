@@ -1,5 +1,8 @@
 # 30 — Decision Records
 
+> **Closed on 2026-11-12.** New decisions are one file each under [docs/decisions/](decisions/README.md).
+> This file is kept as written; search it by system name.
+
 ## Why this document exists
 
 Every chunk of work in this project has produced a handful of decisions that were cheap to make at the
@@ -8578,6 +8581,8 @@ differs for the town centre at 256 on every seed, which is the change.
 
 - **First-person street dressing is a picture of tiles the sim already has, 2026-11-09.** `godot/presentation/first_person/street_dressing.gd` (the rules, pure statics) and `street_dressing_view.gd` (the drawing node) place the kit's props from the sim's tile classes and the manifest alone. Tall props (over the Low band, 1.1 m) stand flush to a wall, never on a Low tile or open floor; Low props stand on Low tiles or flush to a wall; wall pieces are at most 0.10 m proud on a wall side; the guard rail sits on a Low edge beside open floor; the noren hangs over an open door with its hem at 1.80 m or higher; wire spans join consecutive poles on a row or column at most 40 m apart. No RNG: every choice is the top-down dresser's hash of the map seed and the tile. Nothing is written to the sim or saved. Until prop kit A lands, the manifest is absent and nothing is drawn; the gate builds against `godot/fixtures/props_fixture.manifest.json` (five box stand-ins). Owner cards, defaults built: tall props never on Low tiles (option: a sim "tall prop" class that lets a machine stand free); wire spans drawn (option: none); one prop per six eligible tiles (option: denser). Gate: the DRESSING lane of `godot/check_first_person.gd`, with two plants (open-floor machine; wall clock in the second boot), both fail when planted. Block-wall pieces are not placed yet: no rule for a district Wall tile apart from a building wall was settled; the kit's block wall waits for that call.
 
+- **Block walls stand on a wall-tile rule of the placer, 2026-11-11.** The kit's block-wall pieces were manifest `run` pieces 1.2 m tall, so the Low-band rule never placed one and the dressing had none (the 2026-11-09 entry above waited for this call). A mix row with `"rule": "lot_edge"` now hands a piece to `StreetDressing.lot_edge_placements`: the piece stands on open outdoor floor with a street tile beside it (the street records, `map.streets`), along the street, in runs of 6 tiles, one run in three by hash, the run's end tiles taking the end piece. Never on a road, never within 2 tiles of a building door or a Door tile, never within 4 tiles of either gate anchor, never on a tile that holds another prop or a car. At most 160 a district, kept by hash rank, outside PROP_CAP. No RNG; pure picture, nothing written to the sim, so a body walks through a drawn wall exactly as it walks past a vending machine. Owner cards, defaults built: lots are not recorded on the map, so "lot edge" is read as the street frontage (option: record the parcels on the map and wall their real edges); the gate piece and the corner piece are not placed (option: a gate piece at a run's gap, a corner piece where two runs meet); 160 a district (option: more). Gate: the WALLTILE lane of `godot/check_first_person.gd`, a count above zero on all four districts, the rule check refusing a wall on a door, a road and an off-street tile, plant `WALL_IGNORE_DOORS`.
+
 - **A review camera for the sheets, testing only, 2026-11-09.** F3 turns a height camera on and off (`first_person.gd`,
   `toggle_review_camera`, `set_review_camera`): 14 m above the eye and 2 m behind the body, pitch -55 degrees, looking along
   the body's heading by default. It is for the sheets and the art QA, testing only, listed under F1, never saved, and the
@@ -8631,24 +8636,12 @@ art line may later ship a real lowered pose and this table yields to it.
   `godot/content/`, because the content gate needs a schema per type. Tall run pieces are not candidates on Low edges. Gate: the DRESSING
   lane choice, cap and run-height assertions; plant `CHOICE_LOW_BITS`.
 
-## The DISPERSION table is a measurement, outside the chain, 2026-11-11
 
-`DISPERSION` is 0.25, the built default of the shot-dispersion slice (docs/40 slice 8), with 0.5 and 1.0
-measured beside it. The value is the open half of docs/33's ray card (docs/40 question 1), whose default
-asks that a steady, skilled shot at a standing torso at fifteen metres usually lands. Measured at 0.25
-with the fixture's unskilled shooter, Steady at 15 m hits 0.530 (0.140 at 0.5, 0.040 at 1.0).
 
-The `godot:m2:ranged` DISPERSION lane in the chain fires only the eleven cells its assertions read at
-the value `ranged.gd` ships (0.25), so a changed value is judged too: Steady at 2, 4, 6 and 10 m, Idle
-from 4 m, the repeat of Steady 10 m (a cell that does not always hit), and three plants (1.0 at
-Steady 6 m, 2.0 at Steady 2 m, and Idle at 0.0 at 4 m against the Idle-below-Steady comparison), 200
-rounds each. A round whose target cannot be forced into its posture fails the lane. The full table
-behind the card, every cell at 0.25, 0.5 and 1.0, the crawler line and Steady at 15 m, is opt-in by
-`RANGED_FULL=1` (`npm run godot:m2:ranged:full`), the same shape as `godot:m2:balance:full`. Its cells
-are the same rounds the lane fires, so the two cannot disagree.
-
-Why: the first version built a fresh world per round, 5,600 rounds, each loading the content tree and
-none freed (docs/37). The process reached 19 GB, and CI shard 2 stalled until its timeout. The rounds
-now share one content tree and drop each world's reference cycle: the lane takes 9 s (was 121 s
-locally) and the full table 16 s, at a flat 263 MB. A planted no-op release grew past 1 GB on the
-full table. The hit rates are unchanged to the round.
+- **The shrine is the hall alone, 2026-11-10.** docs/42 asks for a 14 x 12 precinct around a 5 x 4 haiden. The precinct
+  cannot be a template: its open ground would have to be flagged indoors, and the kit would roof it. So `building.shrine.village`
+  is the hall alone, 7 x 6, its walls enclosing the 5 x 4 indoor floor docs/42 names. The precinct (gravel ground, the torii at
+  the approach, stone lanterns, komainu, water basin, the great cedar) is district dressing and props, for prop kit A and a
+  dressing placer; the first-person view has none today, so in the alpha the hall stands alone. Owner cards, defaults built:
+  the hall alone (option: a precinct content kind, a sim piece); the shrine pool is Hinatadai only (option: add the town centre).
+  The kōban pool is the town centre only. The locker and snub revolver of docs/42 section 5 are a future loot piece.

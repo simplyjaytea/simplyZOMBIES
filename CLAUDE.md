@@ -161,9 +161,9 @@ quietly amend them.
 - **Readers before content, pictures a stage behind.** A stat nothing resolves is not authored.
 - The owner decides design: anything a player would notice, and everything under
   [Waiting on the owner](docs/33-owner-decisions.md#waiting-on-the-owner). Engineering calls,
-  including tuning numbers that come out of a measurement, get an entry in
-  [docs/30](docs/30-decisions.md). Read the docs/30 entries for a system (search by its name)
-  before changing anything that looks arbitrary.
+  including tuning numbers that come out of a measurement, get a file under
+  [docs/decisions/](docs/decisions/README.md). Before changing anything that looks arbitrary,
+  search `docs/decisions/` and [docs/30](docs/30-decisions.md) (the earlier ones) for the system.
 - Never put per-item checkboxes in a status file. Status is prose in which each claim names the
   gate that proves it.
 - Commits use the repository's local git identity and carry no attribution trailer. Commits, PR
@@ -176,34 +176,66 @@ quietly amend them.
 ## The workflow
 
 Three standing seats, each a Claude Code terminal in herdr (`hc ls`). The roster names models
-because it says who runs what; nothing else in the repository does.
+because it says who runs what; nothing else in the repository does. Each seat's own rules are
+its agent file under `.claude/agents/`.
 
 | Seat | Model | Takes | Never |
 |---|---|---|---|
 | Orchestrator | Fable | Plans with the owner, writes each piece as an issue, assigns it, reads the final diff, merges | Writes the piece |
-| Architect | Opus | Shared sim modules, the save format, new gates, art builders, the design of a hard piece | Merges; routine work |
-| Builder | Sonnet | Everything else: features, gate upkeep, docs, keeping pull requests current with `main`. Fans work out to Haiku subagents, at most three pieces open at once | Merges; passes on a claim it has not reproduced |
+| Architect (`architect`) | Opus | Shared sim modules, the save format, new gates, art builders, the design of a hard piece | Merges; routine work |
+| Builder (`builder`) | Sonnet | Everything else: features, gate upkeep, docs, keeping pull requests current with `main`. Fans work out to `worker` subagents (Haiku) | Merges; passes on a claim it has not reproduced |
 
-- **GitHub is the record.** One issue per piece is its spec: the change, the files, the gate
-  that judges it, what done means. The label says whose it is (`architect`, `builder`,
-  `orchestrator`); the milestone says which goal it serves. The pull request is the report and
-  closes the issue. `gh issue list --milestone <name>` is where we are; no file carries status.
+Two more agents are spawned, not seated: `worker` (the builder's hand for one well-specified
+piece) and `reviewer` (a fresh, read-only read of one pull request).
+
+- **GitHub is the record.** One issue per piece is its spec, from the issue template: the
+  change, the files, the gate that judges it, what done means. The label says whose it is
+  (`architect`, `builder`, `orchestrator`); the milestone says which goal it serves. The pull
+  request is the report and closes the issue. No file carries status, a roster of who holds
+  what, or a log of sessions.
 - **One piece, one worktree, one branch, one pull request.**
   `git worktree add -b claude/<piece> .claude/worktrees/<piece> origin/main`, with `node_modules`
   symlinked from the main checkout. The main checkout stays on `main`; nobody switches branches
-  in it. Remove the worktree when its pull request merges.
-- **Reports are reproduced, not trusted.** The builder reruns the named gates itself on every
-  subagent's work before it pushes. The orchestrator reads the diff and CI before it merges.
-- **The architect's work gets an independent read.** A fresh subagent, briefed with the pull
-  request and its base and head only, never the author's account, reviews every art change and
-  every change to a shared sim module or the save format. A push after a review voids it.
+  in it. Each seat has a home worktree (`.claude/worktrees/seat-<name>`, detached) and does no
+  piece work there. Remove a piece's worktree when its pull request merges.
+- **Reports are reproduced, not trusted.** The builder reruns the named gates and the planted
+  failure itself on every worker's result before it pushes. The orchestrator reads the diff and
+  CI before it merges.
+- **Independent review.** Every art change and every change to a shared sim module or the save
+  format is read by the `reviewer` agent before its push, briefed with the pull request or its
+  base and head only, never the author's account. A push that changes the reviewed paths voids
+  the review.
+- **At most three pull requests open for merge.** Every merge sends the others back through a
+  re-merge and a CI run, so a fourth piece waits as a pushed branch. The orchestrator sets the
+  order: fixes to `main` first, then the piece others wait on, then the oldest.
 - **Merging.** A pull request merges when its head contains `origin/main`, CI is green on that
   head, and the diff is read: `gh pr merge <n> --merge --match-head-commit <full SHA>`. Merge
-  commits only. Never rebase or force-push a pushed branch, and never push to `main`.
+  commits only. Only the orchestrator merges; nobody rebases or force-pushes a pushed branch or
+  pushes to `main`. `.claude/hooks/guard-git.sh` blocks all of these.
+- **One waiver, and it is the owner's.** A CI job that fails in a step that only fetches from
+  outside the repository (a browser or package download) while every gate, `check` and export
+  job passes may be waived by the owner, per pull request, in the owner's own words. Rerun the
+  job first. Nothing else merges red, and no gate is ever skipped or loosened.
+- **Decisions.** A call taken gets its own file under `docs/decisions/` in the same pull
+  request. `docs/30` holds the earlier ones and gains no new entries.
 - **Design questions go to the owner once, with a default.** Build the default, say so in the
   pull request, and keep going. A step that cannot be undone waits for the owner's own words.
-- **Blocked or out of usage:** commit, push, and say what works, what fails and what is next in
-  a comment on the issue.
+
+**Starting a session.** `gh issue list --milestone "<goal>"` and `gh pr list` say where things
+stand; `hc ls` says which seats are up. Start a missing seat in its home worktree:
+
+```bash
+hc run --bg --name builder --cwd .claude/worktrees/seat-builder --outlive-parent --keep --no-notify \
+  -- env SZ_SEAT=builder claude --agent builder --permission-mode auto
+hc send builder "Your pieces are issues #A and #B. Work them without stopping."
+```
+
+The same with `architect` for the other seat. `SZ_SEAT` is what the guard hook reads. Update a
+seat's home worktree with `git -C .claude/worktrees/seat-<name> checkout --detach origin/main`.
+
+**Pausing.** Each seat commits, pushes, and comments on each of its open issues what works,
+what fails and what is next. The orchestrator checks that every open piece has that comment.
+Nothing else is written down.
 
 ## Traps
 
@@ -212,8 +244,8 @@ before touching the sim. Two that bite outside it:
 
 - A both-kept merge of a `switch` in `scripts/run-godot.mjs` can drop a `break;`, so one gate
   silently runs another. After such a merge, run the gate and its planted failure.
-- `docs/23`, `docs/30` and `godot/review/scenes.gd` conflict on every parallel branch. Keep both
-  sides, and add a scene in a small, separate hunk.
+- `docs/23` and `godot/review/scenes.gd` conflict on every parallel branch. Keep both sides, and
+  add a scene in a small, separate hunk.
 
 ## The docs map
 
@@ -221,14 +253,14 @@ before touching the sim. Two that bite outside it:
 |---|---|
 | Where a system's code lives, its spec and its gate | [ROUTING.md](ROUTING.md) |
 | What is built and what remains, with evidence | [docs/23](docs/23-roadmap.md) (large: read the entry for your piece) |
-| Why something is shaped the way it is | [docs/30](docs/30-decisions.md) (large: search by system name) |
+| Why something is shaped the way it is | [docs/decisions/](docs/decisions/README.md); before 2026-11-12, [docs/30](docs/30-decisions.md) (large: search by system name) |
 | Decisions waiting on the owner | [docs/33](docs/33-owner-decisions.md) |
 | Every gate, its timing, and what CI runs | [docs/35](docs/35-gates.md) |
 | The state of the build and the dead-socket list | [docs/36](docs/36-state-of-the-build.md) |
 | The first-person direction, spatial contract and plan | [docs/39](docs/39-first-person-pivot.md), [docs/40](docs/40-first-person-spatial-contract.md), [docs/41](docs/41-weapons-characters-world-plan.md) |
 | The setting, and the wider world by rail | [docs/42](docs/42-ome-okutama-setting.md), [docs/45](docs/45-wider-world-by-rail.md) |
 | Running the game, containers, screenshots | [docs/34](docs/34-agents-and-environment.md) |
-| What past sessions did | [docs/43](docs/43-session-log.md) |
+| What sessions before 2026-11-11 did (closed) | [docs/43](docs/43-session-log.md) |
 | Driving a pull request to green | `.claude/skills/steward/SKILL.md` |
 
 The design specs (docs/00 to docs/29) are numbered in the order they were written. New to the

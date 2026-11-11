@@ -1,5 +1,9 @@
 # Session log: what each session did and left, newest first
 
+> **Closed on 2026-11-11.** GitHub is the record now: issues, pull requests and the milestone
+> ([CLAUDE.md, The workflow](../CLAUDE.md#the-workflow)). This file is kept as history. Its paths under
+> `sz-shared/` no longer exist.
+
 Each entry is the handoff a session wrote when it stopped, moved here from PLAYBOOK.md so the
 playbook stays current. Read the newest entry first. Links are relative to this folder.
 

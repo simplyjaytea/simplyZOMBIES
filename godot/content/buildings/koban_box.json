@@ -1,0 +1,14 @@
+{
+  "id": "building.koban.box",
+  "name": "Koban",
+  "size": {"w": 5, "h": 5},
+  "tiles": [1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 2, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 2, 0, 1, 1],
+  "surfaces": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  "indoors": [0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+  "doors": [{"x": 2, "y": 4}],
+  "tags": ["civic", "police"],
+  "weight": 4,
+  "max_per_district": 1,
+  "districts": ["district.town_center"],
+  "look": {"roof": "tar", "wall": "render"}
+}

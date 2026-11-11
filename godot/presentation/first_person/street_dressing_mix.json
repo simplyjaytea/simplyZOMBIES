@@ -26,6 +26,14 @@
     "prop.street.utility_pole": {
       "weight": 1.0,
       "priority": true
+    },
+    "prop.street.wall_block_1m": {
+      "rule": "lot_edge",
+      "role": "body"
+    },
+    "prop.street.wall_block_end": {
+      "rule": "lot_edge",
+      "role": "end"
     }
   }
 }
