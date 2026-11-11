@@ -8630,3 +8630,19 @@ art line may later ship a real lowered pose and this table yields to it.
   0.5 and 40, vending machines 1.0 and 40, bicycles 1.0 and 60, utility poles 1.0 and priority). The file lives beside the placer, not under
   `godot/content/`, because the content gate needs a schema per type. Tall run pieces are not candidates on Low edges. Gate: the DRESSING
   lane choice, cap and run-height assertions; plant `CHOICE_LOW_BITS`.
+
+## The DISPERSION table is a measurement, outside the chain, 2026-11-11
+
+`DISPERSION` is 0.25, the built default of the shot-dispersion slice (docs/40 slice 8); the owner's
+card (docs/33 question 1) stays open with 0.5 and 1.0 as the alternatives. The `godot:m2:ranged`
+DISPERSION lane in the chain fires only the nine cells its assertions read at 0.25 (Steady at 2, 4, 6
+and 10 m, Idle from 4 m, the repeat of Steady 6 m, and the planted 1.0 at Steady 6 m), 200 rounds
+each. The full table behind the card, every cell at 0.25, 0.5 and 1.0 and the crawler line, is opt-in
+by `RANGED_FULL=1` (`npm run godot:m2:ranged:full`), the same shape as `godot:m2:balance:full`. Its
+cells are the same rounds the lane fires, so the two cannot disagree.
+
+Why: the first version built a fresh world per round, 5,600 rounds, each loading the content tree and
+none freed (docs/37). The process reached 19 GB, and CI shard 2 stalled until its timeout. The rounds
+now share one content tree and drop each world's reference cycle: the lane takes 9 s (was 121 s
+locally) and the full table 16 s, at a flat 263 MB. A planted no-op release grew past 1 GB on the
+full table. The hit rates are unchanged to the round.
