@@ -1,5 +1,8 @@
 # 30 — Decision Records
 
+> **Closed on 2026-11-12.** New decisions are one file each under [docs/decisions/](decisions/README.md).
+> This file is kept as written; search it by system name.
+
 ## Why this document exists
 
 Every chunk of work in this project has produced a handful of decisions that were cheap to make at the
