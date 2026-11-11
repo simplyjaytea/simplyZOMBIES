@@ -61,7 +61,13 @@ const WALK_PHASES: int = 8
 const STRIP_COLUMN_PX: int = 540
 const STRIP_CELL: Vector2i = Vector2i(360, 720)
 
-const FLOOR_COLOUR: Color = Color(0.16, 0.17, 0.17)
+const FLOOR_COLOUR: Color = Color(0.34, 0.35, 0.35)
+# A review key light, riding the camera so every orbit view is lit from the lens side. The game's sky is a
+# muted overcast with one fixed sun, so a figure turned away from that sun reads as a flat dark silhouette and
+# colour judgements run dark; this fill shows the form. It is the second place the look is not the game's
+# (the first is the orbit lens) and it is off for the first-person ranges, which are judged under the game's own light.
+const KEY_ENERGY: float = 0.55
+const KEY_COLOUR: Color = Color(1.0, 0.98, 0.94)
 const CAPTION_COLOUR: Color = Color(0.94, 0.88, 0.66)
 const SHEET_BACKGROUND: Color = Color(0.07, 0.08, 0.09)
 const CAPTION_SIZE: int = 25
@@ -74,6 +80,7 @@ var _failed: bool = false
 var _view: SubViewport = null
 var _camera: Camera3D = null
 var _sky: SkyView = null
+var _key: DirectionalLight3D = null
 var _out: String = ""
 var _saved: Array[String] = []
 
@@ -135,12 +142,14 @@ func _run() -> void:
 	var head_back: Image = await _shot("head_back", _orbit(head_at, head_d, 180.0), head_at, HEAD_FOV, size)
 
 	var fp_images: Array[Image] = []
+	_key.visible = false
 	for metres in FP_RANGES_M:
 		var eye: Vector3 = Vector3(centre.x, FP_EYE_M, centre.z - metres)
 		var aim: Vector3 = Vector3(centre.x, FP_TARGET_M, centre.z)
 		var file_name: String = "fp_%s" % _metres_label(metres)
 		fp_images.append(await _shot(file_name, eye, aim, FP_FOV, size))
 
+	_key.visible = true
 	var player: AnimationPlayer = _player_in(model)
 	if player == null or not player.has_animation(WALK_CLIP):
 		_refuse("%s has no AnimationPlayer with a `%s` clip" % [glb, WALK_CLIP])
@@ -168,6 +177,13 @@ func _build_stage(world: Variant) -> Node3D:
 	_camera.far = FP_FAR
 	_camera.current = true
 	stage.add_child(_camera)
+	_key = DirectionalLight3D.new()
+	_key.name = "ReviewKey"
+	_key.light_energy = KEY_ENERGY
+	_key.light_color = KEY_COLOUR
+	_key.shadow_enabled = false
+	_key.rotation_degrees = Vector3(-18.0, 0.0, 0.0)
+	_camera.add_child(_key)
 	_sky = SkyView.new()
 	_sky.name = "Sky"
 	stage.add_child(_sky)
