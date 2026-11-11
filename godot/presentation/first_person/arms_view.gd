@@ -504,6 +504,18 @@ static func view_material(source: BaseMaterial3D) -> BaseMaterial3D:
 	return copy
 
 
+## Where the view model draws a world-space `point` on a `view`-sized screen: through the Eye's transform
+## at the view model's own lens. `use_fov_override` keeps the Eye's aspect and sets the vertical field of
+## view to VIEW_MODEL_FOV_DEG, so the Eye's own fov does not enter; `use_z_clip_scale` moves depth only.
+## Vector2(-1, -1) for a point at or behind the eye.
+static func view_model_to_screen(eye: Camera3D, point: Vector3, view: Vector2) -> Vector2:
+	var local: Vector3 = eye.global_transform.affine_inverse() * point
+	if local.z > -0.001:
+		return Vector2(-1.0, -1.0)
+	var focal: float = (view.y * 0.5) / tan(deg_to_rad(VIEW_MODEL_FOV_DEG) * 0.5)
+	return view * 0.5 + Vector2(local.x, -local.y) * focal / -local.z
+
+
 static func is_view_material(material: Variant) -> bool:
 	if not (material is BaseMaterial3D):
 		return false
