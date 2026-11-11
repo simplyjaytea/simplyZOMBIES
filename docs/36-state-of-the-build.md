@@ -1,6 +1,6 @@
 # State of the build
 
-The state facts and the dead-socket list, in full. PLAYBOOK.md keeps the summary. docs/23 is the
+The state facts and the dead-socket list, in full. CLAUDE.md keeps the summary. docs/23 is the
 authority on what is built and what remains. Moved out of CLAUDE.md on 2026-10-19.
 
 ## Where the work is, in full
