@@ -57,6 +57,11 @@ blender --background --factory-startup --python tools/blender/first_person_build
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=name_board_mirror
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=arch_float
 blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=bracket_float
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=konbini_canopy_low
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=front_solid
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=parapet_no_back
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=mullion_door
+blender --background --factory-startup --python tools/blender/first_person_buildings/build_finishes.py -- --check --plant=konbini_name_mirror
 ```
 
 `winding` reverses one hip-roof face; `aperture` draws a wall across house_small's first window. The
@@ -307,8 +312,18 @@ If room tags are added to content later, the manifest is the place to refine thi
   shows none. They reuse `mortar_stain`.
 - `CHARACTER building.konbini.road` measures the parapet, back faces, cap, open windows, mullions,
   fascia, canopy, posts, name, doors, walls, streaks and roof from the GLB.
-- `OTHER_TEMPLATES_PIXELS_IDENTICAL 23/23` against `OTHER_TEMPLATES_BASE = 8185f1e9`, the station's
-  signed head, excluding only the konbini by name.
+- `OTHER_TEMPLATES_PIXELS_IDENTICAL 25/25` against `OTHER_TEMPLATES_BASE = 6c3f81a9` (main with the
+  koban and the shrine hall), excluding only the konbini by name.
+- Rendered, the other templates move by single pixels, and not through mips. A throwaway driver drew
+  every manifest template from 8 bearings at 3 distances (624 frames at 1280x720) twice: from main, and
+  from main with this head's atlas and every GLB but the konbini's. The GLBs agree in JSON and mesh
+  data, and their embedded atlases differ only in the three konbini cells. 22 frames differ by 36 px,
+  all near the building, and a repeat render of main differs by 0. The atlas a GLB carries is loaded
+  at run time without mipmaps (`has_mipmaps()` is false, and a no-mipmap filter changes no frame), so
+  every texel is read at the base level. 32 px come from REPEAT sampling: faces end exactly on the
+  atlas's outer edges (v = 1 under cells (5,7) and (6,7), u = 0 in row 5), and nearest sampling at
+  the edge wraps into the konbini's new cells across the atlas; with repeat off they vanish. The other
+  4 px are on `building.unit.industrial`, whose faces end on a konbini cell's edge inside the atlas.
 
 ## Windows
 

@@ -2558,8 +2558,11 @@ not a to-do list:
   mullions with a kick rail, aluminium door casing, a 0.85 m canopy with no posts and a 2.36 to
   2.95 m fascia in a faded plum livery carrying the invented name やまびこ (rows rasterised once from
   Noto Sans CJK Bold), and per-tile rain streaks on the side and back walls that never repeat by course. `build_finishes.py -- --check` prints `CHARACTER building.konbini.road` and
-  `OTHER_TEMPLATES_PIXELS_IDENTICAL 23/23`, and refuses `konbini_canopy_low`, `front_solid`,
-  `parapet_no_back`, `mullion_door` and `konbini_name_mirror`. Three atlas cells used, four left.
+  `OTHER_TEMPLATES_PIXELS_IDENTICAL 25/25` against main 6c3f81a9, and all 41 plants are refused, the
+  konbini's `konbini_canopy_low`, `front_solid`, `parapet_no_back`, `mullion_door` and
+  `konbini_name_mirror` among them. Three atlas cells used, four left. Rendered, other templates move
+  by 36 px over 624 frames, from REPEAT sampling at the atlas's outer edges and one template's faces
+  ending on a konbini cell's edge, not from mips: the atlas loads without them (the builder README).
 
 - **The kōban and the shrine hall, 2026-11-10.** `building.koban.box` (5 x 5, civic and police, town centre; tar roof,
   render walls; street door on the south face, a front window and a side window) and `building.shrine.village` (7 x 6 hall
