@@ -192,7 +192,7 @@ piece) and `reviewer` (a fresh, read-only read of one pull request).
   change, the files, the gate that judges it, what done means. The label says whose it is
   (`architect`, `builder`, `orchestrator`); the milestone says which goal it serves. The pull
   request is the report and closes the issue. No file carries status, a roster of who holds
-  what, or a log of sessions.
+  what, or a log of sessions; the one pinned issue "Where we are" says where to start.
 - **One piece, one worktree, one branch, one pull request.**
   `git worktree add -b claude/<piece> .claude/worktrees/<piece> origin/main`, with `node_modules`
   symlinked from the main checkout. The main checkout stays on `main`; nobody switches branches
@@ -221,21 +221,31 @@ piece) and `reviewer` (a fresh, read-only read of one pull request).
 - **Design questions go to the owner once, with a default.** Build the default, say so in the
   pull request, and keep going. A step that cannot be undone waits for the owner's own words.
 
-**Starting a session.** `gh issue list --milestone "<goal>"` and `gh pr list` say where things
-stand; `hc ls` says which seats are up. Start a missing seat in its home worktree:
+**Starting a session.** Read the pinned issue first (`gh issue list --label resume`, titled
+"Where we are"): the orchestrator rewrites it at every pause, and it names `main`, every open
+piece with its issue, pull request and branch, the next things in order, and what waits on the
+owner. Then `gh pr list` for what moved since, and `hc ls` for which seats are up. Start a
+missing seat in its home worktree, after moving that worktree to the current `main`:
 
 ```bash
+git -C .claude/worktrees/seat-builder checkout --detach origin/main
 hc run --bg --name builder --cwd .claude/worktrees/seat-builder --outlive-parent --keep --no-notify \
   -- env SZ_SEAT=builder claude --agent builder --permission-mode auto
 hc send builder "Your pieces are issues #A and #B. Work them without stopping."
 ```
 
-The same with `architect` for the other seat. `SZ_SEAT` is what the guard hook reads. Update a
-seat's home worktree with `git -C .claude/worktrees/seat-<name> checkout --detach origin/main`.
+The same with `architect` for the other seat. `SZ_SEAT` is what the guard hook reads. The owner
+watches the seats beside the orchestrator, in one tab of the Herdr app: with the orchestrator's
+pane focused, `herdr-app do terminal.keep --terminal architect --place right`, then
+`herdr-app do pane.focus --terminal architect` and
+`herdr-app do terminal.keep --terminal builder --place down`. The app places a pane only in the
+space that is showing (`herdr-app do space.select --id <id from herdr-app ls>`).
 
-**Pausing.** Each seat commits, pushes, and comments on each of its open issues what works,
-what fails and what is next. The orchestrator checks that every open piece has that comment.
-Nothing else is written down.
+**Pausing.** Each seat stops at a safe point, commits (a WIP commit says so), pushes, and
+comments on each of its open issues: what works, what fails, what is next, the branch and head.
+The orchestrator checks every open piece has that comment, merges what is ready, rewrites the
+pinned "Where we are" issue, and ends the seats (`hc kill <seat>`, then `hc rm <seat>`). Piece
+worktrees with unmerged work stay; merged ones go. Nothing about the pause is written to a file.
 
 ## Traps
 
