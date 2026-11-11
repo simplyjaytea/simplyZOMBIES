@@ -8633,3 +8633,11 @@ art line may later ship a real lowered pose and this table yields to it.
   0.5 and 40, vending machines 1.0 and 40, bicycles 1.0 and 60, utility poles 1.0 and priority). The file lives beside the placer, not under
   `godot/content/`, because the content gate needs a schema per type. Tall run pieces are not candidates on Low edges. Gate: the DRESSING
   lane choice, cap and run-height assertions; plant `CHOICE_LOW_BITS`.
+
+- **The shrine is the hall alone, 2026-11-10.** docs/42 asks for a 14 x 12 precinct around a 5 x 4 haiden. The precinct
+  cannot be a template: its open ground would have to be flagged indoors, and the kit would roof it. So `building.shrine.village`
+  is the hall alone, 7 x 6, its walls enclosing the 5 x 4 indoor floor docs/42 names. The precinct (gravel ground, the torii at
+  the approach, stone lanterns, komainu, water basin, the great cedar) is district dressing and props, for prop kit A and a
+  dressing placer; the first-person view has none today, so in the alpha the hall stands alone. Owner cards, defaults built:
+  the hall alone (option: a precinct content kind, a sim piece); the shrine pool is Hinatadai only (option: add the town centre).
+  The kōban pool is the town centre only. The locker and snub revolver of docs/42 section 5 are a future loot piece.

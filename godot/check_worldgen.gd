@@ -128,6 +128,8 @@ func _run() -> void:
 	ok = _every_station_door_has_a_walkable_approach() and ok
 	# The station's `max_per_district: 1`: one per district on every seed, and exactly one in the town centre.
 	ok = _unique_civic_holds_per_district() and ok
+	# The kōban and the shrine carry the same cap: at most one per district, the kōban exactly one in the town centre.
+	ok = _koban_and_shrine_hold_their_caps() and ok
 	# Slice 9: terrain defaults, the forest district (if it exists yet), and the paths pass.
 	ok = _the_terrain_defaults_are_the_historical_thirteen() and ok
 	ok = _the_forest_district_generates_and_is_denser_than_the_suburb() and ok
@@ -811,9 +813,10 @@ func _unique_civic_holds_per_district() -> bool:
 		if int(c) != 1:
 			push_error("the town centre has %d stations on a shipped-size seed, not exactly one" % int(c))
 			ok = false
+	var caps_before: bool = SimWorldgen.CAPS_HONOURED
 	SimWorldgen.CAPS_HONOURED = false
 	var planted: Array = _station_counts(TOWN_CENTER, SHIPPED_SIZE, SHIPPED_SEEDS)
-	SimWorldgen.CAPS_HONOURED = true
+	SimWorldgen.CAPS_HONOURED = caps_before
 	var most: int = 0
 	for c in planted:
 		most = maxi(most, int(c))
@@ -826,6 +829,64 @@ func _unique_civic_holds_per_district() -> bool:
 			GATE_SIZE, str(gate_town),
 			SHIPPED_SIZE, str(shipped_town),
 			SHIPPED_SIZE, most, TOWN_CENTER])
+	return ok
+
+
+const KOBAN_ID: String = "building.koban.box"
+const SHRINE_ID: String = "building.shrine.village"
+const KOBAN_DISTRICT: String = "district.town_center"
+const SHRINE_DISTRICT: String = "district.residential_suburb"
+
+
+func _template_counts(district_id: String, size: int, seeds: Array, template_id: String) -> Array:
+	var tree: Dictionary = _tree()
+	var counts: Array = []
+	for seed_value in seeds:
+		var world: Variant = SimWorldgen.generate(int(seed_value), size, tree, district_id)
+		var count: int = 0
+		for building in world.buildings as Array:
+			if String((building as Dictionary).get("id", "")) == template_id:
+				count += 1
+		counts.append(count)
+	return counts
+
+
+# The kōban and the shrine carry `max_per_district: 1`, judged as the station is. True negative, at the gate
+# size in every district: neither template is more than one per district on any sweep seed. True positive,
+# at the shipped size: the kōban is exactly one in the town centre on every sweep seed, and the shrine is at
+# most one in its district. The plant (CAPS_HONOURED off, pinned here and restored) at the shipped size on
+# the shipped seeds: the kōban must reach two or more on some seed, or the negative proves nothing.
+func _koban_and_shrine_hold_their_caps() -> bool:
+	var ok: bool = true
+	for district_id in DISTRICT_IDS:
+		for template_id in [KOBAN_ID, SHRINE_ID]:
+			for c in _template_counts(String(district_id), GATE_SIZE, SWEEP_SEEDS, String(template_id)):
+				if int(c) > 1:
+					push_error("%d copies of %s in %s on a gate seed, so the per-district cap does not hold" % [int(c), String(template_id), String(district_id)])
+					ok = false
+	var koban_town: Array = _template_counts(KOBAN_DISTRICT, SHIPPED_SIZE, SWEEP_SEEDS, KOBAN_ID)
+	for c in koban_town:
+		if int(c) != 1:
+			push_error("the kōban has %d copies in the town centre on a shipped-size seed, not exactly one" % int(c))
+			ok = false
+	var shrine_home: Array = _template_counts(SHRINE_DISTRICT, SHIPPED_SIZE, SWEEP_SEEDS, SHRINE_ID)
+	for c in shrine_home:
+		if int(c) > 1:
+			push_error("%d shrines in the residential suburb on a shipped-size seed, so the cap does not hold" % int(c))
+			ok = false
+	var caps_before: bool = SimWorldgen.CAPS_HONOURED
+	SimWorldgen.CAPS_HONOURED = false
+	var planted: Array = _template_counts(KOBAN_DISTRICT, SHIPPED_SIZE, SHIPPED_SEEDS, KOBAN_ID)
+	SimWorldgen.CAPS_HONOURED = caps_before
+	var most: int = 0
+	for c in planted:
+		most = maxi(most, int(c))
+	if most < 2:
+		push_error("with the cap ignored no shipped seed stamps two kōban in the town centre, so the negative proves nothing")
+		ok = false
+	if ok:
+		print("UNIQUE_CIVIC OK kōban and shrine: at most 1 per district on all %d gate seeds x %d districts; kōban exactly 1 in the town centre on every shipped-size seed %s; shrine at most 1 in the residential suburb %s; cap ignored at %d puts up to %d kōban into the town centre" % [
+			SWEEP_SEEDS.size(), DISTRICT_IDS.size(), str(koban_town), str(shrine_home), SHIPPED_SIZE, most])
 	return ok
 
 
