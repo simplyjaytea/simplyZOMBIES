@@ -42,12 +42,13 @@ func _run() -> void:
 # `half * DISPERSION`. A fresh fixture per round, seeds 1..200, a pistol shooter at x 2 m and a shambler
 # standing at 2, 4, 6 and 10 m, on an open map. At the built default 0.25: Steady hits at least 0.80 at
 # 6 m and 0.95 at 2 m; Idle hits less than Steady at every distance from 4 m. Same seed, same answer. A
-# plant at 1.0 must fail the Steady 6 m assertion. The pin is restored before return.
+# plant at 1.0 must fail the Steady 6 m assertion, and one at 2.0 the Steady 2 m one. The pin is restored
+# before return.
 #
-# The chain fires only the cells those assertions read (nine cells, 1,800 rounds). The measurement table
+# The chain fires only the cells those assertions read and the two plants (ten cells, 2,000 rounds). The measurement table
 # behind the owner's card (docs/33 question 1) -- Steady and Idle at 0.25, 0.5 and 1.0, and a crawler aimed
-# at its chest -- is opt-in by RANGED_FULL=1 (`npm run godot:m2:ranged:full`): it is a measurement, and at
-# about two minutes it does not belong in a CI shard.
+# at its chest -- is opt-in by RANGED_FULL=1 (`npm run godot:m2:ranged:full`): it is a measurement for
+# the owner's card, not a gate, and the chain asserts nothing it adds.
 #
 # Memory: a World never frees on its own. Its system registry and event bus hold Callables bound to it,
 # a reference cycle, and each World.new loads the whole content tree. Thousands of rounds held that way
@@ -59,6 +60,9 @@ const DISPERSION_REACH: float = 30.0
 
 var _dispersion_full: bool = OS.get_environment("RANGED_FULL") == "1"
 var _dispersion_content: Variant = null
+# Set when a round's target could not be put in the posture it was asked for, so the lane fails rather than
+# measuring the wrong body.
+var _dispersion_posture_failed: bool = false
 
 func _dispersion_world(seed_val: int) -> Variant:
 	if _dispersion_content == null:
@@ -112,7 +116,7 @@ func _dispersion_posture(w: Variant, target: int, crawler: bool) -> void:
 	else:
 		body["legs"] = float(max_body.get("legs", 1.0))
 	if SimHealth.is_crawling(body) != crawler:
-		push_error("DISPERSION posture not forced to %s" % ("crawler" if crawler else "standing"))
+		_dispersion_posture_failed = true
 
 
 # Hits out of DISPERSION_ROUNDS for one distance, state and disc value.
@@ -197,17 +201,24 @@ func _dispersion() -> bool:
 	var again: float = _dispersion_rate(0.25, steady_half, 6.0)
 	if again != float(steady[2]):
 		ok = _fail_lane(lane, "the Steady 6 m cell is not repeatable (%.3f then %.3f)" % [float(steady[2]), again])
-	# The plant: at 1.0 the Steady 6 m assertion must fail.
+	# The plants: at 1.0 the Steady 6 m assertion must fail, and at 2.0 the Steady 2 m one.
 	var planted: float = _dispersion_rate(1.0, steady_half, 6.0)
 	if planted >= 0.80:
 		ok = _fail_lane(lane, "a planted DISPERSION 1.0 passed the Steady 6 m assertion (%.3f)" % planted)
 	else:
 		print("DISPERSION planted 1.0 refused: Steady 6 m hits %.3f, below 0.80" % planted)
+	var planted_near: float = _dispersion_rate(2.0, steady_half, 2.0)
+	if planted_near >= 0.95:
+		ok = _fail_lane(lane, "a planted DISPERSION 2.0 passed the Steady 2 m assertion (%.3f)" % planted_near)
+	else:
+		print("DISPERSION planted 2.0 refused: Steady 2 m hits %.3f, below 0.95" % planted_near)
+	if _dispersion_posture_failed:
+		ok = _fail_lane(lane, "a target could not be forced into the posture its cell asks for")
 	if SimRanged.DISPERSION != was:
 		SimRanged.DISPERSION = was
 		ok = _fail_lane(lane, "the DISPERSION pin was not restored")
 	if ok:
-		print("DISPERSION OK at 0.25 Steady hits %.3f at 6 m and %.3f at 2 m, Idle hits less than Steady from 4 m, the table repeats, and DISPERSION 1.0 is refused" % [float(steady[2]), float(steady[0])])
+		print("DISPERSION OK at 0.25 Steady hits %.3f at 6 m and %.3f at 2 m, Idle hits less than Steady from 4 m, the table repeats, and DISPERSION 1.0 and 2.0 are refused" % [float(steady[2]), float(steady[0])])
 	return ok
 
 
