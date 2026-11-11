@@ -298,6 +298,7 @@ func _run() -> void:
 	dress_a.queue_free()
 	dress_b.queue_free()
 	dress_c.queue_free()
+	ok = _lane("WALLTILE", _wall_tiles(), "block walls place on all four generated districts (a count above zero each), stand only on open outdoor floor beside a street, never within two tiles of a door or four of a gate, never on a road; a wall across a door, on a road, and on a tile with no street beside it each fail the rule check, and two boots place the same walls") and ok
 
 	# The review camera (F3) and the game-camera sequence each get a fresh scene: the review lane moves the
 	# camera and the held weapon, so the sequence lane reads a scene no other lane has touched.
@@ -342,6 +343,83 @@ const DRESSING_FIXTURE: String = "res://fixtures/props_fixture.manifest.json"
 # tall vending machine on an open-floor tile to the placements the lane judges.
 const DRESSING_PLANT_CLOCK: bool = false
 const DRESSING_PLANT_OPEN_FLOOR: bool = false
+
+
+const WALL_DISTRICTS: Array = ["district.town_center", "district.residential_suburb", "district.industrial_park", "district.forest_edge"]
+const WALL_MANIFEST: String = "res://assets/first_person/props.manifest.json"
+const WALL_MIX: String = "res://presentation/first_person/street_dressing_mix.json"
+const WALL_SEED: int = 31337
+const WALL_SIZE: int = 128
+const SimWorldgen = preload("res://sim/map/worldgen.gd")
+
+
+func _wall_tiles() -> bool:
+	var ok: bool = true
+	var entries: Array = StreetDressing.load_manifest(WALL_MANIFEST)
+	var mix: Dictionary = StreetDressing.load_mix(WALL_MIX)
+	var wall_ids: int = 0
+	for e in entries:
+		if StreetDressing._is_lot_edge(mix, String((e as Dictionary)["id"])):
+			wall_ids += 1
+	if wall_ids != 2:
+		return _fail("WALLTILE", "the real manifest and mix give %d block-wall entries, not two (body and end)" % wall_ids)
+	var refused_probe: bool = false
+	for district_id in WALL_DISTRICTS:
+		var map: Variant = SimWorldgen.generate(WALL_SEED, WALL_SIZE, null, String(district_id), true)
+		var placed: Array = StreetDressing.placements(map, WALL_SEED, entries, mix)
+		var again: Array = StreetDressing.placements(map, WALL_SEED, entries, mix)
+		var walls: Array = placed.filter(func(p): return String((p as Dictionary)["placement"]) == StreetDressing.LOT_EDGE)
+		print("WALLTILE %s: %d block-wall pieces of %d props" % [district_id, walls.size(), placed.size()])
+		if walls.is_empty():
+			ok = _fail("WALLTILE", "%s placed no block wall" % district_id)
+			continue
+		if StreetDressing.digest_text(placed) != StreetDressing.digest_text(again):
+			ok = _fail("WALLTILE", "%s placed different walls on a second run" % district_id)
+		var fails: Array = StreetDressing.validate(map, placed)
+		if not fails.is_empty():
+			ok = _fail("WALLTILE", "%s: %s" % [district_id, str(fails.slice(0, 3))])
+		# An independent read of the same rule: no wall within reach of a door or a gate, none on a street tile.
+		var streets: Dictionary = StreetDressing.street_tiles(map)
+		var gates: Array = [SimTileMap.gate_a(map), SimTileMap.gate_b(map)]
+		for p in walls:
+			var t: Vector2i = Vector2i(int((p as Dictionary)["tx"]), int((p as Dictionary)["ty"]))
+			if streets.has(t):
+				ok = _fail("WALLTILE", "%s: a block wall on a road at %s" % [district_id, str(t)])
+			for dy in range(-2, 3):
+				for dx in range(-2, 3):
+					if StreetDressing.SimSpace.profile_key(map, t.x + dx, t.y + dy).begins_with("door"):
+						ok = _fail("WALLTILE", "%s: a block wall within two tiles of a door at %s" % [district_id, str(t)])
+			for g in gates:
+				if (g as Vector2i).x >= 0 and absi((g as Vector2i).x - t.x) <= 3 and absi((g as Vector2i).y - t.y) <= 3:
+					ok = _fail("WALLTILE", "%s: a block wall within three tiles of a gate at %s" % [district_id, str(t)])
+		# True negatives: a wall piece moved onto a door tile, onto a road tile and onto a tile with no street beside it
+		# is refused by the rule check.
+		if not refused_probe:
+			var door_tile: Vector2i = Vector2i(-1, -1)
+			for b in (map.buildings as Array):
+				var ds: Array = (b as Dictionary).get("doors", []) as Array
+				if not ds.is_empty():
+					door_tile = Vector2i(int((ds[0] as Dictionary)["x"]), int((ds[0] as Dictionary)["y"]))
+					break
+			var road_tile: Vector2i = streets.keys()[0] as Vector2i
+			var far_tile: Vector2i = Vector2i(-1, -1)
+			for ty in range(2, int(map.h) - 2):
+				for tx in range(2, int(map.w) - 2):
+					if far_tile.x < 0 and StreetDressing.SimSpace.profile_key(map, tx, ty) == "floor" and not streets.has(Vector2i(tx, ty)) and StreetDressing._street_side(streets, tx, ty) == Vector2i.ZERO and not SimTileMap.is_indoors(map, tx, ty):
+						far_tile = Vector2i(tx, ty)
+			if door_tile.x >= 0 and far_tile.x >= 0:
+				refused_probe = true
+				var proto: Dictionary = walls[0] as Dictionary
+				for probe in [door_tile, road_tile, far_tile]:
+					var bad: Dictionary = proto.duplicate()
+					bad["tx"] = (probe as Vector2i).x
+					bad["ty"] = (probe as Vector2i).y
+					if StreetDressing.validate(map, [bad]).is_empty():
+						ok = _fail("WALLTILE", "the rule check passed a block wall on %s" % str(probe))
+				print("WALLTILE judged both ways: refused a wall on a door %s, a road %s and a tile off any street %s" % [str(door_tile), str(road_tile), str(far_tile)])
+	if not refused_probe:
+		ok = _fail("WALLTILE", "no district gave a door and an off-street tile for the refusal probes")
+	return ok
 
 
 func _dressing(dress_a: Node, dress_b: Node, dress_c: Node) -> bool:
