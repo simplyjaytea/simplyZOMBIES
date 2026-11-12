@@ -6,6 +6,12 @@ dispatch and shared-folder sections were dropped with it; older docs that cite t
 (docs/23, docs/30, docs/43, docs/45) are history and are left as written. `git log -- PLAYBOOK.md`
 has every version.
 
+"The playbook" now means [CLAUDE.md, The workflow](../CLAUDE.md#the-workflow). It was rewritten
+on 2026-11-12, the owner's call again
+([the decision](decisions/2026-11-12-one-orchestrator-and-spawned-agents.md)): one orchestrator
+session runs a job in four passes through agents it spawns, and a change a player can see is
+judged by pictures ([docs/46](46-the-look.md)).
+
 | Old section | Now |
 |---|---|
 | What the project is, Where the work is | [CLAUDE.md](../CLAUDE.md#what-the-project-is) |

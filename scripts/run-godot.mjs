@@ -587,6 +587,19 @@ switch (mode) {
       "res://check_fp_encounter.gd",
     ];
     break;
+  case "--check-fp-look":
+    // The first-person look as structure (docs/46): sky, air, valley, ground, green, structures, words.
+    // Anything after the mode is handed to the gate (`--plant=<name>`, which must end red).
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_fp_look.gd",
+      "--",
+      ...process.argv.slice(3),
+    ];
+    break;
   case "--check-fp-title":
     // The title first on a plain boot (docs/30, 2026-11-09). Boots without --skip-title on purpose.
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_fp_title.gd"];
@@ -793,6 +806,41 @@ switch (mode) {
       "--script",
       "res://review/survivor_shots.gd",
       "--",
+      ...process.argv.slice(3),
+    ];
+    break;
+  case "--shots-look":
+    // The look sheet's capture driver (docs/46): the first-person scene from fixed stations at fixed hours.
+    // Needs a display, like --shots; a fixed frame step keeps shader TIME the same between two runs, so a
+    // before/after pair compares pixel for pixel. Anything after the mode is handed to the driver (`--out=`,
+    // `--times=`, `--weather=`, `--stations=`). LOOK_SIZE sets the window (default 1280x720).
+    args = [
+      "--fixed-fps",
+      "60",
+      "--resolution",
+      process.env.LOOK_SIZE || "1280x720",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://review/look_shots.gd",
+      "--",
+      ...process.argv.slice(3),
+    ];
+    break;
+  case "--frames-look":
+    // The same stations, timed instead of photographed: the viewport's measured render time per station.
+    // No fixed frame step and no vsync, so the figures are the frame's real cost. `--measure=N` sets the
+    // frame count (default 200).
+    args = [
+      "--disable-vsync",
+      "--resolution",
+      process.env.LOOK_SIZE || "1280x720",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://review/look_shots.gd",
+      "--",
+      ...(process.argv.slice(3).some((a) => a.startsWith("--measure=")) ? [] : ["--measure=200"]),
       ...process.argv.slice(3),
     ];
     break;

@@ -15,6 +15,12 @@ it red. A mechanism names the assertion that something *reads* it.
 Any balance or performance claim, with the before and after from the same driver. Leave empty
 rather than theorise.
 
+## Pictures
+
+For a change a player can see: the look sheet's before and after pairs
+(`npm run godot:shots:look`), the stations that show it, and the critic's verdict on this head.
+Otherwise delete this section.
+
 ## Review
 
 For art, a shared sim module or the save format: the independent reviewer's verdict, the head it
@@ -27,4 +33,6 @@ judged, and which findings were taken. Otherwise delete this section.
 - [ ] `npm test` (any content edit; the oracle's Ajv recurses)
 - [ ] `npm run typecheck && npm run lint && npm run format:check` (any `.ts`, `.mjs`, `.json`, `.yml`)
 - [ ] `npm run check:routing` (any script, runner mode, `check_*.gd`, or ROUTING.md)
+- [ ] A visible change: the pairs above, `npm run godot:check:fp_look` green and each plant red
+      on its own lane's FAIL line, and `npm run godot:frames:look` before and after under Measured
 - [ ] A decision taken has its own file under `docs/decisions/`

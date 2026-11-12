@@ -1,6 +1,6 @@
 ---
 name: A piece
-about: One unit of work for a seat. The issue is the spec; the pull request is the report.
+about: One unit of work. The issue is the spec; the pull request is the report.
 labels: []
 ---
 
