@@ -1,0 +1,197 @@
+{
+	"density": 64,
+	"period_px": 256,
+	"sheets": {
+		"fence": {
+			"bands": {
+				"fence_side": {
+					"h": 128,
+					"top_m": 2.0,
+					"y": 0
+				}
+			},
+			"file": "structures_fence.png",
+			"height": 128,
+			"width": 64
+		},
+		"low": {
+			"bands": {
+				"car_ends": {
+					"h": 71,
+					"top_m": 1.109375,
+					"y": 917
+				},
+				"car_side": {
+					"h": 71,
+					"top_m": 1.109375,
+					"y": 838
+				},
+				"car_top": {
+					"h": 128,
+					"top_m": 0.0,
+					"y": 996
+				},
+				"low_block_side": {
+					"h": 71,
+					"top_m": 1.109375,
+					"y": 4
+				},
+				"low_block_top": {
+					"h": 64,
+					"top_m": 0.0,
+					"y": 83
+				},
+				"rubble_side": {
+					"h": 71,
+					"top_m": 1.109375,
+					"y": 385
+				},
+				"rubble_top": {
+					"h": 64,
+					"top_m": 0.0,
+					"y": 464
+				},
+				"tarp_side": {
+					"h": 71,
+					"top_m": 1.109375,
+					"y": 687
+				},
+				"tarp_top": {
+					"h": 64,
+					"top_m": 0.0,
+					"y": 766
+				},
+				"timber_end": {
+					"h": 71,
+					"top_m": 1.109375,
+					"y": 234
+				},
+				"timber_long": {
+					"h": 71,
+					"top_m": 1.109375,
+					"y": 155
+				},
+				"timber_top": {
+					"h": 64,
+					"top_m": 0.0,
+					"y": 313
+				},
+				"truck_ends": {
+					"h": 71,
+					"top_m": 1.109375,
+					"y": 1505
+				},
+				"truck_side": {
+					"h": 71,
+					"top_m": 1.109375,
+					"y": 1426
+				},
+				"truck_top": {
+					"h": 128,
+					"top_m": 0.0,
+					"y": 1584
+				},
+				"van_ends": {
+					"h": 71,
+					"top_m": 1.109375,
+					"y": 1211
+				},
+				"van_side": {
+					"h": 71,
+					"top_m": 1.109375,
+					"y": 1132
+				},
+				"van_top": {
+					"h": 128,
+					"top_m": 0.0,
+					"y": 1290
+				},
+				"well_side": {
+					"h": 71,
+					"top_m": 1.109375,
+					"y": 536
+				},
+				"well_top": {
+					"h": 64,
+					"top_m": 0.0,
+					"y": 615
+				}
+			},
+			"file": "structures_low.png",
+			"height": 2048,
+			"width": 256
+		},
+		"walls": {
+			"bands": {
+				"block_head": {
+					"h": 29,
+					"top_m": 2.55,
+					"y": 176
+				},
+				"block_side": {
+					"h": 164,
+					"top_m": 2.5625,
+					"y": 4
+				},
+				"cedar_side": {
+					"h": 164,
+					"top_m": 2.5625,
+					"y": 457
+				},
+				"concrete_top": {
+					"h": 64,
+					"top_m": 0.0,
+					"y": 213
+				},
+				"dark_top": {
+					"h": 64,
+					"top_m": 0.0,
+					"y": 629
+				},
+				"gate_head": {
+					"h": 29,
+					"top_m": 2.55,
+					"y": 1461
+				},
+				"gate_side": {
+					"h": 164,
+					"top_m": 2.5625,
+					"y": 1289
+				},
+				"planks_side": {
+					"h": 164,
+					"top_m": 2.5625,
+					"y": 701
+				},
+				"retaining_side": {
+					"h": 164,
+					"top_m": 2.5625,
+					"y": 285
+				},
+				"sheet_side": {
+					"h": 164,
+					"top_m": 2.5625,
+					"y": 873
+				},
+				"stone_side": {
+					"h": 164,
+					"top_m": 2.5625,
+					"y": 1045
+				},
+				"stone_top": {
+					"h": 64,
+					"top_m": 0.0,
+					"y": 1217
+				},
+				"white": {
+					"h": 8,
+					"top_m": 0.0,
+					"y": 1498
+				}
+			},
+			"file": "structures_walls.png",
+			"height": 2048,
+			"width": 256
+		}
+	}
+}
