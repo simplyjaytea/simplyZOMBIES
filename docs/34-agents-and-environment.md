@@ -5,8 +5,8 @@ and how to run the game and its headless gates. Moved out of CLAUDE.md on 2026-1
 
 ## Working alongside other agents
 
-The seats, how a piece runs, who merges and how a session starts and pauses are in
-[CLAUDE.md, The workflow](../CLAUDE.md#the-workflow); each seat's own rules are its file under
+The roles, how a piece runs, who merges and how a session starts and pauses are in
+[CLAUDE.md, The workflow](../CLAUDE.md#the-workflow); each role's own rules are its file under
 `.claude/agents/`. What this section adds is how several checkouts share one machine:
 
 - **Share tools, isolate runtime state.** `GODOT_BIN` may point to the same pinned executable

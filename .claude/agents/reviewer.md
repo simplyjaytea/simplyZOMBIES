@@ -27,6 +27,12 @@ Look for, in this order:
 6. **Art,** when the change is art: measure on the exported GLB, compare pixels and not bytes,
    render the in-engine sheet, and check the faults that keep recurring (noise that reads as
    camouflage, paint that follows atlas cells, bodies that float or sink, hand-drawn lettering).
+7. **The look,** when the change is one a player can see: the law of
+   [docs/46](../../docs/46-the-look.md) in the code (geometry outside the sim's bands, dressing
+   that could hide a body, a light the sim did not light, runtime randomness where a hash of
+   seed and tile belongs), each plant of `godot:check:fp_look` run and red, and the frame cost
+   of the look sheet's stations before and after. Whether it is good-looking is the `critic`'s
+   to say, from pictures.
 
 Report: the base and head SHAs you judged, then findings ranked blocker, should-fix, note; each
 with file and line, what is wrong, and how you know. Say which gates and plants you ran and

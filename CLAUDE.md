@@ -25,6 +25,10 @@ npm test                            # the frozen TypeScript oracle (vitest)
 npx vitest run test/unit/<file>     # one oracle test file
 npm run typecheck && npm run lint && npm run format:check
 xvfb-run -a npm run godot:shots     # review screenshots of fixed scenes (godot/review/scenes.gd)
+xvfb-run -a npm run godot:shots:look -- --out=DIR    # the look sheet: first-person pictures from fixed stations
+xvfb-run -a npm run godot:frames:look -- --out=DIR   # the same stations, timed
+npm run godot:check:fp_look         # the first-person look as structure; `-- --plant=<name>` must end red
+bash scripts/new-piece.sh <piece>   # a worktree and a branch for one piece, ready to run
 npm run godot:playtest              # one seed, ten days, a line per day: a measurement, not a gate
 ```
 
@@ -90,8 +94,8 @@ hardcore contract.
   process share `static var`s, so a lane that pins a flag restores it.
 - **First-person art is built, not drawn by hand.** Each kit under `tools/blender/` is a
   reproducible Blender builder with a `-- --check` mode and planted-error modes, and a
-  `<kit>.manifest.json` in `godot/assets/first_person/`. Texel density is 128 px/m for bodies and
-  arms and 256 px/m for heads, measured on the exported GLB. Compare rebuilt files by pixels, not
+  `<kit>.manifest.json` in `godot/assets/first_person/`. Texel density is 64 px/m for the world,
+  128 px/m for bodies and arms and 256 px/m for heads, measured on the exported GLB. Compare rebuilt files by pixels, not
   bytes: this machine's Blender links zlib-ng, so bytes differ from other builds.
 
 ## Verifying a change
@@ -102,6 +106,8 @@ what the change touched:
 - its `godot:m2:<name>` or `godot:check:<name>` lane (ROUTING.md names it);
 - `godot:smoke` and `godot:validate` for a boot or content change;
 - `godot:check:play` for a scene or input change;
+- `godot:check:fp_look`, the look sheet's before and after pairs and `godot:frames:look` for a
+  change to the first-person picture ([docs/46](docs/46-the-look.md));
 - `npm test` for anything under `godot/content/` (the oracle's Ajv recurses where
   `godot:validate` does not);
 - `typecheck`, `lint` and `format:check` for a `.ts` file or a prettier-covered path;
@@ -175,43 +181,69 @@ quietly amend them.
 
 ## The workflow
 
-Three standing seats, each a Claude Code terminal in herdr (`hc ls`). The roster names models
-because it says who runs what; nothing else in the repository does. Each seat's own rules are
-its agent file under `.claude/agents/`.
+One orchestrator session runs the work. It fans a job out to agents it spawns, through scripted
+workflows that run them in parallel, each with a fresh context, and it keeps its own context for
+judgement: what to build, whether the evidence holds, what merges. Nothing stands between
+sessions: no seat, no roster, no status file. The agents are defined under `.claude/agents/`.
 
-| Seat | Model | Takes | Never |
-|---|---|---|---|
-| Orchestrator | Fable | Plans with the owner, writes each piece as an issue, assigns it, reads the final diff, merges | Writes the piece |
-| Architect (`architect`) | Opus | Shared sim modules, the save format, new gates, art builders, the design of a hard piece | Merges; routine work |
-| Builder (`builder`) | Sonnet | Everything else: features, gate upkeep, docs, keeping pull requests current with `main`. Fans work out to `worker` subagents (Haiku) | Merges; passes on a claim it has not reproduced |
+| Role | Does | Never |
+|---|---|---|
+| Orchestrator (the session) | Plans with the owner, cuts a job into pieces, scripts the workflow, reads every diff and every picture, integrates, merges | Takes a report as evidence |
+| `scout` | Maps the code, the rules and the gates a job touches, with path and line, before anything is designed | Edits |
+| `builder` | Builds one piece in its own worktree: the change, its gate, its plant, and for a visible change its pictures | Pushes, merges, or edits a file another piece owns |
+| `critic` | Judges a visible change from pictures it makes itself, against [docs/46](docs/46-the-look.md) | Edits; takes the builder's pictures on trust |
+| `reviewer` | Reads one diff fresh, and reruns its gates and plants | Edits; reads the author's account |
+| `worker` | One small, fully specified piece for a builder or the orchestrator | Decides anything the brief did not |
 
-Two more agents are spawned, not seated: `worker` (the builder's hand for one well-specified
-piece) and `reviewer` (a fresh, read-only read of one pull request).
+**A job runs in four passes.** The orchestrator reads the result of each before it starts the
+next.
 
-- **GitHub is the record.** One issue per piece is its spec, from the issue template: the
-  change, the files, the gate that judges it, what done means. The label says whose it is
-  (`architect`, `builder`, `orchestrator`); the milestone says which goal it serves. The pull
-  request is the report and closes the issue. No file carries status, a roster of who holds
-  what, or a log of sessions; the one pinned issue "Where we are" says where to start.
-- **One piece, one worktree, one branch, one pull request.**
-  `git worktree add -b claude/<piece> .claude/worktrees/<piece> origin/main`, with `node_modules`
-  symlinked from the main checkout. The main checkout stays on `main`; nobody switches branches
-  in it. Each seat has a home worktree (`.claude/worktrees/seat-<name>`, detached) and does no
-  piece work there. Remove a piece's worktree when its pull request merges.
-- **Reports are reproduced, not trusted.** The builder reruns the named gates and the planted
-  failure itself on every worker's result before it pushes. The orchestrator reads the diff and
-  CI before it merges.
-- **Independent review.** Every art change and every change to a shared sim module or the save
-  format is read by the `reviewer` agent before its push, briefed with the pull request or its
-  base and head only, never the author's account. A push that changes the reviewed paths voids
-  the review.
-- **At most three pull requests open for merge.** Every merge sends the others back through a
-  re-merge and a CI run, so a fourth piece waits as a pushed branch. The orchestrator sets the
-  order: fixes to `main` first, then the piece others wait on, then the oldest.
+1. **Understand.** Scouts map what the job touches: the code, the rules that bind it, the gates
+   that judge it. A design made before this pass is a guess.
+2. **Design.** The orchestrator cuts the job into pieces and gives each the files it owns, the
+   gate that judges it and what done means. Pieces do not share a file where it can be helped;
+   where they must, each is told which functions are its own, and a shared list (`package.json`,
+   `scripts/`, ROUTING.md) is edited by the orchestrator alone.
+3. **Build.** One builder per piece, in parallel. A builder ends with commits, the exact result
+   lines of the gates it ran, the plant it watched go red, and for a visible change the before
+   and after pictures and the frame cost.
+4. **Verify.** Nobody checks their own work. A critic makes its own pictures. A reviewer reads
+   the diff and reruns the gates and plants. Their notes go back to a builder, and a finding is
+   reproduced before it is acted on.
+
+The rules that hold whatever the job:
+
+- **GitHub is the record.** A piece that waits in the backlog, or will outlive the session, is
+  an issue from the template: the change, the files, the gate, what done means. A piece cut and
+  landed inside one session is specified by its brief and reported by its pull request, which
+  says what the issue would have said. No file carries status, a roster of who holds what, or a
+  log of sessions; the one pinned issue "Where we are" says where to start.
+- **One piece, one worktree, one branch.** `bash scripts/new-piece.sh <piece>` makes
+  `.claude/worktrees/<piece>` on `claude/<piece>` from `origin/main`, with `node_modules`
+  linked and the Godot import done. The main checkout stays on `main`; nobody switches branches
+  in it. Remove a piece's worktree when its work has merged.
+- **Pieces judged together land together.** A pass whose pieces make one picture, or would each
+  re-run the others' CI, is built on piece branches that the orchestrator merges into one
+  integration branch, `claude/<pass>`. The pass is verified there as a whole, a piece that
+  fails is left out, and the branch is one pull request. Anything else is one pull request per
+  piece. At most three pull requests are open for merge.
+- **Reports are reproduced, not trusted.** Builders have reported work done when it was not.
+  Before a push, the gates a piece names are rerun and its plant is watched go red by someone
+  other than its builder. The orchestrator reads the diff and CI before it merges.
+- **Independent review.** Every change a player can see is judged by a `critic` from its own
+  pictures. Every art change and every change to a shared sim module or the save format is read
+  by the `reviewer`, briefed with the base and head only, never the author's account. A push
+  that changes the reviewed paths voids the review.
+- **A visible change is judged by pictures.** [docs/46](docs/46-the-look.md) is the target for
+  the first-person look and says how a change to it is judged: the look sheet's before and
+  after pairs, the lanes of `godot:check:fp_look`, and the frame cost of the same stations.
+- **Agents are cut off without warning.** The session and its agents share one usage pool. A
+  builder commits as it goes, and every brief says to continue from the branch if it already
+  has work, so a relaunch loses little. Never `git add -A` in a worktree.
 - **Merging.** A pull request merges when its head contains `origin/main`, CI is green on that
   head, and the diff is read: `gh pr merge <n> --merge --match-head-commit <full SHA>`. Merge
   commits only. Only the orchestrator merges; nobody rebases or force-pushes a pushed branch or
-  pushes to `main`. `.claude/hooks/guard-git.sh` blocks all of these.
+  pushes to `main`. `.claude/hooks/guard-git.sh` blocks the last two for everyone.
 - **One waiver, and it is the owner's.** A CI job that fails in a step that only fetches from
   outside the repository (a browser or package download) while every gate, `check` and export
   job passes may be waived by the owner, per pull request, in the owner's own words. Rerun the
@@ -220,32 +252,33 @@ piece) and `reviewer` (a fresh, read-only read of one pull request).
   request. `docs/30` holds the earlier ones and gains no new entries.
 - **Design questions go to the owner once, with a default.** Build the default, say so in the
   pull request, and keep going. A step that cannot be undone waits for the owner's own words.
+  The first-person look is delegated
+  ([the decision](docs/decisions/2026-11-12-the-look-is-judged-by-pictures.md)): a visible
+  change inside docs/46 is not a card.
 
 **Starting a session.** Read the pinned issue first (`gh issue list --label resume`, titled
 "Where we are"): the orchestrator rewrites it at every pause, and it names `main`, every open
 piece with its issue, pull request and branch, the next things in order, and what waits on the
-owner. Then `gh pr list` for what moved since, and `hc ls` for which seats are up. Start a
-missing seat in its home worktree, after moving that worktree to the current `main`:
+owner. Then `gh pr list` for what moved since, and `git worktree list` for pieces with work
+that has not merged.
+
+A piece too long for one session may run in its own terminal instead of as a spawned agent:
 
 ```bash
-git -C .claude/worktrees/seat-builder checkout --detach origin/main
-hc run --bg --name builder --cwd .claude/worktrees/seat-builder --outlive-parent --keep --no-notify \
+bash scripts/new-piece.sh <piece>
+hc run --bg --name <piece> --cwd .claude/worktrees/<piece> --outlive-parent --keep --no-notify \
   -- env SZ_SEAT=builder claude --agent builder --permission-mode auto
-hc send builder "Your pieces are issues #A and #B. Work them without stopping."
+hc send <piece> "Your piece is issue #N. Work it without stopping."
 ```
 
-The same with `architect` for the other seat. `SZ_SEAT` is what the guard hook reads. The owner
-watches the seats beside the orchestrator, in one tab of the Herdr app: with the orchestrator's
-pane focused, `herdr-app do terminal.keep --terminal architect --place right`, then
-`herdr-app do pane.focus --terminal architect` and
-`herdr-app do terminal.keep --terminal builder --place down`. The app places a pane only in the
-space that is showing (`herdr-app do space.select --id <id from herdr-app ls>`).
+`SZ_SEAT` is what the guard hook reads to refuse a merge from that terminal. This is the
+exception; a spawned builder is the rule.
 
-**Pausing.** Each seat stops at a safe point, commits (a WIP commit says so), pushes, and
-comments on each of its open issues: what works, what fails, what is next, the branch and head.
-The orchestrator checks every open piece has that comment, merges what is ready, rewrites the
-pinned "Where we are" issue, and ends the seats (`hc kill <seat>`, then `hc rm <seat>`). Piece
-worktrees with unmerged work stay; merged ones go. Nothing about the pause is written to a file.
+**Pausing.** Every piece stops at a safe point with its work committed (a WIP commit says so)
+and pushed. The orchestrator comments on each open issue or pull request what works, what
+fails, what is next, the branch and head; merges what is ready; rewrites the pinned "Where we
+are" issue; and removes the worktrees whose work has merged. Nothing about the pause is written
+to a file.
 
 ## Traps
 
@@ -268,6 +301,7 @@ before touching the sim. Two that bite outside it:
 | Every gate, its timing, and what CI runs | [docs/35](docs/35-gates.md) |
 | The state of the build and the dead-socket list | [docs/36](docs/36-state-of-the-build.md) |
 | The first-person direction, spatial contract and plan | [docs/39](docs/39-first-person-pivot.md), [docs/40](docs/40-first-person-spatial-contract.md), [docs/41](docs/41-weapons-characters-world-plan.md) |
+| What the first-person game should look like, and how a change to it is judged | [docs/46](docs/46-the-look.md) |
 | The setting, and the wider world by rail | [docs/42](docs/42-ome-okutama-setting.md), [docs/45](docs/45-wider-world-by-rail.md) |
 | Running the game, containers, screenshots | [docs/34](docs/34-agents-and-environment.md) |
 | What sessions before 2026-11-11 did (closed) | [docs/43](docs/43-session-log.md) |

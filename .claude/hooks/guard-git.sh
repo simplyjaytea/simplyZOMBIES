@@ -4,9 +4,9 @@
 #
 #   1. Nobody force-pushes.
 #   2. Nobody pushes to main.
-#   3. Only the orchestrator merges a pull request. A seat is a session started with SZ_SEAT set
-#      (architect, builder); its subagents inherit it. A session with no SZ_SEAT is the owner's
-#      own or the orchestrator's, and may merge.
+#   3. Only the orchestrator merges a pull request. A piece run in its own terminal is started
+#      with SZ_SEAT set (builder); its subagents inherit it. A session with no SZ_SEAT is the
+#      owner's own or the orchestrator's, and may merge.
 #
 # Exit 2 blocks the call and hands stderr to the model. Any other outcome lets the call through,
 # so a broken hook never stops work; it only stops guarding.
@@ -36,7 +36,7 @@ fi
 seat="${SZ_SEAT:-}"
 if [ -n "$seat" ] && [ "$seat" != "orchestrator" ]; then
   if grep -Eq 'gh[[:space:]]+pr[[:space:]]+merge\b' <<<"$cmd"; then
-    block "the $seat seat does not merge; say on the issue that the head is ready"
+    block "a $seat terminal does not merge; say on the issue that the head is ready"
   fi
 fi
 
