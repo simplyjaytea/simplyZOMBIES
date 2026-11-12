@@ -73,13 +73,20 @@ const LINE_GONE_ONE_IN: int = 9
 const EDGE_WANDER_M: float = 0.38
 ## The size, in metres, of the noise tile that pushes the boundary: smaller frays faster.
 const EDGE_PERIOD_M: float = 13.0
+## Up close the boundary also ends in single texels: each world texel is pushed up to this far, in
+## metres, by its own hash.
+const EDGE_GRIT_M: float = 0.07
 
 ## Damp patches: the noise tile stretched over this many metres, dark where it passes the threshold.
 ## A wet street is `#4A4D50` with patches of `#3A3D40` (docs/46).
 const PATCH_PERIOD_M: float = 37.0
-const PATCH_THRESHOLD: float = 0.60
+const PATCH_THRESHOLD: float = 0.64
 ## How much of the patch field is the middle-sized noise that breaks a patch's shore up.
-const PATCH_BREAKUP: float = 0.45
+const PATCH_BREAKUP: float = 0.62
+## A patch darkens in two steps, damp then wet; the second starts this much further into the field.
+const PATCH_STEP: float = 0.06
+## The patch's shore is dithered by this much of the field, texel by texel.
+const PATCH_GRIT: float = 0.035
 ## What a damp patch multiplies each material by, in linear light, in `Layer` order.
 const PATCH_TINT: PackedFloat32Array = [0.70, 0.91, 0.86, 0.95, 0.95, 0.92, 1.0, 1.0, 1.0]
 ## A damp patch is also smoother: its roughness is the material's times this.
@@ -87,7 +94,7 @@ const PATCH_ROUGHNESS: float = 0.55
 ## The slow tint that keeps a long street from being one flat tone: the noise tile over this many
 ## metres, lightening and darkening by this share.
 const MACRO_PERIOD_M: float = 211.0
-const MACRO_STRENGTH: float = 0.07
+const MACRO_STRENGTH: float = 0.09
 
 ## Roughness per material, in `Layer` order: wet asphalt and water take a sheen, the rest are matt.
 const ROUGHNESS: PackedFloat32Array = [0.62, 0.90, 0.97, 0.97, 0.97, 0.95, 0.22, 0.16, 0.85]
@@ -394,6 +401,9 @@ func _setup(ground: MeshInstance3D, map_ref: Variant, salt_val: int) -> void:
 	material.set_shader_parameter("patch_period_m", PATCH_PERIOD_M)
 	material.set_shader_parameter("patch_threshold", PATCH_THRESHOLD)
 	material.set_shader_parameter("patch_breakup", PATCH_BREAKUP)
+	material.set_shader_parameter("patch_step", PATCH_STEP)
+	material.set_shader_parameter("patch_grit", PATCH_GRIT)
+	material.set_shader_parameter("edge_grit_m", EDGE_GRIT_M)
 	material.set_shader_parameter("patch_roughness", PATCH_ROUGHNESS)
 	material.set_shader_parameter("patch_tint", PATCH_TINT)
 	material.set_shader_parameter("macro_period_m", MACRO_PERIOD_M)

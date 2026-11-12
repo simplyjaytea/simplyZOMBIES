@@ -40,6 +40,9 @@ uniform float edge_period_m = 13.0;
 uniform float patch_period_m = 47.0;
 uniform float patch_threshold = 0.60;
 uniform float patch_breakup = 0.45;
+uniform float patch_step = 0.06;
+uniform float patch_grit = 0.03;
+uniform float edge_grit_m = 0.06;
 uniform float patch_roughness = 0.6;
 uniform float macro_period_m = 211.0;
 uniform float macro_strength = 0.07;
@@ -60,6 +63,17 @@ varying vec3 world_pos;
 varying float steep;
 
 
+// A number in 0..1 for one world texel: the grit that ends an edge in single texels.
+float grit(vec2 cell) {
+	uvec2 q = uvec2(ivec2(cell));
+	uint h = q.x * 0x9E3779B1u + q.y * 0x85EBCA77u;
+	h ^= h >> 15u;
+	h *= 0x2C1B3C6Du;
+	h ^= h >> 12u;
+	return float(h >> 8u) / 16777216.0;
+}
+
+
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	vec3 n = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
@@ -76,13 +90,16 @@ void fragment() {
 	float footprint = max(length(ddx), length(ddy));
 	bool bank = steep > 0.5;
 	// The world's own texel grid: every choice below is made per texel, so an edge is pixel-crisp.
-	vec2 ps = (floor(p * texels_per_metre) + 0.5) / texels_per_metre;
+	vec2 cell = floor(p * texels_per_metre);
+	vec2 ps = (cell + 0.5) / texels_per_metre;
+	// Grit is for the eye up close: once a pixel holds a few texels it would only sparkle.
+	float speck = (grit(cell) - 0.5) * (1.0 - smoothstep(0.8, 3.0, footprint * texels_per_metre));
 	ivec2 last = ivec2(map_size) - ivec2(1);
 	vec4 here = texelFetch(tile_map, clamp(ivec2(floor(p)), ivec2(0), last), 0);
 	vec4 tile = here;
 	vec3 edge = textureGrad(noise, ps / edge_period_m + noise_offset, ddx / edge_period_m, ddy / edge_period_m).rgb;
 	if (!bank) {
-		vec2 pushed = ps + (edge.rg - 0.5) * 2.0 * edge_wander_m;
+		vec2 pushed = ps + (edge.rg - 0.5) * 2.0 * edge_wander_m + vec2(speck, -speck) * edge_grit_m;
 		vec4 there = texelFetch(tile_map, clamp(ivec2(floor(pushed)), ivec2(0), last), 0);
 		int f0 = int(here.g * 255.0 + 0.5);
 		int f1 = int(there.g * 255.0 + 0.5);
@@ -128,8 +145,11 @@ void fragment() {
 	// Damp patches: a slow field broken up by the middle one, so a patch has a ragged shore. Far
 	// off the shore softens with the pixel.
 	float slow = textureGrad(noise, ps / patch_period_m + noise_offset.yx, ddx / patch_period_m, ddy / patch_period_m).b;
-	float patch_field = mix(slow, edge.b, patch_breakup);
-	float damp = smoothstep(patch_threshold, patch_threshold + 0.012 + footprint * 0.2, patch_field);
+	float patch_field = mix(slow, edge.b, patch_breakup) + speck * patch_grit;
+	float soft = 0.012 + footprint * 0.2;
+	// Two steps: damp, then wet.
+	float damp = 0.5 * smoothstep(patch_threshold, patch_threshold + soft, patch_field)
+		+ 0.5 * smoothstep(patch_threshold + patch_step, patch_threshold + patch_step + soft, patch_field);
 	colour *= mix(1.0, patch_mul, damp);
 	float macro = texture(noise, p / macro_period_m + noise_offset * 0.37).b;
 	colour *= 1.0 + (macro - 0.5) * 2.0 * macro_strength;

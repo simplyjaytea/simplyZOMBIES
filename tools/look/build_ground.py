@@ -524,7 +524,7 @@ def noise():
         swell = spread(fbm(NOISE_T, 8, 2, seed))
         fray = spread(fbm(NOISE_T, 40, 2, seed + 3))
         grit = pixel_rnd(NOISE_T, seed + 5)
-        field = spread(swell * 0.56 + fray * 0.32 + grit * 0.12)
+        field = spread(swell * 0.44 + fray * 0.40 + grit * 0.16)
         out[..., c] = np.clip(np.rint(field * 255.0), 0, 255).astype(np.uint8)
     # B: the field behind damp patches and the macro tint, read at three sizes.
     out[..., 2] = np.clip(np.rint(rank(fbm(NOISE_T, 5, 4, 221)) * 255.0), 0, 255).astype(np.uint8)
