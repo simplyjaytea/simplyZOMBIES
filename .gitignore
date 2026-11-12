@@ -28,3 +28,13 @@ godot/assets/first_person/props/*.import
 godot/assets/first_person/props/*_props_atlas.png
 # Godot-generated translation files beside the CSVs (docs/23).
 godot/art/simplyzombies/docs/*.translation
+
+# What a Godot import writes beside the sources: one sidecar per asset, and a copy of each GLB's atlas.
+# No .import file is tracked. A fresh worktree's first import otherwise leaves twelve thousand untracked files.
+godot/**/*.import
+godot/assets/first_person/arms/*_arms_atlas.png
+godot/assets/first_person/buildings/*_buildings_atlas.png
+godot/assets/first_person/shambler_characters_atlas.png
+godot/assets/first_person/survivor_survivor_atlas.png
+# The look sheet's pictures, when --out points inside the repository.
+look-shots/
