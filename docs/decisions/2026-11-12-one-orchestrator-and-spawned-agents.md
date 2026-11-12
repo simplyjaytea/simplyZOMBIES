@@ -23,8 +23,8 @@ spec and its pull request says what the issue would have said.
 **Why.** The first job under this decision was the first-person look: six pieces that make one
 picture and had to be built in one evening. Two standing terminals could not fan out that wide,
 and each seat was a hand-off of its own: a brief to write, a terminal to relaunch, a pause to
-run. The backlog showed the same imbalance (27 of 31 open pieces labelled for one seat). What
-the seats got right is kept: reports are reproduced, review is independent, only the
+run. The backlog showed the same imbalance: at the last pause the pinned issue counted 27 open
+pieces labelled for the architect and 4 for the builder. What the seats got right is kept: reports are reproduced, review is independent, only the
 orchestrator merges, and no file carries status.
 
 One measured fact shaped the rules: the session and its agents share one usage pool, and when
@@ -41,3 +41,6 @@ separate so a finished one is never repeated.
   is pushed and leaving the red member out.
 - An issue for every piece of a pass: the brief and the pull request carry the same four
   things, and the pinned issue names what is open.
+
+The `architect`, `builder` and `orchestrator` labels on open issues assign nothing any more.
+They come off as the backlog is next cut; an issue's milestone still says which goal it serves.

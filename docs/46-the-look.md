@@ -126,7 +126,9 @@ title sets the name large over its own still backdrop.
   one sheet, before and after pairs, or a pixel diff. A pull request that changes the look carries
   the pairs. A critic who did not build the change reads them against this file.
 - **By structure.** `npm run godot:check:fp_look` holds each mechanism to the scene the game boots
-  and to the sim, and each lane has a plant that must end red.
+  and to the sim. A built lane names its plants above its function, and
+  `-- --plant=<name>` must end red on that lane's own FAIL line. A lane whose mechanism is not
+  built yet says so with `FP_LOOK_SKIP`, and the result line counts the skips.
 - **By cost.** `xvfb-run -a npm run godot:frames:look -- --out=<dir>` times the same stations. The
   draw budget is 10 ms mean ([docs/22](22-performance.md)); the measure is `render_cpu_ms` plus
   `render_gpu_ms` per station at 1280x720, before and after, in the pull request. A look piece

@@ -9,11 +9,15 @@ extends SceneTree
 # nothing: it never passes quietly, and the result line counts the skips.
 #
 # Plants: `-- --plant=<name>` breaks one thing on purpose after the boot, in the gate's own scene, and the lane
-# that guards it must then fail; a planted run that stays green is a gate that cannot fail. `_planted(name)` is
-# how a lane asks. A plant never touches a file.
+# that guards it must then fail with its own FP_LOOK_FAIL line; a planted run that stays green is a gate that
+# cannot fail. `_planted(name)` is how a lane asks. A plant never touches a file. A name no lane asks for ends
+# red on a PLANT line instead, which proves nothing about any lane: read the lane on the FAIL line.
+#
+# A stub lane is temporary. The piece that builds a mechanism replaces its stub in the same change; a stub
+# still skipping beside a built mechanism is a defect.
 #
 #   npm run godot:check:fp_look
-#   npm run godot:check:fp_look -- --plant=boot      (must end red)
+#   npm run godot:check:fp_look -- --plant=boot-sky      (must end red on a BOOT line)
 
 const SCENE_PATH: String = "res://presentation/first_person/first_person.tscn"
 # The gate walks a small district, as the first-person gate does; a lane that needs the shipped size boots its own.
@@ -42,6 +46,9 @@ func _run() -> void:
 	var scene: Node = _boot_scene(SMALL_DISTRICT_TILES)
 	await process_frame
 	await process_frame
+	# The lanes read a still scene: a plant may leave it unfit to run another frame, and a lane that needs one
+	# calls the scene's `_process` itself, as the first-person gate does.
+	scene.set_process(false)
 	_boot(scene)
 	_sky(scene)
 	_air(scene)
@@ -94,15 +101,13 @@ func _planted(plant_name: String) -> bool:
 
 
 # --- BOOT ------------------------------------------------------------------------------------------
-# The scene the other lanes judge is the game's own: it has a world, a camera, a sky view holding the one
-# WorldEnvironment and the sun, a district view and the HUD's words. Plant `boot`: the sky view is taken out
-# of the tree before the lane looks, and the lane must miss it.
+# The scene the other lanes judge is the game's own: it has a world, a camera, a sky view in the tree, exactly
+# one WorldEnvironment and it holds an environment, a sun, a district view and the HUD's words. Each of the
+# eight is one assertion with one plant that breaks it and nothing else:
+#   boot-world, boot-camera, boot-sky, boot-two-environments, boot-no-environment, boot-sun, boot-district,
+#   boot-words.
 func _boot(scene: Node) -> void:
-	if _planted("boot"):
-		var doomed: Node = scene.call("sky_view") as Node
-		if doomed != null and doomed.get_parent() != null:
-			doomed.get_parent().remove_child(doomed)
-			doomed.queue_free()
+	_plant_boot(scene)
 	if scene.get("world") == null:
 		_fail("BOOT", "the scene has no world")
 		return
@@ -130,6 +135,40 @@ func _boot(scene: Node) -> void:
 		_fail("BOOT", "the scene has no FirstPersonHUD/Words")
 		return
 	_ok("BOOT", "the scene boots with a world, a camera, one environment, a sun, a district and the HUD's words")
+
+
+# The BOOT lane's plants. Each takes one thing out of the gate's own scene (the scene no longer processes, so a
+# half-taken-apart scene is never run) and leaves the other seven as they were.
+func _plant_boot(scene: Node) -> void:
+	if _planted("boot-world"):
+		scene.set("world", null)
+	if _planted("boot-camera"):
+		scene.set("camera", null)
+	if _planted("boot-sky"):
+		var sky: Node = scene.call("sky_view") as Node
+		if sky != null and sky.get_parent() != null:
+			sky.get_parent().remove_child(sky)
+			sky.queue_free()
+	if _planted("boot-two-environments"):
+		var second: WorldEnvironment = WorldEnvironment.new()
+		second.name = "PlantedSecondWorld"
+		scene.add_child(second)
+	if _planted("boot-no-environment"):
+		for found in scene.find_children("*", "WorldEnvironment", true, false):
+			(found as WorldEnvironment).environment = null
+	if _planted("boot-sun"):
+		for found in scene.find_children("*", "DirectionalLight3D", true, false):
+			found.get_parent().remove_child(found)
+			found.queue_free()
+	if _planted("boot-district"):
+		var district: Node = scene.get_node_or_null("District")
+		if district != null:
+			scene.remove_child(district)
+			district.queue_free()
+	if _planted("boot-words"):
+		var words: Node = scene.get_node_or_null("FirstPersonHUD/Words")
+		if words != null:
+			words.name = "PlantedAway"
 
 
 # --- SKY -------------------------------------------------------------------------------------------

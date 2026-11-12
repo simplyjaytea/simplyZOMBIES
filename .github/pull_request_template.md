@@ -33,6 +33,6 @@ judged, and which findings were taken. Otherwise delete this section.
 - [ ] `npm test` (any content edit; the oracle's Ajv recurses)
 - [ ] `npm run typecheck && npm run lint && npm run format:check` (any `.ts`, `.mjs`, `.json`, `.yml`)
 - [ ] `npm run check:routing` (any script, runner mode, `check_*.gd`, or ROUTING.md)
-- [ ] A visible change: the pairs above, `npm run godot:check:fp_look` and each plant red, and
-      `npm run godot:frames:look` before and after under Measured
+- [ ] A visible change: the pairs above, `npm run godot:check:fp_look` green and each plant red
+      on its own lane's FAIL line, and `npm run godot:frames:look` before and after under Measured
 - [ ] A decision taken has its own file under `docs/decisions/`

@@ -22,8 +22,13 @@ extends SceneTree
 # lays them out: one labelled sheet, before | after pairs, or a pixel diff of two folders.
 #
 # The only writes to the sim are `world.tick` and `SimWeather.set_kind`, the way `review/scenes.gd` sets a scene
-# up before a shot; nothing is stepped. This is a review tool with no gate of its own: a station that cannot be
-# placed is left out and printed, never photographed somewhere else.
+# up before a shot. The scene is paused before it enters the tree, so no tick is ever stepped; that is also why
+# the `eye_boot` picture carries the HUD's two paused lines, which a player does not see at boot.
+#
+# This is a review tool with no gate of its own, so it refuses rather than guesses: a wrong argument (a time, a
+# station or a weather kind it does not know, a missing --out) ends the run with LOOK_FAIL and a non-zero exit,
+# and a station that cannot be placed on this map is left out and printed as `LOOK skipped`, never photographed
+# from somewhere else.
 
 const SCENE: String = "res://presentation/first_person/first_person.tscn"
 const Clock = preload("res://sim/time/clock.gd")
@@ -39,6 +44,8 @@ const BUILDING_IDS: Array[String] = [
 	"building.kiosk.corner", "building.gatehouse.yard", "building.terrace.pair", "building.shed.garage",
 ]
 const SETTLE_FRAMES: int = 4
+# "No tile": what the placing helpers return when the map has no place that fits.
+const NONE: Vector2i = Vector2i(-1, -1)
 
 var _scene: Node = null
 var _frame: int = 0
@@ -71,23 +78,31 @@ func _initialize() -> void:
 			_weather = a.substr(10)
 		elif a.begins_with("--measure="):
 			_measure = int(a.substr(10))
+			if _measure <= 0:
+				_fail("--measure wants a frame count above zero, not '%s'" % a.substr(10))
+				return
 		elif a.begins_with("--stations="):
 			for s in a.substr(11).split(",", false):
 				_only.append(String(s))
 	if _out == "":
-		push_error("LOOK_FAIL: --out=<dir> is required")
-		_failed = true
+		_fail("--out=<dir> is required")
 		return
 	for t in _times:
 		if not TIME_FRACTIONS.has(t):
-			push_error("LOOK_FAIL: unknown time '%s'" % t)
-			_failed = true
+			_fail("unknown time '%s'; the times are %s" % [t, ", ".join(TIME_FRACTIONS.keys())])
 			return
 	DirAccess.make_dir_recursive_absolute(_out)
 	var packed: PackedScene = load(SCENE) as PackedScene
 	_scene = packed.instantiate()
 	_scene.set("skip_title", true)
+	# Paused before the first frame: the scene draws and reads the sim, and never steps it.
+	_scene.set("paused", true)
 	root.add_child(_scene)
+
+
+func _fail(message: String) -> void:
+	push_error("LOOK_FAIL: " + message)
+	_failed = true
 
 
 func _open(map: Variant, tx: int, ty: int) -> bool:
@@ -96,7 +111,7 @@ func _open(map: Variant, tx: int, ty: int) -> bool:
 	return not SimTileMap.is_solid(map, tx, ty) and not SimTileMap.is_indoors(map, tx, ty)
 
 
-# The nearest outdoor, walkable tile to (x, y), by rings; (x, y) itself when none is found in 16.
+# The nearest outdoor, walkable tile to (x, y), by rings; NONE when there is none within 16.
 func _open_near(map: Variant, x: int, y: int) -> Vector2i:
 	for r in range(0, 16):
 		for dy in range(-r, r + 1):
@@ -105,7 +120,7 @@ func _open_near(map: Variant, x: int, y: int) -> Vector2i:
 					continue
 				if _open(map, x + dx, y + dy):
 					return Vector2i(x + dx, y + dy)
-	return Vector2i(x, y)
+	return NONE
 
 
 # True when no solid tile stands on the line from a to b, ignoring the last `slack` metres before b.
@@ -122,18 +137,33 @@ func _clear(map: Variant, a: Vector2, b: Vector2, slack: float) -> bool:
 
 
 # An outdoor tile about `dist` metres from `target` with a clear line to it, tried around the circle
-# starting at `prefer` (radians, sim axes: 0 is east, PI/2 is south) and fanning out both ways.
+# starting at `prefer` (radians, sim axes: 0 is east, PI/2 is south) and fanning out both ways, then a
+# little nearer and a little farther. NONE when no tile has the line: the station is then left out.
 func _vantage(map: Variant, target: Vector2, dist: float, prefer: float, slack: float) -> Vector2i:
-	for k in range(0, 17):
-		var step: int = (k + 1) / 2
-		if k % 2 == 0:
-			step = -step
-		var ang: float = prefer + float(step) * (PI / 8.0)
-		var c: Vector2 = target + Vector2(cos(ang), sin(ang)) * dist
-		var t: Vector2i = Vector2i(int(floor(c.x)), int(floor(c.y)))
-		if _open(map, t.x, t.y) and _clear(map, Vector2(t.x + 0.5, t.y + 0.5), target, slack):
-			return t
-	return _open_near(map, int(target.x + cos(prefer) * dist), int(target.y + sin(prefer) * dist))
+	for scale: float in [1.0, 0.8, 1.25]:
+		for k in range(0, 17):
+			var step: int = (k + 1) / 2
+			if k % 2 == 0:
+				step = -step
+			var ang: float = prefer + float(step) * (PI / 8.0)
+			var c: Vector2 = target + Vector2(cos(ang), sin(ang)) * dist * scale
+			var t: Vector2i = Vector2i(int(floor(c.x)), int(floor(c.y)))
+			if _open(map, t.x, t.y) and _clear(map, Vector2(t.x + 0.5, t.y + 0.5), target, slack):
+				return t
+	return NONE
+
+
+# A station the map has no place for: said, and left out.
+func _skipped(station: String, why: String) -> void:
+	print("LOOK skipped %s: %s" % [station, why])
+
+
+# Adds a station that stands on `tile` (NONE: left out) and looks at `at`.
+func _add_on(station: String, tile: Vector2i, at: Vector3, why: String) -> void:
+	if tile == NONE:
+		_skipped(station, why)
+		return
+	_add(station, Vector3(tile.x + 0.5, EYE, tile.y + 0.5), at)
 
 
 func _look(from: Vector3, at: Vector3) -> Vector2:
@@ -167,11 +197,18 @@ func _plan() -> void:
 		if Vector2(px, py).distance_to(far_corner) < Vector2(px, py).distance_to(Vector2(annex.end.x - 1.0, annex.end.y - 1.0)):
 			far_corner = Vector2(annex.end.x - 1.0, annex.end.y - 1.0)
 		var back: Vector2 = (Vector2(px + 0.5, py + 0.5) - far_corner).normalized() * 2.5
-		_add("annex_in", Vector3(px + 0.5 + back.x, EYE, py + 0.5 + back.y), Vector3(far_corner.x, 1.4, far_corner.y))
+		var behind: Vector2 = Vector2(px + 0.5, py + 0.5) + back
+		if SimTileMap.is_solid(map, int(floor(behind.x)), int(floor(behind.y))):
+			_skipped("annex_in", "the tile behind the start is solid")
+		else:
+			_add("annex_in", Vector3(behind.x, EYE, behind.y), Vector3(far_corner.x, 1.4, far_corner.y))
 		var inside: Vector2 = far_corner.lerp(ac, 0.35)
-		_add("annex_in_b", Vector3(inside.x, EYE, inside.y), Vector3(px + 0.5, 1.2, py + 0.5))
+		if SimTileMap.is_solid(map, int(floor(inside.x)), int(floor(inside.y))):
+			_skipped("annex_in_b", "the tile inside the far corner is solid")
+		else:
+			_add("annex_in_b", Vector3(inside.x, EYE, inside.y), Vector3(px + 0.5, 1.2, py + 0.5))
 		var o: Vector2i = _vantage(map, ac, float(maxi(annex.size.x, annex.size.y)) * 0.5 + 12.0, PI * 0.75, float(maxi(annex.size.x, annex.size.y)) * 0.75)
-		_add("annex_out", Vector3(o.x + 0.5, EYE, o.y + 0.5), Vector3(ac.x, 1.8, ac.y))
+		_add_on("annex_out", o, Vector3(ac.x, 1.8, ac.y), "no outdoor tile has a clear line to the start building")
 
 	# 3. Kit buildings: the nearest record of each id, three-quarter from the door side.
 	var best: Dictionary = {}
@@ -204,7 +241,7 @@ func _plan() -> void:
 		var prefer: float = atan2(float(out.y), float(out.x)) + PI / 7.0
 		var reach: float = float(maxi(bw, bh)) * 0.5
 		var t: Vector2i = _vantage(map, bc, reach + 10.0, prefer, reach + 2.0)
-		_add("b_" + id.replace("building.", "").replace(".", "_"), Vector3(t.x + 0.5, EYE, t.y + 0.5), Vector3(bc.x, 1.9, bc.y))
+		_add_on("b_" + id.replace("building.", "").replace(".", "_"), t, Vector3(bc.x, 1.9, bc.y), "no outdoor tile has a clear line to it")
 
 	# 4. A long street vista: the carved street nearest the start, looked down from one end.
 	var street: Dictionary = {}
@@ -220,14 +257,17 @@ func _plan() -> void:
 		var mid2: float = float(street["at"]) + float(street["width"]) * 0.5
 		if String(street["axis"]) == "x":
 			var a: Vector2i = _open_near(map, int(mid2), int(street["from"]) + 6)
-			_add("street_long", Vector3(a.x + 0.5, EYE, a.y + 0.5), Vector3(a.x + 0.5, EYE, a.y + 80.0))
+			_add_on("street_long", a, Vector3(a.x + 0.5, EYE, a.y + 80.0), "no open tile at the street's end")
 			var b: Vector2i = _open_near(map, int(mid2), py)
-			_add("street_mid", Vector3(b.x + 0.5, EYE, b.y + 0.5), Vector3(b.x + 6.0, EYE, b.y - 40.0))
+			_add_on("street_mid", b, Vector3(b.x + 6.0, EYE, b.y - 40.0), "no open tile on the street beside the start")
 		else:
 			var a2: Vector2i = _open_near(map, int(street["from"]) + 6, int(mid2))
-			_add("street_long", Vector3(a2.x + 0.5, EYE, a2.y + 0.5), Vector3(a2.x + 80.0, EYE, a2.y + 0.5))
+			_add_on("street_long", a2, Vector3(a2.x + 80.0, EYE, a2.y + 0.5), "no open tile at the street's end")
 			var b2: Vector2i = _open_near(map, px, int(mid2))
-			_add("street_mid", Vector3(b2.x + 0.5, EYE, b2.y + 0.5), Vector3(b2.x - 40.0, EYE, b2.y + 6.0))
+			_add_on("street_mid", b2, Vector3(b2.x - 40.0, EYE, b2.y + 6.0), "no open tile on the street beside the start")
+	else:
+		_skipped("street_long", "the map carries no street clear of the start")
+		_skipped("street_mid", "the map carries no street clear of the start")
 
 	# 5. Green: the nearest tree tile, from seven metres.
 	var tree: Vector2i = Vector2i(-1, -1)
@@ -250,24 +290,36 @@ func _plan() -> void:
 	if tree.x >= 0:
 		var tc: Vector2 = Vector2(tree.x + 0.5, tree.y + 0.5)
 		var g: Vector2i = _vantage(map, tc, 8.0, PI * 0.5, 1.0)
-		_add("green", Vector3(g.x + 0.5, EYE, g.y + 0.5), Vector3(tc.x, 1.8, tc.y))
+		_add_on("green", g, Vector3(tc.x, 1.8, tc.y), "no outdoor tile has a clear line to the nearest tree")
+	else:
+		_skipped("green", "no tree tile within ninety metres of the start")
 
 	# 6. The edge of the district, looking out: what stands beyond the map.
 	var en: Vector2i = _open_near(map, w / 2, 26)
-	_add("edge_north", Vector3(en.x + 0.5, EYE, en.y + 0.5), Vector3(en.x + 0.5, EYE + 8.0, en.y - 80.0))
+	_add_on("edge_north", en, Vector3(en.x + 0.5, EYE + 8.0, en.y - 80.0), "no open tile near the north edge")
 	var ee: Vector2i = _open_near(map, w - 27, h / 2)
-	_add("edge_east", Vector3(ee.x + 0.5, EYE, ee.y + 0.5), Vector3(ee.x + 80.0, EYE + 8.0, ee.y + 0.5))
+	_add_on("edge_east", ee, Vector3(ee.x + 80.0, EYE + 8.0, ee.y + 0.5), "no open tile near the east edge")
 
 	# 7. From above: the neighbourhood and the whole district.
 	_stations.append({"name": "overview", "pos": Vector3(px + 0.5, 22.0, py + 18.0), "yaw": 0.0, "pitch": -0.85})
 	_stations.append({"name": "far", "pos": Vector3(w * 0.5, 150.0, h * 0.5 + 130.0), "yaw": 0.0, "pitch": -0.85})
 
 	if not _only.is_empty():
+		var known: Array[String] = []
+		for st_v in _stations:
+			known.append(String((st_v as Dictionary)["name"]))
+		for wanted in _only:
+			if not known.has(wanted):
+				_fail("no station '%s' on this map; the stations are %s" % [wanted, ", ".join(known)])
+				return
 		var kept: Array = []
 		for st_v in _stations:
 			if _only.has(String((st_v as Dictionary)["name"])):
 				kept.append(st_v)
 		_stations = kept
+	if _weather != "" and not SimWeather.kinds(world).has(_weather):
+		_fail("the sim has no weather kind '%s'; the kinds are %s" % [_weather, ", ".join(SimWeather.kinds(world))])
+		return
 	var record: Array = []
 	for st_v in _stations:
 		var st: Dictionary = st_v as Dictionary
@@ -286,21 +338,24 @@ func _plan() -> void:
 	for t in _times:
 		for st_v in _stations:
 			_queue.append({"time": t, "station": st_v})
-	print("LOOK shots ", _queue.size())
+	print("LOOK %s %d" % ["timings" if _measure > 0 else "shots", _queue.size()])
 
 
 func _process(_delta: float) -> bool:
 	if _failed:
+		quit(1)
 		return true
 	_frame += 1
 	if _frame < 8:
 		return false
 	if _frame == 8:
-		_scene.set("paused", true)
 		_plan()
 		return false
 	if _i >= _queue.size():
-		print("LOOK_DONE ", _queue.size(), " pictures in ", _out)
+		if _measure > 0:
+			print("LOOK_DONE %d stations timed" % _queue.size())
+		else:
+			print("LOOK_DONE %d pictures in %s" % [_queue.size(), _out])
 		return true
 	var shot: Dictionary = _queue[_i] as Dictionary
 	var st: Dictionary = shot["station"] as Dictionary

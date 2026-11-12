@@ -25,9 +25,9 @@ npm test                            # the frozen TypeScript oracle (vitest)
 npx vitest run test/unit/<file>     # one oracle test file
 npm run typecheck && npm run lint && npm run format:check
 xvfb-run -a npm run godot:shots     # review screenshots of fixed scenes (godot/review/scenes.gd)
-xvfb-run -a npm run godot:shots:look -- --out=DIR    # the look sheet: first-person pictures from fixed stations
+xvfb-run -a npm run godot:shots:look -- --out=DIR    # the look sheet: fixed first-person stations
 xvfb-run -a npm run godot:frames:look -- --out=DIR   # the same stations, timed
-npm run godot:check:fp_look         # the first-person look as structure; `-- --plant=<name>` must end red
+npm run godot:check:fp_look         # the look as structure; `-- --plant=<name>` must end red
 bash scripts/new-piece.sh <piece>   # a worktree and a branch for one piece, ready to run
 npm run godot:playtest              # one seed, ten days, a line per day: a measurement, not a gate
 ```
@@ -95,8 +95,9 @@ hardcore contract.
 - **First-person art is built, not drawn by hand.** Each kit under `tools/blender/` is a
   reproducible Blender builder with a `-- --check` mode and planted-error modes, and a
   `<kit>.manifest.json` in `godot/assets/first_person/`. Texel density is 64 px/m for the world,
-  128 px/m for bodies and arms and 256 px/m for heads, measured on the exported GLB. Compare rebuilt files by pixels, not
-  bytes: this machine's Blender links zlib-ng, so bytes differ from other builds.
+  128 px/m for bodies and arms and 256 px/m for heads, measured on the exported GLB. Compare
+  rebuilt files by pixels, not bytes: this machine's Blender links zlib-ng, so bytes differ from
+  other builds.
 
 ## Verifying a change
 
@@ -184,7 +185,8 @@ quietly amend them.
 One orchestrator session runs the work. It fans a job out to agents it spawns, through scripted
 workflows that run them in parallel, each with a fresh context, and it keeps its own context for
 judgement: what to build, whether the evidence holds, what merges. Nothing stands between
-sessions: no seat, no roster, no status file. The agents are defined under `.claude/agents/`.
+sessions: no seat, no roster, no status file. The agents are defined under `.claude/agents/`,
+and each agent's file names the model it runs on; nothing else in the repository names one.
 
 | Role | Does | Never |
 |---|---|---|
@@ -262,7 +264,8 @@ piece with its issue, pull request and branch, the next things in order, and wha
 owner. Then `gh pr list` for what moved since, and `git worktree list` for pieces with work
 that has not merged.
 
-A piece too long for one session may run in its own terminal instead of as a spawned agent:
+A piece too long for one session may run in its own terminal instead of as a spawned agent. It
+is then an issue, and the terminal carries it the whole way to a pull request:
 
 ```bash
 bash scripts/new-piece.sh <piece>
@@ -271,8 +274,11 @@ hc run --bg --name <piece> --cwd .claude/worktrees/<piece> --outlive-parent --ke
 hc send <piece> "Your piece is issue #N. Work it without stopping."
 ```
 
-`SZ_SEAT` is what the guard hook reads to refuse a merge from that terminal. This is the
-exception; a spawned builder is the rule.
+Alone on its piece, that builder owns the whole diff, the shared lists included. It merges
+`origin/main` into its branch (never rebases), pushes, opens the pull request from the template
+with `Closes #N`, comments on the issue with the head and the exact result lines, and stops;
+the orchestrator merges. `SZ_SEAT` is what the guard hook reads to refuse a merge from that
+terminal. This is the exception; a spawned builder is the rule.
 
 **Pausing.** Every piece stops at a safe point with its work committed (a WIP commit says so)
 and pushed. The orchestrator comments on each open issue or pull request what works, what

@@ -31,6 +31,7 @@ godot/art/simplyzombies/docs/*.translation
 
 # What a Godot import writes beside the sources: one sidecar per asset, and a copy of each GLB's atlas.
 # No .import file is tracked. A fresh worktree's first import otherwise leaves twelve thousand untracked files.
+# An import setting that must be kept is forced in with `git add -f`.
 godot/**/*.import
 godot/assets/first_person/arms/*_arms_atlas.png
 godot/assets/first_person/buildings/*_buildings_atlas.png
@@ -38,3 +39,5 @@ godot/assets/first_person/shambler_characters_atlas.png
 godot/assets/first_person/survivor_survivor_atlas.png
 # The look sheet's pictures, when --out points inside the repository.
 look-shots/
+# A piece worktree links node_modules from the main checkout; `node_modules/` above matches a directory only.
+node_modules
