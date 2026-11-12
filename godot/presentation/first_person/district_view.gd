@@ -32,6 +32,7 @@ const SimSpace = preload("res://sim/space/space.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
 const DoorStyle = preload("res://presentation/first_person/door_style.gd")
 const BuildingView = preload("res://presentation/first_person/building_view.gd")
+const GreenLook = preload("res://presentation/first_person/green_look.gd")
 
 # Two placement variants of the wall module: as authored, and turned half a turn about its own
 # centre, so a long row does not repeat one face. The kit's three plaster variants live inside the
@@ -81,6 +82,11 @@ var building_finishes_enabled: bool = true
 var building_force_wall: Dictionary = {}
 # Map tile -> "wall" or "window": what the finished buildings drew there.
 var _drawn: Dictionary = {}
+# The trees, thickets and ground cover (green_look.gd). It draws the band columns of the Tree and the
+# outdoor Screen tiles itself, so their boxes are left out of `solids`; `green_enabled` off keeps the
+# plain boxes, for a baseline.
+var green: Node3D = null
+var green_enabled: bool = true
 
 
 ## Builds the district. `salt` is mixed with each tile's index to pick a wall-module variant; the
@@ -95,6 +101,7 @@ func build(map_ref: Variant, salt: int = 0) -> void:
 	barricade_instances.clear()
 	_drawn = {}
 	building_finishes = null
+	green = null
 	if map == null:
 		return
 	if building_finishes_enabled:
@@ -112,6 +119,11 @@ func build(map_ref: Variant, salt: int = 0) -> void:
 	if wall_mesh != null:
 		_build_wall_modules(wall_mesh, salt)
 	_build_barricades(_loaded_mesh(Assets.BARRICADE))
+	if green_enabled:
+		green = GreenLook.new()
+		green.name = "Green"
+		add_child(green)
+		green.call("build", map, salt)
 
 
 # The mesh of a kit model, or null when the file is missing. The loaded node is only a carrier: the
@@ -278,6 +290,8 @@ func _band_surface(see_through: bool, skip_walls: bool) -> ArrayMesh:
 			if not see_through and key == "wall" and (skip_walls or drawn == "wall"):
 				continue
 			if not see_through and key == "window" and drawn == "window":
+				continue
+			if not see_through and green_enabled and (key == "tree" or key == "screen") and GreenLook.draws(map, tx, ty):
 				continue
 			for box in tile_boxes(map, tx, ty):
 				if bool(box["transparent"]) != see_through:

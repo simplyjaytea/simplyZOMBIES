@@ -1,0 +1,130 @@
+{
+	"cards": {
+		"cells": {
+			"fern_a": [
+				176,
+				4,
+				40,
+				18
+			],
+			"fern_b": [
+				4,
+				26,
+				36,
+				18
+			],
+			"fringe_a": [
+				144,
+				26,
+				6,
+				64
+			],
+			"fringe_b": [
+				154,
+				26,
+				6,
+				64
+			],
+			"sprig_a": [
+				44,
+				26,
+				32,
+				44
+			],
+			"sprig_b": [
+				80,
+				26,
+				32,
+				36
+			],
+			"sprig_c": [
+				116,
+				26,
+				24,
+				28
+			],
+			"tuft_a": [
+				4,
+				4,
+				32,
+				18
+			],
+			"tuft_b": [
+				40,
+				4,
+				32,
+				18
+			],
+			"tuft_c": [
+				76,
+				4,
+				32,
+				18
+			],
+			"tuft_d": [
+				112,
+				4,
+				24,
+				18
+			],
+			"tuft_flower": [
+				140,
+				4,
+				32,
+				18
+			]
+		},
+		"texture": "green_cards.png"
+	},
+	"texels_per_metre": 64,
+	"textures": {
+		"broadleaf_autumn.png": [
+			64,
+			64
+		],
+		"broadleaf_bark.png": [
+			64,
+			64
+		],
+		"broadleaf_base.png": [
+			64,
+			192
+		],
+		"broadleaf_spring.png": [
+			64,
+			64
+		],
+		"broadleaf_summer.png": [
+			64,
+			64
+		],
+		"broadleaf_winter.png": [
+			64,
+			64
+		],
+		"cedar_bark.png": [
+			64,
+			64
+		],
+		"cedar_base.png": [
+			64,
+			192
+		],
+		"cedar_foliage.png": [
+			64,
+			64
+		],
+		"green_cards.png": [
+			256,
+			128
+		],
+		"thicket_face.png": [
+			128,
+			192
+		],
+		"thicket_top.png": [
+			64,
+			64
+		]
+	}
+}
