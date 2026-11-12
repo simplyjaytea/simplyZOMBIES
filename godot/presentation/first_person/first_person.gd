@@ -710,7 +710,12 @@ func _update_hud() -> void:
 			elif _curr_player.distance_to(_ledger_sim) < 4.5:
 				prompt = "The ledger stands near."
 	_hud.set("time_words", SessionRes.speed_words(speed, paused, world))
-	_hud.call("set_state", world, int(world.player), prompt, _live_alert(), menu_open, paused, inventory_open, _live_news())
+	# The two things the words fade on that only the scene knows: whether the pointer is free of the look,
+	# and how long the alert has left on the wall clock.
+	var said: String = _live_alert()
+	_hud.set("pointer_free", not _mouse_captured)
+	_hud.set("alert_left_ms", maxi(0, _alert_until_ms - Time.get_ticks_msec()) if said != "" else -1)
+	_hud.call("set_state", world, int(world.player), prompt, said, menu_open, paused, inventory_open, _live_news())
 	# The words stand down under every screen that covers them -- the ledger with its reports and skill web, the
 	# key reference, the inventory, a conversation, the bench -- and under the review camera. The end of the run
 	# is this node's own screen and always shows.
