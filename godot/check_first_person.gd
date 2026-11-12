@@ -84,8 +84,11 @@ extends SceneTree
 #             its own slot key and deletes it afterwards, so no real save is touched.
 #   ART       the desk and ledger load from their GLBs with no import cache and are drawn at the
 #             published sizes on the floor and the desk top, with nearest-filtered materials; the
-#             prop preview stands every prop on its authored base. Missing art skips to the boxes,
-#             and a planted wrong-size GLB and a raised prop are refused by the same tests.
+#             prop preview stands every prop on its authored base. The desk's and ledger's atlas
+#             carries its mip chain and is sampled clamped (#448, #449), and the desk read raw through
+#             GLTFDocument (no chain, a repeating sampler) is refused by the same test. Missing art
+#             skips to the boxes, and a planted wrong-size GLB and a raised prop are refused by the
+#             same tests.
 #   BODIES    a walking colonist plays walk at the sim's phase and faces the sim's heading; a lunging shambler
 #             plays lunge; a corpse plays death and holds its last frame after 300 ticks; loops loop and one-shots
 #             do not; a body the sim cannot see is not drawn; a missing model falls back to the capsule.
@@ -159,6 +162,7 @@ const SimBoot = preload("res://sim/boot.gd")
 const FirstPerson = preload("res://presentation/first_person/first_person.gd")
 const InputMapRes = preload("res://presentation/input_map.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
+const KitSampling = preload("res://presentation/first_person/kit_sampling.gd")
 const SimAim = preload("res://sim/aim.gd")
 const SaveSlot = preload("res://presentation/first_person/save_slot.gd")
 const Models = preload("res://presentation/first_person/models.gd")
@@ -3880,6 +3884,19 @@ func _art(scene: Node) -> bool:
 		ok = _fail("ART", "the ledger model is %s, not the published %s on the desk top" % [ledger_box, ledger_size])
 	if not _nearest_everywhere(desk) or not _nearest_everywhere(ledger):
 		ok = _fail("ART", "the loaded desk or ledger has a material that is not nearest-filtered")
+	var sampling_fault: String = _sampling_fault(desk) + _sampling_fault(ledger)
+	if sampling_fault != "":
+		ok = _fail("ART", "the loaded desk or ledger samples its atlas wrongly: " + sampling_fault)
+	# True negative: the desk read raw through GLTFDocument, as the loader did before #449, is refused.
+	var raw_document: GLTFDocument = GLTFDocument.new()
+	var raw_state: GLTFState = GLTFState.new()
+	if raw_document.append_from_buffer(FileAccess.get_file_as_bytes(Assets.DESK), Assets.DIR, raw_state) != OK:
+		ok = _fail("ART", "desk.glb did not read raw, so the old loader cannot be planted")
+	else:
+		var raw_desk: Node = raw_document.generate_scene(raw_state)
+		if _sampling_fault(raw_desk) == "":
+			ok = _fail("ART", "the desk read raw (no mip chain, a repeating sampler) passed as sampled right")
+		raw_desk.free()
 	var sim: Vector2 = scene.call("ledger_sim_position")
 	if absf(ledger_box.get_center().x - sim.x) > 0.01 or absf(ledger_box.get_center().z - sim.y) > 0.01:
 		ok = _fail("ART", "the ledger model is not centred on the desk")
@@ -3989,6 +4006,28 @@ func _nearest_everywhere(node: Node3D) -> bool:
 				if (material as BaseMaterial3D).texture_filter != BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS:
 					return false
 	return judged > 0
+
+
+# Why a model's atlas is sampled wrongly, or "" when every material under it carries a texture with its
+# mip chain and does not repeat (`kit_sampling.gd`). A model with no material to judge is a fault too.
+func _sampling_fault(node: Node) -> String:
+	var meshes: Array[MeshInstance3D] = []
+	_collect_meshes(node, meshes)
+	var judged: int = 0
+	for m in meshes:
+		if m.mesh == null:
+			continue
+		for i in m.mesh.get_surface_count():
+			var material: BaseMaterial3D = m.mesh.surface_get_material(i) as BaseMaterial3D
+			if material == null:
+				continue
+			judged += 1
+			var probe: BaseMaterial3D = material.duplicate() as BaseMaterial3D
+			probe.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+			var fault: String = KitSampling.fault_of(probe)
+			if fault != "":
+				return "%s: %s. " % [node.name, fault]
+	return "" if judged > 0 else "%s: no material to judge. " % node.name
 
 
 # Size within a centimetre per axis, and the base within a centimetre of `base_y`.

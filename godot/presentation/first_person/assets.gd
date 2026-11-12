@@ -15,6 +15,9 @@ extends RefCounted
 # The desk and ledger are read by `prop_view.gd`, the shelf by `container_view.gd`, and the barricade
 # and wall module by `district_view.gd`. Building finishes use the manifest in `building_view.gd`.
 
+const Models = preload("res://presentation/first_person/models.gd")
+const KitSampling = preload("res://presentation/first_person/kit_sampling.gd")
+
 const DIR: String = "res://assets/first_person/"
 const DESK: String = DIR + "desk.glb"
 const LEDGER: String = DIR + "ledger.glb"
@@ -45,8 +48,10 @@ const LEDGER_TOP_M: float = DESK_HEIGHT_M + LEDGER_THICKNESS_M
 ##
 ## Materials are forced to nearest filtering with mipmaps: the atlas is 64 texels per metre, so at
 ## 720p minification begins at about 7 m (the independent art review's #281 note), and nearest with
-## no mipmaps shimmers beyond that. Nearest magnification keeps the pixel art crisp up close. Back-face
-## culling is left as authored.
+## no mipmaps shimmers beyond that. Nearest magnification keeps the pixel art crisp up close. The
+## embedded atlas comes back with no mip chain, so it is swapped for the shared mipmapped copy, and a
+## material whose UVs stay inside the atlas stops repeating (`kit_sampling.gd`, #448 and #449).
+## Back-face culling is left as authored.
 static func load_model(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {"node": null, "source": "missing"}
@@ -61,6 +66,7 @@ static func load_model(path: String) -> Dictionary:
 	if not (root is Node3D):
 		return {"node": null, "source": "unreadable"}
 	_nearest(root)
+	KitSampling.clamp_inside_atlas(root)
 	return {"node": root as Node3D, "source": "disk"}
 
 
@@ -71,6 +77,8 @@ static func _nearest(node: Node) -> void:
 			var material: Material = mesh.surface_get_material(s)
 			if material is BaseMaterial3D:
 				(material as BaseMaterial3D).texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+				if (material as BaseMaterial3D).albedo_texture != null:
+					(material as BaseMaterial3D).albedo_texture = Models.shared_texture((material as BaseMaterial3D).albedo_texture)
 	for child in node.get_children():
 		_nearest(child)
 

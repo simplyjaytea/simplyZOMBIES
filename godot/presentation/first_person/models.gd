@@ -12,7 +12,10 @@ extends RefCounted
 # duplicate that shares the template's meshes and materials. Embedded textures are deduplicated by the
 # hash of their decoded pixels, so two GLBs that embed the same atlas share one texture. Each shared
 # texture gets mipmaps generated from its image, and its material samples with nearest-with-mipmaps,
-# so the mipmaps are real and not just requested.
+# so the mipmaps are real and not just requested. `assets.gd` sends its textures through the same table.
+# A material whose UVs stay inside the atlas samples it clamped, not repeating (`kit_sampling.gd`).
+
+const KitSampling = preload("res://presentation/first_person/kit_sampling.gd")
 
 const DIR: String = "res://assets/first_person/"
 const MANIFEST_SUFFIX: String = ".manifest.json"
@@ -134,6 +137,7 @@ static func _load_glb(path: String) -> Node3D:
 	if not (root is Node3D):
 		return null
 	_share_and_mipmap(root)
+	KitSampling.clamp_inside_atlas(root)
 	return root as Node3D
 
 
@@ -150,6 +154,12 @@ static func _share_and_mipmap(root: Node) -> void:
 			if base.albedo_texture != null:
 				base.albedo_texture = _shared_texture(base.albedo_texture)
 			base.texture_filter = MIPMAP_FILTER
+
+
+## The one shared, mipmapped texture for these pixels: the same object for every GLB that embeds the same
+## atlas, whichever loader read it.
+static func shared_texture(texture: Texture2D) -> Texture2D:
+	return _shared_texture(texture)
 
 
 static func _shared_texture(texture: Texture2D) -> Texture2D:

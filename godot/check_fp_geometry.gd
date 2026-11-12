@@ -17,14 +17,18 @@ extends SceneTree
 #   KIT       with the kit GLBs on disk, a full-height wall tile is drawn by `wall_module.glb`: its
 #             drawn AABB is the wall band's 0..2550 height, one tile along the run and the module's own
 #             0.12 m thickness, inside the tile and flush to an edge. A wrong-size module planted
-#             through the same placement is refused. Without the GLBs the lane skips and the band
-#             boxes are under test.
+#             through the same placement is refused. The module's atlas samples nearest-with-mipmaps
+#             from a texture that carries its mip chain, clamped at the atlas edge (#448, #449); the
+#             same module read raw through GLTFDocument (no chain, a repeating sampler) is refused,
+#             and so is each fault alone. Without the GLBs the lane skips and the band boxes are under
+#             test.
 #   FINISHES  every content template resolves to one manifest model whose spatial vertices stay in
 #             full wall tiles and within 0..2550 mm, with every wall tile capped over its footprint
 #             exactly once: by the always-drawn mesh, or by its own per-tile wall piece when worldgen
 #             may open it. Every per-tile piece the manifest counts is a node the view parses. Finish
 #             vertices below the roof stay in solid template tiles, except floor overlays; glazing is
-#             transparent and nearest-filtered. Door-step volumes stay low and abut a door's exterior
+#             transparent and nearest-filtered. Every building material samples a mipmapped atlas,
+#             clamped at its edge, and a building read raw through GLTFDocument is refused. Door-step volumes stay low and abut a door's exterior
 #             side; canopies stay above 2.10 m, within 1.20 m and touch an exterior wall; wall and window
 #             attachments stay within 0.10 m on their declared tile, with window boxes only in the sill
 #             or lintel band. Off-tile and opening-crossing cases are refused, and a stamped house draws
@@ -52,6 +56,7 @@ const BuildingView = preload("res://presentation/first_person/building_view.gd")
 const BodyView = preload("res://presentation/first_person/body_view.gd")
 const DoorStyle = preload("res://presentation/first_person/door_style.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
+const KitSampling = preload("res://presentation/first_person/kit_sampling.gd")
 const SimSpace = preload("res://sim/space/space.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimTemplates = preload("res://sim/map/templates.gd")
@@ -85,7 +90,7 @@ func _run() -> void:
 
 func _finish(ok: bool) -> void:
 	if ok:
-		print("FP_GEOMETRY_OK every tile and all %d building finishes keep their profile bands, every body keeps its cylinder, finish skins stay within 25 mm of a solid host, finish volumes are low exterior door steps, canopies are attached above 2.10 m and at most 1.20 m deep, wall and window attachments are at most 0.10 m proud on their declared tile and window boxes stay in the sill or lintel band, every sim window in four generated districts is drawn open and every indoor tile there has a ceiling, a storefront window draws no casing while every other window keeps one, and planted wall-over-window, stripped-ceiling, band-box, window, Low-tile, module, open-tile, high-wall, indoor-volume, tall-volume, detached-volume, canopy-low, canopy-deep, canopy-detached, wall-proud, wall-open, attach-offtile, window-attach-opening, and smooth-normal box errors are refused, and every band box and the ground draw flat-shaded" % _finish_count)
+		print("FP_GEOMETRY_OK every tile and all %d building finishes keep their profile bands, every body keeps its cylinder, finish skins stay within 25 mm of a solid host, finish volumes are low exterior door steps, canopies are attached above 2.10 m and at most 1.20 m deep, wall and window attachments are at most 0.10 m proud on their declared tile and window boxes stay in the sill or lintel band, every sim window in four generated districts is drawn open and every indoor tile there has a ceiling, a storefront window draws no casing while every other window keeps one, and planted wall-over-window, stripped-ceiling, band-box, window, Low-tile, module, open-tile, high-wall, indoor-volume, tall-volume, detached-volume, canopy-low, canopy-deep, canopy-detached, wall-proud, wall-open, attach-offtile, window-attach-opening, and smooth-normal box errors are refused, every band box and the ground draw flat-shaded, and every kit and building atlas samples a mip chain clamped at its edge while a raw GLTFDocument load is refused" % _finish_count)
 		quit(0)
 		return
 	for failure in _failures:
@@ -431,7 +436,84 @@ func _kit(map: Variant) -> bool:
 	if _wall_aabb_ok(planted_box, first):
 		ok = _fail("KIT", "a planted half-width module was accepted as the wall band")
 	view.queue_free()
+	ok = _sampling(Assets.WALL_MODULE, "KIT") and ok
 	return ok
+
+
+# How a loaded kit atlas is sampled (#448, #449). True positive: every material of the model as the
+# game's loader hands it over has a texture with its mip chain and does not repeat. True negatives: the
+# same GLB read raw through GLTFDocument (what the loader did before: no chain, a REPEAT sampler) is
+# refused, a clamped material without a chain is refused, a chained material that repeats is refused,
+# and a mesh whose UVs tile past the atlas edge keeps repeat, since it relies on it.
+func _sampling(path: String, lane: String) -> bool:
+	var ok: bool = true
+	var node: Node = Assets.load_model(path)["node"] as Node
+	if node == null:
+		return _fail(lane, "%s did not load, so its sampling cannot be judged" % path)
+	var judged: int = 0
+	var good: BaseMaterial3D = null
+	for material in _materials_under(node):
+		judged += 1
+		var fault: String = KitSampling.fault_of(material)
+		if fault != "":
+			ok = _fail(lane, "%s samples its atlas wrongly: %s" % [path, fault])
+		elif good == null:
+			good = material
+	node.free()
+	if judged == 0:
+		return _fail(lane, "%s has no material to judge" % path)
+	var document: GLTFDocument = GLTFDocument.new()
+	var state: GLTFState = GLTFState.new()
+	if document.append_from_buffer(FileAccess.get_file_as_bytes(path), path.get_base_dir() + "/", state) != OK:
+		return _fail(lane, "%s did not read raw, so the old loader cannot be planted" % path)
+	var raw: Node = document.generate_scene(state)
+	var raw_materials: Array[BaseMaterial3D] = _materials_under(raw)
+	if raw_materials.is_empty():
+		ok = _fail(lane, "%s raw has no material, so the refusal proves nothing" % path)
+	for material in raw_materials:
+		material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+		if KitSampling.fault_of(material) == "":
+			ok = _fail(lane, "%s read raw (no mip chain, a repeating sampler) passed as sampled right" % path)
+	raw.free()
+	if good != null:
+		var unmipped: BaseMaterial3D = good.duplicate() as BaseMaterial3D
+		var flat: Image = good.albedo_texture.get_image().duplicate() as Image
+		flat.clear_mipmaps()
+		unmipped.albedo_texture = ImageTexture.create_from_image(flat)
+		if KitSampling.fault_of(unmipped) == "":
+			ok = _fail(lane, "a clamped material with no mip chain passed as sampled right")
+		var repeating: BaseMaterial3D = good.duplicate() as BaseMaterial3D
+		repeating.texture_repeat = true
+		if KitSampling.fault_of(repeating) == "":
+			ok = _fail(lane, "a mipmapped material that repeats passed as sampled right")
+	var tiled: MeshInstance3D = MeshInstance3D.new()
+	var tiled_mesh: ArrayMesh = ArrayMesh.new()
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = PackedVector3Array([Vector3.ZERO, Vector3.RIGHT, Vector3.UP])
+	arrays[Mesh.ARRAY_TEX_UV] = PackedVector2Array([Vector2.ZERO, Vector2(2.0, 0.0), Vector2(0.0, 1.0)])
+	tiled_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var tiled_material: StandardMaterial3D = StandardMaterial3D.new()
+	tiled_mesh.surface_set_material(0, tiled_material)
+	tiled.mesh = tiled_mesh
+	KitSampling.clamp_inside_atlas(tiled)
+	if not tiled_material.texture_repeat:
+		ok = _fail(lane, "a mesh whose UVs tile to u = 2 was clamped, so its tiling would break")
+	tiled.free()
+	return ok
+
+
+func _materials_under(node: Node) -> Array[BaseMaterial3D]:
+	var out: Array[BaseMaterial3D] = []
+	var seen: Dictionary = {}
+	for mesh_node in BuildingView.mesh_nodes(node):
+		var instance: MeshInstance3D = mesh_node as MeshInstance3D
+		for surface in instance.mesh.get_surface_count():
+			var material: BaseMaterial3D = instance.get_active_material(surface) as BaseMaterial3D
+			if material != null and not seen.has(material.get_instance_id()):
+				seen[material.get_instance_id()] = true
+				out.append(material)
+	return out
 
 
 # The drawn module is the wall band: 0..2550 high to within 1 cm, one tile (1.00 m) along the run and
@@ -533,6 +615,8 @@ func _finishes() -> bool:
 				var material: BaseMaterial3D = instance.get_active_material(surface) as BaseMaterial3D
 				if material == null or material.texture_filter != BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS:
 					ok = _fail("FINISHES", "%s has an unfiltered or missing atlas material" % id)
+				elif KitSampling.fault_of(material) != "":
+					ok = _fail("FINISHES", "%s atlas material %s: %s" % [id, material.resource_name, KitSampling.fault_of(material)])
 				if material != null and material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
 					glass_found = true
 				var arrays: Array = instance.mesh.surface_get_arrays(surface)
@@ -666,6 +750,7 @@ func _finishes() -> bool:
 			if _finish_volume_allowed(character, opening_window):
 				ok = _fail("FINISHES", "a window attachment in the opening was accepted")
 		ok = _finish_placement(house) and ok
+		ok = _sampling(String(BuildingView.entry_for("building.house.small").get("glb", "")), "FINISHES") and ok
 	ok = _finish_worldgen(templates) and ok
 	return ok
 
