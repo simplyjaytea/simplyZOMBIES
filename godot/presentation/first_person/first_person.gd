@@ -711,7 +711,10 @@ func _update_hud() -> void:
 				prompt = "The ledger stands near."
 	_hud.set("time_words", SessionRes.speed_words(speed, paused, world))
 	_hud.call("set_state", world, int(world.player), prompt, _live_alert(), menu_open, paused, inventory_open, _live_news())
-	_hud.visible = not inventory_open and not talk_open and not bench_open and not review_camera
+	# The words stand down under every screen that covers them -- the ledger with its reports and skill web, the
+	# key reference, the inventory, a conversation, the bench -- and under the review camera. The end of the run
+	# is this node's own screen and always shows.
+	_hud.visible = _run_over_open or not (menu_open or _legend_open or inventory_open or talk_open or bench_open or review_camera)
 
 
 # --- input ----------------------------------------------------------------------------------
