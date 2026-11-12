@@ -32,13 +32,14 @@ const SimSpace = preload("res://sim/space/space.gd")
 const Assets = preload("res://presentation/first_person/assets.gd")
 const DoorStyle = preload("res://presentation/first_person/door_style.gd")
 const BuildingView = preload("res://presentation/first_person/building_view.gd")
+const GroundLook = preload("res://presentation/first_person/ground_look.gd")
 
 # Two placement variants of the wall module: as authored, and turned half a turn about its own
 # centre, so a long row does not repeat one face. The kit's three plaster variants live inside the
 # mesh's atlas and cannot be re-picked per instance, so the turn is the per-tile variation the
 # geometry offers.
 const WALL_MODULE_VARIANTS: int = 2
-const WATER_Y: float = -0.08
+const WATER_Y: float = GroundLook.WATER_Y
 
 const WALL_COLOUR: Color = Color(0.42, 0.40, 0.36)
 const WINDOW_COLOUR: Color = Color(0.42, 0.52, 0.58)
@@ -50,18 +51,8 @@ const TIMBER_COLOUR: Color = Color(0.52, 0.38, 0.24)
 const STONE_COLOUR: Color = Color(0.50, 0.49, 0.46)
 const LOW_COLOUR: Color = Color(0.44, 0.38, 0.28)
 const TREE_COLOUR: Color = Color(0.20, 0.36, 0.20)
-const WATER_COLOUR: Color = Color(0.16, 0.34, 0.45)
 # Alpha is the one thing the wire fence says about itself: it is see-through, as the sim says.
 const FENCE_COLOUR: Color = Color(0.62, 0.64, 0.64, 0.30)
-
-const SURFACE_COLOURS: Array[Color] = [
-	Color(0.58, 0.57, 0.54),
-	Color(0.50, 0.43, 0.33),
-	Color(0.38, 0.50, 0.31),
-	Color(0.29, 0.40, 0.24),
-	Color(0.47, 0.44, 0.39),
-	Color(0.22, 0.42, 0.53),
-]
 
 var map: Variant = null
 var ground: MeshInstance3D = null
@@ -106,6 +97,7 @@ func build(map_ref: Variant, salt: int = 0) -> void:
 		_drawn = building_finishes.get("drawn") as Dictionary
 	var wall_mesh: Mesh = _loaded_mesh(Assets.WALL_MODULE)
 	ground = _build_mesh("GroundTiles", _ground_surface(), false)
+	GroundLook.dress(ground, map, salt)
 	solids = _build_mesh("SolidTiles", _band_surface(false, wall_mesh != null), false)
 	fence = _build_mesh("FenceTiles", _band_surface(true, false), true)
 	trim = _build_mesh("Trim", _trim_surface(), false)
@@ -144,31 +136,9 @@ func _build_mesh(node_name: String, mesh: Mesh, see_through: bool) -> MeshInstan
 	return instance
 
 
+# The ground's mesh, material and season are `ground_look.gd`'s; this view only places them.
 func _ground_surface() -> ArrayMesh:
-	var st: SurfaceTool = SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	st.set_smooth_group(-1)
-	var w: int = int(map.w)
-	var h: int = int(map.h)
-	for ty in h:
-		for tx in w:
-			var idx: int = ty * w + tx
-			var tile: int = int(map.tiles[idx])
-			var surface: int = int(map.surfaces[idx])
-			var colour: Color = WATER_COLOUR if tile == SimTileMap.Tile.Water else _surface_colour(surface)
-			# A subtle per-tile even/odd shade, so the metre grid reads on the floor even before
-			# the pixel textures land.
-			if (tx + ty) % 2 != 0:
-				colour = colour * 0.90
-			var y: float = WATER_Y if tile == SimTileMap.Tile.Water else 0.0
-			_add_quad_up(st,
-				Vector3(float(tx) + 0.02, y, float(ty) + 0.02),
-				Vector3(float(tx) + 0.98, y, float(ty) + 0.02),
-				Vector3(float(tx) + 0.98, y, float(ty) + 0.98),
-				Vector3(float(tx) + 0.02, y, float(ty) + 0.98),
-				colour)
-	st.generate_normals()
-	return st.commit()
+	return GroundLook.mesh_of(map)
 
 
 # The door leaves and frames and the window casing, as extra boxes on their tiles. A door's style is
@@ -491,20 +461,10 @@ static func _colour_of(key: String) -> Color:
 	return WALL_COLOUR
 
 
-static func _surface_colour(surface: int) -> Color:
-	if surface < 0 or surface >= SURFACE_COLOURS.size():
-		return SURFACE_COLOURS[SimSurface.Surface.Dirt]
-	return SURFACE_COLOURS[surface]
-
-
 static func _add_box_of(st: SurfaceTool, box: Dictionary) -> void:
 	var lo: Vector3 = box["min"] as Vector3
 	var hi: Vector3 = box["max"] as Vector3
 	_add_box(st, (lo + hi) * 0.5, hi - lo, box["colour"] as Color)
-
-
-static func _add_quad_up(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, colour: Color) -> void:
-	_add_quad_facing(st, a, b, c, d, Vector3.UP, colour)
 
 
 # Adds the quad as two triangles wound so the normal `generate_normals` will produce along
